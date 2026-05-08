@@ -1,0 +1,44 @@
+# OS
+.DS_Store
+
+# Node
+node_modules/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.*.example
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Vercel
+.vercel/
+
+# Test artefacts
+playwright-report/
+test-results/
+playwright/.auth/
