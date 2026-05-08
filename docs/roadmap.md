@@ -565,20 +565,25 @@ Smoke local verificado:
 - Tipo `JsonValue` local en el action file para insertar en `audit_events.payload` sin cast a `unknown` (la columna es `Json`, `Record<string, unknown>` no encaja).
 - Smoke test verificado: ver propio usuario, editar roles (suma finance), invitar nuevo email, intentar revocar último owner → bloqueado por trigger con copy amigable.
 
-#### B.4 — `feat: business_units + invoicing_channels (1 unit, 4+ channels)` (1 PR)
+#### B.4 + B.5 — bundleados ✅ shipped
 
-- Migración `<ts>_business_units_channels.sql`:
-  - `business_units(id text pk, name, cuit, tax_condition, tax_address, is_active)` — seed: 1 fila `dz_sons`.
-  - `invoicing_channels(id text pk, business_unit_id, name, division text check ('dz'|'jouve'), is_fiscal, display_color, is_active, unique(business_unit_id, division, is_fiscal))` — seed: 4 filas. Schema permite agregar más sin migración.
-  - RLS: lectura `authenticated`; escritura `owner|admin`.
+> Bundleados en un solo PR (DB schema + UI que lo consume). Cierra Fase B.
 
-#### B.5 — `feat: ScopeProvider + ScopeSelector (division + fiscal filter)` (1 PR)
+**B.4 — business_units + invoicing_channels** (`20260508204342_business_units_channels.sql`):
+- `business_units(id text pk, name, cuit, tax_condition, tax_address, is_active, timestamps)` con check `cuit ~ '^[0-9]{11}$'`. Seed: 1 fila `dz_sons` con CUIT `30714637432`.
+- `invoicing_channels(id text pk, business_unit_id, name, division text check ('dz'|'jouve'), is_fiscal, display_color, is_active, timestamps)`. **Sin compound unique** sobre `(unit, division, is_fiscal)` — el negocio puede tener varios PdV por canal en el futuro. Seed: 4 filas (DZ Fiscal/Interno, Jouve Fiscal/Interno).
+- Helper `public.set_updated_at` reusable + triggers en ambas tablas.
+- RLS: SELECT `authenticated`; INSERT/UPDATE/DELETE `owner|admin` vía `user_has_role`.
 
-- `components/providers/scope-provider.tsx` — context con `division?` + `fiscal_filter`. Persiste localStorage.
-- `components/scope-selector.tsx` — dos `Select` shadcn en el header. Solo borders + `text-muted-foreground`, sin colores.
-- `lib/scope.ts`: `channelsForScope(scope) → InvoicingChannelId[] | null`.
+**B.5 — ScopeProvider + ScopeSelector**:
+- `lib/scope.ts` con `Division`, `FiscalFilter`, `Scope`, `InvoicingChannelSummary` (narrowing del `division: string` que devuelve la generación de tipos a `'dz'|'jouve'` del CHECK), `channelsForScope(scope, channels) → string[] | null` (null = "no filtrar"), guards `isDivision` / `isFiscalFilter`.
+- `components/providers/scope-provider.tsx` extendido — recibe `channels` por prop, hidrata desde localStorage post-mount, **dropea cualquier `division` persistida que ya no exista entre los canales activos**.
+- `components/scope-selector.tsx` — dos `Select` shadcn (`position="popper"`, `align="end"`) en el header. Etiquetas en español.
+- `(dashboard)/layout.tsx` fetchea los canales en server, filtra por `isDivision`, los inyecta al `ScopeProvider`. **Movido del root layout** — el scope solo aplica al área autenticada.
+- Smoke verificado: persistencia localStorage funciona, dropdown abre hacia abajo, divisions/fiscal filter persisten al refrescar.
 
-**PRs Fase B: 5.**
+**PRs Fase B: 4 (B.1, B.2, B.3, B.4+B.5).**
+
 
 ---
 

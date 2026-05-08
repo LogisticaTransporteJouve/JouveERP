@@ -45,6 +45,83 @@ export type Database = {
         }
         Relationships: []
       }
+      business_units: {
+        Row: {
+          created_at: string
+          cuit: string
+          id: string
+          is_active: boolean
+          name: string
+          tax_address: string | null
+          tax_condition: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cuit: string
+          id: string
+          is_active?: boolean
+          name: string
+          tax_address?: string | null
+          tax_condition: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cuit?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          tax_address?: string | null
+          tax_condition?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoicing_channels: {
+        Row: {
+          business_unit_id: string
+          created_at: string
+          display_color: string | null
+          division: string
+          id: string
+          is_active: boolean
+          is_fiscal: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          business_unit_id: string
+          created_at?: string
+          display_color?: string | null
+          division: string
+          id: string
+          is_active?: boolean
+          is_fiscal: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          business_unit_id?: string
+          created_at?: string
+          display_color?: string | null
+          division?: string
+          id?: string
+          is_active?: boolean
+          is_fiscal?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoicing_channels_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           created_at: string
