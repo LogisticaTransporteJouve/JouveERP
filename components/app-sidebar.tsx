@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut } from "lucide-react";
+import { LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,19 +18,41 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import {
+  userCan,
+  type Permission,
+  type Role,
+} from "@/lib/auth/permissions";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
+  permission?: Permission;
 };
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/admin/users",
+    label: "Usuarios",
+    icon: ShieldCheck,
+    permission: "users:read",
+  },
 ];
 
-export function AppSidebar({ userEmail }: { userEmail: string }) {
+export function AppSidebar({
+  userEmail,
+  userRoles,
+}: {
+  userEmail: string;
+  userRoles: Role[];
+}) {
   const pathname = usePathname();
+
+  const visibleItems = navItems.filter(
+    (item) => !item.permission || userCan(userRoles, item.permission),
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -56,7 +78,7 @@ export function AppSidebar({ userEmail }: { userEmail: string }) {
           <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
