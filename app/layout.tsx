@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import "./globals.css";
 
 import { QueryProvider } from "@/components/providers/query-provider";
-import { ScopeProvider } from "@/components/providers/scope-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -38,9 +37,7 @@ export default async function RootLayout({
     >
       <body className="min-h-svh bg-background text-foreground antialiased">
         <ThemeProvider nonce={nonce}>
-          <QueryProvider>
-            <ScopeProvider>{children}</ScopeProvider>
-          </QueryProvider>
+          <QueryProvider>{children}</QueryProvider>
           <Toaster richColors closeButton />
         </ThemeProvider>
       </body>

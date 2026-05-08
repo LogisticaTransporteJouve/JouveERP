@@ -9,15 +9,17 @@ import {
   useState,
 } from "react";
 
-export type Division = "dz" | "jouve";
-export type FiscalFilter = "all" | "fiscal" | "internal";
-
-export type Scope = {
-  division: Division | null;
-  fiscalFilter: FiscalFilter;
-};
+import {
+  isDivision,
+  isFiscalFilter,
+  type Division,
+  type FiscalFilter,
+  type InvoicingChannelSummary,
+  type Scope,
+} from "@/lib/scope";
 
 type ScopeContextValue = Scope & {
+  channels: InvoicingChannelSummary[];
   setDivision: (division: Division | null) => void;
   setFiscalFilter: (filter: FiscalFilter) => void;
 };
@@ -34,26 +36,38 @@ function readFromStorage(): Scope {
     if (!raw) return DEFAULT_SCOPE;
     const parsed = JSON.parse(raw) as Partial<Scope>;
     return {
-      division:
-        parsed.division === "dz" || parsed.division === "jouve"
-          ? parsed.division
-          : null,
-      fiscalFilter:
-        parsed.fiscalFilter === "fiscal" || parsed.fiscalFilter === "internal"
-          ? parsed.fiscalFilter
-          : "all",
+      division: isDivision(parsed.division) ? parsed.division : null,
+      fiscalFilter: isFiscalFilter(parsed.fiscalFilter)
+        ? parsed.fiscalFilter
+        : "all",
     };
   } catch {
     return DEFAULT_SCOPE;
   }
 }
 
-export function ScopeProvider({ children }: { children: React.ReactNode }) {
+export function ScopeProvider({
+  channels,
+  children,
+}: {
+  channels: InvoicingChannelSummary[];
+  children: React.ReactNode;
+}) {
   const [scope, setScope] = useState<Scope>(DEFAULT_SCOPE);
 
+  // Hydrate from localStorage after mount; drop any persisted division that
+  // no longer maps to an active channel.
   useEffect(() => {
-    setScope(readFromStorage());
-  }, []);
+    const stored = readFromStorage();
+    const activeDivisions = new Set(
+      channels.filter((c) => c.is_active).map((c) => c.division),
+    );
+    if (stored.division && !activeDivisions.has(stored.division)) {
+      setScope({ ...stored, division: null });
+    } else {
+      setScope(stored);
+    }
+  }, [channels]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -69,8 +83,8 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<ScopeContextValue>(
-    () => ({ ...scope, setDivision, setFiscalFilter }),
-    [scope, setDivision, setFiscalFilter],
+    () => ({ ...scope, channels, setDivision, setFiscalFilter }),
+    [scope, channels, setDivision, setFiscalFilter],
   );
 
   return (
