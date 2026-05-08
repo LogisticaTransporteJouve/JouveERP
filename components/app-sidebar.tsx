@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ userEmail }: { userEmail: string }) {
   const pathname = usePathname();
 
   return (
@@ -81,11 +81,25 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center justify-between px-2 py-1 group-data-[collapsible=icon]:justify-center">
-          <span className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-            Tema
+          <span className="truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            {userEmail}
           </span>
           <ThemeToggle />
         </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <form action="/auth/logout" method="post" className="w-full">
+              <SidebarMenuButton
+                type="submit"
+                tooltip="Cerrar sesión"
+                className="w-full"
+              >
+                <LogOut className="size-4" />
+                <span>Cerrar sesión</span>
+              </SidebarMenuButton>
+            </form>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

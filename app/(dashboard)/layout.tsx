@@ -1,7 +1,13 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { createClient } from "@/lib/supabase/server";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 
@@ -10,13 +16,23 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Defense in depth: the proxy already redirects unauthenticated requests,
+  // but a server-side check here protects against any proxy misconfiguration.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const cookieStore = await cookies();
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
   const defaultOpen = sidebarCookie === "true";
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar />
+      <AppSidebar userEmail={user.email ?? ""} />
       <SidebarInset>
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <SidebarTrigger className="-ml-1" />

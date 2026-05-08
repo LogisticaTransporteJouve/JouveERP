@@ -488,14 +488,19 @@ Refs originales del scope completo (para cuando se retomen):
 - `app/layout.tsx` lee `x-nonce` de `headers()` y lo pasa al `<ThemeProvider nonce={nonce}>` para que el inline script de hidratación de `next-themes` pase CSP.
 - `.env.local.example` ya estaba en A.7.
 
-#### A.6 — `feat: auth pages (login, logout) + protected dashboard` (1 PR)
+#### A.6 — `feat: auth pages (login, logout) + protected dashboard` (1 PR) — ✅ shipped
 
-- `app/auth/login/page.tsx` — form con email + password (react-hook-form + zod), llama a `signInWithPassword`. Server action.
-- `app/auth/logout/route.ts` — endpoint `signOut` + redirect.
-- `app/(dashboard)/layout.tsx` — chequea sesión; si no, redirect a `/auth/login`.
-- `app/(dashboard)/page.tsx` — placeholder "Dashboard en construcción".
-- `lib/auth/public-pages.ts` — `shouldSkipAuthRedirect(pathname)` para rutas públicas (login, signup, etc.).
-- Manual: alta del primer user en Supabase Studio, login OK.
+- `lib/auth/public-pages.ts` — `DONT_AUTH_REDIRECT_PREFIXES = ["/auth", "/api/auth"]` + `shouldSkipAuthRedirect(pathname)`. Comentario inline aclara que esto es solo para la decisión de redirect, **no para data access** (RLS).
+- `lib/supabase/proxy.ts` (extendido) — además de refrescar la sesión:
+  - Si no hay user y la ruta no está en `DONT_AUTH_REDIRECT_PREFIXES` → redirect a `/auth/login` con `?redirectTo=...`.
+  - Si hay user y la ruta empieza con `/auth/login` → redirect a `/dashboard`. Solo `/auth/login`, no `/auth/*` general — el logout debe llegar a su route handler.
+- `app/auth/login/page.tsx` — Card con logo Jouve, lee `searchParams.redirectTo`.
+- `app/auth/login/login-form.tsx` (`"use client"`) — form server-action con `useActionState`.
+- `app/auth/login/actions.ts` — `signInWithEmail` server action: valida con Zod, llama a `signInWithPassword`, en error loguea `login.failure` con `logger.warn` y devuelve string genérico ("Credenciales inválidas") al cliente. Redirect post-login al `redirectTo` si empieza con `/`, sino a `/dashboard`.
+- `app/auth/logout/route.ts` — POST handler que llama a `signOut` y redirect 303 a `/auth/login`.
+- `app/(dashboard)/layout.tsx` — defense-in-depth: `getUser()` server-side y redirect a `/auth/login` si no hay sesión, además del proxy. Pasa `userEmail` al sidebar.
+- `AppSidebar` — footer con email del user truncado + ThemeToggle + botón "Cerrar sesión" como `<form action="/auth/logout" method="post">` (no GET, evita prefetch accidental).
+- Manual: alta del primer user vía la auth admin API local con `email_confirm: true` (Studio guardaba en otra instancia). Documentado en el PR.
 
 #### A.7 — `chore: supabase types generation + ci drift check` (1 PR) — **adelantado antes de A.5** (decisión 2026-05-08: A.5 importa `Database`; mejor generarlo ya que tener `any` temporal)
 
