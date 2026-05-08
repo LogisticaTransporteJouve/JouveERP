@@ -1,0 +1,39 @@
+name: DB types drift
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "lib/db/database.types.ts"
+      - "scripts/db-types*.sh"
+      - ".github/workflows/db-types-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Regenerate types and diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Check types drift
+        run: bash scripts/db-types-check.sh
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
