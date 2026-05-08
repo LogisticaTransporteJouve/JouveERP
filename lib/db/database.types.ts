@@ -78,6 +78,54 @@ export type Database = {
         }
         Relationships: []
       }
+      clients: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition: string
+          legal_name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition?: string
+          legal_name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoicing_channels: {
         Row: {
           business_unit_id: string
