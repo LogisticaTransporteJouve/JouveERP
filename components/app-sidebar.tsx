@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, LogOut, ShieldCheck, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -38,6 +38,12 @@ const navItems: NavItem[] = [
     label: "Usuarios",
     icon: ShieldCheck,
     permission: "users:read",
+  },
+  {
+    href: "/admin/padron",
+    label: "Padrón AFIP",
+    icon: Search,
+    permission: "padron:lookup",
   },
 ];
 

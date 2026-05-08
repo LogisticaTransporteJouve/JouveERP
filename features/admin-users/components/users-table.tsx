@@ -40,6 +40,7 @@ function formatDate(value: string | null): string {
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "America/Argentina/Buenos_Aires",
   }).format(new Date(value));
 }
 
