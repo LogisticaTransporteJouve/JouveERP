@@ -7,7 +7,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserContext } from "@/lib/auth/context";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 
@@ -18,11 +18,8 @@ export default async function DashboardLayout({
 }) {
   // Defense in depth: the proxy already redirects unauthenticated requests,
   // but a server-side check here protects against any proxy misconfiguration.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const ctx = await getCurrentUserContext();
+  if (!ctx) {
     redirect("/auth/login");
   }
 
@@ -32,7 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar userEmail={user.email ?? ""} />
+      <AppSidebar userEmail={ctx.email} userRoles={ctx.roles} />
       <SidebarInset>
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <SidebarTrigger className="-ml-1" />

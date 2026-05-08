@@ -549,13 +549,21 @@ Smoke local verificado:
 - `lib/auth/with-auth.ts` — wrapper genérico para server actions: `requireUserContext` → `userCan` → Zod `safeParse`. Lanza `AuthError` con códigos `UNAUTHENTICATED|FORBIDDEN|VALIDATION` para que el caller los mapee sin filtrar detalles.
 - Tests: 17 tests Vitest cubriendo coherencia de la matriz, `userCan` con union de roles, casos edge de driver/warehouse, `canAssignRole` para todas las combinaciones actor→target, `highestRole`, `isRole`.
 
-#### B.3 — `feat: admin/users page (list + invite + assign/revoke)` (1 PR)
+#### B.3 — `feat: admin/users page (list + invite + assign/revoke)` (1 PR) — ✅ shipped
 
-- `app/(dashboard)/admin/users/page.tsx` server-rendered con `listUsers`.
-- `features/admin-users/components/users-table.tsx` — tabla con email, último acceso, chips de roles.
-- `features/admin-users/components/invite-user-dialog.tsx` — multi-select de roles iniciales filtrado por `canAssignRole`.
-- `features/admin-users/actions/users-actions.ts`: `listUsers`, `assignRole`, `revokeRole`, `inviteUser`, `bootstrapOwnerIfNeeded`.
-- Sidebar: link "Usuarios" con icono `ShieldCheck`.
+- `app/(dashboard)/admin/users/page.tsx` server-rendered con `force-dynamic`. Llama a `bootstrapOwnerIfNeeded()` (one-shot: el primer user logueado se vuelve `owner` si no hay ninguno) y redirige a `/dashboard` si no tenés `users:read`.
+- `features/admin-users/actions/users-actions.ts`:
+  - `listUsersAction`, `inviteUserAction`, `assignRoleAction`, `revokeRoleAction`, `setUserRolesAction` (diff bulk add/remove), `bootstrapOwnerIfNeeded`.
+  - Cada mutación filtra los roles vía `canAssignRole(actor, target)` antes de tocar la DB y emite `audit_events` con `actor_id`, `target_user_id`, `event_type`, `payload`.
+  - Errores del trigger SQL "owner mínimo" se mapean a copy en español ("Tiene que quedar al menos un usuario con rol owner").
+  - `revalidatePath("/admin/users")` después de cada mutación.
+- `features/admin-users/components/users-table.tsx` (client) — tabla shadcn con búsqueda por email, chips por rol con `highestRole` resaltado, badge "Vos" en la fila propia, dropdown `…` con "Editar roles".
+- `features/admin-users/components/invite-user-dialog.tsx` — Dialog (no Sheet) con email + RoleCheckboxGrid.
+- `features/admin-users/components/assign-roles-dialog.tsx` — mismo grid pre-poblado, diff calculado en `setUserRolesAction`.
+- `features/admin-users/components/role-checkbox-grid.tsx` — checkbox por rol con label + descripción + flag "Tu rol no puede asignarlo" via `canAssignRole`.
+- `AppSidebar` recibe `userRoles` y filtra `navItems` por `permission?` — solo se muestra "Usuarios" si tenés `users:read`. El `(dashboard)/layout.tsx` pasa `ctx.email` y `ctx.roles` desde `getCurrentUserContext`.
+- Tipo `JsonValue` local en el action file para insertar en `audit_events.payload` sin cast a `unknown` (la columna es `Json`, `Record<string, unknown>` no encaja).
+- Smoke test verificado: ver propio usuario, editar roles (suma finance), invitar nuevo email, intentar revocar último owner → bloqueado por trigger con copy amigable.
 
 #### B.4 — `feat: business_units + invoicing_channels (1 unit, 4+ channels)` (1 PR)
 
