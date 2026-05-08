@@ -9,7 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      audit_events: {
+        Row: {
+          actor_id: string | null
+          event_type: string
+          id: string
+          ip_address: unknown
+          payload: Json
+          target_resource_id: string | null
+          target_user_id: string | null
+          ts: string
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          payload?: Json
+          target_resource_id?: string | null
+          target_user_id?: string | null
+          ts?: string
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          payload?: Json
+          target_resource_id?: string | null
+          target_user_id?: string | null
+          ts?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          rank: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id: string
+          rank: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+          rank?: number
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -17,6 +105,7 @@ export type Database = {
     Functions: {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
