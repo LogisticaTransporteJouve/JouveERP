@@ -538,13 +538,16 @@ Smoke local verificado:
 - `insert into user_roles ('owner') for tomas@jouve.test` → OK.
 - `delete from user_roles where role_id='owner'` → bloqueado por el trigger con mensaje "At least one user must hold the owner role.".
 
-#### B.2 — `feat: permissions matrix + withAuth wrapper + getCurrentUserContext` (1 PR)
+#### B.2 — `feat: permissions matrix + withAuth wrapper + getCurrentUserContext` (1 PR) — ✅ shipped
 
-- `lib/auth/permissions.ts` — `Role`, `Permission`, `ROLE_PERMISSIONS`, `userCan()`, `canAssignRole()`.
-- `lib/auth/with-auth.ts` — wrapper con sesión + roles + opcional permission + Zod parse.
-- `lib/auth/users.ts` — helpers `listUsersWithRoles`, `ownerCount`, `getCurrentUserRoles`.
-- `lib/auth/context.ts` — `getCurrentUserContext()` server-only que devuelve `{ userId, roles }`. Punto único de acceso al contexto en cada server action — la action pide context al inicio, falla si no hay sesión, y usa `roles` para chequeos finos cuando el permiso es contextual (no expresable en la matriz). Ver patrón completo en `docs/sumary-frontend-patterns.md` §10.
-- Tests Vitest: matriz completa, `canAssignRole`, unión de roles.
+- `lib/auth/permissions.ts`:
+  - `ROLES` (6) y `PERMISSIONS` (~45 entradas que cubren Fases B-J upfront).
+  - `ROLE_PERMISSIONS` mapping. **Owner y admin tienen el mismo set de permisos**; la separación vive en `canAssignRole`. `finance` cubre clients/AFIP/caja/comprobantes/cobranzas/retenciones/NC-ND. `operations` cubre flota+viajes+combustible+mantenimiento+docs+clients:read. `warehouse` cubre depósitos+pallets+stock+products:read. `driver` queda en `trips:read` solamente hasta G.3.
+  - `userCan(roles, permission)`, `canAssignRole(actor, target)` (owner asigna todo, admin todo menos owner, otros nada), `highestRole(roles)`, `isRole(value)` type guard.
+- `lib/auth/context.ts` — `getCurrentUserContext()` server-only envuelto en `cache()` de React (un solo round-trip a Supabase por request) + `requireUserContext()`.
+- `lib/auth/users.ts` — `listUsersWithRoles()` y `ownerCount()` vía service client. Ambos requieren que el caller chequee `users:read` antes.
+- `lib/auth/with-auth.ts` — wrapper genérico para server actions: `requireUserContext` → `userCan` → Zod `safeParse`. Lanza `AuthError` con códigos `UNAUTHENTICATED|FORBIDDEN|VALIDATION` para que el caller los mapee sin filtrar detalles.
+- Tests: 17 tests Vitest cubriendo coherencia de la matriz, `userCan` con union de roles, casos edge de driver/warehouse, `canAssignRole` para todas las combinaciones actor→target, `highestRole`, `isRole`.
 
 #### B.3 — `feat: admin/users page (list + invite + assign/revoke)` (1 PR)
 
