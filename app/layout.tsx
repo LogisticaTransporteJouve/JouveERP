@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -22,11 +23,13 @@ export const metadata: Metadata = {
   description: "ERP de Logística y Transporte Jouve",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="es-AR"
@@ -34,7 +37,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-svh bg-background text-foreground antialiased">
-        <ThemeProvider>
+        <ThemeProvider nonce={nonce}>
           <QueryProvider>
             <ScopeProvider>{children}</ScopeProvider>
           </QueryProvider>

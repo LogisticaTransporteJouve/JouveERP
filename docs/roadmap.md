@@ -443,7 +443,7 @@ instalado en `package.json` aunque no documentado):
 
 ❌ **No hecho** — entran cuando aparezca el caso de uso:
 - `migration-order-check.yml` workflow → con B.1 (primera migración real).
-- Scripts: `db:types:check` → con A.7. (`db:types:generate` ya existe pero apunta a `scripts/db-types.sh` que tampoco está creado todavía.)
+- ✅ Scripts `db:types:generate` + `db:types:check` agregados en A.7 (PR adelantado antes de A.5). `scripts/db-types.sh` y `scripts/db-types-check.sh` ya en el repo.
 
 Refs originales del scope completo (para cuando se retomen):
 - `lint-staged.config.mjs`:
@@ -477,16 +477,16 @@ Refs originales del scope completo (para cuando se retomen):
 - `lib/observability.ts` — `captureException(err, context)` que hoy enruta al logger; cuando se sume Sentry/PostHog, se actualiza acá sin tocar callsites.
 - Tests: redacta keys sensibles, respeta nivel.
 
-#### A.5 — `feat: supabase clients (server, browser, service) + proxy.ts (CSP + session)` (1 PR)
+#### A.5 — `feat: supabase clients (server, browser, service) + proxy.ts (CSP + session)` (1 PR) — **bundleado con A.7** en PR #5
 
-- `lib/supabase/server.ts` — `createClient()` async para server components/actions, **tipado con `Database`** (que será generado en A.7).
-- `lib/supabase/client.ts` — `createBrowserClient<Database>(...)` para client components.
-- `lib/supabase/service.ts` — `getServiceClient()` con `SUPABASE_SERVICE_ROLE_KEY`. **Solo server-side.**
-- `lib/supabase/proxy.ts` — refresca sesión en cada request, forwardea x-nonce.
-- `proxy.ts` (root, Next 16 renombró `middleware.ts` → `proxy.ts`) — genera nonce per-request, llama a `updateSession`, aplica CSP estricto. Para JouveERP arrancamos con CSP estricto desde el día 1 (no shadow rollout — somos app nueva, no hay legacy assets a tolerar).
-- `lib/security/csp.ts` — builder de CSP. Ver builder pegable completo en `docs/sumary-frontend-patterns.md` §18.2.
-- `.env.local.example` con `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` documentados.
-- **Sin tipos generados todavía** — el `Database` queda como `any` temporal hasta A.7. Se documenta en el PR.
+- `lib/supabase/server.ts` — `createClient()` async, tipado con `Database` (generado en A.7).
+- `lib/supabase/client.ts` — `createBrowserClient<Database>(...)`.
+- `lib/supabase/service.ts` — `getServiceClient()` con `server-only`. Singleton, `persistSession: false`.
+- `lib/supabase/proxy.ts` — `updateSession(request, headers)`. **Conserva el comentario "DO NOT REMOVE auth.getUser()"** (refresh side-effect).
+- `proxy.ts` (root, Next 16 renombró `middleware.ts` → `proxy.ts`) — genera nonce per-request via `btoa(crypto.randomUUID())` (Edge-safe, sin Buffer), llama a `updateSession`, aplica CSP enforced.
+- `lib/security/csp.ts` — builder con nonce + strict-dynamic en `script-src`. **Ajuste vs spec original**: `style-src` queda en `'self' 'unsafe-inline'` sin nonce (modern browsers invalidan `'unsafe-inline'` cuando hay nonce, y Tailwind v4 + `next/font` emiten `<style>` que Next no etiqueta — sin esto la UI pierde estilos). Scripts siguen estrictos, que es donde vive XSS. En dev se agrega `'unsafe-eval'` por HMR de Turbopack.
+- `app/layout.tsx` lee `x-nonce` de `headers()` y lo pasa al `<ThemeProvider nonce={nonce}>` para que el inline script de hidratación de `next-themes` pase CSP.
+- `.env.local.example` ya estaba en A.7.
 
 #### A.6 — `feat: auth pages (login, logout) + protected dashboard` (1 PR)
 
@@ -497,24 +497,16 @@ Refs originales del scope completo (para cuando se retomen):
 - `lib/auth/public-pages.ts` — `shouldSkipAuthRedirect(pathname)` para rutas públicas (login, signup, etc.).
 - Manual: alta del primer user en Supabase Studio, login OK.
 
-#### A.7 — `chore: supabase types generation + ci drift check` (1 PR)
+#### A.7 — `chore: supabase types generation + ci drift check` (1 PR) — **adelantado antes de A.5** (decisión 2026-05-08: A.5 importa `Database`; mejor generarlo ya que tener `any` temporal)
 
 - `supabase init` (config local).
 - Una migración mínima `<ts>_init.sql` que crea extensión `pg_trgm` (que usaremos en C). Sirve de "primera migración" para probar el pipeline.
-- `scripts/db-types.sh`:
-  ```bash
-  #!/bin/bash
-  set -e
-  pnpm dlx supabase gen types typescript --local --schema public > lib/db/database.types.ts
-  pnpm exec prettier --write lib/db/database.types.ts
-  ```
-- `package.json` scripts:
-  ```json
-  "db:types:generate": "bash scripts/db-types.sh",
-  "db:types:check": "bash scripts/db-types-check.sh"
-  ```
-- CI step en `ci.yml`: si hay nuevas migraciones, regenera y falla si hay drift.
-- Husky `pre-push` hace lo mismo localmente.
+- `scripts/db-types.sh` y `scripts/db-types-check.sh` con `set -euo pipefail`. Ambos requieren `supabase start` corriendo.
+- `package.json` scripts: `db:types:generate`, `db:types:check`.
+- `.env.local.example` con los defaults del stack local (`http://127.0.0.1:54321`, anon/service_role keys conocidas).
+- `.env.local` ya gitignored.
+- CI dedicado `db-types-check.yml` que se dispara solo si cambian migraciones, types, o los scripts. Levanta Supabase via `supabase/setup-cli@v1`, regenera tipos, falla si hay drift.
+- Husky `pre-push` hace lo mismo localmente — pendiente cuando se cablee el hook.
 
 **PRs Fase A: 7.** Al cerrar: repo deployable, login funcional, types generation working, CI verde.
 

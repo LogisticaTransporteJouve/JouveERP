@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:types:generate": "bash scripts/db-types.sh",
+    "db:types:check": "bash scripts/db-types-check.sh",
     "prepare": "husky"
   },
   "dependencies": {
@@ -47,6 +48,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.56.1",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.4.1",
     "zod": "^4.1.12"
