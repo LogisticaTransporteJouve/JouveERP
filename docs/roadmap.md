@@ -442,7 +442,7 @@ instalado en `package.json` aunque no documentado):
 - **lint-staged** — sin `lint-staged.config.mjs`.
 
 ❌ **No hecho** — entran cuando aparezca el caso de uso:
-- `migration-order-check.yml` workflow → con B.1 (primera migración real).
+- ✅ `migration-order-check.yml` agregado en B.1 (primera migración real con `roles_and_audit`). Compara timestamps contra `main` y falla si dos PRs paralelos colisionan.
 - ✅ Scripts `db:types:generate` + `db:types:check` agregados en A.7 (PR adelantado antes de A.5). `scripts/db-types.sh` y `scripts/db-types-check.sh` ya en el repo.
 
 Refs originales del scope completo (para cuando se retomen):
@@ -519,15 +519,24 @@ Refs originales del scope completo (para cuando se retomen):
 
 ### Fase B — Foundation: RBAC + Multi-división (1-2 semanas)
 
-#### B.1 — `feat: migration roles + user_roles + audit_events + helper user_has_role` (1 PR)
+#### B.1 — `feat: migration roles + user_roles + audit_events + helper user_has_role` (1 PR) — ✅ shipped
 
-Migración `<ts>_roles_and_audit.sql`:
-- Catálogo `roles` (6 filas: owner, admin, finance, operations, warehouse, driver).
-- `user_roles(user_id, role_id, granted_by, granted_at)`.
-- `audit_events(id, ts, actor_id, event_type, target_user_id, target_resource_id, payload, ip_address, user_agent)`.
-- `public.user_has_role(text[])` con `(select auth.uid())` cacheado.
-- Trigger constraint deferrable: siempre ≥1 owner activo.
-- RLS: lectura `user_roles` self o admin/owner; escritura solo admin/owner; lectura `audit_events` solo admin/owner.
+Migración `20260508201626_roles_and_audit.sql`:
+- Catálogo `public.roles` con 6 filas seeded (owner=0, admin=1, finance=2, operations=3, warehouse=4, driver=5). Lectura abierta a `authenticated`.
+- `public.user_roles(user_id, role_id, granted_by, granted_at)` con PK `(user_id, role_id)` e índice por `role_id`. RLS:
+  - SELECT self o si tenés `owner|admin`.
+  - INSERT/DELETE solo si tenés `owner|admin`.
+- `public.audit_events(id, ts, actor_id, event_type, target_user_id, target_resource_id, payload, ip_address, user_agent)` con índices por `ts desc`, `actor_id`, `event_type`. RLS: SELECT solo `owner|admin`. **Sin INSERT policy** — los inserts vienen exclusivamente del service role.
+- `public.user_has_role(text[])` `stable security definer`, `search_path` fijado, ejecuta `(select auth.uid())` cacheado. `revoke ... from public` + `grant execute to authenticated`.
+- **Constraint trigger deferrable** `user_roles_owner_minimum_trigger`: dispara `after delete or update of role_id`, levanta excepción si `count(*) where role_id='owner' = 0`. Deferrable initially deferred → permite revoke + grant en la misma transacción sin trigger spurio.
+- Migración usa `set row_security = off` durante el seed del catálogo y lo vuelve a prender al final.
+
+Workflow nuevo `.github/workflows/migration-order-check.yml`: solo corre sobre PRs que tocan `supabase/migrations/**`, calcula el timestamp más alto en `main` y falla si la migración del PR no es estrictamente posterior. Bloquea el bug "dos PRs paralelos con timestamps overlapping".
+
+Smoke local verificado:
+- 6 roles seeded.
+- `insert into user_roles ('owner') for tomas@jouve.test` → OK.
+- `delete from user_roles where role_id='owner'` → bloqueado por el trigger con mensaje "At least one user must hold the owner role.".
 
 #### B.2 — `feat: permissions matrix + withAuth wrapper + getCurrentUserContext` (1 PR)
 

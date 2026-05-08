@@ -1,0 +1,59 @@
+name: Migration order
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/migration-order-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  order:
+    name: Migration timestamps must be strictly increasing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare migration timestamps against main
+        run: |
+          set -euo pipefail
+
+          # Highest timestamp on main, defaulting to 0 if there are no migrations.
+          base_max=$(git ls-tree --name-only origin/${{ github.base_ref }} -- supabase/migrations \
+            | grep -E '^[0-9]{14}_' \
+            | cut -d_ -f1 \
+            | sort -n \
+            | tail -n 1 \
+            || true)
+          base_max=${base_max:-0}
+
+          # New migration files introduced by this PR.
+          mapfile -t new_files < <(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD -- supabase/migrations \
+            | grep -E '^supabase/migrations/[0-9]{14}_' \
+            || true)
+
+          if [ ${#new_files[@]} -eq 0 ]; then
+            echo "No new migrations in this PR."
+            exit 0
+          fi
+
+          echo "Latest timestamp on main: $base_max"
+
+          for file in "${new_files[@]}"; do
+            ts=$(basename "$file" | cut -d_ -f1)
+            if [ "$ts" -le "$base_max" ]; then
+              echo "::error file=$file::Migration timestamp $ts is not strictly greater than main's latest $base_max. Two PRs likely raced — rename the file with a fresher timestamp."
+              exit 1
+            fi
+            echo "OK: $file ($ts > $base_max)"
+            base_max="$ts"
+          done
