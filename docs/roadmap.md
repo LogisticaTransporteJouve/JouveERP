@@ -589,26 +589,38 @@ Smoke local verificado:
 
 ### Fase C — Clientes (1-2 semanas)
 
-#### C.1 — `feat: clients table + search + RLS` (1 PR)
+#### C.1 — `feat: clients table + RLS` ✅ shipped
 
-- `clients(id, cuit nullable, legal_name, display_name, tax_condition, address, phone, fiscal_counterpart_id self-fk, is_active, created_at, updated_at)`.
-- `unique index clients_cuit_unique on clients(cuit) where cuit is not null`.
-- Constraint `cuit not null xor fiscal_counterpart_id not null`.
-- `pg_trgm` + GIN index sobre `lower(display_name)`.
-- Función `find_similar_clients(p_display_name, p_cuit, p_threshold)`.
-- RLS: read `owner|admin|finance|operations`, write `owner|admin|finance`.
-- Permisos: `clients:read`, `clients:write`.
+> **Decisión 2026-05-08**: cliente **global** por CUIT — una sola fila por CUIT, compartida entre divisiones. Las facturas a Jouve y a DZ Instalaciones se vinculan al mismo `clients.id` (la división vive en `invoices.channel_id`). Se descarta el `fiscal_counterpart_id self-fk` del plan original; el caso "fiscal + interno por separado" quedaba mal resuelto y el usuario explicitó "cuit único con id único, porque puede pasar que un cliente tenga facturas en jouve y en instalaciones".
 
-#### C.2 — `feat: AFIP plumbing (env, wsaa, ta cache, padron, padron cache, rate limit)` (1 PR)
+- `clients(id uuid pk, cuit unique [11 dígitos check], legal_name, display_name, iva_condition CHECK enum, email, phone, address, notes, is_active, created_by → auth.users, created_at, updated_at)`.
+- `iva_condition` ∈ `responsable_inscripto | monotributo | exento | consumidor_final | no_categorizado`.
+- Sin hard delete: `is_active = false` para retirar (las facturas históricas referencian `clients.id`).
+- `set_updated_at` trigger reusado.
+- RLS: SELECT `authenticated`; INSERT/UPDATE `owner|admin|finance` vía `user_has_role`. Sin DELETE.
+- Permisos: `clients:read`, `clients:write` (ya en `lib/auth/permissions.ts`).
+- Server actions en `features/clients/actions/clients-actions.ts`: `listClientsAction`, `createClientAction`, `updateClientAction`, `setClientActiveAction`. Auditoría en `audit_events.target_resource_id`. Mapeo de `23505` → "Ya existe un cliente con ese CUIT.".
+- `features/clients/schema.ts`: Zod con preprocess que normaliza CUIT (acepta `30-71463743-2` y queda `30714637432`), guard `isIvaCondition`, type `Client` con narrowing de `iva_condition: string → IvaCondition`.
+- `pg_trgm` + GIN + `find_similar_clients` se difieren a **C.3** (se agregan junto al UI que los usa, no antes).
 
-- Migración `<ts>_afip_caches.sql`:
+#### C.2 — `feat: AFIP plumbing (env, wsaa, ta cache, padron, rate limit)` ✅ shipped
+
+- Migración `20260508220000_afip_caches_and_rate_limit.sql`:
   - `afip_ta_cache(service text pk, token, sign, expiration_time, cached_at)` — RLS sin policies.
-  - `padron_cache(cuit text pk, data jsonb, cached_at)`.
-  - `rate_limit_buckets(user_id, bucket_key, window_start, count)`.
-- `lib/afip/{env,wsaa,padron,types}.ts` — port limpio del repo viejo (sin el upsert no-op de rate-limit).
-- `lib/rate-limit.ts` — versión correcta (un solo path).
-- Server action `verificarCuit(cuit)` con rate-limit (60/h), caché 24h, fallback stale.
-- Permiso: `padron:lookup`.
+  - `padron_cache(cuit text pk, data jsonb, cached_at)` — RLS sin policies.
+  - `rate_limit_buckets(user_id uuid, bucket_key text, window_start timestamptz, count int, pk compuesto)` — RLS sin policies.
+  - **`bump_rate_limit_bucket(p_user_id, p_bucket_key, p_window_start) returns int`** — RPC `security definer` con `search_path = public`, hace `INSERT … ON CONFLICT DO UPDATE … RETURNING count` atómico. Resuelve el bug del repo viejo (`upsert` reset-to-1 + fallback manual no se ejecutaba en el path feliz, así que sólo se "salvaba" por el bug-de-no-camino).
+- `lib/afip/{env,types,wsaa,padron}.ts` — port del repo viejo. Cambios:
+  - `wsaa.ts` igual al original (firma CMS PKCS#7 vía `openssl cms -sign` subprocess; cache memoria + DB; coalescing in-flight).
+  - `padron.ts` reemplaza el cliente `soap` por una llamada SOAP manual + `fast-xml-parser` (~80 KB, sin transitive `request`/`xml2js` enormes). Misma normalización: `tax_condition` → enum nuestro (con `no_categorizado` como bucket fallback en lugar del legacy `no_determinado`).
+- `lib/rate-limit.ts` — single-path: una sola RPC, fail-closed si falla. Sin upsert no-op.
+- `features/clients/actions/afip-actions.ts` → `verifyCuitAction(input)`:
+  - Permiso `padron:lookup` + Zod `VerifyCuitSchema` (CUIT 11 dígitos arrancando 2/3, normaliza guiones).
+  - Rate-limit 60/h por usuario.
+  - Caché DB 24h. Fallback **stale** si AFIP responde error pero hay cached row vencido.
+- `.env.local.example` documenta `AFIP_ENV`, `AFIP_CUIT`, `AFIP_CERT`, `AFIP_KEY` (base64-PEMs single-line).
+- Tests: `lib/rate-limit.test.ts` (allow/deny, ventana alineada, fail-closed); `lib/afip/padron.test.ts` (mapper, prioridad VAT > Mono > Exempt > no_categorizado, asArray, fiscal-address preference).
+- Stub `tests/stubs/server-only.ts` aliased en vitest: `import "server-only"` ya no rompe los tests.
 
 #### C.3 — `feat: clients UI (list + form with verify-CUIT + similar dialog)` (1 PR)
 

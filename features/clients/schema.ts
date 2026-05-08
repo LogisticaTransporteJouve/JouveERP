@@ -92,6 +92,20 @@ export const ClientToggleActiveSchema = z.object({
   is_active: z.boolean(),
 });
 
+export const VerifyCuitSchema = z.object({
+  cuit: z.preprocess(
+    (value) => (typeof value === "string" ? value.replace(/[-\s]/g, "") : value),
+    z
+      .string()
+      .regex(
+        /^[23]\d{10}$/,
+        "CUIT inválido — debe tener 11 dígitos y empezar con 2 o 3.",
+      ),
+  ),
+});
+
+export type VerifyCuitInput = z.infer<typeof VerifyCuitSchema>;
+
 export type ClientCreateInput = z.infer<typeof ClientCreateSchema>;
 export type ClientUpdateInput = z.infer<typeof ClientUpdateSchema>;
 export type ClientToggleActiveInput = z.infer<typeof ClientToggleActiveSchema>;

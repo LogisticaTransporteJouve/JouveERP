@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      afip_ta_cache: {
+        Row: {
+          cached_at: string
+          expiration_time: string
+          service: string
+          sign: string
+          token: string
+        }
+        Insert: {
+          cached_at?: string
+          expiration_time: string
+          service: string
+          sign: string
+          token: string
+        }
+        Update: {
+          cached_at?: string
+          expiration_time?: string
+          service?: string
+          sign?: string
+          token?: string
+        }
+        Relationships: []
+      }
       audit_events: {
         Row: {
           actor_id: string | null
@@ -170,6 +194,45 @@ export type Database = {
           },
         ]
       }
+      padron_cache: {
+        Row: {
+          cached_at: string
+          cuit: string
+          data: Json
+        }
+        Insert: {
+          cached_at?: string
+          cuit: string
+          data: Json
+        }
+        Update: {
+          cached_at?: string
+          cuit?: string
+          data?: Json
+        }
+        Relationships: []
+      }
+      rate_limit_buckets: {
+        Row: {
+          bucket_key: string
+          count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          bucket_key: string
+          count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          bucket_key?: string
+          count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       roles: {
         Row: {
           created_at: string
@@ -228,6 +291,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bump_rate_limit_bucket: {
+        Args: {
+          p_bucket_key: string
+          p_user_id: string
+          p_window_start: string
+        }
+        Returns: number
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
