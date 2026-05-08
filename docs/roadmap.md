@@ -192,6 +192,90 @@ const buttonVariants = cva(
 - `active:translate-y-px` para feedback táctil en botones.
 - `next-themes` con `disableTransitionOnChange` para evitar flash.
 
+### 1.8 Patrones de UI observados en La Pyme (referencia)
+
+> Catálogo de patrones extraídos del análisis de capturas de **La Pyme**
+> (2026-05-08) para usar como guía cuando se implementen las fases B-F.
+> No es prescriptivo — es la base de inspiración con detalles concretos.
+
+**Layout y navegación**
+- Sidebar fijo izquierdo (~200px) con grupos por sección. Configuración tiene
+  subnav: Organización, Plan, Preferencias, Puntos de Venta, Ubicaciones,
+  Bancos, Medios de Pago, Categorías, Contabilidad, Colaboradores, Campos
+  personalizados, Integraciones.
+- Topbar con: selector de empresa (`Jouve · Max`), búsqueda global con
+  shortcut `⌘K`, badge del plan, link de Ayuda.
+- Contenido centrado con `max-w` y cards `rounded-xl border`.
+
+**Drawer derecho vs Dialog centrado**
+- La Pyme usa `Sheet` deslizante a la derecha consistentemente para todo
+  CRUD (ubicación, cuenta bancaria, medio de pago, categoría, cuenta
+  contable, dimensión, colaborador, campo personalizado).
+- Header: título + descripción corta + close (X). Footer fijo: primario
+  pill + "Guardar y crear otra ⌘Enter" + Cancelar.
+- **Decisión JouveERP (2026-05-08):** se descarta el drawer; usamos `Dialog`
+  centrado de shadcn. Misma estructura header/footer y atajo "Guardar y
+  crear otra ⌘Enter". Razón: preferencia personal del owner.
+
+**Onboarding checklist**
+- Dashboard inicial muestra dos secciones colapsables ("Configurá tu
+  organización 0/5", "Empezá a usar La Pyme 0/3"). Cada item con check + link
+  a la página. Útil para guiar el alta de Jouve.
+
+**Datos fiscales con autofill por CUIT**
+- Modal "Completá tus datos fiscales" → ingresás CUIT y llena Razón Social,
+  Personería Jurídica, Condición IVA, Domicilio Fiscal.
+- **Aplica a:** alta de la organización + C.1 (clientes fiscales).
+
+**Plan de cuentas jerárquico**
+- Árbol con nivel visual claro (1 → 1.1 → 1.1.1 → 1.1.1.1), filas con
+  chevron expand, icono carpeta/documento, código + nombre, badge `Activa`,
+  tag opcional con categoría EERR, menú `…`, footer "+ Agregar subcuenta".
+- Form "Nueva cuenta": Cuenta padre (combo del árbol), Código, Nombre,
+  Descripción, **Categoría del estado de resultados**, **Rol del sistema**
+  (clave para autoasientos).
+
+**Configuración contable avanzada**
+- Tabs **Cuentas / Asientos Automáticos / Centros de Costo** con toggle
+  "Habilitar Contabilidad" como kill-switch.
+- Asientos Automáticos = mapping de cuentas para inflación/IVA/ventas
+  (multi-select chips).
+- Centros de costo como dimensiones configurables (Nombre, Requerido toggle,
+  Mostrar en ventas toggle).
+- Página dedicada **Ajuste por inflación**: fecha + coeficiente manual +
+  leyenda → previsualizar asiento.
+
+**Roles y permisos finos (alinear B.2/B.3)**
+- Form "Invitar Colaborador": Email + Rol + Acceso a Cajas y Ubicaciones
+  (checkboxes por sucursal/caja) + Cajas fuertes + Puntos de Venta +
+  Visibilidad de datos (`Ubicaciones asignadas` / global) + Descuento Máximo
+  + Comisión.
+- **Aplica a:** modelo de permisos B (no solo roles globales — también scope
+  por caja/ubicación/PdV).
+
+**Medios de pago con planes de cuotas (Fase F)**
+- Form: Nombre, Disponibilidad (online/presencial), Comisión %, Comisión
+  Fija $, toggle "Requiere Referencia", lista de Planes de cuotas (3, 6, 12)
+  con coeficiente.
+
+**Campos personalizados genéricos**
+- Sistema: Nombre, Descripción, Tipo (texto/número/select/etc.),
+  Validaciones (Obligatorio toggle, Long mín/máx). Permite extender
+  entidades sin migrar schema. Pensar para C (Clientes) y G (Flota) —
+  postergado hasta tener al menos un caso real que lo justifique.
+
+**Integraciones**
+- Listado simple con ícono + nombre + chevron + sección "Próximamente".
+  Plantilla útil para conectores AFIP/Inngest.
+
+**Detalles de estilo**
+- Botones primarios negro sólido pill (`rounded-full`), secundarios outline.
+- Badges pill grises (`Activa`, `Por defecto`, `Beta`).
+- Soporte light + dark mode (oklch ya cubre).
+- Empty states con texto centrado gris ("No hay X configurados…").
+- Paginación pie de tabla: "Página 1 de 1" + flechas + "0 de 1 fila
+  seleccionadas".
+
 ---
 
 ## 2. Convenciones de trabajo
@@ -338,21 +422,30 @@ Configurar:
 - `tsconfig.json`: `strict: true`, `noUncheckedIndexedAccess: true`, paths `@/*`.
 - `.gitignore`: `.env*`, `node_modules`, `.next`, `supabase/.env`, `.DS_Store`, `lib/db/database.types.ts.bak`.
 
-#### A.2 — `chore: tooling — vitest, eslint flat config, prettier, husky, ci` (1 PR)
+#### A.2 — `chore: tooling — vitest, eslint flat config, prettier, husky, ci` (split en 2 PRs)
 
-- `vitest.config.ts` con alias `@/*`.
-- `eslint.config.mjs` flat config + `eslint-config-next`. Reglas extra:
-  - `@typescript-eslint/no-explicit-any`: error.
-  - `no-restricted-syntax`: bloquear `as any`.
-- `.prettierrc`: `{ "singleQuote": false, "trailingComma": "all" }`.
-- Scripts: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `test:watch`, `format`, `db:types:generate`, `db:types:check`.
-- **Husky**:
-  ```bash
-  pnpm add -D husky lint-staged
-  pnpm exec husky init
-  ```
-  - `.husky/pre-commit`: `pnpm exec lint-staged`.
-  - `.husky/pre-push`: regenera tipos si hay nuevas migrations + corre tests.
+**Estado actual (reconciliado 2026-05-08 con el repo real):**
+
+✅ **Hecho** (parte mergeada en A.1, parte en PR #2 `9bc1d9c`, parte ya
+instalado en `package.json` aunque no documentado):
+- ESLint flat config (`eslint.config.mjs`) con `@typescript-eslint/no-explicit-any: error` y los desactivados de Next 16 / React 19 que pegan con shadcn.
+- CI workflow (`.github/workflows/ci.yml`) — lint + typecheck + build sobre PRs y push a main.
+- Claude PR review workflow (`.github/workflows/claude-review.yml`) — extra, fuera del plan original.
+- Deps de tooling instaladas: `prettier`, `vitest`, `husky`, `lint-staged`, `@testing-library/{react,dom}`, `@vitejs/plugin-react`, `jsdom`.
+- Scripts en `package.json`: `lint`, `format`, `format:check`, `typecheck`, `test`, `test:watch`, `db:types:generate`, `prepare` (husky).
+- Husky inicializado (`.husky/_/` con stubs estándar).
+
+⏳ **Instalado pero sin configurar** — falta el archivo de config y/o el hook concreto:
+- **Prettier** — sin `.prettierrc` ni `.prettierignore`. `pnpm format:check` falla en 25 archivos shadcn (no usan punto y coma) — hay que decidir entre adaptar el config (`semi: false`) o correr `format --write` y dejar la base alineada al estilo Prettier por default. La opción "no config + write all" pierde el estilo shadcn; la opción "config sin semi" deja todo el código sin `;`. Pendiente decidir cuando moleste; mientras tanto el CI no ejecuta `format:check`.
+- **Vitest** — sin `vitest.config.ts`. Llega con el primer test (A.4 logger o B.2 withAuth).
+- **Husky hooks** — el directorio existe pero `pre-commit` y `pre-push` no están escritos. Pendiente: `pre-commit: pnpm exec lint-staged`. `pre-push: regenera tipos si hay nuevas migrations + corre tests`.
+- **lint-staged** — sin `lint-staged.config.mjs`.
+
+❌ **No hecho** — entran cuando aparezca el caso de uso:
+- `migration-order-check.yml` workflow → con B.1 (primera migración real).
+- Scripts: `db:types:check` → con A.7. (`db:types:generate` ya existe pero apunta a `scripts/db-types.sh` que tampoco está creado todavía.)
+
+Refs originales del scope completo (para cuando se retomen):
 - `lint-staged.config.mjs`:
   ```js
   export default {
@@ -360,8 +453,8 @@ Configurar:
     "*.{json,md}": ["prettier --write"],
   };
   ```
-- `.github/workflows/ci.yml`: jobs `check` (lint + typecheck + test + types-drift) y `build`. Setup pnpm via `pnpm/action-setup@v4`, cache `'pnpm'`.
-- `.github/workflows/migration-order-check.yml`: verifica timestamps de migraciones nuevas. Ver el yaml completo en `docs/sumary-frontend-patterns.md` §4.2.
+- `.prettierrc`: `{ "singleQuote": false, "trailingComma": "all" }`.
+- `.github/workflows/migration-order-check.yml`: ver yaml completo en `docs/sumary-frontend-patterns.md` §4.2.
 
 #### A.3 — `feat: base layout — sticky topbar, sidebar with cookie, theme toggle` (1 PR)
 
@@ -373,6 +466,10 @@ Configurar:
 - `components/providers/scope-provider.tsx`: context para `division` + `fiscal_filter` con persistencia localStorage.
 - Tipografía y paleta de §1.2 cargadas en `app/globals.css`.
 - `Toaster` de sonner en root layout.
+- **Convención global de CRUD:** `Dialog` centrado de shadcn (no `Sheet`
+  derecho — preferencia confirmada 2026-05-08, en contra del patrón de La
+  Pyme observado en §1.8). Header con título+descripción, footer con
+  primario "Crear" + secundario "Guardar y crear otra ⌘Enter" + Cancelar.
 
 #### A.4 — `feat: logger with secret redaction + observability stub` (1 PR)
 
