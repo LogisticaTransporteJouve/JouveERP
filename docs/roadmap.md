@@ -437,7 +437,7 @@ instalado en `package.json` aunque no documentado):
 
 ⏳ **Instalado pero sin configurar** — falta el archivo de config y/o el hook concreto:
 - **Prettier** — sin `.prettierrc` ni `.prettierignore`. `pnpm format:check` falla en 25 archivos shadcn (no usan punto y coma) — hay que decidir entre adaptar el config (`semi: false`) o correr `format --write` y dejar la base alineada al estilo Prettier por default. La opción "no config + write all" pierde el estilo shadcn; la opción "config sin semi" deja todo el código sin `;`. Pendiente decidir cuando moleste; mientras tanto el CI no ejecuta `format:check`.
-- **Vitest** — sin `vitest.config.ts`. Llega con el primer test (A.4 logger o B.2 withAuth).
+- ✅ **Vitest** — `vitest.config.ts` agregado en A.4 (PR del logger). Alias `@/*`, env `node`. CI corre `pnpm test`.
 - **Husky hooks** — el directorio existe pero `pre-commit` y `pre-push` no están escritos. Pendiente: `pre-commit: pnpm exec lint-staged`. `pre-push: regenera tipos si hay nuevas migrations + corre tests`.
 - **lint-staged** — sin `lint-staged.config.mjs`.
 
