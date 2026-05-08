@@ -1,0 +1,48 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude-review:
+    name: Review PR with Claude
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review este PR del codebase JouveERP (Next.js 16 App Router + React 19 +
+            TypeScript strict + Tailwind v4 + shadcn, paleta monocromática oklch).
+
+            Convenciones del proyecto:
+            - Server Components por default; Client Components solo cuando hay estado/efectos.
+            - Server Actions sobre API routes para mutaciones.
+            - Validación con Zod en bordes (entrada de actions, fetchers externos).
+            - Sin `any` implícito ni explícito (regla ESLint activa).
+            - Sin colores de marca: solo tokens del design system (oklch hue=0).
+            - Conventional commits.
+
+            Focos de review:
+            - Correctness y type safety (estrechar tipos, evitar `as` innecesarios).
+            - Seguridad: secrets, RLS de Supabase, validación de entrada.
+            - Performance: client/server boundary, memoization solo si justifica.
+            - Errores: manejo en bordes únicamente, no defensivo.
+
+            Sé conciso. Reportá issues concretos con `file:line`. No felicites, no comentes nits.
+            Si el PR está limpio, decilo en una línea.
