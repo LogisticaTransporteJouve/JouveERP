@@ -96,9 +96,8 @@ export function ConfigurePosDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <Settings className="size-3.5" />
-          Configurar
+        <Button variant="ghost" size="icon" aria-label="Configurar">
+          <Settings className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
