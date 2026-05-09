@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Receipt,
+  ReceiptText,
   Search,
   ShieldCheck,
   Users,
@@ -46,6 +47,12 @@ const navItems: NavItem[] = [
     label: "Clientes",
     icon: Users,
     permission: "clients:read",
+  },
+  {
+    href: "/comprobantes",
+    label: "Comprobantes",
+    icon: ReceiptText,
+    permission: "invoices:read",
   },
   {
     href: "/admin/users",
