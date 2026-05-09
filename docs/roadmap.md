@@ -363,6 +363,16 @@ Solo importa de:
 - `@/hooks/*` (globales)
 - otras features → **prohibido** (rompe el límite). Si hace falta, se sube a `@/lib/`.
 
+### 2.9 Hooks primero, lógica inline después
+
+Antes de inlinear state machines / effects / async flows en un componente, **evaluar si existe (o tiene que existir) un hook reutilizable**. Reglas:
+
+- Patrones project-wide (paginación, intersection observer, debounce, URL ↔ state, formato de fechas) → `hooks/use-*.ts`.
+- Patrones de un feature (verify-CUIT, alta de comprobante, etc.) → `features/<feature>/hooks/use-*.ts`.
+- Inlinear sólo cuando la lógica es genuinamente one-off y no escala.
+
+Esto previene reimplementar el mismo patrón en cada tabla/form/dialog cuando llegan transactions, comprobantes, cobranzas, viajes, pallets.
+
 ---
 
 ## 3. Roadmap por fases
@@ -622,16 +632,32 @@ Smoke local verificado:
 - Tests: `lib/rate-limit.test.ts` (allow/deny, ventana alineada, fail-closed); `lib/afip/padron.test.ts` (mapper, prioridad VAT > Mono > Exempt > no_categorizado, asArray, fiscal-address preference).
 - Stub `tests/stubs/server-only.ts` aliased en vitest: `import "server-only"` ya no rompe los tests.
 
-#### C.3 — `feat: clients UI (list + form with verify-CUIT + similar dialog)` (1 PR)
+#### C.3 — `feat: clients UI (list, form with verify-CUIT, edit, deactivate)` ✅ shipped
 
-- `features/clients/actions/clients-actions.ts`: `getClients`, `getClient`, `createClient` (`{status: 'created'|'needs_confirmation'}`), `updateClient`, `deactivateClient`, `findSimilarClients`.
-- Hooks `useClients`, `useClient`.
-- `features/clients/components/clients-table.tsx`, `client-form.tsx`, `similar-clients-dialog.tsx`.
-- Cliente fiscal: gate inicial CUIT + verify. Internal: form completo.
-- Threshold fuzzy **0.5**, solo si `cuit` is null.
-- Páginas `/clients`, `/clients/new`, `/clients/[id]`.
+- Migración `20260509120000_clients_search.sql`:
+  - `create extension pg_trgm`.
+  - GIN trigram indexes sobre `lower(legal_name)` y `lower(coalesce(display_name, ''))`.
+  - RPC `search_clients(p_query, p_only_active, p_limit) returns setof clients` — ranking por similitud trigram + LIKE prefix por CUIT, fallback a listado completo cuando `query=''`. `security invoker` para que respete RLS.
+- `features/clients/actions/clients-actions.ts` extendido: `searchClientsAction({ query, onlyActive, limit })`, `getClientByIdAction(id)`, `findClientByCuitAction(cuit)` (devuelve null cuando no existe — usado por la alta para detectar duplicados antes de pegarle a AFIP).
+- Páginas:
+  - `/clientes` (server) — lee `?q=` y `?inactive=1` de la URL, renderiza `ClientsTable`.
+  - `/clientes/nuevo` (server, gate `clients:write`) — `ClientForm mode="create"`.
+  - `/clientes/[id]` (server, gate `clients:read`) — `ClientForm mode="edit"` para escritores; vista read-only para `operations`.
+- Componentes:
+  - `clients-table.tsx`: TanStack Table feel (search debounced 250 ms que pushea URL via `router.replace`, toggle "Solo activos", badges por condición IVA con paleta neutra, dropdown de acciones con desactivar/reactivar via `setClientActiveAction`).
+  - `client-form.tsx`: RHF, botón "Verificar AFIP" que (1) checkea duplicados con `findClientByCuitAction` y muestra link a la ficha existente, (2) si no existe llama `verifyCuitAction` y autocompleta razón social, condición IVA, dirección. Toast de sonner en éxito/error. CUIT bloqueado en modo edit.
+  - Nuevo `Textarea` primitive en `components/ui/textarea.tsx`.
+- Sidebar: entry "Clientes" con icono Users, gate `clients:read`.
+- Decisión: la validación inline con `zodResolver` queda diferida — el `ClientCreateSchema` tiene `transform`/`nullable`/`optional` que rompen la inferencia de tipos contra `useForm<FormValues>`. La validación server-side via `createClientAction.safeParse` cubre el caso y los errores se muestran por toast. Si más adelante queremos validación inline, hay que separar un `ClientFormSchema` plano (todos `z.string()`).
+- `find_similar_clients` que estaba en el plan original queda fuera porque el modelo actual exige CUIT obligatorio único — ya no hay caso "alta sin CUIT" que necesite fuzzy match para deduplicar. La búsqueda fuzzy se usa en la lista vía `search_clients`, que ya cubre tipeos.
 
-**PRs Fase C: 3.**
+#### C.4 — _diferido_: columnas parseadas de domicilio + filtro por ciudad
+
+- Agregar `fiscal_city`, `fiscal_province`, `fiscal_postal_code` (parseados desde `fiscal_address` de AFIP) al `clients`. Decisión pendiente: ¿filtramos por **ciudad fiscal** (AFIP) o por **ciudad real** (la que carga el usuario)? Si es la real, hay que pensar cómo parsear o cómo pedir city/province/cp como campos separados en el form de "Domicilio real".
+- Columna nueva "Ciudad" en la tabla, con su `Combobox` filtro alimentado por `list_client_cities()` RPC.
+- Backfill: cuando un cliente seedeado se "Verifica AFIP" se autocompletan las columnas. Migración + endpoint para refrescar bulk si llega a hacer falta.
+
+**PRs Fase C: 3 (+ C.4 diferido).**
 
 ---
 
@@ -758,9 +784,9 @@ I.1 vercel ai sdk + claude + prompt caching · I.2 OCR remitos · I.3 categoriza
 
 ### Fase J — Hardening (continuo)
 
-J.1 full-text search · J.2 backup drills · J.3 storage polimorfo · J.4 notificaciones · J.5 portal cliente · J.6 aprobaciones · J.7 indexación tarifas + multimoneda · J.8 CITI + CAEA.
+J.1 full-text search · J.2 backup drills · J.3 storage polimorfo · J.4 notificaciones · J.5 portal cliente · J.6 aprobaciones · J.7 indexación tarifas + multimoneda · J.8 CITI + CAEA · **J.9 loading/error/not-found UX**: revisar si vale la pena agregar `loading.tsx` + `error.tsx` + `not-found.tsx` por ruta. Hoy se decidió no aplicarlo (el flash en dev no justifica el ruido); volver acá cuando haya users reales y conexiones lentas en juego, o cuando una page tenga awaits pesados.
 
-**PRs Fase J: 8.**
+**PRs Fase J: 9.**
 
 ---
 

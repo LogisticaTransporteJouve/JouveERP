@@ -52,6 +52,12 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Ingresando…" : "Ingresar"}
       </Button>
+      {process.env.NODE_ENV !== "production" && (
+        <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+          <p className="font-medium">Credenciales de test (sólo dev)</p>
+          <p className="font-mono">tomas@jouve.test · Test1234!</p>
+        </div>
+      )}
     </form>
   );
 }

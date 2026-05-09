@@ -116,6 +116,7 @@ export type Database = {
           legal_name: string
           notes: string | null
           phone: string | null
+          real_address: string | null
           updated_at: string
         }
         Insert: {
@@ -131,6 +132,7 @@ export type Database = {
           legal_name: string
           notes?: string | null
           phone?: string | null
+          real_address?: string | null
           updated_at?: string
         }
         Update: {
@@ -146,6 +148,7 @@ export type Database = {
           legal_name?: string
           notes?: string | null
           phone?: string | null
+          real_address?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -298,6 +301,36 @@ export type Database = {
           p_window_start: string
         }
         Returns: number
+      }
+      search_clients: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_only_active?: boolean
+          p_query: string
+        }
+        Returns: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          real_address: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "clients"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

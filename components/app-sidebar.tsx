@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut, ShieldCheck, Search } from "lucide-react";
+import { LayoutDashboard, LogOut, ShieldCheck, Search, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +33,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/clientes",
+    label: "Clientes",
+    icon: Users,
+    permission: "clients:read",
+  },
   {
     href: "/admin/users",
     label: "Usuarios",
