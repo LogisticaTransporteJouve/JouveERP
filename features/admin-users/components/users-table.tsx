@@ -35,14 +35,9 @@ const ROLE_LABEL: Record<Role, string> = {
   driver: "Chofer",
 };
 
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/Argentina/Buenos_Aires",
-  }).format(new Date(value));
-}
+import { formatArgentineDateTime } from "@/lib/format";
+
+const formatDate = formatArgentineDateTime;
 
 export function UsersTable({
   users,

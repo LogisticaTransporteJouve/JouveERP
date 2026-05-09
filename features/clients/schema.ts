@@ -69,6 +69,7 @@ const baseClientFields = {
   email: emailNullable,
   phone: phoneNullable,
   address: trimmedNullable,
+  real_address: trimmedNullable,
   notes: trimmedNullable,
 };
 
@@ -84,6 +85,7 @@ export const ClientUpdateSchema = z
     email: baseClientFields.email,
     phone: baseClientFields.phone,
     address: baseClientFields.address,
+    real_address: baseClientFields.real_address,
     notes: baseClientFields.notes,
   });
 

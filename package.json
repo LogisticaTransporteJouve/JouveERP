@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "db:types:generate": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types-check.sh",
+    "seed:dev": "node scripts/seed-dev-user.mjs",
     "prepare": "husky"
   },
   "dependencies": {

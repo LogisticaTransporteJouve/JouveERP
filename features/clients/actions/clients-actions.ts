@@ -72,7 +72,7 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, notes, is_active, created_by, created_at, updated_at",
+      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
     )
     .order("legal_name");
 
@@ -86,6 +86,112 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
     .filter((row): row is Client => row !== null);
 
   return { ok: true, data: clients };
+}
+
+export type SearchClientsInput = {
+  query?: string;
+  onlyActive?: boolean;
+  offset?: number;
+  limit?: number;
+};
+
+export type SearchClientsPage = {
+  clients: Client[];
+  nextOffset: number | null;
+};
+
+export async function searchClientsAction(
+  input: SearchClientsInput = {},
+): Promise<ActionResult<SearchClientsPage>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:read")) {
+    return { ok: false, error: "No tenés permiso para ver clientes." };
+  }
+
+  const offset = Math.max(0, input.offset ?? 0);
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 200));
+
+  const supabase = await createSupabaseClient();
+  // Fetch limit+1 to detect whether another page exists without a separate
+  // count round-trip.
+  const { data, error } = await supabase.rpc("search_clients", {
+    p_query: (input.query ?? "").trim(),
+    p_only_active: input.onlyActive ?? true,
+    p_offset: offset,
+    p_limit: limit + 1,
+  });
+
+  if (error) {
+    logger.error("clients.search.failed", { error });
+    return { ok: false, error: "No se pudo buscar clientes." };
+  }
+
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const clients = rows
+    .slice(0, limit)
+    .map((row) => narrowClient(row))
+    .filter((row): row is Client => row !== null);
+
+  return {
+    ok: true,
+    data: { clients, nextOffset: hasMore ? offset + limit : null },
+  };
+}
+
+export async function getClientByIdAction(
+  id: string,
+): Promise<ActionResult<Client | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:read")) {
+    return { ok: false, error: "No tenés permiso para ver clientes." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .select(
+      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("clients.get.failed", { id, error });
+    return { ok: false, error: "No se pudo cargar el cliente." };
+  }
+
+  return { ok: true, data: data ? narrowClient(data) : null };
+}
+
+export async function findClientByCuitAction(
+  cuit: string,
+): Promise<ActionResult<Client | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:read")) {
+    return { ok: false, error: "No tenés permiso para ver clientes." };
+  }
+
+  const cuitClean = cuit.replace(/[^0-9]/g, "");
+  if (!/^[0-9]{11}$/.test(cuitClean)) {
+    return { ok: true, data: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .select(
+      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+    )
+    .eq("cuit", cuitClean)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("clients.find_by_cuit.failed", { error });
+    return { ok: false, error: "No se pudo buscar el cliente por CUIT." };
+  }
+
+  return { ok: true, data: data ? narrowClient(data) : null };
 }
 
 export async function createClientAction(
@@ -113,6 +219,7 @@ export async function createClientAction(
       email: parsed.data.email ?? null,
       phone: parsed.data.phone ?? null,
       address: parsed.data.address ?? null,
+      real_address: parsed.data.real_address ?? null,
       notes: parsed.data.notes ?? null,
       created_by: ctx.userId,
     })
@@ -168,6 +275,9 @@ export async function updateClientAction(
       ...(rest.email !== undefined && { email: rest.email ?? null }),
       ...(rest.phone !== undefined && { phone: rest.phone ?? null }),
       ...(rest.address !== undefined && { address: rest.address ?? null }),
+      ...(rest.real_address !== undefined && {
+        real_address: rest.real_address ?? null,
+      }),
       ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
     })
     .eq("id", id);
@@ -186,6 +296,88 @@ export async function updateClientAction(
     { fields: Object.keys(rest) as JsonValue[] },
     id,
   );
+  revalidatePath(CLIENTS_PATH);
+  return { ok: true, data: undefined };
+}
+
+export type ClientReferences = {
+  total: number;
+  details: Record<string, number>;
+};
+
+/**
+ * Counts referencing rows across known dependent tables. Until invoices,
+ * receipts, etc land in later phases, the count is always zero — but the
+ * DeleteClientDialog already routes through this so adding new tables only
+ * means extending the map below.
+ */
+export async function getClientReferencesAction(
+  id: string,
+): Promise<ActionResult<ClientReferences>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:read")) {
+    return { ok: false, error: "No tenés permiso para ver clientes." };
+  }
+
+  // Each entry: { table, column } where column is the FK to clients.id.
+  const dependents: Array<{ table: string; column: string }> = [
+    // { table: "invoices", column: "client_id" }, // C.x
+    // { table: "receipts", column: "client_id" }, // C.x
+  ];
+
+  const supabase = await createSupabaseClient();
+  const details: Record<string, number> = {};
+  let total = 0;
+
+  for (const dep of dependents) {
+    const { count, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from(dep.table as any)
+      .select("*", { count: "exact", head: true })
+      .eq(dep.column, id);
+    if (error) {
+      logger.warn("clients.refs.count_failed", {
+        table: dep.table,
+        err: error.message,
+      });
+      continue;
+    }
+    if (count && count > 0) {
+      details[dep.table] = count;
+      total += count;
+    }
+  }
+
+  return { ok: true, data: { total, details } };
+}
+
+export async function deleteClientAction(id: string): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:write")) {
+    return { ok: false, error: "No tenés permiso para eliminar clientes." };
+  }
+
+  const refs = await getClientReferencesAction(id);
+  if (!refs.ok) return refs;
+  if (refs.data.total > 0) {
+    return {
+      ok: false,
+      error:
+        "El cliente tiene movimientos asociados. Desactivalo en lugar de eliminarlo.",
+    };
+  }
+
+  // RLS deliberately blocks DELETE on clients (see migration C.1). Use the
+  // service-role client now that we've validated permissions and refs.
+  const service = getServiceClient();
+  const { error } = await service.from("clients").delete().eq("id", id);
+
+  if (error) {
+    logger.error("clients.delete.failed", { id, error });
+    return { ok: false, error: "No se pudo eliminar el cliente." };
+  }
+
+  await logAudit("client.deleted", ctx.userId, {}, id);
   revalidatePath(CLIENTS_PATH);
   return { ok: true, data: undefined };
 }
