@@ -153,6 +153,201 @@ export type Database = {
         }
         Relationships: []
       }
+      comprobante_items: {
+        Row: {
+          comprobante_id: string
+          created_at: string
+          description: string
+          id: string
+          iva_rate_id: number | null
+          line_iva: number
+          line_neto: number
+          line_total: number
+          quantity: number
+          sort_order: number
+          unit_price: number
+        }
+        Insert: {
+          comprobante_id: string
+          created_at?: string
+          description: string
+          id?: string
+          iva_rate_id?: number | null
+          line_iva?: number
+          line_neto: number
+          line_total: number
+          quantity: number
+          sort_order?: number
+          unit_price: number
+        }
+        Update: {
+          comprobante_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          iva_rate_id?: number | null
+          line_iva?: number
+          line_neto?: number
+          line_total?: number
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobante_items_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comprobantes: {
+        Row: {
+          afip_observaciones: Json | null
+          cae: string | null
+          cae_vencimiento: string | null
+          cbte_tipo_afip: number | null
+          cbte_tipo_origen_afip: number | null
+          channel_id: string
+          client_id: string
+          comprobante_origen_id: string | null
+          concepto: number
+          cotizacion: number
+          created_at: string
+          created_by: string | null
+          doc_nro: string
+          doc_tipo: number
+          emitted_at: string | null
+          fch_serv_desde: string | null
+          fch_serv_hasta: string | null
+          fch_vto_pago: string | null
+          fecha: string
+          id: string
+          idempotency_key: string
+          imp_iva: number
+          imp_neto: number
+          imp_op_ex: number
+          imp_tot_conc: number
+          imp_total: number
+          imp_trib: number
+          iva_condition_receptor: number | null
+          kind: string
+          letter: string | null
+          moneda: string
+          motivo_nc_nd: string | null
+          notified_at: string | null
+          numero: number
+          pdf_url: string | null
+          punto_venta: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          afip_observaciones?: Json | null
+          cae?: string | null
+          cae_vencimiento?: string | null
+          cbte_tipo_afip?: number | null
+          cbte_tipo_origen_afip?: number | null
+          channel_id: string
+          client_id: string
+          comprobante_origen_id?: string | null
+          concepto: number
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          doc_nro: string
+          doc_tipo: number
+          emitted_at?: string | null
+          fch_serv_desde?: string | null
+          fch_serv_hasta?: string | null
+          fch_vto_pago?: string | null
+          fecha: string
+          id?: string
+          idempotency_key: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_op_ex?: number
+          imp_tot_conc?: number
+          imp_total: number
+          imp_trib?: number
+          iva_condition_receptor?: number | null
+          kind: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notified_at?: string | null
+          numero: number
+          pdf_url?: string | null
+          punto_venta: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          afip_observaciones?: Json | null
+          cae?: string | null
+          cae_vencimiento?: string | null
+          cbte_tipo_afip?: number | null
+          cbte_tipo_origen_afip?: number | null
+          channel_id?: string
+          client_id?: string
+          comprobante_origen_id?: string | null
+          concepto?: number
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          doc_nro?: string
+          doc_tipo?: number
+          emitted_at?: string | null
+          fch_serv_desde?: string | null
+          fch_serv_hasta?: string | null
+          fch_vto_pago?: string | null
+          fecha?: string
+          id?: string
+          idempotency_key?: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_op_ex?: number
+          imp_tot_conc?: number
+          imp_total?: number
+          imp_trib?: number
+          iva_condition_receptor?: number | null
+          kind?: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notified_at?: string | null
+          numero?: number
+          pdf_url?: string | null
+          punto_venta?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobantes_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_comprobante_origen_id_fkey"
+            columns: ["comprobante_origen_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoicing_channels: {
         Row: {
           business_unit_id: string
