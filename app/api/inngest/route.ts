@@ -1,6 +1,7 @@
 import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
+import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 
 /**
  * Inngest webhook endpoint. The dev runtime (`inngest-cli dev`) and the
@@ -12,5 +13,5 @@ import { inngest } from "@/lib/inngest/client";
  */
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [],
+  functions: [issueInvoice],
 });
