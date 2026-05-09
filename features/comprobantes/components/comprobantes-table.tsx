@@ -1,9 +1,11 @@
 "use client";
 
+import { Download, Eye } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ChangeEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -33,12 +35,46 @@ import {
   type ComprobanteListItem,
 } from "../actions/comprobantes-actions";
 import {
-  COMPROBANTE_KIND_LABEL,
   COMPROBANTE_STATUSES,
   COMPROBANTE_STATUS_LABEL,
   type ComprobanteStatus,
 } from "../schema";
 import { NewComprobanteDialog } from "./new-comprobante-dialog";
+import { PdfViewerDialog } from "./pdf-viewer-dialog";
+
+// Argentine convention: letter prefix glued to the number, 5 digits punto
+// de venta + dash + 8 digits sequential.
+//   Factura A → "A00003-00000002"
+//   NC B     → "NC-B 00003-00000005"
+//   ND A     → "ND-A 00003-00000010"
+//   Interno  → just "00003-00000002"
+function formatNumero(row: ComprobanteListItem): string {
+  const number =
+    row.numero == null
+      ? "—"
+      : `${String(row.punto_venta).padStart(5, "0")}-${String(row.numero).padStart(8, "0")}`;
+  if (!row.letter) return number;
+  if (row.kind === "factura") return `${row.letter}${number}`;
+  const prefix = row.kind === "nc" ? `NC-${row.letter}` : `ND-${row.letter}`;
+  return `${prefix} ${number}`;
+}
+
+// Sanitize a string for use in a filename across OSes. Strips characters
+// that Windows/macOS/Linux handle differently and collapses whitespace.
+function safeFilenamePart(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "") // illegal on Windows
+    .replace(/[,;]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatPdfFilename(row: ComprobanteListItem): string {
+  const numero = formatNumero(row);
+  const client = safeFilenamePart(row.client_legal_name);
+  return `${numero} - ${client}.pdf`;
+}
 
 const PAGE_SIZE = 50;
 const ANY_STATUS = "__any__";
@@ -174,7 +210,7 @@ export function ComprobantesTable({
         </Select>
 
         <Input
-          placeholder="Buscar por cliente o número"
+          placeholder="Buscar por cliente o factura"
           value={queryInput}
           onChange={onSearchChange}
           className="max-w-md flex-1"
@@ -191,12 +227,12 @@ export function ComprobantesTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead>
+              <TableHead>Factura</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Tipo</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead className="w-32 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -235,45 +271,71 @@ export function ComprobantesTable({
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-mono text-xs">
-                    <Link
-                      href={`/comprobantes/${row.id}`}
-                      className="hover:underline"
-                    >
-                      {row.numero == null
-                        ? "—"
-                        : `${String(row.punto_venta).padStart(5, "0")}-${String(row.numero).padStart(8, "0")}`}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {row.client_legal_name}
-                  </TableCell>
-                  <TableCell>
-                    {row.channel_is_fiscal && row.letter
-                      ? `${COMPROBANTE_KIND_LABEL[row.kind]} ${row.letter}`
-                      : COMPROBANTE_KIND_LABEL[row.kind]}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatArgentineDate(row.fecha)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    ${row.imp_total.toLocaleString("es-AR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={STATUS_TONE[row.status]}
-                    >
-                      {COMPROBANTE_STATUS_LABEL[row.status]}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
+              items.map((row) => {
+                const hasPdf = row.status === "emitted";
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-mono text-xs">
+                      {formatNumero(row)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {row.client_legal_name}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatArgentineDate(row.fecha)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      ${row.imp_total.toLocaleString("es-AR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={STATUS_TONE[row.status]}
+                      >
+                        {COMPROBANTE_STATUS_LABEL[row.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Ver detalle"
+                        >
+                          <Link href={`/comprobantes/${row.id}`}>
+                            <Eye className="size-4" />
+                          </Link>
+                        </Button>
+                        {hasPdf && (
+                          <>
+                            <PdfViewerDialog
+                              id={row.id}
+                              label={formatNumero(row)}
+                            />
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Descargar PDF"
+                            >
+                              <a
+                                href={`/api/comprobantes/${row.id}/pdf`}
+                                download={formatPdfFilename(row)}
+                              >
+                                <Download className="size-4" />
+                              </a>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

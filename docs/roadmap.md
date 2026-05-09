@@ -806,7 +806,16 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - Sin QR, sin CAE.
 - UI: el form esconde letra y discriminación IVA; copy "Sin valor fiscal — solo para registro interno".
 
-**PRs Fase E: 7 (E.1 + E.1.5 ya shipped en PR #14).**
+#### E.8 — `feat: row actions + realtime para la tabla de comprobantes` (1 PR)
+
+> Mejoras de UX que aparecieron probando E.6 con datos reales. Llegan
+> juntas porque tocan el mismo componente y la misma columna de acciones.
+
+- **Row actions** (~80 LOC): icono "ojo" → link al detalle, icono "PDF" → abre `/api/comprobantes/[id]/pdf` (sólo cuando `pdf_url` está poblado o `status='emitted'`). Reemplaza/complementa el click en el número como única forma de acceso.
+- **Supabase Realtime** (~150 LOC): subscripción a `public.comprobantes` con filtro por canal en alcance. Cuando otro usuario emite (o el workflow Inngest persiste el CAE), la tabla refresca la fila afectada vía `queryClient.setQueryData` sin re-fetch completo. Pattern: `realtime.channel('comprobantes:list').on('postgres_changes', { event: '*', schema: 'public', table: 'comprobantes' }, handler).subscribe()`. Anti-patrón #9 ya marca que realtime es para esto exactamente — workflows críticos seguirían en Inngest.
+- Manda el evento `INSERT` para sumar filas nuevas, `UPDATE` para refrescar status/CAE/pdf_url cuando el workflow las flippea de `draft → emitting → emitted`.
+
+**PRs Fase E: 8 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 ya shipped, faltan E.6.5 con tests + E.7 interno + E.8 realtime).**
 
 ---
 

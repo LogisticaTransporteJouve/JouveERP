@@ -69,7 +69,11 @@ export function buildContentSecurityPolicy({
     ]
       .filter(Boolean)
       .join(" "),
-    "frame-ancestors": "'none'",
+    // 'self' (not 'none') so the in-app PDF viewer can iframe
+    // /api/comprobantes/<id>/pdf. Cross-origin framing remains blocked,
+    // and X-Frame-Options: SAMEORIGIN in next.config.ts pins the same rule
+    // for browsers that don't honor frame-ancestors.
+    "frame-ancestors": "'self'",
     "base-uri": "'self'",
     "form-action": "'self'",
     "object-src": "'none'",
