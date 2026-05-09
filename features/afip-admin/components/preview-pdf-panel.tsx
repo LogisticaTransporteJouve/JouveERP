@@ -17,7 +17,7 @@ interface ComprobanteOption {
   kind: string;
   letter: string | null;
   punto_venta: number;
-  numero: number;
+  numero: number | null;
   fecha: string;
   status: string;
   channel_id: string;
@@ -101,7 +101,10 @@ export function PreviewPdfPanel({
 }
 
 function labelFor(c: ComprobanteOption): string {
-  const numero = `${String(c.punto_venta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")}`;
+  const numero =
+    c.numero == null
+      ? `${String(c.punto_venta).padStart(5, "0")}-—`
+      : `${String(c.punto_venta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")}`;
   const letter = c.letter ? `${c.kind} ${c.letter}` : c.kind;
   return `${numero} · ${letter} · ${c.fecha} · ${c.status}`;
 }

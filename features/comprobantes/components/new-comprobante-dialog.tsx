@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -345,15 +344,6 @@ function NewComprobanteForm({
       <div className="space-y-2">
         <Label>Cliente</Label>
         <ClientPicker value={client} onChange={setClient} />
-        {client && letter && (
-          <Alert>
-            <AlertTitle>Letra del comprobante: {letter}</AlertTitle>
-            <AlertDescription>
-              Calculada según la condición IVA del cliente
-              ({client.iva_condition.replace(/_/g, " ")}).
-            </AlertDescription>
-          </Alert>
-        )}
       </div>
 
       {/* Items */}

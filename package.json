@@ -16,6 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "db:types:generate": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types-check.sh",
     "seed:dev": "node scripts/seed-dev-user.mjs",
@@ -36,6 +38,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@react-pdf/renderer": "^4.5.1",
+    "@sentry/nextjs": "^10.52.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.90.21",
@@ -59,6 +62,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.1.0",

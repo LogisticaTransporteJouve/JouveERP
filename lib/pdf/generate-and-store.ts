@@ -118,6 +118,13 @@ export async function buildTemplateData(
   if (!channel) throw new Error("Comprobante missing channel relation.");
   if (!client) throw new Error("Comprobante missing client relation.");
 
+  if (row.numero == null) {
+    throw new Error(
+      "Comprobante sin número asignado — esperá a que reserve-numero termine.",
+    );
+  }
+  const numero: number = row.numero;
+
   const { data: bu, error: buErr } = await supabase
     .from("business_units")
     .select(
@@ -171,7 +178,7 @@ export async function buildTemplateData(
       cuit: bu?.cuit ?? "",
       ptoVta: row.punto_venta,
       tipoCmp: row.cbte_tipo_afip,
-      nroCmp: row.numero,
+      nroCmp: numero,
       importe: Number(row.imp_total),
       moneda: row.moneda,
       ctz: Number(row.cotizacion),
@@ -210,7 +217,7 @@ export async function buildTemplateData(
     kind: row.kind as ComprobanteKind,
     letter: (row.letter as ComprobanteLetter | null) ?? null,
     punto_venta: row.punto_venta,
-    numero: row.numero,
+    numero,
     fecha: row.fecha,
     fch_serv_desde: row.fch_serv_desde,
     fch_serv_hasta: row.fch_serv_hasta,

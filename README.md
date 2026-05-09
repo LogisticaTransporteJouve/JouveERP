@@ -47,6 +47,23 @@ Si no tocás workflows en una sesión, podés saltearte el terminal 3 — los
 endpoints siguen funcionando, solo que `inngest.send(...)` no dispara nada
 hasta que el dev runtime esté arriba.
 
+## Tests
+
+```bash
+# Unit + integration (Vitest)
+pnpm test
+
+# E2E (Playwright). Requiere `pnpm dev` corriendo en otra terminal.
+pnpm test:e2e
+
+# E2E con UI interactiva (panel de Playwright)
+pnpm test:e2e:ui
+```
+
+Las E2E usan el usuario seedeado por `pnpm seed:dev` (`tomas@jouve.test` /
+`Test1234!` por default). Si querés sobreescribir, exportá `E2E_USER_EMAIL`
+y `E2E_USER_PASSWORD` antes de correr.
+
 ## Convenciones
 
 - Conventional Commits en inglés (`feat:`, `fix:`, `chore:`, `docs:`).

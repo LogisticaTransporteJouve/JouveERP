@@ -194,7 +194,6 @@ export function ComprobantesTable({
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Tipo</TableHead>
-              <TableHead>Canal</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead>Estado</TableHead>
@@ -204,7 +203,7 @@ export function ComprobantesTable({
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={6}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Cargando…
@@ -213,7 +212,7 @@ export function ComprobantesTable({
             ) : isError ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={6}
                   className="py-10 text-center text-sm text-destructive"
                 >
                   {error instanceof Error ? error.message : "Error al cargar."}{" "}
@@ -229,7 +228,7 @@ export function ComprobantesTable({
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={6}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   No hay comprobantes que coincidan.
@@ -243,8 +242,9 @@ export function ComprobantesTable({
                       href={`/comprobantes/${row.id}`}
                       className="hover:underline"
                     >
-                      {String(row.punto_venta).padStart(5, "0")}-
-                      {String(row.numero).padStart(8, "0")}
+                      {row.numero == null
+                        ? "—"
+                        : `${String(row.punto_venta).padStart(5, "0")}-${String(row.numero).padStart(8, "0")}`}
                     </Link>
                   </TableCell>
                   <TableCell className="font-medium">
@@ -254,9 +254,6 @@ export function ComprobantesTable({
                     {row.channel_is_fiscal && row.letter
                       ? `${COMPROBANTE_KIND_LABEL[row.kind]} ${row.letter}`
                       : COMPROBANTE_KIND_LABEL[row.kind]}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {row.channel_name}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatArgentineDate(row.fecha)}
