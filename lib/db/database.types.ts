@@ -244,7 +244,7 @@ export type Database = {
           moneda: string
           motivo_nc_nd: string | null
           notified_at: string | null
-          numero: number
+          numero: number | null
           pdf_url: string | null
           punto_venta: number
           status: string
@@ -284,7 +284,7 @@ export type Database = {
           moneda?: string
           motivo_nc_nd?: string | null
           notified_at?: string | null
-          numero: number
+          numero?: number | null
           pdf_url?: string | null
           punto_venta: number
           status?: string
@@ -324,7 +324,7 @@ export type Database = {
           moneda?: string
           motivo_nc_nd?: string | null
           notified_at?: string | null
-          numero?: number
+          numero?: number | null
           pdf_url?: string | null
           punto_venta?: number
           status?: string

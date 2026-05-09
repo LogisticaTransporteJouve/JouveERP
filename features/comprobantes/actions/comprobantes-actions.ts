@@ -171,7 +171,7 @@ export async function issueFiscalInvoiceAction(
     letter,
     cbte_tipo_afip: cbteTipoAfip,
     punto_venta: data.punto_venta,
-    numero: 0, // reserved by Inngest step before requestCAE
+    numero: null, // reserved by Inngest step before requestCAE
     fecha: data.fecha,
     fch_serv_desde: data.fch_serv_desde ?? null,
     fch_serv_hasta: data.fch_serv_hasta ?? null,
@@ -248,10 +248,27 @@ export async function issueFiscalInvoiceAction(
     return { ok: false, error: itemsRes.error.message };
   }
 
-  await inngest.send({
-    name: INVOICE_ISSUE_REQUESTED,
-    data: { comprobante_id, idempotency_key },
-  });
+  try {
+    await inngest.send({
+      name: INVOICE_ISSUE_REQUESTED,
+      data: { comprobante_id, idempotency_key },
+    });
+  } catch (err) {
+    // Roll back the draft so the user can retry cleanly. The most common
+    // failure here is "Inngest dev runtime not running" — surface a hint
+    // instead of the bare "fetch failed".
+    await supabase.from("comprobantes").delete().eq("id", comprobante_id);
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    const isFetchFailure =
+      message.toLowerCase().includes("fetch failed") ||
+      message.toLowerCase().includes("econnrefused");
+    return {
+      ok: false,
+      error: isFetchFailure
+        ? "No se pudo despachar el evento a Inngest. Verificá que `inngest-cli dev` esté corriendo en localhost:8288."
+        : `No se pudo despachar el evento a Inngest: ${message}`,
+    };
+  }
 
   return {
     ok: true,
@@ -268,7 +285,7 @@ export interface InvoiceStatus {
   status: ComprobanteRow["status"];
   cae: string | null;
   cae_vencimiento: string | null;
-  numero: number;
+  numero: number | null; // null = draft pending reservation
   punto_venta: number;
   emitted_at: string | null;
   afip_observaciones: unknown;

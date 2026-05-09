@@ -41,4 +41,4 @@ coverage/
 # Test artefacts
 playwright-report/
 test-results/
-playwright/.auth/
+tests/e2e/.auth/

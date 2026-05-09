@@ -32,13 +32,17 @@ export async function GET(
   const previewOnly = url.searchParams.get("preview") === "1";
 
   try {
+    // No `filename` in Content-Disposition: the browser would prefer the
+    // server-supplied name over the `download` attribute on the anchor,
+    // and we set the desired filename (with the comprobante number + the
+    // client name) at the link level.
     if (previewOnly) {
       const data = await buildTemplateData(id);
       const buffer = await renderInvoicePdf(data);
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="comprobante-${id}.pdf"`,
+          "Content-Disposition": "inline",
           "Cache-Control": "no-store",
         },
       });
@@ -48,7 +52,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(result.pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="comprobante-${id}.pdf"`,
+        "Content-Disposition": "inline",
         "Cache-Control": "private, max-age=60",
       },
     });
