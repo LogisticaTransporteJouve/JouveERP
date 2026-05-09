@@ -309,6 +309,24 @@ export const issueInvoice = inngest.createFunction(
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
 
+    // PDF generation runs after persist-cae and is best-effort: a failure
+    // here must NOT mark the row as failed, since the CAE is already valid.
+    // The user can retry generation later via a manual "regenerate PDF"
+    // action (E.6+). Errors get logged + observaciones updated.
+    await step.run("generate-pdf", async () => {
+      try {
+        const { generateAndStoreInvoicePdf } = await import(
+          "@/lib/pdf/generate-and-store"
+        );
+        await generateAndStoreInvoicePdf(comprobante_id);
+      } catch (err) {
+        logger.warn("issue_invoice.pdf_failed", {
+          comprobante_id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
     return {
       cae: cae.cae,
       caeFchVto: cae.caeFchVto,

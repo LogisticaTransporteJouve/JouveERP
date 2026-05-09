@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FileText,
   LayoutDashboard,
   LogOut,
   Receipt,
@@ -62,6 +63,12 @@ const navItems: NavItem[] = [
     href: "/admin/afip/puntos-de-venta",
     label: "Puntos de venta",
     icon: Receipt,
+    permission: "afip:admin",
+  },
+  {
+    href: "/admin/afip/preview-pdf",
+    label: "Preview PDF",
+    icon: FileText,
     permission: "afip:admin",
   },
 ];

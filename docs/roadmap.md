@@ -756,27 +756,39 @@ Smoke local verificado:
 está bien para el caso single-tenant. Se agrega cuando aparezca el caso de
 multi-CUIT o necesitemos rotación on-the-fly.
 
-#### E.3 — `feat: WSFEv1 emission methods (FECompUltimoAutorizado, FECAESolicitar, FECompConsultar)` (1 PR)
+#### E.3 — `feat: WSFEv1 emission methods (FECompUltimoAutorizado, FECAESolicitar, FECompConsultar)` ✅ shipped
 
-- Extiende `lib/afip/wsfev1.ts` con los tres métodos de emisión.
-- Reusa `getAccessTicket('wsfe')` (E.1.5) y la jerarquía de errores.
-- Mapeos `lib/afip/codes.ts`: `iva_condition` → `CondicionIVAReceptorId`, `letter` por combinación emisor/receptor, `iva_rate_id` → alícuota AFIP.
-- `recoverInvoiceCAE(ptoVta, cbteTipo, nro)` que envuelve `FECompConsultar` para el path de recovery.
-- Tests del mapper de códigos + parser de respuestas.
+- `lib/afip/wsfev1.ts` extendido con `getLastAuthorizedNumber`, `requestCAE`, `getVoucherInfo`. Builder XML respeta el orden estricto de campos AFIP (`Concepto → DocTipo → … → MonId → CondicionIVAReceptorId → Iva`), formatea moneda a 2 decimales y fechas a `YYYYMMDD`.
+- Tipos: `InvoiceRequestInput`, `InvoiceCAEResult`, `VoucherInfo`, `InvoiceCbteAsoc`, `InvoiceIvaEntry`, `InvoiceObservation`.
+- `requestCAE` lanza `AfipServiceError` con observaciones cuando `Resultado != 'A'` — el caller no necesita branchear.
+- `getVoucherInfo` devuelve `null` en error 602 (no existe) — habilita el path de recovery de E.4.
+- Tests cubren orden de campos, formato money/fecha, opcionales (`FchServ*`, `CbtesAsoc`, `Iva`).
 
-#### E.4 — `feat: issueInvoice Inngest function (idempotent + recovery via FECompConsultar)` (1 PR)
+#### E.4 — `feat: issueInvoice Inngest function (idempotent + recovery via FECompConsultar)` ✅ shipped
 
-- `lib/inngest/functions/issue-invoice.ts` con steps `reserve-draft → afip-auth → reserve-numero → afip-cae (con recovery) → pdf → notify`.
-- `idempotency: "event.data.idempotency_key"`, `retries: 10`, `throttle: { limit: 30, period: "1m" }`.
-- `onFailure` marca `failed`.
-- Server action `issueFiscalInvoice` que valida con Zod, persiste draft, dispara `inngest.send`.
-- Endpoint `/api/jobs/[id]` para polling.
+- `lib/inngest/functions/issue-invoice.ts` con steps `load-draft → reserve-numero → persist-numero → request-cae (con recovery vía FECompConsultar en transport-error) → persist-cae`.
+- `idempotency: "event.data.idempotency_key"`, `retries: 5`. `onFailure` marca `failed` con el error en `afip_observaciones`.
+- Inngest v4 cambió la API: `triggers: [...]` plural, sin `EventSchemas`. Los eventos se validan con Zod en el boundary de cada función.
+- `features/comprobantes/actions/comprobantes-actions.ts`: `issueFiscalInvoiceAction` (resuelve canal+cliente+POS, persiste draft+items, dispara evento), `getInvoiceStatusAction` (para polling).
+- Endpoint `GET /api/jobs/[id]` que devuelve status + cae info.
+- Branch interno rechazada explícitamente (llega en E.7).
 
-#### E.5 — `feat: PDF + QR (pdf-lib + qrcode)` (1 PR)
+#### E.5 — `feat: PDF + QR (@react-pdf/renderer + qrcode)` (1 PR)
 
-- `lib/pdf/invoice.ts` — plantilla por `division`.
-- `lib/afip/qr.ts` — URL canónica AFIP + QR generation.
-- Sube a Supabase Storage `comprobantes-pdf/`.
+> **Cambio de plan (2026-05-09):** el roadmap original elegía `pdf-lib`,
+> pero esa librería está abandonada (última release hace ~4 años, status
+> "inactive" según Snyk). `@react-pdf/renderer` está activo (release hace
+> ~3 semanas, soporta React 19 explícitamente, ~290k weekly downloads).
+> Sigue cumpliendo la regla "PDF sin headless Chrome" del anti-patrón #6.
+> Adicional: las plantillas se escriben en JSX en lugar de coordenadas
+> manuales, lo que las vuelve más mantenibles.
+
+- `lib/pdf/invoice-template.tsx` — componente JSX con `<Document><Page>` por canal/letra. Para el caso interno (E.7) reusa el componente con un flag `isFiscal=false` que oculta CAE/QR y agrega marca de agua.
+- `lib/afip/qr.ts` — URL canónica AFIP (`https://www.afip.gob.ar/fe/qr/?p=<base64>`) con payload obligatorio (ver, fecha, cuit, ptoVta, tipoCmp, nroCmp, importe, moneda, ctz, tipoDocRec, nroDocRec, tipoCodAut, codAut). PNG inline vía `qrcode`.
+- `lib/pdf/upload.ts` — renderiza el `<Document>` a Buffer y sube a Supabase Storage `comprobantes-pdf/<comprobante_id>.pdf`. Devuelve URL firmada de 7 días que persiste en `comprobantes.pdf_url`.
+- Migración de bucket con políticas: read autenticado, write sólo service-role.
+- Step nuevo `generate-pdf` en el workflow Inngest después de `persist-cae`.
+- Página `/admin/afip/preview-pdf` para probar el render con un comprobante existente sin emitir nada nuevo.
 
 #### E.6 — `feat: invoice issuance UI + Playwright smoke test` (1 PR)
 
@@ -892,7 +904,7 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y `apps/api`, se
 3. **`any` y `as`.** Bloqueado en ESLint flat config desde A.2.
 4. **Migraciones sin orden.** Workflow CI dedicado.
 5. **Tipos de Supabase a mano o sin generar.** Se generan, se commitean, CI checkea drift.
-6. **PDF con headless Chrome.** `pdf-lib` directo.
+6. **PDF con headless Chrome.** Usar `@react-pdf/renderer` directo (decisión 2026-05-09 — `pdf-lib` quedó abandonado en 2022).
 7. **Color para diferenciar acciones.** Sin colores. Iconos + copy + posición.
 8. **PRs todo-en-uno.** Si el diff cambia migración + UI + tests + 3 features, se parte.
 9. **Realtime de Supabase para eventos críticos.** Solo para refrescar UI cuando otro user inserta. Workflows críticos van por Inngest.
@@ -918,20 +930,16 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y `apps/api`, se
 
 ## 8. Cómo arrancar mañana
 
-**Estado al 2026-05-09**: Fases A, B, C, **E.1 + E.1.5** shipped. La próxima
-PR es **E.2** (`comprobantes` + `comprobante_items` schema). El orden a
-seguir es:
+**Estado al 2026-05-09**: Fases A, B, C, **E.1 + E.1.5 + E.2 + E.3 + E.4** shipped. La próxima PR es **E.5** (`@react-pdf/renderer` + QR). El orden a seguir es:
 
-1. **E.2** — schema de comprobantes (single table fiscal+interno).
-2. **E.3** — métodos de emisión del WSFEv1 + mapeo de códigos.
-3. **E.4** — workflow Inngest `issueInvoice` con recovery.
-4. **E.5** — PDF + QR.
-5. **E.6** — UI + Playwright smoke.
-6. **D.1** — `accounts` (caja mínima, condición previa para F.3).
-7. **F.3** — recibos editables (cierra el ciclo AR).
-8. **D.2 + D.3** — transactions + UI + transferencias.
-9. **F.1, F.2, F.4–F.7** — el resto de cobranzas.
-10. Continuar con G, H, I, J en orden.
+1. **E.5** — PDF + QR (`@react-pdf/renderer` + `qrcode`).
+2. **E.6** — UI + Playwright smoke.
+3. **D.1** — `accounts` (caja mínima, condición previa para F.3).
+4. **F.3** — recibos editables (cierra el ciclo AR).
+5. **D.2 + D.3** — transactions + UI + transferencias.
+6. **F.1, F.2, F.4–F.7** — el resto de cobranzas.
+7. **E.7** (post-MVP) — branch interna del workflow + plantilla PDF "no fiscal".
+8. Continuar con G, H, I, J en orden.
 
 **Regla de oro:** una fase no empieza si la anterior no tiene CI verde + tests
 mínimos + test manual de los flows críticos.
