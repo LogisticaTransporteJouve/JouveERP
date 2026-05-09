@@ -32,6 +32,7 @@ export const PERMISSIONS = [
 
   // AFIP
   "padron:lookup",
+  "afip:admin",
 
   // Caja: accounts and transactions
   "accounts:read",

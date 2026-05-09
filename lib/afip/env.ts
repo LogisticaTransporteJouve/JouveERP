@@ -51,3 +51,9 @@ export function getPadronA4Wsdl(): string {
     ? "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA4?WSDL"
     : "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA4?WSDL";
 }
+
+export function getWsfev1Url(): string {
+  return getAfipEnv() === "prod"
+    ? "https://servicios1.afip.gov.ar/wsfev1/service.asmx"
+    : "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
+}

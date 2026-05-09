@@ -1,6 +1,13 @@
 "use client";
 
-import { LayoutDashboard, LogOut, ShieldCheck, Search, Users } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  Receipt,
+  Search,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -50,6 +57,12 @@ const navItems: NavItem[] = [
     label: "Padrón AFIP",
     icon: Search,
     permission: "padron:lookup",
+  },
+  {
+    href: "/admin/afip/puntos-de-venta",
+    label: "Puntos de venta",
+    icon: Receipt,
+    permission: "afip:admin",
   },
 ];
 
