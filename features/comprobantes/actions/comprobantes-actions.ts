@@ -311,6 +311,387 @@ export async function getInvoiceStatusAction(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Listing / filtering
+// ---------------------------------------------------------------------------
+
+export interface ListComprobantesFilters {
+  channel_id?: string | null;
+  status?: ComprobanteRow["status"] | null;
+  fecha_desde?: string | null;
+  fecha_hasta?: string | null;
+  client_id?: string | null;
+  query?: string | null;
+  offset?: number | null;
+  limit?: number | null;
+}
+
+export interface ComprobanteListItem {
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  channel_is_fiscal: boolean;
+  client_id: string;
+  client_legal_name: string;
+  kind: ComprobanteRow["kind"];
+  letter: ComprobanteRow["letter"];
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+  imp_total: number;
+  status: ComprobanteRow["status"];
+  cae: string | null;
+  emitted_at: string | null;
+}
+
+const DEFAULT_PAGE_SIZE = 50;
+
+export async function listComprobantesAction(
+  filters: ListComprobantesFilters = {},
+): Promise<
+  ActionResult<{ items: ComprobanteListItem[]; nextOffset: number | null }>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:read")) {
+    return { ok: false, error: "No tenés permiso para ver comprobantes." };
+  }
+
+  const offset = Math.max(0, filters.offset ?? 0);
+  const limit = Math.min(200, Math.max(1, filters.limit ?? DEFAULT_PAGE_SIZE));
+
+  const supabase = getServiceClient();
+  let query = supabase
+    .from("comprobantes")
+    .select(
+      `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, status, cae, emitted_at,
+       channel:invoicing_channels(name, is_fiscal),
+       client:clients(legal_name)`,
+    )
+    .order("fecha", { ascending: false })
+    .order("numero", { ascending: false })
+    .range(offset, offset + limit); // limit + 1 trick
+
+  if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
+  if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
+  if (filters.client_id) query = query.eq("client_id", filters.client_id);
+
+  const { data, error } = await query;
+  if (error) return { ok: false, error: error.message };
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    channel_id: string;
+    client_id: string;
+    kind: string;
+    letter: string | null;
+    punto_venta: number;
+    numero: number;
+    fecha: string;
+    imp_total: number | string;
+    status: string;
+    cae: string | null;
+    emitted_at: string | null;
+    channel: { name: string; is_fiscal: boolean } | null;
+    client: { legal_name: string } | null;
+  }>;
+
+  const fullPage = rows.length > limit;
+  const sliced = fullPage ? rows.slice(0, limit) : rows;
+
+  const items: ComprobanteListItem[] = sliced.map((row) => ({
+    id: row.id,
+    channel_id: row.channel_id,
+    channel_name: row.channel?.name ?? row.channel_id,
+    channel_is_fiscal: row.channel?.is_fiscal ?? false,
+    client_id: row.client_id,
+    client_legal_name: row.client?.legal_name ?? "—",
+    kind: row.kind as ComprobanteRow["kind"],
+    letter: row.letter as ComprobanteRow["letter"],
+    punto_venta: row.punto_venta,
+    numero: row.numero,
+    fecha: row.fecha,
+    imp_total: Number(row.imp_total),
+    status: row.status as ComprobanteRow["status"],
+    cae: row.cae,
+    emitted_at: row.emitted_at,
+  }));
+
+  return {
+    ok: true,
+    data: {
+      items,
+      nextOffset: fullPage ? offset + limit : null,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Detail
+// ---------------------------------------------------------------------------
+
+export interface ComprobanteDetail {
+  id: string;
+  channel: { id: string; name: string; is_fiscal: boolean };
+  client: { id: string; legal_name: string; iva_condition: IvaCondition };
+  kind: ComprobanteRow["kind"];
+  letter: ComprobanteRow["letter"];
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+  fch_serv_desde: string | null;
+  fch_serv_hasta: string | null;
+  fch_vto_pago: string | null;
+  concepto: number;
+  doc_tipo: number;
+  doc_nro: string;
+  iva_condition_receptor: number | null;
+  imp_neto: number;
+  imp_iva: number;
+  imp_trib: number;
+  imp_tot_conc: number;
+  imp_op_ex: number;
+  imp_total: number;
+  moneda: string;
+  cotizacion: number;
+  cae: string | null;
+  cae_vencimiento: string | null;
+  afip_observaciones: unknown;
+  status: ComprobanteRow["status"];
+  pdf_url: string | null;
+  motivo_nc_nd: string | null;
+  emitted_at: string | null;
+  items: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    iva_rate_id: number | null;
+    line_neto: number;
+    line_iva: number;
+    line_total: number;
+    sort_order: number;
+  }>;
+}
+
+export async function getComprobanteDetailAction(
+  id: string,
+): Promise<ActionResult<ComprobanteDetail>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:read")) {
+    return { ok: false, error: "No tenés permiso para ver comprobantes." };
+  }
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("comprobantes")
+    .select(
+      `*,
+       channel:invoicing_channels(id, name, is_fiscal),
+       client:clients(id, legal_name, iva_condition),
+       items:comprobante_items(id, description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)`,
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: `Comprobante ${id} no encontrado.` };
+
+  const row = data as unknown as {
+    id: string;
+    kind: string;
+    letter: string | null;
+    punto_venta: number;
+    numero: number;
+    fecha: string;
+    fch_serv_desde: string | null;
+    fch_serv_hasta: string | null;
+    fch_vto_pago: string | null;
+    concepto: number;
+    doc_tipo: number;
+    doc_nro: string;
+    iva_condition_receptor: number | null;
+    imp_neto: number | string;
+    imp_iva: number | string;
+    imp_trib: number | string;
+    imp_tot_conc: number | string;
+    imp_op_ex: number | string;
+    imp_total: number | string;
+    moneda: string;
+    cotizacion: number | string;
+    cae: string | null;
+    cae_vencimiento: string | null;
+    afip_observaciones: unknown;
+    status: string;
+    pdf_url: string | null;
+    motivo_nc_nd: string | null;
+    emitted_at: string | null;
+    channel: { id: string; name: string; is_fiscal: boolean } | null;
+    client: { id: string; legal_name: string; iva_condition: string } | null;
+    items: Array<{
+      id: string;
+      description: string;
+      quantity: number | string;
+      unit_price: number | string;
+      iva_rate_id: number | null;
+      line_neto: number | string;
+      line_iva: number | string;
+      line_total: number | string;
+      sort_order: number;
+    }> | null;
+  };
+
+  if (!row.channel || !row.client) {
+    return { ok: false, error: "Comprobante con relaciones inválidas." };
+  }
+
+  return {
+    ok: true,
+    data: {
+      id: row.id,
+      channel: row.channel,
+      client: {
+        id: row.client.id,
+        legal_name: row.client.legal_name,
+        iva_condition: row.client.iva_condition as IvaCondition,
+      },
+      kind: row.kind as ComprobanteRow["kind"],
+      letter: row.letter as ComprobanteRow["letter"],
+      punto_venta: row.punto_venta,
+      numero: row.numero,
+      fecha: row.fecha,
+      fch_serv_desde: row.fch_serv_desde,
+      fch_serv_hasta: row.fch_serv_hasta,
+      fch_vto_pago: row.fch_vto_pago,
+      concepto: row.concepto,
+      doc_tipo: row.doc_tipo,
+      doc_nro: row.doc_nro,
+      iva_condition_receptor: row.iva_condition_receptor,
+      imp_neto: Number(row.imp_neto),
+      imp_iva: Number(row.imp_iva),
+      imp_trib: Number(row.imp_trib),
+      imp_tot_conc: Number(row.imp_tot_conc),
+      imp_op_ex: Number(row.imp_op_ex),
+      imp_total: Number(row.imp_total),
+      moneda: row.moneda,
+      cotizacion: Number(row.cotizacion),
+      cae: row.cae,
+      cae_vencimiento: row.cae_vencimiento,
+      afip_observaciones: row.afip_observaciones,
+      status: row.status as ComprobanteRow["status"],
+      pdf_url: row.pdf_url,
+      motivo_nc_nd: row.motivo_nc_nd,
+      emitted_at: row.emitted_at,
+      items: (row.items ?? [])
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((it) => ({
+          id: it.id,
+          description: it.description,
+          quantity: Number(it.quantity),
+          unit_price: Number(it.unit_price),
+          iva_rate_id: it.iva_rate_id,
+          line_neto: Number(it.line_neto),
+          line_iva: Number(it.line_iva),
+          line_total: Number(it.line_total),
+          sort_order: it.sort_order,
+        })),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Lookups consumed by the new-comprobante form
+// ---------------------------------------------------------------------------
+
+export interface FiscalChannelOption {
+  id: string;
+  name: string;
+  is_fiscal: boolean;
+}
+
+export async function listFiscalChannelsAction(): Promise<
+  ActionResult<FiscalChannelOption[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_fiscal, is_active")
+    .eq("is_active", true)
+    .eq("is_fiscal", true)
+    .order("name");
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      is_fiscal: c.is_fiscal,
+    })),
+  };
+}
+
+export interface PosOption {
+  numero: number;
+  channel_id: string;
+  nickname: string | null;
+}
+
+export async function listEnabledPosAction(
+  channelId: string,
+): Promise<ActionResult<PosOption[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("puntos_de_venta")
+    .select("numero, channel_id, nickname, is_enabled")
+    .eq("channel_id", channelId)
+    .eq("is_enabled", true)
+    .order("numero");
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((p) => ({
+      numero: p.numero,
+      channel_id: p.channel_id ?? channelId,
+      nickname: p.nickname,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PDF regeneration (recovery if the post-CAE step failed)
+// ---------------------------------------------------------------------------
+
+export async function regeneratePdfAction(
+  id: string,
+): Promise<ActionResult<{ pdf_url: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  try {
+    const { generateAndStoreInvoicePdf } = await import(
+      "@/lib/pdf/generate-and-store"
+    );
+    const result = await generateAndStoreInvoicePdf(id);
+    return { ok: true, data: { pdf_url: result.signedUrl } };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error generando PDF.",
+    };
+  }
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
