@@ -215,6 +215,50 @@ export type Database = {
         }
         Relationships: []
       }
+      puntos_de_venta: {
+        Row: {
+          channel_id: string | null
+          created_at: string
+          is_enabled: boolean
+          last_known_blocked: boolean
+          last_known_emission_type: string | null
+          last_synced_at: string | null
+          nickname: string | null
+          numero: number
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string
+          is_enabled?: boolean
+          last_known_blocked?: boolean
+          last_known_emission_type?: string | null
+          last_synced_at?: string | null
+          nickname?: string | null
+          numero: number
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string
+          is_enabled?: boolean
+          last_known_blocked?: boolean
+          last_known_emission_type?: string | null
+          last_synced_at?: string | null
+          nickname?: string | null
+          numero?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "puntos_de_venta_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limit_buckets: {
         Row: {
           bucket_key: string

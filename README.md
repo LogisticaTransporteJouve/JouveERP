@@ -11,7 +11,7 @@ de facturación (fiscal/interno × DZ/Jouve).
 - **Supabase** (auth + Postgres + RLS)
 - **TanStack Query** (server state) + Zustand opt-in (client state)
 - **Zod 4** + react-hook-form
-- **Inngest** (workflows durables a partir de Fase E)
+- **Inngest** (workflows durables — Fase E)
 - **pnpm 10**
 - **Vitest** (Playwright a partir de Fase E)
 
@@ -23,11 +23,29 @@ de facturación (fiscal/interno × DZ/Jouve).
   referencia técnica de patrones (tooling, navegación, tablas, forms, hooks,
   CSP, RLS, tests). Snippets pegables.
 
-## Cómo arrancar
+## Desarrollo local
 
-El repo todavía no tiene código — solo documentación. La **Fase A.1**
-(`chore: init Next.js + pnpm + Tailwind v4 + shadcn`) es el primer PR que
-agrega el scaffold.
+A partir de Fase E hacen falta tres procesos en paralelo. Lo más cómodo es
+abrir tres terminales en VS Code (cada uno con `cwd` en la raíz del repo):
+
+```bash
+# Terminal 1 — Supabase (Postgres + Auth + Storage)
+pnpm dlx supabase start
+
+# Terminal 2 — Next.js
+pnpm dev
+
+# Terminal 3 — Inngest dev runtime (descubre funciones en /api/inngest)
+pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+La UI de Inngest queda en <http://localhost:8288>. Ahí ves las funciones
+registradas, mandás eventos manualmente para probarlas y revisás runs +
+retries paso por paso.
+
+Si no tocás workflows en una sesión, podés saltearte el terminal 3 — los
+endpoints siguen funcionando, solo que `inngest.send(...)` no dispara nada
+hasta que el dev runtime esté arriba.
 
 ## Convenciones
 
