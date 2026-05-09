@@ -1,0 +1,246 @@
+import "server-only";
+
+// Builds the InvoiceTemplateData by joining comprobante + items + client +
+// channel + business_unit, renders the PDF via @react-pdf/renderer, uploads
+// to Supabase Storage, and persists `pdf_url` on the comprobantes row.
+//
+// Reusable from:
+//   - The Inngest workflow (after persist-cae).
+//   - A future "regenerate PDF" action when the first attempt failed.
+//   - The /admin/afip/preview-pdf page that lets us look at any comprobante
+//     without re-emitting.
+
+import {
+  buildInvoiceQRUrl,
+  renderInvoiceQR,
+  type InvoiceQRPayload,
+} from "@/lib/afip/qr";
+import { getServiceClient } from "@/lib/supabase/service";
+
+import { renderInvoicePdf } from "./render";
+import { uploadInvoicePdf } from "./upload";
+import type {
+  InvoiceTemplateData,
+  InvoiceTemplateItem,
+} from "./invoice-template";
+
+import type { ComprobanteKind, ComprobanteLetter } from "@/lib/afip/codes";
+import type { IvaCondition } from "@/features/clients/schema";
+import type { ComprobanteRow } from "@/features/comprobantes/schema";
+
+const DOC_TIPO_LABEL: Record<number, string> = {
+  80: "CUIT",
+  86: "CUIL",
+  96: "DNI",
+  99: "Consumidor Final",
+};
+
+const IVA_LABEL: Record<IvaCondition, string> = {
+  responsable_inscripto: "Responsable Inscripto",
+  monotributo: "Monotributo",
+  exento: "Exento",
+  consumidor_final: "Consumidor Final",
+  no_categorizado: "No Categorizado",
+};
+
+export interface GeneratedPdf {
+  storagePath: string;
+  signedUrl: string;
+  pdfBuffer: Buffer;
+  data: InvoiceTemplateData;
+}
+
+export async function generateAndStoreInvoicePdf(
+  comprobanteId: string,
+): Promise<GeneratedPdf> {
+  const data = await buildTemplateData(comprobanteId);
+  const pdfBuffer = await renderInvoicePdf(data);
+  const upload = await uploadInvoicePdf(comprobanteId, pdfBuffer);
+
+  const supabase = getServiceClient();
+  const { error } = await supabase
+    .from("comprobantes")
+    .update({ pdf_url: upload.signedUrl })
+    .eq("id", comprobanteId);
+  if (error) throw new Error(`persist-pdf-url: ${error.message}`);
+
+  return {
+    storagePath: upload.storagePath,
+    signedUrl: upload.signedUrl,
+    pdfBuffer,
+    data,
+  };
+}
+
+export async function buildTemplateData(
+  comprobanteId: string,
+): Promise<InvoiceTemplateData> {
+  const supabase = getServiceClient();
+  const { data: row, error } = await supabase
+    .from("comprobantes")
+    .select(
+      `
+      *,
+      channel:invoicing_channels(id, name, division, is_fiscal, business_unit_id),
+      client:clients(id, legal_name, iva_condition, address, real_address),
+      items:comprobante_items(description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)
+    `,
+    )
+    .eq("id", comprobanteId)
+    .maybeSingle();
+  if (error) throw new Error(`load-comprobante: ${error.message}`);
+  if (!row) throw new Error(`Comprobante ${comprobanteId} no existe.`);
+
+  const channel = row.channel as {
+    id: string;
+    name: string;
+    division: string;
+    is_fiscal: boolean;
+    business_unit_id: string;
+  } | null;
+  const client = row.client as {
+    id: string;
+    legal_name: string;
+    iva_condition: IvaCondition;
+    address: string | null;
+    real_address: string | null;
+  } | null;
+  const items = (row.items ?? []) as Array<{
+    description: string;
+    quantity: number | string;
+    unit_price: number | string;
+    iva_rate_id: number | null;
+    line_neto: number | string;
+    line_iva: number | string;
+    line_total: number | string;
+    sort_order: number;
+  }>;
+  if (!channel) throw new Error("Comprobante missing channel relation.");
+  if (!client) throw new Error("Comprobante missing client relation.");
+
+  const { data: bu, error: buErr } = await supabase
+    .from("business_units")
+    .select(
+      "name, cuit, tax_condition, tax_address, iibb_number, inicio_actividades",
+    )
+    .eq("id", channel.business_unit_id)
+    .maybeSingle();
+  if (buErr) throw new Error(`load-business-unit: ${buErr.message}`);
+
+  const isFiscal = channel.is_fiscal;
+
+  const sortedItems: InvoiceTemplateItem[] = items
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((it) => ({
+      description: it.description,
+      quantity: Number(it.quantity),
+      unit_price: Number(it.unit_price),
+      iva_rate_id:
+        it.iva_rate_id === null
+          ? null
+          : (it.iva_rate_id as InvoiceTemplateItem["iva_rate_id"]),
+      line_neto: Number(it.line_neto),
+      line_total: Number(it.line_total),
+    }));
+
+  // Aggregate IVA per rate from items.
+  const buckets = new Map<number, { base: number; importe: number }>();
+  for (const it of items) {
+    if (it.iva_rate_id === null) continue;
+    const bucket = buckets.get(it.iva_rate_id) ?? { base: 0, importe: 0 };
+    bucket.base = round2(bucket.base + Number(it.line_neto));
+    bucket.importe = round2(bucket.importe + Number(it.line_iva));
+    buckets.set(it.iva_rate_id, bucket);
+  }
+  const per_rate: InvoiceTemplateData["per_rate"] = [];
+  for (const [id, b] of buckets) {
+    per_rate.push({
+      id: id as InvoiceTemplateData["per_rate"][number]["id"],
+      base: b.base,
+      importe: b.importe,
+    });
+  }
+  per_rate.sort((a, b) => a.id - b.id);
+
+  // QR (only fiscal + has CAE)
+  let qrDataUrl: string | null = null;
+  if (isFiscal && row.cae && row.cbte_tipo_afip !== null) {
+    const qrPayload: InvoiceQRPayload = {
+      fecha: row.fecha,
+      cuit: bu?.cuit ?? "",
+      ptoVta: row.punto_venta,
+      tipoCmp: row.cbte_tipo_afip,
+      nroCmp: row.numero,
+      importe: Number(row.imp_total),
+      moneda: row.moneda,
+      ctz: Number(row.cotizacion),
+      tipoDocRec: row.doc_tipo,
+      nroDocRec: row.doc_nro === "" ? 0 : Number(row.doc_nro),
+      tipoCodAut: "E",
+      codAut: row.cae,
+    };
+    // Validate URL parses without crashing — buildInvoiceQRUrl is total but
+    // calling it surfaces config errors before we hit the renderer.
+    buildInvoiceQRUrl(qrPayload);
+    qrDataUrl = await renderInvoiceQR(qrPayload);
+  }
+
+  return {
+    isFiscal,
+    emisor: {
+      legal_name: bu?.name ?? "DZ & Sons S.A.",
+      cuit: bu?.cuit ?? "",
+      iva_condition: bu?.tax_condition ?? "",
+      address: bu?.tax_address ?? null,
+      division_label:
+        channel.division === "jouve"
+          ? "Logística Jouve"
+          : "DZ Instalaciones",
+      iibb_number: bu?.iibb_number ?? null,
+      inicio_actividades: bu?.inicio_actividades ?? null,
+    },
+    receptor: {
+      legal_name: client.legal_name,
+      doc_tipo_label: DOC_TIPO_LABEL[row.doc_tipo] ?? String(row.doc_tipo),
+      doc_nro: row.doc_nro,
+      iva_condition_label: IVA_LABEL[client.iva_condition],
+      address: client.real_address ?? client.address,
+    },
+    kind: row.kind as ComprobanteKind,
+    letter: (row.letter as ComprobanteLetter | null) ?? null,
+    punto_venta: row.punto_venta,
+    numero: row.numero,
+    fecha: row.fecha,
+    fch_serv_desde: row.fch_serv_desde,
+    fch_serv_hasta: row.fch_serv_hasta,
+    fch_vto_pago: row.fch_vto_pago,
+    concepto_label:
+      row.concepto === 1
+        ? "Productos"
+        : row.concepto === 2
+          ? "Servicios"
+          : "Productos y Servicios",
+    items: sortedItems,
+    imp_neto: Number(row.imp_neto),
+    imp_iva: Number(row.imp_iva),
+    imp_trib: Number(row.imp_trib),
+    imp_tot_conc: Number(row.imp_tot_conc),
+    imp_op_ex: Number(row.imp_op_ex),
+    imp_total: Number(row.imp_total),
+    per_rate,
+    moneda: row.moneda,
+    cotizacion: Number(row.cotizacion),
+    cae: row.cae,
+    cae_vencimiento: row.cae_vencimiento,
+    qr_data_url: qrDataUrl,
+  };
+}
+
+// Re-export so the Inngest workflow can import without pulling in the heavy
+// renderer transitively at module load time.
+export type { ComprobanteRow };
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}

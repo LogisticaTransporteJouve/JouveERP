@@ -74,6 +74,8 @@ export type Database = {
           created_at: string
           cuit: string
           id: string
+          iibb_number: string | null
+          inicio_actividades: string | null
           is_active: boolean
           name: string
           tax_address: string | null
@@ -84,6 +86,8 @@ export type Database = {
           created_at?: string
           cuit: string
           id: string
+          iibb_number?: string | null
+          inicio_actividades?: string | null
           is_active?: boolean
           name: string
           tax_address?: string | null
@@ -94,6 +98,8 @@ export type Database = {
           created_at?: string
           cuit?: string
           id?: string
+          iibb_number?: string | null
+          inicio_actividades?: string | null
           is_active?: boolean
           name?: string
           tax_address?: string | null
