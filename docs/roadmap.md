@@ -380,6 +380,18 @@ Esto previene reimplementar el mismo patrón en cada tabla/form/dialog cuando ll
 > Cada fase se descompone en PRs ≤500 LOC. Si una migración + UI rompen la
 > regla, se aceptan PRs hasta ~1000 LOC.
 
+> **Orden de ejecución (decidido 2026-05-09).** Las letras de fase se
+> mantienen para no romper referencias cruzadas, pero el orden real de
+> implementación cambia: tras cerrar **C** (Clientes), arrancamos
+> **E (Facturación)** para entregar el dolor más alto antes. Después
+> **D.1** (sólo `accounts` — caja mínima necesaria para que los recibos
+> tengan dónde aterrizar), después **F.3** (recibos vinculados a las
+> facturas emitidas), y recién después **D.2/D.3** completos (transactions
+> UI + transferencias) y el resto de **F** (cheques, retenciones, NC/ND,
+> aging). Las fases G–J quedan en el orden original. Razón: facturación
+> entrega valor desde el día 1; recibos cierran el ciclo AR; caja completa
+> y reporting se construyen sobre una base ya productiva.
+
 ### Fase A — Bootstrap (1 semana)
 
 **Objetivo:** repo de Next.js mínimo, deployable a Vercel, con login.
@@ -663,7 +675,11 @@ Smoke local verificado:
 
 ### Fase D — Caja única (Accounts + Transactions) (1-2 semanas)
 
-#### D.1 — `feat: accounts (caja única, sin business_unit_id)` (1 PR)
+> **Orden de ejecución:** D.1 (sólo `accounts`) se adelanta y va **inmediatamente
+> después de Fase E** — los recibos (F.3) necesitan una cuenta destino para
+> registrar el ingreso. D.2 + D.3 (transactions + UI) van después de F.3.
+
+#### D.1 — `feat: accounts (caja única, sin business_unit_id)` (1 PR) — _ejecuta entre E y F.3_
 
 - `accounts(id, name, type bank|cash|wallet|investment|cheques, currency ARS|USD|EUR|BRL, opening_balance, notes, is_active, created_at, updated_at)`.
 - Trigger `set_updated_at` (función reusable).
@@ -695,26 +711,58 @@ Smoke local verificado:
 
 > A partir de acá: Playwright + Sentry se incorporan.
 
-#### E.1 — `chore: inngest setup` (1 PR)
+> **Decisión de schema (2026-05-09):** una sola tabla `comprobantes` para
+> fiscal e interno. El discriminador es `channel.is_fiscal`. Los campos
+> AFIP (`cae`, `cae_vencimiento`, `cbte_tipo_afip`, `letter`) son
+> nulleables y solo se llenan en fiscal. Esto deja un único listado, una
+> única UI, mismos permisos y FK estables para Recibos. Para los internos
+> el form esconde la letra (A/B/C) y la discriminación IVA, y el PDF lleva
+> marca de agua "Documento no fiscal". El branch interno del workflow
+> Inngest queda diferido a **E.7** (post-MVP).
 
-- `pnpm add inngest`.
-- `lib/inngest/client.ts`, `app/api/inngest/route.ts`.
-- Documentar en `README.md` que dev local requiere 3 terminales: `pnpm dev`, `pnpm dlx inngest-cli dev -u http://localhost:3000/api/inngest`, `pnpm dlx supabase start`. Si crece la necesidad, agregamos un script con `concurrently` — pero por ahora 3 terminales alcanza.
+#### E.1 — `chore: inngest setup` ✅ shipped
 
-#### E.2 — `feat: comprobantes + comprobante_items + puntos_de_venta + afip_credentials` (1 PR)
+- `inngest@4.x` agregado y singleton tipado en `lib/inngest/client.ts`.
+- Route handler `app/api/inngest/route.ts` con `serve()` y `functions: []` (vacío hasta E.4).
+- README documenta el flujo de 3 terminales (`supabase start` + `pnpm dev` + `inngest-cli dev`).
+- `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` documentados en `.env.local.example` (solo prod).
+- **Bundleado con E.1.5 en PR #14** porque ambos son foundation de Fase E.
 
-- `puntos_de_venta(id, cuit, channel_id, numero, descripcion)` con trigger consistencia.
-- `comprobantes(id, channel_id, tipo, punto_venta_id, numero, fecha, cliente_id, cae, cae_vencimiento, total_neto, total_iva, total, status, idempotency_key UNIQUE, comprobante_origen_id, motivo_nc_nd, emitted_at, notified_at, created_by)`.
+#### E.1.5 — `feat: AFIP admin foundation` ✅ shipped
+
+> **Cambio de scope:** descubrimos que `FEParamGetPtosVenta` no devuelve
+> ninguna descripción humana de los POS, y AFIP no tiene una forma de
+> marcar "este POS está deprecado" — todo eso vive en JouveERP.
+
+- `lib/afip/wsfev1.ts` minimal: `getServerStatus` (FEDummy) + `getSalesPoints` (FEParamGetPtosVenta) con SOAP manual + `fast-xml-parser` (mismo patrón que `padron.ts`).
+- `lib/afip/errors.ts` con jerarquía tipada: `AfipError` base + `AfipConfigError | AfipInputError | AfipTransportError | AfipSoapFaultError | AfipServiceError`. Solo TRANSPORT es retryable.
+- `lib/afip/diagnostics.ts` corre en paralelo: env vars, cert (X509 + días para vencer), WSAA por servicio, FEDummy. Short-circuita si env o cert están rotos.
+- Migración `20260509120000_puntos_de_venta.sql`: `numero PK + channel_id FK + nickname + is_enabled + last_known_emission_type + last_known_blocked + last_synced_at`. RLS owner|admin write.
+- Página `/admin/afip/puntos-de-venta` con dos secciones: **Diagnóstico** + **Puntos de venta**. Sync con AFIP upsertea las filas y la UI muestra alias/canal/habilitado por POS, configurable vía Dialog. El form de emisión (E.6) leerá solo los `is_enabled = true`.
+- Permiso `afip:admin` agregado a la matriz (owner|admin only).
+- Sidebar entry "Puntos de venta" gateada en `afip:admin`.
+
+#### E.2 — `feat: comprobantes + comprobante_items` (1 PR)
+
+- `comprobantes(id uuid pk, channel_id NOT NULL, client_id NOT NULL, kind 'factura'|'nc'|'nd', letter 'A'|'B'|'C' nullable, punto_venta NOT NULL, numero NOT NULL, fecha, imp_neto, imp_iva, imp_trib, imp_total, imp_tot_conc, imp_op_ex, cbte_tipo_afip int nullable, cae text nullable, cae_vencimiento date nullable, afip_observaciones jsonb, status 'draft'|'emitted'|'failed'|'cancelled', idempotency_key text UNIQUE, comprobante_origen_id self-fk nullable, motivo_nc_nd text, pdf_url text, emitted_at, notified_at, created_by, created_at, updated_at)`.
+- Unique compuesto `(channel_id, punto_venta, kind, letter, numero)`.
 - Constraint NC/ND requiere `comprobante_origen_id`.
-- `comprobante_items(...)`.
-- `afip_credentials(cuit pk, cert encrypted, private_key encrypted, environment)` — Supabase Vault para encrypted columns.
-- Permisos: `invoices:read|issue|cancel`.
+- Constraint: `letter` y `cbte_tipo_afip` deben ser NOT NULL si `channel.is_fiscal`.
+- `comprobante_items(id, comprobante_id FK CASCADE, sku?, description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)`.
+- RLS: read `owner|admin|finance`, write `owner|finance`.
+- Permisos: `invoices:read|issue|cancel` (ya en la matriz desde B.2).
 
-#### E.3 — `feat: WSFEv1 client (FECompUltimoAutorizado, FECAESolicitar, FECompConsultar)` (1 PR)
+`afip_credentials` queda diferido — hoy las credenciales viven en env vars,
+está bien para el caso single-tenant. Se agrega cuando aparezca el caso de
+multi-CUIT o necesitemos rotación on-the-fly.
 
-- `lib/afip/wsfev1.ts` con tipos.
-- Reusa `getAccessTicket('wsfe')` de Fase C.
-- Errores estructurados: `AfipValidationError` (no-retryable).
+#### E.3 — `feat: WSFEv1 emission methods (FECompUltimoAutorizado, FECAESolicitar, FECompConsultar)` (1 PR)
+
+- Extiende `lib/afip/wsfev1.ts` con los tres métodos de emisión.
+- Reusa `getAccessTicket('wsfe')` (E.1.5) y la jerarquía de errores.
+- Mapeos `lib/afip/codes.ts`: `iva_condition` → `CondicionIVAReceptorId`, `letter` por combinación emisor/receptor, `iva_rate_id` → alícuota AFIP.
+- `recoverInvoiceCAE(ptoVta, cbteTipo, nro)` que envuelve `FECompConsultar` para el path de recovery.
+- Tests del mapper de códigos + parser de respuestas.
 
 #### E.4 — `feat: issueInvoice Inngest function (idempotent + recovery via FECompConsultar)` (1 PR)
 
@@ -732,13 +780,21 @@ Smoke local verificado:
 
 #### E.6 — `feat: invoice issuance UI + Playwright smoke test` (1 PR)
 
-- `/invoices` — listado filtrado por canal/período/status.
-- `/invoices/new` — selector canal + cliente autocomplete + items + totales.
-- Componente `InvoiceJobStatus` polea cada 1.5s.
+- `/comprobantes` — listado filtrado por canal/período/status. Una sola tabla para fiscal e interno; columna "Tipo" diferencia con icono + texto ("Factura B" vs "Comprobante interno").
+- `/comprobantes/nuevo` — Dialog con selector canal arriba (con `optgroup` Fiscal/Interno). El form se reconfigura según `channel.is_fiscal`: fiscal muestra letter + IVA discriminado + `CondicionIVAReceptor`; interno los oculta. El selector solo lista POS con `is_enabled = true` (alimentado desde la tabla de E.1.5).
+- `/comprobantes/[id]` — detalle con card "Datos AFIP" (CAE, vencimiento, QR, observaciones) sólo para fiscal; interno muestra "Documento sin valor fiscal".
+- Componente `InvoiceJobStatus` polea cada 1.5s al endpoint `/api/jobs/[id]`.
 - Playwright: login → emitir factura B en homologación → ver CAE.
 - Sentry instalado.
 
-**PRs Fase E: 6.**
+#### E.7 — `feat: comprobante interno branch (post-MVP)` (1 PR)
+
+- Branch en el workflow `issueInvoice` cuando `channel.is_fiscal = false`: numeración por secuencia local (`select max(numero) + 1` con lock dentro de la transacción), salta los pasos `afip-auth`, `reserve-numero`, `afip-cae`.
+- Plantilla PDF "Documento no fiscal" con marca de agua diagonal + footer legal.
+- Sin QR, sin CAE.
+- UI: el form esconde letra y discriminación IVA; copy "Sin valor fiscal — solo para registro interno".
+
+**PRs Fase E: 7 (E.1 + E.1.5 ya shipped en PR #14).**
 
 ---
 
@@ -746,7 +802,12 @@ Smoke local verificado:
 
 Referencia: roadmap viejo §14, §15, §19.1.
 
-F.1 cobranzas + alocaciones · F.2 cheques + endosos · F.3 recibos editables · F.4 internal_fiscal_consumption + consolidateAndFiscalize · F.5 retenciones · F.6 NC/ND · F.7 aging + cron Inngest.
+> **Orden de ejecución:** **F.3 (recibos)** se adelanta y va inmediatamente
+> después de **D.1** — cierra el ciclo "emitir factura → cobrarla" sobre la
+> base mínima (clients + comprobantes + accounts) sin esperar al resto de
+> Caja. Después se completan D.2 + D.3, y luego el resto de F.
+
+F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** _(adelantado, después de D.1)_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · F.5 retenciones · F.6 NC/ND · F.7 aging + cron Inngest.
 
 **PRs Fase F: 7.**
 
@@ -857,10 +918,20 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y `apps/api`, se
 
 ## 8. Cómo arrancar mañana
 
-1. `cd ~/Desktop/JouveERP`.
-2. PR-1 de Fase A.1 (`chore: init Next.js + pnpm + Tailwind v4 + shadcn`).
-3. Cuando merge a main, abrir A.2.
-4. Etcétera.
+**Estado al 2026-05-09**: Fases A, B, C, **E.1 + E.1.5** shipped. La próxima
+PR es **E.2** (`comprobantes` + `comprobante_items` schema). El orden a
+seguir es:
+
+1. **E.2** — schema de comprobantes (single table fiscal+interno).
+2. **E.3** — métodos de emisión del WSFEv1 + mapeo de códigos.
+3. **E.4** — workflow Inngest `issueInvoice` con recovery.
+4. **E.5** — PDF + QR.
+5. **E.6** — UI + Playwright smoke.
+6. **D.1** — `accounts` (caja mínima, condición previa para F.3).
+7. **F.3** — recibos editables (cierra el ciclo AR).
+8. **D.2 + D.3** — transactions + UI + transferencias.
+9. **F.1, F.2, F.4–F.7** — el resto de cobranzas.
+10. Continuar con G, H, I, J en orden.
 
 **Regla de oro:** una fase no empieza si la anterior no tiene CI verde + tests
 mínimos + test manual de los flows críticos.
