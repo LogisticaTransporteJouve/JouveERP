@@ -415,6 +415,13 @@ export type Database = {
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "comprobante_items_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["comprobante_id"]
+          },
         ]
       }
       comprobantes: {
@@ -559,6 +566,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_comprobante_origen_id_fkey"
+            columns: ["comprobante_origen_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["comprobante_id"]
           },
         ]
       }
@@ -721,6 +735,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_allocations_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["comprobante_id"]
           },
           {
             foreignKeyName: "receipt_allocations_receipt_id_fkey"
@@ -997,6 +1018,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "transactions_counterparty_client_id_fkey"
             columns: ["counterparty_client_id"]
             isOneToOne: false
@@ -1057,6 +1085,41 @@ export type Database = {
       }
     }
     Views: {
+      v_aging_documents: {
+        Row: {
+          amount_applied: number | null
+          bucket: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          client_id: string | null
+          comprobante_id: string | null
+          days_overdue: number | null
+          fecha: string | null
+          imp_total: number | null
+          kind: string | null
+          letter: string | null
+          numero: number | null
+          open_amount: number | null
+          punto_venta: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobantes_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_client_account_movements: {
         Row: {
           channel_division: string | null
@@ -1077,6 +1140,27 @@ export type Database = {
           status: string | null
         }
         Relationships: []
+      }
+      v_client_aging: {
+        Row: {
+          bucket_0_30: number | null
+          bucket_30_60: number | null
+          bucket_60_90: number | null
+          bucket_90_plus: number | null
+          client_id: string | null
+          document_count: number | null
+          oldest_days: number | null
+          total_open: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobantes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_transactions_tagged: {
         Row: {
@@ -1122,6 +1206,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["comprobante_id"]
           },
           {
             foreignKeyName: "transactions_counterparty_client_id_fkey"

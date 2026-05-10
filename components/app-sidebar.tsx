@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeftRight,
   BookCheck,
   FileText,
@@ -81,6 +82,12 @@ const navItems: NavItem[] = [
     label: "Cheques",
     icon: BookCheck,
     permission: "cheques:read",
+  },
+  {
+    href: "/aging",
+    label: "Aging",
+    icon: AlertTriangle,
+    permission: "clients:read",
   },
   {
     href: "/admin/users",
