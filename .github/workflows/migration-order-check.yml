@@ -1,11 +1,12 @@
 name: Migration order
 
+# Runs on every PR (no `paths:` filter) so this required check always
+# reports a status — branch protection treats path-filtered workflows as
+# permanently pending, blocking merges on PRs that don't touch migrations.
+# The job itself short-circuits when no new migrations are present.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "supabase/migrations/**"
-      - ".github/workflows/migration-order-check.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

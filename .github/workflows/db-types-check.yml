@@ -1,13 +1,12 @@
 name: DB types drift
 
+# Runs on every PR so this required check always reports a status.
+# Branch protection treats path-filtered workflows as permanently pending
+# on PRs that don't touch the filtered paths, blocking the merge. We do
+# the path filter inside the job and short-circuit when irrelevant.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "supabase/migrations/**"
-      - "lib/db/database.types.ts"
-      - "scripts/db-types*.sh"
-      - ".github/workflows/db-types-check.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,18 +21,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect relevant changes
+        id: changes
+        run: |
+          set -euo pipefail
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '^(supabase/migrations/|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|\.github/workflows/db-types-check\.yml$)' >/dev/null; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant changes — skipping types drift check."
+          fi
 
       - name: Setup Supabase CLI
+        if: steps.changes.outputs.relevant == 'true'
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
       - name: Start Supabase
+        if: steps.changes.outputs.relevant == 'true'
         run: supabase start
 
       - name: Check types drift
+        if: steps.changes.outputs.relevant == 'true'
         run: bash scripts/db-types-check.sh
 
       - name: Stop Supabase
-        if: always()
+        if: always() && steps.changes.outputs.relevant == 'true'
         run: supabase stop --no-backup
