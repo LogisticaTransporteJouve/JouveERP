@@ -849,7 +849,11 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped (carga manual + lifecycle; integración con recibos pendiente)_ · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped (carga manual + lifecycle; integración con recibos pendiente)_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.4 — ~~internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado (2026-05-10)_
+
+Modelaba el caso "Jouve consume servicios de DZ y se factura junto al cliente final". **No aplica al negocio**: los canales fiscales e internos son paralelos por diseño — los internos representan operaciones "en negro" que no se declaran. Consolidar internos en fiscales sería justamente lo opuesto de lo deseado (terminarías declarando lo que no querés declarar). Si en el futuro aparece un caso donde un comprobante interno se transforma en fiscal a pedido del cliente, se reabre.
 
 #### F.2 — `feat: cheques + endosos` ✅ _shipped (parcial)_
 
