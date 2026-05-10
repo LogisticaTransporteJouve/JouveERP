@@ -10,12 +10,15 @@ import { getServiceClient } from "@/lib/supabase/service";
 import {
   isReceiptCurrency,
   isReceiptStatus,
+  isRetentionKind,
+  isRetentionTaxType,
   ReceiptCancelSchema,
   ReceiptCreateSchema,
   ReceiptUpdateSchema,
   type Receipt,
   type ReceiptAllocation,
   type ReceiptPaymentLine,
+  type ReceiptRetention,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -119,7 +122,26 @@ export type ReceiptDetail = {
   receipt: Receipt;
   payment_lines: ReceiptPaymentLine[];
   allocations: ReceiptAllocation[];
+  retentions: ReceiptRetention[];
 };
+
+function narrowRetention(row: {
+  kind: string;
+  tax_type: string;
+  [key: string]: unknown;
+}): ReceiptRetention | null {
+  if (!isRetentionKind(row.kind)) {
+    logger.error("receipts.unknown_retention_kind", { value: row.kind });
+    return null;
+  }
+  if (!isRetentionTaxType(row.tax_type)) {
+    logger.error("receipts.unknown_retention_tax_type", {
+      value: row.tax_type,
+    });
+    return null;
+  }
+  return row as unknown as ReceiptRetention;
+}
 
 export async function getReceiptByIdAction(
   id: string,
@@ -146,7 +168,7 @@ export async function getReceiptByIdAction(
     return { ok: false, error: "Recibo con datos inválidos." };
   }
 
-  const [linesRes, allocsRes] = await Promise.all([
+  const [linesRes, allocsRes, retentionsRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
       .select("*")
@@ -157,16 +179,26 @@ export async function getReceiptByIdAction(
       .select("*")
       .eq("receipt_id", id)
       .order("created_at"),
+    supabase
+      .from("receipt_retentions")
+      .select("*")
+      .eq("receipt_id", id)
+      .order("created_at"),
   ]);
 
-  if (linesRes.error || allocsRes.error) {
+  if (linesRes.error || allocsRes.error || retentionsRes.error) {
     logger.error("receipts.get.children_failed", {
       id,
       lines: linesRes.error,
       allocs: allocsRes.error,
+      retentions: retentionsRes.error,
     });
     return { ok: false, error: "No se pudieron cargar los detalles." };
   }
+
+  const retentions = (retentionsRes.data ?? [])
+    .map((row) => narrowRetention(row))
+    .filter((r): r is ReceiptRetention => r !== null);
 
   return {
     ok: true,
@@ -174,6 +206,7 @@ export async function getReceiptByIdAction(
       receipt,
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
+      retentions,
     },
   };
 }
@@ -375,6 +408,15 @@ export async function createReceiptAction(
       comprobante_id: a.comprobante_id,
       amount_applied: a.amount_applied,
     })),
+    p_retentions: (data.retentions ?? []).map((r) => ({
+      kind: r.kind,
+      tax_type: r.tax_type,
+      jurisdiction: r.jurisdiction ?? null,
+      certificate_number: r.certificate_number,
+      certificate_date: r.certificate_date,
+      amount: r.amount,
+      notes: r.notes ?? null,
+    })),
   });
 
   if (error) {
@@ -443,6 +485,15 @@ export async function updateReceiptAction(
     p_allocations: (data.allocations ?? []).map((a) => ({
       comprobante_id: a.comprobante_id,
       amount_applied: a.amount_applied,
+    })),
+    p_retentions: (data.retentions ?? []).map((r) => ({
+      kind: r.kind,
+      tax_type: r.tax_type,
+      jurisdiction: r.jurisdiction ?? null,
+      certificate_number: r.certificate_number,
+      certificate_date: r.certificate_date,
+      amount: r.amount,
+      notes: r.notes ?? null,
     })),
   });
 

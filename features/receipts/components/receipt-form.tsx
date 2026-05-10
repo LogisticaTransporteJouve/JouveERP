@@ -39,6 +39,10 @@ import {
   PaymentLinesEditor,
   type PaymentLineDraft,
 } from "./payment-lines-editor";
+import {
+  RetentionsEditor,
+  type RetentionDraft,
+} from "./retentions-editor";
 
 const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 
@@ -71,6 +75,10 @@ function sumDraftAllocations(allocs: AllocationDraft[]): number {
     (acc, a) => acc + (parseAmount(a.amount_applied) ?? 0),
     0,
   );
+}
+
+function sumDraftRetentions(rets: RetentionDraft[]): number {
+  return rets.reduce((acc, r) => acc + (parseAmount(r.amount) ?? 0), 0);
 }
 
 export function ReceiptForm({
@@ -135,6 +143,20 @@ export function ReceiptForm({
       : [],
   );
 
+  const [retentions, setRetentions] = useState<RetentionDraft[]>(
+    receipt
+      ? receipt.retentions.map((r) => ({
+          kind: r.kind,
+          tax_type: r.tax_type,
+          jurisdiction: r.jurisdiction ?? "",
+          certificate_number: r.certificate_number,
+          certificate_date: r.certificate_date,
+          amount: String(r.amount),
+          notes: r.notes ?? "",
+        }))
+      : [],
+  );
+
   // Pre-load the picked client when editing.
   useEffect(() => {
     if (!receipt) return;
@@ -162,10 +184,16 @@ export function ReceiptForm({
     setNumero(String(nextNumero.next));
   }, [mode, nextNumero.next]);
 
-  const totalAmount = useMemo(
+  const paymentSum = useMemo(
     () => Math.round(sumDraftLines(paymentLines) * 100) / 100,
     [paymentLines],
   );
+  const retentionSum = useMemo(
+    () => Math.round(sumDraftRetentions(retentions) * 100) / 100,
+    [retentions],
+  );
+  // Total = real money + retention certificates. Both cancel allocations.
+  const totalAmount = Math.round((paymentSum + retentionSum) * 100) / 100;
   const allocatedAmount = useMemo(
     () => Math.round(sumDraftAllocations(allocations) * 100) / 100,
     [allocations],
@@ -200,6 +228,16 @@ export function ReceiptForm({
       comprobante_id: a.comprobante_id,
       amount_applied: parseAmount(a.amount_applied) ?? 0,
     }));
+    const rets = retentions.map((r) => ({
+      kind: r.kind,
+      tax_type: r.tax_type,
+      jurisdiction:
+        r.jurisdiction.trim().length === 0 ? null : r.jurisdiction.trim(),
+      certificate_number: r.certificate_number.trim(),
+      certificate_date: r.certificate_date,
+      amount: parseAmount(r.amount) ?? 0,
+      notes: r.notes.trim().length === 0 ? null : r.notes.trim(),
+    }));
 
     if (lines.some((l) => !l.account_id)) {
       toast.error("Cada línea de pago necesita una cuenta.");
@@ -207,6 +245,14 @@ export function ReceiptForm({
     }
     if (lines.some((l) => l.amount <= 0)) {
       toast.error("Cada línea de pago necesita un monto mayor a cero.");
+      return;
+    }
+    if (rets.some((r) => r.amount <= 0)) {
+      toast.error("Cada retención necesita un monto mayor a cero.");
+      return;
+    }
+    if (rets.some((r) => r.certificate_number.length === 0)) {
+      toast.error("Cada retención necesita un número de certificado.");
       return;
     }
 
@@ -222,6 +268,7 @@ export function ReceiptForm({
           notes,
           payment_lines: lines,
           allocations: allocs,
+          retentions: rets,
         },
         {
           onSuccess: (data) => {
@@ -242,6 +289,7 @@ export function ReceiptForm({
           notes,
           payment_lines: lines,
           allocations: allocs,
+          retentions: rets,
         },
         {
           onSuccess: () => {
@@ -338,6 +386,13 @@ export function ReceiptForm({
         onChange={setPaymentLines}
       />
 
+      {/* Retentions / Percepciones */}
+      <RetentionsEditor
+        retentions={retentions}
+        onChange={setRetentions}
+        defaultDate={reciboDate}
+      />
+
       {/* Allocations */}
       <AllocationsPicker
         clientId={client?.id ?? null}
@@ -347,9 +402,21 @@ export function ReceiptForm({
       />
 
       {/* Totals strip */}
-      <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+      <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
         <div>
-          <div className="text-xs text-muted-foreground">Total recibido</div>
+          <div className="text-xs text-muted-foreground">Pago real</div>
+          <div className="font-mono">
+            {paymentSum.toFixed(2)} {currency}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Retenciones</div>
+          <div className="font-mono">
+            {retentionSum.toFixed(2)} {currency}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Total</div>
           <div className="font-mono font-semibold">
             {totalAmount.toFixed(2)} {currency}
           </div>

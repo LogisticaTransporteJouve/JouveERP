@@ -52,7 +52,7 @@ describe("ReceiptCreateSchema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("rejects when payment_lines sum != total_amount", () => {
+  it("rejects when payment_lines + retentions sum != total_amount", () => {
     const r = ReceiptCreateSchema.safeParse({
       ...validBase,
       payment_lines: [
@@ -66,8 +66,50 @@ describe("ReceiptCreateSchema", () => {
     expect(r.success).toBe(false);
     if (!r.success) {
       const msg = r.error.issues[0]?.message ?? "";
-      expect(msg).toMatch(/líneas de pago/);
+      expect(msg).toMatch(/no coincide con el total/);
     }
+  });
+
+  it("accepts a receipt where payment + retentions = total", () => {
+    const r = ReceiptCreateSchema.safeParse({
+      ...validBase,
+      total_amount: 100,
+      payment_lines: [
+        {
+          account_id: ACCOUNT_UUID,
+          amount: 98,
+          reference: "",
+        },
+      ],
+      retentions: [
+        {
+          kind: "retencion",
+          tax_type: "ganancias",
+          certificate_number: "SICORE-12345",
+          certificate_date: "2026-05-10",
+          amount: 2,
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects retention with empty certificate_number", () => {
+    const r = ReceiptCreateSchema.safeParse({
+      ...validBase,
+      total_amount: 100,
+      payment_lines: [{ account_id: ACCOUNT_UUID, amount: 90, reference: "" }],
+      retentions: [
+        {
+          kind: "retencion",
+          tax_type: "iva",
+          certificate_number: "",
+          certificate_date: "2026-05-10",
+          amount: 10,
+        },
+      ],
+    });
+    expect(r.success).toBe(false);
   });
 
   it("rejects when allocations sum exceeds total_amount", () => {

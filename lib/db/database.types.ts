@@ -607,6 +607,56 @@ export type Database = {
           },
         ]
       }
+      receipt_retentions: {
+        Row: {
+          amount: number
+          certificate_date: string
+          certificate_number: string
+          created_at: string
+          id: string
+          jurisdiction: string | null
+          kind: string
+          notes: string | null
+          receipt_id: string
+          tax_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          certificate_date: string
+          certificate_number: string
+          created_at?: string
+          id?: string
+          jurisdiction?: string | null
+          kind: string
+          notes?: string | null
+          receipt_id: string
+          tax_type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          certificate_date?: string
+          certificate_number?: string
+          created_at?: string
+          id?: string
+          jurisdiction?: string | null
+          kind?: string
+          notes?: string | null
+          receipt_id?: string
+          tax_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_retentions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipts: {
         Row: {
           canceled_at: string | null
@@ -917,6 +967,7 @@ export type Database = {
           p_payment_lines: Json
           p_punto_venta: number
           p_recibo_date: string
+          p_retentions: Json
           p_total_amount: number
         }
         Returns: string
@@ -976,6 +1027,7 @@ export type Database = {
           p_notes: string
           p_payment_lines: Json
           p_recibo_date: string
+          p_retentions: Json
           p_total_amount: number
         }
         Returns: undefined
