@@ -1,14 +1,29 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
+import { loadAfipAdminAction } from "@/features/afip-admin/actions/afip-admin-actions";
 import { SalesPointsPanel } from "@/features/afip-admin/components/sales-points-panel";
+import { afipAdminKeys } from "@/features/afip-admin/lib/afip-admin-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
+
+import Loading from "./loading";
 
 export default async function AfipSalesPointsPage() {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "afip:admin")) {
     redirect("/dashboard");
   }
+
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: afipAdminKeys.panel(),
+      queryFn: () => runAction(() => loadAfipAdminAction()),
+    },
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -22,7 +37,11 @@ export default async function AfipSalesPointsPage() {
           habilitados antes de seedear los canales fiscales.
         </p>
       </div>
-      <SalesPointsPanel />
+      <Hydrate state={dehydratedState}>
+        <Suspense fallback={<Loading />}>
+          <SalesPointsPanel />
+        </Suspense>
+      </Hydrate>
     </div>
   );
 }
