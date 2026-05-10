@@ -2,7 +2,13 @@
 
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ChangeEvent } from "react";
+import {
+  Suspense,
+  useDeferredValue,
+  useEffect,
+  useState,
+  type ChangeEvent,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -23,17 +30,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useInfinitePagedQuery } from "@/hooks/use-infinite-paged-query";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
-import {
-  listComprobantesAction,
-  type ComprobanteListItem,
-} from "../actions/comprobantes-actions";
+import type { ComprobanteListItem } from "../actions/comprobantes-actions";
+import { useComprobantesSearchInfinite } from "../hooks/use-comprobantes";
 import {
   COMPROBANTE_STATUSES,
   COMPROBANTE_STATUS_LABEL,
@@ -44,10 +48,6 @@ import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
 // Argentine convention: letter prefix glued to the number, 5 digits punto
 // de venta + dash + 8 digits sequential.
-//   Factura A → "A00003-00000002"
-//   NC B     → "NC-B 00003-00000005"
-//   ND A     → "ND-A 00003-00000010"
-//   Interno  → just "00003-00000002"
 function formatNumero(row: ComprobanteListItem): string {
   const number =
     row.numero == null
@@ -59,12 +59,10 @@ function formatNumero(row: ComprobanteListItem): string {
   return `${prefix} ${number}`;
 }
 
-// Sanitize a string for use in a filename across OSes. Strips characters
-// that Windows/macOS/Linux handle differently and collapses whitespace.
 function safeFilenamePart(value: string): string {
   return value
     .normalize("NFKD")
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "") // illegal on Windows
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
     .replace(/[,;]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -76,7 +74,6 @@ function formatPdfFilename(row: ComprobanteListItem): string {
   return `${numero} - ${client}.pdf`;
 }
 
-const PAGE_SIZE = 50;
 const ANY_STATUS = "__any__";
 const ANY_CHANNEL = "__any__";
 
@@ -92,23 +89,6 @@ interface ChannelOption {
   id: string;
   name: string;
   division: string;
-}
-
-async function fetchPage(
-  channel: string | null,
-  status: ComprobanteStatus | null,
-  query: string,
-  offset: number,
-): Promise<{ items: ComprobanteListItem[]; nextOffset: number | null }> {
-  const result = await listComprobantesAction({
-    channel_id: channel,
-    status,
-    query: query.length > 0 ? query : null,
-    offset,
-    limit: PAGE_SIZE,
-  });
-  if (!result.ok) throw new Error(result.error);
-  return result.data;
 }
 
 export function ComprobantesTable({
@@ -139,26 +119,12 @@ export function ComprobantesTable({
   const status =
     statusInput === ANY_STATUS ? null : (statusInput as ComprobanteStatus);
 
+  const deferredChannel = useDeferredValue(channel);
+  const deferredStatus = useDeferredValue(status);
+  const deferredQuery = useDeferredValue(debouncedQuery);
+
   const canIssue = userCan(actorRoles, "invoices:issue");
 
-  const {
-    items,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useInfinitePagedQuery<ComprobanteListItem>({
-    queryKey: [
-      "comprobantes",
-      { channel, status, query: debouncedQuery },
-    ],
-    queryFn: (offset) => fetchPage(channel, status, debouncedQuery, offset),
-  });
-
-  // Sync URL with applied filters so the page is shareable.
   useEffect(() => {
     setUrlFilters({
       channel: channel ?? null,
@@ -166,13 +132,6 @@ export function ComprobantesTable({
       q: debouncedQuery || null,
     });
   }, [channel, status, debouncedQuery, setUrlFilters]);
-
-  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
-    () => {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-    },
-    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
-  );
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
@@ -235,117 +194,144 @@ export function ComprobantesTable({
               <TableHead className="w-32 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Cargando…
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-destructive"
-                >
-                  {error instanceof Error ? error.message : "Error al cargar."}{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => void refetch()}
-                  >
-                    Reintentar
-                  </button>
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  No hay comprobantes que coincidan.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((row) => {
-                const hasPdf = row.status === "emitted";
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-mono text-xs">
-                      {formatNumero(row)}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {row.client_legal_name}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(row.fecha)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      ${row.imp_total.toLocaleString("es-AR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={STATUS_TONE[row.status]}
-                      >
-                        {COMPROBANTE_STATUS_LABEL[row.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Ver detalle"
-                        >
-                          <Link href={`/comprobantes/${row.id}`}>
-                            <Eye className="size-4" />
-                          </Link>
-                        </Button>
-                        {hasPdf && (
-                          <>
-                            <PdfViewerDialog
-                              id={row.id}
-                              label={formatNumero(row)}
-                            />
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Descargar PDF"
-                            >
-                              <a
-                                href={`/api/comprobantes/${row.id}/pdf`}
-                                download={formatPdfFilename(row)}
-                              >
-                                <Download className="size-4" />
-                              </a>
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
+          <Suspense fallback={<ComprobantesTableSkeletonRows />}>
+            <ComprobantesTableRows
+              channel={deferredChannel}
+              status={deferredStatus}
+              query={deferredQuery}
+            />
+          </Suspense>
         </Table>
-        <div ref={sentinelRef} className="h-px" />
-        {isFetchingNextPage && (
-          <div className="border-t py-3 text-center text-xs text-muted-foreground">
-            Cargando más…
-          </div>
-        )}
       </div>
     </>
+  );
+}
+
+function ComprobantesTableRows({
+  channel,
+  status,
+  query,
+}: {
+  channel: string | null;
+  status: ComprobanteStatus | null;
+  query: string;
+}) {
+  const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useComprobantesSearchInfinite({ channel, status, query });
+
+  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
+
+  if (items.length === 0) {
+    return (
+      <TableBody>
+        <TableRow>
+          <TableCell
+            colSpan={6}
+            className="py-10 text-center text-sm text-muted-foreground"
+          >
+            No hay comprobantes que coincidan.
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    );
+  }
+
+  return (
+    <TableBody>
+      {items.map((row) => {
+        const hasPdf = row.status === "emitted";
+        return (
+          <TableRow key={row.id}>
+            <TableCell className="font-mono text-xs">
+              {formatNumero(row)}
+            </TableCell>
+            <TableCell className="font-medium">
+              {row.client_legal_name}
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {formatArgentineDate(row.fecha)}
+            </TableCell>
+            <TableCell className="text-right font-mono">
+              $
+              {row.imp_total.toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </TableCell>
+            <TableCell>
+              <Badge
+                variant="secondary"
+                className={STATUS_TONE[row.status]}
+              >
+                {COMPROBANTE_STATUS_LABEL[row.status]}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Ver detalle"
+                >
+                  <Link href={`/comprobantes/${row.id}`}>
+                    <Eye className="size-4" />
+                  </Link>
+                </Button>
+                {hasPdf && (
+                  <>
+                    <PdfViewerDialog id={row.id} label={formatNumero(row)} />
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Descargar PDF"
+                    >
+                      <a
+                        href={`/api/comprobantes/${row.id}/pdf`}
+                        download={formatPdfFilename(row)}
+                      >
+                        <Download className="size-4" />
+                      </a>
+                    </Button>
+                  </>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+      {hasNextPage && (
+        <TableRow ref={sentinelRef}>
+          <TableCell
+            colSpan={6}
+            className="py-3 text-center text-xs text-muted-foreground"
+          >
+            {isFetchingNextPage ? "Cargando más…" : ""}
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
+  );
+}
+
+function ComprobantesTableSkeletonRows() {
+  return (
+    <TableBody>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: 6 }).map((__, j) => (
+            <TableCell key={j}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </TableBody>
   );
 }

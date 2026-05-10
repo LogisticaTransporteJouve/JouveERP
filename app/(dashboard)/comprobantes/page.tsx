@@ -1,12 +1,18 @@
 import { redirect } from "next/navigation";
 
+import { listComprobantesAction } from "@/features/comprobantes/actions/comprobantes-actions";
 import { ComprobantesTable } from "@/features/comprobantes/components/comprobantes-table";
+import { COMPROBANTES_PAGE_SIZE } from "@/features/comprobantes/hooks/use-comprobantes";
+import { comprobantesKeys } from "@/features/comprobantes/lib/comprobantes-keys";
 import {
   COMPROBANTE_STATUSES,
   type ComprobanteStatus,
 } from "@/features/comprobantes/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +46,30 @@ export default async function ComprobantesPage({
     .eq("is_active", true)
     .order("name");
 
+  const filters = {
+    channel: params.channel ?? null,
+    status: asStatus(params.status),
+    query: params.q ?? "",
+  };
+
+  const dehydratedState = await prefetchQueries([
+    {
+      infinite: true,
+      queryKey: comprobantesKeys.searchInfinite(filters),
+      queryFn: ({ pageParam }: { pageParam: number }) =>
+        runAction(() =>
+          listComprobantesAction({
+            channel_id: filters.channel,
+            status: filters.status,
+            query: filters.query.length > 0 ? filters.query : null,
+            offset: pageParam,
+            limit: COMPROBANTES_PAGE_SIZE,
+          }),
+        ),
+      initialPageParam: 0,
+    },
+  ]);
+
   return (
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="space-y-1">
@@ -48,17 +78,19 @@ export default async function ComprobantesPage({
           Facturas, notas de crédito y débito por canal.
         </p>
       </div>
-      <ComprobantesTable
-        actorRoles={ctx.roles}
-        channels={(channels ?? []).map((c) => ({
-          id: c.id,
-          name: c.name,
-          division: c.division,
-        }))}
-        initialChannel={params.channel ?? null}
-        initialStatus={asStatus(params.status)}
-        initialQuery={params.q ?? ""}
-      />
+      <Hydrate state={dehydratedState}>
+        <ComprobantesTable
+          actorRoles={ctx.roles}
+          channels={(channels ?? []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            division: c.division,
+          }))}
+          initialChannel={filters.channel}
+          initialStatus={filters.status}
+          initialQuery={filters.query}
+        />
+      </Hydrate>
     </div>
   );
 }

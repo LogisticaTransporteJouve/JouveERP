@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -34,11 +34,11 @@ import {
 } from "@/lib/afip/codes";
 import { computeTotals } from "@/features/comprobantes/schema";
 
+import type { PosOption } from "../actions/comprobantes-actions";
 import {
-  issueFiscalInvoiceAction,
-  listEnabledPosAction,
-  type PosOption,
-} from "../actions/comprobantes-actions";
+  useEnabledPos,
+  useIssueFiscalInvoice,
+} from "../hooks/use-comprobantes";
 import { ClientPicker, type PickedClient } from "./client-picker";
 
 const DEFAULT_CHANNEL_ID = "jouve_fiscal";
@@ -122,7 +122,8 @@ function NewComprobanteForm({
   onCancel: () => void;
 }) {
   const router = useRouter();
-  const [isSubmitting, startSubmitting] = useTransition();
+  const issueMut = useIssueFiscalInvoice();
+  const isSubmitting = issueMut.isPending;
 
   // Header — default to Jouve Fiscal when present in the channel list.
   const initialChannel =
@@ -130,9 +131,23 @@ function NewComprobanteForm({
     channels[0]?.id ??
     "";
   const [channelId, setChannelId] = useState<string>(initialChannel);
-  const [posOptions, setPosOptions] = useState<PosOption[]>([]);
   const [puntoVenta, setPuntoVenta] = useState<string>("");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const posQuery = useEnabledPos(channelId);
+  const posOptions: PosOption[] = useMemo(
+    () => posQuery.data ?? [],
+    [posQuery.data],
+  );
+
+  // Auto-pick the first POS when the list resolves (channel changed).
+  useEffect(() => {
+    if (posOptions.length === 1) {
+      setPuntoVenta(String(posOptions[0]!.numero));
+    } else if (posOptions.length === 0) {
+      setPuntoVenta("");
+    }
+  }, [posOptions]);
 
   const currentChannel = channels.find((c) => c.id === channelId) ?? null;
   const concepto = currentChannel
@@ -157,30 +172,6 @@ function NewComprobanteForm({
 
   // Notes / NC-ND
   const [motivo, setMotivo] = useState("");
-
-  // Sync POS options when channel changes
-  useEffect(() => {
-    if (!channelId) {
-      setPosOptions([]);
-      setPuntoVenta("");
-      return;
-    }
-    void (async () => {
-      const res = await listEnabledPosAction(channelId);
-      if (!res.ok) {
-        setPosOptions([]);
-        setPuntoVenta("");
-        return;
-      }
-      setPosOptions(res.data);
-      // Auto-pick first POS if there's only one
-      if (res.data.length === 1) {
-        setPuntoVenta(String(res.data[0]!.numero));
-      } else {
-        setPuntoVenta("");
-      }
-    })();
-  }, [channelId]);
 
   function updateItem(index: number, patch: Partial<ItemDraft>) {
     setItems((prev) =>
@@ -258,15 +249,13 @@ function NewComprobanteForm({
       return;
     }
 
-    startSubmitting(async () => {
-      // AFIP requires fch_serv_* + fch_vto_pago when concepto is Servicios
-      // (2) or Productos+Servicios (3). For Jouve's typical flow — flete del
-      // día — los tres se setean al mismo día de emisión. Si alguien necesita
-      // facturar un período (estadía mensual), se hace desde un form
-      // "avanzado" que sumamos cuando aparezca el caso.
-      const fchServ = isServiciosConcepto ? fecha : null;
+    // AFIP requires fch_serv_* + fch_vto_pago when concepto is Servicios (2)
+    // or Productos+Servicios (3). For Jouve's typical flow — flete del día —
+    // los tres se setean al mismo día de emisión.
+    const fchServ = isServiciosConcepto ? fecha : null;
 
-      const res = await issueFiscalInvoiceAction({
+    issueMut.mutate(
+      {
         channel_id: channelId,
         client_id: client.id,
         kind: "factura",
@@ -289,17 +278,16 @@ function NewComprobanteForm({
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
         })),
-      });
-
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Comprobante en cola — esperando CAE.");
-      onSuccess();
-      router.push(`/comprobantes/${res.data.id}`);
-      router.refresh();
-    });
+      },
+      {
+        onSuccess: (data) => {
+          toast.success("Comprobante en cola — esperando CAE.");
+          onSuccess();
+          router.push(`/comprobantes/${data.id}`);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   return (
