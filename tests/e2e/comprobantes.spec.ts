@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // UI-only smoke for the Comprobantes flow. Does NOT emit a fiscal invoice
 // against AFIP — that happens in a separate (manual) suite gated on real

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // AFIP-emit smoke. Loga, abre el Dialog, completa datos mínimos, dispara
 // "Emitir y solicitar CAE" y espera a que el detalle muestre un CAE de

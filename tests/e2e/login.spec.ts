@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // Login flow uses the storageState saved by auth.setup.ts. These tests
 // either inherit that auth (already on dashboard) or sign out and verify
