@@ -5,8 +5,13 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InvoiceJobStatus } from "@/features/comprobantes/components/invoice-job-status";
+import {
+  IssueNcNdDialog,
+  type OriginInvoice,
+} from "@/features/comprobantes/components/issue-nc-nd-dialog";
 import { RegeneratePdfButton } from "@/features/comprobantes/components/regenerate-pdf-button";
 import { getComprobanteDetailAction } from "@/features/comprobantes/actions/comprobantes-actions";
+import type { IvaCondition } from "@/features/clients/schema";
 import {
   COMPROBANTE_KIND_LABEL,
   type ComprobanteStatus,
@@ -86,6 +91,39 @@ export default async function ComprobanteDetailPage({
           {canIssue &&
             c.status === "emitted" &&
             !c.pdf_url && <RegeneratePdfButton id={c.id} />}
+          {canIssue &&
+            c.status === "emitted" &&
+            c.kind === "factura" &&
+            c.channel.is_fiscal &&
+            c.letter &&
+            (() => {
+              const origin: OriginInvoice = {
+                id: c.id,
+                channel_id: c.channel.id,
+                letter: c.letter as "A" | "B" | "C",
+                punto_venta: c.punto_venta,
+                fecha: c.fecha,
+                concepto: c.concepto,
+                doc_nro: c.doc_nro,
+                client: {
+                  id: c.client.id,
+                  legal_name: c.client.legal_name,
+                  iva_condition: c.client.iva_condition as IvaCondition,
+                },
+                items: c.items.map((it) => ({
+                  description: it.description,
+                  quantity: it.quantity,
+                  unit_price: it.unit_price,
+                  iva_rate_id: it.iva_rate_id,
+                })),
+              };
+              return (
+                <>
+                  <IssueNcNdDialog origin={origin} kind="nc" />
+                  <IssueNcNdDialog origin={origin} kind="nd" />
+                </>
+              );
+            })()}
         </div>
       </div>
 
