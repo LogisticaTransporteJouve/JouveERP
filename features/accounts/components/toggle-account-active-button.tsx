@@ -1,34 +1,28 @@
 "use client";
 
 import { Power, PowerOff } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
-import { setAccountActiveAction } from "../actions/accounts-actions";
+import { useSetAccountActive } from "../hooks/use-accounts";
 import type { Account } from "../schema";
 
 export function ToggleAccountActiveButton({ account }: { account: Account }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const mut = useSetAccountActive();
 
   function onToggle() {
-    startTransition(async () => {
-      const res = await setAccountActiveAction({
-        id: account.id,
-        is_active: !account.is_active,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(
-        account.is_active ? "Cuenta desactivada." : "Cuenta reactivada.",
-      );
-      router.refresh();
-    });
+    mut.mutate(
+      { id: account.id, is_active: !account.is_active },
+      {
+        onSuccess: () => {
+          toast.success(
+            account.is_active ? "Cuenta desactivada." : "Cuenta reactivada.",
+          );
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   const Icon = account.is_active ? PowerOff : Power;
@@ -39,7 +33,7 @@ export function ToggleAccountActiveButton({ account }: { account: Account }) {
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      disabled={isPending}
+      disabled={mut.isPending}
       aria-label={label}
       title={label}
     >

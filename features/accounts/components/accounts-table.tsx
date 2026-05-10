@@ -12,11 +12,8 @@ import {
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 
-import {
-  ACCOUNT_TYPE_LABEL,
-  type Account,
-  type AccountCurrency,
-} from "../schema";
+import { useAccountsList } from "../hooks/use-accounts";
+import { ACCOUNT_TYPE_LABEL, type AccountCurrency } from "../schema";
 import { EditAccountDialog } from "./edit-account-dialog";
 import { NewAccountDialog } from "./new-account-dialog";
 import { ToggleAccountActiveButton } from "./toggle-account-active-button";
@@ -38,13 +35,8 @@ function formatBalance(amount: number, currency: AccountCurrency) {
   return formatters[currency].format(amount);
 }
 
-export function AccountsTable({
-  accounts,
-  actorRoles,
-}: {
-  accounts: Account[];
-  actorRoles: Role[];
-}) {
+export function AccountsTable({ actorRoles }: { actorRoles: Role[] }) {
+  const { data: accounts } = useAccountsList();
   const canWrite = userCan(actorRoles, "accounts:write");
 
   return (
