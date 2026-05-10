@@ -246,9 +246,7 @@ function NewComprobanteForm({
       toast.error("Elegí un punto de venta.");
       return;
     }
-    // Drop the Seguro row if its valor declarado quedó vacío/0 — la idea
-    // es que la fila esté siempre disponible en el form pero no infle la
-    // factura cuando no aplica.
+    // Drop empty Seguro row so it doesn't inflate the invoice.
     const itemsForSubmit = items.filter((it) => {
       if (!isSeguroRow(it)) return true;
       const declared = Number(it.unit_price);

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   ACCOUNT_TYPE_LABEL,
+  isChequeAccount,
   type Account,
 } from "@/features/accounts/schema";
 
@@ -73,13 +74,9 @@ export function PaymentLinesEditor({
     onChange([...lines, { account_id: "", amount: "", reference: "" }]);
   }
 
-  // When the user picks a cheques/echeq account, auto-attach an empty cheque
-  // draft so the extra fields show up. When they pick a non-cheque account,
-  // strip it.
   function onAccountChange(idx: number, accountId: string) {
     const account = accounts.find((a) => a.id === accountId);
-    const isCheque =
-      account?.type === "cheques" || account?.type === "echeq";
+    const isCheque = isChequeAccount(account?.type);
     const line = lines[idx];
     if (!line) return;
     onChange(
@@ -111,8 +108,7 @@ export function PaymentLinesEditor({
         <div className="space-y-2">
           {lines.map((line, idx) => {
             const account = accounts.find((a) => a.id === line.account_id);
-            const isCheque =
-              account?.type === "cheques" || account?.type === "echeq";
+            const isCheque = isChequeAccount(account?.type);
             return (
               <div
                 key={idx}

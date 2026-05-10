@@ -22,6 +22,10 @@ export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   echeq: "e-cheq en cartera",
 };
 
+export function isChequeAccount(type: AccountType | undefined): boolean {
+  return type === "cheques" || type === "echeq";
+}
+
 export const ACCOUNT_CURRENCIES = ["ARS", "USD"] as const;
 export type AccountCurrency = (typeof ACCOUNT_CURRENCIES)[number];
 
