@@ -1,0 +1,181 @@
+"use client";
+
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatArgentineDate } from "@/lib/format";
+
+import { useClientAccount } from "../hooks/use-clients";
+import type { AccountMovement } from "../actions/account-actions";
+
+const formatter = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  minimumFractionDigits: 2,
+});
+
+function formatMovementNumber(m: AccountMovement): string {
+  const pos = String(m.punto_venta).padStart(4, "0");
+  const num = String(m.numero).padStart(8, "0");
+  if (m.source_type === "recibo") return `R${pos}-${num}`;
+  if (m.kind === "factura") return `${m.letter ?? ""}${pos}-${num}`;
+  if (m.kind === "nc") return `NC-${m.letter ?? ""} ${pos}-${num}`;
+  if (m.kind === "nd") return `ND-${m.letter ?? ""} ${pos}-${num}`;
+  return `${pos}-${num}`;
+}
+
+function movementTypeLabel(m: AccountMovement): string {
+  if (m.source_type === "recibo") return "Recibo";
+  if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
+  if (m.kind === "nc") return `NC${m.letter ? " " + m.letter : ""}`;
+  if (m.kind === "nd") return `ND${m.letter ? " " + m.letter : ""}`;
+  return m.kind;
+}
+
+function movementHref(m: AccountMovement): string {
+  return m.source_type === "recibo"
+    ? "/recibos"
+    : `/comprobantes/${m.source_id}`;
+}
+
+export function ClientAccountTab({ clientId }: { clientId: string }) {
+  const { data } = useClientAccount(clientId);
+  const movements = data.movements;
+  const balance = data.balance;
+
+  return (
+    <div className="space-y-4">
+      <BalanceHeader balance={balance} count={movements.length} />
+
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">Fecha</TableHead>
+              <TableHead className="w-40">Tipo</TableHead>
+              <TableHead className="w-44">Documento</TableHead>
+              <TableHead>Canal</TableHead>
+              <TableHead className="text-right">Debe</TableHead>
+              <TableHead className="text-right">Haber</TableHead>
+              <TableHead className="text-right">Saldo</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {movements.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
+                  Este cliente todavía no tiene movimientos.
+                </TableCell>
+              </TableRow>
+            ) : (
+              movements.map((m) => {
+                const isDebit = m.signed_amount > 0;
+                return (
+                  <TableRow key={`${m.source_type}-${m.source_id}`}>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatArgentineDate(m.movement_date)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          m.source_type === "recibo"
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                            : m.kind === "nc"
+                              ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                              : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                        }
+                      >
+                        {movementTypeLabel(m)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {m.source_type === "comprobante" ? (
+                        <Link
+                          href={movementHref(m)}
+                          className="hover:underline"
+                        >
+                          {formatMovementNumber(m)}
+                        </Link>
+                      ) : (
+                        formatMovementNumber(m)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {m.channel_name}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {isDebit ? formatter.format(m.gross_amount) : ""}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {!isDebit ? formatter.format(m.gross_amount) : ""}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm font-medium">
+                      <span
+                        className={
+                          m.balance > 0
+                            ? "text-amber-600 dark:text-amber-400"
+                            : m.balance < 0
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {formatter.format(m.balance)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function BalanceHeader({
+  balance,
+  count,
+}: {
+  balance: number;
+  count: number;
+}) {
+  const tone =
+    balance > 0
+      ? "text-amber-600 dark:text-amber-400"
+      : balance < 0
+        ? "text-blue-600 dark:text-blue-400"
+        : "text-muted-foreground";
+  const label =
+    balance > 0
+      ? "El cliente nos debe"
+      : balance < 0
+        ? "Le debemos al cliente"
+        : "Saldo en cero";
+  return (
+    <div className="flex items-end justify-between rounded-lg border bg-muted/30 p-4">
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground">Saldo</div>
+        <div className={`font-mono text-2xl font-semibold ${tone}`}>
+          {formatter.format(balance)}
+        </div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {count} movimiento{count === 1 ? "" : "s"}
+      </div>
+    </div>
+  );
+}
