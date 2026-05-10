@@ -41,9 +41,11 @@ const RESULT_LIMIT = 8;
 export function ClientPicker({
   value,
   onChange,
+  autoFocus,
 }: {
   value: PickedClient | null;
   onChange: (client: PickedClient | null) => void;
+  autoFocus?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -125,6 +127,7 @@ export function ClientPicker({
                   placeholder="Buscar por razón social, nombre fantasía o CUIT"
                   className="pl-8"
                   value={query}
+                  autoFocus={autoFocus}
                   onFocus={() => setOpen(true)}
                   onChange={(e) => {
                     setQuery(e.target.value);

@@ -820,7 +820,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - **Supabase Realtime** (~150 LOC): subscripción a `public.comprobantes` con filtro por canal en alcance. Cuando otro usuario emite (o el workflow Inngest persiste el CAE), la tabla refresca la fila afectada vía `queryClient.setQueryData` sin re-fetch completo. Pattern: `realtime.channel('comprobantes:list').on('postgres_changes', { event: '*', schema: 'public', table: 'comprobantes' }, handler).subscribe()`. Anti-patrón #9 ya marca que realtime es para esto exactamente — workflows críticos seguirían en Inngest.
 - Manda el evento `INSERT` para sumar filas nuevas, `UPDATE` para refrescar status/CAE/pdf_url cuando el workflow las flippea de `draft → emitting → emitted`.
 
-#### E.9 — `feat: emitir y continuar (rapid invoicing)` (1 PR ~100 LOC)
+#### E.9 — `feat: emitir y continuar (rapid invoicing)` (1 PR ~100 LOC) ✅ shipped
 
 > Patrón "Save and add another" para usuarios que cargan muchas facturas
 > seguidas (típico: facturar 20 fletes al cierre del día). Alineado con La
@@ -836,7 +836,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - El draft + workflow de Inngest siguen su curso en background. Si una emisión falla, el toast del próximo render lo avisa (o lo ven en la lista cuando el realtime de E.8 lo refleje).
 - Atajo `⌘ + Enter` (Ctrl+Enter en Windows) dispara el secundario para que la acción más frecuente sea sin mouse.
 
-**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 ya shipped, faltan E.6.5 con tests + E.7 interno + E.8 realtime + E.9 rapid invoicing).**
+**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 + E.7 + E.9 ya shipped, faltan E.6.5 con tests + E.8 realtime).**
 
 ---
 

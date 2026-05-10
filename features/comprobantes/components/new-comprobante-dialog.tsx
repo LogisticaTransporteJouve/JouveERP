@@ -66,6 +66,18 @@ type ItemDraft = {
 };
 
 const SEGURO_DESCRIPTION = "Seguro";
+
+function defaultItems(): ItemDraft[] {
+  return [
+    { description: "", quantity: "1", unit_price: "", iva_rate_id: IVA_RATE.TWENTY_ONE },
+    {
+      description: SEGURO_DESCRIPTION,
+      quantity: "0.01",
+      unit_price: "",
+      iva_rate_id: IVA_RATE.TWENTY_ONE,
+    },
+  ];
+}
 // Quick percentages for the Seguro line. "Otro" lets the user type a custom
 // number that gets stored as quantity (= pct/100) on submit.
 const SEGURO_PERCENTAGES = [1, 2, 3, 5] as const;
@@ -161,18 +173,21 @@ function NewComprobanteForm({
   // always present and can't be removed. Seguro stores `quantity = pct/100`
   // so `line_neto = unit_price (valor declarado) × quantity (pct)` matches
   // what computeTotals expects without a special case.
-  const [items, setItems] = useState<ItemDraft[]>([
-    { description: "", quantity: "1", unit_price: "", iva_rate_id: IVA_RATE.TWENTY_ONE },
-    {
-      description: SEGURO_DESCRIPTION,
-      quantity: "0.01",
-      unit_price: "",
-      iva_rate_id: IVA_RATE.TWENTY_ONE,
-    },
-  ]);
+  const [items, setItems] = useState<ItemDraft[]>(() => defaultItems());
 
   // Notes / NC-ND
   const [motivo, setMotivo] = useState("");
+
+  // Bumped after "Emitir y continuar" to force a fresh ClientPicker mount,
+  // which auto-focuses its search input.
+  const [clientPickerKey, setClientPickerKey] = useState(0);
+
+  function resetForContinue() {
+    setClient(null);
+    setItems(defaultItems());
+    setMotivo("");
+    setClientPickerKey((k) => k + 1);
+  }
 
   function updateItem(index: number, patch: Partial<ItemDraft>) {
     setItems((prev) =>
@@ -222,8 +237,7 @@ function NewComprobanteForm({
   const letter =
     isFiscal && client ? letterFor(client.iva_condition) : null;
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function issue(continueMode: boolean) {
     if (!client) {
       toast.error("Verificá un cliente antes de emitir.");
       return;
@@ -289,6 +303,10 @@ function NewComprobanteForm({
       {
         onSuccess: (data) => {
           toast.success("Comprobante en cola — esperando CAE.");
+          if (continueMode) {
+            resetForContinue();
+            return;
+          }
           onSuccess();
           router.push(`/comprobantes/${data.id}`);
         },
@@ -297,8 +315,20 @@ function NewComprobanteForm({
     );
   }
 
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    issue(false);
+  }
+
+  function onFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !isSubmitting) {
+      e.preventDefault();
+      issue(true);
+    }
+  }
+
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form onSubmit={onSubmit} onKeyDown={onFormKeyDown} className="space-y-5">
       {/* Canal + Fecha. POS is resolved from the channel (1:1 mapping)
           and Concepto from the division (Jouve→Servicios, DZ→Productos+
           Servicios) so neither needs to live in the UI. */}
@@ -338,7 +368,12 @@ function NewComprobanteForm({
       {/* Cliente */}
       <div className="space-y-2">
         <Label>Cliente</Label>
-        <ClientPicker value={client} onChange={setClient} />
+        <ClientPicker
+          key={clientPickerKey}
+          value={client}
+          onChange={setClient}
+          autoFocus={clientPickerKey > 0}
+        />
       </div>
 
       {/* Items */}
@@ -509,6 +544,15 @@ function NewComprobanteForm({
           disabled={isSubmitting}
         >
           Cancelar
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => issue(true)}
+          disabled={isSubmitting}
+          title="⌘+Enter"
+        >
+          Emitir y continuar
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Emitiendo…" : "Emitir y solicitar CAE"}
