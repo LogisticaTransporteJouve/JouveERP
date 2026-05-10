@@ -1,0 +1,379 @@
+"use server";
+
+import { requireUserContext } from "@/lib/auth/context";
+import { userCan } from "@/lib/auth/permissions";
+import { logger } from "@/lib/logger";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
+
+import {
+  isTransactionCurrency,
+  isTransactionKind,
+  TransactionCreateSchema,
+  TransactionFiltersSchema,
+  TransactionUpdateSchema,
+  TransferCreateSchema,
+  type Transaction,
+  type TransactionFilters,
+} from "../schema";
+
+export type ActionResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [k: string]: JsonValue | undefined }
+  | JsonValue[];
+
+async function logAudit(
+  eventType: string,
+  actorId: string,
+  payload: { [k: string]: JsonValue | undefined },
+  targetResourceId?: string,
+) {
+  const service = getServiceClient();
+  const { error } = await service.from("audit_events").insert({
+    actor_id: actorId,
+    event_type: eventType,
+    target_resource_id: targetResourceId ?? null,
+    payload,
+  });
+  if (error) {
+    logger.error("audit.insert.failed", { eventType, error });
+  }
+}
+
+function narrowTransaction(row: {
+  kind: string | null;
+  currency: string | null;
+  [key: string]: unknown;
+}): Transaction | null {
+  if (!isTransactionKind(row.kind)) {
+    logger.error("transactions.unknown_kind", { value: row.kind });
+    return null;
+  }
+  if (!isTransactionCurrency(row.currency)) {
+    logger.error("transactions.unknown_currency", { value: row.currency });
+    return null;
+  }
+  return row as unknown as Transaction;
+}
+
+const SELECT_COLUMNS =
+  "id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description, comprobante_id, counterparty_client_id, transfer_pair_id, created_by, created_at, updated_at";
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+export interface TransactionListItem extends Transaction {
+  channel_name: string;
+  channel_division: string;
+  channel_is_fiscal: boolean;
+  account_name: string;
+  account_type: string;
+  counterparty_legal_name: string | null;
+}
+
+export interface TransactionListPage {
+  items: TransactionListItem[];
+  nextOffset: number | null;
+}
+
+const DEFAULT_PAGE_SIZE = 50;
+
+export async function listTransactionsAction(
+  rawFilters: unknown = {},
+): Promise<ActionResult<TransactionListPage>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:read")) {
+    return { ok: false, error: "No tenés permiso para ver movimientos." };
+  }
+
+  const parsedFilters = TransactionFiltersSchema.safeParse(rawFilters);
+  if (!parsedFilters.success) {
+    return {
+      ok: false,
+      error: parsedFilters.error.issues[0]?.message ?? "Filtros inválidos.",
+    };
+  }
+  const filters: TransactionFilters = parsedFilters.data;
+
+  const offset = Math.max(0, filters.offset ?? 0);
+  const limit = Math.min(200, Math.max(1, filters.limit ?? DEFAULT_PAGE_SIZE));
+
+  const supabase = await createSupabaseClient();
+  let query = supabase
+    .from("v_transactions_tagged")
+    .select(
+      `${SELECT_COLUMNS}, channel_name, channel_division, channel_is_fiscal, account_name, account_type, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
+      { count: "exact" },
+    )
+    .order("transaction_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
+  if (filters.account_id) query = query.eq("account_id", filters.account_id);
+  if (filters.kind) query = query.eq("kind", filters.kind);
+  if (filters.date_from) query = query.gte("transaction_date", filters.date_from);
+  if (filters.date_to) query = query.lte("transaction_date", filters.date_to);
+  if (filters.client_id)
+    query = query.eq("counterparty_client_id", filters.client_id);
+
+  query = query.range(offset, offset + limit);
+
+  const { data, error } = await query;
+  if (error) {
+    logger.error("transactions.list.failed", { error });
+    return { ok: false, error: "No se pudieron listar los movimientos." };
+  }
+
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const items = rows
+    .slice(0, limit)
+    .map((row) => {
+      const narrowed = narrowTransaction(row);
+      if (!narrowed) return null;
+      const counterparty = (
+        row as {
+          counterparty_client: { legal_name: string } | null;
+        }
+      ).counterparty_client;
+      return {
+        ...narrowed,
+        channel_name: (row as { channel_name: string }).channel_name,
+        channel_division: (row as { channel_division: string }).channel_division,
+        channel_is_fiscal: (row as { channel_is_fiscal: boolean })
+          .channel_is_fiscal,
+        account_name: (row as { account_name: string }).account_name,
+        account_type: (row as { account_type: string }).account_type,
+        counterparty_legal_name: counterparty?.legal_name ?? null,
+      };
+    })
+    .filter((item): item is TransactionListItem => item !== null);
+
+  return {
+    ok: true,
+    data: { items, nextOffset: hasMore ? offset + limit : null },
+  };
+}
+
+export async function getTransactionByIdAction(
+  id: string,
+): Promise<ActionResult<Transaction | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:read")) {
+    return { ok: false, error: "No tenés permiso para ver movimientos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select(SELECT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("transactions.get.failed", { id, error });
+    return { ok: false, error: "No se pudo cargar el movimiento." };
+  }
+  return { ok: true, data: data ? narrowTransaction(data) : null };
+}
+
+// ---------------------------------------------------------------------------
+// Writes
+// ---------------------------------------------------------------------------
+
+export async function createTransactionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:write")) {
+    return { ok: false, error: "No tenés permiso para registrar movimientos." };
+  }
+
+  const parsed = TransactionCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const data = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { data: row, error } = await supabase
+    .from("transactions")
+    .insert({
+      account_id: data.account_id,
+      channel_id: data.channel_id,
+      kind: data.kind,
+      amount: data.amount,
+      currency: data.currency,
+      transaction_date: data.transaction_date,
+      accrual_month: data.accrual_month,
+      description: data.description ?? null,
+      comprobante_id: data.comprobante_id ?? null,
+      counterparty_client_id: data.counterparty_client_id ?? null,
+      created_by: ctx.userId,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    logger.error("transactions.create.failed", { error });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo registrar el movimiento.",
+    };
+  }
+
+  await logAudit(
+    "transaction.created",
+    ctx.userId,
+    {
+      kind: data.kind,
+      amount: data.amount,
+      account_id: data.account_id,
+      channel_id: data.channel_id,
+    },
+    row.id,
+  );
+  return { ok: true, data: { id: row.id } };
+}
+
+export async function createTransferAction(
+  input: unknown,
+): Promise<ActionResult<{ transfer_out_id: string; transfer_in_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:write")) {
+    return { ok: false, error: "No tenés permiso para registrar movimientos." };
+  }
+
+  const parsed = TransferCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const data = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { data: rows, error } = await supabase.rpc("create_transfer", {
+    p_account_from_id: data.account_from_id,
+    p_account_to_id: data.account_to_id,
+    p_channel_id: data.channel_id,
+    p_amount: data.amount,
+    p_currency: data.currency,
+    p_transaction_date: data.transaction_date,
+    p_accrual_month: data.accrual_month,
+    p_description: data.description ?? "",
+  });
+
+  if (error) {
+    logger.error("transactions.create_transfer.failed", { error });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo registrar la transferencia.",
+    };
+  }
+
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  if (!row) {
+    return { ok: false, error: "El RPC create_transfer no devolvió ids." };
+  }
+
+  await logAudit(
+    "transaction.transfer_created",
+    ctx.userId,
+    {
+      from: data.account_from_id,
+      to: data.account_to_id,
+      amount: data.amount,
+      channel_id: data.channel_id,
+    },
+    row.transfer_out_id,
+  );
+
+  return {
+    ok: true,
+    data: {
+      transfer_out_id: row.transfer_out_id as string,
+      transfer_in_id: row.transfer_in_id as string,
+    },
+  };
+}
+
+export async function updateTransactionAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:write")) {
+    return { ok: false, error: "No tenés permiso para editar movimientos." };
+  }
+
+  const parsed = TransactionUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const data = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase
+    .from("transactions")
+    .update({
+      amount: data.amount,
+      transaction_date: data.transaction_date,
+      accrual_month: data.accrual_month,
+      description: data.description ?? null,
+      counterparty_client_id: data.counterparty_client_id ?? null,
+    })
+    .eq("id", data.id);
+
+  if (error) {
+    logger.error("transactions.update.failed", { error });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo actualizar el movimiento.",
+    };
+  }
+
+  await logAudit(
+    "transaction.updated",
+    ctx.userId,
+    { amount: data.amount },
+    data.id,
+  );
+  return { ok: true, data: undefined };
+}
+
+export async function deleteTransactionAction(
+  id: string,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "transactions:write")) {
+    return { ok: false, error: "No tenés permiso para borrar movimientos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  // For a transfer pair, the FK on_delete cascade on transfer_pair_id wipes
+  // the other half automatically — confirmed by the migration.
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+
+  if (error) {
+    logger.error("transactions.delete.failed", { id, error });
+    return { ok: false, error: "No se pudo borrar el movimiento." };
+  }
+
+  await logAudit("transaction.deleted", ctx.userId, {}, id);
+  return { ok: true, data: undefined };
+}
