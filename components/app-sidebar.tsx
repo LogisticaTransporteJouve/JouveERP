@@ -9,6 +9,7 @@ import {
   Search,
   ShieldCheck,
   Users,
+  Wallet,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,6 +54,12 @@ const navItems: NavItem[] = [
     label: "Comprobantes",
     icon: ReceiptText,
     permission: "invoices:read",
+  },
+  {
+    href: "/cuentas",
+    label: "Cuentas",
+    icon: Wallet,
+    permission: "accounts:read",
   },
   {
     href: "/admin/users",

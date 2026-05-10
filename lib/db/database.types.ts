@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          opening_balance: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          opening_balance?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          opening_balance?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       afip_ta_cache: {
         Row: {
           cached_at: string
