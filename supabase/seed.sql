@@ -40,3 +40,17 @@ insert into public.clients (cuit, legal_name, iva_condition) values
   ('30546741253', 'OSDE ORGANIZACION DE SERVICIOS DIRECTOS',              'responsable_inscripto'),
   ('20309192916', 'VIOLA, VICTOR ABELARDO',                               'responsable_inscripto')
 on conflict (cuit) do nothing;
+
+-- Caja accounts (D.1). Pre-seeded with the canonical list used by the
+-- business so Recibos (F.3) has somewhere to credit payments out of the box.
+insert into public.accounts (name, type, currency) values
+  ('Caja General',                 'cash',    'ARS'),
+  ('Caja Cambio',                  'cash',    'ARS'),
+  ('Cheques físicos en cartera',   'cheques', 'ARS'),
+  ('Cheques electrónicos (e-cheq)','echeq',   'ARS'),
+  ('Banco Galicia',                'bank',    'ARS'),
+  ('Banco Provincia',              'bank',    'ARS'),
+  ('Banco Macro',                  'bank',    'ARS'),
+  ('Mercado Pago',                 'wallet',  'ARS'),
+  ('Banco Nación',                 'bank',    'ARS')
+on conflict do nothing;

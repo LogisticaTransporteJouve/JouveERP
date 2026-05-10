@@ -679,13 +679,15 @@ Smoke local verificado:
 > después de Fase E** — los recibos (F.3) necesitan una cuenta destino para
 > registrar el ingreso. D.2 + D.3 (transactions + UI) van después de F.3.
 
-#### D.1 — `feat: accounts (caja única, sin business_unit_id)` (1 PR) — _ejecuta entre E y F.3_
+#### D.1 — `feat: accounts (caja única, sin business_unit_id)` ✅ _shipped_
 
-- `accounts(id, name, type bank|cash|wallet|investment|cheques, currency ARS|USD|EUR|BRL, opening_balance, notes, is_active, created_at, updated_at)`.
-- Trigger `set_updated_at` (función reusable).
-- RLS: read `owner|admin|finance`, write `owner|finance`, delete `owner`.
+- `accounts(id, name, type bank|cash|wallet|investment|cheques|echeq, currency ARS|USD, opening_balance, notes, is_active, created_at, updated_at)`.
+- Trigger `set_updated_at`. Unique sobre `(lower(name), type, currency)`.
+- RLS: read `owner|admin|finance`, write `owner|finance`. Delete bloqueado en RLS (sigue patrón `clients`); soft-delete vía `is_active`.
 - Permisos: `accounts:read`, `accounts:write`.
-- `features/accounts/` con form + lista + edit/desactivar.
+- `features/accounts/` con form + lista + edit/toggle activo.
+- Cheques físicos y e-cheq como tipos separados (no subtipos): un depósito o conversión cae como `transfer_in/out` en D.2.
+- Seed inicial con cuentas reales del negocio (Caja General, Caja Cambio, CH Físico/e-cheq, Banco Galicia/Provincia/Macro/Nación, Mercado Pago).
 
 #### D.2 — `feat: transactions (channel_id obligatorio + view tagged + trigger consistencia)` (1 PR)
 
