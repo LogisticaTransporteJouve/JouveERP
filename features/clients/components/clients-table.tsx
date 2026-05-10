@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ChangeEvent } from "react";
+import {
+  Suspense,
+  useDeferredValue,
+  useEffect,
+  useState,
+  type ChangeEvent,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -15,25 +22,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useInfinitePagedQuery } from "@/hooks/use-infinite-paged-query";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
-import { searchClientsAction } from "../actions/clients-actions";
-import type { Page } from "@/hooks/use-infinite-paged-query";
+import { useClientsSearchInfinite } from "../hooks/use-clients";
 import {
   IVA_CONDITION_LABEL,
-  type Client,
   type IvaCondition,
 } from "../schema";
 import { DeleteClientDialog } from "./delete-client-dialog";
 import { EditClientDialog } from "./edit-client-dialog";
 import { NewClientDialog } from "./new-client-dialog";
-
-const PAGE_SIZE = 50;
 
 const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   responsable_inscripto: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
@@ -42,21 +44,6 @@ const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   consumidor_final: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
   no_categorizado: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
 };
-
-async function fetchPage(
-  query: string,
-  onlyActive: boolean,
-  offset: number,
-): Promise<Page<Client>> {
-  const result = await searchClientsAction({
-    query,
-    onlyActive,
-    offset,
-    limit: PAGE_SIZE,
-  });
-  if (!result.ok) throw new Error(result.error);
-  return { items: result.data.clients, nextOffset: result.data.nextOffset };
-}
 
 export function ClientsTable({
   actorRoles,
@@ -71,38 +58,21 @@ export function ClientsTable({
   const [onlyActive, setOnlyActive] = useState(initialOnlyActive);
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
+  // useDeferredValue keeps the previous Suspense subtree visible while the
+  // new (query, onlyActive) combo is fetching, instead of throwing back to
+  // the top-level fallback on every keystroke.
+  const deferredQuery = useDeferredValue(debouncedQuery);
+  const deferredOnlyActive = useDeferredValue(onlyActive);
   const setUrlFilters = useUrlFilter();
 
   const canWrite = userCan(actorRoles, "clients:write");
 
-  const {
-    items: clients,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useInfinitePagedQuery<Client>({
-    queryKey: ["clients", { query: debouncedQuery, onlyActive }],
-    queryFn: (offset) => fetchPage(debouncedQuery, onlyActive, offset),
-  });
-
-  // Sync URL with applied filters so the page is shareable.
   useEffect(() => {
     setUrlFilters({
       q: debouncedQuery || null,
       inactive: onlyActive ? null : "1",
     });
   }, [debouncedQuery, onlyActive, setUrlFilters]);
-
-  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
-    () => {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-    },
-    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
-  );
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
@@ -143,103 +113,132 @@ export function ClientsTable({
               <TableHead className="w-24 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Cargando…
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-destructive"
-                >
-                  {error instanceof Error ? error.message : "Error al cargar."}{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => void refetch()}
-                  >
-                    Reintentar
-                  </button>
-                </TableCell>
-              </TableRow>
-            ) : clients.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  No hay clientes que coincidan.
-                </TableCell>
-              </TableRow>
-            ) : (
-              clients.map((client) => (
-                <TableRow
-                  key={client.id}
-                  className={!client.is_active ? "opacity-60" : undefined}
-                >
-                  <TableCell>
-                    <Link
-                      href={`/clientes/${client.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {client.legal_name}
-                    </Link>
-                    {client.display_name && (
-                      <div className="text-xs text-muted-foreground">
-                        {client.display_name}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {client.cuit}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={IVA_BADGE_TONE[client.iva_condition]}
-                    >
-                      {IVA_CONDITION_LABEL[client.iva_condition]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {client.is_active ? (
-                      <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                        Activo
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        Inactivo
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatArgentineDate(client.updated_at)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {canWrite && <EditClientDialog client={client} />}
-                      {canWrite && <DeleteClientDialog client={client} />}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
+          <Suspense fallback={<ClientsTableSkeletonRows />}>
+            <ClientsTableRows
+              query={deferredQuery}
+              onlyActive={deferredOnlyActive}
+              canWrite={canWrite}
+            />
+          </Suspense>
         </Table>
-        <div ref={sentinelRef} className="h-px" />
-        {isFetchingNextPage && (
-          <div className="border-t py-3 text-center text-xs text-muted-foreground">
-            Cargando más…
-          </div>
-        )}
       </div>
     </>
+  );
+}
+
+function ClientsTableRows({
+  query,
+  onlyActive,
+  canWrite,
+}: {
+  query: string;
+  onlyActive: boolean;
+  canWrite: boolean;
+}) {
+  const {
+    items: clients,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useClientsSearchInfinite({ query, onlyActive });
+
+  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
+
+  if (clients.length === 0) {
+    return (
+      <TableBody>
+        <TableRow>
+          <TableCell
+            colSpan={6}
+            className="py-10 text-center text-sm text-muted-foreground"
+          >
+            No hay clientes que coincidan.
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    );
+  }
+
+  return (
+    <TableBody>
+      {clients.map((client) => (
+        <TableRow
+          key={client.id}
+          className={!client.is_active ? "opacity-60" : undefined}
+        >
+          <TableCell>
+            <Link
+              href={`/clientes/${client.id}`}
+              className="font-medium hover:underline"
+            >
+              {client.legal_name}
+            </Link>
+            {client.display_name && (
+              <div className="text-xs text-muted-foreground">
+                {client.display_name}
+              </div>
+            )}
+          </TableCell>
+          <TableCell className="font-mono text-xs">{client.cuit}</TableCell>
+          <TableCell>
+            <Badge
+              variant="secondary"
+              className={IVA_BADGE_TONE[client.iva_condition]}
+            >
+              {IVA_CONDITION_LABEL[client.iva_condition]}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            {client.is_active ? (
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">
+                Activo
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">Inactivo</span>
+            )}
+          </TableCell>
+          <TableCell className="text-sm text-muted-foreground">
+            {formatArgentineDate(client.updated_at)}
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center justify-end gap-1">
+              {canWrite && <EditClientDialog client={client} />}
+              {canWrite && <DeleteClientDialog client={client} />}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+      {hasNextPage && (
+        <TableRow ref={sentinelRef}>
+          <TableCell
+            colSpan={6}
+            className="py-3 text-center text-xs text-muted-foreground"
+          >
+            {isFetchingNextPage ? "Cargando más…" : ""}
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
+  );
+}
+
+function ClientsTableSkeletonRows() {
+  return (
+    <TableBody>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: 6 }).map((__, j) => (
+            <TableCell key={j}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </TableBody>
   );
 }

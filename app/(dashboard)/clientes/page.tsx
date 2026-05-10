@@ -1,8 +1,16 @@
 import { redirect } from "next/navigation";
 
+import { searchClientsAction } from "@/features/clients/actions/clients-actions";
 import { ClientsTable } from "@/features/clients/components/clients-table";
+import {
+  CLIENTS_PAGE_SIZE,
+} from "@/features/clients/hooks/use-clients";
+import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
 
 export default async function ClientesPage({
   searchParams,
@@ -18,6 +26,23 @@ export default async function ClientesPage({
   const initialQuery = (params.q ?? "").trim();
   const initialOnlyActive = params.inactive !== "1";
 
+  const filters = { query: initialQuery, onlyActive: initialOnlyActive };
+  const dehydratedState = await prefetchQueries([
+    {
+      infinite: true,
+      queryKey: clientsKeys.searchInfinite(filters),
+      queryFn: ({ pageParam }: { pageParam: number }) =>
+        runAction(() =>
+          searchClientsAction({
+            ...filters,
+            offset: pageParam,
+            limit: CLIENTS_PAGE_SIZE,
+          }),
+        ),
+      initialPageParam: 0,
+    },
+  ]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -27,11 +52,13 @@ export default async function ClientesPage({
           Instalaciones.
         </p>
       </div>
-      <ClientsTable
-        actorRoles={ctx.roles}
-        initialQuery={initialQuery}
-        initialOnlyActive={initialOnlyActive}
-      />
+      <Hydrate state={dehydratedState}>
+        <ClientsTable
+          actorRoles={ctx.roles}
+          initialQuery={initialQuery}
+          initialOnlyActive={initialOnlyActive}
+        />
+      </Hydrate>
     </div>
   );
 }
