@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeftRight,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -67,6 +68,12 @@ const navItems: NavItem[] = [
     label: "Cuentas",
     icon: Wallet,
     permission: "accounts:read",
+  },
+  {
+    href: "/caja",
+    label: "Caja",
+    icon: ArrowLeftRight,
+    permission: "transactions:read",
   },
   {
     href: "/admin/users",

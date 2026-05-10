@@ -689,21 +689,23 @@ Smoke local verificado:
 - Cheques físicos y e-cheq como tipos separados (no subtipos): un depósito o conversión cae como `transfer_in/out` en D.2.
 - Seed inicial con cuentas reales del negocio (Caja General, Caja Cambio, CH Físico/e-cheq, Banco Galicia/Provincia/Macro/Nación, Mercado Pago).
 
-#### D.2 — `feat: transactions (channel_id obligatorio + view tagged + trigger consistencia)` (1 PR)
+#### D.2 — `feat: transactions schema + actions + RPC` ✅ _shipped_
 
-- `transactions(id, account_id, channel_id NOT NULL, kind income|expense|transfer_in|transfer_out, amount, currency, transaction_date, accrual_month CHECK day=1, description, comprobante_id, counterparty_client_id, transfer_pair_id self, created_by, created_at, updated_at)`.
-- View `v_transactions_tagged` que joinea con `invoicing_channels` y expone `division`, `is_fiscal`.
-- Trigger `check_transaction_channel_matches_comprobante` con `to_regclass` guard (dormant hasta Fase E).
+- `transactions(id, account_id, channel_id NOT NULL, kind income|expense|transfer_in|transfer_out, amount, currency ARS|USD, transaction_date, accrual_month CHECK day=1, description, comprobante_id, counterparty_client_id, transfer_pair_id self, created_by, timestamps)`.
+- View `v_transactions_tagged` con `channel_division`, `channel_is_fiscal`, `account_name`, `account_type` para reportes.
+- Triggers de consistencia: (a) `kind ∈ {transfer_in, transfer_out}` ⇔ `transfer_pair_id NOT NULL`, (b) cuando `comprobante_id IS NOT NULL`, `channel_id = comprobante.channel_id`.
 - RLS: read `owner|admin|finance`, write `owner|finance`, delete `owner`.
-- Permisos: `transactions:read`, `transactions:write`.
-- `lib/contracts/transactions.ts` (Zod): `createTransactionSchema`, `createTransferSchema` (refine cuentas distintas), `listTransactionsSchema`.
-- Server actions: `listTransactions`, `createTransaction`, `createTransfer` (paired rows con cleanup), `updateTransaction`, `deleteTransaction`.
+- RPC `create_transfer` inserta los dos halves atómicamente con cross-pointer; rechaza same-account o currency mismatch (multi-currency con cotización va en J.7).
+- `features/transactions/schema.ts` (Zod): `TransactionCreateSchema`, `TransferCreateSchema` (refine `from != to`), `TransactionUpdateSchema`, `TransactionFiltersSchema`.
+- Server actions: `listTransactionsAction` (paged + filtros), `getTransactionByIdAction`, `createTransactionAction`, `createTransferAction`, `updateTransactionAction`, `deleteTransactionAction`.
 
-#### D.3 — `feat: transactions UI (list filtered by scope + new with channel selector)` (1 PR)
+#### D.3 — `feat: transactions UI (Caja)` ✅ _shipped_
 
-- `/transactions` — tabla con TanStack Table (sort + filter cliente, paginación server-side cuando crezca).
-- `/transactions/new` — form con tipo (ingreso/egreso/transferencia), cuenta(s), canal, monto, fecha, mes devengado (auto-aligned), descripción.
-- Sidebar: links "Cuentas" + "Movimientos".
+- `/caja` — tabla con filtros (canal, cuenta, tipo, rango de fechas), `useDeferredValue` para mantener resultados visibles durante transiciones.
+- Dialog "Nuevo movimiento" con kind picker (Ingreso / Egreso / Transferencia) y form que conmuta entre 1 cuenta o 2 (origen + destino).
+- Mes devengado auto-aligned con la fecha (input `type="month"` que se guarda como YYYY-MM-01).
+- Sidebar: entrada "Caja" gated en `transactions:read`.
+- RSC prefetch + Suspense + `loading.tsx` siguiendo el patrón sumary.
 
 **PRs Fase D: 3.**
 

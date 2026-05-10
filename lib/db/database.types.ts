@@ -700,6 +700,103 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          account_id: string
+          accrual_month: string
+          amount: number
+          channel_id: string
+          comprobante_id: string | null
+          counterparty_client_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          id: string
+          kind: string
+          transaction_date: string
+          transfer_pair_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          accrual_month: string
+          amount: number
+          channel_id: string
+          comprobante_id?: string | null
+          counterparty_client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          description?: string | null
+          id?: string
+          kind: string
+          transaction_date: string
+          transfer_pair_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          accrual_month?: string
+          amount?: number
+          channel_id?: string
+          comprobante_id?: string | null
+          counterparty_client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          transaction_date?: string
+          transfer_pair_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_counterparty_client_id_fkey"
+            columns: ["counterparty_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_transfer_pair_id_fkey"
+            columns: ["transfer_pair_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_transfer_pair_id_fkey"
+            columns: ["transfer_pair_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           granted_at: string
@@ -731,7 +828,74 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_transactions_tagged: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          account_type: string | null
+          accrual_month: string | null
+          amount: number | null
+          channel_division: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          comprobante_id: string | null
+          counterparty_client_id: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          kind: string | null
+          transaction_date: string | null
+          transfer_pair_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_counterparty_client_id_fkey"
+            columns: ["counterparty_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_transfer_pair_id_fkey"
+            columns: ["transfer_pair_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_transfer_pair_id_fkey"
+            columns: ["transfer_pair_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       bump_rate_limit_bucket: {
@@ -756,6 +920,22 @@ export type Database = {
           p_total_amount: number
         }
         Returns: string
+      }
+      create_transfer: {
+        Args: {
+          p_account_from_id: string
+          p_account_to_id: string
+          p_accrual_month: string
+          p_amount: number
+          p_channel_id: string
+          p_currency: string
+          p_description: string
+          p_transaction_date: string
+        }
+        Returns: {
+          transfer_in_id: string
+          transfer_out_id: string
+        }[]
       }
       search_clients: {
         Args: {
