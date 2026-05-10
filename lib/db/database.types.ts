@@ -147,6 +147,175 @@ export type Database = {
         }
         Relationships: []
       }
+      cheque_movements: {
+        Row: {
+          cheque_id: string
+          created_at: string
+          created_by: string | null
+          destination_account_id: string | null
+          endorsed_to_cuit: string | null
+          endorsed_to_name: string | null
+          event: string
+          event_date: string
+          id: string
+          notes: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          cheque_id: string
+          created_at?: string
+          created_by?: string | null
+          destination_account_id?: string | null
+          endorsed_to_cuit?: string | null
+          endorsed_to_name?: string | null
+          event: string
+          event_date: string
+          id?: string
+          notes?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          cheque_id?: string
+          created_at?: string
+          created_by?: string | null
+          destination_account_id?: string | null
+          endorsed_to_cuit?: string | null
+          endorsed_to_name?: string | null
+          event?: string
+          event_date?: string
+          id?: string
+          notes?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cheque_movements_cheque_id_fkey"
+            columns: ["cheque_id"]
+            isOneToOne: false
+            referencedRelation: "cheques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_movements_destination_account_id_fkey"
+            columns: ["destination_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_movements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_movements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cheques: {
+        Row: {
+          amount: number
+          bank_name: string
+          cartera_account_id: string
+          cheque_number: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          drawer_cuit: string | null
+          drawer_name: string
+          due_date: string
+          id: string
+          issue_date: string
+          kind: string
+          notes: string | null
+          source_client_id: string | null
+          source_kind: string
+          source_payment_line_id: string | null
+          source_receipt_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_name: string
+          cartera_account_id: string
+          cheque_number: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          drawer_cuit?: string | null
+          drawer_name: string
+          due_date: string
+          id?: string
+          issue_date: string
+          kind: string
+          notes?: string | null
+          source_client_id?: string | null
+          source_kind: string
+          source_payment_line_id?: string | null
+          source_receipt_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_name?: string
+          cartera_account_id?: string
+          cheque_number?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          drawer_cuit?: string | null
+          drawer_name?: string
+          due_date?: string
+          id?: string
+          issue_date?: string
+          kind?: string
+          notes?: string | null
+          source_client_id?: string | null
+          source_kind?: string
+          source_payment_line_id?: string | null
+          source_receipt_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cheques_cartera_account_id_fkey"
+            columns: ["cartera_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_source_client_id_fkey"
+            columns: ["source_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_source_payment_line_id_fkey"
+            columns: ["source_payment_line_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_payment_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_source_receipt_id_fkey"
+            columns: ["source_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -1018,6 +1187,41 @@ export type Database = {
           transfer_in_id: string
           transfer_out_id: string
         }[]
+      }
+      credit_cheque: {
+        Args: { p_cheque_id: string; p_event_date: string; p_notes: string }
+        Returns: string
+      }
+      deposit_cheque: {
+        Args: {
+          p_account_id: string
+          p_channel_id: string
+          p_cheque_id: string
+          p_description: string
+          p_event_date: string
+        }
+        Returns: string
+      }
+      endorse_cheque: {
+        Args: {
+          p_channel_id: string
+          p_cheque_id: string
+          p_endorsed_to_cuit: string
+          p_endorsed_to_name: string
+          p_event_date: string
+          p_notes: string
+        }
+        Returns: string
+      }
+      reject_cheque: {
+        Args: {
+          p_account_id: string
+          p_channel_id: string
+          p_cheque_id: string
+          p_event_date: string
+          p_notes: string
+        }
+        Returns: string
       }
       search_clients: {
         Args: {
