@@ -849,7 +849,16 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-**F.1 receipt → transactions auto-link** ✅ _shipped_ · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.6 — `feat: NC/ND emisión vía AFIP` ✅ _shipped_
+
+- Botones "Emitir NC" / "Emitir ND" en `/comprobantes/[id]` (sólo cuando la origen es factura emitida + canal fiscal + el actor tiene `invoices:issue`).
+- `IssueNcNdDialog` reusa `issueFiscalInvoiceAction` con `kind = nc | nd` y `comprobante_origen_id` apuntando a la factura. Items prellenados con los de la origen (típicamente se editan para reflejar el monto a acreditar/cargar).
+- Letter y POS heredan de la origen (RG 1415). cbteTipo se resuelve a NC_A/NC_B/NC_C o ND_A/ND_B/ND_C vía `cbteTipoFor`.
+- `motivo_nc_nd` requerido en el form.
+- Workflow Inngest no cambia: ya armaba `cbtesAsoc` desde `comprobante_origen_id` desde E.4.
+- Sin cambios de schema — toda la base estaba lista desde E.2.
 
 #### F.1 — `feat: receipt → transactions auto-link` ✅ _shipped_
 
