@@ -6,6 +6,7 @@ import {
   LogOut,
   Receipt,
   ReceiptText,
+  ScrollText,
   Search,
   ShieldCheck,
   Users,
@@ -54,6 +55,12 @@ const navItems: NavItem[] = [
     label: "Comprobantes",
     icon: ReceiptText,
     permission: "invoices:read",
+  },
+  {
+    href: "/recibos",
+    label: "Recibos",
+    icon: ScrollText,
+    permission: "receipts:read",
   },
   {
     href: "/cuentas",

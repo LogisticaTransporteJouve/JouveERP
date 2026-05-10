@@ -520,6 +520,162 @@ export type Database = {
         }
         Relationships: []
       }
+      receipt_allocations: {
+        Row: {
+          amount_applied: number
+          comprobante_id: string
+          created_at: string
+          id: string
+          receipt_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_applied: number
+          comprobante_id: string
+          created_at?: string
+          id?: string
+          receipt_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_applied?: number
+          comprobante_id?: string
+          created_at?: string
+          id?: string
+          receipt_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_allocations_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_payment_lines: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          id: string
+          receipt_id: string
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          receipt_id: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          receipt_id?: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_payment_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_payment_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          canceled_at: string | null
+          canceled_by: string | null
+          channel_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          numero: number
+          punto_venta: number
+          recibo_date: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          canceled_by?: string | null
+          channel_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          notes?: string | null
+          numero: number
+          punto_venta: number
+          recibo_date: string
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          canceled_by?: string | null
+          channel_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          numero?: number
+          punto_venta?: number
+          recibo_date?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           created_at: string
@@ -586,6 +742,21 @@ export type Database = {
         }
         Returns: number
       }
+      create_receipt: {
+        Args: {
+          p_allocations: Json
+          p_channel_id: string
+          p_client_id: string
+          p_currency: string
+          p_notes: string
+          p_numero: number
+          p_payment_lines: Json
+          p_punto_venta: number
+          p_recibo_date: string
+          p_total_amount: number
+        }
+        Returns: string
+      }
       search_clients: {
         Args: {
           p_limit?: number
@@ -618,6 +789,17 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      update_receipt: {
+        Args: {
+          p_allocations: Json
+          p_id: string
+          p_notes: string
+          p_payment_lines: Json
+          p_recibo_date: string
+          p_total_amount: number
+        }
+        Returns: undefined
+      }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
     }
     Enums: {
