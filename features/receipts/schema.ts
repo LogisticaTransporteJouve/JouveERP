@@ -35,6 +35,35 @@ const moneyAmount = z.preprocess(
     .max(1_000_000_000_000),
 );
 
+// Optional cheque metadata: only relevant when payment_line.account_id
+// points to an account of type cheques/echeq. Validated at the DB level —
+// the RPC ignores it for other account types.
+const PaymentLineChequeSchema = z.object({
+  cheque_number: z.string().trim().max(60).optional(),
+  bank_name: z.string().trim().min(1, "Banco requerido.").max(120),
+  drawer_name: z.string().trim().min(1, "Firmante requerido.").max(120),
+  drawer_cuit: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/[^0-9]/g, ""))
+    .refine((value) => value.length === 0 || /^[0-9]{11}$/.test(value), {
+      message: "CUIT debe tener 11 dígitos.",
+    })
+    .optional(),
+  issue_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de emisión inválida.")
+    .optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de cobro inválida."),
+  notes: z
+    .string()
+    .trim()
+    .max(2000)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+});
+
 const PaymentLineSchema = z.object({
   account_id: z.string().uuid("Cuenta requerida."),
   amount: moneyAmount,
@@ -45,7 +74,10 @@ const PaymentLineSchema = z.object({
     .transform((v) => (v.length === 0 ? null : v))
     .nullable()
     .optional(),
+  cheque: PaymentLineChequeSchema.optional(),
 });
+
+export type PaymentLineCheque = z.infer<typeof PaymentLineChequeSchema>;
 
 const AllocationSchema = z.object({
   comprobante_id: z.string().uuid(),

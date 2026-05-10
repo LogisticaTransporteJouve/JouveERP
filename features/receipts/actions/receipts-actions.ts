@@ -118,11 +118,27 @@ export async function listReceiptsAction(): Promise<
   return { ok: true, data: { receipts } };
 }
 
+/** Cheque metadata indexed by source_payment_line_id, so the receipt
+ *  edit form can prefill the per-line cheque draft without an extra query. */
+export type ReceiptChequeByLine = Record<
+  string,
+  {
+    cheque_number: string;
+    bank_name: string;
+    drawer_name: string;
+    drawer_cuit: string | null;
+    issue_date: string;
+    due_date: string;
+    status: string;
+  }
+>;
+
 export type ReceiptDetail = {
   receipt: Receipt;
   payment_lines: ReceiptPaymentLine[];
   allocations: ReceiptAllocation[];
   retentions: ReceiptRetention[];
+  cheques_by_line: ReceiptChequeByLine;
 };
 
 function narrowRetention(row: {
@@ -168,7 +184,7 @@ export async function getReceiptByIdAction(
     return { ok: false, error: "Recibo con datos inválidos." };
   }
 
-  const [linesRes, allocsRes, retentionsRes] = await Promise.all([
+  const [linesRes, allocsRes, retentionsRes, chequesRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
       .select("*")
@@ -184,14 +200,26 @@ export async function getReceiptByIdAction(
       .select("*")
       .eq("receipt_id", id)
       .order("created_at"),
+    supabase
+      .from("cheques")
+      .select(
+        "cheque_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, status, source_payment_line_id",
+      )
+      .eq("source_receipt_id", id),
   ]);
 
-  if (linesRes.error || allocsRes.error || retentionsRes.error) {
+  if (
+    linesRes.error ||
+    allocsRes.error ||
+    retentionsRes.error ||
+    chequesRes.error
+  ) {
     logger.error("receipts.get.children_failed", {
       id,
       lines: linesRes.error,
       allocs: allocsRes.error,
       retentions: retentionsRes.error,
+      cheques: chequesRes.error,
     });
     return { ok: false, error: "No se pudieron cargar los detalles." };
   }
@@ -200,6 +228,20 @@ export async function getReceiptByIdAction(
     .map((row) => narrowRetention(row))
     .filter((r): r is ReceiptRetention => r !== null);
 
+  const cheques_by_line: ReceiptChequeByLine = {};
+  for (const row of chequesRes.data ?? []) {
+    if (!row.source_payment_line_id) continue;
+    cheques_by_line[row.source_payment_line_id] = {
+      cheque_number: row.cheque_number,
+      bank_name: row.bank_name,
+      drawer_name: row.drawer_name,
+      drawer_cuit: row.drawer_cuit,
+      issue_date: row.issue_date,
+      due_date: row.due_date,
+      status: row.status,
+    };
+  }
+
   return {
     ok: true,
     data: {
@@ -207,6 +249,7 @@ export async function getReceiptByIdAction(
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
       retentions,
+      cheques_by_line,
     },
   };
 }
@@ -403,6 +446,17 @@ export async function createReceiptAction(
       account_id: l.account_id,
       amount: l.amount,
       reference: l.reference ?? null,
+      cheque: l.cheque
+        ? {
+            cheque_number: l.cheque.cheque_number ?? null,
+            bank_name: l.cheque.bank_name,
+            drawer_name: l.cheque.drawer_name,
+            drawer_cuit: l.cheque.drawer_cuit ?? null,
+            issue_date: l.cheque.issue_date ?? null,
+            due_date: l.cheque.due_date,
+            notes: l.cheque.notes ?? null,
+          }
+        : null,
     })),
     p_allocations: (data.allocations ?? []).map((a) => ({
       comprobante_id: a.comprobante_id,
@@ -481,6 +535,17 @@ export async function updateReceiptAction(
       account_id: l.account_id,
       amount: l.amount,
       reference: l.reference ?? null,
+      cheque: l.cheque
+        ? {
+            cheque_number: l.cheque.cheque_number ?? null,
+            bank_name: l.cheque.bank_name,
+            drawer_name: l.cheque.drawer_name,
+            drawer_cuit: l.cheque.drawer_cuit ?? null,
+            issue_date: l.cheque.issue_date ?? null,
+            due_date: l.cheque.due_date,
+            notes: l.cheque.notes ?? null,
+          }
+        : null,
     })),
     p_allocations: (data.allocations ?? []).map((a) => ({
       comprobante_id: a.comprobante_id,
