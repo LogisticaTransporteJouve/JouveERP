@@ -764,6 +764,7 @@ export type Database = {
           description: string | null
           id: string
           kind: string
+          receipt_id: string | null
           transaction_date: string
           transfer_pair_id: string | null
           updated_at: string
@@ -781,6 +782,7 @@ export type Database = {
           description?: string | null
           id?: string
           kind: string
+          receipt_id?: string | null
           transaction_date: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -798,6 +800,7 @@ export type Database = {
           description?: string | null
           id?: string
           kind?: string
+          receipt_id?: string | null
           transaction_date?: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -829,6 +832,13 @@ export type Database = {
             columns: ["counterparty_client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
             referencedColumns: ["id"]
           },
           {

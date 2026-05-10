@@ -7,6 +7,8 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { clientsKeys } from "@/features/clients/lib/clients-keys";
+import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -89,6 +91,14 @@ export function useNextReceiptNumero(channelId: string | null) {
 }
 
 // Mutations -----------------------------------------------------------------
+//
+// Receipt mutations also touch transactions and the client's cuenta
+// corriente, so we invalidate those keys too:
+//   - transactionsKeys.all  → /caja and account balances pick up new income
+//     rows (or removed ones, on cancel/edit).
+//   - clientsKeys.all       → cuenta corriente of any client may have
+//     changed (we don't always know the clientId on create from the input
+//     payload here, so we go broad — cheap because the keys nest under it).
 
 export function useCreateReceipt() {
   const qc = useQueryClient();
@@ -97,6 +107,8 @@ export function useCreateReceipt() {
       runAction(() => createReceiptAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
+      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      qc.invalidateQueries({ queryKey: clientsKeys.all });
     },
   });
 }
@@ -108,6 +120,8 @@ export function useUpdateReceipt() {
       runAction(() => updateReceiptAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
+      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      qc.invalidateQueries({ queryKey: clientsKeys.all });
       const id = (variables as { id?: string }).id;
       if (id) qc.invalidateQueries({ queryKey: receiptsKeys.detail(id) });
     },
@@ -121,6 +135,8 @@ export function useCancelReceipt() {
       runAction(() => cancelReceiptAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
+      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      qc.invalidateQueries({ queryKey: clientsKeys.all });
       qc.invalidateQueries({ queryKey: receiptsKeys.detail(variables.id) });
     },
   });

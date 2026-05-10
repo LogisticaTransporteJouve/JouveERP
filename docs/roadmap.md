@@ -848,7 +848,15 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.1 — `feat: receipt → transactions auto-link` ✅ _shipped_
+
+- Nueva columna `transactions.receipt_id` (FK opcional) que liga cada transaction al recibo que la generó.
+- RPCs `create_receipt` y `update_receipt` ahora insertan una transaction `kind=income` por cada `payment_line` (mismo channel, currency, fecha, accrual_month=mes de la fecha, counterparty=cliente del recibo). Las retenciones NO generan transactions (son crédito fiscal, no plata).
+- Trigger `receipts_on_cancel_clean_transactions` borra las transactions ligadas cuando el recibo pasa de `issued` a `canceled` — sin tocar el code path de cancel en TS.
+- Editar un recibo regenera el set completo (delete + re-insert), así cambios de cuenta/monto se reflejan en Caja sin doble carga manual.
+- Hooks de recibos invalidan también `transactionsKeys.all` y `clientsKeys.all` para que `/caja` y la cuenta corriente refresquen sin F5.
 
 #### F.7.a — `feat: cuenta corriente per cliente` ✅ _shipped_
 
