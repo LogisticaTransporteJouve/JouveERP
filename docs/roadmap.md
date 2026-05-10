@@ -849,7 +849,17 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-**F.1 receipt → transactions auto-link** ✅ _shipped_ · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped (carga manual + lifecycle; integración con recibos pendiente)_ · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.2 — `feat: cheques + endosos` ✅ _shipped (parcial)_
+
+- Tablas `cheques` (header con kind=fisico|echeq, número, banco, firmante, monto, due_date, status) y `cheque_movements` (historial inmutable de eventos).
+- Lifecycle: `en_cartera → depositado → acreditado` o `en_cartera → endosado` o `cualquiera → rechazado`.
+- 4 RPCs atómicos: `deposit_cheque` (transfer entre cartera y banco), `credit_cheque` (status flip), `endorse_cheque` (expense en cartera + nombre del endosatario), `reject_cheque` (reverso del depósito si aplica).
+- Cada acción genera transactions en `/caja` para mantener consistencia con la realidad financiera.
+- Página `/cheques` con cards de totales por status + tabla con acciones contextuales por estado.
+- Sidebar entry "Cheques" gateada en `cheques:read`.
+- **Pendiente para F.2.b**: integración con recibos — cuando una payment_line va a una cuenta tipo `cheques`/`echeq`, autocrear la row en cheques y prellenar los campos. Hoy es carga manual desde `/cheques`.
 
 #### F.6 — `feat: NC/ND emisión vía AFIP` ✅ _shipped_
 

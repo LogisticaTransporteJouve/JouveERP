@@ -2,6 +2,7 @@
 
 import {
   ArrowLeftRight,
+  BookCheck,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -74,6 +75,12 @@ const navItems: NavItem[] = [
     label: "Caja",
     icon: ArrowLeftRight,
     permission: "transactions:read",
+  },
+  {
+    href: "/cheques",
+    label: "Cheques",
+    icon: BookCheck,
+    permission: "cheques:read",
   },
   {
     href: "/admin/users",
