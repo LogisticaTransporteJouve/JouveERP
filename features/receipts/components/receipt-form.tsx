@@ -126,11 +126,23 @@ export function ReceiptForm({
 
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
     receipt
-      ? receipt.payment_lines.map((l) => ({
-          account_id: l.account_id,
-          amount: String(l.amount),
-          reference: l.reference ?? "",
-        }))
+      ? receipt.payment_lines.map((l) => {
+          const cheque = receipt.cheques_by_line[l.id];
+          return {
+            account_id: l.account_id,
+            amount: String(l.amount),
+            reference: l.reference ?? cheque?.cheque_number ?? "",
+            cheque: cheque
+              ? {
+                  bank_name: cheque.bank_name,
+                  drawer_name: cheque.drawer_name,
+                  drawer_cuit: cheque.drawer_cuit ?? "",
+                  issue_date: cheque.issue_date,
+                  due_date: cheque.due_date,
+                }
+              : undefined,
+          };
+        })
       : [{ account_id: "", amount: "", reference: "" }],
   );
 
@@ -219,10 +231,33 @@ export function ReceiptForm({
       return;
     }
 
-    const lines = paymentLines.map((l) => ({
+    const lines: Array<{
+      account_id: string;
+      amount: number;
+      reference: string | null;
+      cheque?: {
+        cheque_number: string | undefined;
+        bank_name: string;
+        drawer_name: string;
+        drawer_cuit: string;
+        issue_date: string;
+        due_date: string;
+      };
+    }> = paymentLines.map((l) => ({
       account_id: l.account_id,
       amount: parseAmount(l.amount) ?? 0,
       reference: l.reference.trim().length === 0 ? null : l.reference.trim(),
+      cheque: l.cheque
+        ? {
+            cheque_number:
+              l.reference.trim().length === 0 ? undefined : l.reference.trim(),
+            bank_name: l.cheque.bank_name.trim(),
+            drawer_name: l.cheque.drawer_name.trim(),
+            drawer_cuit: l.cheque.drawer_cuit.trim(),
+            issue_date: l.cheque.issue_date || reciboDate,
+            due_date: l.cheque.due_date,
+          }
+        : undefined,
     }));
     const allocs = allocations.map((a) => ({
       comprobante_id: a.comprobante_id,
@@ -245,6 +280,22 @@ export function ReceiptForm({
     }
     if (lines.some((l) => l.amount <= 0)) {
       toast.error("Cada línea de pago necesita un monto mayor a cero.");
+      return;
+    }
+    // Cheque-specific validation: when a line carries cheque metadata the
+    // bank, drawer and due_date are mandatory (the schema in cheques table
+    // would reject otherwise — surface a clearer error here).
+    const chequeError = lines.find(
+      (l) =>
+        l.cheque &&
+        (!l.cheque.bank_name ||
+          !l.cheque.drawer_name ||
+          !l.cheque.due_date),
+    );
+    if (chequeError) {
+      toast.error(
+        "Para pagos con cheque necesitamos banco, firmante y fecha de cobro.",
+      );
       return;
     }
     if (rets.some((r) => r.amount <= 0)) {
@@ -384,6 +435,7 @@ export function ReceiptForm({
         accounts={accounts.filter((a) => a.is_active)}
         lines={paymentLines}
         onChange={setPaymentLines}
+        defaultDate={reciboDate}
       />
 
       {/* Retentions / Percepciones */}

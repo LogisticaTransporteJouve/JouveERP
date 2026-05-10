@@ -849,7 +849,14 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped (carga manual + lifecycle; integración con recibos pendiente)_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped_ · **F.2.b cheques ↔ recibos integration** ✅ _shipped_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.2.b — `feat: cheques ↔ recibos integration` ✅ _shipped_
+
+- `create_receipt` y `update_receipt` ahora aceptan `cheque` opcional en cada `payment_line`. Cuando el `account.type ∈ {cheques, echeq}` y la metadata está presente, insertan automáticamente la row en `cheques` linkeada al recibo y a la payment_line + un movement `received`.
+- `PaymentLinesEditor` despliega un sub-form (banco, firmante, CUIT, fechas de emisión y cobro) cuando la línea apunta a una cuenta de cartera.
+- `getReceiptByIdAction` devuelve `cheques_by_line` (mapeado por `source_payment_line_id`) para prefillear los datos del cheque al editar.
+- Trigger `guard_cheque_delete_in_lifecycle`: si se intenta editar/cancelar un recibo cuyo cheque ya fue depositado/endosado/etc, el delete cascade aborta con error claro pidiendo desligar manualmente desde `/cheques`.
 
 #### F.4 — ~~internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado (2026-05-10)_
 
