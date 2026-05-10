@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import type { Role } from "@/lib/auth/permissions";
 
-import { setUserRolesAction } from "../actions/users-actions";
+import { useSetUserRoles } from "../hooks/use-admin-users";
 import { RoleCheckboxGrid } from "./role-checkbox-grid";
 
 export function AssignRolesDialog({
@@ -30,25 +30,24 @@ export function AssignRolesDialog({
   actorRoles: Role[];
 }) {
   const [selected, setSelected] = useState<Role[]>(user.roles);
-  const [pending, startTransition] = useTransition();
+  const setRolesMut = useSetUserRoles();
+  const pending = setRolesMut.isPending;
 
   useEffect(() => {
     if (open) setSelected(user.roles);
   }, [open, user.roles]);
 
   function submit() {
-    startTransition(async () => {
-      const result = await setUserRolesAction({
-        userId: user.id,
-        roles: selected,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Roles actualizados.");
-      onOpenChange(false);
-    });
+    setRolesMut.mutate(
+      { userId: user.id, roles: selected },
+      {
+        onSuccess: () => {
+          toast.success("Roles actualizados.");
+          onOpenChange(false);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   return (

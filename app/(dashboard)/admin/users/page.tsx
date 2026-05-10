@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
-import { UsersTable } from "@/features/admin-users/components/users-table";
-import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
-import { listUsersWithRoles } from "@/lib/auth/users";
 import {
   bootstrapOwnerIfNeeded,
+  listUsersAction,
 } from "@/features/admin-users/actions/users-actions";
+import { UsersTable } from "@/features/admin-users/components/users-table";
+import { adminUsersKeys } from "@/features/admin-users/lib/admin-users-keys";
+import { requireUserContext } from "@/lib/auth/context";
+import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
+
+import Loading from "./loading";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +21,6 @@ export default async function AdminUsersPage() {
   const ctx = await requireUserContext();
 
   // One-shot: if no owner exists, the first authenticated user becomes one.
-  // After this returns the user may have gained the `owner` role; refresh ctx.
   await bootstrapOwnerIfNeeded();
   const refreshed = await requireUserContext();
 
@@ -22,7 +28,12 @@ export default async function AdminUsersPage() {
     redirect("/dashboard");
   }
 
-  const users = await listUsersWithRoles();
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: adminUsersKeys.list(),
+      queryFn: () => runAction(() => listUsersAction()),
+    },
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -32,11 +43,14 @@ export default async function AdminUsersPage() {
           Gestioná los miembros del equipo y sus roles.
         </p>
       </div>
-      <UsersTable
-        users={users}
-        actorRoles={refreshed.roles}
-        currentUserId={ctx.userId}
-      />
+      <Hydrate state={dehydratedState}>
+        <Suspense fallback={<Loading />}>
+          <UsersTable
+            actorRoles={refreshed.roles}
+            currentUserId={ctx.userId}
+          />
+        </Suspense>
+      </Hydrate>
     </div>
   );
 }
