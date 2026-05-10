@@ -23,12 +23,14 @@ import {
 } from "@/components/ui/table";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useTransactionsList } from "../hooks/use-transactions";
+import { transactionsKeys } from "../lib/transactions-keys";
 import {
   TRANSACTION_KINDS,
   TRANSACTION_KIND_LABEL,
@@ -110,6 +112,15 @@ export function TransactionsTable({
   const deferredDateTo = useDeferredValue(dateTo);
 
   const canWrite = userCan(actorRoles, "transactions:write");
+
+  // Realtime: any transaction insert/update/delete invalidates every
+  // filter combo so saldos and movements stay in sync across tabs.
+  useRealtimeInvalidate([
+    {
+      table: "transactions",
+      queryKeys: [transactionsKeys.all],
+    },
+  ]);
 
   useEffect(() => {
     setUrlFilters({

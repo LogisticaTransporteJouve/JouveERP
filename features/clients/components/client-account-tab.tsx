@@ -11,10 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useClientAccount } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
+import { clientsKeys } from "../lib/clients-keys";
 
 const formatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -50,6 +52,22 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
+
+  // Realtime: subscribe with a server-side filter so we only get events
+  // for THIS client's comprobantes / receipts. Saves the client from
+  // refetching on every other client's activity.
+  useRealtimeInvalidate([
+    {
+      table: "comprobantes",
+      filter: `client_id=eq.${clientId}`,
+      queryKeys: [clientsKeys.account(clientId)],
+    },
+    {
+      table: "receipts",
+      filter: `client_id=eq.${clientId}`,
+      queryKeys: [clientsKeys.account(clientId)],
+    },
+  ]);
 
   return (
     <div className="space-y-4">

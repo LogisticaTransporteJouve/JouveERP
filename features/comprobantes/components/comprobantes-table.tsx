@@ -31,13 +31,17 @@ import {
 } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
+import { agingKeys } from "@/features/aging/lib/aging-keys";
+
 import type { ComprobanteListItem } from "../actions/comprobantes-actions";
 import { useComprobantesSearchInfinite } from "../hooks/use-comprobantes";
+import { comprobantesKeys } from "../lib/comprobantes-keys";
 import {
   COMPROBANTE_STATUSES,
   COMPROBANTE_STATUS_LABEL,
@@ -125,6 +129,15 @@ export function ComprobantesTable({
   const deferredQuery = useDeferredValue(debouncedQuery);
 
   const canIssue = userCan(actorRoles, "invoices:issue");
+
+  // Realtime: any change to comprobantes invalidates the list (every
+  // filter combo) and the aging summary (since unpaid invoices drive it).
+  useRealtimeInvalidate([
+    {
+      table: "comprobantes",
+      queryKeys: [comprobantesKeys.all, agingKeys.all],
+    },
+  ]);
 
   useEffect(() => {
     setUrlFilters({

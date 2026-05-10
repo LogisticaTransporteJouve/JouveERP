@@ -811,14 +811,23 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - Dialog de "Nuevo comprobante" detecta `currentChannel.is_fiscal` y omite letter / iva_condition_receptor cuando emite por canal interno.
 - Detail page `/comprobantes/[id]` ya soportaba `!is_fiscal` desde E.6 (card "Documento no fiscal" en lugar de "Datos AFIP").
 
-#### E.8 — `feat: row actions + realtime para la tabla de comprobantes` (1 PR)
+#### E.8 — `feat: realtime cross-feature (comprobantes, recibos, cheques, caja, aging, cuenta corriente)` ✅ _shipped_
 
-> Mejoras de UX que aparecieron probando E.6 con datos reales. Llegan
-> juntas porque tocan el mismo componente y la misma columna de acciones.
+> Originalmente "row actions + realtime tabla comprobantes". Pivoteó al
+> alcance completo cuando se vio que el mismo patrón sirve para todo lo
+> que finance edita en concurrencia.
 
-- **Row actions** (~80 LOC): icono "ojo" → link al detalle, icono "PDF" → abre `/api/comprobantes/[id]/pdf` (sólo cuando `pdf_url` está poblado o `status='emitted'`). Reemplaza/complementa el click en el número como única forma de acceso.
-- **Supabase Realtime** (~150 LOC): subscripción a `public.comprobantes` con filtro por canal en alcance. Cuando otro usuario emite (o el workflow Inngest persiste el CAE), la tabla refresca la fila afectada vía `queryClient.setQueryData` sin re-fetch completo. Pattern: `realtime.channel('comprobantes:list').on('postgres_changes', { event: '*', schema: 'public', table: 'comprobantes' }, handler).subscribe()`. Anti-patrón #9 ya marca que realtime es para esto exactamente — workflows críticos seguirían en Inngest.
-- Manda el evento `INSERT` para sumar filas nuevas, `UPDATE` para refrescar status/CAE/pdf_url cuando el workflow las flippea de `draft → emitting → emitted`.
+- Migration: `alter publication supabase_realtime add table` para `comprobantes`, `receipts`, `cheques`, `transactions`. Postgres Changes respeta RLS, así que cada usuario solo recibe eventos de filas que ya puede SELECT.
+- Hook genérico `hooks/use-realtime-invalidate.ts`: recibe lista de `{ table, filter?, queryKeys[] }`, abre un único canal por consumer, invalida los keys provistos en cada `INSERT/UPDATE/DELETE`. Maneja unmount cleanup y captura `queryKeys` por ref para no re-suscribir en cada render.
+- Wire-up por feature:
+  - `comprobantes-table` → invalida `comprobantesKeys.all` + `agingKeys.all`.
+  - `receipts-table` → invalida `receiptsKeys.all` + `agingKeys.all`.
+  - `cheques-table` → invalida `chequesKeys.all`.
+  - `transactions-table` → invalida `transactionsKeys.all`.
+  - `aging-table` → suscribe a comprobantes y receipts, invalida `agingKeys.all`.
+  - `client-account-tab` → suscribe filtrado server-side por `client_id=eq.<uuid>` para no recibir eventos de otros clientes.
+- Tablas hijas (payment_lines, allocations, retentions, cheque_movements) NO van a la publication: cada RPC bumpea el `updated_at` del padre, lo que dispara el evento parent y alcanza para invalidar.
+- Skip explícito: `accounts` (write rate bajo) y `clients` (los pickers ya refetchean al abrir).
 
 #### E.9 — `feat: emitir y continuar (rapid invoicing)` (1 PR ~100 LOC) ✅ shipped
 
@@ -836,7 +845,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - El draft + workflow de Inngest siguen su curso en background. Si una emisión falla, el toast del próximo render lo avisa (o lo ven en la lista cuando el realtime de E.8 lo refleje).
 - Atajo `⌘ + Enter` (Ctrl+Enter en Windows) dispara el secundario para que la acción más frecuente sea sin mouse.
 
-**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 + E.7 + E.9 ya shipped, faltan E.6.5 con tests + E.8 realtime).**
+**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 + E.7 + E.8 + E.9 ya shipped, falta E.6.5 con tests).**
 
 ---
 
