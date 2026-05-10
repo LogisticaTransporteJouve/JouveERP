@@ -846,7 +846,18 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** _(adelantado, después de D.1)_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · F.5 retenciones · F.6 NC/ND · F.7 aging + cron Inngest.
+F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · F.5 retenciones · F.6 NC/ND · F.7 aging + cron Inngest.
+
+#### F.3 — `feat: recibos editables (numerador por canal R{POS}-{numero})` ✅ _shipped_
+
+- `receipts(id, channel_id, punto_venta, numero, client_id, status, recibo_date, total_amount, currency, notes, canceled_at, canceled_by, created_by, timestamps)` con UNIQUE `(channel_id, punto_venta, numero)`. Format render: `R0003-12345678`.
+- `receipt_payment_lines(receipt_id, account_id, amount, reference)` — método derivado de `account.type` (cash | bank | cheques | echeq | wallet).
+- `receipt_allocations(receipt_id, comprobante_id, amount_applied)` — UNIQUE `(receipt_id, comprobante_id)`.
+- RPCs `create_receipt` + `update_receipt` (transacción + sum-validation: `Σ payment_lines = total`, `Σ allocations ≤ total`).
+- RLS: read `owner|admin|finance`, write `owner|finance`. Hard delete bloqueado (soft-cancel via status=`canceled` que retiene el slot del correlativo).
+- UI: `/recibos` listado + Dialog "Nuevo" con ClientPicker + payment lines editor + allocations picker (autoload comprobantes pendientes con saldo) + Edit Dialog + Cancel Dialog. Default channel `jouve_fiscal`.
+- Permisos: `receipts:read`, `receipts:write`.
+- Hook genérico nuevo: `hooks/use-action-query.ts` (wrapper TanStack Query sobre `ActionResult<T>`). Usado por `useNextReceiptNumero`. **Refactor pendiente** para portar el resto de los efectos de la app a este patrón.
 
 **PRs Fase F: 7.**
 
