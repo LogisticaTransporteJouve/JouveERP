@@ -803,6 +803,14 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - Playwright: login → emitir factura B en homologación → ver CAE.
 - Sentry instalado.
 
+#### E.6.5 — `feat: AFIP-emit smoke test` ✅ _shipped_
+
+> Cierre de Fase E: el test end-to-end que valida login → emitir factura → ver CAE contra homologación AFIP.
+
+- `tests/e2e/comprobantes-emit.spec.ts` gateado por `RUN_AFIP_E2E=1` (requiere AFIP creds + POS habilitado + Inngest dev runtime).
+- Logueo, abre el Dialog, completa cliente + ítem mínimo, dispara "Emitir y solicitar CAE", espera redirect a `/comprobantes/[id]` y polling/realtime hasta que aparezca un CAE de 14 dígitos.
+- Fix incidental en `playwright.config.ts`: el `storageState` global rompía el setup en checkouts frescos con ENOENT — movido al project chromium para que el setup arranque clean.
+
 #### E.7 — `feat: comprobante interno branch` ✅ _shipped_
 
 - Workflow Inngest `issueInvoice` ahora bifurca al cargar el draft: si `channel.is_fiscal = false`, salta WSAA / FECompUltimoAutorizado / FECAESolicitar y va directo a numerar localmente (`max(numero) + 1` filtrado por channel + POS + kind), marcar `emitted` y generar el PDF "no fiscal".
@@ -845,7 +853,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - El draft + workflow de Inngest siguen su curso en background. Si una emisión falla, el toast del próximo render lo avisa (o lo ven en la lista cuando el realtime de E.8 lo refleje).
 - Atajo `⌘ + Enter` (Ctrl+Enter en Windows) dispara el secundario para que la acción más frecuente sea sin mouse.
 
-**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 + E.7 + E.8 + E.9 ya shipped, falta E.6.5 con tests).**
+**PRs Fase E: 9 (E.1 + E.1.5 + E.2 + E.3 + E.4 + E.5 + E.6 + E.6.5 + E.7 + E.8 + E.9 ya shipped) ✅ Fase E completa.**
 
 ---
 
