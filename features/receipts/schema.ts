@@ -52,6 +52,53 @@ const AllocationSchema = z.object({
   amount_applied: moneyAmount,
 });
 
+export const RETENTION_KINDS = ["retencion", "percepcion"] as const;
+export type RetentionKind = (typeof RETENTION_KINDS)[number];
+
+export const RETENTION_KIND_LABEL: Record<RetentionKind, string> = {
+  retencion: "Retención",
+  percepcion: "Percepción",
+};
+
+export const RETENTION_TAX_TYPES = [
+  "ganancias",
+  "iva",
+  "iibb",
+  "suss",
+  "otros",
+] as const;
+export type RetentionTaxType = (typeof RETENTION_TAX_TYPES)[number];
+
+export const RETENTION_TAX_TYPE_LABEL: Record<RetentionTaxType, string> = {
+  ganancias: "Ganancias",
+  iva: "IVA",
+  iibb: "IIBB",
+  suss: "SUSS",
+  otros: "Otros",
+};
+
+const RetentionSchema = z.object({
+  kind: z.enum(RETENTION_KINDS),
+  tax_type: z.enum(RETENTION_TAX_TYPES),
+  jurisdiction: z
+    .string()
+    .trim()
+    .max(50)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+  certificate_number: z
+    .string()
+    .trim()
+    .min(1, "Nro. de certificado requerido.")
+    .max(60),
+  certificate_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de certificado inválida."),
+  amount: moneyAmount,
+  notes: trimmedNullable,
+});
+
 const baseReceiptFields = {
   channel_id: z.string().min(1, "Canal requerido."),
   numero: z.number().int().positive("Número debe ser positivo."),
@@ -60,33 +107,51 @@ const baseReceiptFields = {
   total_amount: moneyAmount,
   currency: z.enum(RECEIPT_CURRENCIES),
   notes: trimmedNullable,
-  payment_lines: z.array(PaymentLineSchema).min(1, "Agregá al menos una línea de pago."),
+  payment_lines: z
+    .array(PaymentLineSchema)
+    .min(1, "Agregá al menos una línea de pago."),
   allocations: z.array(AllocationSchema).optional().default([]),
+  retentions: z.array(RetentionSchema).optional().default([]),
 };
+
+function validateSums(
+  data: {
+    total_amount: number;
+    payment_lines: { amount: number }[];
+    allocations?: { amount_applied: number }[];
+    retentions?: { amount: number }[];
+  },
+  ctx: z.RefinementCtx,
+) {
+  const paySum = data.payment_lines.reduce((acc, l) => acc + l.amount, 0);
+  const retentionSum = (data.retentions ?? []).reduce(
+    (acc, r) => acc + r.amount,
+    0,
+  );
+  const cents = (n: number) => Math.round(n * 100);
+  if (cents(paySum + retentionSum) !== cents(data.total_amount)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["payment_lines"],
+      message: `Líneas de pago (${paySum.toFixed(2)}) + retenciones (${retentionSum.toFixed(2)}) = ${(paySum + retentionSum).toFixed(2)} no coincide con el total (${data.total_amount.toFixed(2)}).`,
+    });
+  }
+  const allocSum = (data.allocations ?? []).reduce(
+    (acc, a) => acc + a.amount_applied,
+    0,
+  );
+  if (cents(allocSum) > cents(data.total_amount)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["allocations"],
+      message: `Las imputaciones (${allocSum.toFixed(2)}) superan el total del recibo (${data.total_amount.toFixed(2)}).`,
+    });
+  }
+}
 
 export const ReceiptCreateSchema = z
   .object(baseReceiptFields)
-  .superRefine((data, ctx) => {
-    const paySum = data.payment_lines.reduce((acc, l) => acc + l.amount, 0);
-    if (Math.round(paySum * 100) !== Math.round(data.total_amount * 100)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["payment_lines"],
-        message: `La suma de las líneas de pago (${paySum.toFixed(2)}) no coincide con el total (${data.total_amount.toFixed(2)}).`,
-      });
-    }
-    const allocSum = (data.allocations ?? []).reduce(
-      (acc, a) => acc + a.amount_applied,
-      0,
-    );
-    if (Math.round(allocSum * 100) > Math.round(data.total_amount * 100)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["allocations"],
-        message: `Las imputaciones (${allocSum.toFixed(2)}) superan el total del recibo (${data.total_amount.toFixed(2)}).`,
-      });
-    }
-  });
+  .superRefine(validateSums);
 
 export const ReceiptUpdateSchema = z
   .object({
@@ -96,28 +161,9 @@ export const ReceiptUpdateSchema = z
     notes: baseReceiptFields.notes,
     payment_lines: baseReceiptFields.payment_lines,
     allocations: baseReceiptFields.allocations,
+    retentions: baseReceiptFields.retentions,
   })
-  .superRefine((data, ctx) => {
-    const paySum = data.payment_lines.reduce((acc, l) => acc + l.amount, 0);
-    if (Math.round(paySum * 100) !== Math.round(data.total_amount * 100)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["payment_lines"],
-        message: `La suma de las líneas de pago (${paySum.toFixed(2)}) no coincide con el total (${data.total_amount.toFixed(2)}).`,
-      });
-    }
-    const allocSum = (data.allocations ?? []).reduce(
-      (acc, a) => acc + a.amount_applied,
-      0,
-    );
-    if (Math.round(allocSum * 100) > Math.round(data.total_amount * 100)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["allocations"],
-        message: `Las imputaciones (${allocSum.toFixed(2)}) superan el total del recibo (${data.total_amount.toFixed(2)}).`,
-      });
-    }
-  });
+  .superRefine(validateSums);
 
 export const ReceiptCancelSchema = z.object({
   id: z.string().uuid(),
@@ -129,6 +175,7 @@ export type ReceiptCancelInput = z.infer<typeof ReceiptCancelSchema>;
 
 export type PaymentLineInput = z.infer<typeof PaymentLineSchema>;
 export type AllocationInput = z.infer<typeof AllocationSchema>;
+export type RetentionInput = z.infer<typeof RetentionSchema>;
 
 export function isReceiptStatus(value: unknown): value is ReceiptStatus {
   return (
@@ -155,6 +202,30 @@ export type ReceiptPaymentLine =
 
 export type ReceiptAllocation =
   Database["public"]["Tables"]["receipt_allocations"]["Row"];
+
+type ReceiptRetentionRow =
+  Database["public"]["Tables"]["receipt_retentions"]["Row"];
+export type ReceiptRetention = Omit<
+  ReceiptRetentionRow,
+  "kind" | "tax_type"
+> & {
+  kind: RetentionKind;
+  tax_type: RetentionTaxType;
+};
+
+export function isRetentionKind(value: unknown): value is RetentionKind {
+  return (
+    typeof value === "string" &&
+    (RETENTION_KINDS as readonly string[]).includes(value)
+  );
+}
+
+export function isRetentionTaxType(value: unknown): value is RetentionTaxType {
+  return (
+    typeof value === "string" &&
+    (RETENTION_TAX_TYPES as readonly string[]).includes(value)
+  );
+}
 
 /**
  * Format `R{POS:4}-{numero:8}` — e.g. `R0003-00000001`. Used everywhere a

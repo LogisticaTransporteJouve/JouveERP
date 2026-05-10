@@ -848,7 +848,15 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · F.5 retenciones · F.6 NC/ND · F.7 aging + cron Inngest.
+F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · F.7 aging + cron Inngest + cuenta corriente per cliente.
+
+#### F.5 — `feat: retenciones y percepciones en recibos` ✅ _shipped_
+
+- Tabla `receipt_retentions(id, receipt_id, kind retencion|percepcion, tax_type ganancias|iva|iibb|suss|otros, jurisdiction, certificate_number, certificate_date, amount, notes, timestamps)`. RLS misma que el resto de hijos del recibo.
+- RPCs `create_receipt` y `update_receipt` extendidos: aceptan `p_retentions jsonb`. La validación cambia a `Σ payment_lines + Σ retentions = total_amount`. Allocations ≤ total sigue igual.
+- `RetentionsEditor` UI que conmuta el campo `jurisdiction` solo para IIBB.
+- Totales del recibo ahora muestran 5 cards: Pago real / Retenciones / Total / Imputado / A cuenta.
+- Schema tests cubren la nueva validación + certificate_number requerido.
 
 #### F.3 — `feat: recibos editables (numerador por canal R{POS}-{numero})` ✅ _shipped_
 
