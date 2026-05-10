@@ -8,43 +8,24 @@ import { createClient } from "@/lib/supabase/client";
 type Subscription = {
   table: string;
   schema?: string;
-  /** Optional Postgres-changes filter, e.g. `client_id=eq.<uuid>`. */
+  /** Postgres-changes filter, e.g. `client_id=eq.<uuid>`. */
   filter?: string;
-  /**
-   * Query keys to invalidate on every event for this table. Each subscription
-   * can target multiple keys (e.g. comprobantes events also invalidate
-   * aging).
-   */
   queryKeys: QueryKey[];
 };
 
-/**
- * Subscribes to Supabase realtime `postgres_changes` events on one or more
- * tables and invalidates the supplied TanStack Query keys whenever a row
- * is inserted, updated, or deleted.
- *
- * Why this hook:
- *   - The Supabase channel only respects RLS for rows the current user can
- *     SELECT, so subscribing from the browser is safe.
- *   - We bundle the `queryKeys` to invalidate alongside the table so each
- *     consumer (a list page) declares both pieces in one place.
- *   - Subscriptions are scoped to component lifetime — the channel is
- *     unsubscribed on unmount, so navigating between pages doesn't leak
- *     channels.
- *
- * The deps array intentionally omits `subscriptions` and `queryClient` —
- * we capture the latest values via a ref so the channel only opens once.
- * Re-running the effect on every render would tear down and rebuild the
- * websocket subscription on every keystroke that changes a sibling state.
- */
+// Subscribes to Supabase `postgres_changes` and invalidates the given
+// TanStack Query keys on every insert/update/delete. RLS is enforced at
+// the channel level, so browser subscribers only see rows they can SELECT.
+//
+// The effect depends on `signature` (table+schema+filter joined) instead
+// of the raw subscriptions array so the channel doesn't tear down on
+// every render. The latest queryKeys are read through `subsRef` at
+// invalidation time.
 export function useRealtimeInvalidate(subscriptions: Subscription[]) {
   const queryClient = useQueryClient();
   const subsRef = useRef(subscriptions);
   subsRef.current = subscriptions;
 
-  // Stable signature: identifies which tables / filters we listen to.
-  // Reordering or changing the targeted tables rebuilds the channel; key
-  // additions to existing tables don't.
   const signature = subscriptions
     .map((s) => `${s.schema ?? "public"}.${s.table}:${s.filter ?? ""}`)
     .sort()
@@ -53,7 +34,6 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
   useEffect(() => {
     if (subsRef.current.length === 0) return;
     const supabase = createClient();
-    // Channel name only needs to be unique per browser tab, not globally.
     const channel = supabase.channel(
       `realtime-invalidate:${signature}:${Math.random().toString(36).slice(2, 8)}`,
     );
@@ -61,8 +41,8 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
     for (let i = 0; i < subsRef.current.length; i++) {
       const sub = subsRef.current[i]!;
       channel.on(
-        // The realtime client's typing for postgres_changes is loose; the
-        // payload is unused so the cast is harmless.
+        // Supabase's postgres_changes types don't compose cleanly with
+        // dynamic table/filter values; the payload is unused either way.
         "postgres_changes" as never,
         {
           event: "*",
@@ -83,9 +63,7 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
     channel.subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-    // signature covers every primitive piece of the subscription list that
-    // affects the channel topology; queryClient is stable from the provider.
   }, [signature, queryClient]);
 }

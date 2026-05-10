@@ -3,15 +3,8 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Weekly aging summary cron — runs Mondays at 9:00 ART (12:00 UTC).
-//
-// Reads `v_client_aging` and composes a structured summary of who owes
-// what. Today the summary is logged — finance can grep the structured
-// log entry. Wiring an actual email send (Resend or SES) goes here as
-// the next step: pull `FINANCE_EMAIL` + `RESEND_API_KEY` from env,
-// render an HTML table from `clients[]`, POST to Resend's API. We keep
-// it as a TODO until a provider is picked so we don't ship half-baked
-// email plumbing.
+// Weekly aging summary cron. Logs a structured payload finance can grep;
+// wiring email (Resend / SES) is a TODO once a provider is picked.
 
 type AgingRow = {
   client_id: string | null;
