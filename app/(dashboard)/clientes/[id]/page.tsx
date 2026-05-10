@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 
-import { ClientForm } from "@/features/clients/components/client-form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getClientAccountAction } from "@/features/clients/actions/account-actions";
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
+import { ClientAccountTab } from "@/features/clients/components/client-account-tab";
+import { ClientForm } from "@/features/clients/components/client-form";
+import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { IVA_CONDITION_LABEL } from "@/features/clients/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
+
+import Loading from "./loading";
 
 export default async function ClientDetailPage({
   params,
@@ -29,8 +39,15 @@ export default async function ClientDetailPage({
   const client = result.data;
   const canWrite = userCan(ctx.roles, "clients:write");
 
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: clientsKeys.account(id),
+      queryFn: () => runAction(() => getClientAccountAction(id)),
+    },
+  ]);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-1">
         <Link
           href="/clientes"
@@ -46,13 +63,31 @@ export default async function ClientDetailPage({
           {!client.is_active && " · Inactivo"}
         </p>
       </div>
-      {canWrite ? (
-        <ClientForm mode="edit" client={client} />
-      ) : (
-        <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
-          No tenés permiso para editar clientes.
-        </div>
-      )}
+
+      <Tabs defaultValue="account">
+        <TabsList>
+          <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
+          <TabsTrigger value="data">Datos</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="account" className="mt-4">
+          <Hydrate state={dehydratedState}>
+            <Suspense fallback={<Loading />}>
+              <ClientAccountTab clientId={id} />
+            </Suspense>
+          </Hydrate>
+        </TabsContent>
+
+        <TabsContent value="data" className="mt-4 max-w-3xl">
+          {canWrite ? (
+            <ClientForm mode="edit" client={client} />
+          ) : (
+            <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+              No tenés permiso para editar clientes.
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

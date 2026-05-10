@@ -11,6 +11,7 @@ import { useMemo } from "react";
 
 import { runAction } from "@/lib/query/run-action";
 
+import { getClientAccountAction } from "../actions/account-actions";
 import {
   createClientAction,
   deleteClientAction,
@@ -96,6 +97,13 @@ export function useClientReferences(id: string, options: { enabled?: boolean } =
     queryKey: clientsKeys.references(id),
     queryFn: () => runAction(() => getClientReferencesAction(id)),
     enabled: options.enabled,
+  });
+}
+
+export function useClientAccount(id: string) {
+  return useSuspenseQuery({
+    queryKey: clientsKeys.account(id),
+    queryFn: () => runAction(() => getClientAccountAction(id)),
   });
 }
 

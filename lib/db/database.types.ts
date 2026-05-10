@@ -878,6 +878,27 @@ export type Database = {
       }
     }
     Views: {
+      v_client_account_movements: {
+        Row: {
+          channel_division: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          client_id: string | null
+          created_at: string | null
+          gross_amount: number | null
+          kind: string | null
+          letter: string | null
+          movement_date: string | null
+          numero: number | null
+          punto_venta: number | null
+          signed_amount: number | null
+          source_id: string | null
+          source_type: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_transactions_tagged: {
         Row: {
           account_id: string | null

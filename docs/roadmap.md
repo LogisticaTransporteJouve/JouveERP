@@ -848,7 +848,23 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · F.7 aging + cron Inngest + cuenta corriente per cliente.
+F.1 cobranzas + alocaciones · F.2 cheques + endosos · **F.3 recibos editables** ✅ _shipped_ · F.4 internal_fiscal_consumption + consolidateAndFiscalize · **F.5 retenciones / percepciones** ✅ _shipped_ · F.6 NC/ND · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+
+#### F.7.a — `feat: cuenta corriente per cliente` ✅ _shipped_
+
+- Vista SQL `v_client_account_movements`: UNION ALL de `comprobantes` (status=emitted) y `receipts` (status=issued). Incluye fiscales e internos. Convención de signo: `signed_amount > 0` ⇒ el cliente debe (factura, ND); `< 0` ⇒ pago / NC.
+- Server action `getClientAccountAction(clientId)` — lee la vista, calcula el saldo running en TS y devuelve la lista cronológica.
+- Hook `useClientAccount` (suspense). Key dedicado `clientsKeys.account(id)`.
+- Tabs nuevos en `/clientes/[id]`: "Cuenta corriente" (default) + "Datos" (form existente). Se prefetchea la cuenta corriente en la page.
+- Tabla con columnas Fecha / Tipo / Documento / Canal / Debe / Haber / Saldo. Header con saldo total, color tonal según signo.
+- Documentos del comprobante linkean a `/comprobantes/[id]`.
+- Solo pesos en este iteration (multi-currency va con J.7).
+
+#### F.7.b — `feat: aging buckets + cron Inngest` (1 PR pendiente)
+
+- Sub-vista o función que clasifica el saldo por antigüedad: 0-30 / 30-60 / 60-90 / 90+.
+- Dashboard global con totales por bucket, click → drilldown al cliente.
+- Cron Inngest semanal: email a finance con resumen de saldos pendientes.
 
 #### F.5 — `feat: retenciones y percepciones en recibos` ✅ _shipped_
 
