@@ -849,7 +849,7 @@ Referencia: roadmap viejo §14, §15, §19.1.
 > base mínima (clients + comprobantes + accounts) sin esperar al resto de
 > Caja. Después se completan D.2 + D.3, y luego el resto de F.
 
-**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped_ · **F.2.b cheques ↔ recibos integration** ✅ _shipped_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · F.7.b aging + cron Inngest.
+**F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped_ · **F.2.b cheques ↔ recibos integration** ✅ _shipped_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · **F.7.b aging + cron Inngest** ✅ _shipped_.
 
 #### F.2.b — `feat: cheques ↔ recibos integration` ✅ _shipped_
 
@@ -899,11 +899,13 @@ Modelaba el caso "Jouve consume servicios de DZ y se factura junto al cliente fi
 - Documentos del comprobante linkean a `/comprobantes/[id]`.
 - Solo pesos en este iteration (multi-currency va con J.7).
 
-#### F.7.b — `feat: aging buckets + cron Inngest` (1 PR pendiente)
+#### F.7.b — `feat: aging buckets + cron Inngest` ✅ _shipped_
 
-- Sub-vista o función que clasifica el saldo por antigüedad: 0-30 / 30-60 / 60-90 / 90+.
-- Dashboard global con totales por bucket, click → drilldown al cliente.
-- Cron Inngest semanal: email a finance con resumen de saldos pendientes.
+- Vistas SQL `v_aging_documents` (un row por factura/ND con saldo abierto = imp_total - Σ allocations) y `v_client_aging` (agregado por cliente con buckets 0-30 / 30-60 / 60-90 / 90+).
+- Allocations de recibos canceled no descuentan: solo `r.status = 'issued'`.
+- Página `/aging` con tabla por cliente sorted by total_open desc, cards de totales por bucket arriba (resaltando 60-90 y 90+ en tono destructivo), drilldown al detalle del cliente vía `/clientes/[id]`.
+- Cron Inngest `aging-weekly-summary`: corre lunes 09:00 ART (`TZ=America/Argentina/Buenos_Aires 0 9 * * 1`). Compone summary estructurado y lo loggea — el envío de email queda como TODO hasta que se elija provider (Resend / SES). El payload del log es la fuente de verdad para el body del email cuando se enchufe.
+- Permiso piggyback en `clients:read` (no se agregó `aging:read` para evitar permission proliferation; finance ya lo tiene).
 
 #### F.5 — `feat: retenciones y percepciones en recibos` ✅ _shipped_
 
