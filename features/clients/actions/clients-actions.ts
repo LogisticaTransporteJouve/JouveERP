@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -9,7 +8,6 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
-  CLIENTS_PATH,
   ClientCreateSchema,
   ClientToggleActiveSchema,
   ClientUpdateSchema,
@@ -240,7 +238,6 @@ export async function createClientAction(
     { cuit: parsed.data.cuit, legal_name: parsed.data.legal_name },
     data.id,
   );
-  revalidatePath(CLIENTS_PATH);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -296,7 +293,6 @@ export async function updateClientAction(
     { fields: Object.keys(rest) as JsonValue[] },
     id,
   );
-  revalidatePath(CLIENTS_PATH);
   return { ok: true, data: undefined };
 }
 
@@ -378,7 +374,6 @@ export async function deleteClientAction(id: string): Promise<ActionResult> {
   }
 
   await logAudit("client.deleted", ctx.userId, {}, id);
-  revalidatePath(CLIENTS_PATH);
   return { ok: true, data: undefined };
 }
 
@@ -412,6 +407,5 @@ export async function setClientActiveAction(
     {},
     parsed.data.id,
   );
-  revalidatePath(CLIENTS_PATH);
   return { ok: true, data: undefined };
 }

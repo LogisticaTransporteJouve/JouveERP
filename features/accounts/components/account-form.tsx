@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -24,10 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  createAccountAction,
-  updateAccountAction,
-} from "../actions/accounts-actions";
+import { useCreateAccount, useUpdateAccount } from "../hooks/use-accounts";
 import {
   ACCOUNT_CURRENCIES,
   ACCOUNT_TYPES,
@@ -69,35 +64,35 @@ export function AccountForm({
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
-  const router = useRouter();
-  const [isSaving, startSaving] = useTransition();
+  const createMut = useCreateAccount();
+  const updateMut = useUpdateAccount();
+  const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
     defaultValues: accountToValues(account),
   });
 
   function onSubmit(values: FormValues) {
-    startSaving(async () => {
-      if (mode === "create") {
-        const res = await createAccountAction(values);
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success("Cuenta creada.");
-        if (onSuccess) onSuccess(res.data.id);
-        router.refresh();
-      } else if (account) {
-        const res = await updateAccountAction({ id: account.id, ...values });
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success("Cambios guardados.");
-        if (onSuccess) onSuccess(account.id);
-        router.refresh();
-      }
-    });
+    if (mode === "create") {
+      createMut.mutate(values, {
+        onSuccess: (data) => {
+          toast.success("Cuenta creada.");
+          onSuccess?.(data.id);
+        },
+        onError: (err) => toast.error(err.message),
+      });
+    } else if (account) {
+      updateMut.mutate(
+        { id: account.id, ...values },
+        {
+          onSuccess: () => {
+            toast.success("Cambios guardados.");
+            onSuccess?.(account.id);
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+    }
   }
 
   return (

@@ -1,9 +1,16 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { AccountsTable } from "@/features/accounts/components/accounts-table";
+import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
+
+import Loading from "./loading";
 
 export default async function CuentasPage() {
   const ctx = await requireUserContext();
@@ -11,8 +18,12 @@ export default async function CuentasPage() {
     redirect("/dashboard");
   }
 
-  const result = await listAccountsAction();
-  const accounts = result.ok ? result.data : [];
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: accountsKeys.list(),
+      queryFn: () => runAction(() => listAccountsAction()),
+    },
+  ]);
 
   return (
     <div className="space-y-6">
@@ -23,13 +34,11 @@ export default async function CuentasPage() {
           movimientos y saldos en vivo se agregan en una fase posterior.
         </p>
       </div>
-      {!result.ok ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          {result.error}
-        </div>
-      ) : (
-        <AccountsTable accounts={accounts} actorRoles={ctx.roles} />
-      )}
+      <Hydrate state={dehydratedState}>
+        <Suspense fallback={<Loading />}>
+          <AccountsTable actorRoles={ctx.roles} />
+        </Suspense>
+      </Hydrate>
     </div>
   );
 }

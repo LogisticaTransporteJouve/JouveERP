@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatArgentineDate } from "@/lib/format";
 
-import {
-  listPendingComprobantesForClientAction,
-  type PendingComprobante,
-} from "../actions/receipts-actions";
+import type { PendingComprobante } from "../actions/receipts-actions";
+import { usePendingComprobantes } from "../hooks/use-receipts";
 
 export type AllocationDraft = {
   comprobante_id: string;
@@ -42,39 +38,10 @@ export function AllocationsPicker({
   allocations: AllocationDraft[];
   onChange: (next: AllocationDraft[]) => void;
 }) {
-  const [pending, setPending] = useState<PendingComprobante[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!clientId) {
-      setPending([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    listPendingComprobantesForClientAction(clientId, excludeReceiptId)
-      .then((res) => {
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(res.error);
-          setPending([]);
-          return;
-        }
-        setPending(res.data);
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Error al cargar.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [clientId, excludeReceiptId]);
+  const pendingQuery = usePendingComprobantes(clientId, excludeReceiptId);
+  const pending: PendingComprobante[] = pendingQuery.data ?? [];
+  const loading = pendingQuery.isLoading;
+  const error = pendingQuery.error?.message ?? null;
 
   function setAlloc(comprobanteId: string, amount: string | null) {
     if (amount === null) {

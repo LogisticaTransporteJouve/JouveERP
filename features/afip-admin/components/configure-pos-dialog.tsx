@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,15 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import type { SalesPointRow } from "../actions/afip-admin-actions";
 import {
-  configurePosAction,
-  listInvoicingChannelsAction,
-  type SalesPointRow,
-} from "../actions/afip-admin-actions";
+  useConfigurePos,
+  useInvoicingChannels,
+} from "../hooks/use-afip-admin";
 
 const NO_CHANNEL_VALUE = "__none__";
 
-type Channel = { id: string; name: string };
 type ChannelLabels = Record<string, string>;
 
 export function ConfigurePosDialog({
@@ -45,53 +44,6 @@ export function ConfigurePosDialog({
   onUpdated: (row: SalesPointRow) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [channelId, setChannelId] = useState<string>(
-    point.channel_id ?? NO_CHANNEL_VALUE,
-  );
-  const [nickname, setNickname] = useState(point.nickname ?? "");
-  const [isEnabled, setIsEnabled] = useState(point.is_enabled);
-  const [isSaving, startSaving] = useTransition();
-
-  useEffect(() => {
-    if (!open) return;
-    setChannelId(point.channel_id ?? NO_CHANNEL_VALUE);
-    setNickname(point.nickname ?? "");
-    setIsEnabled(point.is_enabled);
-    void (async () => {
-      const res = await listInvoicingChannelsAction();
-      if (!res.ok) return;
-      setChannels(res.data.map(({ id, name }) => ({ id, name })));
-      const labels: ChannelLabels = {};
-      for (const c of res.data) labels[c.id] = c.name;
-      onChannelLabels(labels);
-    })();
-  }, [open, point, onChannelLabels]);
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    startSaving(async () => {
-      const trimmed = nickname.trim();
-      const res = await configurePosAction({
-        numero: point.numero,
-        channel_id: channelId === NO_CHANNEL_VALUE ? null : channelId,
-        nickname: trimmed.length === 0 ? null : trimmed,
-        is_enabled: isEnabled,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Configuración guardada.");
-      onUpdated(res.data);
-      setOpen(false);
-    });
-  }
-
-  const isDirty =
-    (point.channel_id ?? NO_CHANNEL_VALUE) !== channelId ||
-    (point.nickname ?? "") !== nickname.trim() ||
-    point.is_enabled !== isEnabled;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -109,64 +61,139 @@ export function ConfigurePosDialog({
             Asociá el POS a un canal para que aparezca en el form de emisión.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="pos-nickname">Alias</Label>
-            <Input
-              id="pos-nickname"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Ej: Jouve, DZ Instalaciones"
-              autoComplete="off"
-              maxLength={120}
+        {open ? (
+          <Suspense
+            fallback={
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                Cargando canales…
+              </p>
+            }
+          >
+            <ConfigurePosForm
+              point={point}
+              onChannelLabels={onChannelLabels}
+              onUpdated={onUpdated}
+              onClose={() => setOpen(false)}
             />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="pos-channel">Canal</Label>
-            <Select value={channelId} onValueChange={setChannelId}>
-              <SelectTrigger id="pos-channel">
-                <SelectValue placeholder="Sin asignar" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value={NO_CHANNEL_VALUE}>Sin asignar</SelectItem>
-                {channels.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <label className="flex items-start gap-2 text-sm">
-            <Checkbox
-              checked={isEnabled}
-              onCheckedChange={(value) => setIsEnabled(value === true)}
-            />
-            <span className="leading-snug">
-              Habilitado para emitir desde JouveERP.
-              <span className="block text-xs text-muted-foreground">
-                Si no, el POS no aparece en el form de comprobantes.
-              </span>
-            </span>
-          </label>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={isSaving}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSaving || !isDirty}>
-              {isSaving ? "Guardando…" : "Guardar"}
-            </Button>
-          </div>
-        </form>
+          </Suspense>
+        ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ConfigurePosForm({
+  point,
+  onChannelLabels,
+  onUpdated,
+  onClose,
+}: {
+  point: SalesPointRow;
+  onChannelLabels: (labels: ChannelLabels) => void;
+  onUpdated: (row: SalesPointRow) => void;
+  onClose: () => void;
+}) {
+  const channelsQuery = useInvoicingChannels();
+  const channels = channelsQuery.data;
+  const configureMut = useConfigurePos();
+
+  const [channelId, setChannelId] = useState<string>(
+    point.channel_id ?? NO_CHANNEL_VALUE,
+  );
+  const [nickname, setNickname] = useState(point.nickname ?? "");
+  const [isEnabled, setIsEnabled] = useState(point.is_enabled);
+
+  useEffect(() => {
+    const labels: ChannelLabels = {};
+    for (const c of channels) labels[c.id] = c.name;
+    onChannelLabels(labels);
+  }, [channels, onChannelLabels]);
+
+  const isSaving = configureMut.isPending;
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = nickname.trim();
+    configureMut.mutate(
+      {
+        numero: point.numero,
+        channel_id: channelId === NO_CHANNEL_VALUE ? null : channelId,
+        nickname: trimmed.length === 0 ? null : trimmed,
+        is_enabled: isEnabled,
+      },
+      {
+        onSuccess: (data) => {
+          toast.success("Configuración guardada.");
+          onUpdated(data);
+          onClose();
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
+  }
+
+  const isDirty =
+    (point.channel_id ?? NO_CHANNEL_VALUE) !== channelId ||
+    (point.nickname ?? "") !== nickname.trim() ||
+    point.is_enabled !== isEnabled;
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid gap-2">
+        <Label htmlFor="pos-nickname">Alias</Label>
+        <Input
+          id="pos-nickname"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          placeholder="Ej: Jouve, DZ Instalaciones"
+          autoComplete="off"
+          maxLength={120}
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="pos-channel">Canal</Label>
+        <Select value={channelId} onValueChange={setChannelId}>
+          <SelectTrigger id="pos-channel">
+            <SelectValue placeholder="Sin asignar" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={NO_CHANNEL_VALUE}>Sin asignar</SelectItem>
+            {channels.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <label className="flex items-start gap-2 text-sm">
+        <Checkbox
+          checked={isEnabled}
+          onCheckedChange={(value) => setIsEnabled(value === true)}
+        />
+        <span className="leading-snug">
+          Habilitado para emitir desde JouveERP.
+          <span className="block text-xs text-muted-foreground">
+            Si no, el POS no aparece en el form de comprobantes.
+          </span>
+        </span>
+      </label>
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onClose()}
+          disabled={isSaving}
+        >
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSaving || !isDirty}>
+          {isSaving ? "Guardando…" : "Guardar"}
+        </Button>
+      </div>
+    </form>
   );
 }

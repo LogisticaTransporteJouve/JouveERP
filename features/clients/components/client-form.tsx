@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -25,10 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  createClientAction,
-  updateClientAction,
-} from "../actions/clients-actions";
+import { useCreateClient, useUpdateClient } from "../hooks/use-clients";
 import { useCuitVerify } from "../hooks/use-cuit-verify";
 import {
   IVA_CONDITIONS,
@@ -77,7 +74,9 @@ export function ClientForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const [isSaving, startSaving] = useTransition();
+  const createMut = useCreateClient();
+  const updateMut = useUpdateClient();
+  const isSaving = createMut.isPending || updateMut.isPending;
   const [existingClient, setExistingClient] = useState<Client | null>(null);
   const { verify, isVerifying } = useCuitVerify();
 
@@ -122,28 +121,27 @@ export function ClientForm({
   }
 
   function onSubmit(values: FormValues) {
-    startSaving(async () => {
-      if (mode === "create") {
-        const res = await createClientAction(values);
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success("Cliente creado.");
-        if (onSuccess) onSuccess(res.data.id);
-        else router.push(`/clientes/${res.data.id}`);
-        router.refresh();
-      } else if (client) {
-        const res = await updateClientAction({ id: client.id, ...values });
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success("Cambios guardados.");
-        if (onSuccess) onSuccess(client.id);
-        router.refresh();
-      }
-    });
+    if (mode === "create") {
+      createMut.mutate(values, {
+        onSuccess: (data) => {
+          toast.success("Cliente creado.");
+          if (onSuccess) onSuccess(data.id);
+          else router.push(`/clientes/${data.id}`);
+        },
+        onError: (err) => toast.error(err.message),
+      });
+    } else if (client) {
+      updateMut.mutate(
+        { id: client.id, ...values },
+        {
+          onSuccess: () => {
+            toast.success("Cambios guardados.");
+            if (onSuccess) onSuccess(client.id);
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+    }
   }
 
   const cuitLocked = mode === "edit";

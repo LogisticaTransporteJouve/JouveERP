@@ -1,14 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
-  ACCOUNTS_PATH,
   AccountCreateSchema,
   AccountToggleActiveSchema,
   AccountUpdateSchema,
@@ -143,7 +140,6 @@ export async function createAccountAction(
     },
     data.id,
   );
-  revalidatePath(ACCOUNTS_PATH);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -194,7 +190,6 @@ export async function updateAccountAction(
     { fields: Object.keys(rest) as JsonValue[] },
     id,
   );
-  revalidatePath(ACCOUNTS_PATH);
   return { ok: true, data: undefined };
 }
 
@@ -228,6 +223,5 @@ export async function setAccountActiveAction(
     {},
     parsed.data.id,
   );
-  revalidatePath(ACCOUNTS_PATH);
   return { ok: true, data: undefined };
 }

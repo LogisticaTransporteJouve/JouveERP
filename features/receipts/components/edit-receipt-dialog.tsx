@@ -15,10 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Account } from "@/features/accounts/schema";
 
-import {
-  getReceiptByIdAction,
-  type ReceiptDetail,
-} from "../actions/receipts-actions";
+import { useReceiptDetail } from "../hooks/use-receipts";
 import { formatReceiptNumber } from "../schema";
 import { ReceiptForm, type ChannelOption } from "./receipt-form";
 
@@ -36,30 +33,16 @@ export function EditReceiptDialog({
   accounts: Account[];
 }) {
   const [open, setOpen] = useState(false);
-  const [detail, setDetail] = useState<ReceiptDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const detailQuery = useReceiptDetail(receiptId, { enabled: open });
+  const detail = detailQuery.data;
+  const loading = detailQuery.isLoading;
 
   useEffect(() => {
-    if (!open || detail) return;
-    let cancelled = false;
-    setLoading(true);
-    getReceiptByIdAction(receiptId)
-      .then((res) => {
-        if (cancelled) return;
-        if (!res.ok) {
-          toast.error(res.error);
-          setOpen(false);
-          return;
-        }
-        if (res.data) setDetail(res.data);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, detail, receiptId]);
+    if (detailQuery.error) {
+      toast.error(detailQuery.error.message);
+      setOpen(false);
+    }
+  }, [detailQuery.error]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -1,8 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,73 +16,50 @@ import {
 } from "@/components/ui/dialog";
 
 import {
-  deleteClientAction,
-  getClientReferencesAction,
-  setClientActiveAction,
-  type ClientReferences,
-} from "../actions/clients-actions";
+  useClientReferences,
+  useDeleteClient,
+  useSetClientActive,
+} from "../hooks/use-clients";
 import type { Client } from "../schema";
 
-type Stage = "loading" | "ready" | "done";
-
 export function DeleteClientDialog({ client }: { client: Client }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [stage, setStage] = useState<Stage>("loading");
-  const [refs, setRefs] = useState<ClientReferences | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function onOpenChange(next: boolean) {
-    setOpen(next);
-    if (!next) return;
-    setStage("loading");
-    setRefs(null);
-    void (async () => {
-      const res = await getClientReferencesAction(client.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        setOpen(false);
-        return;
-      }
-      setRefs(res.data);
-      setStage("ready");
-    })();
-  }
+  const refsQuery = useClientReferences(client.id, { enabled: open });
+  const deactivateMut = useSetClientActive();
+  const deleteMut = useDeleteClient();
+  const isPending = deactivateMut.isPending || deleteMut.isPending;
 
   function onDeactivate() {
-    startTransition(async () => {
-      const res = await setClientActiveAction({
-        id: client.id,
-        is_active: false,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Cliente desactivado.");
-      setOpen(false);
-      router.refresh();
-    });
+    deactivateMut.mutate(
+      { id: client.id, is_active: false },
+      {
+        onSuccess: () => {
+          toast.success("Cliente desactivado.");
+          setOpen(false);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   function onHardDelete() {
-    startTransition(async () => {
-      const res = await deleteClientAction(client.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Cliente eliminado.");
-      setOpen(false);
-      router.refresh();
+    deleteMut.mutate(client.id, {
+      onSuccess: () => {
+        toast.success("Cliente eliminado.");
+        setOpen(false);
+      },
+      onError: (err) => toast.error(err.message),
     });
   }
 
+  const refs = refsQuery.data;
+  const stage: "loading" | "ready" =
+    refsQuery.isLoading || !refs ? "loading" : "ready";
   const hasRefs = (refs?.total ?? 0) > 0;
   const isAlreadyInactive = !client.is_active;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -116,7 +92,7 @@ export function DeleteClientDialog({ client }: { client: Client }) {
               <strong>no se puede eliminar</strong> para preservar el historial:
             </p>
             <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-              {Object.entries(refs!.details).map(([table, count]) => (
+              {Object.entries(refs?.details ?? {}).map(([table, count]) => (
                 <li key={table}>
                   {count} en <code className="text-xs">{table}</code>
                 </li>

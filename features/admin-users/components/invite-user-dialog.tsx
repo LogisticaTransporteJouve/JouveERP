@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Role } from "@/lib/auth/permissions";
 
-import { inviteUserAction } from "../actions/users-actions";
+import { useInviteUser } from "../hooks/use-admin-users";
 import { RoleCheckboxGrid } from "./role-checkbox-grid";
 
 export function InviteUserDialog({ actorRoles }: { actorRoles: Role[] }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
-  const [pending, startTransition] = useTransition();
+  const inviteMut = useInviteUser();
+  const pending = inviteMut.isPending;
 
   function reset() {
     setEmail("");
@@ -36,16 +37,17 @@ export function InviteUserDialog({ actorRoles }: { actorRoles: Role[] }) {
       toast.error("Email y al menos un rol son obligatorios.");
       return;
     }
-    startTransition(async () => {
-      const result = await inviteUserAction({ email, roles });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Invitación enviada.");
-      reset();
-      setOpen(false);
-    });
+    inviteMut.mutate(
+      { email, roles },
+      {
+        onSuccess: () => {
+          toast.success("Invitación enviada.");
+          reset();
+          setOpen(false);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   return (

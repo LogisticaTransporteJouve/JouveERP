@@ -23,6 +23,7 @@ import {
 import { highestRole, type Role } from "@/lib/auth/permissions";
 import type { UserWithRoles } from "@/lib/auth/users";
 
+import { useUsersList } from "../hooks/use-admin-users";
 import { AssignRolesDialog } from "./assign-roles-dialog";
 import { InviteUserDialog } from "./invite-user-dialog";
 
@@ -40,14 +41,13 @@ import { formatArgentineDateTime } from "@/lib/format";
 const formatDate = formatArgentineDateTime;
 
 export function UsersTable({
-  users,
   actorRoles,
   currentUserId,
 }: {
-  users: UserWithRoles[];
   actorRoles: Role[];
   currentUserId: string;
 }) {
+  const { data: users } = useUsersList();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<UserWithRoles | null>(null);
 

@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   Triangle,
 } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,62 +20,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AfipDiagnostics, DiagnosticEntry } from "@/lib/afip/diagnostics";
 
-import {
-  loadAfipAdminAction,
-  syncAfipPosAction,
-  type SalesPointRow,
-} from "../actions/afip-admin-actions";
+import type { SalesPointRow } from "../actions/afip-admin-actions";
+import { useAfipAdminPanel, useSyncAfipPos } from "../hooks/use-afip-admin";
+import { afipAdminKeys } from "../lib/afip-admin-keys";
 import { ConfigurePosDialog } from "./configure-pos-dialog";
 
 type ChannelLabels = Record<string, string>;
 
 export function SalesPointsPanel() {
-  const [cuit, setCuit] = useState<string | null>(null);
-  const [diagnostics, setDiagnostics] = useState<AfipDiagnostics | null>(null);
-  const [salesPoints, setSalesPoints] = useState<SalesPointRow[]>([]);
+  const { data, isFetching } = useAfipAdminPanel();
+  const syncMut = useSyncAfipPos();
+  const qc = useQueryClient();
   const [channelLabels, setChannelLabels] = useState<ChannelLabels>({});
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, startLoading] = useTransition();
-  const [isSyncing, startSyncing] = useTransition();
+
+  const cuit = data.cuit;
+  const diagnostics = data.diagnostics;
+  const salesPoints = data.salesPoints;
 
   function reload() {
-    startLoading(async () => {
-      setError(null);
-      const res = await loadAfipAdminAction();
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      setCuit(res.data.cuit);
-      setDiagnostics(res.data.diagnostics);
-      setSalesPoints(res.data.salesPoints);
-    });
+    qc.invalidateQueries({ queryKey: afipAdminKeys.panel() });
   }
-
-  useEffect(() => {
-    reload();
-  }, []);
 
   function sync() {
-    startSyncing(async () => {
-      const res = await syncAfipPosAction();
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(
-        `${res.data.total} POS sincronizados (${res.data.inserted} nuevos, ${res.data.updated} actualizados).`,
-      );
-      setSalesPoints(res.data.salesPoints);
+    syncMut.mutate(undefined, {
+      onSuccess: (result) => {
+        toast.success(
+          `${result.total} POS sincronizados (${result.inserted} nuevos, ${result.updated} actualizados).`,
+        );
+      },
+      onError: (err) => toast.error(err.message),
     });
   }
 
-  function onPosUpdated(updated: SalesPointRow) {
-    setSalesPoints((prev) =>
-      prev.map((p) => (p.numero === updated.numero ? updated : p)),
-    );
+  function onPosUpdated() {
+    // The mutation hook in ConfigurePosDialog handles invalidation; this
+    // exists for parity with the previous prop signature so the dialog can
+    // forget about the panel.
   }
 
   return (
@@ -103,31 +86,21 @@ export function SalesPointsPanel() {
             type="button"
             variant="outline"
             onClick={reload}
-            disabled={isLoading || isSyncing}
+            disabled={isFetching || syncMut.isPending}
           >
-            <RefreshCw className={isLoading ? "animate-spin" : undefined} />
+            <RefreshCw className={isFetching ? "animate-spin" : undefined} />
             Refrescar
           </Button>
           <Button
             type="button"
             onClick={sync}
-            disabled={isLoading || isSyncing}
+            disabled={isFetching || syncMut.isPending}
           >
-            <RefreshCw className={isSyncing ? "animate-spin" : undefined} />
+            <RefreshCw className={syncMut.isPending ? "animate-spin" : undefined} />
             Sincronizar con AFIP
           </Button>
         </div>
       </div>
-
-      {error && (
-        <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-          <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <div>
-            <p className="font-medium">No se pudo cargar el panel.</p>
-            <p className="mt-1 text-muted-foreground">{error}</p>
-          </div>
-        </div>
-      )}
 
       {diagnostics && <DiagnosticsSection diagnostics={diagnostics} />}
 

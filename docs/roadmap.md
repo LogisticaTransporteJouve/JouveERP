@@ -895,7 +895,17 @@ I.1 vercel ai sdk + claude + prompt caching · I.2 OCR remitos · I.3 categoriza
 
 ### Fase J — Hardening (continuo)
 
-J.1 full-text search · J.2 backup drills · J.3 storage polimorfo · J.4 notificaciones · J.5 portal cliente · J.6 aprobaciones · J.7 indexación tarifas + multimoneda · J.8 CITI + CAEA · **J.9 loading/error/not-found UX**: revisar si vale la pena agregar `loading.tsx` + `error.tsx` + `not-found.tsx` por ruta. Hoy se decidió no aplicarlo (el flash en dev no justifica el ruido); volver acá cuando haya users reales y conexiones lentas en juego, o cuando una page tenga awaits pesados.
+J.1 full-text search · J.2 backup drills · J.3 storage polimorfo · J.4 notificaciones · J.5 portal cliente · J.6 aprobaciones · J.7 indexación tarifas + multimoneda · J.8 CITI + CAEA · **J.9 loading/error/not-found UX** ✅ _shipped en el refactor de query pattern (2026-05-10): cada page tiene `loading.tsx`, `(dashboard)/error.tsx` global, y los datos viven en TanStack via RSC prefetch + useSuspenseQuery_.
+
+#### Refactor — Query pattern rollout ✅ _shipped 2026-05-10_
+
+Adopción end-to-end del patrón sumary (RSC prefetch + `useSuspenseQuery` + `loading.tsx` + `error.tsx`) en todas las features (`accounts`, `admin-users`, `clients`, `afip-admin`, `comprobantes`, `receipts`).
+
+- Infraestructura: `lib/query/{query-client,prefetch,run-action,hydrate}.ts`. `prefetchQueries` soporta queries y queries infinitas. `runAction` aplica el workaround `await Promise.resolve()` para el conflicto Next 16 + server actions + Suspense.
+- Cada feature tiene `lib/<f>-keys.ts` (claves compartidas server↔client) y `hooks/use-<f>.ts` (suspense reads + mutations). Las mutations invalidan keys explícitamente; ya no hay `revalidatePath` en actions.
+- `app/(dashboard)/<route>/loading.tsx` por página + `app/(dashboard)/error.tsx` global con reset que limpia `queryClient.clear()`.
+- Polling de `invoice-job-status`: ahora vive en `useInvoiceStatusPoll` con `refetchInterval` que se auto-detiene en estados terminales y dispara invalidación del detail. **`app/api/jobs/[id]/route.ts` borrado.**
+- Tablas con search debounced (clients, comprobantes) usan `useDeferredValue` para mantener resultados anteriores visibles durante transiciones.
 
 **PRs Fase J: 9.**
 

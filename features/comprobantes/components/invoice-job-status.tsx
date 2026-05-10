@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 
+import { useInvoiceStatusPoll } from "../hooks/use-comprobantes";
 import { COMPROBANTE_STATUS_LABEL, type ComprobanteStatus } from "../schema";
 
-const POLL_MS = 1500;
-const TERMINAL_STATES: ComprobanteStatus[] = ["emitted", "failed", "cancelled"];
+const TERMINAL_STATES: ComprobanteStatus[] = [
+  "emitted",
+  "failed",
+  "cancelled",
+];
 
 const TONE: Record<ComprobanteStatus, string> = {
   draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
@@ -25,39 +26,8 @@ export function InvoiceJobStatus({
   id: string;
   initialStatus: ComprobanteStatus;
 }) {
-  const router = useRouter();
-  const [status, setStatus] = useState<ComprobanteStatus>(initialStatus);
-  const lastSeenRef = useRef<ComprobanteStatus>(initialStatus);
-
-  useEffect(() => {
-    if (TERMINAL_STATES.includes(status)) return;
-
-    let cancelled = false;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const json = (await res.json()) as { status: ComprobanteStatus };
-        if (cancelled) return;
-        if (json.status !== lastSeenRef.current) {
-          lastSeenRef.current = json.status;
-          setStatus(json.status);
-          if (TERMINAL_STATES.includes(json.status)) {
-            // Final transition — refresh the server component to pick up
-            // CAE, pdf_url and any observaciones.
-            router.refresh();
-          }
-        }
-      } catch {
-        // swallow — next tick retries
-      }
-    }, POLL_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [id, status, router]);
+  const { data } = useInvoiceStatusPoll(id, initialStatus);
+  const status = data?.status ?? initialStatus;
 
   return (
     <Badge variant="secondary" className={TONE[status]}>

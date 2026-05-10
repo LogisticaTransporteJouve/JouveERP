@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,12 +20,12 @@ import {
 } from "@/features/comprobantes/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
 
+import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
-  createReceiptAction,
-  updateReceiptAction,
-  type ReceiptDetail,
-} from "../actions/receipts-actions";
-import { useNextReceiptNumero } from "../hooks/use-next-receipt-numero";
+  useCreateReceipt,
+  useNextReceiptNumero,
+  useUpdateReceipt,
+} from "../hooks/use-receipts";
 import {
   formatReceiptNumber,
   RECEIPT_CURRENCIES,
@@ -89,8 +88,9 @@ export function ReceiptForm({
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
-  const router = useRouter();
-  const [isSaving, startSaving] = useTransition();
+  const createMut = useCreateReceipt();
+  const updateMut = useUpdateReceipt();
+  const isSaving = createMut.isPending || updateMut.isPending;
 
   const initialChannel =
     receipt?.receipt.channel_id ??
@@ -210,9 +210,9 @@ export function ReceiptForm({
       return;
     }
 
-    startSaving(async () => {
-      if (mode === "create") {
-        const res = await createReceiptAction({
+    if (mode === "create") {
+      createMut.mutate(
+        {
           channel_id: channelId,
           numero: numeroParsed,
           client_id: client.id,
@@ -222,34 +222,36 @@ export function ReceiptForm({
           notes,
           payment_lines: lines,
           allocations: allocs,
-        });
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success(
-          `Recibo ${formatReceiptNumber(res.data.punto_venta, res.data.numero)} emitido.`,
-        );
-        if (onSuccess) onSuccess(res.data.id);
-        router.refresh();
-      } else if (receipt) {
-        const res = await updateReceiptAction({
+        },
+        {
+          onSuccess: (data) => {
+            toast.success(
+              `Recibo ${formatReceiptNumber(data.punto_venta, data.numero)} emitido.`,
+            );
+            if (onSuccess) onSuccess(data.id);
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+    } else if (receipt) {
+      updateMut.mutate(
+        {
           id: receipt.receipt.id,
           recibo_date: reciboDate,
           total_amount: totalAmount,
           notes,
           payment_lines: lines,
           allocations: allocs,
-        });
-        if (!res.ok) {
-          toast.error(res.error);
-          return;
-        }
-        toast.success("Recibo actualizado.");
-        if (onSuccess) onSuccess(receipt.receipt.id);
-        router.refresh();
-      }
-    });
+        },
+        {
+          onSuccess: () => {
+            toast.success("Recibo actualizado.");
+            if (onSuccess) onSuccess(receipt.receipt.id);
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+    }
   }
 
   return (

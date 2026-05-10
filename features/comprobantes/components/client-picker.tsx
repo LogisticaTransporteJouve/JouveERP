@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, Plus, Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,11 +20,8 @@ import {
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
-import {
-  getClientByIdAction,
-  searchClientsAction,
-} from "@/features/clients/actions/clients-actions";
 import { ClientForm } from "@/features/clients/components/client-form";
+import { useClientsSearch } from "@/features/clients/hooks/use-clients";
 import {
   IVA_CONDITION_LABEL,
   type Client,
@@ -49,36 +46,17 @@ export function ClientPicker({
   onChange: (client: PickedClient | null) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Client[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
   const debouncedQuery = useDebouncedValue(query.trim(), 200);
 
-  // Run a search whenever the debounced query changes (and the picker is
-  // open). Empty query returns the first N active clients so the user can
-  // pick from a fresh list without typing.
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setIsSearching(true);
-    void (async () => {
-      const res = await searchClientsAction({
-        query: debouncedQuery,
-        onlyActive: true,
-        offset: 0,
-        limit: RESULT_LIMIT,
-      });
-      if (cancelled) return;
-      setIsSearching(false);
-      if (res.ok) setResults(res.data.clients);
-      else setResults([]);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedQuery, open]);
+  const searchQuery = useClientsSearch(
+    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT },
+    { enabled: open },
+  );
+  const results = searchQuery.data?.clients ?? [];
+  const isSearching = searchQuery.isFetching;
 
   function pick(client: Client) {
     onChange({
@@ -99,6 +77,12 @@ export function ClientPicker({
 
   async function onCreateSuccess(id: string) {
     setShowCreate(false);
+    // Hit the action directly to fetch the created client. We could go via
+    // queryClient.fetchQuery(useClientByIdQueryOptions(id)) but the indirection
+    // doesn't buy anything for a one-shot read post-creation.
+    const { getClientByIdAction } = await import(
+      "@/features/clients/actions/clients-actions"
+    );
     const res = await getClientByIdAction(id);
     if (!res.ok || !res.data) return;
     const c = res.data;
