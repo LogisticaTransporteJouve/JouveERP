@@ -11,9 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 
 import { useAgingSummary } from "../hooks/use-aging";
 import type { ClientAgingRow } from "../actions/aging-actions";
+import { agingKeys } from "../lib/aging-keys";
 
 const fmtMoney = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -49,6 +51,15 @@ function MoneyCell({
 export function AgingTable() {
   const { data } = useAgingSummary();
   const { clients, totals } = data;
+
+  // Aging is derived from comprobantes (numerador / saldo) and receipts
+  // (allocations). Subscribe to both so finance sees the bucket totals
+  // adjust as soon as another user emits a comprobante or registers un
+  // recibo con imputación.
+  useRealtimeInvalidate([
+    { table: "comprobantes", queryKeys: [agingKeys.all] },
+    { table: "receipts", queryKeys: [agingKeys.all] },
+  ]);
 
   return (
     <div className="space-y-4">

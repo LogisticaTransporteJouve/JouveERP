@@ -9,11 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useChequesList } from "../hooks/use-cheques";
+import { chequesKeys } from "../lib/cheques-keys";
 import {
   CHEQUE_KIND_LABEL,
   CHEQUE_STATUS_LABEL,
@@ -61,6 +63,15 @@ export function ChequesTable({
   const { data } = useChequesList();
   const items = data.items;
   const canWrite = userCan(actorRoles, "cheques:write");
+
+  // Realtime: any cheque change (status flips: depositado, acreditado,
+  // endosado, rechazado) refreshes the list for everyone watching.
+  useRealtimeInvalidate([
+    {
+      table: "cheques",
+      queryKeys: [chequesKeys.all],
+    },
+  ]);
 
   const totalsByStatus = items.reduce<Record<ChequeStatus, number>>(
     (acc, c) => {

@@ -9,13 +9,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { agingKeys } from "@/features/aging/lib/aging-keys";
 
 import { useReceiptsList } from "../hooks/use-receipts";
+import { receiptsKeys } from "../lib/receipts-keys";
 import { type ReceiptCurrency } from "../schema";
 import { formatReceiptNumber } from "../schema";
 import { CancelReceiptDialog } from "./cancel-receipt-dialog";
@@ -47,6 +50,15 @@ export function ReceiptsTable({
   const { data: accounts } = useAccountsList();
   const receipts = data.receipts;
   const canWrite = userCan(actorRoles, "receipts:write");
+
+  // Realtime: invalidate the list (and aging, since allocations live on
+  // the parent's updated_at) whenever any receipt changes server-side.
+  useRealtimeInvalidate([
+    {
+      table: "receipts",
+      queryKeys: [receiptsKeys.all, agingKeys.all],
+    },
+  ]);
 
   return (
     <>
