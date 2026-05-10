@@ -9,12 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Account } from "@/features/accounts/schema";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
-import type { Receipt, ReceiptCurrency } from "../schema";
+import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+
+import { useReceiptsList } from "../hooks/use-receipts";
+import { type ReceiptCurrency } from "../schema";
 import { formatReceiptNumber } from "../schema";
 import { CancelReceiptDialog } from "./cancel-receipt-dialog";
 import { EditReceiptDialog } from "./edit-receipt-dialog";
@@ -34,19 +36,16 @@ const formatters: Record<ReceiptCurrency, Intl.NumberFormat> = {
   }),
 };
 
-type ReceiptRow = Receipt & { client_legal_name: string };
-
 export function ReceiptsTable({
-  receipts,
   channels,
-  accounts,
   actorRoles,
 }: {
-  receipts: ReceiptRow[];
   channels: ChannelOption[];
-  accounts: Account[];
   actorRoles: Role[];
 }) {
+  const { data } = useReceiptsList();
+  const { data: accounts } = useAccountsList();
+  const receipts = data.receipts;
   const canWrite = userCan(actorRoles, "receipts:write");
 
   return (

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -13,7 +12,6 @@ import {
   isReceiptStatus,
   ReceiptCancelSchema,
   ReceiptCreateSchema,
-  RECEIPTS_PATH,
   ReceiptUpdateSchema,
   type Receipt,
   type ReceiptAllocation,
@@ -404,7 +402,6 @@ export async function createReceiptAction(
     },
     receiptId as string,
   );
-  revalidatePath(RECEIPTS_PATH);
   return {
     ok: true,
     data: {
@@ -463,7 +460,6 @@ export async function updateReceiptAction(
     { total_amount: data.total_amount },
     data.id,
   );
-  revalidatePath(RECEIPTS_PATH);
   return { ok: true, data: undefined };
 }
 
@@ -497,6 +493,5 @@ export async function cancelReceiptAction(
   }
 
   await logAudit("receipt.canceled", ctx.userId, {}, parsed.data.id);
-  revalidatePath(RECEIPTS_PATH);
   return { ok: true, data: undefined };
 }

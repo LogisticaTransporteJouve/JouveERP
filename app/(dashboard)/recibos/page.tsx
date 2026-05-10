@@ -1,11 +1,19 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
+import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
 import { ReceiptsTable } from "@/features/receipts/components/receipts-table";
+import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
+import { runAction } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+
+import Loading from "./loading";
 
 export default async function RecibosPage() {
   const ctx = await requireUserContext();
@@ -14,28 +22,27 @@ export default async function RecibosPage() {
   }
 
   const supabase = await createSupabaseClient();
-  const [receiptsRes, accountsRes, channelsRes] = await Promise.all([
-    listReceiptsAction(),
-    listAccountsAction(),
-    supabase
-      .from("invoicing_channels")
-      .select("id, name, is_active")
-      .eq("is_active", true)
-      .order("name"),
-  ]);
+  const { data: channelsData } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_active")
+    .eq("is_active", true)
+    .order("name");
 
-  const receipts = receiptsRes.ok ? receiptsRes.data.receipts : [];
-  const accounts = accountsRes.ok ? accountsRes.data : [];
-  const channels = (channelsRes.data ?? []).map((c) => ({
+  const channels = (channelsData ?? []).map((c) => ({
     id: c.id,
     name: c.name,
   }));
 
-  const error = !receiptsRes.ok
-    ? receiptsRes.error
-    : !accountsRes.ok
-      ? accountsRes.error
-      : channelsRes.error?.message;
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: receiptsKeys.list(),
+      queryFn: () => runAction(() => listReceiptsAction()),
+    },
+    {
+      queryKey: accountsKeys.list(),
+      queryFn: () => runAction(() => listAccountsAction()),
+    },
+  ]);
 
   return (
     <div className="space-y-6">
@@ -46,18 +53,11 @@ export default async function RecibosPage() {
           independiente por canal: <span className="font-mono">R0003-…</span>.
         </p>
       </div>
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      ) : (
-        <ReceiptsTable
-          receipts={receipts}
-          channels={channels}
-          accounts={accounts}
-          actorRoles={ctx.roles}
-        />
-      )}
+      <Hydrate state={dehydratedState}>
+        <Suspense fallback={<Loading />}>
+          <ReceiptsTable channels={channels} actorRoles={ctx.roles} />
+        </Suspense>
+      </Hydrate>
     </div>
   );
 }

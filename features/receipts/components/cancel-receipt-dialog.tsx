@@ -1,8 +1,7 @@
 "use client";
 
 import { Ban } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { cancelReceiptAction } from "../actions/receipts-actions";
+import { useCancelReceipt } from "../hooks/use-receipts";
 import { formatReceiptNumber } from "../schema";
 
 export function CancelReceiptDialog({
@@ -29,20 +28,20 @@ export function CancelReceiptDialog({
   puntoVenta: number;
 }) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const cancelMut = useCancelReceipt();
+  const isPending = cancelMut.isPending;
 
   function onCancel() {
-    startTransition(async () => {
-      const res = await cancelReceiptAction({ id: receiptId });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Recibo anulado.");
-      setOpen(false);
-      router.refresh();
-    });
+    cancelMut.mutate(
+      { id: receiptId },
+      {
+        onSuccess: () => {
+          toast.success("Recibo anulado.");
+          setOpen(false);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   }
 
   return (
