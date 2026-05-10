@@ -10,6 +10,7 @@ import { defineConfig, devices } from "@playwright/test";
 // process isn't already up.
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const STORAGE_STATE = "tests/e2e/.auth/user.json";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -23,17 +24,24 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    storageState: "tests/e2e/.auth/user.json",
   },
   projects: [
     {
+      // Setup runs first and writes STORAGE_STATE. Putting `storageState`
+      // on the chromium project (rather than globally on `use`) means the
+      // setup browser starts clean — it can't be told to "load" a state
+      // file that doesn't exist yet, which used to fail on fresh checkouts
+      // with ENOENT.
       name: "setup",
       testMatch: /auth\.setup\.ts/,
-      use: { ...devices["Desktop Chrome"], storageState: undefined },
+      use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: STORAGE_STATE,
+      },
       dependencies: ["setup"],
     },
   ],
