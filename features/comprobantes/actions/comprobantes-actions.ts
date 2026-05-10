@@ -131,19 +131,17 @@ export async function issueFiscalInvoiceAction(
   if (!client.is_active)
     return { ok: false, error: "El cliente está inactivo." };
 
-  if (!channel.is_fiscal) {
-    return {
-      ok: false,
-      error:
-        "Comprobante interno todavía no soportado. Llega en E.7 (post-MVP).",
-    };
-  }
+  // Fiscal-only resolution. For internal channels we don't pick a letter or
+  // a cbte_tipo_afip — the issue-invoice workflow takes the internal branch
+  // (skips AFIP entirely, numbers locally, writes a "no fiscal" PDF).
+  const letter: ComprobanteLetter | null = channel.is_fiscal
+    ? (data.letter ?? letterFor(client.iva_condition))
+    : null;
+  const cbteTipoAfip: CbteTipoCode | null = channel.is_fiscal
+    ? cbteTipoFor(data.kind, letter as ComprobanteLetter)
+    : null;
 
-  // Fiscal-specific resolution.
-  const letter: ComprobanteLetter = data.letter ?? letterFor(client.iva_condition);
-  const cbteTipoAfip: CbteTipoCode = cbteTipoFor(data.kind, letter);
-
-  if (data.iva_condition_receptor === null) {
+  if (channel.is_fiscal && data.iva_condition_receptor === null) {
     return {
       ok: false,
       error:
@@ -163,7 +161,8 @@ export async function issueFiscalInvoiceAction(
   const idempotency_key = randomUUID();
 
   // Insert draft + items. The DB trigger validates the fiscal-fields
-  // constraint, the unique index validates non-duplicate idempotency_key.
+  // constraint (letter + cbte_tipo_afip required when channel.is_fiscal),
+  // the unique index validates non-duplicate idempotency_key.
   const draft: ComprobanteInsert = {
     channel_id: data.channel_id,
     client_id: data.client_id,
@@ -171,7 +170,7 @@ export async function issueFiscalInvoiceAction(
     letter,
     cbte_tipo_afip: cbteTipoAfip,
     punto_venta: data.punto_venta,
-    numero: null, // reserved by Inngest step before requestCAE
+    numero: null, // reserved by the workflow (AFIP for fiscal, local for internal)
     fecha: data.fecha,
     fch_serv_desde: data.fch_serv_desde ?? null,
     fch_serv_hasta: data.fch_serv_hasta ?? null,
@@ -179,7 +178,9 @@ export async function issueFiscalInvoiceAction(
     concepto: data.concepto,
     doc_tipo: data.doc_tipo,
     doc_nro: data.doc_nro,
-    iva_condition_receptor: data.iva_condition_receptor,
+    iva_condition_receptor: channel.is_fiscal
+      ? data.iva_condition_receptor
+      : null,
     imp_neto: totals.imp_neto,
     imp_iva: totals.imp_iva,
     imp_trib: 0,

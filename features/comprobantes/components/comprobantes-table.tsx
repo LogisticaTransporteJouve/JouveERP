@@ -89,6 +89,7 @@ interface ChannelOption {
   id: string;
   name: string;
   division: string;
+  is_fiscal: boolean;
 }
 
 export function ComprobantesTable({

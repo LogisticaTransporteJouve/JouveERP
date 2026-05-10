@@ -803,12 +803,13 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - Playwright: login → emitir factura B en homologación → ver CAE.
 - Sentry instalado.
 
-#### E.7 — `feat: comprobante interno branch (post-MVP)` (1 PR)
+#### E.7 — `feat: comprobante interno branch` ✅ _shipped_
 
-- Branch en el workflow `issueInvoice` cuando `channel.is_fiscal = false`: numeración por secuencia local (`select max(numero) + 1` con lock dentro de la transacción), salta los pasos `afip-auth`, `reserve-numero`, `afip-cae`.
-- Plantilla PDF "Documento no fiscal" con marca de agua diagonal + footer legal.
-- Sin QR, sin CAE.
-- UI: el form esconde letra y discriminación IVA; copy "Sin valor fiscal — solo para registro interno".
+- Workflow Inngest `issueInvoice` ahora bifurca al cargar el draft: si `channel.is_fiscal = false`, salta WSAA / FECompUltimoAutorizado / FECAESolicitar y va directo a numerar localmente (`max(numero) + 1` filtrado por channel + POS + kind), marcar `emitted` y generar el PDF "no fiscal".
+- Reusa la plantilla PDF (`lib/pdf/invoice-template.tsx`) con `isFiscal = false`: marca de agua "NO FISCAL", sin letter / sin CAE / sin QR.
+- Action `issueFiscalInvoiceAction` deja de bloquear canales internos: `letter`, `cbte_tipo_afip` y `iva_condition_receptor` quedan `null`. El trigger de DB sigue validando que los fiscales lleven los tres campos.
+- Dialog de "Nuevo comprobante" detecta `currentChannel.is_fiscal` y omite letter / iva_condition_receptor cuando emite por canal interno.
+- Detail page `/comprobantes/[id]` ya soportaba `!is_fiscal` desde E.6 (card "Documento no fiscal" en lugar de "Datos AFIP").
 
 #### E.8 — `feat: row actions + realtime para la tabla de comprobantes` (1 PR)
 

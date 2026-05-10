@@ -21,25 +21,33 @@ import {
   InvoiceIssueRequestedSchema,
 } from "../events";
 
-// `issueInvoice` orchestrates the durable emission flow for fiscal
-// comprobantes. The steps are intentionally fine-grained so an Inngest
-// retry never re-pays AFIP for work it already did:
+// `issueInvoice` orchestrates the durable emission flow for comprobantes.
+// Two branches based on `channel.is_fiscal`:
 //
-//   load-draft       → snapshot the row (status flips draft → emitting)
+// FISCAL (AFIP):
+//   load-draft       → snapshot the row + channel (status flips draft → emitting)
 //   reserve-numero   → ask AFIP for the last authorized number for the POS
-//   persist-numero   → store number on the row before requesting the CAE,
-//                      so a crashed retry can recover via FECompConsultar
+//   persist-numero   → store number before requesting the CAE so a crashed
+//                      retry can recover via FECompConsultar
 //   request-cae      → call FECAESolicitar; on transport error, ask AFIP
 //                      "did you actually register this number?" before
 //                      letting Inngest retry. If AFIP did, adopt that CAE.
 //   persist-cae      → store CAE + flip status to emitted.
+//   generate-pdf     → render fiscal PDF (CAE + QR).
+//
+// INTERNAL (no AFIP):
+//   load-draft       → idem.
+//   reserve-and-persist-numero-internal → max(numero) + 1 over the same
+//                      (channel_id, punto_venta, kind) tuple, in a single
+//                      step. There's no AFIP roundtrip so a retry just
+//                      re-reads max+1 and inserts again — the unique index
+//                      rejects duplicates if the previous attempt persisted.
+//   mark-emitted     → flip status to emitted (no CAE, no QR).
+//   generate-pdf     → render the "Documento no fiscal" PDF.
 //
 // Idempotency is event-level (`event.data.idempotency_key`) so duplicate
 // dispatches don't trigger duplicate runs. The DB also enforces uniqueness
 // on `idempotency_key` so duplicate drafts can't be created.
-//
-// PDF + notification land in E.5 (a separate function chained from this
-// one) so Phase E ships incrementally.
 
 const RETRYABLE_LIMIT = 5;
 
@@ -47,6 +55,7 @@ type DraftRow = {
   id: string;
   channel_id: string;
   client_id: string;
+  kind: string;
   punto_venta: number;
   cbte_tipo_afip: number | null;
   fecha: string;
@@ -85,6 +94,8 @@ type DraftLoad = {
   draft: DraftRow;
   iva: InvoiceIvaEntry[];
   origenes: Array<{ tipo: number; ptoVta: number; nro: number }>;
+  channelIsFiscal: boolean;
+  channelKind: string;
 };
 
 function toNumber(value: string | number | null | undefined): number {
@@ -191,7 +202,9 @@ export const issueInvoice = inngest.createFunction(
       const supabase = getServiceClient();
       const { data: draft, error } = await supabase
         .from("comprobantes")
-        .select("*")
+        .select(
+          "*, channel:invoicing_channels(id, is_fiscal, name)",
+        )
         .eq("id", comprobante_id)
         .maybeSingle();
       if (error) throw new Error(`load-draft: ${error.message}`);
@@ -199,6 +212,15 @@ export const issueInvoice = inngest.createFunction(
       if (draft.status !== "draft" && draft.status !== "emitting") {
         throw new Error(
           `Comprobante ${comprobante_id} en estado ${draft.status} — no se puede emitir.`,
+        );
+      }
+
+      const channel = (draft as unknown as {
+        channel: { id: string; is_fiscal: boolean; name: string } | null;
+      }).channel;
+      if (!channel) {
+        throw new Error(
+          `Comprobante ${comprobante_id} — canal no encontrado.`,
         );
       }
 
@@ -223,15 +245,79 @@ export const issueInvoice = inngest.createFunction(
         draft: draft as unknown as DraftRow,
         iva: aggregateIva(items ?? []),
         origenes: originPair ? [originPair] : [],
+        channelIsFiscal: channel.is_fiscal,
+        channelKind: channel.name,
       };
     });
 
     const draft = load.draft;
+
+    // Branch INTERNAL: no AFIP, local numbering. The internal flow is
+    // deliberately small and self-contained — it only writes to comprobantes
+    // and bails. PDF generation runs after at the bottom (shared with fiscal).
+    if (!load.channelIsFiscal) {
+      const reservedNumero: number = await step.run(
+        "reserve-and-persist-numero-internal",
+        async () => {
+          const supabase = getServiceClient();
+          const { data, error: maxErr } = await supabase
+            .from("comprobantes")
+            .select("numero")
+            .eq("channel_id", draft.channel_id)
+            .eq("punto_venta", draft.punto_venta)
+            .eq("kind", draft.kind)
+            .not("numero", "is", null)
+            .order("numero", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (maxErr) throw new Error(`reserve-numero-internal: ${maxErr.message}`);
+          const next = (data?.numero ?? 0) + 1;
+          const { error: updErr } = await supabase
+            .from("comprobantes")
+            .update({ numero: next })
+            .eq("id", comprobante_id);
+          if (updErr)
+            throw new Error(`persist-numero-internal: ${updErr.message}`);
+          return next;
+        },
+      );
+
+      await step.run("mark-emitted-internal", async () => {
+        const supabase = getServiceClient();
+        const { error: updErr } = await supabase
+          .from("comprobantes")
+          .update({
+            status: "emitted",
+            emitted_at: new Date().toISOString(),
+          })
+          .eq("id", comprobante_id);
+        if (updErr) throw new Error(`mark-emitted-internal: ${updErr.message}`);
+      });
+
+      await step.run("generate-pdf-internal", async () => {
+        try {
+          const { generateAndStoreInvoicePdf } = await import(
+            "@/lib/pdf/generate-and-store"
+          );
+          await generateAndStoreInvoicePdf(comprobante_id);
+        } catch (err) {
+          logger.warn("issue_invoice.pdf_failed_internal", {
+            comprobante_id,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+
+      return { internal: true, cbteNro: reservedNumero };
+    }
+
+    // Fiscal branch follows.
     if (draft.cbte_tipo_afip === null) {
       throw new AfipServiceError([
         {
           code: 0,
-          message: "Falta cbte_tipo_afip — interno aún no soportado en E.4.",
+          message:
+            "Comprobante fiscal sin cbte_tipo_afip — datos inconsistentes.",
         },
       ]);
     }

@@ -47,6 +47,7 @@ interface ChannelOption {
   id: string;
   name: string;
   division: string; // 'jouve' | 'dz'
+  is_fiscal: boolean;
 }
 
 // Each division has a default Concepto AFIP code, derived from what the
@@ -217,7 +218,9 @@ function NewComprobanteForm({
   const isServiciosConcepto =
     concepto === CONCEPTO.SERVICIOS || concepto === CONCEPTO.PRODUCTOS_Y_SERVICIOS;
 
-  const letter = client ? letterFor(client.iva_condition) : null;
+  const isFiscal = currentChannel?.is_fiscal ?? true;
+  const letter =
+    isFiscal && client ? letterFor(client.iva_condition) : null;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -259,16 +262,20 @@ function NewComprobanteForm({
         channel_id: channelId,
         client_id: client.id,
         kind: "factura",
-        letter: letter ?? "B",
+        // Internal channels: letter and condicionIvaReceptor are ignored by
+        // the action and the workflow takes the no-AFIP branch.
+        letter: isFiscal ? (letter ?? "B") : null,
         punto_venta: Number(puntoVenta),
         fecha,
         fch_serv_desde: fchServ,
         fch_serv_hasta: fchServ,
         fch_vto_pago: fchServ,
         concepto: concepto as 1 | 2 | 3,
-        doc_tipo: 80, // CUIT (only fiscal path supported in E.4)
+        doc_tipo: 80,
         doc_nro: client.cuit,
-        iva_condition_receptor: condicionIvaReceptorFor(client.iva_condition),
+        iva_condition_receptor: isFiscal
+          ? condicionIvaReceptorFor(client.iva_condition)
+          : null,
         moneda: "PES",
         cotizacion: 1,
         motivo_nc_nd: motivo.trim().length === 0 ? null : motivo.trim(),
