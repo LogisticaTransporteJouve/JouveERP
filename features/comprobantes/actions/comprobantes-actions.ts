@@ -19,7 +19,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 import {
   CreateComprobanteSchema,
   computeTotals,
-  narrowComprobanteRow,
+  isComprobanteStatus,
   type ComprobanteRow,
   type CreateComprobanteInput,
 } from "../schema";
@@ -312,18 +312,26 @@ export async function getInvoiceStatusAction(
   if (!data)
     return { ok: false, error: `Comprobante ${id} no encontrado.` };
 
-  const row = narrowComprobanteRow(data as never);
+  // Narrow only the status — the polling endpoint doesn't surface kind or
+  // letter, and selecting them just to validate would inflate every
+  // 1.5s-poll roundtrip. `narrowComprobanteRow` (used at the detail page)
+  // validates the full row.
+  const rawStatus: string = data.status;
+  if (!isComprobanteStatus(rawStatus)) {
+    return { ok: false, error: `Estado inválido: ${rawStatus}` };
+  }
+  const status: ComprobanteRow["status"] = rawStatus;
   return {
     ok: true,
     data: {
-      id: row.id,
-      status: row.status,
-      cae: row.cae,
-      cae_vencimiento: row.cae_vencimiento,
-      numero: row.numero,
-      punto_venta: row.punto_venta,
-      emitted_at: row.emitted_at,
-      afip_observaciones: row.afip_observaciones,
+      id: data.id,
+      status,
+      cae: data.cae,
+      cae_vencimiento: data.cae_vencimiento,
+      numero: data.numero,
+      punto_venta: data.punto_venta,
+      emitted_at: data.emitted_at,
+      afip_observaciones: data.afip_observaciones,
     },
   };
 }
