@@ -33,6 +33,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    // Legacy Spanish routes → English routes. Kept so bookmarks, browser
+    // history, and login `redirectTo` params with old URLs still resolve.
+    return [
+      { source: "/comprobantes/:path*", destination: "/invoices/:path*", permanent: true },
+      { source: "/clientes/:path*", destination: "/clients/:path*", permanent: true },
+      { source: "/recibos/:path*", destination: "/receipts/:path*", permanent: true },
+      { source: "/cuentas/:path*", destination: "/accounts/:path*", permanent: true },
+      { source: "/caja/:path*", destination: "/transactions/:path*", permanent: true },
+      { source: "/cheques/:path*", destination: "/checks/:path*", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
