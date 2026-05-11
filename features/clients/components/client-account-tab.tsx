@@ -197,18 +197,41 @@ export function ClientAccountTab({
                         )}
                         {m.source_type === "invoice" &&
                           m.kind !== "credit_note" &&
-                          m.outstanding === 0 && (
+                          m.outstanding != null &&
+                          (m.outstanding === 0 ? (
                             <Badge
                               variant="secondary"
                               className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
                             >
                               Pagada
                             </Badge>
-                          )}
+                          ) : m.outstanding < m.gross_amount ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                            >
+                              Parcial
+                            </Badge>
+                          ) : null)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {isDebit ? formatter.format(m.gross_amount) : ""}
+                      {isDebit ? (
+                        <span className="inline-flex flex-col items-end">
+                          <span>{formatter.format(m.gross_amount)}</span>
+                          {m.source_type === "invoice" &&
+                            m.kind !== "credit_note" &&
+                            m.outstanding != null &&
+                            m.outstanding > 0 &&
+                            m.outstanding < m.gross_amount && (
+                              <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                                Pendiente: {formatter.format(m.outstanding)}
+                              </span>
+                            )}
+                        </span>
+                      ) : (
+                        ""
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {!isDebit ? formatter.format(m.gross_amount) : ""}
