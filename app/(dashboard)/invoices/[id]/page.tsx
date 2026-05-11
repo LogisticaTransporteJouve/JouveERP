@@ -1,8 +1,15 @@
 import { FileDown } from "lucide-react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { InvoiceJobStatus } from "@/features/invoices/components/invoice-job-status";
 import {
@@ -49,16 +56,27 @@ export default async function ComprobanteDetailPage({
   const c = res.data;
   const canIssue = userCan(ctx.roles, "invoices:issue");
 
+  const invoiceLabel = `${
+    c.channel.is_fiscal && c.letter
+      ? `${INVOICE_KIND_LABEL[c.kind]} ${c.letter}`
+      : INVOICE_KIND_LABEL[c.kind]
+  } ${formatNumero(c.punto_venta, c.numero)}`;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/invoices">Comprobantes</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{invoiceLabel}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <Link
-            href="/invoices"
-            className="text-xs text-muted-foreground hover:underline"
-          >
-            ← Comprobantes
-          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">
             {c.channel.is_fiscal && c.letter
               ? `${INVOICE_KIND_LABEL[c.kind]} ${c.letter}`

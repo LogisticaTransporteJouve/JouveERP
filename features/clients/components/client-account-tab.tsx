@@ -48,7 +48,7 @@ const formatter = {
 function formatMovementNumber(m: AccountMovement): string {
   const pos = String(m.punto_venta).padStart(4, "0");
   const num = String(m.numero).padStart(8, "0");
-  if (m.source_type === "recibo") return `R${pos}-${num}`;
+  if (m.source_type === "receipt") return `R${pos}-${num}`;
   if (m.kind === "factura") return `${m.letter ?? ""}${pos}-${num}`;
   if (m.kind === "nc") return `NC-${m.letter ?? ""} ${pos}-${num}`;
   if (m.kind === "nd") return `ND-${m.letter ?? ""} ${pos}-${num}`;
@@ -56,7 +56,7 @@ function formatMovementNumber(m: AccountMovement): string {
 }
 
 function movementTypeLabel(m: AccountMovement): string {
-  if (m.source_type === "recibo") return "Recibo";
+  if (m.source_type === "receipt") return "Recibo";
   if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nc") return `NC${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nd") return `ND${m.letter ? " " + m.letter : ""}`;
@@ -64,7 +64,7 @@ function movementTypeLabel(m: AccountMovement): string {
 }
 
 function movementHref(m: AccountMovement): string {
-  return m.source_type === "recibo"
+  return m.source_type === "receipt"
     ? "/receipts"
     : `/invoices/${m.source_id}`;
 }
@@ -174,7 +174,7 @@ export function ClientAccountTab({
                       <Badge
                         variant="secondary"
                         className={
-                          m.source_type === "recibo"
+                          m.source_type === "receipt"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : m.kind === "nc"
                               ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
@@ -185,7 +185,7 @@ export function ClientAccountTab({
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {m.source_type === "comprobante" ? (
+                      {m.source_type === "invoice" ? (
                         <Link
                           href={movementHref(m)}
                           className="hover:underline"
@@ -220,7 +220,7 @@ export function ClientAccountTab({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
-                        {m.source_type === "comprobante" ? (
+                        {m.source_type === "invoice" ? (
                           <>
                             <Button
                               asChild

@@ -51,12 +51,12 @@ create or replace view public.v_client_account_movements with (security_invoker 
 
   -- Recibos emitidos. Siempre acreditan al cliente (negativo).
   select
-    'recibo'::text                           as source_type,
+    'receipt'::text                          as source_type,
     r.id                                     as source_id,
     r.client_id                              as client_id,
     r.receipt_date                            as movement_date,
     r.created_at                             as created_at,
-    'recibo'::text                           as kind,
+    'receipt'::text                          as kind,
     null::text                               as letter,
     r.punto_venta                            as punto_venta,
     r.numero                                 as numero,

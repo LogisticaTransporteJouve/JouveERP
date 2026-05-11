@@ -9,7 +9,7 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type AccountMovementSourceType = "comprobante" | "recibo";
+export type AccountMovementSourceType = "invoice" | "receipt";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;
