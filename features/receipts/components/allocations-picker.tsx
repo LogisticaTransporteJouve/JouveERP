@@ -98,9 +98,9 @@ export function AllocationsPicker({
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">Imputar a comprobantes</Label>
-      <div className="rounded-md border">
+      <div className="max-h-80 overflow-y-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs">
+          <thead className="sticky top-0 z-10 bg-muted text-xs">
             <tr>
               <th className="w-8 px-2 py-1.5"></th>
               <th className="px-2 py-1.5 text-left">Comprobante</th>
