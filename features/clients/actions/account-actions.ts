@@ -32,6 +32,11 @@ export interface AccountMovement {
   /** Running balance after this row (sorted oldest → newest by movement_date,
    *  then created_at). */
   balance: number;
+  /** Per-document outstanding: only meaningful for invoice rows.
+   *  imp_total minus the sum of issued receipt_allocations applied to it.
+   *  Receipt rows return their "a cuenta" (total minus allocations).
+   *  null when not applicable. */
+  outstanding: number | null;
 }
 
 export interface ClientAccountResult {
@@ -69,6 +74,58 @@ export async function getClientAccountAction(
   }
 
   const rows = data ?? [];
+
+  // Per-document outstanding: invoices show imp_total − Σ allocations
+  // applied (from issued receipts only). Receipts show their "a cuenta"
+  // (total − Σ allocations made by THIS receipt).
+  const invoiceIds = rows
+    .filter((r) => r.source_type === "invoice" && r.source_id)
+    .map((r) => r.source_id!) as string[];
+  const receiptIds = rows
+    .filter((r) => r.source_type === "receipt" && r.source_id)
+    .map((r) => r.source_id!) as string[];
+
+  const appliedByInvoice = new Map<string, number>();
+  const appliedByReceipt = new Map<string, number>();
+  if (invoiceIds.length > 0 || receiptIds.length > 0) {
+    const { data: allocs } = await supabase
+      .from("receipt_allocations")
+      .select(
+        "invoice_id, receipt_id, amount_applied, receipts ( status )",
+      )
+      .in(
+        "invoice_id",
+        invoiceIds.length > 0 ? invoiceIds : ["00000000-0000-0000-0000-000000000000"],
+      );
+
+    for (const a of allocs ?? []) {
+      const status = (
+        a as unknown as { receipts: { status: string } | null }
+      ).receipts?.status;
+      if (status === "canceled") continue;
+      const amt = Number(a.amount_applied);
+      if (a.invoice_id) {
+        appliedByInvoice.set(
+          a.invoice_id,
+          (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
+        );
+      }
+    }
+
+    if (receiptIds.length > 0) {
+      const { data: receiptAllocs } = await supabase
+        .from("receipt_allocations")
+        .select("receipt_id, amount_applied")
+        .in("receipt_id", receiptIds);
+      for (const a of receiptAllocs ?? []) {
+        const amt = Number(a.amount_applied);
+        appliedByReceipt.set(
+          a.receipt_id,
+          (appliedByReceipt.get(a.receipt_id) ?? 0) + amt,
+        );
+      }
+    }
+  }
   let running = 0;
   const movements: AccountMovement[] = [];
   for (const row of rows) {
@@ -91,7 +148,16 @@ export async function getClientAccountAction(
       continue;
     }
     const signed = Number(row.signed_amount);
+    const gross = Number(row.gross_amount);
     running = Math.round((running + signed) * 100) / 100;
+    let outstanding: number | null = null;
+    if (row.source_type === "invoice" && row.kind !== "credit_note") {
+      const applied = appliedByInvoice.get(row.source_id) ?? 0;
+      outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
+    } else if (row.source_type === "receipt") {
+      const applied = appliedByReceipt.get(row.source_id) ?? 0;
+      outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
+    }
     movements.push({
       source_type: row.source_type as AccountMovementSourceType,
       source_id: row.source_id,
@@ -102,12 +168,13 @@ export async function getClientAccountAction(
       punto_venta: row.punto_venta,
       numero: row.numero,
       signed_amount: signed,
-      gross_amount: Number(row.gross_amount),
+      gross_amount: gross,
       channel_id: row.channel_id,
       channel_name: row.channel_name,
       channel_division: row.channel_division,
       channel_is_fiscal: row.channel_is_fiscal,
       balance: running,
+      outstanding,
     });
   }
 

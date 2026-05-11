@@ -147,6 +147,7 @@ export function ClientAccountTab({
               <TableHead className="w-44">Documento</TableHead>
               <TableHead className="text-right">Debe</TableHead>
               <TableHead className="text-right">Haber</TableHead>
+              <TableHead className="text-right">Pendiente</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
               <TableHead className="w-32 text-right">Acciones</TableHead>
             </TableRow>
@@ -155,7 +156,7 @@ export function ClientAccountTab({
             {movements.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Este cliente todavía no tiene movimientos.
@@ -200,6 +201,24 @@ export function ClientAccountTab({
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {!isDebit ? formatter.format(m.gross_amount) : ""}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {m.outstanding == null ? (
+                        <span className="text-xs text-muted-foreground/60">
+                          —
+                        </span>
+                      ) : m.outstanding === 0 ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                        >
+                          Pagada
+                        </Badge>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400">
+                          {formatter.format(m.outstanding)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-medium">
                       <span
