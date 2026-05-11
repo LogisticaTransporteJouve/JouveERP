@@ -42,6 +42,10 @@ export function PdfViewerDialog({
   const [open, setOpen] = useState(false);
   const url =
     kind === "receipt" ? `/api/receipts/${id}/pdf` : `/api/invoices/${id}/pdf`;
+  // Invoices ship ORIGINAL + DUPLICADO; only ORIGINAL is shown in the
+  // preview. Receipts can paginate when there are many allocations — show
+  // up to 20 pages.
+  const maxPages = kind === "receipt" ? 20 : 1;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -62,7 +66,7 @@ export function PdfViewerDialog({
           Vista previa {kind === "receipt" ? "del recibo" : "del comprobante"}{" "}
           {label}.
         </DialogDescription>
-        {open && <PdfViewerInner url={url} maxPages={1} />}
+        {open && <PdfViewerInner url={url} maxPages={maxPages} />}
       </DialogContent>
     </Dialog>
   );
