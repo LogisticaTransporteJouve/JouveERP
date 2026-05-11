@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 
 import { listComprobantesAction } from "@/features/comprobantes/actions/comprobantes-actions";
 import { ComprobantesTable } from "@/features/comprobantes/components/comprobantes-table";
-import { COMPROBANTES_PAGE_SIZE } from "@/features/comprobantes/hooks/use-comprobantes";
-import { comprobantesKeys } from "@/features/comprobantes/lib/comprobantes-keys";
+import {
+  COMPROBANTES_PAGE_SIZE,
+  comprobantesKeys,
+} from "@/features/comprobantes/lib/comprobantes-keys";
 import {
   COMPROBANTE_STATUSES,
   type ComprobanteStatus,
@@ -71,7 +73,7 @@ export default async function ComprobantesPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Comprobantes</h1>
         <p className="text-sm text-muted-foreground">

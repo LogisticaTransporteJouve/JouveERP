@@ -21,10 +21,10 @@ import {
   type ComprobanteListItem,
   type InvoiceStatus,
 } from "../actions/comprobantes-actions";
-import { comprobantesKeys } from "../lib/comprobantes-keys";
+import { COMPROBANTES_PAGE_SIZE, comprobantesKeys } from "../lib/comprobantes-keys";
 import type { ComprobanteStatus } from "../schema";
 
-export const COMPROBANTES_PAGE_SIZE = 50;
+export { COMPROBANTES_PAGE_SIZE };
 
 const TERMINAL_STATES: ComprobanteStatus[] = [
   "emitted",

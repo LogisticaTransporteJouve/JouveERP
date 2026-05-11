@@ -15,6 +15,8 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
+export const dynamic = "force-dynamic";
+
 export default async function RecibosPage() {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "receipts:read")) {
@@ -46,7 +48,7 @@ export default async function RecibosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Recibos</h1>
         <p className="text-sm text-muted-foreground">
           Cobros de clientes con imputación a comprobantes. Numerador

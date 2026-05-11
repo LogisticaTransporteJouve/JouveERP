@@ -12,6 +12,8 @@ import { runAction } from "@/lib/query/run-action";
 
 import Loading from "./loading";
 
+export const dynamic = "force-dynamic";
+
 export default async function AfipSalesPointsPage() {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "afip:admin")) {

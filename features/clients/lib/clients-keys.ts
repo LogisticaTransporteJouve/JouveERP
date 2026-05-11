@@ -1,3 +1,5 @@
+export const CLIENTS_PAGE_SIZE = 50;
+
 /**
  * Query keys for the clients feature.
  *

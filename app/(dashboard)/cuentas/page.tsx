@@ -12,6 +12,8 @@ import { runAction } from "@/lib/query/run-action";
 
 import Loading from "./loading";
 
+export const dynamic = "force-dynamic";
+
 export default async function CuentasPage() {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounts:read")) {
@@ -27,7 +29,7 @@ export default async function CuentasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
         <p className="text-sm text-muted-foreground">
           Caja, bancos, billeteras, inversiones y cheques en cartera. Los

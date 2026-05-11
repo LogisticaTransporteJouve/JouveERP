@@ -4,13 +4,15 @@ import { searchClientsAction } from "@/features/clients/actions/clients-actions"
 import { ClientsTable } from "@/features/clients/components/clients-table";
 import {
   CLIENTS_PAGE_SIZE,
-} from "@/features/clients/hooks/use-clients";
-import { clientsKeys } from "@/features/clients/lib/clients-keys";
+  clientsKeys,
+} from "@/features/clients/lib/clients-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+
+export const dynamic = "force-dynamic";
 
 export default async function ClientesPage({
   searchParams,
@@ -45,7 +47,7 @@ export default async function ClientesPage({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
         <p className="text-sm text-muted-foreground">
           Catálogo único por CUIT, compartido entre Logística Jouve y DZ

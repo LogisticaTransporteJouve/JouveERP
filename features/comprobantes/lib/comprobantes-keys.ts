@@ -1,5 +1,7 @@
 import type { ComprobanteStatus } from "../schema";
 
+export const COMPROBANTES_PAGE_SIZE = 50;
+
 /**
  * Query keys for the comprobantes feature.
  *

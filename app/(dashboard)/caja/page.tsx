@@ -93,7 +93,7 @@ export default async function CajaPage({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
         <p className="text-sm text-muted-foreground">
           Ingresos, egresos y transferencias entre cuentas. Cada movimiento

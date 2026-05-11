@@ -107,7 +107,7 @@ export function ChequesTable({
       </div>
 
       {canWrite && (
-        <div className="mt-4 flex justify-end">
+        <div className="flex justify-end">
           <NewChequeDialog />
         </div>
       )}
