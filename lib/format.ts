@@ -42,6 +42,15 @@ export function formatArgentineDate(value: string | null | undefined): string {
  * Paired with `parseAmount` (in receipts/components/receipt-form) which
  * reverses the dots/commas before sending to the server.
  */
+/**
+ * Format a number into the es-AR input string used by money fields
+ * (e.g. 3865.59 → "3.865,59"). Inverse of `parseAmount` so values can
+ * round-trip from DB → form → DB without losing/inflating digits.
+ */
+export function amountToInput(value: number): string {
+  return formatAmountInput(value.toFixed(2).replace(".", ","));
+}
+
 export function formatAmountInput(raw: string): string {
   const cleaned = raw.replace(/[^\d,]/g, "");
   const parts = cleaned.split(",");

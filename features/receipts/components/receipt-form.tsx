@@ -19,6 +19,7 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
+import { amountToInput } from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -140,7 +141,7 @@ export function ReceiptForm({
           const check = receipt.checks_by_line[l.id];
           return {
             account_id: l.account_id,
-            amount: String(l.amount),
+            amount: amountToInput(Number(l.amount)),
             reference: l.reference ?? check?.check_number ?? "",
             check: check
               ? {
@@ -160,7 +161,7 @@ export function ReceiptForm({
     receipt
       ? receipt.allocations.map((a) => ({
           invoice_id: a.invoice_id,
-          amount_applied: String(a.amount_applied),
+          amount_applied: amountToInput(Number(a.amount_applied)),
         }))
       : [],
   );
@@ -173,7 +174,7 @@ export function ReceiptForm({
           jurisdiction: r.jurisdiction ?? "",
           certificate_number: r.certificate_number,
           certificate_date: r.certificate_date,
-          amount: String(r.amount),
+          amount: amountToInput(Number(r.amount)),
           notes: r.notes ?? "",
         }))
       : [],

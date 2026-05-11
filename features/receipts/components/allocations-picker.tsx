@@ -3,14 +3,11 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatAmountInput, formatArgentineDate } from "@/lib/format";
-
-function toAmountString(n: number): string {
-  // es-AR-friendly fixed format that parseAmount can round-trip
-  // (1234.56 → "1.234,56"). c.outstanding.toFixed(2) produces "1234.56"
-  // which parseAmount would misread as 123456 because it strips dots.
-  return formatAmountInput(n.toFixed(2).replace(".", ","));
-}
+import {
+  amountToInput,
+  formatAmountInput,
+  formatArgentineDate,
+} from "@/lib/format";
 
 import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
@@ -127,7 +124,7 @@ export function AllocationsPicker({
                       checked={checked}
                       onCheckedChange={(v) => {
                         if (v === true) {
-                          setAlloc(c.id, toAmountString(c.outstanding));
+                          setAlloc(c.id, amountToInput(c.outstanding));
                         } else {
                           setAlloc(c.id, null);
                         }
@@ -141,7 +138,7 @@ export function AllocationsPicker({
                     {formatArgentineDate(c.fecha)}
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs">
-                    {toAmountString(c.outstanding)}
+                    {amountToInput(c.outstanding)}
                   </td>
                   <td className="px-2 py-1.5">
                     <Input
