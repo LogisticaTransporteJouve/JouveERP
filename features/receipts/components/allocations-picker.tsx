@@ -3,7 +3,14 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatArgentineDate } from "@/lib/format";
+import { formatAmountInput, formatArgentineDate } from "@/lib/format";
+
+function toAmountString(n: number): string {
+  // es-AR-friendly fixed format that parseAmount can round-trip
+  // (1234.56 → "1.234,56"). c.outstanding.toFixed(2) produces "1234.56"
+  // which parseAmount would misread as 123456 because it strips dots.
+  return formatAmountInput(n.toFixed(2).replace(".", ","));
+}
 
 import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
@@ -120,7 +127,7 @@ export function AllocationsPicker({
                       checked={checked}
                       onCheckedChange={(v) => {
                         if (v === true) {
-                          setAlloc(c.id, c.outstanding.toFixed(2));
+                          setAlloc(c.id, toAmountString(c.outstanding));
                         } else {
                           setAlloc(c.id, null);
                         }
@@ -134,18 +141,19 @@ export function AllocationsPicker({
                     {formatArgentineDate(c.fecha)}
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs">
-                    {c.outstanding.toFixed(2)}
+                    {toAmountString(c.outstanding)}
                   </td>
                   <td className="px-2 py-1.5">
                     <Input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
                       disabled={!checked}
                       value={alloc?.amount_applied ?? ""}
-                      onChange={(e) => setAlloc(c.id, e.target.value)}
+                      onChange={(e) =>
+                        setAlloc(c.id, formatAmountInput(e.target.value))
+                      }
                       className="h-8 text-right"
-                      placeholder="0.00"
+                      placeholder="0,00"
                     />
                   </td>
                 </tr>

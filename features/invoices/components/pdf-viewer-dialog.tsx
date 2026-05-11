@@ -33,11 +33,15 @@ const PdfViewerInner = dynamic(
 export function PdfViewerDialog({
   id,
   label,
+  kind = "invoice",
 }: {
   id: string;
   label: string;
+  kind?: "invoice" | "receipt";
 }) {
   const [open, setOpen] = useState(false);
+  const url =
+    kind === "receipt" ? `/api/receipts/${id}/pdf` : `/api/invoices/${id}/pdf`;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -55,9 +59,10 @@ export function PdfViewerDialog({
       >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         <DialogDescription className="sr-only">
-          Vista previa del comprobante {label}.
+          Vista previa {kind === "receipt" ? "del recibo" : "del comprobante"}{" "}
+          {label}.
         </DialogDescription>
-        {open && <PdfViewerInner id={id} maxPages={1} />}
+        {open && <PdfViewerInner url={url} maxPages={1} />}
       </DialogContent>
     </Dialog>
   );

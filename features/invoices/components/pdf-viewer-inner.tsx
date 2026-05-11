@@ -23,10 +23,10 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 // downloaded PDF still includes both pages so the printed copy is
 // AFIP-compliant.
 export function PdfViewerInner({
-  id,
+  url,
   maxPages = 1,
 }: {
-  id: string;
+  url: string;
   maxPages?: number;
 }) {
   const [pages, setPages] = useState(0);
@@ -44,7 +44,7 @@ export function PdfViewerInner({
 
   return (
     <Document
-      file={`/api/invoices/${id}/pdf`}
+      file={url}
       onLoadSuccess={({ numPages }) => {
         setPages(numPages);
         setLoadError(null);

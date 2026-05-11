@@ -224,7 +224,9 @@ export function ClientAccountTab({
                               size="icon"
                               aria-label="Ver comprobante"
                             >
-                              <Link href={`/invoices/${m.source_id}`}>
+                              <Link
+                                href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
+                              >
                                 <Eye className="size-4" />
                               </Link>
                             </Button>
@@ -244,16 +246,35 @@ export function ClientAccountTab({
                             </Button>
                           </>
                         ) : (
-                          <Button
-                            asChild
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Ver recibo"
-                          >
-                            <Link href="/receipts">
-                              <Eye className="size-4" />
-                            </Link>
-                          </Button>
+                          <>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Ver recibo"
+                            >
+                              <Link
+                                href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
+                              >
+                                <Eye className="size-4" />
+                              </Link>
+                            </Button>
+                            <PdfViewerDialog
+                              id={m.source_id}
+                              label={formatMovementNumber(m)}
+                              kind="receipt"
+                            />
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Descargar PDF"
+                            >
+                              <Link href={`/api/receipts/${m.source_id}/pdf`}>
+                                <Download className="size-4" />
+                              </Link>
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>

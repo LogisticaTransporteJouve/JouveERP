@@ -66,6 +66,14 @@ function parseAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const moneyFormatter = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+function formatMoney(value: number): string {
+  return moneyFormatter.format(value);
+}
+
 function sumDraftLines(lines: PaymentLineDraft[]): number {
   return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);
 }
@@ -460,31 +468,31 @@ export function ReceiptForm({
         <div>
           <div className="text-xs text-muted-foreground">Pago real</div>
           <div className="font-mono">
-            {paymentSum.toFixed(2)} {currency}
+            {formatMoney(paymentSum)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Retenciones</div>
           <div className="font-mono">
-            {retentionSum.toFixed(2)} {currency}
+            {formatMoney(retentionSum)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Total</div>
           <div className="font-mono font-semibold">
-            {totalAmount.toFixed(2)} {currency}
+            {formatMoney(totalAmount)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Imputado</div>
           <div className="font-mono">
-            {allocatedAmount.toFixed(2)} {currency}
+            {formatMoney(allocatedAmount)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">A cuenta</div>
           <div className="font-mono">
-            {aCuenta.toFixed(2)} {currency}
+            {formatMoney(aCuenta)} {currency}
           </div>
         </div>
       </div>

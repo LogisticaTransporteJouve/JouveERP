@@ -187,7 +187,7 @@ export async function getReceiptByIdAction(
   const [linesRes, allocsRes, retentionsRes, chequesRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
-      .select("*")
+      .select("*, account:accounts(name, type)")
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
@@ -330,7 +330,7 @@ export async function listPendingComprobantesForClientAction(
     .select("id, numero, punto_venta, letter, kind, fecha, imp_total, status")
     .eq("client_id", clientId)
     .eq("status", "emitted")
-    .order("fecha", { ascending: false });
+    .order("fecha", { ascending: true });
 
   if (cErr) {
     logger.error("receipts.pending.list_comprobantes_failed", { error: cErr });
