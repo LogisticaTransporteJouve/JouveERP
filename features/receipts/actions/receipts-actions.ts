@@ -440,6 +440,39 @@ export async function createReceiptAction(
     };
   }
 
+  // FIFO auto-allocation: when the user submits without manually picking
+  // invoices, distribute the receipt total across pending invoices from
+  // the oldest forward until the receipt is consumed. Retenciones reduce
+  // what gets distributed because they're credit fiscal, not real cash.
+  let allocations = data.allocations ?? [];
+  if (allocations.length === 0) {
+    const pendingRes = await listPendingComprobantesForClientAction(
+      data.client_id,
+    );
+    if (pendingRes.ok) {
+      const oldestFirst = [...pendingRes.data].sort((a, b) =>
+        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
+      );
+      const totalRetentions = (data.retentions ?? []).reduce(
+        (acc, r) => acc + r.amount,
+        0,
+      );
+      let remaining = data.total_amount - totalRetentions;
+      const auto: typeof allocations = [];
+      for (const inv of oldestFirst) {
+        if (remaining <= 0.005) break;
+        const applied = Math.min(inv.outstanding, remaining);
+        if (applied <= 0.005) continue;
+        auto.push({
+          invoice_id: inv.id,
+          amount_applied: Math.round(applied * 100) / 100,
+        });
+        remaining -= applied;
+      }
+      allocations = auto;
+    }
+  }
+
   const supabase = await createSupabaseClient();
   const { data: receiptId, error } = await supabase.rpc("create_receipt", {
     p_channel_id: data.channel_id,
@@ -466,7 +499,7 @@ export async function createReceiptAction(
           }
         : null,
     })),
-    p_allocations: (data.allocations ?? []).map((a) => ({
+    p_allocations: allocations.map((a) => ({
       invoice_id: a.invoice_id,
       amount_applied: a.amount_applied,
     })),
