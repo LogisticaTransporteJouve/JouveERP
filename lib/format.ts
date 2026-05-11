@@ -35,6 +35,25 @@ export function formatArgentineDate(value: string | null | undefined): string {
   return `${day} ${month} ${year}`;
 }
 
+/**
+ * Format a free-form numeric input into es-AR style while typing:
+ * thousands separated by dots, decimals by comma (up to 2 digits).
+ * Used as `onChange={e => setValue(formatAmountInput(e.target.value))}`.
+ * Paired with `parseAmount` (in receipts/components/receipt-form) which
+ * reverses the dots/commas before sending to the server.
+ */
+export function formatAmountInput(raw: string): string {
+  const cleaned = raw.replace(/[^\d,]/g, "");
+  const parts = cleaned.split(",");
+  let intPart = parts[0] ?? "";
+  const decPart =
+    parts.length > 1 ? parts.slice(1).join("").slice(0, 2) : null;
+  if (intPart.length > 1) intPart = intPart.replace(/^0+(?=\d)/, "");
+  if (intPart.length === 0 && decPart !== null) intPart = "0";
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return decPart === null ? grouped : `${grouped},${decPart}`;
+}
+
 export function formatArgentineDateTime(
   value: string | null | undefined,
 ): string {

@@ -145,7 +145,6 @@ export function ClientAccountTab({
               <TableHead className="w-32">Fecha</TableHead>
               <TableHead className="w-40">Tipo</TableHead>
               <TableHead className="w-44">Documento</TableHead>
-              <TableHead>Canal</TableHead>
               <TableHead className="text-right">Debe</TableHead>
               <TableHead className="text-right">Haber</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
@@ -156,7 +155,7 @@ export function ClientAccountTab({
             {movements.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Este cliente todavía no tiene movimientos.
@@ -195,9 +194,6 @@ export function ClientAccountTab({
                       ) : (
                         formatMovementNumber(m)
                       )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {m.channel_name}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {isDebit ? formatter.format(m.gross_amount) : ""}
