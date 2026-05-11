@@ -265,7 +265,12 @@ function ComprobantesTableRows({
               {formatNumero(row)}
             </TableCell>
             <TableCell className="font-medium">
-              {row.client_legal_name}
+              <Link
+                href={`/clients/${row.client_id}`}
+                className="hover:underline"
+              >
+                {row.client_legal_name}
+              </Link>
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">
               {formatArgentineDate(row.fecha)}

@@ -261,11 +261,19 @@ export async function getReceiptByIdAction(
  */
 export async function getNextReceiptNumeroAction(input: {
   channel_id: string;
-  punto_venta: number;
 }): Promise<ActionResult<{ next: number; isFirst: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
+  }
+
+  // Resolve POS server-side from the channel — same lookup used at create
+  // time. The previous version asked the caller for `punto_venta`, but the
+  // client hook always passed 0, so the filter never matched real rows and
+  // `isFirst` stayed true forever.
+  const pos = await loadChannelPos(input.channel_id);
+  if (!pos) {
+    return { ok: false, error: "Configurá un POS habilitado para este canal." };
   }
 
   const supabase = await createSupabaseClient();
@@ -273,7 +281,7 @@ export async function getNextReceiptNumeroAction(input: {
     .from("receipts")
     .select("numero")
     .eq("channel_id", input.channel_id)
-    .eq("punto_venta", input.punto_venta)
+    .eq("punto_venta", pos.punto_venta)
     .order("numero", { ascending: false })
     .limit(1)
     .maybeSingle();

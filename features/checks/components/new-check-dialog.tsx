@@ -44,7 +44,7 @@ export function NewChequeDialog() {
   const [open, setOpen] = useState(false);
   const { data: accounts } = useAccountsList();
   const carteraOptions = accounts.filter(
-    (a) => a.is_active && (a.type === "cheques" || a.type === "echeq"),
+    (a) => a.is_active && (a.type === "checks" || a.type === "echeq"),
   );
   const createMut = useCreateCheque();
 
@@ -59,7 +59,7 @@ export function NewChequeDialog() {
   const [currency, setCurrency] = useState<ChequeCurrency>("ARS");
   const [carteraAccountId, setCarteraAccountId] = useState<string>(() => {
     // Pre-pick the first cartera account that matches the default kind.
-    const match = carteraOptions.find((a) => a.type === "cheques");
+    const match = carteraOptions.find((a) => a.type === "checks");
     return match?.id ?? carteraOptions[0]?.id ?? "";
   });
   const [notes, setNotes] = useState("");
@@ -80,7 +80,7 @@ export function NewChequeDialog() {
   function onKindChange(next: ChequeKind) {
     setKind(next);
     // Auto-pick the cartera account that matches the selected kind.
-    const target = next === "fisico" ? "cheques" : "echeq";
+    const target = next === "fisico" ? "checks" : "echeq";
     const match = carteraOptions.find((a) => a.type === target);
     if (match) setCarteraAccountId(match.id);
   }

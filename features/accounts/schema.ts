@@ -7,7 +7,7 @@ export const ACCOUNT_TYPES = [
   "cash",
   "wallet",
   "investment",
-  "cheques",
+  "checks",
   "echeq",
 ] as const;
 
@@ -18,12 +18,12 @@ export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   cash: "Efectivo",
   wallet: "Billetera digital",
   investment: "Inversión",
-  cheques: "Cheques físicos en cartera",
+  checks: "Cheques físicos en cartera",
   echeq: "e-cheq en cartera",
 };
 
 export function isCheckAccount(type: AccountType | undefined): boolean {
-  return type === "cheques" || type === "echeq";
+  return type === "checks" || type === "echeq";
 }
 
 export const ACCOUNT_CURRENCIES = ["ARS", "USD"] as const;

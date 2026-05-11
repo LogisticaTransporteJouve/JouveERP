@@ -72,12 +72,7 @@ export function useNextReceiptNumero(channelId: string | null) {
     queryKey: receiptsKeys.nextNumero(channelId ?? "_none"),
     queryFn: () =>
       runAction(() =>
-        getNextReceiptNumeroAction({
-          channel_id: channelId ?? "",
-          // POS resolved server-side from the channel; the action signature
-          // requires the param.
-          punto_venta: 0,
-        }),
+        getNextReceiptNumeroAction({ channel_id: channelId ?? "" }),
       ),
     enabled: !!channelId,
   });

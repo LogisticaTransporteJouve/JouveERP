@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -104,7 +106,14 @@ export function ReceiptsTable({
                         {formatReceiptNumber(r.punto_venta, r.numero)}
                       </span>
                     </TableCell>
-                    <TableCell>{r.client_legal_name}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/clients/${r.client_id}`}
+                        className="hover:underline"
+                      >
+                        {r.client_legal_name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatArgentineDate(r.receipt_date)}
                     </TableCell>
