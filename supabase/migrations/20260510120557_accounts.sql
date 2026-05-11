@@ -1,8 +1,8 @@
 -- D.1 — accounts (Caja).
 --
 -- A single shared catalog of monetary accounts: bank accounts, cash boxes,
--- digital wallets, investment accounts, and a "cheques" pseudo-account that
--- holds third-party cheques in cartera. Accounts are NOT scoped to a
+-- digital wallets, investment accounts, and a "checks" pseudo-account that
+-- holds third-party checks in cartera. Accounts are NOT scoped to a
 -- business_unit or channel — multiple channels can credit/debit the same
 -- account, and the channel context is recorded on the transaction itself
 -- (see D.2).
@@ -24,7 +24,7 @@ create table public.accounts (
     'cash',
     'wallet',
     'investment',
-    'cheques',
+    'checks',
     'echeq'
   )),
   currency        text not null check (currency in ('ARS', 'USD')),
@@ -37,9 +37,9 @@ create table public.accounts (
 );
 
 comment on table public.accounts is
-  'Caja accounts (bank, cash, wallet, investment, cheques). Shared across all channels.';
+  'Caja accounts (bank, cash, wallet, investment, checks). Shared across all channels.';
 comment on column public.accounts.type is
-  'bank | cash | wallet | investment | cheques | echeq. The cheques bucket holds third-party physical cheques in cartera; echeq holds electronic cheques. They are kept as separate accounts so a physical deposit (or a fisico→echeq conversion) cleanly maps to a transfer transaction in D.2.';
+  'bank | cash | wallet | investment | checks | echeq. The checks bucket holds third-party physical checks in cartera; echeq holds electronic checks. They are kept as separate accounts so a physical deposit (or a fisico→echeq conversion) cleanly maps to a transfer transaction in D.2.';
 comment on column public.accounts.opening_balance is
   'Saldo inicial al alta de la cuenta. The running balance is computed by summing transactions on top of this.';
 

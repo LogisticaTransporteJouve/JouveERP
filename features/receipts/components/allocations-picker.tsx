@@ -9,7 +9,7 @@ import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
 
 export type AllocationDraft = {
-  comprobante_id: string;
+  invoice_id: string;
   amount_applied: string; // input string
 };
 
@@ -45,14 +45,14 @@ export function AllocationsPicker({
 
   function setAlloc(comprobanteId: string, amount: string | null) {
     if (amount === null) {
-      onChange(allocations.filter((a) => a.comprobante_id !== comprobanteId));
+      onChange(allocations.filter((a) => a.invoice_id !== comprobanteId));
       return;
     }
-    const existing = allocations.find((a) => a.comprobante_id === comprobanteId);
+    const existing = allocations.find((a) => a.invoice_id === comprobanteId);
     if (existing) {
       onChange(
         allocations.map((a) =>
-          a.comprobante_id === comprobanteId
+          a.invoice_id === comprobanteId
             ? { ...a, amount_applied: amount }
             : a,
         ),
@@ -60,7 +60,7 @@ export function AllocationsPicker({
     } else {
       onChange([
         ...allocations,
-        { comprobante_id: comprobanteId, amount_applied: amount },
+        { invoice_id: comprobanteId, amount_applied: amount },
       ]);
     }
   }
@@ -111,7 +111,7 @@ export function AllocationsPicker({
           </thead>
           <tbody>
             {pending.map((c) => {
-              const alloc = allocations.find((a) => a.comprobante_id === c.id);
+              const alloc = allocations.find((a) => a.invoice_id === c.id);
               const checked = !!alloc;
               return (
                 <tr key={c.id} className="border-t">

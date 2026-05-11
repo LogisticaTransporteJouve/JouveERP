@@ -46,7 +46,7 @@ on conflict (cuit) do nothing;
 insert into public.accounts (name, type, currency) values
   ('Caja General',                 'cash',    'ARS'),
   ('Caja Cambio',                  'cash',    'ARS'),
-  ('Cheques físicos en cartera',   'cheques', 'ARS'),
+  ('Cheques físicos en cartera',   'checks',  'ARS'),
   ('Cheques electrónicos (e-cheq)','echeq',   'ARS'),
   ('Banco Galicia',                'bank',    'ARS'),
   ('Banco Provincia',              'bank',    'ARS'),

@@ -75,7 +75,7 @@ type DraftRow = {
   moneda: string;
   cotizacion: string | number;
   status: string;
-  comprobante_origen_id: string | null;
+  invoice_origin_id: string | null;
 };
 
 type ItemRow = {
@@ -182,36 +182,36 @@ export const issueInvoice = inngest.createFunction(
         return;
       }
       logger.warn("issue_invoice.failed", {
-        comprobante_id: parsed.data.comprobante_id,
+        invoice_id: parsed.data.invoice_id,
         err: error.message,
       });
       await supabase
-        .from("comprobantes")
+        .from("invoices")
         .update({
           status: "failed",
           afip_observaciones: { error: error.message } as never,
         })
-        .eq("id", parsed.data.comprobante_id);
+        .eq("id", parsed.data.invoice_id);
     },
   },
   async ({ event, step }) => {
     const parsed = InvoiceIssueRequestedSchema.parse(event.data);
-    const { comprobante_id } = parsed;
+    const { invoice_id } = parsed;
 
     const load: DraftLoad = await step.run("load-draft", async () => {
       const supabase = getServiceClient();
       const { data: draft, error } = await supabase
-        .from("comprobantes")
+        .from("invoices")
         .select(
           "*, channel:invoicing_channels(id, is_fiscal, name)",
         )
-        .eq("id", comprobante_id)
+        .eq("id", invoice_id)
         .maybeSingle();
       if (error) throw new Error(`load-draft: ${error.message}`);
-      if (!draft) throw new Error(`Comprobante ${comprobante_id} no existe.`);
+      if (!draft) throw new Error(`Comprobante ${invoice_id} no existe.`);
       if (draft.status !== "draft" && draft.status !== "emitting") {
         throw new Error(
-          `Comprobante ${comprobante_id} en estado ${draft.status} — no se puede emitir.`,
+          `Comprobante ${invoice_id} en estado ${draft.status} — no se puede emitir.`,
         );
       }
 
@@ -220,25 +220,25 @@ export const issueInvoice = inngest.createFunction(
       }).channel;
       if (!channel) {
         throw new Error(
-          `Comprobante ${comprobante_id} — canal no encontrado.`,
+          `Comprobante ${invoice_id} — canal no encontrado.`,
         );
       }
 
       const [{ data: items, error: itemsErr }, originPair] = await Promise.all([
         supabase
-          .from("comprobante_items")
+          .from("invoice_items")
           .select("iva_rate_id, line_neto, line_iva")
-          .eq("comprobante_id", comprobante_id),
-        loadOrigen(supabase, draft.comprobante_origen_id),
+          .eq("invoice_id", invoice_id),
+        loadOrigen(supabase, draft.invoice_origin_id),
       ]);
       if (itemsErr) throw new Error(`load-items: ${itemsErr.message}`);
 
       // Flip status to emitting so duplicate clicks that bypass Inngest's
       // dedupe still get rejected by the load-draft guard above.
       const { error: updErr } = await supabase
-        .from("comprobantes")
+        .from("invoices")
         .update({ status: "emitting" })
-        .eq("id", comprobante_id);
+        .eq("id", invoice_id);
       if (updErr) throw new Error(`mark-emitting: ${updErr.message}`);
 
       return {
@@ -261,7 +261,7 @@ export const issueInvoice = inngest.createFunction(
         async () => {
           const supabase = getServiceClient();
           const { data, error: maxErr } = await supabase
-            .from("comprobantes")
+            .from("invoices")
             .select("numero")
             .eq("channel_id", draft.channel_id)
             .eq("punto_venta", draft.punto_venta)
@@ -273,9 +273,9 @@ export const issueInvoice = inngest.createFunction(
           if (maxErr) throw new Error(`reserve-numero-internal: ${maxErr.message}`);
           const next = (data?.numero ?? 0) + 1;
           const { error: updErr } = await supabase
-            .from("comprobantes")
+            .from("invoices")
             .update({ numero: next })
-            .eq("id", comprobante_id);
+            .eq("id", invoice_id);
           if (updErr)
             throw new Error(`persist-numero-internal: ${updErr.message}`);
           return next;
@@ -285,12 +285,12 @@ export const issueInvoice = inngest.createFunction(
       await step.run("mark-emitted-internal", async () => {
         const supabase = getServiceClient();
         const { error: updErr } = await supabase
-          .from("comprobantes")
+          .from("invoices")
           .update({
             status: "emitted",
             emitted_at: new Date().toISOString(),
           })
-          .eq("id", comprobante_id);
+          .eq("id", invoice_id);
         if (updErr) throw new Error(`mark-emitted-internal: ${updErr.message}`);
       });
 
@@ -299,10 +299,10 @@ export const issueInvoice = inngest.createFunction(
           const { generateAndStoreInvoicePdf } = await import(
             "@/lib/pdf/generate-and-store"
           );
-          await generateAndStoreInvoicePdf(comprobante_id);
+          await generateAndStoreInvoicePdf(invoice_id);
         } catch (err) {
           logger.warn("issue_invoice.pdf_failed_internal", {
-            comprobante_id,
+            invoice_id,
             err: err instanceof Error ? err.message : String(err),
           });
         }
@@ -334,9 +334,9 @@ export const issueInvoice = inngest.createFunction(
     await step.run("persist-numero", async () => {
       const supabase = getServiceClient();
       const { error } = await supabase
-        .from("comprobantes")
+        .from("invoices")
         .update({ numero: reservedNumero })
-        .eq("id", comprobante_id);
+        .eq("id", invoice_id);
       if (error) throw new Error(`persist-numero: ${error.message}`);
     });
 
@@ -349,7 +349,7 @@ export const issueInvoice = inngest.createFunction(
           // The request might have reached AFIP and the response was lost
           // mid-flight. Ask AFIP if it already registered this number.
           logger.info("issue_invoice.recovery_attempt", {
-            comprobante_id,
+            invoice_id,
             ptoVta: draft.punto_venta,
             cbteTipo,
             cbteNro: reservedNumero,
@@ -380,7 +380,7 @@ export const issueInvoice = inngest.createFunction(
       const supabase = getServiceClient();
       const caeFchVtoIso = `${cae.caeFchVto.slice(0, 4)}-${cae.caeFchVto.slice(4, 6)}-${cae.caeFchVto.slice(6, 8)}`;
       const { error } = await supabase
-        .from("comprobantes")
+        .from("invoices")
         .update({
           cae: cae.cae,
           cae_vencimiento: caeFchVtoIso,
@@ -391,7 +391,7 @@ export const issueInvoice = inngest.createFunction(
               ? ({ obs: cae.observaciones } as never)
               : null,
         })
-        .eq("id", comprobante_id);
+        .eq("id", invoice_id);
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
 
@@ -404,10 +404,10 @@ export const issueInvoice = inngest.createFunction(
         const { generateAndStoreInvoicePdf } = await import(
           "@/lib/pdf/generate-and-store"
         );
-        await generateAndStoreInvoicePdf(comprobante_id);
+        await generateAndStoreInvoicePdf(invoice_id);
       } catch (err) {
         logger.warn("issue_invoice.pdf_failed", {
-          comprobante_id,
+          invoice_id,
           err: err instanceof Error ? err.message : String(err),
         });
       }
@@ -427,7 +427,7 @@ async function loadOrigen(
 ): Promise<{ tipo: number; ptoVta: number; nro: number } | null> {
   if (!originId) return null;
   const { data, error } = await supabase
-    .from("comprobantes")
+    .from("invoices")
     .select("punto_venta, cbte_tipo_afip, numero")
     .eq("id", originId)
     .maybeSingle();

@@ -44,8 +44,8 @@ function movementTypeLabel(m: AccountMovement): string {
 
 function movementHref(m: AccountMovement): string {
   return m.source_type === "recibo"
-    ? "/recibos"
-    : `/comprobantes/${m.source_id}`;
+    ? "/receipts"
+    : `/invoices/${m.source_id}`;
 }
 
 export function ClientAccountTab({ clientId }: { clientId: string }) {
@@ -58,7 +58,7 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
   // refetching on every other client's activity.
   useRealtimeInvalidate([
     {
-      table: "comprobantes",
+      table: "invoices",
       filter: `client_id=eq.${clientId}`,
       queryKeys: [clientsKeys.account(clientId)],
     },

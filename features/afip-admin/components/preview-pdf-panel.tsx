@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface ComprobanteOption {
+interface InvoiceOption {
   id: string;
   kind: string;
   letter: string | null;
@@ -27,7 +27,7 @@ interface ComprobanteOption {
 export function PreviewPdfPanel({
   comprobantes,
 }: {
-  comprobantes: ComprobanteOption[];
+  comprobantes: InvoiceOption[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     comprobantes[0]?.id ?? null,
@@ -39,7 +39,7 @@ export function PreviewPdfPanel({
   );
 
   const previewSrc = selected
-    ? `/api/comprobantes/${selected.id}/pdf?preview=1`
+    ? `/api/invoices/${selected.id}/pdf?preview=1`
     : null;
 
   if (comprobantes.length === 0) {
@@ -100,7 +100,7 @@ export function PreviewPdfPanel({
   );
 }
 
-function labelFor(c: ComprobanteOption): string {
+function labelFor(c: InvoiceOption): string {
   const numero =
     c.numero == null
       ? `${String(c.punto_venta).padStart(5, "0")}-—`

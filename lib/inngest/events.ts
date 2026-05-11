@@ -7,7 +7,7 @@ import { z } from "zod";
 export const INVOICE_ISSUE_REQUESTED = "invoice/issue.requested" as const;
 
 export const InvoiceIssueRequestedSchema = z.object({
-  comprobante_id: z.string().uuid(),
+  invoice_id: z.string().uuid(),
   idempotency_key: z.string().min(1),
 });
 

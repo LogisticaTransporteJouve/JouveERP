@@ -1,13 +1,13 @@
 -- F.7.b — Aging buckets per cliente.
 --
--- Dos vistas de solo lectura sobre comprobantes + receipt_allocations:
+-- Dos vistas de solo lectura sobre invoices + receipt_allocations:
 --
 --   * v_aging_documents — un row por factura/ND emitida con saldo abierto
 --     (imp_total - Σ allocations de recibos issued). Incluye fiscal e
 --     interno: el saldo del cliente es del cliente, no de un canal.
 --
 --   * v_client_aging   — agregado por cliente con totales por bucket
---     (0-30 / 30-60 / 60-90 / 90+ días desde fecha del comprobante).
+--     (0-30 / 30-60 / 60-90 / 90+ días desde fecha del invoice).
 --
 -- Notas de diseño:
 --   * Solo facturas y NDs entran al aging. Las NCs son crédito al cliente
@@ -21,7 +21,7 @@ set row_security = off;
 
 create or replace view public.v_aging_documents as
   select
-    c.id                                     as comprobante_id,
+    c.id                                     as invoice_id,
     c.client_id                              as client_id,
     c.fecha                                  as fecha,
     c.kind                                   as kind,
@@ -41,15 +41,15 @@ create or replace view public.v_aging_documents as
     c.channel_id                             as channel_id,
     ch.name                                  as channel_name,
     ch.is_fiscal                             as channel_is_fiscal
-  from public.comprobantes c
+  from public.invoices c
   join public.invoicing_channels ch on ch.id = c.channel_id
   left join (
-    select ra.comprobante_id, sum(ra.amount_applied) as applied
+    select ra.invoice_id, sum(ra.amount_applied) as applied
     from public.receipt_allocations ra
     join public.receipts r on r.id = ra.receipt_id
     where r.status = 'issued'
-    group by ra.comprobante_id
-  ) alloc on alloc.comprobante_id = c.id
+    group by ra.invoice_id
+  ) alloc on alloc.invoice_id = c.id
   where c.status = 'emitted'
     and c.kind in ('factura', 'nd')
     and (c.imp_total - coalesce(alloc.applied, 0)) > 0;

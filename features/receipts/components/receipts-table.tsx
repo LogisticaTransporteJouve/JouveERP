@@ -106,7 +106,7 @@ export function ReceiptsTable({
                     </TableCell>
                     <TableCell>{r.client_legal_name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(r.recibo_date)}
+                      {formatArgentineDate(r.receipt_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {formatters[r.currency].format(Number(r.total_amount))}

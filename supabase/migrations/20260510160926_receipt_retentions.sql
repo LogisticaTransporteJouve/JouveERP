@@ -118,7 +118,7 @@ declare
   v_line         jsonb;
 begin
   insert into public.receipts (
-    channel_id, punto_venta, numero, client_id, recibo_date,
+    channel_id, punto_venta, numero, client_id, receipt_date,
     total_amount, currency, notes, status, created_by
   ) values (
     p_channel_id, p_punto_venta, p_numero, p_client_id, p_recibo_date,
@@ -142,10 +142,10 @@ begin
   for v_line in select * from jsonb_array_elements(p_allocations)
   loop
     insert into public.receipt_allocations (
-      receipt_id, comprobante_id, amount_applied
+      receipt_id, invoice_id, amount_applied
     ) values (
       v_receipt_id,
-      (v_line->>'comprobante_id')::uuid,
+      (v_line->>'invoice_id')::uuid,
       (v_line->>'amount_applied')::numeric
     );
     v_alloc_sum := v_alloc_sum + (v_line->>'amount_applied')::numeric;
@@ -223,7 +223,7 @@ begin
   end if;
 
   update public.receipts set
-    recibo_date  = p_recibo_date,
+    receipt_date  = p_recibo_date,
     total_amount = p_total_amount,
     notes        = nullif(trim(p_notes), '')
   where id = p_id;
@@ -248,10 +248,10 @@ begin
   for v_line in select * from jsonb_array_elements(p_allocations)
   loop
     insert into public.receipt_allocations (
-      receipt_id, comprobante_id, amount_applied
+      receipt_id, invoice_id, amount_applied
     ) values (
       p_id,
-      (v_line->>'comprobante_id')::uuid,
+      (v_line->>'invoice_id')::uuid,
       (v_line->>'amount_applied')::numeric
     );
     v_alloc_sum := v_alloc_sum + (v_line->>'amount_applied')::numeric;

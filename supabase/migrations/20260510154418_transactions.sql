@@ -10,9 +10,9 @@
 --
 -- channel_id is mandatory: every move is attributed to a division (Jouve or
 -- DZ) so reports can split cashflow by business unit. When the row is tied
--- to a comprobante (income from invoice, expense from supplier invoice), a
+-- to a invoice (income from invoice, expense from supplier invoice), a
 -- trigger enforces channel consistency: the transaction's channel_id must
--- equal the comprobante's channel_id.
+-- equal the invoice's channel_id.
 --
 -- accrual_month captures *when economically* the move belongs (cashflow
 -- month in accounting parlance), independent of transaction_date. E.g. a
@@ -43,7 +43,7 @@ create table public.transactions (
   accrual_month            date not null
                              check (extract(day from accrual_month) = 1),
   description              text,
-  comprobante_id           uuid references public.comprobantes (id)
+  invoice_id           uuid references public.invoices (id)
                              on delete restrict,
   counterparty_client_id   uuid references public.clients (id)
                              on delete set null,
@@ -65,8 +65,8 @@ create index transactions_account_idx          on public.transactions (account_i
 create index transactions_channel_idx          on public.transactions (channel_id);
 create index transactions_transaction_date_idx on public.transactions (transaction_date desc);
 create index transactions_accrual_month_idx    on public.transactions (accrual_month desc);
-create index transactions_comprobante_idx      on public.transactions (comprobante_id)
-  where comprobante_id is not null;
+create index transactions_invoice_idx      on public.transactions (invoice_id)
+  where invoice_id is not null;
 create index transactions_counterparty_idx     on public.transactions (counterparty_client_id)
   where counterparty_client_id is not null;
 create index transactions_pair_idx             on public.transactions (transfer_pair_id)
@@ -108,40 +108,40 @@ create trigger transactions_kind_pair_consistency
   before insert or update of kind, transfer_pair_id on public.transactions
   for each row execute function public.check_transaction_kind_pair_consistency();
 
--- (b) When linked to a comprobante, channel_id must match.
-create or replace function public.check_transaction_channel_matches_comprobante()
+-- (b) When linked to a invoice, channel_id must match.
+create or replace function public.check_transaction_channel_matches_invoice()
 returns trigger
 language plpgsql
 as $$
 declare
-  v_comprobante_channel text;
+  v_invoice_channel text;
 begin
-  if new.comprobante_id is null then
+  if new.invoice_id is null then
     return new;
   end if;
-  -- to_regclass guard so the trigger is harmless if the comprobantes table
+  -- to_regclass guard so the trigger is harmless if the invoices table
   -- ever vanishes (it won't, but defensive).
-  if to_regclass('public.comprobantes') is null then
+  if to_regclass('public.invoices') is null then
     return new;
   end if;
-  select channel_id into v_comprobante_channel
-    from public.comprobantes
-   where id = new.comprobante_id;
-  if v_comprobante_channel is null then
-    raise exception 'transactions.comprobante_id=% references missing comprobante',
-      new.comprobante_id;
+  select channel_id into v_invoice_channel
+    from public.invoices
+   where id = new.invoice_id;
+  if v_invoice_channel is null then
+    raise exception 'transactions.invoice_id=% references missing invoice',
+      new.invoice_id;
   end if;
-  if v_comprobante_channel <> new.channel_id then
-    raise exception 'transactions.channel_id=% does not match comprobante.channel_id=% (comprobante_id=%)',
-      new.channel_id, v_comprobante_channel, new.comprobante_id;
+  if v_invoice_channel <> new.channel_id then
+    raise exception 'transactions.channel_id=% does not match invoice.channel_id=% (invoice_id=%)',
+      new.channel_id, v_invoice_channel, new.invoice_id;
   end if;
   return new;
 end;
 $$;
 
-create trigger transactions_channel_matches_comprobante
-  before insert or update of channel_id, comprobante_id on public.transactions
-  for each row execute function public.check_transaction_channel_matches_comprobante();
+create trigger transactions_channel_matches_invoice
+  before insert or update of channel_id, invoice_id on public.transactions
+  for each row execute function public.check_transaction_channel_matches_invoice();
 
 ------------------------------------------------------------------------------
 -- 4. v_transactions_tagged view

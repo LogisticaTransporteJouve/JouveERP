@@ -24,9 +24,9 @@ import type {
   InvoiceTemplateItem,
 } from "./invoice-template";
 
-import type { ComprobanteKind, ComprobanteLetter } from "@/lib/afip/codes";
+import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import type { IvaCondition } from "@/features/clients/schema";
-import type { ComprobanteRow } from "@/features/comprobantes/schema";
+import type { InvoiceRow } from "@/features/invoices/schema";
 
 const DOC_TIPO_LABEL: Record<number, string> = {
   80: "CUIT",
@@ -59,7 +59,7 @@ export async function generateAndStoreInvoicePdf(
 
   const supabase = getServiceClient();
   const { error } = await supabase
-    .from("comprobantes")
+    .from("invoices")
     .update({ pdf_url: upload.signedUrl })
     .eq("id", comprobanteId);
   if (error) throw new Error(`persist-pdf-url: ${error.message}`);
@@ -77,13 +77,13 @@ export async function buildTemplateData(
 ): Promise<InvoiceTemplateData> {
   const supabase = getServiceClient();
   const { data: row, error } = await supabase
-    .from("comprobantes")
+    .from("invoices")
     .select(
       `
       *,
       channel:invoicing_channels(id, name, division, is_fiscal, business_unit_id),
       client:clients(id, legal_name, iva_condition, address, real_address),
-      items:comprobante_items(description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)
+      items:invoice_items(description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)
     `,
     )
     .eq("id", comprobanteId)
@@ -214,8 +214,8 @@ export async function buildTemplateData(
       iva_condition_label: IVA_LABEL[client.iva_condition],
       address: client.real_address ?? client.address,
     },
-    kind: row.kind as ComprobanteKind,
-    letter: (row.letter as ComprobanteLetter | null) ?? null,
+    kind: row.kind as InvoiceKind,
+    letter: (row.letter as InvoiceLetter | null) ?? null,
     punto_venta: row.punto_venta,
     numero,
     fecha: row.fecha,
@@ -246,7 +246,7 @@ export async function buildTemplateData(
 
 // Re-export so the Inngest workflow can import without pulling in the heavy
 // renderer transitively at module load time.
-export type { ComprobanteRow };
+export type { InvoiceRow };
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;

@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/select";
 import {
   ACCOUNT_TYPE_LABEL,
-  isChequeAccount,
+  isCheckAccount,
   type Account,
 } from "@/features/accounts/schema";
 
-export type ChequeDraft = {
+export type CheckDraft = {
   bank_name: string;
   drawer_name: string;
   drawer_cuit: string;
@@ -30,10 +30,10 @@ export type PaymentLineDraft = {
   account_id: string;
   amount: string; // input string, parsed on submit
   reference: string;
-  cheque?: ChequeDraft;
+  check?: CheckDraft;
 };
 
-function emptyCheque(today: string): ChequeDraft {
+function emptyCheck(today: string): CheckDraft {
   return {
     bank_name: "",
     drawer_name: "",
@@ -57,13 +57,13 @@ export function PaymentLinesEditor({
   function update(index: number, patch: Partial<PaymentLineDraft>) {
     onChange(lines.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   }
-  function updateCheque(index: number, patch: Partial<ChequeDraft>) {
+  function updateCheck(index: number, patch: Partial<CheckDraft>) {
     const line = lines[index];
     if (!line) return;
-    const current = line.cheque ?? emptyCheque(defaultDate);
+    const current = line.check ?? emptyCheck(defaultDate);
     onChange(
       lines.map((l, i) =>
-        i === index ? { ...l, cheque: { ...current, ...patch } } : l,
+        i === index ? { ...l, check: { ...current, ...patch } } : l,
       ),
     );
   }
@@ -76,7 +76,7 @@ export function PaymentLinesEditor({
 
   function onAccountChange(idx: number, accountId: string) {
     const account = accounts.find((a) => a.id === accountId);
-    const isCheque = isChequeAccount(account?.type);
+    const isCheck = isCheckAccount(account?.type);
     const line = lines[idx];
     if (!line) return;
     onChange(
@@ -85,7 +85,7 @@ export function PaymentLinesEditor({
         return {
           ...l,
           account_id: accountId,
-          cheque: isCheque ? (l.cheque ?? emptyCheque(defaultDate)) : undefined,
+          check: isCheck ? (l.check ?? emptyCheck(defaultDate)) : undefined,
         };
       }),
     );
@@ -108,7 +108,7 @@ export function PaymentLinesEditor({
         <div className="space-y-2">
           {lines.map((line, idx) => {
             const account = accounts.find((a) => a.id === line.account_id);
-            const isCheque = isChequeAccount(account?.type);
+            const isCheck = isCheckAccount(account?.type);
             return (
               <div
                 key={idx}
@@ -151,8 +151,8 @@ export function PaymentLinesEditor({
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">
-                      {isCheque
-                        ? "Nro de cheque"
+                      {isCheck
+                        ? "Nro de check"
                         : account?.type === "bank"
                           ? "Transferencia"
                           : "Referencia (opcional)"}
@@ -175,18 +175,18 @@ export function PaymentLinesEditor({
                   </Button>
                 </div>
 
-                {isCheque && (
+                {isCheck && (
                   <div className="space-y-2 rounded-md border border-dashed border-muted bg-muted/20 p-3">
                     <div className="text-xs font-medium text-muted-foreground">
-                      Datos del cheque
+                      Datos del check
                     </div>
                     <div className="grid gap-2 sm:grid-cols-[2fr_2fr_1fr]">
                       <div className="space-y-1">
                         <Label className="text-xs">Banco</Label>
                         <Input
-                          value={line.cheque?.bank_name ?? ""}
+                          value={line.check?.bank_name ?? ""}
                           onChange={(e) =>
-                            updateCheque(idx, { bank_name: e.target.value })
+                            updateCheck(idx, { bank_name: e.target.value })
                           }
                           placeholder="Ej. Banco Galicia"
                         />
@@ -194,9 +194,9 @@ export function PaymentLinesEditor({
                       <div className="space-y-1">
                         <Label className="text-xs">Firmante</Label>
                         <Input
-                          value={line.cheque?.drawer_name ?? ""}
+                          value={line.check?.drawer_name ?? ""}
                           onChange={(e) =>
-                            updateCheque(idx, { drawer_name: e.target.value })
+                            updateCheck(idx, { drawer_name: e.target.value })
                           }
                           placeholder="Razón social"
                         />
@@ -204,9 +204,9 @@ export function PaymentLinesEditor({
                       <div className="space-y-1">
                         <Label className="text-xs">CUIT firmante (opcional)</Label>
                         <Input
-                          value={line.cheque?.drawer_cuit ?? ""}
+                          value={line.check?.drawer_cuit ?? ""}
                           onChange={(e) =>
-                            updateCheque(idx, { drawer_cuit: e.target.value })
+                            updateCheck(idx, { drawer_cuit: e.target.value })
                           }
                           placeholder="30-12345678-9"
                         />
@@ -217,9 +217,9 @@ export function PaymentLinesEditor({
                         <Label className="text-xs">Fecha de emisión</Label>
                         <Input
                           type="date"
-                          value={line.cheque?.issue_date ?? defaultDate}
+                          value={line.check?.issue_date ?? defaultDate}
                           onChange={(e) =>
-                            updateCheque(idx, { issue_date: e.target.value })
+                            updateCheck(idx, { issue_date: e.target.value })
                           }
                         />
                       </div>
@@ -227,9 +227,9 @@ export function PaymentLinesEditor({
                         <Label className="text-xs">Fecha de cobro</Label>
                         <Input
                           type="date"
-                          value={line.cheque?.due_date ?? defaultDate}
+                          value={line.check?.due_date ?? defaultDate}
                           onChange={(e) =>
-                            updateCheque(idx, { due_date: e.target.value })
+                            updateCheck(idx, { due_date: e.target.value })
                           }
                         />
                       </div>
