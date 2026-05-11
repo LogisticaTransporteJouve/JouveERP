@@ -19,7 +19,7 @@
 
 set row_security = off;
 
-create or replace view public.v_aging_documents as
+create or replace view public.v_aging_documents with (security_invoker = on) as
   select
     c.id                                     as invoice_id,
     c.client_id                              as client_id,
@@ -57,7 +57,7 @@ create or replace view public.v_aging_documents as
 comment on view public.v_aging_documents is
   'Facturas + NDs emitidas con saldo abierto, clasificadas por antigüedad. open_amount = imp_total - allocations de recibos issued.';
 
-create or replace view public.v_client_aging as
+create or replace view public.v_client_aging with (security_invoker = on) as
   select
     d.client_id                                                          as client_id,
     sum(case when d.bucket = '0_30'    then d.open_amount else 0 end)    as bucket_0_30,

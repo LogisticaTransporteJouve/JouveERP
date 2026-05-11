@@ -148,7 +148,7 @@ create trigger transactions_channel_matches_invoice
 ------------------------------------------------------------------------------
 -- Enriches each row with channel division ('jouve' | 'dz') and is_fiscal so
 -- reports can group by division without re-joining invoicing_channels.
-create or replace view public.v_transactions_tagged as
+create or replace view public.v_transactions_tagged with (security_invoker = on) as
 select
   t.*,
   c.division        as channel_division,

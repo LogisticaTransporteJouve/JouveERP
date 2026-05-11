@@ -20,7 +20,7 @@
 
 set row_security = off;
 
-create or replace view public.v_client_account_movements as
+create or replace view public.v_client_account_movements with (security_invoker = on) as
   -- Comprobantes emitidos. NC suma negativo (acreditamos al cliente),
   -- factura y ND suman positivo (cliente nos debe).
   select
