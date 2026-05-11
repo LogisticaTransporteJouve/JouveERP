@@ -58,7 +58,7 @@ export function PdfViewerDialog({
           the PDF page renders its own shadow against the dim overlay so
           the only visible thing is the document. */}
       <DialogContent
-        className="border-0 bg-transparent p-0 shadow-none sm:max-w-none w-fit"
+        className="max-h-[90vh] overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:max-w-none w-fit"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">{label}</DialogTitle>

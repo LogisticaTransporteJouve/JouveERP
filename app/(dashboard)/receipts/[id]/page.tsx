@@ -208,17 +208,50 @@ export default async function ReceiptDetailPage({
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Imputaciones</h2>
           <dl className="mt-3 space-y-2 text-sm">
-            {allocations.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center justify-between border-b py-1 last:border-b-0"
-              >
-                <span className="font-mono text-xs">{a.invoice_id}</span>
-                <span className="font-mono">
-                  {money(Number(a.amount_applied), receipt.currency)}
-                </span>
-              </div>
-            ))}
+            {allocations.map((a) => {
+              const inv = (
+                a as unknown as {
+                  invoice: {
+                    letter: string | null;
+                    kind: string;
+                    punto_venta: number;
+                    numero: number;
+                    fecha: string;
+                  } | null;
+                }
+              ).invoice;
+              const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
+              const num = String(inv?.numero ?? 0).padStart(8, "0");
+              const letter = inv?.letter ?? "";
+              const label =
+                inv?.kind === "factura"
+                  ? `Factura ${letter} ${pos}-${num}`
+                  : inv?.kind === "credit_note"
+                    ? `NC ${letter} ${pos}-${num}`
+                    : inv?.kind === "debit_note"
+                      ? `ND ${letter} ${pos}-${num}`
+                      : `${pos}-${num}`;
+              return (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between border-b py-1 last:border-b-0"
+                >
+                  <span>
+                    <span className="font-medium">
+                      {label.trim().replace(/\s+/g, " ")}
+                    </span>
+                    {inv?.fecha && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        · {formatArgentineDate(inv.fecha)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono">
+                    {money(Number(a.amount_applied), receipt.currency)}
+                  </span>
+                </div>
+              );
+            })}
           </dl>
         </div>
       )}

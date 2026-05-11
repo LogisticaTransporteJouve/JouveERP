@@ -192,7 +192,9 @@ export async function getReceiptByIdAction(
       .order("created_at"),
     supabase
       .from("receipt_allocations")
-      .select("*")
+      .select(
+        "*, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
+      )
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
