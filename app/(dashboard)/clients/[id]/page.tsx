@@ -1,7 +1,14 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getClientAccountAction } from "@/features/clients/actions/account-actions";
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
@@ -50,13 +57,18 @@ export default async function ClientDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/clients">Clientes</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{client.legal_name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="space-y-1">
-        <Link
-          href="/clients"
-          className="text-xs text-muted-foreground hover:underline"
-        >
-          ← Volver a clientes
-        </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
           {client.legal_name}
         </h1>

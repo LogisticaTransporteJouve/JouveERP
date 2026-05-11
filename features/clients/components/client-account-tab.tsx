@@ -18,11 +18,15 @@ import { useClientAccount } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
 
-const formatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
+const decimalFormatter = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
+// es-AR currency style inserts a space between $ and the number; we want
+// them tight, so format as decimal and prefix `$` manually.
+const formatter = {
+  format: (value: number) => `$${decimalFormatter.format(value)}`,
+};
 
 function formatMovementNumber(m: AccountMovement): string {
   const pos = String(m.punto_venta).padStart(4, "0");
