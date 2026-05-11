@@ -2,14 +2,14 @@
 --
 -- A recibo records that a client paid us. Each row is purely internal — no
 -- AFIP roundtrip — but follows the same per-channel correlativo pattern as
--- comprobantes so the display reads `R{POS:4}-{numero:8}`, e.g.
+-- invoices so the display reads `R{POS:4}-{numero:8}`, e.g.
 -- `R0003-00000001`.
 --
 -- Two child tables hold the breakdown:
 --   * receipt_payment_lines — how the money actually came in (one row per
 --     account that received funds; method is derived from the account's
---     type — cash | bank transfer | cheque físico | echeq | wallet).
---   * receipt_allocations  — which comprobantes the receipt cancels and how
+--     type — cash | bank transfer | check físico | echeq | wallet).
+--   * receipt_allocations  — which invoices the receipt cancels and how
 --     much it applies to each. The remainder, if any, stays "a cuenta".
 --
 -- Editing is allowed — fundamental fields can change post-issue (the user
@@ -32,7 +32,7 @@ create table public.receipts (
   punto_venta     int  not null check (punto_venta between 1 and 99999),
   numero          int  not null check (numero >= 1),
   client_id       uuid not null references public.clients (id) on delete restrict,
-  recibo_date     date not null,
+  receipt_date     date not null,
   total_amount    numeric(18, 2) not null check (total_amount > 0),
   currency        text not null check (currency in ('ARS', 'USD')),
   notes           text,
@@ -57,8 +57,8 @@ create unique index receipts_channel_pos_numero_idx
   on public.receipts (channel_id, punto_venta, numero);
 
 create index receipts_client_idx       on public.receipts (client_id);
-create index receipts_recibo_date_idx  on public.receipts (recibo_date desc);
-create index receipts_channel_idx      on public.receipts (channel_id, recibo_date desc);
+create index receipts_recibo_date_idx  on public.receipts (receipt_date desc);
+create index receipts_channel_idx      on public.receipts (channel_id, receipt_date desc);
 create index receipts_status_idx       on public.receipts (status);
 
 ------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ create table public.receipt_payment_lines (
 );
 
 comment on table public.receipt_payment_lines is
-  'Money in. One row per account that received funds. Method is derived from the account type (cash | bank transfer | cheque | echeq | wallet).';
+  'Money in. One row per account that received funds. Method is derived from the account type (cash | bank transfer | check | echeq | wallet).';
 
 create index receipt_payment_lines_receipt_idx on public.receipt_payment_lines (receipt_id);
 create index receipt_payment_lines_account_idx on public.receipt_payment_lines (account_id);
@@ -86,21 +86,21 @@ create index receipt_payment_lines_account_idx on public.receipt_payment_lines (
 create table public.receipt_allocations (
   id              uuid primary key default gen_random_uuid(),
   receipt_id      uuid not null references public.receipts (id) on delete cascade,
-  comprobante_id  uuid not null references public.comprobantes (id) on delete restrict,
+  invoice_id  uuid not null references public.invoices (id) on delete restrict,
   amount_applied  numeric(18, 2) not null check (amount_applied > 0),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
 
 comment on table public.receipt_allocations is
-  'Which comprobantes the receipt cancels and how much. The leftover, if any, sits "a cuenta".';
+  'Which invoices the receipt cancels and how much. The leftover, if any, sits "a cuenta".';
 
--- A given comprobante can be partially paid by multiple receipts but a
--- single receipt should not allocate twice to the same comprobante.
+-- A given invoice can be partially paid by multiple receipts but a
+-- single receipt should not allocate twice to the same invoice.
 create unique index receipt_allocations_unique_pair_idx
-  on public.receipt_allocations (receipt_id, comprobante_id);
+  on public.receipt_allocations (receipt_id, invoice_id);
 
-create index receipt_allocations_comprobante_idx on public.receipt_allocations (comprobante_id);
+create index receipt_allocations_invoice_idx on public.receipt_allocations (invoice_id);
 
 ------------------------------------------------------------------------------
 -- 4. updated_at triggers
@@ -219,7 +219,7 @@ declare
   v_line         jsonb;
 begin
   insert into public.receipts (
-    channel_id, punto_venta, numero, client_id, recibo_date,
+    channel_id, punto_venta, numero, client_id, receipt_date,
     total_amount, currency, notes, status, created_by
   ) values (
     p_channel_id, p_punto_venta, p_numero, p_client_id, p_recibo_date,
@@ -243,10 +243,10 @@ begin
   for v_line in select * from jsonb_array_elements(p_allocations)
   loop
     insert into public.receipt_allocations (
-      receipt_id, comprobante_id, amount_applied
+      receipt_id, invoice_id, amount_applied
     ) values (
       v_receipt_id,
-      (v_line->>'comprobante_id')::uuid,
+      (v_line->>'invoice_id')::uuid,
       (v_line->>'amount_applied')::numeric
     );
     v_alloc_sum := v_alloc_sum + (v_line->>'amount_applied')::numeric;
@@ -304,7 +304,7 @@ begin
   end if;
 
   update public.receipts set
-    recibo_date  = p_recibo_date,
+    receipt_date  = p_recibo_date,
     total_amount = p_total_amount,
     notes        = nullif(trim(p_notes), '')
   where id = p_id;
@@ -328,10 +328,10 @@ begin
   for v_line in select * from jsonb_array_elements(p_allocations)
   loop
     insert into public.receipt_allocations (
-      receipt_id, comprobante_id, amount_applied
+      receipt_id, invoice_id, amount_applied
     ) values (
       p_id,
-      (v_line->>'comprobante_id')::uuid,
+      (v_line->>'invoice_id')::uuid,
       (v_line->>'amount_applied')::numeric
     );
     v_alloc_sum := v_alloc_sum + (v_line->>'amount_applied')::numeric;

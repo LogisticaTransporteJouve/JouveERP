@@ -22,7 +22,7 @@ create table public.business_units (
   updated_at     timestamptz not null default now()
 );
 
-comment on table public.business_units is 'Legal entities under which channels emit comprobantes. JouveERP runs single-CUIT.';
+comment on table public.business_units is 'Legal entities under which channels emit invoices. JouveERP runs single-CUIT.';
 
 -- Enforce CUIT shape (11 digits, no separators) so AFIP padron lookups work.
 alter table public.business_units

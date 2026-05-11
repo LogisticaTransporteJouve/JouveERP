@@ -2,9 +2,9 @@
 --
 -- One row per CUIT, shared across the entire organization. Clients are
 -- intentionally NOT scoped to a business_unit or division: the same CUIT can
--- receive comprobantes from DZ Instalaciones and Logística Jouve, and the
+-- receive invoices from DZ Instalaciones and Logística Jouve, and the
 -- division is decided at invoice time via the channel. Hard delete is
--- blocked at the RLS level so historical comprobantes that will reference
+-- blocked at the RLS level so historical invoices that will reference
 -- clients.id keep their link; the action layer uses the service role to
 -- delete only when there are zero references (see deleteClientAction).
 --

@@ -57,7 +57,7 @@ export function AgingTable() {
   // adjust as soon as another user emits a comprobante or registers un
   // recibo con imputación.
   useRealtimeInvalidate([
-    { table: "comprobantes", queryKeys: [agingKeys.all] },
+    { table: "invoices", queryKeys: [agingKeys.all] },
     { table: "receipts", queryKeys: [agingKeys.all] },
   ]);
 
@@ -103,7 +103,7 @@ function AgingRow({ row }: { row: ClientAgingRow }) {
     <TableRow>
       <TableCell>
         <Link
-          href={`/clientes/${row.client_id}`}
+          href={`/clients/${row.client_id}`}
           className="font-medium hover:underline"
         >
           {row.legal_name}

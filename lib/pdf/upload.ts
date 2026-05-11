@@ -26,7 +26,7 @@ export async function uploadInvoicePdf(
     });
   if (upload.error) {
     logger.warn("pdf.upload_failed", {
-      comprobante_id: comprobanteId,
+      invoice_id: comprobanteId,
       err: upload.error.message,
     });
     throw new Error(`pdf.upload: ${upload.error.message}`);

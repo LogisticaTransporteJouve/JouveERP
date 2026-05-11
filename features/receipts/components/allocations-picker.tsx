@@ -3,13 +3,17 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatArgentineDate } from "@/lib/format";
+import {
+  amountToInput,
+  formatAmountInput,
+  formatArgentineDate,
+} from "@/lib/format";
 
 import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
 
 export type AllocationDraft = {
-  comprobante_id: string;
+  invoice_id: string;
   amount_applied: string; // input string
 };
 
@@ -45,14 +49,14 @@ export function AllocationsPicker({
 
   function setAlloc(comprobanteId: string, amount: string | null) {
     if (amount === null) {
-      onChange(allocations.filter((a) => a.comprobante_id !== comprobanteId));
+      onChange(allocations.filter((a) => a.invoice_id !== comprobanteId));
       return;
     }
-    const existing = allocations.find((a) => a.comprobante_id === comprobanteId);
+    const existing = allocations.find((a) => a.invoice_id === comprobanteId);
     if (existing) {
       onChange(
         allocations.map((a) =>
-          a.comprobante_id === comprobanteId
+          a.invoice_id === comprobanteId
             ? { ...a, amount_applied: amount }
             : a,
         ),
@@ -60,7 +64,7 @@ export function AllocationsPicker({
     } else {
       onChange([
         ...allocations,
-        { comprobante_id: comprobanteId, amount_applied: amount },
+        { invoice_id: comprobanteId, amount_applied: amount },
       ]);
     }
   }
@@ -111,7 +115,7 @@ export function AllocationsPicker({
           </thead>
           <tbody>
             {pending.map((c) => {
-              const alloc = allocations.find((a) => a.comprobante_id === c.id);
+              const alloc = allocations.find((a) => a.invoice_id === c.id);
               const checked = !!alloc;
               return (
                 <tr key={c.id} className="border-t">
@@ -120,7 +124,7 @@ export function AllocationsPicker({
                       checked={checked}
                       onCheckedChange={(v) => {
                         if (v === true) {
-                          setAlloc(c.id, c.outstanding.toFixed(2));
+                          setAlloc(c.id, amountToInput(c.outstanding));
                         } else {
                           setAlloc(c.id, null);
                         }
@@ -134,18 +138,19 @@ export function AllocationsPicker({
                     {formatArgentineDate(c.fecha)}
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs">
-                    {c.outstanding.toFixed(2)}
+                    {amountToInput(c.outstanding)}
                   </td>
                   <td className="px-2 py-1.5">
                     <Input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
                       disabled={!checked}
                       value={alloc?.amount_applied ?? ""}
-                      onChange={(e) => setAlloc(c.id, e.target.value)}
+                      onChange={(e) =>
+                        setAlloc(c.id, formatAmountInput(e.target.value))
+                      }
                       className="h-8 text-right"
-                      placeholder="0.00"
+                      placeholder="0,00"
                     />
                   </td>
                 </tr>

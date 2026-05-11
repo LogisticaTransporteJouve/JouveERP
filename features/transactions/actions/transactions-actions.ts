@@ -64,7 +64,7 @@ function narrowTransaction(row: {
 }
 
 const SELECT_COLUMNS =
-  "id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description, comprobante_id, counterparty_client_id, transfer_pair_id, created_by, created_at, updated_at";
+  "id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description, invoice_id, counterparty_client_id, transfer_pair_id, created_by, created_at, updated_at";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -218,7 +218,7 @@ export async function createTransactionAction(
       transaction_date: data.transaction_date,
       accrual_month: data.accrual_month,
       description: data.description ?? null,
-      comprobante_id: data.comprobante_id ?? null,
+      invoice_id: data.invoice_id ?? null,
       counterparty_client_id: data.counterparty_client_id ?? null,
       created_by: ctx.userId,
     })

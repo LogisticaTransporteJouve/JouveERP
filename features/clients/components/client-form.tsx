@@ -126,7 +126,7 @@ export function ClientForm({
         onSuccess: (data) => {
           toast.success("Cliente creado.");
           if (onSuccess) onSuccess(data.id);
-          else router.push(`/clientes/${data.id}`);
+          else router.push(`/clients/${data.id}`);
         },
         onError: (err) => toast.error(err.message),
       });
@@ -184,7 +184,7 @@ export function ClientForm({
             <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
               Ya existe el cliente{" "}
               <Link
-                href={`/clientes/${existingClient.id}`}
+                href={`/clients/${existingClient.id}`}
                 className="font-medium underline"
               >
                 {existingClient.legal_name}
@@ -350,7 +350,7 @@ export function ClientForm({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => (onCancel ? onCancel() : router.push("/clientes"))}
+            onClick={() => (onCancel ? onCancel() : router.push("/clients"))}
             disabled={isSaving}
           >
             Cancelar

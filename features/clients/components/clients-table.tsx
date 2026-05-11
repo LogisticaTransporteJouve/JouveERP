@@ -173,7 +173,7 @@ function ClientsTableRows({
         >
           <TableCell>
             <Link
-              href={`/clientes/${client.id}`}
+              href={`/clients/${client.id}`}
               className="font-medium hover:underline"
             >
               {client.legal_name}

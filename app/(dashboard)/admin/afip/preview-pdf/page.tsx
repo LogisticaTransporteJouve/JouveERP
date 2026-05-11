@@ -15,7 +15,7 @@ export default async function PreviewPdfPage() {
 
   const supabase = getServiceClient();
   const { data: rows } = await supabase
-    .from("comprobantes")
+    .from("invoices")
     .select(
       "id, kind, letter, punto_venta, numero, fecha, status, channel_id, imp_total",
     )

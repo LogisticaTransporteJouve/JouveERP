@@ -70,7 +70,7 @@ function narrowReceipt(row: {
 }
 
 const RECEIPT_COLUMNS =
-  "id, channel_id, punto_venta, numero, client_id, recibo_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
+  "id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -90,7 +90,7 @@ export async function listReceiptsAction(): Promise<
   const { data, error } = await supabase
     .from("receipts")
     .select(`${RECEIPT_COLUMNS}, clients ( legal_name )`)
-    .order("recibo_date", { ascending: false })
+    .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false });
 
   if (error) {
@@ -119,11 +119,11 @@ export async function listReceiptsAction(): Promise<
 }
 
 /** Cheque metadata indexed by source_payment_line_id, so the receipt
- *  edit form can prefill the per-line cheque draft without an extra query. */
-export type ReceiptChequeByLine = Record<
+ *  edit form can prefill the per-line check draft without an extra query. */
+export type ReceiptCheckByLine = Record<
   string,
   {
-    cheque_number: string;
+    check_number: string;
     bank_name: string;
     drawer_name: string;
     drawer_cuit: string | null;
@@ -138,7 +138,7 @@ export type ReceiptDetail = {
   payment_lines: ReceiptPaymentLine[];
   allocations: ReceiptAllocation[];
   retentions: ReceiptRetention[];
-  cheques_by_line: ReceiptChequeByLine;
+  checks_by_line: ReceiptCheckByLine;
 };
 
 function narrowRetention(row: {
@@ -187,12 +187,14 @@ export async function getReceiptByIdAction(
   const [linesRes, allocsRes, retentionsRes, chequesRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
-      .select("*")
+      .select("*, account:accounts(name, type)")
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
       .from("receipt_allocations")
-      .select("*")
+      .select(
+        "*, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
+      )
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
@@ -201,9 +203,9 @@ export async function getReceiptByIdAction(
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
-      .from("cheques")
+      .from("checks")
       .select(
-        "cheque_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, status, source_payment_line_id",
+        "check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, status, source_payment_line_id",
       )
       .eq("source_receipt_id", id),
   ]);
@@ -228,11 +230,11 @@ export async function getReceiptByIdAction(
     .map((row) => narrowRetention(row))
     .filter((r): r is ReceiptRetention => r !== null);
 
-  const cheques_by_line: ReceiptChequeByLine = {};
+  const checks_by_line: ReceiptCheckByLine = {};
   for (const row of chequesRes.data ?? []) {
     if (!row.source_payment_line_id) continue;
-    cheques_by_line[row.source_payment_line_id] = {
-      cheque_number: row.cheque_number,
+    checks_by_line[row.source_payment_line_id] = {
+      check_number: row.check_number,
       bank_name: row.bank_name,
       drawer_name: row.drawer_name,
       drawer_cuit: row.drawer_cuit,
@@ -249,7 +251,7 @@ export async function getReceiptByIdAction(
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
       retentions,
-      cheques_by_line,
+      checks_by_line,
     },
   };
 }
@@ -261,11 +263,19 @@ export async function getReceiptByIdAction(
  */
 export async function getNextReceiptNumeroAction(input: {
   channel_id: string;
-  punto_venta: number;
 }): Promise<ActionResult<{ next: number; isFirst: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
+  }
+
+  // Resolve POS server-side from the channel — same lookup used at create
+  // time. The previous version asked the caller for `punto_venta`, but the
+  // client hook always passed 0, so the filter never matched real rows and
+  // `isFirst` stayed true forever.
+  const pos = await loadChannelPos(input.channel_id);
+  if (!pos) {
+    return { ok: false, error: "Configurá un POS habilitado para este canal." };
   }
 
   const supabase = await createSupabaseClient();
@@ -273,7 +283,7 @@ export async function getNextReceiptNumeroAction(input: {
     .from("receipts")
     .select("numero")
     .eq("channel_id", input.channel_id)
-    .eq("punto_venta", input.punto_venta)
+    .eq("punto_venta", pos.punto_venta)
     .order("numero", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -318,11 +328,11 @@ export async function listPendingComprobantesForClientAction(
 
   const supabase = await createSupabaseClient();
   const { data: comprobantes, error: cErr } = await supabase
-    .from("comprobantes")
+    .from("invoices")
     .select("id, numero, punto_venta, letter, kind, fecha, imp_total, status")
     .eq("client_id", clientId)
     .eq("status", "emitted")
-    .order("fecha", { ascending: false });
+    .order("fecha", { ascending: true });
 
   if (cErr) {
     logger.error("receipts.pending.list_comprobantes_failed", { error: cErr });
@@ -337,8 +347,8 @@ export async function listPendingComprobantesForClientAction(
 
   const allocsQuery = supabase
     .from("receipt_allocations")
-    .select("comprobante_id, amount_applied, receipt_id, receipts ( status )")
-    .in("comprobante_id", ids);
+    .select("invoice_id, amount_applied, receipt_id, receipts ( status )")
+    .in("invoice_id", ids);
 
   const { data: allocations, error: aErr } = await allocsQuery;
   if (aErr) {
@@ -358,9 +368,9 @@ export async function listPendingComprobantesForClientAction(
         excludeReceiptId
     )
       continue;
-    const prev = allocatedByComprobante.get(alloc.comprobante_id) ?? 0;
+    const prev = allocatedByComprobante.get(alloc.invoice_id) ?? 0;
     allocatedByComprobante.set(
-      alloc.comprobante_id,
+      alloc.invoice_id,
       prev + Number(alloc.amount_applied),
     );
   }
@@ -396,7 +406,7 @@ async function loadChannelPos(
 ): Promise<{ punto_venta: number } | null> {
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
-    .from("puntos_de_venta")
+    .from("sales_points")
     .select("numero, channel_id, is_enabled")
     .eq("channel_id", channelId)
     .eq("is_enabled", true)
@@ -432,13 +442,46 @@ export async function createReceiptAction(
     };
   }
 
+  // FIFO auto-allocation: when the user submits without manually picking
+  // invoices, distribute the receipt total across pending invoices from
+  // the oldest forward until the receipt is consumed. Retenciones reduce
+  // what gets distributed because they're credit fiscal, not real cash.
+  let allocations = data.allocations ?? [];
+  if (allocations.length === 0) {
+    const pendingRes = await listPendingComprobantesForClientAction(
+      data.client_id,
+    );
+    if (pendingRes.ok) {
+      const oldestFirst = [...pendingRes.data].sort((a, b) =>
+        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
+      );
+      const totalRetentions = (data.retentions ?? []).reduce(
+        (acc, r) => acc + r.amount,
+        0,
+      );
+      let remaining = data.total_amount - totalRetentions;
+      const auto: typeof allocations = [];
+      for (const inv of oldestFirst) {
+        if (remaining <= 0.005) break;
+        const applied = Math.min(inv.outstanding, remaining);
+        if (applied <= 0.005) continue;
+        auto.push({
+          invoice_id: inv.id,
+          amount_applied: Math.round(applied * 100) / 100,
+        });
+        remaining -= applied;
+      }
+      allocations = auto;
+    }
+  }
+
   const supabase = await createSupabaseClient();
   const { data: receiptId, error } = await supabase.rpc("create_receipt", {
     p_channel_id: data.channel_id,
     p_punto_venta: pos.punto_venta,
     p_numero: data.numero,
     p_client_id: data.client_id,
-    p_recibo_date: data.recibo_date,
+    p_recibo_date: data.receipt_date,
     p_total_amount: data.total_amount,
     p_currency: data.currency,
     p_notes: data.notes ?? "",
@@ -446,20 +489,20 @@ export async function createReceiptAction(
       account_id: l.account_id,
       amount: l.amount,
       reference: l.reference ?? null,
-      cheque: l.cheque
+      check: l.check
         ? {
-            cheque_number: l.cheque.cheque_number ?? null,
-            bank_name: l.cheque.bank_name,
-            drawer_name: l.cheque.drawer_name,
-            drawer_cuit: l.cheque.drawer_cuit ?? null,
-            issue_date: l.cheque.issue_date ?? null,
-            due_date: l.cheque.due_date,
-            notes: l.cheque.notes ?? null,
+            check_number: l.check.check_number ?? null,
+            bank_name: l.check.bank_name,
+            drawer_name: l.check.drawer_name,
+            drawer_cuit: l.check.drawer_cuit ?? null,
+            issue_date: l.check.issue_date ?? null,
+            due_date: l.check.due_date,
+            notes: l.check.notes ?? null,
           }
         : null,
     })),
-    p_allocations: (data.allocations ?? []).map((a) => ({
-      comprobante_id: a.comprobante_id,
+    p_allocations: allocations.map((a) => ({
+      invoice_id: a.invoice_id,
       amount_applied: a.amount_applied,
     })),
     p_retentions: (data.retentions ?? []).map((r) => ({
@@ -528,27 +571,27 @@ export async function updateReceiptAction(
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("update_receipt", {
     p_id: data.id,
-    p_recibo_date: data.recibo_date,
+    p_recibo_date: data.receipt_date,
     p_total_amount: data.total_amount,
     p_notes: data.notes ?? "",
     p_payment_lines: data.payment_lines.map((l) => ({
       account_id: l.account_id,
       amount: l.amount,
       reference: l.reference ?? null,
-      cheque: l.cheque
+      check: l.check
         ? {
-            cheque_number: l.cheque.cheque_number ?? null,
-            bank_name: l.cheque.bank_name,
-            drawer_name: l.cheque.drawer_name,
-            drawer_cuit: l.cheque.drawer_cuit ?? null,
-            issue_date: l.cheque.issue_date ?? null,
-            due_date: l.cheque.due_date,
-            notes: l.cheque.notes ?? null,
+            check_number: l.check.check_number ?? null,
+            bank_name: l.check.bank_name,
+            drawer_name: l.check.drawer_name,
+            drawer_cuit: l.check.drawer_cuit ?? null,
+            issue_date: l.check.issue_date ?? null,
+            due_date: l.check.due_date,
+            notes: l.check.notes ?? null,
           }
         : null,
     })),
     p_allocations: (data.allocations ?? []).map((a) => ({
-      comprobante_id: a.comprobante_id,
+      invoice_id: a.invoice_id,
       amount_applied: a.amount_applied,
     })),
     p_retentions: (data.retentions ?? []).map((r) => ({

@@ -16,7 +16,7 @@ const validBase = {
   channel_id: "jouve_fiscal",
   numero: 1,
   client_id: CLIENT_UUID,
-  recibo_date: "2026-05-10",
+  receipt_date: "2026-05-10",
   total_amount: 100,
   currency: "ARS" as const,
   notes: "",
@@ -117,7 +117,7 @@ describe("ReceiptCreateSchema", () => {
       ...validBase,
       allocations: [
         {
-          comprobante_id: COMPROBANTE_UUID,
+          invoice_id: COMPROBANTE_UUID,
           amount_applied: 200,
         },
       ],
@@ -158,7 +158,7 @@ describe("ReceiptCreateSchema", () => {
       total_amount: 100,
       allocations: [
         {
-          comprobante_id: COMPROBANTE_UUID,
+          invoice_id: COMPROBANTE_UUID,
           amount_applied: 60,
         },
       ],
@@ -171,7 +171,7 @@ describe("ReceiptUpdateSchema", () => {
   it("validates the same sum constraints as create", () => {
     const r = ReceiptUpdateSchema.safeParse({
       id: RECEIPT_UUID,
-      recibo_date: "2026-05-10",
+      receipt_date: "2026-05-10",
       total_amount: 100,
       notes: null,
       payment_lines: [

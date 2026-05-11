@@ -22,10 +22,10 @@ import {
   updateClientAction,
   type SearchClientsPage,
 } from "../actions/clients-actions";
-import { clientsKeys } from "../lib/clients-keys";
+import { CLIENTS_PAGE_SIZE, clientsKeys } from "../lib/clients-keys";
 import type { Client } from "../schema";
 
-export const CLIENTS_PAGE_SIZE = 50;
+export { CLIENTS_PAGE_SIZE };
 
 /**
  * Suspense-driven infinite list. The keyspace includes the filters so each

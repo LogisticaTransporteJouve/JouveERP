@@ -17,8 +17,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ClientPicker,
   type PickedClient,
-} from "@/features/comprobantes/components/client-picker";
+} from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
+import { amountToInput } from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -66,6 +67,14 @@ function parseAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const moneyFormatter = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+function formatMoney(value: number): string {
+  return moneyFormatter.format(value);
+}
+
 function sumDraftLines(lines: PaymentLineDraft[]): number {
   return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);
 }
@@ -86,6 +95,7 @@ export function ReceiptForm({
   channels,
   accounts,
   receipt,
+  initialClient,
   onSuccess,
   onCancel,
 }: {
@@ -93,6 +103,7 @@ export function ReceiptForm({
   channels: ChannelOption[];
   accounts: Account[];
   receipt?: ReceiptDetail;
+  initialClient?: PickedClient | null;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -116,29 +127,29 @@ export function ReceiptForm({
   const isFirst = nextNumero.isFirst;
 
   const [reciboDate, setReciboDate] = useState<string>(
-    receipt?.receipt.recibo_date ?? todayISO(),
+    receipt?.receipt.receipt_date ?? todayISO(),
   );
   const [currency, setCurrency] = useState<ReceiptCurrency>(
     (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
   );
-  const [client, setClient] = useState<PickedClient | null>(null);
+  const [client, setClient] = useState<PickedClient | null>(initialClient ?? null);
   const [notes, setNotes] = useState<string>(receipt?.receipt.notes ?? "");
 
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
     receipt
       ? receipt.payment_lines.map((l) => {
-          const cheque = receipt.cheques_by_line[l.id];
+          const check = receipt.checks_by_line[l.id];
           return {
             account_id: l.account_id,
-            amount: String(l.amount),
-            reference: l.reference ?? cheque?.cheque_number ?? "",
-            cheque: cheque
+            amount: amountToInput(Number(l.amount)),
+            reference: l.reference ?? check?.check_number ?? "",
+            check: check
               ? {
-                  bank_name: cheque.bank_name,
-                  drawer_name: cheque.drawer_name,
-                  drawer_cuit: cheque.drawer_cuit ?? "",
-                  issue_date: cheque.issue_date,
-                  due_date: cheque.due_date,
+                  bank_name: check.bank_name,
+                  drawer_name: check.drawer_name,
+                  drawer_cuit: check.drawer_cuit ?? "",
+                  issue_date: check.issue_date,
+                  due_date: check.due_date,
                 }
               : undefined,
           };
@@ -149,8 +160,8 @@ export function ReceiptForm({
   const [allocations, setAllocations] = useState<AllocationDraft[]>(
     receipt
       ? receipt.allocations.map((a) => ({
-          comprobante_id: a.comprobante_id,
-          amount_applied: String(a.amount_applied),
+          invoice_id: a.invoice_id,
+          amount_applied: amountToInput(Number(a.amount_applied)),
         }))
       : [],
   );
@@ -163,7 +174,7 @@ export function ReceiptForm({
           jurisdiction: r.jurisdiction ?? "",
           certificate_number: r.certificate_number,
           certificate_date: r.certificate_date,
-          amount: String(r.amount),
+          amount: amountToInput(Number(r.amount)),
           notes: r.notes ?? "",
         }))
       : [],
@@ -235,8 +246,8 @@ export function ReceiptForm({
       account_id: string;
       amount: number;
       reference: string | null;
-      cheque?: {
-        cheque_number: string | undefined;
+      check?: {
+        check_number: string | undefined;
         bank_name: string;
         drawer_name: string;
         drawer_cuit: string;
@@ -247,20 +258,20 @@ export function ReceiptForm({
       account_id: l.account_id,
       amount: parseAmount(l.amount) ?? 0,
       reference: l.reference.trim().length === 0 ? null : l.reference.trim(),
-      cheque: l.cheque
+      check: l.check
         ? {
-            cheque_number:
+            check_number:
               l.reference.trim().length === 0 ? undefined : l.reference.trim(),
-            bank_name: l.cheque.bank_name.trim(),
-            drawer_name: l.cheque.drawer_name.trim(),
-            drawer_cuit: l.cheque.drawer_cuit.trim(),
-            issue_date: l.cheque.issue_date || reciboDate,
-            due_date: l.cheque.due_date,
+            bank_name: l.check.bank_name.trim(),
+            drawer_name: l.check.drawer_name.trim(),
+            drawer_cuit: l.check.drawer_cuit.trim(),
+            issue_date: l.check.issue_date || reciboDate,
+            due_date: l.check.due_date,
           }
         : undefined,
     }));
     const allocs = allocations.map((a) => ({
-      comprobante_id: a.comprobante_id,
+      invoice_id: a.invoice_id,
       amount_applied: parseAmount(a.amount_applied) ?? 0,
     }));
     const rets = retentions.map((r) => ({
@@ -282,19 +293,19 @@ export function ReceiptForm({
       toast.error("Cada línea de pago necesita un monto mayor a cero.");
       return;
     }
-    // Cheque-specific validation: when a line carries cheque metadata the
+    // Cheque-specific validation: when a line carries check metadata the
     // bank, drawer and due_date are mandatory (the schema in cheques table
     // would reject otherwise — surface a clearer error here).
     const chequeError = lines.find(
       (l) =>
-        l.cheque &&
-        (!l.cheque.bank_name ||
-          !l.cheque.drawer_name ||
-          !l.cheque.due_date),
+        l.check &&
+        (!l.check.bank_name ||
+          !l.check.drawer_name ||
+          !l.check.due_date),
     );
     if (chequeError) {
       toast.error(
-        "Para pagos con cheque necesitamos banco, firmante y fecha de cobro.",
+        "Para pagos con check necesitamos banco, firmante y fecha de cobro.",
       );
       return;
     }
@@ -313,7 +324,7 @@ export function ReceiptForm({
           channel_id: channelId,
           numero: numeroParsed,
           client_id: client.id,
-          recibo_date: reciboDate,
+          receipt_date: reciboDate,
           total_amount: totalAmount,
           currency,
           notes,
@@ -335,7 +346,7 @@ export function ReceiptForm({
       updateMut.mutate(
         {
           id: receipt.receipt.id,
-          recibo_date: reciboDate,
+          receipt_date: reciboDate,
           total_amount: totalAmount,
           notes,
           payment_lines: lines,
@@ -458,31 +469,31 @@ export function ReceiptForm({
         <div>
           <div className="text-xs text-muted-foreground">Pago real</div>
           <div className="font-mono">
-            {paymentSum.toFixed(2)} {currency}
+            {formatMoney(paymentSum)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Retenciones</div>
           <div className="font-mono">
-            {retentionSum.toFixed(2)} {currency}
+            {formatMoney(retentionSum)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Total</div>
           <div className="font-mono font-semibold">
-            {totalAmount.toFixed(2)} {currency}
+            {formatMoney(totalAmount)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Imputado</div>
           <div className="font-mono">
-            {allocatedAmount.toFixed(2)} {currency}
+            {formatMoney(allocatedAmount)} {currency}
           </div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">A cuenta</div>
           <div className="font-mono">
-            {aCuenta.toFixed(2)} {currency}
+            {formatMoney(aCuenta)} {currency}
           </div>
         </div>
       </div>

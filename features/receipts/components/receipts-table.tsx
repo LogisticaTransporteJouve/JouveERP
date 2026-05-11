@@ -1,6 +1,11 @@
 "use client";
 
+import { Download, Eye } from "lucide-react";
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
 import {
   Table,
   TableBody,
@@ -104,9 +109,16 @@ export function ReceiptsTable({
                         {formatReceiptNumber(r.punto_venta, r.numero)}
                       </span>
                     </TableCell>
-                    <TableCell>{r.client_legal_name}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/clients/${r.client_id}`}
+                        className="hover:underline"
+                      >
+                        {r.client_legal_name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(r.recibo_date)}
+                      {formatArgentineDate(r.receipt_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {formatters[r.currency].format(Number(r.total_amount))}
@@ -125,6 +137,31 @@ export function ReceiptsTable({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Ver recibo"
+                        >
+                          <Link href={`/receipts/${r.id}`}>
+                            <Eye className="size-4" />
+                          </Link>
+                        </Button>
+                        <PdfViewerDialog
+                          id={r.id}
+                          label={formatReceiptNumber(r.punto_venta, r.numero)}
+                          kind="receipt"
+                        />
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Descargar PDF"
+                        >
+                          <Link href={`/api/receipts/${r.id}/pdf`}>
+                            <Download className="size-4" />
+                          </Link>
+                        </Button>
                         {canWrite && !isCanceled && (
                           <EditReceiptDialog
                             receiptId={r.id}

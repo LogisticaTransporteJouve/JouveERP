@@ -8,7 +8,7 @@ export type ReceiptStatus = (typeof RECEIPT_STATUSES)[number];
 export const RECEIPT_CURRENCIES = ["ARS", "USD"] as const;
 export type ReceiptCurrency = (typeof RECEIPT_CURRENCIES)[number];
 
-export const RECEIPTS_PATH = "/recibos";
+export const RECEIPTS_PATH = "/receipts";
 
 const trimmedNullable = z
   .string()
@@ -35,11 +35,11 @@ const moneyAmount = z.preprocess(
     .max(1_000_000_000_000),
 );
 
-// Optional cheque metadata: only relevant when payment_line.account_id
+// Optional check metadata: only relevant when payment_line.account_id
 // points to an account of type cheques/echeq. Validated at the DB level —
 // the RPC ignores it for other account types.
-const PaymentLineChequeSchema = z.object({
-  cheque_number: z.string().trim().max(60).optional(),
+const PaymentLineCheckSchema = z.object({
+  check_number: z.string().trim().max(60).optional(),
   bank_name: z.string().trim().min(1, "Banco requerido.").max(120),
   drawer_name: z.string().trim().min(1, "Firmante requerido.").max(120),
   drawer_cuit: z
@@ -74,13 +74,13 @@ const PaymentLineSchema = z.object({
     .transform((v) => (v.length === 0 ? null : v))
     .nullable()
     .optional(),
-  cheque: PaymentLineChequeSchema.optional(),
+  check: PaymentLineCheckSchema.optional(),
 });
 
-export type PaymentLineCheque = z.infer<typeof PaymentLineChequeSchema>;
+export type PaymentLineCheck = z.infer<typeof PaymentLineCheckSchema>;
 
 const AllocationSchema = z.object({
-  comprobante_id: z.string().uuid(),
+  invoice_id: z.string().uuid(),
   amount_applied: moneyAmount,
 });
 
@@ -135,7 +135,7 @@ const baseReceiptFields = {
   channel_id: z.string().min(1, "Canal requerido."),
   numero: z.number().int().positive("Número debe ser positivo."),
   client_id: z.string().uuid("Cliente requerido."),
-  recibo_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  receipt_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   total_amount: moneyAmount,
   currency: z.enum(RECEIPT_CURRENCIES),
   notes: trimmedNullable,
@@ -188,7 +188,7 @@ export const ReceiptCreateSchema = z
 export const ReceiptUpdateSchema = z
   .object({
     id: z.string().uuid(),
-    recibo_date: baseReceiptFields.recibo_date,
+    receipt_date: baseReceiptFields.receipt_date,
     total_amount: baseReceiptFields.total_amount,
     notes: baseReceiptFields.notes,
     payment_lines: baseReceiptFields.payment_lines,

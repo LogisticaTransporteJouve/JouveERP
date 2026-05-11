@@ -1,8 +1,10 @@
 "use client";
 
+import { Download, Eye, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,22 +14,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
+import type { Account } from "@/features/accounts/schema";
+import type { PickedClient } from "@/features/invoices/components/client-picker";
+import { NewInvoiceDialog } from "@/features/invoices/components/new-invoice-dialog";
+import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
+import { NewReceiptDialog } from "@/features/receipts/components/new-receipt-dialog";
+import type { ChannelOption } from "@/features/receipts/components/receipt-form";
+import type { Role } from "@/lib/auth/permissions";
+import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useClientAccount } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
 
-const formatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
+interface InvoiceChannelOption {
+  id: string;
+  name: string;
+  division: string;
+  is_fiscal: boolean;
+}
+
+const decimalFormatter = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
+// es-AR currency style inserts a space between $ and the number; we want
+// them tight, so format as decimal and prefix `$` manually.
+const formatter = {
+  format: (value: number) => `$${decimalFormatter.format(value)}`,
+};
 
 function formatMovementNumber(m: AccountMovement): string {
   const pos = String(m.punto_venta).padStart(4, "0");
   const num = String(m.numero).padStart(8, "0");
-  if (m.source_type === "recibo") return `R${pos}-${num}`;
+  if (m.source_type === "receipt") return `R${pos}-${num}`;
   if (m.kind === "factura") return `${m.letter ?? ""}${pos}-${num}`;
   if (m.kind === "nc") return `NC-${m.letter ?? ""} ${pos}-${num}`;
   if (m.kind === "nd") return `ND-${m.letter ?? ""} ${pos}-${num}`;
@@ -35,7 +56,7 @@ function formatMovementNumber(m: AccountMovement): string {
 }
 
 function movementTypeLabel(m: AccountMovement): string {
-  if (m.source_type === "recibo") return "Recibo";
+  if (m.source_type === "receipt") return "Recibo";
   if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nc") return `NC${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nd") return `ND${m.letter ? " " + m.letter : ""}`;
@@ -43,22 +64,36 @@ function movementTypeLabel(m: AccountMovement): string {
 }
 
 function movementHref(m: AccountMovement): string {
-  return m.source_type === "recibo"
-    ? "/recibos"
-    : `/comprobantes/${m.source_id}`;
+  return m.source_type === "receipt"
+    ? "/receipts"
+    : `/invoices/${m.source_id}`;
 }
 
-export function ClientAccountTab({ clientId }: { clientId: string }) {
+export function ClientAccountTab({
+  clientId,
+  client,
+  channels,
+  accounts,
+  actorRoles,
+}: {
+  clientId: string;
+  client: PickedClient;
+  channels: InvoiceChannelOption[];
+  accounts: Account[];
+  actorRoles: Role[];
+}) {
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
+  const canIssueInvoice = userCan(actorRoles, "invoices:issue");
+  const canWriteReceipt = userCan(actorRoles, "receipts:write");
 
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
   // refetching on every other client's activity.
   useRealtimeInvalidate([
     {
-      table: "comprobantes",
+      table: "invoices",
       filter: `client_id=eq.${clientId}`,
       queryKeys: [clientsKeys.account(clientId)],
     },
@@ -73,6 +108,36 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
     <div className="space-y-4">
       <BalanceHeader balance={balance} count={movements.length} />
 
+      {(canIssueInvoice || canWriteReceipt) && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canIssueInvoice && (
+            <NewInvoiceDialog
+              channels={channels}
+              initialClient={client}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Plus />
+                  Nuevo comprobante
+                </Button>
+              }
+            />
+          )}
+          {canWriteReceipt && (
+            <NewReceiptDialog
+              channels={channels as ChannelOption[]}
+              accounts={accounts}
+              initialClient={client}
+              trigger={
+                <Button size="sm">
+                  <Plus />
+                  Nuevo recibo
+                </Button>
+              }
+            />
+          )}
+        </div>
+      )}
+
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -80,10 +145,10 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
               <TableHead className="w-32">Fecha</TableHead>
               <TableHead className="w-40">Tipo</TableHead>
               <TableHead className="w-44">Documento</TableHead>
-              <TableHead>Canal</TableHead>
               <TableHead className="text-right">Debe</TableHead>
               <TableHead className="text-right">Haber</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
+              <TableHead className="w-32 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,7 +173,7 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
                       <Badge
                         variant="secondary"
                         className={
-                          m.source_type === "recibo"
+                          m.source_type === "receipt"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : m.kind === "nc"
                               ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
@@ -119,22 +184,54 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {m.source_type === "comprobante" ? (
-                        <Link
-                          href={movementHref(m)}
-                          className="hover:underline"
-                        >
-                          {formatMovementNumber(m)}
-                        </Link>
-                      ) : (
-                        formatMovementNumber(m)
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {m.channel_name}
+                      <span className="inline-flex items-center gap-2">
+                        {m.source_type === "invoice" ? (
+                          <Link
+                            href={movementHref(m)}
+                            className="hover:underline"
+                          >
+                            {formatMovementNumber(m)}
+                          </Link>
+                        ) : (
+                          formatMovementNumber(m)
+                        )}
+                        {m.source_type === "invoice" &&
+                          m.kind !== "credit_note" &&
+                          m.outstanding != null &&
+                          (m.outstanding === 0 ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                            >
+                              Pagada
+                            </Badge>
+                          ) : m.outstanding < m.gross_amount ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                            >
+                              Parcial
+                            </Badge>
+                          ) : null)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {isDebit ? formatter.format(m.gross_amount) : ""}
+                      {isDebit ? (
+                        <span className="inline-flex flex-col items-end">
+                          <span>{formatter.format(m.gross_amount)}</span>
+                          {m.source_type === "invoice" &&
+                            m.kind !== "credit_note" &&
+                            m.outstanding != null &&
+                            m.outstanding > 0 &&
+                            m.outstanding < m.gross_amount && (
+                              <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                                Pendiente: {formatter.format(m.outstanding)}
+                              </span>
+                            )}
+                        </span>
+                      ) : (
+                        ""
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {!isDebit ? formatter.format(m.gross_amount) : ""}
@@ -151,6 +248,70 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
                       >
                         {formatter.format(m.balance)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        {m.source_type === "invoice" ? (
+                          <>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Ver comprobante"
+                            >
+                              <Link
+                                href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
+                              >
+                                <Eye className="size-4" />
+                              </Link>
+                            </Button>
+                            <PdfViewerDialog
+                              id={m.source_id}
+                              label={formatMovementNumber(m)}
+                            />
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Descargar PDF"
+                            >
+                              <Link href={`/api/invoices/${m.source_id}/pdf`}>
+                                <Download className="size-4" />
+                              </Link>
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Ver recibo"
+                            >
+                              <Link
+                                href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
+                              >
+                                <Eye className="size-4" />
+                              </Link>
+                            </Button>
+                            <PdfViewerDialog
+                              id={m.source_id}
+                              label={formatMovementNumber(m)}
+                              kind="receipt"
+                            />
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Descargar PDF"
+                            >
+                              <Link href={`/api/receipts/${m.source_id}/pdf`}>
+                                <Download className="size-4" />
+                              </Link>
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

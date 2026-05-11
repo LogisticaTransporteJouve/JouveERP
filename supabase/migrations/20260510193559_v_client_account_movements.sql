@@ -1,6 +1,6 @@
 -- F.7 (parcial) — Cuenta corriente per cliente.
 --
--- Vista de solo lectura que unifica comprobantes y recibos del cliente en
+-- Vista de solo lectura que unifica invoices y recibos del cliente en
 -- un único feed cronológico. Incluye fiscales e internos (todos los
 -- channels) — la cuenta corriente es del cliente, no de un canal.
 --
@@ -9,7 +9,7 @@
 --   * signed_amount < 0  → el cliente PAGA / le acreditamos (NC, recibo).
 --
 -- Filtros de estado:
---   * comprobantes: solo `emitted` (no draft, emitting, failed, cancelled).
+--   * invoices: solo `emitted` (no draft, emitting, failed, cancelled).
 --   * receipts:     solo `issued`  (no canceled).
 --
 -- El saldo running se calcula en la action (lib/cuenta-corriente) con un
@@ -20,11 +20,11 @@
 
 set row_security = off;
 
-create or replace view public.v_client_account_movements as
+create or replace view public.v_client_account_movements with (security_invoker = on) as
   -- Comprobantes emitidos. NC suma negativo (acreditamos al cliente),
   -- factura y ND suman positivo (cliente nos debe).
   select
-    'comprobante'::text                      as source_type,
+    'invoice'::text                      as source_type,
     c.id                                     as source_id,
     c.client_id                              as client_id,
     c.fecha                                  as movement_date,
@@ -43,7 +43,7 @@ create or replace view public.v_client_account_movements as
     ch.is_fiscal                             as channel_is_fiscal,
     ch.name                                  as channel_name,
     c.status                                 as status
-  from public.comprobantes c
+  from public.invoices c
   join public.invoicing_channels ch on ch.id = c.channel_id
   where c.status = 'emitted'
 
@@ -51,12 +51,12 @@ create or replace view public.v_client_account_movements as
 
   -- Recibos emitidos. Siempre acreditan al cliente (negativo).
   select
-    'recibo'::text                           as source_type,
+    'receipt'::text                          as source_type,
     r.id                                     as source_id,
     r.client_id                              as client_id,
-    r.recibo_date                            as movement_date,
+    r.receipt_date                            as movement_date,
     r.created_at                             as created_at,
-    'recibo'::text                           as kind,
+    'receipt'::text                          as kind,
     null::text                               as letter,
     r.punto_venta                            as punto_venta,
     r.numero                                 as numero,
@@ -72,6 +72,6 @@ create or replace view public.v_client_account_movements as
   where r.status = 'issued';
 
 comment on view public.v_client_account_movements is
-  'Feed cronológico unificado de comprobantes y recibos por cliente. signed_amount > 0 = el cliente debe; < 0 = pago / NC. Solo emitidos / issued.';
+  'Feed cronológico unificado de invoices y recibos por cliente. signed_amount > 0 = el cliente debe; < 0 = pago / NC. Solo emitidos / issued.';
 
 set row_security = on;

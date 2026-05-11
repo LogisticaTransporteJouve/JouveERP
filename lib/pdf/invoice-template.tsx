@@ -7,8 +7,8 @@ import {
   View,
 } from "@react-pdf/renderer";
 
-import { COMPROBANTE_KIND_LABEL } from "@/features/comprobantes/schema";
-import type { ComprobanteKind, ComprobanteLetter } from "@/lib/afip/codes";
+import { INVOICE_KIND_LABEL } from "@/features/invoices/schema";
+import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
 
 // Single PDF template that renders fiscal AND internal comprobantes. The
@@ -53,8 +53,8 @@ export interface InvoiceTemplateData {
 
 
   // Comprobante metadata
-  kind: ComprobanteKind;
-  letter: ComprobanteLetter | null; // null for internal
+  kind: InvoiceKind;
+  letter: InvoiceLetter | null; // null for internal
   punto_venta: number;
   numero: number;
   fecha: string; // YYYY-MM-DD
@@ -305,7 +305,7 @@ function InvoicePage({
 
         <View style={styles.headerRight}>
           <Text style={styles.comprobanteHeading}>
-            {COMPROBANTE_KIND_LABEL[data.kind]}
+            {INVOICE_KIND_LABEL[data.kind]}
           </Text>
           <Text style={styles.comprobanteSubheading}>{subtitle}</Text>
           <Text style={{ marginTop: 8 }}>
@@ -487,7 +487,7 @@ function InvoicePage({
 
 // Mirrors the table in lib/afip/codes.ts. Kept inline because the PDF-side
 // only needs the int code as a string for display next to the letter.
-function kindAfipCode(kind: ComprobanteKind, letter: ComprobanteLetter): string {
+function kindAfipCode(kind: InvoiceKind, letter: InvoiceLetter): string {
   if (kind === "factura") return letter === "A" ? "01" : letter === "B" ? "06" : "11";
   if (kind === "nd") return letter === "A" ? "02" : letter === "B" ? "07" : "12";
   return letter === "A" ? "03" : letter === "B" ? "08" : "13";

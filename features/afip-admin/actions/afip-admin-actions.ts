@@ -21,7 +21,7 @@ export type ActionResult<T> =
   | { ok: false; error: string; code?: string };
 
 type PuntoDeVentaRow =
-  Database["public"]["Tables"]["puntos_de_venta"]["Row"];
+  Database["public"]["Tables"]["sales_points"]["Row"];
 
 export interface SalesPointRow {
   numero: number;
@@ -75,7 +75,7 @@ export async function loadAfipAdminAction(): Promise<
       });
       throw err;
     }),
-    supabase.from("puntos_de_venta").select("*").order("numero"),
+    supabase.from("sales_points").select("*").order("numero"),
   ]);
 
   if (dbRes.error) {
@@ -118,7 +118,7 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
 
   const supabase = getServiceClient();
   const existing = await supabase
-    .from("puntos_de_venta")
+    .from("sales_points")
     .select("numero");
   if (existing.error) {
     return { ok: false, error: existing.error.message };
@@ -143,7 +143,7 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
   }
 
   const upsertRes = await supabase
-    .from("puntos_de_venta")
+    .from("sales_points")
     .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false })
     .select("*")
     .order("numero");
@@ -198,7 +198,7 @@ export async function configurePosAction(
 
   const supabase = getServiceClient();
   const update = await supabase
-    .from("puntos_de_venta")
+    .from("sales_points")
     .update({ channel_id, nickname, is_enabled })
     .eq("numero", numero)
     .select("*")

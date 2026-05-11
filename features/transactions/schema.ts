@@ -67,7 +67,7 @@ export const TransactionCreateSchema = z.object({
   transaction_date: isoDate,
   accrual_month: accrualMonth,
   description: trimmedNullable,
-  comprobante_id: z.string().uuid().nullable().optional(),
+  invoice_id: z.string().uuid().nullable().optional(),
   counterparty_client_id: z.string().uuid().nullable().optional(),
 });
 

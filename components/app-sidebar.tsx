@@ -48,37 +48,37 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/clientes",
+    href: "/clients",
     label: "Clientes",
     icon: Users,
     permission: "clients:read",
   },
   {
-    href: "/comprobantes",
+    href: "/invoices",
     label: "Comprobantes",
     icon: ReceiptText,
     permission: "invoices:read",
   },
   {
-    href: "/recibos",
+    href: "/receipts",
     label: "Recibos",
     icon: ScrollText,
     permission: "receipts:read",
   },
   {
-    href: "/cuentas",
+    href: "/accounts",
     label: "Cuentas",
     icon: Wallet,
     permission: "accounts:read",
   },
   {
-    href: "/caja",
+    href: "/transactions",
     label: "Caja",
     icon: ArrowLeftRight,
     permission: "transactions:read",
   },
   {
-    href: "/cheques",
+    href: "/checks",
     label: "Cheques",
     icon: BookCheck,
     permission: "cheques:read",

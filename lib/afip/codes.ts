@@ -27,12 +27,12 @@ export const CBTE_TIPO = {
 
 export type CbteTipoCode = (typeof CBTE_TIPO)[keyof typeof CBTE_TIPO];
 
-export type ComprobanteKind = "factura" | "nc" | "nd";
-export type ComprobanteLetter = "A" | "B" | "C";
+export type InvoiceKind = "factura" | "nc" | "nd";
+export type InvoiceLetter = "A" | "B" | "C";
 
 const CBTE_TIPO_BY_KIND_LETTER: Record<
-  ComprobanteKind,
-  Record<ComprobanteLetter, CbteTipoCode>
+  InvoiceKind,
+  Record<InvoiceLetter, CbteTipoCode>
 > = {
   factura: { A: 1, B: 6, C: 11 },
   nd: { A: 2, B: 7, C: 12 },
@@ -40,8 +40,8 @@ const CBTE_TIPO_BY_KIND_LETTER: Record<
 };
 
 export function cbteTipoFor(
-  kind: ComprobanteKind,
-  letter: ComprobanteLetter,
+  kind: InvoiceKind,
+  letter: InvoiceLetter,
 ): CbteTipoCode {
   return CBTE_TIPO_BY_KIND_LETTER[kind][letter];
 }
@@ -116,7 +116,7 @@ export function condicionIvaReceptorFor(
 //   - Receptor Monotributo / Exento / Consumidor Final / No categorizado → B
 //   - If emisor were monotributo, all letters would be C — not our case today.
 // --------------------------------------------------------------------------
-export function letterFor(receptorIva: IvaCondition): ComprobanteLetter {
+export function letterFor(receptorIva: IvaCondition): InvoiceLetter {
   if (receptorIva === "responsable_inscripto") return "A";
   return "B";
 }

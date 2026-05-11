@@ -20,7 +20,7 @@ export const IVA_CONDITION_LABEL: Record<IvaCondition, string> = {
   no_categorizado: "No Categorizado",
 };
 
-export const CLIENTS_PATH = "/clientes";
+export const CLIENTS_PATH = "/clients";
 
 const trimmedNullable = z
   .string()
