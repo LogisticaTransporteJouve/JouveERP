@@ -7,6 +7,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { runAction } from "@/lib/query/run-action";
@@ -104,6 +105,7 @@ export function useCreateReceipt() {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
       qc.invalidateQueries({ queryKey: clientsKeys.all });
+      qc.invalidateQueries({ queryKey: agingKeys.all });
     },
   });
 }
@@ -117,6 +119,7 @@ export function useUpdateReceipt() {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
       qc.invalidateQueries({ queryKey: clientsKeys.all });
+      qc.invalidateQueries({ queryKey: agingKeys.all });
       const id = (variables as { id?: string }).id;
       if (id) qc.invalidateQueries({ queryKey: receiptsKeys.detail(id) });
     },
@@ -132,6 +135,7 @@ export function useCancelReceipt() {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
       qc.invalidateQueries({ queryKey: clientsKeys.all });
+      qc.invalidateQueries({ queryKey: agingKeys.all });
       qc.invalidateQueries({ queryKey: receiptsKeys.detail(variables.id) });
     },
   });
