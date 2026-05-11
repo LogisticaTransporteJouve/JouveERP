@@ -86,6 +86,7 @@ export function ReceiptForm({
   channels,
   accounts,
   receipt,
+  initialClient,
   onSuccess,
   onCancel,
 }: {
@@ -93,6 +94,7 @@ export function ReceiptForm({
   channels: ChannelOption[];
   accounts: Account[];
   receipt?: ReceiptDetail;
+  initialClient?: PickedClient | null;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -121,7 +123,7 @@ export function ReceiptForm({
   const [currency, setCurrency] = useState<ReceiptCurrency>(
     (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
   );
-  const [client, setClient] = useState<PickedClient | null>(null);
+  const [client, setClient] = useState<PickedClient | null>(initialClient ?? null);
   const [notes, setNotes] = useState<string>(receipt?.receipt.notes ?? "");
 
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(

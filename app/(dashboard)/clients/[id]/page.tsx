@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { getClientAccountAction } from "@/features/clients/actions/account-actions";
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import { ClientAccountTab } from "@/features/clients/components/client-account-tab";
@@ -21,6 +22,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -48,6 +50,25 @@ export default async function ClientDetailPage({
   const client = result.data;
   const canWrite = userCan(ctx.roles, "clients:write");
 
+  // Fetch channels + accounts so the cuenta-corriente tab can render the
+  // New invoice / New receipt dialogs with this client pre-selected.
+  const supabase = await createSupabaseClient();
+  const { data: channelsData } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, division, is_fiscal, is_active")
+    .eq("is_active", true)
+    .order("name");
+
+  const channels = (channelsData ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    division: c.division,
+    is_fiscal: c.is_fiscal,
+  }));
+
+  const accountsResult = await listAccountsAction();
+  const accounts = accountsResult.ok ? accountsResult.data : [];
+
   const dehydratedState = await prefetchQueries([
     {
       queryKey: clientsKeys.account(id),
@@ -56,7 +77,7 @@ export default async function ClientDetailPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -87,7 +108,19 @@ export default async function ClientDetailPage({
         <TabsContent value="account" className="mt-4">
           <Hydrate state={dehydratedState}>
             <Suspense fallback={<Loading />}>
-              <ClientAccountTab clientId={id} />
+              <ClientAccountTab
+                clientId={id}
+                client={{
+                  id: client.id,
+                  legal_name: client.legal_name,
+                  display_name: client.display_name,
+                  cuit: client.cuit,
+                  iva_condition: client.iva_condition,
+                }}
+                channels={channels}
+                accounts={accounts}
+                actorRoles={ctx.roles}
+              />
             </Suspense>
           </Hydrate>
         </TabsContent>

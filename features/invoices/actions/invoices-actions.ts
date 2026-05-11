@@ -402,6 +402,20 @@ export async function listInvoicesAction(
   if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
   if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
   if (filters.client_id) query = query.eq("client_id", filters.client_id);
+  if (filters.query) {
+    // Search by client legal_name or by numero. The leading underscore
+    // makes the trigram match more forgiving for typos / partial matches.
+    const term = filters.query.trim();
+    if (term.length > 0) {
+      const numeric = term.replace(/\D+/g, "");
+      const numeroFilter = numeric.length > 0 ? `numero.eq.${numeric}` : null;
+      const clauses = [
+        `clients.legal_name.ilike.%${term}%`,
+        numeroFilter,
+      ].filter(Boolean) as string[];
+      query = query.or(clauses.join(","));
+    }
+  }
 
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };

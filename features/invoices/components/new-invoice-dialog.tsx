@@ -92,19 +92,25 @@ const RATE_OPTIONS: Array<{ value: IvaRateId; label: string }> = [
   { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
 ];
 
-export function NewComprobanteDialog({
+export function NewInvoiceDialog({
   channels,
+  initialClient,
+  trigger,
 }: {
   channels: ChannelOption[];
+  initialClient?: PickedClient | null;
+  trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          Nuevo
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus />
+            Nuevo
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
@@ -114,8 +120,9 @@ export function NewComprobanteDialog({
           </DialogDescription>
         </DialogHeader>
         {open && (
-          <NewComprobanteForm
+          <NewInvoiceForm
             channels={channels}
+            initialClient={initialClient ?? null}
             onSuccess={() => setOpen(false)}
             onCancel={() => setOpen(false)}
           />
@@ -125,12 +132,14 @@ export function NewComprobanteDialog({
   );
 }
 
-function NewComprobanteForm({
+function NewInvoiceForm({
   channels,
+  initialClient,
   onSuccess,
   onCancel,
 }: {
   channels: ChannelOption[];
+  initialClient: PickedClient | null;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -167,7 +176,7 @@ function NewComprobanteForm({
     ? conceptoForDivision(currentChannel.division)
     : CONCEPTO.SERVICIOS;
   // Cliente
-  const [client, setClient] = useState<PickedClient | null>(null);
+  const [client, setClient] = useState<PickedClient | null>(initialClient);
 
   // Items — first row is the user's, last row is the Seguro line that's
   // always present and can't be removed. Seguro stores `quantity = pct/100`

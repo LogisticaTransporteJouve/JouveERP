@@ -13,25 +13,32 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Account } from "@/features/accounts/schema";
+import type { PickedClient } from "@/features/invoices/components/client-picker";
 
 import { ReceiptForm, type ChannelOption } from "./receipt-form";
 
 export function NewReceiptDialog({
   channels,
   accounts,
+  initialClient,
+  trigger,
 }: {
   channels: ChannelOption[];
   accounts: Account[];
+  initialClient?: PickedClient | null;
+  trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" />
-          Nuevo recibo
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="size-4" />
+            Nuevo recibo
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
@@ -45,6 +52,7 @@ export function NewReceiptDialog({
           mode="create"
           channels={channels}
           accounts={accounts}
+          initialClient={initialClient ?? null}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />

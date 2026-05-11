@@ -47,7 +47,7 @@ import {
   INVOICE_STATUS_LABEL,
   type InvoiceStatus,
 } from "../schema";
-import { NewComprobanteDialog } from "./new-invoice-dialog";
+import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
 // Argentine convention: letter prefix glued to the number, 5 digits punto
@@ -191,7 +191,7 @@ export function ComprobantesTable({
 
         {canIssue && (
           <div className="ml-auto">
-            <NewComprobanteDialog channels={channels} />
+            <NewInvoiceDialog channels={channels} />
           </div>
         )}
       </div>

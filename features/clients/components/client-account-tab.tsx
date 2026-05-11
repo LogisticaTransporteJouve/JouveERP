@@ -1,8 +1,10 @@
 "use client";
 
+import { Download, Eye, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,11 +14,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
+import type { Account } from "@/features/accounts/schema";
+import type { PickedClient } from "@/features/invoices/components/client-picker";
+import { NewInvoiceDialog } from "@/features/invoices/components/new-invoice-dialog";
+import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
+import { NewReceiptDialog } from "@/features/receipts/components/new-receipt-dialog";
+import type { ChannelOption } from "@/features/receipts/components/receipt-form";
+import type { Role } from "@/lib/auth/permissions";
+import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useClientAccount } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
+
+interface InvoiceChannelOption {
+  id: string;
+  name: string;
+  division: string;
+  is_fiscal: boolean;
+}
 
 const decimalFormatter = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
@@ -52,10 +69,24 @@ function movementHref(m: AccountMovement): string {
     : `/invoices/${m.source_id}`;
 }
 
-export function ClientAccountTab({ clientId }: { clientId: string }) {
+export function ClientAccountTab({
+  clientId,
+  client,
+  channels,
+  accounts,
+  actorRoles,
+}: {
+  clientId: string;
+  client: PickedClient;
+  channels: InvoiceChannelOption[];
+  accounts: Account[];
+  actorRoles: Role[];
+}) {
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
+  const canIssueInvoice = userCan(actorRoles, "invoices:issue");
+  const canWriteReceipt = userCan(actorRoles, "receipts:write");
 
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
@@ -77,6 +108,36 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
     <div className="space-y-4">
       <BalanceHeader balance={balance} count={movements.length} />
 
+      {(canIssueInvoice || canWriteReceipt) && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canIssueInvoice && (
+            <NewInvoiceDialog
+              channels={channels}
+              initialClient={client}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Plus />
+                  Nuevo comprobante
+                </Button>
+              }
+            />
+          )}
+          {canWriteReceipt && (
+            <NewReceiptDialog
+              channels={channels as ChannelOption[]}
+              accounts={accounts}
+              initialClient={client}
+              trigger={
+                <Button size="sm">
+                  <Plus />
+                  Nuevo recibo
+                </Button>
+              }
+            />
+          )}
+        </div>
+      )}
+
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -88,13 +149,14 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
               <TableHead className="text-right">Debe</TableHead>
               <TableHead className="text-right">Haber</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
+              <TableHead className="w-32 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {movements.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Este cliente todavía no tiene movimientos.
@@ -155,6 +217,49 @@ export function ClientAccountTab({ clientId }: { clientId: string }) {
                       >
                         {formatter.format(m.balance)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        {m.source_type === "comprobante" ? (
+                          <>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Ver comprobante"
+                            >
+                              <Link href={`/invoices/${m.source_id}`}>
+                                <Eye className="size-4" />
+                              </Link>
+                            </Button>
+                            <PdfViewerDialog
+                              id={m.source_id}
+                              label={formatMovementNumber(m)}
+                            />
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Descargar PDF"
+                            >
+                              <Link href={`/api/invoices/${m.source_id}/pdf`}>
+                                <Download className="size-4" />
+                              </Link>
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Ver recibo"
+                          >
+                            <Link href="/receipts">
+                              <Eye className="size-4" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
