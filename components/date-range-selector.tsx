@@ -13,24 +13,12 @@ import {
 } from "@/components/ui/popover";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import {
+  dateToIso,
+  isoToDate,
   RANGE_PRESET_LABEL,
   RANGE_PRESET_OPTIONS,
   type RangePreset,
 } from "@/lib/date-range";
-
-function dateToIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoToDate(iso: string): Date | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-}
 
 /**
  * Selector global de rango de fechas. Trigger compacto en el toolbar de

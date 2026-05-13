@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { todayIsoLocal as todayIso } from "@/lib/date-range";
 
 import {
   useAccountOpeningBalance,
@@ -34,10 +35,6 @@ import {
 interface ChannelOption {
   id: string;
   name: string;
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function parseAmount(raw: string): number {

@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAmountInput } from "@/lib/format";
@@ -185,21 +186,19 @@ export function PaymentLinesEditor({
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Fecha de emisión</Label>
-                        <Input
-                          type="date"
+                        <DatePicker
                           value={line.check?.issue_date ?? defaultDate}
-                          onChange={(e) =>
-                            updateCheck(idx, { issue_date: e.target.value })
+                          onChange={(v) =>
+                            updateCheck(idx, { issue_date: v })
                           }
                         />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Fecha de cobro</Label>
-                        <Input
-                          type="date"
+                        <DatePicker
                           value={line.check?.due_date ?? defaultDate}
-                          onChange={(e) =>
-                            updateCheck(idx, { due_date: e.target.value })
+                          onChange={(v) =>
+                            updateCheck(idx, { due_date: v })
                           }
                         />
                       </div>

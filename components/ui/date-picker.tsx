@@ -10,21 +10,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { dateToIso, isoToDate } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
-
-function dateToIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoToDate(iso: string): Date | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-}
 
 function formatDisplay(iso: string): string {
   const d = isoToDate(iso);

@@ -50,7 +50,6 @@ import { toast } from "sonner";
 import {
   useClearClientOpeningBalance,
   useClientAccount,
-  useClientOpeningBalance,
 } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
@@ -117,8 +116,6 @@ export function ClientAccountTab({
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
-  // Prefetched so the dialog already has the current ajuste when it opens.
-  useClientOpeningBalance(clientId);
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
   // El ajuste de saldo solo lo puede tocar el owner (acciones backend

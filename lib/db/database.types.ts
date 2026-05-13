@@ -412,6 +412,13 @@ export type Database = {
             referencedRelation: "v_aging_documents"
             referencedColumns: ["invoice_id"]
           },
+          {
+            foreignKeyName: "client_opening_balance_allocations_opening_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_opening_balances"
+            referencedColumns: ["client_id"]
+          },
         ]
       }
       client_opening_balances: {

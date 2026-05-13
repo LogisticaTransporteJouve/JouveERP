@@ -23,10 +23,7 @@ import {
   useClientOpeningBalance,
   useSetClientOpeningBalance,
 } from "../hooks/use-clients";
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayIsoLocal as todayIso } from "@/lib/date-range";
 
 function parseAmount(raw: string): number {
   // Acepta "1.234,56" o "1234.56" o "1234". Removemos miles AR ("."),

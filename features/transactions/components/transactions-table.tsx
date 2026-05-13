@@ -4,7 +4,7 @@ import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight } from "lucide-react";
 import { Suspense, useDeferredValue, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -244,20 +244,20 @@ function DateRange({
 }) {
   return (
     <div className="flex items-center gap-1">
-      <Input
-        type="date"
+      <DatePicker
         value={from}
-        onChange={(e) => onChange(e.target.value, to)}
-        className="w-[150px]"
-        aria-label="Desde"
+        onChange={(v) => onChange(v, to)}
+        placeholder="Desde"
+        className="w-[170px]"
+        clearable
       />
       <span className="text-xs text-muted-foreground">→</span>
-      <Input
-        type="date"
+      <DatePicker
         value={to}
-        onChange={(e) => onChange(from, e.target.value)}
-        className="w-[150px]"
-        aria-label="Hasta"
+        onChange={(v) => onChange(from, v)}
+        placeholder="Hasta"
+        className="w-[170px]"
+        clearable
       />
     </div>
   );
