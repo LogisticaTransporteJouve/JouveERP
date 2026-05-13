@@ -67,6 +67,9 @@ export async function getClientAccountAction(
   }
 
   const supabase = await createSupabaseClient();
+  // Supabase tiene un default de 1000 filas por request. Para clientes con
+  // muchas facturas migradas, lo subimos a un cap razonable. Cuando un
+  // cliente supere 10k movimientos, hay que paginar.
   const { data, error } = await supabase
     .from("v_client_account_movements")
     .select(
@@ -74,7 +77,8 @@ export async function getClientAccountAction(
     )
     .eq("client_id", clientId)
     .order("movement_date", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .range(0, 9999);
 
   if (error) {
     logger.error("clients.account.list_failed", { clientId, error });
@@ -126,6 +130,23 @@ export async function getClientAccountAction(
       if (status === "canceled") continue;
       const amt = Number(a.amount_applied);
       if (a.invoice_id) {
+        appliedByInvoice.set(
+          a.invoice_id,
+          (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
+        );
+      }
+    }
+
+    // También sumar lo imputado por el ajuste de saldo, así las facturas
+    // que el opening marcó como saldadas muestran el badge "Pagada" o
+    // "Parcial" en el cuenta corriente.
+    if (invoiceIds.length > 0) {
+      const { data: openingAllocs } = await supabase
+        .from("client_opening_balance_allocations")
+        .select("invoice_id, amount_applied")
+        .in("invoice_id", invoiceIds);
+      for (const a of openingAllocs ?? []) {
+        const amt = Number(a.amount_applied);
         appliedByInvoice.set(
           a.invoice_id,
           (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,

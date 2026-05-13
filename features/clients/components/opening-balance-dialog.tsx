@@ -91,7 +91,7 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
       {
         onSuccess: () => {
           toast.success(
-            existing ? "Saldo de apertura actualizado." : "Saldo de apertura registrado.",
+            existing ? "Ajuste de saldo actualizado." : "Ajuste de saldo registrado.",
           );
           setOpen(false);
         },
@@ -102,19 +102,16 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
 
   function onClear() {
     if (!existing) return;
-    if (!confirm("¿Borrar el saldo de apertura? Las imputaciones se revierten.")) return;
+    if (!confirm("¿Borrar el ajuste de saldo? Las imputaciones se revierten.")) return;
     clearMut.mutate(clientId, {
       onSuccess: () => {
-        toast.success("Saldo de apertura eliminado.");
+        toast.success("Ajuste de saldo eliminado.");
         setOpen(false);
       },
       onError: (err) => toast.error(err.message),
     });
   }
 
-  const triggerLabel = existing
-    ? "Editar saldo inicial"
-    : "Ajustar saldo inicial";
   const TriggerIcon = existing ? Pencil : Wallet;
 
   return (
@@ -122,16 +119,16 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <TriggerIcon />
-          {triggerLabel}
+          Ajustar saldo
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Saldo de apertura</DialogTitle>
+          <DialogTitle>Ajustar saldo</DialogTitle>
           <DialogDescription>
-            Fijá la deuda real del cliente a una fecha de corte. El sistema
-            marca las facturas más viejas como saldadas (FIFO) hasta que el
-            remanente coincida.
+            Fijá la deuda real del cliente a una fecha. El sistema reconcilia
+            el saldo al valor ingresado e imputa FIFO contra las facturas
+            anteriores. Editable: re-correr sobrescribe.
           </DialogDescription>
         </DialogHeader>
 
