@@ -81,34 +81,20 @@ export async function getClientAccountAction(
     return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
 
-  // Si hay opening_balance, ocultamos los movimientos previos al corte:
-  // ya están representados en el target. El opening row aparece como
-  // primera fila lógica del feed (re-ordenamos para que en empate de
-  // fecha vaya primero, sino el running balance arranca raro).
-  const { data: openingRow } = await supabase
-    .from("client_opening_balances")
-    .select("opening_date")
-    .eq("client_id", clientId)
-    .maybeSingle();
-  const openingDate = openingRow?.opening_date ?? null;
-
-  let rows = data ?? [];
-  if (openingDate) {
-    rows = rows.filter((r) => {
-      if (r.source_type === "opening_balance") return true;
-      return (r.movement_date ?? "") >= openingDate;
-    });
-    // Estable: ordena opening_balance primero cuando empata la fecha.
-    rows = rows.slice().sort((a, b) => {
-      const dateA = a.movement_date ?? "";
-      const dateB = b.movement_date ?? "";
-      if (dateA !== dateB) return dateA < dateB ? -1 : 1;
-      const aOpen = a.source_type === "opening_balance" ? 0 : 1;
-      const bOpen = b.source_type === "opening_balance" ? 0 : 1;
-      if (aOpen !== bOpen) return aOpen - bOpen;
-      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
-    });
-  }
+  // Opening balance se comporta como una transaction de ajuste: en su fecha
+  // el saldo "salta" al target_balance. signed_amount efectivo = target -
+  // saldo_calculado_justo_antes. Para que el orden quede claro, en empate
+  // de fecha la opening row va al final (después de las facturas/recibos
+  // de ese mismo día) — así el ajuste reconcilia el día completo.
+  const rows = (data ?? []).slice().sort((a, b) => {
+    const dateA = a.movement_date ?? "";
+    const dateB = b.movement_date ?? "";
+    if (dateA !== dateB) return dateA < dateB ? -1 : 1;
+    const aOpen = a.source_type === "opening_balance" ? 1 : 0;
+    const bOpen = b.source_type === "opening_balance" ? 1 : 0;
+    if (aOpen !== bOpen) return aOpen - bOpen;
+    return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+  });
 
   // Per-document outstanding: invoices show imp_total − Σ allocations
   // applied (from issued receipts only). Receipts show their "a cuenta"
@@ -178,8 +164,14 @@ export async function getClientAccountAction(
       logger.warn("clients.account.row_with_nulls", { clientId, row });
       continue;
     }
-    const signed = Number(row.signed_amount);
-    const gross = Number(row.gross_amount);
+    let signed = Number(row.signed_amount);
+    let gross = Number(row.gross_amount);
+    if (row.source_type === "opening_balance") {
+      // El saldo "salta" al target. signed efectivo = target - running.
+      const target = Number(row.signed_amount); // la vista deja target_balance acá
+      signed = Math.round((target - running) * 100) / 100;
+      gross = Math.abs(signed);
+    }
     running = Math.round((running + signed) * 100) / 100;
     let outstanding: number | null = null;
     if (row.source_type === "invoice" && row.source_id && row.kind !== "credit_note") {
