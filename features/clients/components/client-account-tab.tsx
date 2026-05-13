@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -117,7 +117,8 @@ export function ClientAccountTab({
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
-  const { data: existingOpening } = useClientOpeningBalance(clientId);
+  // Prefetched so the dialog already has the current ajuste when it opens.
+  useClientOpeningBalance(clientId);
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
   // El ajuste de saldo solo lo puede tocar el owner (acciones backend
@@ -194,7 +195,7 @@ export function ClientAccountTab({
         <DateRangeSelector />
         {(canIssueInvoice || canWriteReceipt) && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {canIssueInvoice && !existingOpening && (
+            {canIssueInvoice && (
               <OwnerOnly disabled={!isOwner}>
                 <OpeningBalanceDialog
                   clientId={clientId}
@@ -204,7 +205,7 @@ export function ClientAccountTab({
                       size="sm"
                       disabled={!isOwner}
                     >
-                      <Pencil />
+                      <Wallet />
                       Ajustar saldo
                     </Button>
                   }
