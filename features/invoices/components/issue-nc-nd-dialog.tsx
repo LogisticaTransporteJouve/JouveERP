@@ -45,7 +45,7 @@ const RATE_OPTIONS: Array<{ value: IvaRateId; label: string }> = [
   { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
 ];
 
-type Kind = "nc" | "nd";
+export type Kind = "nc" | "nd";
 
 type ItemDraft = {
   description: string;
@@ -75,7 +75,7 @@ export interface OriginInvoice {
   }>;
 }
 
-const KIND_LABEL: Record<Kind, string> = {
+export const KIND_LABEL: Record<Kind, string> = {
   nc: "Nota de Crédito",
   nd: "Nota de Débito",
 };
@@ -85,16 +85,26 @@ const KIND_BLURB: Record<Kind, string> = {
   nd: "Ajusta a la alza la factura. Cargá los ítems del cargo extra (intereses, diferencias, etc.).",
 };
 
-export function IssueNcNdDialog({
+/**
+ * NcNdForm — body del dialog. Sin Dialog ni Trigger. Se reusa desde
+ * IssueNcNdDialog (page /invoices/[id]) y desde NewNcNdDialog (page
+ * /invoices, después de elegir origen).
+ */
+export function NcNdForm({
   origin,
   kind,
+  onSuccess,
+  onCancel,
+  cancelLabel = "Cancelar",
 }: {
   origin: OriginInvoice;
   kind: Kind;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  cancelLabel?: string;
 }) {
   const router = useRouter();
   const issueMut = useIssueFiscalInvoice();
-  const [open, setOpen] = useState(false);
 
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [motivo, setMotivo] = useState("");
@@ -197,7 +207,7 @@ export function IssueNcNdDialog({
       {
         onSuccess: (data) => {
           toast.success(`${KIND_LABEL[kind]} en cola — esperando CAE.`);
-          setOpen(false);
+          onSuccess?.();
           router.push(`/invoices/${data.id}`);
         },
         onError: (err) => toast.error(err.message),
@@ -205,6 +215,179 @@ export function IssueNcNdDialog({
     );
   }
 
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="rounded-md border bg-muted/30 p-3 text-sm">
+        <div className="text-xs text-muted-foreground">Asociada a</div>
+        <div className="font-mono text-sm">
+          {origin.letter} {origin.client.legal_name}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+        <div className="space-y-1">
+          <Label className="text-xs">Fecha</Label>
+          <Input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Motivo</Label>
+          <Input
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder={
+              kind === "nc"
+                ? "Ej. devolución de servicios prestados"
+                : "Ej. diferencia de tarifa"
+            }
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Ítems</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            Agregar ítem
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {items.map((it, idx) => (
+            <div
+              key={idx}
+              className="grid items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
+            >
+              <div className="space-y-1">
+                <Label className="text-xs">Descripción</Label>
+                <Input
+                  value={it.description}
+                  onChange={(e) =>
+                    updateItem(idx, { description: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cant.</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={it.quantity}
+                  onChange={(e) =>
+                    updateItem(idx, { quantity: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Precio unitario</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={it.unit_price}
+                  onChange={(e) =>
+                    updateItem(idx, { unit_price: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">IVA</Label>
+                <Select
+                  value={String(it.iva_rate_id)}
+                  onValueChange={(v) =>
+                    updateItem(idx, {
+                      iva_rate_id: Number(v) as IvaRateId,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {RATE_OPTIONS.map((r) => (
+                      <SelectItem key={r.value} value={String(r.value)}>
+                        {ivaRatePercent(r.value)}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeItem(idx)}
+                disabled={items.length === 1}
+                aria-label="Quitar ítem"
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+        <div>
+          <div className="text-xs text-muted-foreground">Neto</div>
+          <div className="font-mono">{totals.imp_neto.toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">IVA</div>
+          <div className="font-mono">{totals.imp_iva.toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="font-mono font-semibold">
+            {totals.imp_total.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs">Observaciones (opcional)</Label>
+        <Textarea
+          rows={2}
+          placeholder="Notas internas; no se envían a AFIP."
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onCancel}
+          disabled={issueMut.isPending}
+        >
+          {cancelLabel}
+        </Button>
+        <Button type="submit" disabled={issueMut.isPending}>
+          {issueMut.isPending
+            ? "Emitiendo…"
+            : `Emitir ${kind === "nc" ? "NC" : "ND"}`}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export { KIND_BLURB };
+
+/**
+ * IssueNcNdDialog — variante "origen ya conocido". Se usa desde el detalle
+ * de un comprobante (`/invoices/[id]`) donde la factura origen es la página
+ * misma. Para emitir NC/ND sin pasar por el detalle, ver NewNcNdDialog en
+ * `/invoices`.
+ */
+export function IssueNcNdDialog({
+  origin,
+  kind,
+}: {
+  origin: OriginInvoice;
+  kind: Kind;
+}) {
+  const [open, setOpen] = useState(false);
   const Icon = kind === "nc" ? FileMinus2 : FilePlus2;
 
   return (
@@ -220,160 +403,14 @@ export function IssueNcNdDialog({
           <DialogTitle>{KIND_LABEL[kind]}</DialogTitle>
           <DialogDescription>{KIND_BLURB[kind]}</DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={onSubmit} className="space-y-5">
-          <div className="rounded-md border bg-muted/30 p-3 text-sm">
-            <div className="text-xs text-muted-foreground">Asociada a</div>
-            <div className="font-mono text-sm">
-              {origin.letter} {origin.client.legal_name}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-            <div className="space-y-1">
-              <Label className="text-xs">Fecha</Label>
-              <Input
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Motivo</Label>
-              <Input
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder={
-                  kind === "nc"
-                    ? "Ej. devolución de servicios prestados"
-                    : "Ej. diferencia de tarifa"
-                }
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Ítems</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                Agregar ítem
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {items.map((it, idx) => (
-                <div
-                  key={idx}
-                  className="grid items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
-                >
-                  <div className="space-y-1">
-                    <Label className="text-xs">Descripción</Label>
-                    <Input
-                      value={it.description}
-                      onChange={(e) =>
-                        updateItem(idx, { description: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Cant.</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={it.quantity}
-                      onChange={(e) =>
-                        updateItem(idx, { quantity: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Precio unitario</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={it.unit_price}
-                      onChange={(e) =>
-                        updateItem(idx, { unit_price: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">IVA</Label>
-                    <Select
-                      value={String(it.iva_rate_id)}
-                      onValueChange={(v) =>
-                        updateItem(idx, {
-                          iva_rate_id: Number(v) as IvaRateId,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent position="popper">
-                        {RATE_OPTIONS.map((r) => (
-                          <SelectItem key={r.value} value={String(r.value)}>
-                            {ivaRatePercent(r.value)}%
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length === 1}
-                    aria-label="Quitar ítem"
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
-            <div>
-              <div className="text-xs text-muted-foreground">Neto</div>
-              <div className="font-mono">{totals.imp_neto.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">IVA</div>
-              <div className="font-mono">{totals.imp_iva.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Total</div>
-              <div className="font-mono font-semibold">
-                {totals.imp_total.toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs">Observaciones (opcional)</Label>
-            <Textarea
-              rows={2}
-              placeholder="Notas internas; no se envían a AFIP."
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={issueMut.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={issueMut.isPending}>
-              {issueMut.isPending
-                ? "Emitiendo…"
-                : `Emitir ${kind === "nc" ? "NC" : "ND"}`}
-            </Button>
-          </div>
-        </form>
+        {open && (
+          <NcNdForm
+            origin={origin}
+            kind={kind}
+            onSuccess={() => setOpen(false)}
+            onCancel={() => setOpen(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

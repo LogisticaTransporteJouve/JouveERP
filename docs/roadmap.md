@@ -482,6 +482,7 @@ Refs originales del scope completo (para cuando se retomen):
 
 - `app/layout.tsx` carga Geist Sans + Geist Mono via `next/font/google` con CSS vars.
 - `app/(dashboard)/layout.tsx` con `SidebarProvider` (default colapsado), header sticky 56px, theme toggle.
+- `app/(dashboard)/dashboard/page.tsx` landing post-login (cards de accesos rápidos). Ampliado en el refactor de 2026-05-12 (PR #39).
 - `components/app-sidebar.tsx` con header (logo "JouveERP"), grupo "Navegación" vacío.
 - `components/theme-toggle.tsx` con `next-themes` (`disableTransitionOnChange`).
 - `components/providers/query-provider.tsx`: `QueryClientProvider` con `staleTime: 30s`, `refetchOnWindowFocus: false`.
@@ -643,6 +644,7 @@ Smoke local verificado:
 - `.env.local.example` documenta `AFIP_ENV`, `AFIP_CUIT`, `AFIP_CERT`, `AFIP_KEY` (base64-PEMs single-line).
 - Tests: `lib/rate-limit.test.ts` (allow/deny, ventana alineada, fail-closed); `lib/afip/padron.test.ts` (mapper, prioridad VAT > Mono > Exempt > no_categorizado, asArray, fiscal-address preference).
 - Stub `tests/stubs/server-only.ts` aliased en vitest: `import "server-only"` ya no rompe los tests.
+- Página `/admin/padron` para probar el lookup manualmente con cualquier CUIT (gate `afip:admin`).
 
 #### C.3 — `feat: clients UI (list, form with verify-CUIT, edit, deactivate)` ✅ shipped
 
@@ -652,9 +654,9 @@ Smoke local verificado:
   - RPC `search_clients(p_query, p_only_active, p_limit) returns setof clients` — ranking por similitud trigram + LIKE prefix por CUIT, fallback a listado completo cuando `query=''`. `security invoker` para que respete RLS.
 - `features/clients/actions/clients-actions.ts` extendido: `searchClientsAction({ query, onlyActive, limit })`, `getClientByIdAction(id)`, `findClientByCuitAction(cuit)` (devuelve null cuando no existe — usado por la alta para detectar duplicados antes de pegarle a AFIP).
 - Páginas:
-  - `/clientes` (server) — lee `?q=` y `?inactive=1` de la URL, renderiza `ClientsTable`.
-  - `/clientes/nuevo` (server, gate `clients:write`) — `ClientForm mode="create"`.
-  - `/clientes/[id]` (server, gate `clients:read`) — `ClientForm mode="edit"` para escritores; vista read-only para `operations`.
+  - `/clients` (server) — lee `?q=` y `?inactive=1` de la URL, renderiza `ClientsTable`.
+  - `/clients/nuevo` (server, gate `clients:write`) — `ClientForm mode="create"`.
+  - `/clients/[id]` (server, gate `clients:read`) — `ClientForm mode="edit"` para escritores; vista read-only para `operations`.
 - Componentes:
   - `clients-table.tsx`: TanStack Table feel (search debounced 250 ms que pushea URL via `router.replace`, toggle "Solo activos", badges por condición IVA con paleta neutra, dropdown de acciones con desactivar/reactivar via `setClientActiveAction`).
   - `client-form.tsx`: RHF, botón "Verificar AFIP" que (1) checkea duplicados con `findClientByCuitAction` y muestra link a la ficha existente, (2) si no existe llama `verifyCuitAction` y autocompleta razón social, condición IVA, dirección. Toast de sonner en éxito/error. CUIT bloqueado en modo edit.
@@ -675,9 +677,11 @@ Smoke local verificado:
 
 ### Fase D — Caja única (Accounts + Transactions) (1-2 semanas)
 
-> **Orden de ejecución:** D.1 (sólo `accounts`) se adelanta y va **inmediatamente
-> después de Fase E** — los recibos (F.3) necesitan una cuenta destino para
-> registrar el ingreso. D.2 + D.3 (transactions + UI) van después de F.3.
+> **Orden de ejecución (histórico):** D.1 se ejecutó después de E.6 para
+> habilitar F.3 (recibos necesitaban cuenta destino). D.2 + D.3 fueron
+> después de F.3. Hoy las tres están shipped — esto queda como referencia
+> de por qué los timestamps de las migraciones no respetan el orden alfabético
+> de las letras de fase.
 
 #### D.1 — `feat: accounts (caja única, sin business_unit_id)` ✅ _shipped_
 
@@ -701,7 +705,7 @@ Smoke local verificado:
 
 #### D.3 — `feat: transactions UI (Caja)` ✅ _shipped_
 
-- `/caja` — tabla con filtros (canal, cuenta, tipo, rango de fechas), `useDeferredValue` para mantener resultados visibles durante transiciones.
+- `/transactions` — tabla con filtros (canal, cuenta, tipo, rango de fechas), `useDeferredValue` para mantener resultados visibles durante transiciones.
 - Dialog "Nuevo movimiento" con kind picker (Ingreso / Egreso / Transferencia) y form que conmuta entre 1 cuenta o 2 (origen + destino).
 - Mes devengado auto-aligned con la fecha (input `type="month"` que se guarda como YYYY-MM-01).
 - Sidebar: entrada "Caja" gated en `transactions:read`.
@@ -773,7 +777,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - `lib/inngest/functions/issue-invoice.ts` con steps `load-draft → reserve-numero → persist-numero → request-cae (con recovery vía FECompConsultar en transport-error) → persist-cae`.
 - `idempotency: "event.data.idempotency_key"`, `retries: 5`. `onFailure` marca `failed` con el error en `afip_observaciones`.
 - Inngest v4 cambió la API: `triggers: [...]` plural, sin `EventSchemas`. Los eventos se validan con Zod en el boundary de cada función.
-- `features/comprobantes/actions/comprobantes-actions.ts`: `issueFiscalInvoiceAction` (resuelve canal+cliente+POS, persiste draft+items, dispara evento), `getInvoiceStatusAction` (para polling).
+- `features/invoices/actions/invoices-actions.ts`: `issueFiscalInvoiceAction` (resuelve canal+cliente+POS, persiste draft+items, dispara evento), `getInvoiceStatusAction` (para polling).
 - Endpoint `GET /api/jobs/[id]` que devuelve status + cae info.
 - Branch interno rechazada explícitamente (llega en E.7).
 
@@ -796,9 +800,9 @@ multi-CUIT o necesitemos rotación on-the-fly.
 
 #### E.6 — `feat: invoice issuance UI + Playwright smoke test` (1 PR)
 
-- `/comprobantes` — listado filtrado por canal/período/status. Una sola tabla para fiscal e interno; columna "Tipo" diferencia con icono + texto ("Factura B" vs "Comprobante interno").
-- `/comprobantes/nuevo` — Dialog con selector canal arriba (con `optgroup` Fiscal/Interno). El form se reconfigura según `channel.is_fiscal`: fiscal muestra letter + IVA discriminado + `CondicionIVAReceptor`; interno los oculta. El selector solo lista POS con `is_enabled = true` (alimentado desde la tabla de E.1.5).
-- `/comprobantes/[id]` — detalle con card "Datos AFIP" (CAE, vencimiento, QR, observaciones) sólo para fiscal; interno muestra "Documento sin valor fiscal".
+- `/invoices` — listado filtrado por canal/período/status. Una sola tabla para fiscal e interno; columna "Tipo" diferencia con icono + texto ("Factura B" vs "Comprobante interno").
+- `/invoices/nuevo` — Dialog con selector canal arriba (con `optgroup` Fiscal/Interno). El form se reconfigura según `channel.is_fiscal`: fiscal muestra letter + IVA discriminado + `CondicionIVAReceptor`; interno los oculta. El selector solo lista POS con `is_enabled = true` (alimentado desde la tabla de E.1.5).
+- `/invoices/[id]` — detalle con card "Datos AFIP" (CAE, vencimiento, QR, observaciones) sólo para fiscal; interno muestra "Documento sin valor fiscal".
 - Componente `InvoiceJobStatus` polea cada 1.5s al endpoint `/api/jobs/[id]`.
 - Playwright: login → emitir factura B en homologación → ver CAE.
 - Sentry instalado.
@@ -807,8 +811,8 @@ multi-CUIT o necesitemos rotación on-the-fly.
 
 > Cierre de Fase E: el test end-to-end que valida login → emitir factura → ver CAE contra homologación AFIP.
 
-- `tests/e2e/comprobantes-emit.spec.ts` gateado por `RUN_AFIP_E2E=1` (requiere AFIP creds + POS habilitado + Inngest dev runtime).
-- Logueo, abre el Dialog, completa cliente + ítem mínimo, dispara "Emitir y solicitar CAE", espera redirect a `/comprobantes/[id]` y polling/realtime hasta que aparezca un CAE de 14 dígitos.
+- `tests/e2e/invoices-emit.spec.ts` gateado por `RUN_AFIP_E2E=1` (requiere AFIP creds + POS habilitado + Inngest dev runtime).
+- Logueo, abre el Dialog, completa cliente + ítem mínimo, dispara "Emitir y solicitar CAE", espera redirect a `/invoices/[id]` y polling/realtime hasta que aparezca un CAE de 14 dígitos.
 - Fix incidental en `playwright.config.ts`: el `storageState` global rompía el setup en checkouts frescos con ENOENT — movido al project chromium para que el setup arranque clean.
 
 #### E.7 — `feat: comprobante interno branch` ✅ _shipped_
@@ -817,7 +821,7 @@ multi-CUIT o necesitemos rotación on-the-fly.
 - Reusa la plantilla PDF (`lib/pdf/invoice-template.tsx`) con `isFiscal = false`: marca de agua "NO FISCAL", sin letter / sin CAE / sin QR.
 - Action `issueFiscalInvoiceAction` deja de bloquear canales internos: `letter`, `cbte_tipo_afip` y `iva_condition_receptor` quedan `null`. El trigger de DB sigue validando que los fiscales lleven los tres campos.
 - Dialog de "Nuevo comprobante" detecta `currentChannel.is_fiscal` y omite letter / iva_condition_receptor cuando emite por canal interno.
-- Detail page `/comprobantes/[id]` ya soportaba `!is_fiscal` desde E.6 (card "Documento no fiscal" en lugar de "Datos AFIP").
+- Detail page `/invoices/[id]` ya soportaba `!is_fiscal` desde E.6 (card "Documento no fiscal" en lugar de "Datos AFIP").
 
 #### E.8 — `feat: realtime cross-feature (comprobantes, recibos, cheques, caja, aging, cuenta corriente)` ✅ _shipped_
 
@@ -861,10 +865,9 @@ multi-CUIT o necesitemos rotación on-the-fly.
 
 Referencia: roadmap viejo §14, §15, §19.1.
 
-> **Orden de ejecución:** **F.3 (recibos)** se adelanta y va inmediatamente
-> después de **D.1** — cierra el ciclo "emitir factura → cobrarla" sobre la
-> base mínima (clients + comprobantes + accounts) sin esperar al resto de
-> Caja. Después se completan D.2 + D.3, y luego el resto de F.
+> **Orden de ejecución (histórico):** F.3 se ejecutó inmediatamente después
+> de D.1 para cerrar el ciclo "emitir factura → cobrarla" antes que el resto
+> de Caja. Hoy toda la fase está shipped — esto queda como referencia.
 
 **F.1 receipt → transactions auto-link** ✅ _shipped_ · **F.2 cheques + endosos** ✅ _shipped_ · **F.2.b cheques ↔ recibos integration** ✅ _shipped_ · **F.3 recibos editables** ✅ _shipped_ · ~~F.4 internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado_ · **F.5 retenciones / percepciones** ✅ _shipped_ · **F.6 NC/ND emisión** ✅ _shipped_ · **F.7.a cuenta corriente per cliente** ✅ _shipped_ · **F.7.b aging + cron Inngest** ✅ _shipped_.
 
@@ -873,7 +876,7 @@ Referencia: roadmap viejo §14, §15, §19.1.
 - `create_receipt` y `update_receipt` ahora aceptan `cheque` opcional en cada `payment_line`. Cuando el `account.type ∈ {cheques, echeq}` y la metadata está presente, insertan automáticamente la row en `cheques` linkeada al recibo y a la payment_line + un movement `received`.
 - `PaymentLinesEditor` despliega un sub-form (banco, firmante, CUIT, fechas de emisión y cobro) cuando la línea apunta a una cuenta de cartera.
 - `getReceiptByIdAction` devuelve `cheques_by_line` (mapeado por `source_payment_line_id`) para prefillear los datos del cheque al editar.
-- Trigger `guard_cheque_delete_in_lifecycle`: si se intenta editar/cancelar un recibo cuyo cheque ya fue depositado/endosado/etc, el delete cascade aborta con error claro pidiendo desligar manualmente desde `/cheques`.
+- Trigger `guard_cheque_delete_in_lifecycle`: si se intenta editar/cancelar un recibo cuyo cheque ya fue depositado/endosado/etc, el delete cascade aborta con error claro pidiendo desligar manualmente desde `/checks`.
 
 #### F.4 — ~~internal_fiscal_consumption + consolidateAndFiscalize~~ ❌ _descartado (2026-05-10)_
 
@@ -884,14 +887,14 @@ Modelaba el caso "Jouve consume servicios de DZ y se factura junto al cliente fi
 - Tablas `cheques` (header con kind=fisico|echeq, número, banco, firmante, monto, due_date, status) y `cheque_movements` (historial inmutable de eventos).
 - Lifecycle: `en_cartera → depositado → acreditado` o `en_cartera → endosado` o `cualquiera → rechazado`.
 - 4 RPCs atómicos: `deposit_cheque` (transfer entre cartera y banco), `credit_cheque` (status flip), `endorse_cheque` (expense en cartera + nombre del endosatario), `reject_cheque` (reverso del depósito si aplica).
-- Cada acción genera transactions en `/caja` para mantener consistencia con la realidad financiera.
-- Página `/cheques` con cards de totales por status + tabla con acciones contextuales por estado.
+- Cada acción genera transactions en `/transactions` para mantener consistencia con la realidad financiera.
+- Página `/checks` con cards de totales por status + tabla con acciones contextuales por estado.
 - Sidebar entry "Cheques" gateada en `cheques:read`.
-- **Pendiente para F.2.b**: integración con recibos — cuando una payment_line va a una cuenta tipo `cheques`/`echeq`, autocrear la row en cheques y prellenar los campos. Hoy es carga manual desde `/cheques`.
+- **Pendiente para F.2.b**: integración con recibos — cuando una payment_line va a una cuenta tipo `cheques`/`echeq`, autocrear la row en cheques y prellenar los campos. Hoy es carga manual desde `/checks`.
 
 #### F.6 — `feat: NC/ND emisión vía AFIP` ✅ _shipped_
 
-- Botones "Emitir NC" / "Emitir ND" en `/comprobantes/[id]` (sólo cuando la origen es factura emitida + canal fiscal + el actor tiene `invoices:issue`).
+- Botones "Emitir NC" / "Emitir ND" en `/invoices/[id]` (sólo cuando la origen es factura emitida + canal fiscal + el actor tiene `invoices:issue`).
 - `IssueNcNdDialog` reusa `issueFiscalInvoiceAction` con `kind = nc | nd` y `comprobante_origen_id` apuntando a la factura. Items prellenados con los de la origen (típicamente se editan para reflejar el monto a acreditar/cargar).
 - Letter y POS heredan de la origen (RG 1415). cbteTipo se resuelve a NC_A/NC_B/NC_C o ND_A/ND_B/ND_C vía `cbteTipoFor`.
 - `motivo_nc_nd` requerido en el form.
@@ -904,23 +907,23 @@ Modelaba el caso "Jouve consume servicios de DZ y se factura junto al cliente fi
 - RPCs `create_receipt` y `update_receipt` ahora insertan una transaction `kind=income` por cada `payment_line` (mismo channel, currency, fecha, accrual_month=mes de la fecha, counterparty=cliente del recibo). Las retenciones NO generan transactions (son crédito fiscal, no plata).
 - Trigger `receipts_on_cancel_clean_transactions` borra las transactions ligadas cuando el recibo pasa de `issued` a `canceled` — sin tocar el code path de cancel en TS.
 - Editar un recibo regenera el set completo (delete + re-insert), así cambios de cuenta/monto se reflejan en Caja sin doble carga manual.
-- Hooks de recibos invalidan también `transactionsKeys.all` y `clientsKeys.all` para que `/caja` y la cuenta corriente refresquen sin F5.
+- Hooks de recibos invalidan también `transactionsKeys.all` y `clientsKeys.all` para que `/transactions` y la cuenta corriente refresquen sin F5.
 
 #### F.7.a — `feat: cuenta corriente per cliente` ✅ _shipped_
 
 - Vista SQL `v_client_account_movements`: UNION ALL de `comprobantes` (status=emitted) y `receipts` (status=issued). Incluye fiscales e internos. Convención de signo: `signed_amount > 0` ⇒ el cliente debe (factura, ND); `< 0` ⇒ pago / NC.
 - Server action `getClientAccountAction(clientId)` — lee la vista, calcula el saldo running en TS y devuelve la lista cronológica.
 - Hook `useClientAccount` (suspense). Key dedicado `clientsKeys.account(id)`.
-- Tabs nuevos en `/clientes/[id]`: "Cuenta corriente" (default) + "Datos" (form existente). Se prefetchea la cuenta corriente en la page.
+- Tabs nuevos en `/clients/[id]`: "Cuenta corriente" (default) + "Datos" (form existente). Se prefetchea la cuenta corriente en la page.
 - Tabla con columnas Fecha / Tipo / Documento / Canal / Debe / Haber / Saldo. Header con saldo total, color tonal según signo.
-- Documentos del comprobante linkean a `/comprobantes/[id]`.
+- Documentos del comprobante linkean a `/invoices/[id]`.
 - Solo pesos en este iteration (multi-currency va con J.7).
 
 #### F.7.b — `feat: aging buckets + cron Inngest` ✅ _shipped_
 
 - Vistas SQL `v_aging_documents` (un row por factura/ND con saldo abierto = imp_total - Σ allocations) y `v_client_aging` (agregado por cliente con buckets 0-30 / 30-60 / 60-90 / 90+).
 - Allocations de recibos canceled no descuentan: solo `r.status = 'issued'`.
-- Página `/aging` con tabla por cliente sorted by total_open desc, cards de totales por bucket arriba (resaltando 60-90 y 90+ en tono destructivo), drilldown al detalle del cliente vía `/clientes/[id]`.
+- Página `/aging` con tabla por cliente sorted by total_open desc, cards de totales por bucket arriba (resaltando 60-90 y 90+ en tono destructivo), drilldown al detalle del cliente vía `/clients/[id]`.
 - Cron Inngest `aging-weekly-summary`: corre lunes 09:00 ART (`TZ=America/Argentina/Buenos_Aires 0 9 * * 1`). Compone summary estructurado y lo loggea — el envío de email queda como TODO hasta que se elija provider (Resend / SES). El payload del log es la fuente de verdad para el body del email cuando se enchufe.
 - Permiso piggyback en `clients:read` (no se agregó `aging:read` para evitar permission proliferation; finance ya lo tiene).
 
@@ -939,7 +942,7 @@ Modelaba el caso "Jouve consume servicios de DZ y se factura junto al cliente fi
 - `receipt_allocations(receipt_id, comprobante_id, amount_applied)` — UNIQUE `(receipt_id, comprobante_id)`.
 - RPCs `create_receipt` + `update_receipt` (transacción + sum-validation: `Σ payment_lines = total`, `Σ allocations ≤ total`).
 - RLS: read `owner|admin|finance`, write `owner|finance`. Hard delete bloqueado (soft-cancel via status=`canceled` que retiene el slot del correlativo).
-- UI: `/recibos` listado + Dialog "Nuevo" con ClientPicker + payment lines editor + allocations picker (autoload comprobantes pendientes con saldo) + Edit Dialog + Cancel Dialog. Default channel `jouve_fiscal`.
+- UI: `/receipts` listado + Dialog "Nuevo" con ClientPicker + payment lines editor + allocations picker (autoload comprobantes pendientes con saldo) + Edit Dialog + Cancel Dialog + endpoint `/api/receipts/[id]/pdf`. Default channel `jouve_fiscal`.
 - Permisos: `receipts:read`, `receipts:write`.
 - Hook genérico nuevo: `hooks/use-action-query.ts` (wrapper TanStack Query sobre `ActionResult<T>`). Usado por `useNextReceiptNumero`. **Refactor pendiente** para portar el resto de los efectos de la app a este patrón.
 
@@ -1062,16 +1065,27 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y `apps/api`, se
 
 ## 8. Cómo arrancar mañana
 
-**Estado al 2026-05-09**: Fases A, B, C, **E.1 + E.1.5 + E.2 + E.3 + E.4** shipped. La próxima PR es **E.5** (`@react-pdf/renderer` + QR). El orden a seguir es:
+**Estado al 2026-05-13**: Fases **A, B, C, D, E, F** shipped (40 PRs merged
+desde repo vacío). F.4 descartado por contradecir el modelo fiscal/interno.
+J.9 (loading/error UX) shipped como parte del refactor de query pattern
+2026-05-10. Resto de J pendiente.
 
-1. **E.5** — PDF + QR (`@react-pdf/renderer` + `qrcode`).
-2. **E.6** — UI + Playwright smoke.
-3. **D.1** — `accounts` (caja mínima, condición previa para F.3).
-4. **F.3** — recibos editables (cierra el ciclo AR).
-5. **D.2 + D.3** — transactions + UI + transferencias.
-6. **F.1, F.2, F.4–F.7** — el resto de cobranzas.
-7. **E.7** (post-MVP) — branch interna del workflow + plantilla PDF "no fiscal".
-8. Continuar con G, H, I, J en orden.
+**Refactors mergeados después del plan original** — útil tenerlos a mano:
+- Refactor query pattern (2026-05-10, PR #24) — RSC prefetch + `useSuspenseQuery` end-to-end.
+- Dashboard unify + ES→EN slug rename (2026-05-12, PR #39) — rutas y carpetas en inglés (`/clients`, `/invoices`, `/transactions`, `/checks`, `/receipts`, `/accounts`), receipts PDF endpoint, `app/(dashboard)/dashboard/page.tsx` landing.
+
+**Próximas fases**, en orden recomendado:
+
+1. **Fase G — Flota y viajes** (mayor valor para Transporte Jouve, hoy es la pata sin sistema).
+   Antes de codear: expandir §G a sub-PRs concretos (G.1–G.7 hoy es una línea).
+2. **Fase H — Pallets** (la otra mitad del negocio físico).
+3. **Fase I — IA** (cierra el `claude-proxy/` POC y trae OCR + asistente). Plan completo en `docs/ai-patterns.md`.
+4. **Fase J — Hardening** continuo (FTS, backups, notificaciones, portal cliente, multimoneda, CITI/CAEA).
+
+**WIP fuera del repo (2026-05-13):** carpeta untracked `claude-proxy/` con un
+Express standalone + componente `ExtractorFactura.jsx` para OCR de facturas
+vía Claude API. Es un POC. Debe integrarse a **Fase I.2 (OCR remitos)** o
+moverse fuera del repo — viola la decisión #8 (todo en Next.js + Inngest).
 
 **Regla de oro:** una fase no empieza si la anterior no tiene CI verde + tests
 mínimos + test manual de los flows críticos.
