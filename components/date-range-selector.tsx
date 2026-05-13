@@ -124,8 +124,13 @@ export function DateRangeSelector() {
                   mode="single"
                   selected={draftFrom}
                   onSelect={(d) => {
+                    // Picking a new start invalidates a previously-chosen
+                    // end if it'd be before — and we don't auto-apply on
+                    // start click, so the user can keep picking the end.
                     setDraftFrom(d);
-                    maybeApply(d, draftTo);
+                    if (d && draftTo && draftTo < d) {
+                      setDraftTo(undefined);
+                    }
                   }}
                   captionLayout="dropdown"
                 />
@@ -137,7 +142,8 @@ export function DateRangeSelector() {
                   selected={draftTo}
                   onSelect={(d) => {
                     setDraftTo(d);
-                    maybeApply(draftFrom, d);
+                    // Solo cerramos+aplicamos cuando ambos están elegidos.
+                    if (d && draftFrom) maybeApply(draftFrom, d);
                   }}
                   captionLayout="dropdown"
                   disabled={draftFrom ? { before: draftFrom } : undefined}
