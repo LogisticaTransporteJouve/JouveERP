@@ -23,6 +23,7 @@ import {
 import {
   defaultAccrualMonth,
   TRANSACTION_CURRENCIES,
+  type CheckMetadataInput,
   type TransactionCurrency,
 } from "../schema";
 
@@ -74,6 +75,23 @@ export function TransactionForm({
   );
   const [description, setDescription] = useState("");
 
+  // Check sub-form state. Sólo se usa si la cuenta es de tipo
+  // checks/echeq y el kind es income (recibo manual de check de tercero).
+  const selectedAccount = activeAccounts.find((a) => a.id === accountId);
+  const isCheckAccount =
+    !!selectedAccount &&
+    (selectedAccount.type === "checks" || selectedAccount.type === "echeq");
+  const showCheckSubForm = kind === "income" && isCheckAccount;
+  const defaultCheckKind: "fisico" | "echeq" =
+    selectedAccount?.type === "echeq" ? "echeq" : "fisico";
+
+  const [checkNumber, setCheckNumber] = useState("");
+  const [checkBank, setCheckBank] = useState("");
+  const [checkDrawer, setCheckDrawer] = useState("");
+  const [checkDrawerCuit, setCheckDrawerCuit] = useState("");
+  const [checkIssueDate, setCheckIssueDate] = useState(todayISO());
+  const [checkDueDate, setCheckDueDate] = useState(todayISO());
+
   function onTransactionDateChange(value: string) {
     setTransactionDate(value);
     setAccrualMonth(defaultAccrualMonth(value));
@@ -121,6 +139,28 @@ export function TransactionForm({
       toast.error("Elegí una cuenta.");
       return;
     }
+
+    let checkMetadata: CheckMetadataInput | null = null;
+    if (showCheckSubForm) {
+      if (checkNumber.trim().length === 0) {
+        toast.error("Ingresá el número del cheque.");
+        return;
+      }
+      if (!checkIssueDate || !checkDueDate) {
+        toast.error("Ingresá fecha de emisión y fecha de cobro.");
+        return;
+      }
+      checkMetadata = {
+        check_kind: defaultCheckKind,
+        check_number: checkNumber.trim(),
+        bank_name: checkBank.trim() || undefined,
+        drawer_name: checkDrawer.trim() || undefined,
+        drawer_cuit: checkDrawerCuit.trim() || undefined,
+        issue_date: checkIssueDate,
+        due_date: checkDueDate,
+      };
+    }
+
     createTxMut.mutate(
       {
         account_id: accountId,
@@ -131,6 +171,7 @@ export function TransactionForm({
         transaction_date: transactionDate,
         accrual_month: accrualMonth,
         description,
+        check_metadata: checkMetadata,
       },
       {
         onSuccess: () => {
@@ -313,6 +354,72 @@ export function TransactionForm({
           }
         />
       </div>
+
+      {/* Sub-form de cheque: aparece sólo cuando la cuenta destino es de
+          cartera (checks o echeq) y el movimiento es income (carga manual
+          de cheque de tercero). Crea un row en `checks` con
+          source_kind='manual' y status='en_cartera'. */}
+      {showCheckSubForm && (
+        <div className="space-y-3 rounded-md border border-dashed border-muted bg-muted/20 p-3">
+          <div className="text-xs font-medium text-muted-foreground">
+            Datos del cheque ({defaultCheckKind === "echeq" ? "electrónico" : "físico"})
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr]">
+            <div className="space-y-1">
+              <Label className="text-xs">Número del cheque</Label>
+              <Input
+                value={checkNumber}
+                onChange={(e) => setCheckNumber(e.target.value)}
+                placeholder="Ej. 00012345"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Banco</Label>
+              <Input
+                value={checkBank}
+                onChange={(e) => setCheckBank(e.target.value)}
+                placeholder="Ej. Banco Galicia"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+            <div className="space-y-1">
+              <Label className="text-xs">Firmante</Label>
+              <Input
+                value={checkDrawer}
+                onChange={(e) => setCheckDrawer(e.target.value)}
+                placeholder="Razón social"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">CUIT firmante</Label>
+              <Input
+                value={checkDrawerCuit}
+                onChange={(e) => setCheckDrawerCuit(e.target.value)}
+                placeholder="30-12345678-9"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Fecha de emisión</Label>
+              <Input
+                type="date"
+                value={checkIssueDate}
+                onChange={(e) => setCheckIssueDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Fecha de cobro</Label>
+              <Input
+                type="date"
+                value={checkDueDate}
+                onChange={(e) => setCheckDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <Button
