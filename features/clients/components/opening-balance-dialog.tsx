@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,7 +47,19 @@ function parseAmount(raw: string): number {
  * FIFO desde la factura más vieja hasta la más nueva con fecha ≤ corte
  * hasta que el remanente coincida con `target_balance`.
  */
-export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
+export function OpeningBalanceDialog({
+  clientId,
+  prefill = false,
+  trigger,
+}: {
+  clientId: string;
+  /** Si true, al abrir prellena con los valores del ajuste existente
+   *  (modo "editar el monto"). Default = false (nuevo ajuste, form
+   *  vacío). */
+  prefill?: boolean;
+  /** Reemplaza el trigger default (botón "Ajustar saldo"). */
+  trigger?: React.ReactNode;
+}) {
   const { data: existing } = useClientOpeningBalance(clientId);
   const [open, setOpen] = useState(false);
   const setMut = useSetClientOpeningBalance();
@@ -56,16 +69,21 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
   const [targetRaw, setTargetRaw] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Al abrir el dialog arranca siempre limpio: cada apertura es una nueva
-  // reconciliación, no un edit del valor anterior. El panel
-  // "Registrado actualmente" más abajo muestra el último ajuste como
-  // referencia.
+  // Al abrir el dialog: si prefill=true y existe un ajuste, prellenamos
+  // con sus valores (modo editar monto). Sino arranca vacío — cada
+  // apertura es una nueva reconciliación, no un edit del valor anterior.
   useEffect(() => {
     if (!open) return;
-    setOpeningDate(todayIso());
-    setTargetRaw("");
-    setNotes("");
-  }, [open]);
+    if (prefill && existing) {
+      setOpeningDate(existing.opening_date);
+      setTargetRaw(String(existing.target_balance));
+      setNotes(existing.notes ?? "");
+    } else {
+      setOpeningDate(todayIso());
+      setTargetRaw("");
+      setNotes("");
+    }
+  }, [open, prefill, existing]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,10 +132,12 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <TriggerIcon />
-          Ajustar saldo
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm">
+            <TriggerIcon />
+            Ajustar saldo
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -133,10 +153,9 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de corte</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={openingDate}
-                onChange={(e) => setOpeningDate(e.target.value)}
+                onChange={setOpeningDate}
               />
             </div>
             <div className="space-y-1">

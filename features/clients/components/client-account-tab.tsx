@@ -1,11 +1,28 @@
 "use client";
 
-import { Download, Eye, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -14,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DateRangeSelector } from "@/components/date-range-selector";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -32,6 +50,7 @@ import { toast } from "sonner";
 import {
   useClearClientOpeningBalance,
   useClientAccount,
+  useClientOpeningBalance,
 } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
@@ -98,8 +117,13 @@ export function ClientAccountTab({
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
+  const { data: existingOpening } = useClientOpeningBalance(clientId);
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
+  // El ajuste de saldo solo lo puede tocar el owner (acciones backend
+  // chequean lo mismo). Para los demás roles mostramos los botones
+  // deshabilitados con un tooltip que explica la restricción.
+  const isOwner = actorRoles.includes("owner");
   const clearOpeningMut = useClearClientOpeningBalance();
 
   // Filtro global de fechas (topbar). Lo aplicamos sobre los movimientos
@@ -140,12 +164,6 @@ export function ClientAccountTab({
   );
 
   function handleClearOpening() {
-    if (
-      !confirm(
-        "¿Borrar el ajuste de saldo? Las imputaciones a facturas anteriores se revierten.",
-      )
-    )
-      return;
     clearOpeningMut.mutate(clientId, {
       onSuccess: () => toast.success("Ajuste de saldo eliminado."),
       onError: (err) => toast.error(err.message),
@@ -172,36 +190,55 @@ export function ClientAccountTab({
     <div className="space-y-4">
       <BalanceHeader balance={balance} count={movements.length} />
 
-      {(canIssueInvoice || canWriteReceipt) && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {canIssueInvoice && <OpeningBalanceDialog clientId={clientId} />}
-          {canIssueInvoice && (
-            <NewInvoiceDialog
-              channels={channels}
-              initialClient={client}
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus />
-                  Nuevo comprobante
-                </Button>
-              }
-            />
-          )}
-          {canWriteReceipt && (
-            <NewReceiptDialog
-              channels={channels as ChannelOption[]}
-              accounts={accounts}
-              initialClient={client}
-              trigger={
-                <Button size="sm">
-                  <Plus />
-                  Nuevo recibo
-                </Button>
-              }
-            />
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangeSelector />
+        {(canIssueInvoice || canWriteReceipt) && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {canIssueInvoice && !existingOpening && (
+              <OwnerOnly disabled={!isOwner}>
+                <OpeningBalanceDialog
+                  clientId={clientId}
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!isOwner}
+                    >
+                      <Pencil />
+                      Ajustar saldo
+                    </Button>
+                  }
+                />
+              </OwnerOnly>
+            )}
+            {canIssueInvoice && (
+              <NewInvoiceDialog
+                channels={channels}
+                initialClient={client}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Plus />
+                    Nuevo comprobante
+                  </Button>
+                }
+              />
+            )}
+            {canWriteReceipt && (
+              <NewReceiptDialog
+                channels={channels as ChannelOption[]}
+                accounts={accounts}
+                initialClient={client}
+                trigger={
+                  <Button size="sm">
+                    <Plus />
+                    Nuevo recibo
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="rounded-lg border bg-card">
         <Table>
@@ -326,15 +363,61 @@ export function ClientAccountTab({
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {isOpening ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Borrar ajuste de saldo"
-                            onClick={handleClearOpening}
-                            disabled={clearOpeningMut.isPending}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                          <OwnerOnly disabled={!isOwner}>
+                            <div className="flex items-center gap-1">
+                              <OpeningBalanceDialog
+                                clientId={clientId}
+                                prefill
+                                trigger={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Editar ajuste de saldo"
+                                    disabled={!isOwner}
+                                  >
+                                    <Pencil className="size-4" />
+                                  </Button>
+                                }
+                              />
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Borrar ajuste de saldo"
+                                    disabled={
+                                      !isOwner || clearOpeningMut.isPending
+                                    }
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      ¿Borrar el ajuste de saldo?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Las imputaciones a facturas anteriores
+                                      se revierten. El saldo de la cuenta
+                                      corriente vuelve al calculado del
+                                      sistema.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancelar
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={handleClearOpening}
+                                    >
+                                      Borrar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </OwnerOnly>
                         ) : m.source_type === "invoice" &&
                           m.source_id ? (
                           <>
@@ -416,6 +499,34 @@ export function ClientAccountTab({
         </Table>
       </div>
     </div>
+  );
+}
+
+/**
+ * Envuelve el children en un Tooltip cuando `disabled=true`. El children
+ * (típicamente un Button) recibe sus props normales — el tooltip solo
+ * adjunta la explicación. Usado para los controles de ajuste de saldo
+ * que solo el owner puede usar.
+ */
+function OwnerOnly({
+  children,
+  disabled,
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+}) {
+  if (!disabled) return <>{children}</>;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-block">{children}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Solo el owner puede tocar el ajuste de saldo.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

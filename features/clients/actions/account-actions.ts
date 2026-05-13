@@ -137,15 +137,15 @@ export async function getClientAccountAction(
   const appliedByInvoice = new Map<string, number>();
   const appliedByReceipt = new Map<string, number>();
   if (invoiceIds.length > 0 || receiptIds.length > 0) {
+    // Filtramos por client_id del receipt (no por .in(invoice_id, …))
+    // para evitar el cap de URL length de PostgREST cuando hay miles de
+    // invoices migrados. !inner asegura que el filtro narrow al parent.
     const { data: allocs } = await supabase
       .from("receipt_allocations")
       .select(
-        "invoice_id, receipt_id, amount_applied, receipts ( status )",
+        "invoice_id, receipt_id, amount_applied, receipts!inner ( status, client_id )",
       )
-      .in(
-        "invoice_id",
-        invoiceIds.length > 0 ? invoiceIds : ["00000000-0000-0000-0000-000000000000"],
-      );
+      .eq("receipts.client_id", clientId);
 
     for (const a of allocs ?? []) {
       const status = (
@@ -163,19 +163,19 @@ export async function getClientAccountAction(
 
     // También sumar lo imputado por el ajuste de saldo, así las facturas
     // que el opening marcó como saldadas muestran el badge "Pagada" o
-    // "Parcial" en el cuenta corriente.
-    if (invoiceIds.length > 0) {
-      const { data: openingAllocs } = await supabase
-        .from("client_opening_balance_allocations")
-        .select("invoice_id, amount_applied")
-        .in("invoice_id", invoiceIds);
-      for (const a of openingAllocs ?? []) {
-        const amt = Number(a.amount_applied);
-        appliedByInvoice.set(
-          a.invoice_id,
-          (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
-        );
-      }
+    // "Parcial". Consultamos por client_id (más eficiente y sin límite
+    // de longitud de URL que sí afecta a `.in("invoice_id", [...])` con
+    // miles de IDs).
+    const { data: openingAllocs } = await supabase
+      .from("client_opening_balance_allocations")
+      .select("invoice_id, amount_applied")
+      .eq("client_id", clientId);
+    for (const a of openingAllocs ?? []) {
+      const amt = Number(a.amount_applied);
+      appliedByInvoice.set(
+        a.invoice_id,
+        (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
+      );
     }
 
     if (receiptIds.length > 0) {
@@ -309,7 +309,8 @@ export async function setClientOpeningBalanceAction(input: {
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
+  // El ajuste de saldo reescribe el aging del cliente — solo owner.
+  if (!ctx.roles.includes("owner")) {
     return {
       ok: false,
       error: "No tenés permiso para ajustar saldos de cliente.",
@@ -344,8 +345,11 @@ export async function clearClientOpeningBalanceAction(
   clientId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
-    return { ok: false, error: "No tenés permiso para borrar saldos." };
+  if (!ctx.roles.includes("owner")) {
+    return {
+      ok: false,
+      error: "Solo el owner puede borrar el ajuste de saldo.",
+    };
   }
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("clear_client_opening_balance", {

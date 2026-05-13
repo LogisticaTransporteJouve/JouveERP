@@ -9,10 +9,8 @@
 
 export type RangePreset =
   | "current_month"
-  | "last_3_months"
   | "last_6_months"
   | "last_year"
-  | "all"
   | "custom";
 
 export const RANGE_PRESET_OPTIONS: Array<{
@@ -20,10 +18,8 @@ export const RANGE_PRESET_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "current_month", label: "Mes actual" },
-  { value: "last_3_months", label: "Últimos 3 meses" },
   { value: "last_6_months", label: "Últimos 6 meses" },
   { value: "last_year", label: "Último año" },
-  { value: "all", label: "Todo" },
   { value: "custom", label: "Personalizado" },
 ];
 
@@ -73,14 +69,10 @@ export function resolveRange(
   switch (preset) {
     case "current_month":
       return { from: firstOfMonthIso(), to };
-    case "last_3_months":
-      return { from: monthsBackIso(3), to };
     case "last_6_months":
       return { from: monthsBackIso(6), to };
     case "last_year":
       return { from: monthsBackIso(12), to };
-    case "all":
-      return null;
     case "custom":
       if (!custom || !custom.from || !custom.to) return null;
       return { from: custom.from, to: custom.to };

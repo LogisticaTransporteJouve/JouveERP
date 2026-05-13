@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -162,10 +163,9 @@ export function AccountOpeningBalanceDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de ajuste</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={adjustmentDate}
-                onChange={(e) => setAdjustmentDate(e.target.value)}
+                onChange={setAdjustmentDate}
               />
             </div>
             <div className="space-y-1">
