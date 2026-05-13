@@ -67,22 +67,46 @@ export async function getClientAccountAction(
   }
 
   const supabase = await createSupabaseClient();
-  // Supabase tiene un default de 1000 filas por request. Para clientes con
-  // muchas facturas migradas, lo subimos a un cap razonable. Cuando un
-  // cliente supere 10k movimientos, hay que paginar.
-  const { data, error } = await supabase
-    .from("v_client_account_movements")
-    .select(
-      "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
-    )
-    .eq("client_id", clientId)
-    .order("movement_date", { ascending: true })
-    .order("created_at", { ascending: true })
-    .range(0, 9999);
 
-  if (error) {
-    logger.error("clients.account.list_failed", { clientId, error });
-    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
+  // PostgREST tiene un cap de `db.max_rows` (default 1000) que aplica
+  // aunque pidas más con `.range()`. Chunkeamos en pedidos de 1000 hasta
+  // vaciar el set. Cap defensivo de 50000 movimientos por cliente.
+  const CHUNK = 1000;
+  const HARD_CAP = 50000;
+  type MovementRow = {
+    source_type: string | null;
+    source_id: string | null;
+    movement_date: string | null;
+    created_at: string | null;
+    kind: string | null;
+    letter: string | null;
+    punto_venta: number | null;
+    numero: number | null;
+    signed_amount: number | string | null;
+    gross_amount: number | string | null;
+    channel_id: string | null;
+    channel_name: string | null;
+    channel_division: string | null;
+    channel_is_fiscal: boolean | null;
+  };
+  const data: MovementRow[] = [];
+  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
+    const { data: chunk, error } = await supabase
+      .from("v_client_account_movements")
+      .select(
+        "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
+      )
+      .eq("client_id", clientId)
+      .order("movement_date", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(offset, offset + CHUNK - 1);
+    if (error) {
+      logger.error("clients.account.list_failed", { clientId, error });
+      return { ok: false, error: "No se pudo cargar la cuenta corriente." };
+    }
+    const got = (chunk ?? []) as MovementRow[];
+    data.push(...got);
+    if (got.length < CHUNK) break;
   }
 
   // Opening balance se comporta como una transaction de ajuste: en su fecha

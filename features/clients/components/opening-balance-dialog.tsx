@@ -56,19 +56,16 @@ export function OpeningBalanceDialog({ clientId }: { clientId: string }) {
   const [targetRaw, setTargetRaw] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Repoblar el form al abrir si hay opening previo (modo edición).
+  // Al abrir el dialog arranca siempre limpio: cada apertura es una nueva
+  // reconciliación, no un edit del valor anterior. El panel
+  // "Registrado actualmente" más abajo muestra el último ajuste como
+  // referencia.
   useEffect(() => {
     if (!open) return;
-    if (existing) {
-      setOpeningDate(existing.opening_date);
-      setTargetRaw(String(existing.target_balance));
-      setNotes(existing.notes ?? "");
-    } else {
-      setOpeningDate(todayIso());
-      setTargetRaw("");
-      setNotes("");
-    }
-  }, [open, existing]);
+    setOpeningDate(todayIso());
+    setTargetRaw("");
+    setNotes("");
+  }, [open]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
