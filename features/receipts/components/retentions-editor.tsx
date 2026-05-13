@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -152,12 +153,9 @@ export function RetentionsEditor({
                 <div className="grid items-end gap-2 sm:grid-cols-[140px_140px_140px_1fr]">
                   <div className="space-y-1">
                     <Label className="text-xs">Fecha cert.</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={r.certificate_date}
-                      onChange={(e) =>
-                        update(idx, { certificate_date: e.target.value })
-                      }
+                      onChange={(v) => update(idx, { certificate_date: v })}
                     />
                   </div>
                   <div className="space-y-1">

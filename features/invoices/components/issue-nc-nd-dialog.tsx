@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -227,11 +228,7 @@ export function NcNdForm({
       <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
         <div className="space-y-1">
           <Label className="text-xs">Fecha</Label>
-          <Input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-          />
+          <DatePicker value={fecha} onChange={setFecha} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Motivo</Label>

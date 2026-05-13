@@ -9,6 +9,61 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_opening_balances: {
+        Row: {
+          account_id: string
+          adjustment_date: string
+          adjustment_transaction_id: string | null
+          created_at: string
+          created_by: string | null
+          notes: string | null
+          target_balance: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          adjustment_date: string
+          adjustment_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          target_balance: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          adjustment_date?: string
+          adjustment_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          target_balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_opening_balances_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_adjustment_transaction_id_fkey"
+            columns: ["adjustment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_adjustment_transaction_id_fkey"
+            columns: ["adjustment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           created_at: string
@@ -312,6 +367,97 @@ export type Database = {
             columns: ["source_receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_opening_balance_allocations: {
+        Row: {
+          amount_applied: number
+          client_id: string
+          created_at: string
+          invoice_id: string
+        }
+        Insert: {
+          amount_applied: number
+          client_id: string
+          created_at?: string
+          invoice_id: string
+        }
+        Update: {
+          amount_applied?: number
+          client_id?: string
+          created_at?: string
+          invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_opening_balance_allocations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "client_opening_balance_allocations_opening_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_opening_balances"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
+      client_opening_balances: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          notes: string | null
+          opening_date: string
+          target_balance: number
+          total_settled: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          opening_date: string
+          target_balance: number
+          total_settled: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          opening_date?: string
+          target_balance?: number
+          total_settled?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_opening_balances_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1239,6 +1385,25 @@ export type Database = {
       }
     }
     Functions: {
+      apply_account_opening_balance: {
+        Args: {
+          p_account_id: string
+          p_adjustment_date: string
+          p_channel_id: string
+          p_notes?: string
+          p_target_balance: number
+        }
+        Returns: undefined
+      }
+      apply_client_opening_balance: {
+        Args: {
+          p_client_id: string
+          p_notes?: string
+          p_opening_date: string
+          p_target_balance: number
+        }
+        Returns: undefined
+      }
       bump_rate_limit_bucket: {
         Args: {
           p_bucket_key: string
@@ -1246,6 +1411,14 @@ export type Database = {
           p_window_start: string
         }
         Returns: number
+      }
+      clear_account_opening_balance: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
+      clear_client_opening_balance: {
+        Args: { p_client_id: string }
+        Returns: undefined
       }
       create_receipt: {
         Args: {

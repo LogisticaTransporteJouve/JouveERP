@@ -9,6 +9,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -19,6 +20,14 @@ export default async function CuentasPage() {
   if (!userCan(ctx.roles, "accounts:read")) {
     redirect("/dashboard");
   }
+
+  const supabase = await createSupabaseClient();
+  const { data: channelsData } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_active")
+    .eq("is_active", true)
+    .order("name");
+  const channels = (channelsData ?? []).map((c) => ({ id: c.id, name: c.name }));
 
   const dehydratedState = await prefetchQueries([
     {
@@ -38,7 +47,7 @@ export default async function CuentasPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <AccountsTable actorRoles={ctx.roles} />
+          <AccountsTable actorRoles={ctx.roles} channels={channels} />
         </Suspense>
       </Hydrate>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -389,11 +390,7 @@ export function ReceiptForm({
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Fecha</Label>
-          <Input
-            type="date"
-            value={reciboDate}
-            onChange={(e) => setReciboDate(e.target.value)}
-          />
+          <DatePicker value={reciboDate} onChange={setReciboDate} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Moneda</Label>

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -509,11 +510,7 @@ function NewInvoiceForm({
         </div>
         <div className="space-y-2">
           <Label>Fecha de emisión</Label>
-          <Input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-          />
+          <DatePicker value={fecha} onChange={setFecha} />
         </div>
       </div>
 

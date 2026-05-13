@@ -207,6 +207,24 @@ export async function createTransactionAction(
   const data = parsed.data;
 
   const supabase = await createSupabaseClient();
+
+  // Las cuentas tipo checks/echeq se manejan exclusivamente desde
+  // /checks (carga manual, depósito, endoso, acreditación). Bloqueamos
+  // ingresos/egresos manuales contra esos accounts para evitar drift
+  // entre la cartera de cheques y la caja.
+  const { data: acc } = await supabase
+    .from("accounts")
+    .select("type")
+    .eq("id", data.account_id)
+    .maybeSingle();
+  if (acc?.type === "checks" || acc?.type === "echeq") {
+    return {
+      ok: false,
+      error:
+        "Los movimientos en cuentas de cheques se manejan desde /checks (cargar, depositar, endosar).",
+    };
+  }
+
   const { data: row, error } = await supabase
     .from("transactions")
     .insert({

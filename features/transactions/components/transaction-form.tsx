@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,7 +52,13 @@ export function TransactionForm({
   onCancel?: () => void;
 }) {
   const { data: accounts } = useAccountsList();
-  const activeAccounts = accounts.filter((a) => a.is_active);
+  // Las cuentas tipo checks/echeq se administran desde /checks (carga
+  // manual, depósito, endoso, acreditación). No las exponemos como
+  // destino/origen de movimientos manuales en /transactions para evitar
+  // drift entre la cartera de cheques y la caja.
+  const activeAccounts = accounts.filter(
+    (a) => a.is_active && a.type !== "checks" && a.type !== "echeq",
+  );
 
   const createTxMut = useCreateTransaction();
   const createTransferMut = useCreateTransfer();
@@ -121,6 +128,7 @@ export function TransactionForm({
       toast.error("Elegí una cuenta.");
       return;
     }
+
     createTxMut.mutate(
       {
         account_id: accountId,
@@ -278,10 +286,9 @@ export function TransactionForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label className="text-xs">Fecha</Label>
-          <Input
-            type="date"
+          <DatePicker
             value={transactionDate}
-            onChange={(e) => onTransactionDateChange(e.target.value)}
+            onChange={onTransactionDateChange}
           />
         </div>
         <div className="space-y-1">

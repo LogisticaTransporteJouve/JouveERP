@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -231,19 +232,11 @@ export function NewChequeDialog() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de emisión</Label>
-              <Input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-              />
+              <DatePicker value={issueDate} onChange={setIssueDate} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Fecha de cobro</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
+              <DatePicker value={dueDate} onChange={setDueDate} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Monto</Label>

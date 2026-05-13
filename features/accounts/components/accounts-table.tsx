@@ -14,6 +14,7 @@ import { userCan } from "@/lib/auth/permissions";
 
 import { useAccountsList } from "../hooks/use-accounts";
 import { ACCOUNT_TYPE_LABEL, type AccountCurrency } from "../schema";
+import { AccountOpeningBalanceDialog } from "./account-opening-balance-dialog";
 import { EditAccountDialog } from "./edit-account-dialog";
 import { NewAccountDialog } from "./new-account-dialog";
 import { ToggleAccountActiveButton } from "./toggle-account-active-button";
@@ -35,9 +36,19 @@ function formatBalance(amount: number, currency: AccountCurrency) {
   return formatters[currency].format(amount);
 }
 
-export function AccountsTable({ actorRoles }: { actorRoles: Role[] }) {
+export function AccountsTable({
+  actorRoles,
+  channels,
+}: {
+  actorRoles: Role[];
+  channels: Array<{ id: string; name: string }>;
+}) {
   const { data: accounts } = useAccountsList();
   const canWrite = userCan(actorRoles, "accounts:write");
+  // El ajuste de saldo solo lo puede tocar el owner (matching el flow
+  // del cliente). Para finance/admin queda invisible en la UI; el RPC
+  // también lo bloquea por las dudas.
+  const canAdjust = actorRoles.includes("owner");
 
   return (
     <>
@@ -111,6 +122,14 @@ export function AccountsTable({ actorRoles }: { actorRoles: Role[] }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
+                      {canAdjust && (
+                        <AccountOpeningBalanceDialog
+                          accountId={account.id}
+                          accountName={account.name}
+                          currency={account.currency}
+                          channels={channels}
+                        />
+                      )}
                       {canWrite && <EditAccountDialog account={account} />}
                       {canWrite && (
                         <ToggleAccountActiveButton account={account} />

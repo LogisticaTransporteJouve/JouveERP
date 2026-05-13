@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -146,11 +147,7 @@ export function DepositChequeDialog({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Fecha</Label>
-              <Input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-              />
+              <DatePicker value={eventDate} onChange={setEventDate} />
             </div>
           </div>
           <div className="space-y-1">
@@ -222,11 +219,7 @@ export function CreditChequeDialog({ check }: { check: Cheque }) {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1">
             <Label className="text-xs">Fecha de acreditación</Label>
-            <Input
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-            />
+            <DatePicker value={eventDate} onChange={setEventDate} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Notas (opcional)</Label>
@@ -333,11 +326,7 @@ export function EndorseChequeDialog({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Fecha</Label>
-              <Input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-              />
+              <DatePicker value={eventDate} onChange={setEventDate} />
             </div>
           </div>
           <div className="space-y-1">
@@ -484,11 +473,7 @@ export function RejectChequeDialog({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Fecha</Label>
-              <Input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-              />
+              <DatePicker value={eventDate} onChange={setEventDate} />
             </div>
           </div>
           <div className="space-y-1">
