@@ -48,7 +48,6 @@ import {
   type InvoiceStatus,
 } from "../schema";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
-import { NewNcNdDialog } from "./new-nc-nd-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
 // Argentine convention: letter prefix glued to the number, 5 digits punto
@@ -191,8 +190,7 @@ export function ComprobantesTable({
         />
 
         {canIssue && (
-          <div className="ml-auto flex items-center gap-2">
-            <NewNcNdDialog />
+          <div className="ml-auto">
             <NewInvoiceDialog channels={channels} />
           </div>
         )}
