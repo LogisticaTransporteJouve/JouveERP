@@ -2,6 +2,7 @@
 
 import { Download, Eye, Plus } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Account } from "@/features/accounts/schema";
 import type { PickedClient } from "@/features/invoices/components/client-picker";
@@ -92,6 +94,30 @@ export function ClientAccountTab({
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
 
+  // Virtualización client-side: la action devuelve hasta 10k movimientos en
+  // un solo fetch (running balance se computa cross-row), pero renderizar
+  // 5k filas DOM al toque hace que el primer paint sea pesado. Mostramos
+  // de a 100 y cargamos más al scrollear (mismo patrón que /invoices vía
+  // useIntersectionObserver).
+  const PAGE = 100;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  useEffect(() => {
+    // Si el set de movimientos cambió (re-fetch), reseteamos al primer page.
+    setVisibleCount(PAGE);
+  }, [movements.length]);
+  const visibleMovements = useMemo(
+    () => movements.slice(0, visibleCount),
+    [movements, visibleCount],
+  );
+  const hasMore = visibleCount < movements.length;
+  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+    () => {
+      if (hasMore)
+        setVisibleCount((prev) => Math.min(prev + PAGE, movements.length));
+    },
+    { rootMargin: "200px", enabled: hasMore },
+  );
+
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
   // refetching on every other client's activity.
@@ -167,7 +193,7 @@ export function ClientAccountTab({
                 </TableCell>
               </TableRow>
             ) : (
-              movements.map((m) => {
+              visibleMovements.map((m) => {
                 const isDebit = m.signed_amount > 0;
                 const isOpening = m.source_type === "opening_balance";
                 return (
@@ -331,6 +357,16 @@ export function ClientAccountTab({
                   </TableRow>
                 );
               })
+            )}
+            {hasMore && (
+              <TableRow ref={sentinelRef}>
+                <TableCell
+                  colSpan={7}
+                  className="py-4 text-center text-xs text-muted-foreground"
+                >
+                  Cargando más movimientos…
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
