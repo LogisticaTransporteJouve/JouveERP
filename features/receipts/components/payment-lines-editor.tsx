@@ -178,41 +178,9 @@ export function PaymentLinesEditor({
                 </div>
 
                 {isCheck && (
-                  <div className="space-y-2 rounded-md border border-dashed border-muted bg-muted/20 p-3">
+                  <div className="space-y-3 rounded-md border border-dashed border-muted bg-muted/20 p-3">
                     <div className="text-xs font-medium text-muted-foreground">
                       Datos del check
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-[2fr_2fr_1fr]">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Banco</Label>
-                        <Input
-                          value={line.check?.bank_name ?? ""}
-                          onChange={(e) =>
-                            updateCheck(idx, { bank_name: e.target.value })
-                          }
-                          placeholder="Ej. Banco Galicia"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Firmante</Label>
-                        <Input
-                          value={line.check?.drawer_name ?? ""}
-                          onChange={(e) =>
-                            updateCheck(idx, { drawer_name: e.target.value })
-                          }
-                          placeholder="Razón social"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">CUIT firmante (opcional)</Label>
-                        <Input
-                          value={line.check?.drawer_cuit ?? ""}
-                          onChange={(e) =>
-                            updateCheck(idx, { drawer_cuit: e.target.value })
-                          }
-                          placeholder="30-12345678-9"
-                        />
-                      </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1">
@@ -234,6 +202,43 @@ export function PaymentLinesEditor({
                             updateCheck(idx, { due_date: e.target.value })
                           }
                         />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-normal text-muted-foreground">
+                        Datos del firmante (opcional)
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-[2fr_2fr_1fr]">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Banco</Label>
+                          <Input
+                            value={line.check?.bank_name ?? ""}
+                            onChange={(e) =>
+                              updateCheck(idx, { bank_name: e.target.value })
+                            }
+                            placeholder="Ej. Banco Galicia"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Firmante</Label>
+                          <Input
+                            value={line.check?.drawer_name ?? ""}
+                            onChange={(e) =>
+                              updateCheck(idx, { drawer_name: e.target.value })
+                            }
+                            placeholder="Razón social"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">CUIT firmante</Label>
+                          <Input
+                            value={line.check?.drawer_cuit ?? ""}
+                            onChange={(e) =>
+                              updateCheck(idx, { drawer_cuit: e.target.value })
+                            }
+                            placeholder="30-12345678-9"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

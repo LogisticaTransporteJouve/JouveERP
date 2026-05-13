@@ -5,7 +5,7 @@
 > el patrón, dónde vive en sumary, y dónde correspondería en JouveERP.
 >
 > Estado: referencia. No hay código IA en JouveERP todavía. Cuando se inicie
-> Fase K (IA), este doc es el punto de partida.
+> Fase I (IA), este doc es el punto de partida.
 
 ---
 
@@ -644,7 +644,7 @@ Claude Desktop me liste facturas pendientes"). Cuando llegue:
 
 ## 17. Roadmap de adopción sugerido (cuando se decida)
 
-**Fase K.1 — MVP chat (1-2 sprints)**
+**Fase I.1 — MVP chat (1-2 sprints)**
 1. Tabla `ai_chat_sessions` + `ai_chat_messages` + RLS
 2. `features/ai/agent.ts` con Claude Sonnet 4.6 (sin fallback aún)
 3. 3-5 tools display: `getFacturas`, `getAging`, `getClienteDebt`, `getCajaMovements`
@@ -652,25 +652,25 @@ Claude Desktop me liste facturas pendientes"). Cuando llegue:
 5. UI básica: `app/(dashboard)/ai/page.tsx` + ai-elements
 6. Skill `permission ai:chat` en `lib/auth/permissions.ts`
 
-**Fase K.2 — Skills + multi-provider (1 sprint)**
+**Fase I.2 — Skills + multi-provider (1 sprint)**
 1. Sistema de skills (§4)
 2. 5-10 skills iniciales (data-relationships + query-recipes)
 3. `createFallbackModel` con Gemini + GPT fallback
 4. Anthropic prompt caching sobre skills + tool descriptions
 
-**Fase K.3 — Embeddings (1 sprint)**
+**Fase I.3 — Embeddings (1 sprint)**
 1. pgvector + tabla `ai_embeddings`
 2. Función Inngest de embedding on-change
 3. Backfill script para clientes + facturas
 4. Tool `searchEmbeddings`
 
-**Fase K.4 — Cost tracking + artifacts (1 sprint)**
+**Fase I.4 — Cost tracking + artifacts (1 sprint)**
 1. Logging `ai.turn` + tabla `ai_usage`
 2. Artifact pattern (`@ai-sdk-tools/artifacts/client`)
 3. Skeletons por artifact type
 4. Tool renderers config
 
-**Fase K.5+ — Avanzado (cuando duela)**
+**Fase I.5+ — Avanzado (cuando duela)**
 - Sandbox Modal si aparece tool de bash
 - MCP server si aparece use case
 - Sub-agent delegation
@@ -1518,7 +1518,7 @@ JouveERP's AFIP integration lives in `lib/afip/`. Each WS has its own module.
 
 ## 31. Migración desde 0 (qué tocar primero)
 
-Cuando se decida arrancar Fase K, este es el orden mínimo de cambios:
+Cuando se decida arrancar Fase I, este es el orden mínimo de cambios:
 
 1. **Schema + RLS** (`supabase migration new ai_chat`) — tablas §9
 2. **Permissions** (`lib/auth/permissions.ts`) — `ai:chat`, `ai:write`, `ai:admin`

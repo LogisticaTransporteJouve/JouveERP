@@ -23,4 +23,6 @@ export const invoicesKeys = {
   status: (id: string) => [...invoicesKeys.all, "status", id] as const,
   enabledPos: (channelId: string) =>
     [...invoicesKeys.all, "enabledPos", channelId] as const,
+  originSearch: (query: string) =>
+    [...invoicesKeys.all, "originSearch", query] as const,
 };

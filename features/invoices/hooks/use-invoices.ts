@@ -144,6 +144,45 @@ export function useEnabledPos(
   });
 }
 
+/**
+ * Búsqueda de facturas elegibles como origen de NC/ND: solo `emitted`,
+ * canal fiscal y `kind === "factura"`. La page del listado de invoices
+ * consume esto desde el dialog NC/ND.
+ */
+export function useOriginSearch(query: string, enabled = true) {
+  return useQuery({
+    queryKey: invoicesKeys.originSearch(query),
+    queryFn: async (): Promise<InvoiceListItem[]> => {
+      const res = await runAction(() =>
+        listInvoicesAction({
+          status: "emitted",
+          query: query.trim().length > 0 ? query : null,
+          limit: 25,
+        }),
+      );
+      return res.items.filter(
+        (it) => it.channel_is_fiscal && it.kind === "factura",
+      );
+    },
+    enabled,
+    staleTime: 5_000,
+  });
+}
+
+/**
+ * On-demand fetch del detalle. Sin `useSuspenseQuery` porque el caller
+ * (NewNcNdDialog) controla loading state inline mientras espera el detalle
+ * de la factura recién elegida.
+ */
+export function useInvoiceDetailOnDemand(id: string | null) {
+  return useQuery({
+    queryKey: id ? invoicesKeys.detail(id) : ["invoices", "detail", null],
+    queryFn: () =>
+      id ? runAction(() => getInvoiceDetailAction(id)) : Promise.reject(),
+    enabled: !!id,
+  });
+}
+
 // Mutations -----------------------------------------------------------------
 
 export function useIssueFiscalInvoice() {

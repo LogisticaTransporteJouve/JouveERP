@@ -3,7 +3,7 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-const BUCKET_NAME = "comprobantes-pdf";
+const BUCKET_NAME = "invoices-pdf";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export interface UploadResult {

@@ -40,8 +40,8 @@ const moneyAmount = z.preprocess(
 // the RPC ignores it for other account types.
 const PaymentLineCheckSchema = z.object({
   check_number: z.string().trim().max(60).optional(),
-  bank_name: z.string().trim().min(1, "Banco requerido.").max(120),
-  drawer_name: z.string().trim().min(1, "Firmante requerido.").max(120),
+  bank_name: z.string().trim().max(120).optional(),
+  drawer_name: z.string().trim().max(120).optional(),
   drawer_cuit: z
     .string()
     .trim()

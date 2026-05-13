@@ -293,20 +293,9 @@ export function ReceiptForm({
       toast.error("Cada línea de pago necesita un monto mayor a cero.");
       return;
     }
-    // Cheque-specific validation: when a line carries check metadata the
-    // bank, drawer and due_date are mandatory (the schema in cheques table
-    // would reject otherwise — surface a clearer error here).
-    const chequeError = lines.find(
-      (l) =>
-        l.check &&
-        (!l.check.bank_name ||
-          !l.check.drawer_name ||
-          !l.check.due_date),
-    );
+    const chequeError = lines.find((l) => l.check && !l.check.due_date);
     if (chequeError) {
-      toast.error(
-        "Para pagos con check necesitamos banco, firmante y fecha de cobro.",
-      );
+      toast.error("Para pagos con check necesitamos la fecha de cobro.");
       return;
     }
     if (rets.some((r) => r.amount <= 0)) {

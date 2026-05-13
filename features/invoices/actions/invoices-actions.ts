@@ -386,12 +386,16 @@ export async function listInvoicesAction(
   const limit = Math.min(200, Math.max(1, filters.limit ?? DEFAULT_PAGE_SIZE));
 
   const supabase = getServiceClient();
+  // `clients!inner` makes the embed an INNER join so filters on
+  // `clients.legal_name` actually narrow parent rows. Every invoice has a
+  // client by FK constraint, so promoting the join to inner is a no-op for
+  // the default listing.
   let query = supabase
     .from("invoices")
     .select(
       `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, status, cae, emitted_at,
        channel:invoicing_channels(name, is_fiscal),
-       client:clients(legal_name)`,
+       client:clients!inner(legal_name)`,
     )
     .order("fecha", { ascending: false })
     .order("numero", { ascending: false })
@@ -403,17 +407,18 @@ export async function listInvoicesAction(
   if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
   if (filters.client_id) query = query.eq("client_id", filters.client_id);
   if (filters.query) {
-    // Search by client legal_name or by numero. The leading underscore
-    // makes the trigram match more forgiving for typos / partial matches.
+    // supabase-js `.or()` doesn't support filters on embedded tables in the
+    // same clause (`clients.legal_name.ilike.x,numero.eq.y` is invalid).
+    // Split the search by input shape: pure digits → exact match by numero,
+    // otherwise → ilike on client.legal_name.
     const term = filters.query.trim();
     if (term.length > 0) {
-      const numeric = term.replace(/\D+/g, "");
-      const numeroFilter = numeric.length > 0 ? `numero.eq.${numeric}` : null;
-      const clauses = [
-        `clients.legal_name.ilike.%${term}%`,
-        numeroFilter,
-      ].filter(Boolean) as string[];
-      query = query.or(clauses.join(","));
+      const purelyNumeric = /^\d+$/.test(term);
+      if (purelyNumeric) {
+        query = query.eq("numero", Number(term));
+      } else {
+        query = query.ilike("clients.legal_name", `%${term}%`);
+      }
     }
   }
 

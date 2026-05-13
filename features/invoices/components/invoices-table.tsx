@@ -50,8 +50,9 @@ import {
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
-// Argentine convention: letter prefix glued to the number, 5 digits punto
-// de venta + dash + 8 digits sequential.
+// Argentine convention: letter prefix glued to the POS (no space), 5 digits
+// punto de venta + dash + 8 digits sequential. NC/ND keep the NC-/ND- prefix
+// glued to the letter for the same reason.
 function formatNumero(row: InvoiceListItem): string {
   const number =
     row.numero == null
@@ -60,7 +61,7 @@ function formatNumero(row: InvoiceListItem): string {
   if (!row.letter) return number;
   if (row.kind === "factura") return `${row.letter}${number}`;
   const prefix = row.kind === "nc" ? `NC-${row.letter}` : `ND-${row.letter}`;
-  return `${prefix} ${number}`;
+  return `${prefix}${number}`;
 }
 
 function safeFilenamePart(value: string): string {
