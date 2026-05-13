@@ -58,27 +58,6 @@ const accrualMonth = isoDate.refine(
 // Single-row create (income | expense)
 // ---------------------------------------------------------------------------
 
-/**
- * Sub-form que aparece cuando la cuenta es tipo `checks` / `echeq` y la
- * transaction es un `income` (recibo manual de check de tercero). Crea
- * un row en `checks` con `source_kind='manual'`, `status='en_cartera'`.
- *
- * bank_name y drawer_name son opcionales (la usuaria puede no tener los
- * datos del firmante al cargar), en línea con la relajación de F.2.b en
- * el sub-form de payment_lines de recibos.
- */
-export const CheckMetadataSchema = z.object({
-  check_kind: z.enum(["fisico", "echeq"]),
-  check_number: z.string().trim().min(1, "Número del cheque requerido."),
-  bank_name: z.string().trim().max(120).optional(),
-  drawer_name: z.string().trim().max(120).optional(),
-  drawer_cuit: z.string().trim().max(20).optional(),
-  issue_date: isoDate,
-  due_date: isoDate,
-});
-
-export type CheckMetadataInput = z.infer<typeof CheckMetadataSchema>;
-
 export const TransactionCreateSchema = z.object({
   account_id: z.string().uuid("Cuenta requerida."),
   channel_id: z.string().min(1, "Canal requerido."),
@@ -90,8 +69,6 @@ export const TransactionCreateSchema = z.object({
   description: trimmedNullable,
   invoice_id: z.string().uuid().nullable().optional(),
   counterparty_client_id: z.string().uuid().nullable().optional(),
-  /** Sólo válido cuando kind=income y la cuenta es checks/echeq. */
-  check_metadata: CheckMetadataSchema.nullable().optional(),
 });
 
 export type TransactionCreateInput = z.infer<typeof TransactionCreateSchema>;

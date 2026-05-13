@@ -208,27 +208,21 @@ export async function createTransactionAction(
 
   const supabase = await createSupabaseClient();
 
-  // Validación cruzada: check_metadata sólo aplica cuando kind=income y
-  // la cuenta es de tipo checks/echeq. Antes de tocar la DB resolvemos
-  // el tipo de la cuenta una sola vez.
-  let accountType: string | null = null;
-  if (data.check_metadata) {
-    const { data: acc } = await supabase
-      .from("accounts")
-      .select("type")
-      .eq("id", data.account_id)
-      .maybeSingle();
-    accountType = acc?.type ?? null;
-    if (
-      data.kind !== "income" ||
-      !(accountType === "checks" || accountType === "echeq")
-    ) {
-      return {
-        ok: false,
-        error:
-          "Solo se puede capturar metadata de cheque en ingresos a cuentas de tipo cheques o e-cheq.",
-      };
-    }
+  // Las cuentas tipo checks/echeq se manejan exclusivamente desde
+  // /checks (carga manual, depósito, endoso, acreditación). Bloqueamos
+  // ingresos/egresos manuales contra esos accounts para evitar drift
+  // entre la cartera de cheques y la caja.
+  const { data: acc } = await supabase
+    .from("accounts")
+    .select("type")
+    .eq("id", data.account_id)
+    .maybeSingle();
+  if (acc?.type === "checks" || acc?.type === "echeq") {
+    return {
+      ok: false,
+      error:
+        "Los movimientos en cuentas de cheques se manejan desde /checks (cargar, depositar, endosar).",
+    };
   }
 
   const { data: row, error } = await supabase
@@ -257,41 +251,6 @@ export async function createTransactionAction(
     };
   }
 
-  // Si la metadata vino, insertamos la row en checks. Si falla, revertimos
-  // la transaction para no dejar el ingreso huérfano sin su check.
-  if (data.check_metadata) {
-    const meta = data.check_metadata;
-    const { error: checkErr } = await supabase.from("checks").insert({
-      kind: meta.check_kind,
-      check_number: meta.check_number,
-      bank_name: meta.bank_name ?? "",
-      drawer_name: meta.drawer_name ?? "",
-      drawer_cuit: meta.drawer_cuit ?? null,
-      issue_date: meta.issue_date,
-      due_date: meta.due_date,
-      amount: data.amount,
-      currency: data.currency,
-      source_kind: "manual",
-      source_client_id: data.counterparty_client_id ?? null,
-      cartera_account_id: data.account_id,
-      status: "en_cartera",
-      created_by: ctx.userId,
-    });
-    if (checkErr) {
-      logger.error("transactions.create.check_insert_failed", {
-        transaction_id: row.id,
-        error: checkErr,
-      });
-      // Rollback manual: borramos la transaction que acabamos de crear.
-      await supabase.from("transactions").delete().eq("id", row.id);
-      return {
-        ok: false,
-        error:
-          checkErr.message ?? "No se pudo registrar el cheque asociado.",
-      };
-    }
-  }
-
   await logAudit(
     "transaction.created",
     ctx.userId,
@@ -300,7 +259,6 @@ export async function createTransactionAction(
       amount: data.amount,
       account_id: data.account_id,
       channel_id: data.channel_id,
-      with_check_metadata: !!data.check_metadata,
     },
     row.id,
   );

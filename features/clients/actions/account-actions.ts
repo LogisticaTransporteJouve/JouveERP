@@ -81,7 +81,34 @@ export async function getClientAccountAction(
     return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
 
-  const rows = data ?? [];
+  // Si hay opening_balance, ocultamos los movimientos previos al corte:
+  // ya están representados en el target. El opening row aparece como
+  // primera fila lógica del feed (re-ordenamos para que en empate de
+  // fecha vaya primero, sino el running balance arranca raro).
+  const { data: openingRow } = await supabase
+    .from("client_opening_balances")
+    .select("opening_date")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  const openingDate = openingRow?.opening_date ?? null;
+
+  let rows = data ?? [];
+  if (openingDate) {
+    rows = rows.filter((r) => {
+      if (r.source_type === "opening_balance") return true;
+      return (r.movement_date ?? "") >= openingDate;
+    });
+    // Estable: ordena opening_balance primero cuando empata la fecha.
+    rows = rows.slice().sort((a, b) => {
+      const dateA = a.movement_date ?? "";
+      const dateB = b.movement_date ?? "";
+      if (dateA !== dateB) return dateA < dateB ? -1 : 1;
+      const aOpen = a.source_type === "opening_balance" ? 0 : 1;
+      const bOpen = b.source_type === "opening_balance" ? 0 : 1;
+      if (aOpen !== bOpen) return aOpen - bOpen;
+      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    });
+  }
 
   // Per-document outstanding: invoices show imp_total − Σ allocations
   // applied (from issued receipts only). Receipts show their "a cuenta"

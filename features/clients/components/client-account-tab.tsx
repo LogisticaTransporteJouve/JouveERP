@@ -62,8 +62,8 @@ function movementTypeLabel(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "Saldo inicial";
   if (m.source_type === "receipt") return "Recibo";
   if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
-  if (m.kind === "nc") return `NC${m.letter ? " " + m.letter : ""}`;
-  if (m.kind === "nd") return `ND${m.letter ? " " + m.letter : ""}`;
+  if (m.kind === "nc") return "Nota de Crédito";
+  if (m.kind === "nd") return "Nota de Débito";
   return m.kind;
 }
 
