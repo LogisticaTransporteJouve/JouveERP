@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye, Plus } from "lucide-react";
+import { Download, Eye, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useDateRange } from "@/components/providers/date-range-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Account } from "@/features/accounts/schema";
@@ -26,7 +27,12 @@ import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
-import { useClientAccount } from "../hooks/use-clients";
+import { toast } from "sonner";
+
+import {
+  useClearClientOpeningBalance,
+  useClientAccount,
+} from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
 import { OpeningBalanceDialog } from "./opening-balance-dialog";
@@ -37,6 +43,7 @@ interface InvoiceChannelOption {
   division: string;
   is_fiscal: boolean;
 }
+
 
 const decimalFormatter = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
@@ -93,30 +100,57 @@ export function ClientAccountTab({
   const balance = data.balance;
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
+  const clearOpeningMut = useClearClientOpeningBalance();
 
-  // Virtualización client-side: la action devuelve hasta 10k movimientos en
-  // un solo fetch (running balance se computa cross-row), pero renderizar
-  // 5k filas DOM al toque hace que el primer paint sea pesado. Mostramos
-  // de a 100 y cargamos más al scrollear (mismo patrón que /invoices vía
-  // useIntersectionObserver).
+  // Filtro global de fechas (topbar). Lo aplicamos sobre los movimientos
+  // ya con running balance computado, así el saldo de cada fila refleja
+  // el acumulado real y no se reinicia por el filtro. Si el rango es
+  // null (preset "Todo") mostramos todo.
+  const { range } = useDateRange();
+  const filteredMovements = useMemo(() => {
+    if (!range) return movements;
+    return movements.filter(
+      (m) => m.movement_date >= range.from && m.movement_date <= range.to,
+    );
+  }, [movements, range]);
+
+  // Virtualización client-side: la action devuelve hasta 50k movimientos
+  // en chunks de 1000, pero renderizar miles de filas DOM al toque hace
+  // que el primer paint sea pesado. Mostramos de a 100 y cargamos más al
+  // scrollear (mismo patrón que /invoices vía useIntersectionObserver).
   const PAGE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE);
   useEffect(() => {
-    // Si el set de movimientos cambió (re-fetch), reseteamos al primer page.
+    // Si el set cambió (re-fetch o filtro), reseteamos al primer page.
     setVisibleCount(PAGE);
-  }, [movements.length]);
+  }, [filteredMovements.length]);
   const visibleMovements = useMemo(
-    () => movements.slice(0, visibleCount),
-    [movements, visibleCount],
+    () => filteredMovements.slice(0, visibleCount),
+    [filteredMovements, visibleCount],
   );
-  const hasMore = visibleCount < movements.length;
+  const hasMore = visibleCount < filteredMovements.length;
   const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
     () => {
       if (hasMore)
-        setVisibleCount((prev) => Math.min(prev + PAGE, movements.length));
+        setVisibleCount((prev) =>
+          Math.min(prev + PAGE, filteredMovements.length),
+        );
     },
     { rootMargin: "200px", enabled: hasMore },
   );
+
+  function handleClearOpening() {
+    if (
+      !confirm(
+        "¿Borrar el ajuste de saldo? Las imputaciones a facturas anteriores se revierten.",
+      )
+    )
+      return;
+    clearOpeningMut.mutate(clientId, {
+      onSuccess: () => toast.success("Ajuste de saldo eliminado."),
+      onError: (err) => toast.error(err.message),
+    });
+  }
 
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
@@ -291,7 +325,17 @@ export function ClientAccountTab({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
-                        {isOpening ? null : m.source_type === "invoice" &&
+                        {isOpening ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Borrar ajuste de saldo"
+                            onClick={handleClearOpening}
+                            disabled={clearOpeningMut.isPending}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        ) : m.source_type === "invoice" &&
                           m.source_id ? (
                           <>
                             <Button
