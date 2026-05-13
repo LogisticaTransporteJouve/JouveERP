@@ -21,4 +21,6 @@ export const clientsKeys = {
   references: (id: string) =>
     [...clientsKeys.all, "references", id] as const,
   account: (id: string) => [...clientsKeys.all, "account", id] as const,
+  openingBalance: (id: string) =>
+    [...clientsKeys.all, "openingBalance", id] as const,
 };

@@ -9,26 +9,34 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type AccountMovementSourceType = "invoice" | "receipt";
+export type AccountMovementSourceType =
+  | "invoice"
+  | "receipt"
+  | "opening_balance";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;
-  source_id: string;
+  /** null for opening_balance rows — there is no underlying entity row. */
+  source_id: string | null;
   movement_date: string;
   created_at: string;
-  /** comprobante kind ('factura' | 'nc' | 'nd') or 'recibo' */
+  /** comprobante kind ('factura' | 'nc' | 'nd'), 'recibo', or 'opening_balance' */
   kind: string;
   letter: string | null;
-  punto_venta: number;
-  numero: number;
-  /** Positive = el cliente debe (factura, ND). Negative = pago / NC. */
+  /** null for opening_balance — no POS associated. */
+  punto_venta: number | null;
+  /** null for opening_balance — no correlativo associated. */
+  numero: number | null;
+  /** Positive = el cliente debe (factura, ND, opening_balance).
+   *  Negative = pago / NC. */
   signed_amount: number;
   /** Absolute value, useful when rendering "Debe" / "Haber" columns. */
   gross_amount: number;
-  channel_id: string;
-  channel_name: string;
-  channel_division: string;
-  channel_is_fiscal: boolean;
+  /** null for opening_balance — does not belong to any channel. */
+  channel_id: string | null;
+  channel_name: string | null;
+  channel_division: string | null;
+  channel_is_fiscal: boolean | null;
   /** Running balance after this row (sorted oldest → newest by movement_date,
    *  then created_at). */
   balance: number;
@@ -129,20 +137,16 @@ export async function getClientAccountAction(
   let running = 0;
   const movements: AccountMovement[] = [];
   for (const row of rows) {
+    // Validate only the fields that are required for ALL source_types.
+    // opening_balance rows legitimately have null source_id, punto_venta,
+    // numero, channel_*, etc.
     if (
       row.source_type == null ||
-      row.source_id == null ||
       row.movement_date == null ||
       row.created_at == null ||
       row.kind == null ||
-      row.punto_venta == null ||
-      row.numero == null ||
       row.signed_amount == null ||
-      row.gross_amount == null ||
-      row.channel_id == null ||
-      row.channel_name == null ||
-      row.channel_division == null ||
-      row.channel_is_fiscal == null
+      row.gross_amount == null
     ) {
       logger.warn("clients.account.row_with_nulls", { clientId, row });
       continue;
@@ -151,10 +155,10 @@ export async function getClientAccountAction(
     const gross = Number(row.gross_amount);
     running = Math.round((running + signed) * 100) / 100;
     let outstanding: number | null = null;
-    if (row.source_type === "invoice" && row.kind !== "credit_note") {
+    if (row.source_type === "invoice" && row.source_id && row.kind !== "credit_note") {
       const applied = appliedByInvoice.get(row.source_id) ?? 0;
       outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
-    } else if (row.source_type === "receipt") {
+    } else if (row.source_type === "receipt" && row.source_id) {
       const applied = appliedByReceipt.get(row.source_id) ?? 0;
       outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
     }
@@ -179,4 +183,113 @@ export async function getClientAccountAction(
   }
 
   return { ok: true, data: { movements, balance: running } };
+}
+
+// ---------------------------------------------------------------------------
+// Opening balance (saldo de apertura)
+// ---------------------------------------------------------------------------
+
+export interface ClientOpeningBalance {
+  client_id: string;
+  opening_date: string;
+  target_balance: number;
+  total_settled: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getClientOpeningBalanceAction(
+  clientId: string,
+): Promise<ActionResult<ClientOpeningBalance | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:read")) {
+    return { ok: false, error: "No tenés permiso para ver clientes." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("client_opening_balances")
+    .select(
+      "client_id, opening_date, target_balance, total_settled, notes, created_at, updated_at",
+    )
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) {
+    logger.error("clients.opening.read_failed", { clientId, error });
+    return { ok: false, error: "No se pudo cargar el saldo de apertura." };
+  }
+  if (!data) return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      client_id: data.client_id,
+      opening_date: data.opening_date,
+      target_balance: Number(data.target_balance),
+      total_settled: Number(data.total_settled),
+      notes: data.notes,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    },
+  };
+}
+
+/**
+ * Fija (o sobrescribe) el saldo de apertura del cliente. Atómico: el RPC
+ * borra el opening anterior + sus allocations y recrea desde cero
+ * imputando FIFO desde la factura más vieja.
+ */
+export async function setClientOpeningBalanceAction(input: {
+  client_id: string;
+  opening_date: string; // YYYY-MM-DD
+  target_balance: number;
+  notes?: string | null;
+}): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para ajustar saldos de cliente.",
+    };
+  }
+  if (!input.client_id) return { ok: false, error: "Cliente requerido." };
+  if (input.target_balance < 0)
+    return { ok: false, error: "El saldo no puede ser negativo." };
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("apply_client_opening_balance", {
+    p_client_id: input.client_id,
+    p_opening_date: input.opening_date,
+    p_target_balance: input.target_balance,
+    p_notes: input.notes ?? undefined,
+  });
+  if (error) {
+    logger.error("clients.opening.apply_failed", {
+      clientId: input.client_id,
+      error,
+    });
+    return {
+      ok: false,
+      error:
+        error.message ?? "No se pudo aplicar el saldo de apertura.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
+export async function clearClientOpeningBalanceAction(
+  clientId: string,
+): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "clients:write")) {
+    return { ok: false, error: "No tenés permiso para borrar saldos." };
+  }
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("clear_client_opening_balance", {
+    p_client_id: clientId,
+  });
+  if (error) {
+    logger.error("clients.opening.clear_failed", { clientId, error });
+    return { ok: false, error: "No se pudo borrar el saldo de apertura." };
+  }
+  return { ok: true, data: undefined };
 }

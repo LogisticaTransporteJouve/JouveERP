@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
-import { getClientAccountAction } from "@/features/clients/actions/account-actions";
+import {
+  getClientAccountAction,
+  getClientOpeningBalanceAction,
+} from "@/features/clients/actions/account-actions";
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import { ClientAccountTab } from "@/features/clients/components/client-account-tab";
 import { ClientForm } from "@/features/clients/components/client-form";
@@ -73,6 +76,10 @@ export default async function ClientDetailPage({
     {
       queryKey: clientsKeys.account(id),
       queryFn: () => runAction(() => getClientAccountAction(id)),
+    },
+    {
+      queryKey: clientsKeys.openingBalance(id),
+      queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
     },
   ]);
 

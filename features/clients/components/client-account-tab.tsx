@@ -27,6 +27,7 @@ import { formatArgentineDate } from "@/lib/format";
 import { useClientAccount } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
 import { clientsKeys } from "../lib/clients-keys";
+import { OpeningBalanceDialog } from "./opening-balance-dialog";
 
 interface InvoiceChannelOption {
   id: string;
@@ -46,6 +47,8 @@ const formatter = {
 };
 
 function formatMovementNumber(m: AccountMovement): string {
+  if (m.source_type === "opening_balance") return "—";
+  if (m.punto_venta == null || m.numero == null) return "—";
   const pos = String(m.punto_venta).padStart(4, "0");
   const num = String(m.numero).padStart(8, "0");
   if (m.source_type === "receipt") return `R${pos}-${num}`;
@@ -56,6 +59,7 @@ function formatMovementNumber(m: AccountMovement): string {
 }
 
 function movementTypeLabel(m: AccountMovement): string {
+  if (m.source_type === "opening_balance") return "Saldo inicial";
   if (m.source_type === "receipt") return "Recibo";
   if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nc") return `NC${m.letter ? " " + m.letter : ""}`;
@@ -110,6 +114,7 @@ export function ClientAccountTab({
 
       {(canIssueInvoice || canWriteReceipt) && (
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {canIssueInvoice && <OpeningBalanceDialog clientId={clientId} />}
           {canIssueInvoice && (
             <NewInvoiceDialog
               channels={channels}
@@ -164,8 +169,15 @@ export function ClientAccountTab({
             ) : (
               movements.map((m) => {
                 const isDebit = m.signed_amount > 0;
+                const isOpening = m.source_type === "opening_balance";
                 return (
-                  <TableRow key={`${m.source_type}-${m.source_id}`}>
+                  <TableRow
+                    key={
+                      isOpening
+                        ? `opening-${m.movement_date}`
+                        : `${m.source_type}-${m.source_id}`
+                    }
+                  >
                     <TableCell className="text-sm text-muted-foreground">
                       {formatArgentineDate(m.movement_date)}
                     </TableCell>
@@ -173,11 +185,13 @@ export function ClientAccountTab({
                       <Badge
                         variant="secondary"
                         className={
-                          m.source_type === "receipt"
-                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                            : m.kind === "nc"
-                              ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                              : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          isOpening
+                            ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
+                            : m.source_type === "receipt"
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                              : m.kind === "nc"
+                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
                         }
                       >
                         {movementTypeLabel(m)}
@@ -185,7 +199,7 @@ export function ClientAccountTab({
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       <span className="inline-flex items-center gap-2">
-                        {m.source_type === "invoice" ? (
+                        {m.source_type === "invoice" && m.source_id ? (
                           <Link
                             href={movementHref(m)}
                             className="hover:underline"
@@ -251,7 +265,8 @@ export function ClientAccountTab({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
-                        {m.source_type === "invoice" ? (
+                        {isOpening ? null : m.source_type === "invoice" &&
+                          m.source_id ? (
                           <>
                             <Button
                               asChild
@@ -280,7 +295,7 @@ export function ClientAccountTab({
                               </Link>
                             </Button>
                           </>
-                        ) : (
+                        ) : m.source_id ? (
                           <>
                             <Button
                               asChild
@@ -310,7 +325,7 @@ export function ClientAccountTab({
                               </Link>
                             </Button>
                           </>
-                        )}
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>

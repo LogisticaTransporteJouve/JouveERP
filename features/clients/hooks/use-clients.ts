@@ -11,7 +11,12 @@ import { useMemo } from "react";
 
 import { runAction } from "@/lib/query/run-action";
 
-import { getClientAccountAction } from "../actions/account-actions";
+import {
+  clearClientOpeningBalanceAction,
+  getClientAccountAction,
+  getClientOpeningBalanceAction,
+  setClientOpeningBalanceAction,
+} from "../actions/account-actions";
 import {
   createClientAction,
   deleteClientAction,
@@ -104,6 +109,50 @@ export function useClientAccount(id: string) {
   return useSuspenseQuery({
     queryKey: clientsKeys.account(id),
     queryFn: () => runAction(() => getClientAccountAction(id)),
+  });
+}
+
+export function useClientOpeningBalance(id: string) {
+  return useSuspenseQuery({
+    queryKey: clientsKeys.openingBalance(id),
+    queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
+  });
+}
+
+export function useSetClientOpeningBalance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      client_id: string;
+      opening_date: string;
+      target_balance: number;
+      notes?: string | null;
+    }) => runAction(() => setClientOpeningBalanceAction(input)),
+    onSuccess: (_data, variables) => {
+      // Affects: opening, account feed, aging.
+      qc.invalidateQueries({
+        queryKey: clientsKeys.openingBalance(variables.client_id),
+      });
+      qc.invalidateQueries({
+        queryKey: clientsKeys.account(variables.client_id),
+      });
+      qc.invalidateQueries({ queryKey: clientsKeys.all });
+    },
+  });
+}
+
+export function useClearClientOpeningBalance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (clientId: string) =>
+      runAction(() => clearClientOpeningBalanceAction(clientId)),
+    onSuccess: (_data, clientId) => {
+      qc.invalidateQueries({
+        queryKey: clientsKeys.openingBalance(clientId),
+      });
+      qc.invalidateQueries({ queryKey: clientsKeys.account(clientId) });
+      qc.invalidateQueries({ queryKey: clientsKeys.all });
+    },
   });
 }
 
