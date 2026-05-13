@@ -15,8 +15,10 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
 
+// Argentine convention: letter glued to the POS (no space). The picker
+// only lists facturas, so we never get the "NC-A 00003-…" form here.
 function formatNumero(letter: string | null, pos: number, numero: number) {
-  return `${letter ?? "X"} ${String(pos).padStart(5, "0")}-${String(numero).padStart(8, "0")}`;
+  return `${letter ?? "X"}${String(pos).padStart(5, "0")}-${String(numero).padStart(8, "0")}`;
 }
 
 function formatARS(amount: number) {

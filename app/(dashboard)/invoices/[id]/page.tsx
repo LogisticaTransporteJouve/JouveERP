@@ -36,8 +36,24 @@ function formatARS(n: number): string {
   });
 }
 
-function formatNumero(ptoVta: number, numero: number): string {
-  return `${String(ptoVta).padStart(5, "0")}-${String(numero).padStart(8, "0")}`;
+// Argentine convention: letter glued to POS, no space. While AFIP hasn't
+// answered (numero is null in draft/emitting), show a placeholder instead
+// of the misleading "0000null" that String(null).padStart produced.
+function formatNumero(
+  kind: string,
+  letter: string | null,
+  ptoVta: number,
+  numero: number | null,
+): string {
+  const pos = String(ptoVta).padStart(5, "0");
+  const num = numero == null ? "pendiente" : String(numero).padStart(8, "0");
+  const prefix =
+    kind === "nc"
+      ? `NC-${letter ?? ""}`
+      : kind === "nd"
+        ? `ND-${letter ?? ""}`
+        : (letter ?? "");
+  return `${prefix}${pos}-${num}`;
 }
 
 export default async function ComprobanteDetailPage({
@@ -56,11 +72,7 @@ export default async function ComprobanteDetailPage({
   const c = res.data;
   const canIssue = userCan(ctx.roles, "invoices:issue");
 
-  const invoiceLabel = `${
-    c.channel.is_fiscal && c.letter
-      ? `${INVOICE_KIND_LABEL[c.kind]} ${c.letter}`
-      : INVOICE_KIND_LABEL[c.kind]
-  } ${formatNumero(c.punto_venta, c.numero)}`;
+  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${formatNumero(c.kind, c.letter, c.punto_venta, c.numero)}`;
 
   return (
     <div className="space-y-6">
@@ -78,11 +90,9 @@ export default async function ComprobanteDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {c.channel.is_fiscal && c.letter
-              ? `${INVOICE_KIND_LABEL[c.kind]} ${c.letter}`
-              : INVOICE_KIND_LABEL[c.kind]}{" "}
+            {INVOICE_KIND_LABEL[c.kind]}{" "}
             <span className="font-mono text-base text-muted-foreground">
-              {formatNumero(c.punto_venta, c.numero)}
+              {formatNumero(c.kind, c.letter, c.punto_venta, c.numero)}
             </span>
           </h1>
           <p className="text-sm text-muted-foreground">
