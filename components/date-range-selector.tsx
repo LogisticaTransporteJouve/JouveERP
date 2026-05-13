@@ -2,10 +2,10 @@
 
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { DateRange as RDPDateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -48,21 +48,28 @@ export function DateRangeSelector() {
   const [open, setOpen] = useState(false);
 
   const [draftPreset, setDraftPreset] = useState<RangePreset>(preset);
-  const [draftRange, setDraftRange] = useState<RDPDateRange | undefined>(
-    customFrom && customTo
-      ? { from: isoToDate(customFrom), to: isoToDate(customTo) }
-      : undefined,
+  const [draftFrom, setDraftFrom] = useState<Date | undefined>(
+    customFrom ? isoToDate(customFrom) : undefined,
+  );
+  const [draftTo, setDraftTo] = useState<Date | undefined>(
+    customTo ? isoToDate(customTo) : undefined,
   );
 
   useEffect(() => {
     setDraftPreset(preset);
-    if (preset === "custom" && customFrom && customTo) {
-      setDraftRange({
-        from: isoToDate(customFrom),
-        to: isoToDate(customTo),
-      });
+    if (preset === "custom") {
+      setDraftFrom(customFrom ? isoToDate(customFrom) : undefined);
+      setDraftTo(customTo ? isoToDate(customTo) : undefined);
     }
   }, [preset, customFrom, customTo]);
+
+  function maybeApply(from: Date | undefined, to: Date | undefined) {
+    if (!from || !to) return;
+    // Si el usuario eligió "to" antes que "from" (cosa rara), normalizamos.
+    const [a, b] = from <= to ? [from, to] : [to, from];
+    setCustom(dateToIso(a), dateToIso(b));
+    setOpen(false);
+  }
 
   const isCustom = preset === "custom";
   const triggerLabel =
@@ -76,15 +83,7 @@ export function DateRangeSelector() {
       setPreset(next);
       setOpen(false);
     }
-    // Custom: el popover sigue abierto, mostramos el calendar.
-  }
-
-  function onRangeSelect(r: RDPDateRange | undefined) {
-    setDraftRange(r);
-    if (r?.from && r?.to) {
-      setCustom(dateToIso(r.from), dateToIso(r.to));
-      setOpen(false);
-    }
+    // Custom: el popover sigue abierto, mostramos los 2 calendars.
   }
 
   return (
@@ -118,18 +117,32 @@ export function DateRangeSelector() {
             })}
           </div>
           {draftPreset === "custom" && (
-            <div className="rounded-md border">
-              <Calendar
-                mode="range"
-                numberOfMonths={1}
-                selected={draftRange}
-                onSelect={onRangeSelect}
-                captionLayout="dropdown"
-              />
-              <p className="px-3 pb-2 text-[11px] text-muted-foreground">
-                Elegí fecha de inicio y fin. Se aplica al seleccionar la
-                segunda.
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="space-y-1 rounded-md border p-2">
+                <Label className="px-1 text-xs">Desde</Label>
+                <Calendar
+                  mode="single"
+                  selected={draftFrom}
+                  onSelect={(d) => {
+                    setDraftFrom(d);
+                    maybeApply(d, draftTo);
+                  }}
+                  captionLayout="dropdown"
+                />
+              </div>
+              <div className="space-y-1 rounded-md border p-2">
+                <Label className="px-1 text-xs">Hasta</Label>
+                <Calendar
+                  mode="single"
+                  selected={draftTo}
+                  onSelect={(d) => {
+                    setDraftTo(d);
+                    maybeApply(draftFrom, d);
+                  }}
+                  captionLayout="dropdown"
+                  disabled={draftFrom ? { before: draftFrom } : undefined}
+                />
+              </div>
             </div>
           )}
         </div>

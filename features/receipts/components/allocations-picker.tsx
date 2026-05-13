@@ -109,7 +109,8 @@ export function AllocationsPicker({
               <th className="w-8 px-2 py-1.5"></th>
               <th className="px-2 py-1.5 text-left">Comprobante</th>
               <th className="px-2 py-1.5 text-left">Fecha</th>
-              <th className="px-2 py-1.5 text-right">Saldo</th>
+              <th className="px-2 py-1.5 text-right">Original</th>
+              <th className="px-2 py-1.5 text-right">Adeudado</th>
               <th className="px-2 py-1.5 text-right">Imputar</th>
             </tr>
           </thead>
@@ -117,6 +118,7 @@ export function AllocationsPicker({
             {pending.map((c) => {
               const alloc = allocations.find((a) => a.invoice_id === c.id);
               const checked = !!alloc;
+              const isPartial = c.already_allocated > 0;
               return (
                 <tr key={c.id} className="border-t">
                   <td className="px-2 py-1.5">
@@ -137,8 +139,20 @@ export function AllocationsPicker({
                   <td className="px-2 py-1.5 text-xs text-muted-foreground">
                     {formatArgentineDate(c.fecha)}
                   </td>
+                  <td className="px-2 py-1.5 text-right font-mono text-xs text-muted-foreground">
+                    {amountToInput(c.imp_total)}
+                  </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs">
-                    {amountToInput(c.outstanding)}
+                    <div className="flex flex-col items-end">
+                      <span className={isPartial ? "text-amber-600 dark:text-amber-400" : ""}>
+                        {amountToInput(c.outstanding)}
+                      </span>
+                      {isPartial && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Pagado: {amountToInput(c.already_allocated)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
                     <Input
