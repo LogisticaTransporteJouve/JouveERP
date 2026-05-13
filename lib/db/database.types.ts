@@ -9,6 +9,61 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_opening_balances: {
+        Row: {
+          account_id: string
+          adjustment_date: string
+          adjustment_transaction_id: string | null
+          created_at: string
+          created_by: string | null
+          notes: string | null
+          target_balance: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          adjustment_date: string
+          adjustment_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          target_balance: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          adjustment_date?: string
+          adjustment_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          target_balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_opening_balances_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_adjustment_transaction_id_fkey"
+            columns: ["adjustment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_adjustment_transaction_id_fkey"
+            columns: ["adjustment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           created_at: string
@@ -1323,6 +1378,16 @@ export type Database = {
       }
     }
     Functions: {
+      apply_account_opening_balance: {
+        Args: {
+          p_account_id: string
+          p_adjustment_date: string
+          p_channel_id: string
+          p_notes?: string
+          p_target_balance: number
+        }
+        Returns: undefined
+      }
       apply_client_opening_balance: {
         Args: {
           p_client_id: string
@@ -1339,6 +1404,10 @@ export type Database = {
           p_window_start: string
         }
         Returns: number
+      }
+      clear_account_opening_balance: {
+        Args: { p_account_id: string }
+        Returns: undefined
       }
       clear_client_opening_balance: {
         Args: { p_client_id: string }

@@ -225,3 +225,123 @@ export async function setAccountActiveAction(
   );
   return { ok: true, data: undefined };
 }
+
+// ---------------------------------------------------------------------------
+// Opening balance (ajuste de saldo de cuenta)
+// ---------------------------------------------------------------------------
+
+export interface AccountOpeningBalance {
+  account_id: string;
+  adjustment_date: string;
+  target_balance: number;
+  adjustment_transaction_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getAccountOpeningBalanceAction(
+  accountId: string,
+): Promise<ActionResult<AccountOpeningBalance | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "accounts:read")) {
+    return { ok: false, error: "No tenés permiso para ver cuentas." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("account_opening_balances")
+    .select(
+      "account_id, adjustment_date, target_balance, adjustment_transaction_id, notes, created_at, updated_at",
+    )
+    .eq("account_id", accountId)
+    .maybeSingle();
+  if (error) {
+    logger.error("accounts.opening.read_failed", { accountId, error });
+    return { ok: false, error: "No se pudo cargar el saldo de apertura." };
+  }
+  if (!data) return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      account_id: data.account_id,
+      adjustment_date: data.adjustment_date,
+      target_balance: Number(data.target_balance),
+      adjustment_transaction_id: data.adjustment_transaction_id,
+      notes: data.notes,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    },
+  };
+}
+
+export async function setAccountOpeningBalanceAction(input: {
+  account_id: string;
+  adjustment_date: string;
+  target_balance: number;
+  channel_id: string;
+  notes?: string | null;
+}): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "accounts:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para ajustar saldos de cuentas.",
+    };
+  }
+  if (!input.account_id) return { ok: false, error: "Cuenta requerida." };
+  if (!input.channel_id) return { ok: false, error: "Canal requerido." };
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("apply_account_opening_balance", {
+    p_account_id: input.account_id,
+    p_adjustment_date: input.adjustment_date,
+    p_target_balance: input.target_balance,
+    p_channel_id: input.channel_id,
+    p_notes: input.notes ?? undefined,
+  });
+  if (error) {
+    logger.error("accounts.opening.apply_failed", {
+      accountId: input.account_id,
+      error,
+    });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
+    };
+  }
+  await logAudit(
+    "account.opening_balance.applied",
+    ctx.userId,
+    {
+      adjustment_date: input.adjustment_date,
+      target_balance: input.target_balance,
+      channel_id: input.channel_id,
+    },
+    input.account_id,
+  );
+  return { ok: true, data: undefined };
+}
+
+export async function clearAccountOpeningBalanceAction(
+  accountId: string,
+): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "accounts:write")) {
+    return { ok: false, error: "No tenés permiso para borrar saldos." };
+  }
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("clear_account_opening_balance", {
+    p_account_id: accountId,
+  });
+  if (error) {
+    logger.error("accounts.opening.clear_failed", { accountId, error });
+    return { ok: false, error: "No se pudo borrar el saldo de apertura." };
+  }
+  await logAudit(
+    "account.opening_balance.cleared",
+    ctx.userId,
+    {},
+    accountId,
+  );
+  return { ok: true, data: undefined };
+}
