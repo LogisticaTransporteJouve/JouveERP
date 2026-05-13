@@ -327,34 +327,64 @@ export async function listPendingComprobantesForClientAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { data: comprobantes, error: cErr } = await supabase
-    .from("invoices")
-    .select("id, numero, punto_venta, letter, kind, fecha, imp_total, status")
-    .eq("client_id", clientId)
-    .eq("status", "emitted")
-    .order("fecha", { ascending: true });
 
-  if (cErr) {
-    logger.error("receipts.pending.list_comprobantes_failed", { error: cErr });
-    return {
-      ok: false,
-      error: "No se pudieron listar los comprobantes pendientes.",
-    };
+  // PostgREST caps individual responses at 1000 rows (db.max_rows).
+  // Chunkeamos para clientes con muchas facturas migradas. Cap defensivo
+  // de 50000.
+  type InvoiceRow = {
+    id: string;
+    numero: number | null;
+    punto_venta: number;
+    letter: string | null;
+    kind: string;
+    fecha: string;
+    imp_total: number | string;
+  };
+  const CHUNK = 1000;
+  const HARD_CAP = 50000;
+  const comprobantes: InvoiceRow[] = [];
+  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
+    const { data: chunk, error } = await supabase
+      .from("invoices")
+      .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+      .eq("client_id", clientId)
+      .eq("status", "emitted")
+      .order("fecha", { ascending: true })
+      .range(offset, offset + CHUNK - 1);
+    if (error) {
+      logger.error("receipts.pending.list_comprobantes_failed", { error });
+      return {
+        ok: false,
+        error: "No se pudieron listar los comprobantes pendientes.",
+      };
+    }
+    const got = (chunk ?? []) as InvoiceRow[];
+    comprobantes.push(...got);
+    if (got.length < CHUNK) break;
   }
 
-  const ids = (comprobantes ?? []).map((c) => c.id);
-  if (ids.length === 0) return { ok: true, data: [] };
+  if (comprobantes.length === 0) return { ok: true, data: [] };
 
-  const allocsQuery = supabase
+  // Receipt allocations: filtramos por receipts.client_id (no por
+  // .in(invoice_id, miles…)) para no reventar la URL de PostgREST.
+  const { data: allocations, error: aErr } = await supabase
     .from("receipt_allocations")
-    .select("invoice_id, amount_applied, receipt_id, receipts ( status )")
-    .in("invoice_id", ids);
-
-  const { data: allocations, error: aErr } = await allocsQuery;
+    .select(
+      "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
+    )
+    .eq("receipts.client_id", clientId);
   if (aErr) {
     logger.error("receipts.pending.list_allocations_failed", { error: aErr });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
+
+  // Opening allocations: lo que el ajuste de saldo dejó saldado también
+  // debe descontarse del outstanding, sino el picker ofrece imputar de
+  // nuevo facturas ya cerradas.
+  const { data: openingAllocs } = await supabase
+    .from("client_opening_balance_allocations")
+    .select("invoice_id, amount_applied")
+    .eq("client_id", clientId);
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {
@@ -374,8 +404,15 @@ export async function listPendingComprobantesForClientAction(
       prev + Number(alloc.amount_applied),
     );
   }
+  for (const a of openingAllocs ?? []) {
+    const prev = allocatedByComprobante.get(a.invoice_id) ?? 0;
+    allocatedByComprobante.set(
+      a.invoice_id,
+      prev + Number(a.amount_applied),
+    );
+  }
 
-  const pending: PendingComprobante[] = (comprobantes ?? [])
+  const pending: PendingComprobante[] = comprobantes
     .map((c) => {
       const already = allocatedByComprobante.get(c.id) ?? 0;
       const total = Number(c.imp_total ?? 0);
