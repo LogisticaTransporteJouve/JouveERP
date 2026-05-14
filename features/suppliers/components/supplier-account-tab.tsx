@@ -23,9 +23,9 @@ import { useSupplierAccount } from "../hooks/use-suppliers";
 
 const KIND_LABEL: Record<string, string> = {
   factura: "Factura",
-  nc: "NC",
-  nd: "ND",
-  payment_order: "OP",
+  nc: "Nota de Crédito",
+  nd: "Nota de Débito",
+  payment_order: "Orden de Pago",
 };
 
 function formatDocumentNumber(m: {

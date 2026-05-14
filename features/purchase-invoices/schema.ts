@@ -5,8 +5,8 @@ export type PurchaseInvoiceKind = (typeof PURCHASE_INVOICE_KINDS)[number];
 
 export const PURCHASE_INVOICE_KIND_LABEL: Record<PurchaseInvoiceKind, string> = {
   factura: "Factura",
-  nc: "Nota de crédito",
-  nd: "Nota de débito",
+  nc: "Nota de Crédito",
+  nd: "Nota de Débito",
 };
 
 export const PURCHASE_INVOICE_LETTERS = ["A", "B", "C"] as const;
