@@ -1,5 +1,7 @@
 "use client";
 
+import { Eye } from "lucide-react";
+import Link from "next/link";
 import {
   Suspense,
   useDeferredValue,
@@ -9,6 +11,7 @@ import {
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -195,7 +198,12 @@ function PurchaseInvoicesRows({
             </div>
           </TableCell>
           <TableCell>
-            <div className="font-medium">{inv.supplier_legal_name}</div>
+            <Link
+              href={`/suppliers/${inv.supplier_id}`}
+              className="font-medium hover:underline"
+            >
+              {inv.supplier_legal_name}
+            </Link>
             <div className="font-mono text-xs text-muted-foreground">
               CUIT {inv.supplier_cuit}
             </div>
@@ -224,6 +232,11 @@ function PurchaseInvoicesRows({
           </TableCell>
           <TableCell>
             <div className="flex items-center justify-end gap-1">
+              <Button asChild variant="ghost" size="icon" aria-label="Ver detalle">
+                <Link href={`/purchases/${inv.id}`}>
+                  <Eye className="size-4" />
+                </Link>
+              </Button>
               {canWrite && inv.status === "received" && (
                 <EditPurchaseInvoiceDialog invoice={inv} />
               )}

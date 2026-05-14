@@ -19,8 +19,8 @@ export const INVOICE_KINDS = ["factura", "nc", "nd"] as const;
 
 export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
   factura: "Factura",
-  nc: "Nota de crédito",
-  nd: "Nota de débito",
+  nc: "Nota de Crédito",
+  nd: "Nota de Débito",
 };
 
 export const INVOICE_STATUSES = [

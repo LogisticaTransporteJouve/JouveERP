@@ -147,6 +147,61 @@ export async function getPurchaseInvoiceByIdAction(
   return { ok: true, data: narrowRow(flat) };
 }
 
+export type PurchaseInvoiceAllocation = {
+  payment_order_id: string;
+  payment_order_numero: number;
+  payment_order_punto_venta: number;
+  payment_order_date: string;
+  payment_order_status: string;
+  amount_applied: number;
+};
+
+export async function getPurchaseInvoiceAllocationsAction(
+  invoiceId: string,
+): Promise<ActionResult<PurchaseInvoiceAllocation[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("payment_order_allocations")
+    .select(
+      "amount_applied, payment_orders!inner(id, numero, punto_venta, payment_date, status)",
+    )
+    .eq("purchase_invoice_id", invoiceId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    logger.error("purchase_invoices.allocations.failed", { error });
+    return { ok: false, error: "No se pudieron leer las imputaciones." };
+  }
+
+  const out: PurchaseInvoiceAllocation[] = (data ?? []).map((row) => {
+    const op = (
+      row as unknown as {
+        payment_orders: {
+          id: string;
+          numero: number;
+          punto_venta: number;
+          payment_date: string;
+          status: string;
+        };
+      }
+    ).payment_orders;
+    return {
+      payment_order_id: op.id,
+      payment_order_numero: op.numero,
+      payment_order_punto_venta: op.punto_venta,
+      payment_order_date: op.payment_date,
+      payment_order_status: op.status,
+      amount_applied: Number(row.amount_applied),
+    };
+  });
+
+  return { ok: true, data: out };
+}
+
 export async function createPurchaseInvoiceAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {

@@ -7,7 +7,10 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { checksKeys } from "@/features/checks/lib/checks-keys";
+import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
 import { purchaseInvoicesKeys } from "@/features/purchase-invoices/lib/purchase-invoices-keys";
+import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { runAction } from "@/lib/query/run-action";
 
@@ -80,15 +83,22 @@ export function useNextPaymentOrderNumero(channelId: string | null) {
   };
 }
 
+function invalidatePaymentOrderEffects(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: paymentOrdersKeys.all });
+  qc.invalidateQueries({ queryKey: transactionsKeys.all });
+  qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+  qc.invalidateQueries({ queryKey: suppliersKeys.all });
+  qc.invalidateQueries({ queryKey: checksKeys.all });
+  qc.invalidateQueries({ queryKey: issuedChecksKeys.all });
+}
+
 export function useCreatePaymentOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => createPaymentOrderAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: paymentOrdersKeys.all });
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePaymentOrderEffects(qc);
     },
   });
 }
@@ -99,9 +109,7 @@ export function useUpdatePaymentOrder() {
     mutationFn: (input: unknown) =>
       runAction(() => updatePaymentOrderAction(input)),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: paymentOrdersKeys.all });
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePaymentOrderEffects(qc);
       const id = (variables as { id?: string }).id;
       if (id) qc.invalidateQueries({ queryKey: paymentOrdersKeys.detail(id) });
     },
@@ -114,9 +122,7 @@ export function useCancelPaymentOrder() {
     mutationFn: (input: { id: string }) =>
       runAction(() => cancelPaymentOrderAction(input)),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: paymentOrdersKeys.all });
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePaymentOrderEffects(qc);
       qc.invalidateQueries({ queryKey: paymentOrdersKeys.detail(variables.id) });
     },
   });

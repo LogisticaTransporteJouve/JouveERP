@@ -12,6 +12,7 @@ import {
   PaymentOrderUpdateSchema,
   isPaymentOrderCurrency,
   isPaymentOrderStatus,
+  type PaymentLineInput,
   type PaymentOrder,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
@@ -60,6 +61,41 @@ function narrowPaymentOrder(row: {
 const COLUMNS =
   "id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
 
+function serializePaymentLine(line: PaymentLineInput) {
+  if (line.line_kind === "endorse_check") {
+    return {
+      line_kind: "endorse_check",
+      endorsed_check_id: line.endorsed_check_id,
+      amount: line.amount,
+      reference: line.reference ?? null,
+    };
+  }
+  if (line.line_kind === "issue_check") {
+    return {
+      line_kind: "issue_check",
+      account_id: line.account_id,
+      amount: line.amount,
+      reference: line.reference ?? null,
+      issued_check: {
+        kind: line.issued_check.kind,
+        check_number: line.issued_check.check_number,
+        bank_name: line.issued_check.bank_name,
+        due_date: line.issued_check.due_date,
+        issue_date: line.issued_check.issue_date ?? null,
+        beneficiary_name: line.issued_check.beneficiary_name ?? null,
+        beneficiary_cuit: line.issued_check.beneficiary_cuit ?? null,
+        notes: line.issued_check.notes ?? null,
+      },
+    };
+  }
+  return {
+    line_kind: "account",
+    account_id: line.account_id,
+    amount: line.amount,
+    reference: line.reference ?? null,
+  };
+}
+
 export async function listPaymentOrdersAction(): Promise<
   ActionResult<{
     paymentOrders: (PaymentOrder & { supplier_legal_name: string })[];
@@ -97,7 +133,10 @@ export async function listPaymentOrdersAction(): Promise<
 }
 
 export type PaymentOrderDetail = {
-  paymentOrder: PaymentOrder;
+  paymentOrder: PaymentOrder & {
+    supplier_legal_name: string;
+    supplier_cuit: string;
+  };
   payment_lines: PaymentOrderPaymentLine[];
   allocations: PaymentOrderAllocation[];
 };
@@ -113,7 +152,7 @@ export async function getPaymentOrderByIdAction(
   const supabase = await createSupabaseClient();
   const { data: row, error: opErr } = await supabase
     .from("payment_orders")
-    .select(COLUMNS)
+    .select(`${COLUMNS}, suppliers ( legal_name, cuit )`)
     .eq("id", id)
     .maybeSingle();
 
@@ -126,11 +165,16 @@ export async function getPaymentOrderByIdAction(
   if (!paymentOrder) {
     return { ok: false, error: "Orden de pago con datos inválidos." };
   }
+  const sup = (
+    row as { suppliers: { legal_name: string; cuit: string } | null }
+  ).suppliers;
 
   const [linesRes, allocsRes] = await Promise.all([
     supabase
       .from("payment_order_payment_lines")
-      .select("*, account:accounts(name, type)")
+      .select(
+        "*, account:accounts(name, type), endorsed_check:checks!payment_order_payment_lines_endorsed_check_id_fkey(id, kind, check_number, bank_name, due_date, drawer_name), issued_check:issued_checks!payment_order_payment_lines_issued_check_id_fkey(id, kind, check_number, bank_name, due_date, status)",
+      )
       .eq("payment_order_id", id)
       .order("created_at"),
     supabase
@@ -154,7 +198,11 @@ export async function getPaymentOrderByIdAction(
   return {
     ok: true,
     data: {
-      paymentOrder,
+      paymentOrder: {
+        ...paymentOrder,
+        supplier_legal_name: sup?.legal_name ?? "—",
+        supplier_cuit: sup?.cuit ?? "",
+      },
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
     },
@@ -390,11 +438,7 @@ export async function createPaymentOrderAction(
     p_total_amount: data.total_amount,
     p_currency: data.currency,
     p_notes: data.notes ?? "",
-    p_payment_lines: data.payment_lines.map((l) => ({
-      account_id: l.account_id,
-      amount: l.amount,
-      reference: l.reference ?? null,
-    })),
+    p_payment_lines: data.payment_lines.map(serializePaymentLine),
     p_allocations: allocations.map((a) => ({
       purchase_invoice_id: a.purchase_invoice_id,
       amount_applied: a.amount_applied,
@@ -459,11 +503,7 @@ export async function updatePaymentOrderAction(
     p_payment_date: data.payment_date,
     p_total_amount: data.total_amount,
     p_notes: data.notes ?? "",
-    p_payment_lines: data.payment_lines.map((l) => ({
-      account_id: l.account_id,
-      amount: l.amount,
-      reference: l.reference ?? null,
-    })),
+    p_payment_lines: data.payment_lines.map(serializePaymentLine),
     p_allocations: (data.allocations ?? []).map((a) => ({
       purchase_invoice_id: a.purchase_invoice_id,
       amount_applied: a.amount_applied,

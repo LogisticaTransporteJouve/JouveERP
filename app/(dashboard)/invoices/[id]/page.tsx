@@ -48,11 +48,7 @@ function formatNumero(
   const pos = String(ptoVta).padStart(5, "0");
   const num = numero == null ? "pendiente" : String(numero).padStart(8, "0");
   const prefix =
-    kind === "nc"
-      ? `NC-${letter ?? ""}`
-      : kind === "nd"
-        ? `ND-${letter ?? ""}`
-        : (letter ?? "");
+    kind === "nc" ? "NC" : kind === "nd" ? "ND" : (letter ?? "");
   return `${prefix}${pos}-${num}`;
 }
 

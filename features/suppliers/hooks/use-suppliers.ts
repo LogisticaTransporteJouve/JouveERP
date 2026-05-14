@@ -12,8 +12,11 @@ import { useMemo } from "react";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  clearSupplierOpeningBalanceAction,
   getSupplierAccountAction,
   getSupplierAgingAction,
+  getSupplierOpeningBalanceAction,
+  setSupplierOpeningBalanceAction,
 } from "../actions/account-actions";
 import {
   createSupplierAction,
@@ -153,5 +156,44 @@ export function useSupplierAging() {
   return useSuspenseQuery({
     queryKey: suppliersKeys.aging(),
     queryFn: () => runAction(() => getSupplierAgingAction()),
+  });
+}
+
+export function useSupplierOpeningBalance(id: string) {
+  return useQuery({
+    queryKey: suppliersKeys.openingBalance(id),
+    queryFn: () => runAction(() => getSupplierOpeningBalanceAction(id)),
+  });
+}
+
+export function useSetSupplierOpeningBalance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      supplier_id: string;
+      opening_date: string;
+      target_balance: number;
+      notes?: string | null;
+    }) => runAction(() => setSupplierOpeningBalanceAction(input)),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: suppliersKeys.all });
+      qc.invalidateQueries({
+        queryKey: suppliersKeys.openingBalance(variables.supplier_id),
+      });
+    },
+  });
+}
+
+export function useClearSupplierOpeningBalance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (supplierId: string) =>
+      runAction(() => clearSupplierOpeningBalanceAction(supplierId)),
+    onSuccess: (_data, supplierId) => {
+      qc.invalidateQueries({ queryKey: suppliersKeys.all });
+      qc.invalidateQueries({
+        queryKey: suppliersKeys.openingBalance(supplierId),
+      });
+    },
   });
 }

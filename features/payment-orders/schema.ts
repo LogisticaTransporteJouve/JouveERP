@@ -35,7 +35,47 @@ const moneyAmount = z.preprocess(
     .max(1_000_000_000_000),
 );
 
-const PaymentLineSchema = z.object({
+export const ISSUED_CHECK_KINDS = ["fisico", "echeq"] as const;
+export type IssuedCheckKind = (typeof ISSUED_CHECK_KINDS)[number];
+
+const IssuedCheckPayloadSchema = z.object({
+  kind: z.enum(ISSUED_CHECK_KINDS),
+  check_number: z.string().trim().min(1, "Nº cheque requerido.").max(40),
+  bank_name: z.string().trim().min(1, "Banco requerido.").max(120),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de vto. inválida."),
+  issue_date: z
+    .union([
+      z.literal(""),
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de emisión inválida."),
+    ])
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
+  beneficiary_name: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+  beneficiary_cuit: z
+    .string()
+    .trim()
+    .max(20)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+  notes: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+});
+
+const PaymentLineAccountSchema = z.object({
+  line_kind: z.literal("account"),
   account_id: z.string().uuid("Cuenta requerida."),
   amount: moneyAmount,
   reference: z
@@ -46,6 +86,39 @@ const PaymentLineSchema = z.object({
     .nullable()
     .optional(),
 });
+
+const PaymentLineEndorseSchema = z.object({
+  line_kind: z.literal("endorse_check"),
+  endorsed_check_id: z.string().uuid("Cheque requerido."),
+  amount: moneyAmount,
+  reference: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+});
+
+const PaymentLineIssueSchema = z.object({
+  line_kind: z.literal("issue_check"),
+  account_id: z.string().uuid("Chequera (cuenta bancaria) requerida."),
+  amount: moneyAmount,
+  reference: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
+  issued_check: IssuedCheckPayloadSchema,
+});
+
+const PaymentLineSchema = z.discriminatedUnion("line_kind", [
+  PaymentLineAccountSchema,
+  PaymentLineEndorseSchema,
+  PaymentLineIssueSchema,
+]);
 
 const AllocationSchema = z.object({
   purchase_invoice_id: z.string().uuid(),
@@ -118,6 +191,10 @@ export const PaymentOrderCancelSchema = z.object({
 export type PaymentOrderCreateInput = z.infer<typeof PaymentOrderCreateSchema>;
 export type PaymentOrderUpdateInput = z.infer<typeof PaymentOrderUpdateSchema>;
 export type PaymentLineInput = z.infer<typeof PaymentLineSchema>;
+export type PaymentLineAccountInput = z.infer<typeof PaymentLineAccountSchema>;
+export type PaymentLineEndorseInput = z.infer<typeof PaymentLineEndorseSchema>;
+export type PaymentLineIssueInput = z.infer<typeof PaymentLineIssueSchema>;
+export type IssuedCheckPayload = z.infer<typeof IssuedCheckPayloadSchema>;
 export type AllocationInput = z.infer<typeof AllocationSchema>;
 
 export function isPaymentOrderStatus(v: unknown): v is PaymentOrderStatus {

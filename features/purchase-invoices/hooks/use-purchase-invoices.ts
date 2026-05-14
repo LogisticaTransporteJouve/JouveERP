@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -65,13 +66,18 @@ export function usePurchaseInvoiceById(id: string) {
   });
 }
 
+function invalidatePurchaseEffects(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+  qc.invalidateQueries({ queryKey: suppliersKeys.all });
+}
+
 export function useCreatePurchaseInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => createPurchaseInvoiceAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePurchaseEffects(qc);
     },
   });
 }
@@ -82,7 +88,7 @@ export function useUpdatePurchaseInvoice() {
     mutationFn: (input: unknown) =>
       runAction(() => updatePurchaseInvoiceAction(input)),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePurchaseEffects(qc);
       const id = (variables as { id?: string }).id;
       if (id) qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.byId(id) });
     },
@@ -95,7 +101,7 @@ export function useCancelPurchaseInvoice() {
     mutationFn: (id: string) =>
       runAction(() => cancelPurchaseInvoiceAction({ id })),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
+      invalidatePurchaseEffects(qc);
     },
   });
 }

@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BookCheck,
+  ChevronRight,
   CreditCard,
   FileText,
   LayoutDashboard,
@@ -24,6 +25,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useChatUnreadCountLite } from "@/features/chat/hooks/use-chat";
 import {
   Sidebar,
@@ -53,104 +59,54 @@ type NavItem = {
   permission?: Permission;
 };
 
-const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
+type NavSection = {
+  label: string | null;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
   {
-    href: "/clients",
-    label: "Clientes",
-    icon: Users,
-    permission: "clients:read",
+    label: null,
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/chat", label: "Chat", icon: MessageSquare },
+    ],
   },
   {
-    href: "/suppliers",
-    label: "Proveedores",
-    icon: Truck,
-    permission: "suppliers:read",
+    label: "Ventas",
+    items: [
+      { href: "/clients", label: "Clientes", icon: Users, permission: "clients:read" },
+      { href: "/invoices", label: "Comprobantes", icon: ReceiptText, permission: "invoices:read" },
+      { href: "/receipts", label: "Recibos", icon: ScrollText, permission: "receipts:read" },
+      { href: "/aging", label: "Aging clientes", icon: AlertTriangle, permission: "clients:read" },
+    ],
   },
   {
-    href: "/purchases",
     label: "Compras",
-    icon: ShoppingCart,
-    permission: "purchase_invoices:read",
+    items: [
+      { href: "/suppliers", label: "Proveedores", icon: Truck, permission: "suppliers:read" },
+      { href: "/purchases", label: "Compras", icon: ShoppingCart, permission: "purchase_invoices:read" },
+      { href: "/payment-orders", label: "Órdenes de pago", icon: CreditCard, permission: "payment_orders:read" },
+      { href: "/aging-suppliers", label: "Aging proveedores", icon: AlertTriangle, permission: "suppliers:read" },
+    ],
   },
   {
-    href: "/payment-orders",
-    label: "Órdenes de pago",
-    icon: CreditCard,
-    permission: "payment_orders:read",
+    label: "Tesorería",
+    items: [
+      { href: "/accounts", label: "Cuentas", icon: Wallet, permission: "accounts:read" },
+      { href: "/transactions", label: "Caja", icon: ArrowLeftRight, permission: "transactions:read" },
+      { href: "/checks", label: "Cheques recibidos", icon: BookCheck, permission: "cheques:read" },
+      { href: "/issued-checks", label: "Cheques propios", icon: BookCheck, permission: "issued_checks:read" },
+    ],
   },
   {
-    href: "/invoices",
-    label: "Comprobantes",
-    icon: ReceiptText,
-    permission: "invoices:read",
-  },
-  {
-    href: "/receipts",
-    label: "Recibos",
-    icon: ScrollText,
-    permission: "receipts:read",
-  },
-  {
-    href: "/accounts",
-    label: "Cuentas",
-    icon: Wallet,
-    permission: "accounts:read",
-  },
-  {
-    href: "/transactions",
-    label: "Caja",
-    icon: ArrowLeftRight,
-    permission: "transactions:read",
-  },
-  {
-    href: "/checks",
-    label: "Cheques recibidos",
-    icon: BookCheck,
-    permission: "cheques:read",
-  },
-  {
-    href: "/issued-checks",
-    label: "Cheques propios",
-    icon: BookCheck,
-    permission: "issued_checks:read",
-  },
-  {
-    href: "/aging",
-    label: "Aging clientes",
-    icon: AlertTriangle,
-    permission: "clients:read",
-  },
-  {
-    href: "/aging-suppliers",
-    label: "Aging proveedores",
-    icon: AlertTriangle,
-    permission: "suppliers:read",
-  },
-  {
-    href: "/admin/users",
-    label: "Usuarios",
-    icon: ShieldCheck,
-    permission: "users:read",
-  },
-  {
-    href: "/admin/padron",
-    label: "Padrón AFIP",
-    icon: Search,
-    permission: "padron:lookup",
-  },
-  {
-    href: "/admin/afip/puntos-de-venta",
-    label: "Puntos de venta",
-    icon: Receipt,
-    permission: "afip:admin",
-  },
-  {
-    href: "/admin/afip/preview-pdf",
-    label: "Preview PDF",
-    icon: FileText,
-    permission: "afip:admin",
+    label: "Admin",
+    items: [
+      { href: "/admin/users", label: "Usuarios", icon: ShieldCheck, permission: "users:read" },
+      { href: "/admin/padron", label: "Padrón AFIP", icon: Search, permission: "padron:lookup" },
+      { href: "/admin/afip/puntos-de-venta", label: "Puntos de venta", icon: Receipt, permission: "afip:admin" },
+      { href: "/admin/afip/preview-pdf", label: "Preview PDF", icon: FileText, permission: "afip:admin" },
+    ],
   },
 ];
 
@@ -173,9 +129,14 @@ export function AppSidebar({
   const pathname = usePathname();
   const chatUnread = useChatUnreadCountLite();
 
-  const visibleItems = navItems.filter(
-    (item) => !item.permission || userCan(userRoles, item.permission),
-  );
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.permission || userCan(userRoles, item.permission),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const displayName = getDisplayName(
     profile.firstName,
@@ -203,14 +164,14 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden">
-        <SidebarGroup>
-          <SidebarGroupLabel>Navegación</SidebarGroupLabel>
-          <SidebarGroupContent>
+        {visibleSections.map((section, idx) => {
+          const menu = (
             <SidebarMenu>
-              {visibleItems.map((item) => {
+              {section.items.map((item) => {
                 const Icon = item.icon;
                 const isActive =
-                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
                 const badge = item.href === "/chat" ? chatUnread : 0;
                 return (
                   <SidebarMenuItem key={item.href}>
@@ -238,8 +199,36 @@ export function AppSidebar({
                 );
               })}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          );
+
+          if (!section.label) {
+            return (
+              <SidebarGroup key={`top-${idx}`}>
+                <SidebarGroupContent>{menu}</SidebarGroupContent>
+              </SidebarGroup>
+            );
+          }
+
+          return (
+            <Collapsible
+              key={section.label}
+              defaultOpen
+              className="group/collapsible"
+            >
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:text-sidebar-foreground">
+                    {section.label}
+                    <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <SidebarGroupContent>{menu}</SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          );
+        })}
       </SidebarContent>
       <SidebarFooter className="overflow-hidden p-0">
         <Link

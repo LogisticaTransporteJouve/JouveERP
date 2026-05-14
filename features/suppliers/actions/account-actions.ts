@@ -9,19 +9,125 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type SupplierAccountSourceType = "purchase_invoice" | "payment_order";
+export interface SupplierOpeningBalance {
+  supplier_id: string;
+  opening_date: string;
+  target_balance: number;
+  total_settled: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getSupplierOpeningBalanceAction(
+  supplierId: string,
+): Promise<ActionResult<SupplierOpeningBalance | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "suppliers:read")) {
+    return { ok: false, error: "No tenés permiso para ver proveedores." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("supplier_opening_balances")
+    .select(
+      "supplier_id, opening_date, target_balance, total_settled, notes, created_at, updated_at",
+    )
+    .eq("supplier_id", supplierId)
+    .maybeSingle();
+  if (error) {
+    logger.error("suppliers.opening.read_failed", { supplierId, error });
+    return { ok: false, error: "No se pudo cargar el saldo de apertura." };
+  }
+  if (!data) return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      supplier_id: data.supplier_id,
+      opening_date: data.opening_date,
+      target_balance: Number(data.target_balance),
+      total_settled: Number(data.total_settled),
+      notes: data.notes,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    },
+  };
+}
+
+export async function setSupplierOpeningBalanceAction(input: {
+  supplier_id: string;
+  opening_date: string;
+  target_balance: number;
+  notes?: string | null;
+}): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!ctx.roles.includes("owner")) {
+    return {
+      ok: false,
+      error: "Solo el owner puede ajustar saldos de proveedor.",
+    };
+  }
+  if (!input.supplier_id) return { ok: false, error: "Proveedor requerido." };
+  if (input.target_balance < 0)
+    return { ok: false, error: "El saldo no puede ser negativo." };
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("apply_supplier_opening_balance", {
+    p_supplier_id: input.supplier_id,
+    p_opening_date: input.opening_date,
+    p_target_balance: input.target_balance,
+    p_notes: input.notes ?? undefined,
+  });
+  if (error) {
+    logger.error("suppliers.opening.apply_failed", {
+      supplierId: input.supplier_id,
+      error,
+    });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
+export async function clearSupplierOpeningBalanceAction(
+  supplierId: string,
+): Promise<ActionResult<void>> {
+  const ctx = await requireUserContext();
+  if (!ctx.roles.includes("owner")) {
+    return {
+      ok: false,
+      error: "Solo el owner puede borrar el ajuste de saldo.",
+    };
+  }
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("clear_supplier_opening_balance", {
+    p_supplier_id: supplierId,
+  });
+  if (error) {
+    logger.error("suppliers.opening.clear_failed", { supplierId, error });
+    return { ok: false, error: "No se pudo borrar el saldo de apertura." };
+  }
+  return { ok: true, data: undefined };
+}
+
+export type SupplierAccountSourceType =
+  | "purchase_invoice"
+  | "payment_order"
+  | "opening_balance";
 
 export interface SupplierAccountMovement {
   source_type: SupplierAccountSourceType;
-  source_id: string;
+  source_id: string | null;
   movement_date: string;
   created_at: string;
-  /** 'factura' | 'nc' | 'nd' | 'payment_order' */
+  /** 'factura' | 'nc' | 'nd' | 'payment_order' | 'opening_balance' */
   kind: string;
   letter: string | null;
+  /** 0 cuando es opening_balance (no aplica). */
   punto_venta: number;
   numero: number;
-  /** Positive = nosotros debemos (factura, ND).
+  /** Positive = nosotros debemos (factura, ND, opening).
    *  Negative = pago nuestro o NC del proveedor. */
   signed_amount: number;
   gross_amount: number;
@@ -58,16 +164,16 @@ export async function getSupplierAccountAction(
   const HARD_CAP = 50000;
   type Row = {
     source_type: string;
-    source_id: string;
+    source_id: string | null;
     movement_date: string;
     created_at: string;
     kind: string;
     letter: string | null;
-    punto_venta: number;
-    numero: number;
+    punto_venta: number | null;
+    numero: number | null;
     signed_amount: number | string;
     gross_amount: number | string;
-    channel_id: string;
+    channel_id: string | null;
     channel_name: string | null;
     channel_division: string | null;
     channel_is_fiscal: boolean | null;
@@ -95,11 +201,11 @@ export async function getSupplierAccountAction(
   // Per-document outstanding: factura/ND muestra imp_total − Σ allocations
   // de OPs issued. OP muestra "a cuenta" (total − Σ allocations propias).
   const piIds = data
-    .filter((r) => r.source_type === "purchase_invoice")
-    .map((r) => r.source_id);
+    .filter((r) => r.source_type === "purchase_invoice" && r.source_id)
+    .map((r) => r.source_id as string);
   const opIds = data
-    .filter((r) => r.source_type === "payment_order")
-    .map((r) => r.source_id);
+    .filter((r) => r.source_type === "payment_order" && r.source_id)
+    .map((r) => r.source_id as string);
 
   const appliedByInvoice = new Map<string, number>();
   if (piIds.length > 0) {
@@ -123,6 +229,19 @@ export async function getSupplierAccountAction(
         prev + Number(a.amount_applied),
       );
     }
+    // Suma también las imputaciones del opening balance: una factura que
+    // recibió plata del ajuste también descuenta para el aging/outstanding.
+    const { data: openingAllocs } = await supabase
+      .from("supplier_opening_balance_allocations")
+      .select("purchase_invoice_id, amount_applied")
+      .eq("supplier_id", supplierId);
+    for (const a of openingAllocs ?? []) {
+      const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
+      appliedByInvoice.set(
+        a.purchase_invoice_id,
+        prev + Number(a.amount_applied),
+      );
+    }
   }
 
   const appliedByOP = new Map<string, number>();
@@ -140,20 +259,24 @@ export async function getSupplierAccountAction(
     }
   }
 
+  // Re-sort: rows arrive ordered by movement_date+created_at (asc). Opening
+  // balance rows have movement_date = opening_date — they sit naturally where
+  // they belong chronologically. Good.
+
   let running = 0;
   const movements: SupplierAccountMovement[] = data.map((r) => {
     const signed = Number(r.signed_amount);
     running += signed;
     let outstanding: number | null = null;
-    if (r.source_type === "purchase_invoice") {
+    if (r.source_type === "purchase_invoice" && r.source_id) {
       const total = Number(r.gross_amount);
       if (r.kind === "nc") {
-        outstanding = null; // NCs no llevan saldo por sí solas
+        outstanding = null;
       } else {
         const applied = appliedByInvoice.get(r.source_id) ?? 0;
         outstanding = Math.max(0, total - applied);
       }
-    } else if (r.source_type === "payment_order") {
+    } else if (r.source_type === "payment_order" && r.source_id) {
       const total = Number(r.gross_amount);
       const applied = appliedByOP.get(r.source_id) ?? 0;
       outstanding = Math.max(0, total - applied);
@@ -165,11 +288,11 @@ export async function getSupplierAccountAction(
       created_at: r.created_at,
       kind: r.kind,
       letter: r.letter,
-      punto_venta: r.punto_venta,
-      numero: r.numero,
+      punto_venta: r.punto_venta ?? 0,
+      numero: r.numero ?? 0,
       signed_amount: signed,
       gross_amount: Number(r.gross_amount),
-      channel_id: r.channel_id,
+      channel_id: r.channel_id ?? "",
       channel_name: r.channel_name,
       channel_division: r.channel_division,
       channel_is_fiscal: r.channel_is_fiscal,

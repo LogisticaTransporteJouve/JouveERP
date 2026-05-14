@@ -36,7 +36,7 @@ export function NewPaymentOrderDialog({
         {trigger ?? (
           <Button>
             <Plus className="size-4" />
-            Nueva OP
+            Nueva orden de pago
           </Button>
         )}
       </DialogTrigger>

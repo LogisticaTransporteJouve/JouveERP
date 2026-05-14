@@ -113,11 +113,13 @@ function invoiceToValues(
 export function PurchaseInvoiceForm({
   mode,
   invoice,
+  initialSupplier,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   invoice?: PurchaseInvoice;
+  initialSupplier?: PickedSupplier | null;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -132,7 +134,10 @@ export function PurchaseInvoiceForm({
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
-    defaultValues: invoiceToValues(invoice, defaultChannelId),
+    defaultValues: {
+      ...invoiceToValues(invoice, defaultChannelId),
+      supplier: invoice ? invoiceToValues(invoice, defaultChannelId).supplier : initialSupplier ?? null,
+    },
   });
 
   const watchedKind = form.watch("kind");

@@ -12,19 +12,28 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 
 import { PurchaseInvoiceForm } from "./purchase-invoice-form";
 
-export function NewPurchaseInvoiceDialog() {
+export function NewPurchaseInvoiceDialog({
+  initialSupplier,
+  trigger,
+}: {
+  initialSupplier?: PickedSupplier | null;
+  trigger?: React.ReactNode;
+} = {}) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" />
-          Cargar factura
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="size-4" />
+            Cargar factura
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
@@ -36,6 +45,7 @@ export function NewPurchaseInvoiceDialog() {
         </DialogHeader>
         <PurchaseInvoiceForm
           mode="create"
+          initialSupplier={initialSupplier}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />
