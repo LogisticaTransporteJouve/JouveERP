@@ -198,7 +198,12 @@ function PurchaseInvoicesRows({
             </div>
           </TableCell>
           <TableCell>
-            <div className="font-medium">{inv.supplier_legal_name}</div>
+            <Link
+              href={`/suppliers/${inv.supplier_id}`}
+              className="font-medium hover:underline"
+            >
+              {inv.supplier_legal_name}
+            </Link>
             <div className="font-mono text-xs text-muted-foreground">
               CUIT {inv.supplier_cuit}
             </div>

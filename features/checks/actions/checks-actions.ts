@@ -10,7 +10,6 @@ import {
   ChequeCreateSchema,
   CreditChequeSchema,
   DepositChequeSchema,
-  EndorseChequeSchema,
   isChequeCurrency,
   isChequeKind,
   isChequeStatus,
@@ -391,49 +390,6 @@ export async function creditCheckAction(
   }
 
   await logAudit("check.credited", ctx.userId, {}, data.check_id);
-  return { ok: true, data: { movement_id: id as string } };
-}
-
-export async function endorseCheckAction(
-  input: unknown,
-): Promise<ActionResult<{ movement_id: string }>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:write")) {
-    return { ok: false, error: "No tenés permiso para endosar cheques." };
-  }
-
-  const parsed = EndorseChequeSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-  const data = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: id, error } = await supabase.rpc("endorse_check", {
-    p_check_id: data.check_id,
-    p_event_date: data.event_date,
-    p_channel_id: data.channel_id,
-    p_endorsed_to_name: data.endorsed_to_name,
-    p_endorsed_to_cuit: data.endorsed_to_cuit ?? "",
-    p_notes: data.notes ?? "",
-  });
-  if (error) {
-    logger.error("cheques.endorse.failed", { error });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo endosar el check.",
-    };
-  }
-
-  await logAudit(
-    "check.endorsed",
-    ctx.userId,
-    { endorsed_to_name: data.endorsed_to_name },
-    data.check_id,
-  );
   return { ok: true, data: { movement_id: id as string } };
 }
 

@@ -2321,17 +2321,6 @@ export type Database = {
         }
         Returns: string
       }
-      endorse_check: {
-        Args: {
-          p_channel_id: string
-          p_check_id: string
-          p_endorsed_to_cuit: string
-          p_endorsed_to_name: string
-          p_event_date: string
-          p_notes: string
-        }
-        Returns: string
-      }
       get_my_notification_settings: {
         Args: never
         Returns: {

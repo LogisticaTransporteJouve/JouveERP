@@ -107,7 +107,14 @@ export function PaymentOrdersTable({
                         {formatPaymentOrderNumber(op.punto_venta, op.numero)}
                       </span>
                     </TableCell>
-                    <TableCell>{op.supplier_legal_name}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/suppliers/${op.supplier_id}`}
+                        className="hover:underline"
+                      >
+                        {op.supplier_legal_name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatArgentineDate(op.payment_date)}
                     </TableCell>

@@ -105,19 +105,6 @@ export const CreditChequeSchema = z.object({
   notes: trimmedNullable,
 });
 
-export const EndorseChequeSchema = z.object({
-  check_id: z.string().uuid(),
-  channel_id: z.string().min(1, "Canal requerido."),
-  event_date: isoDate,
-  endorsed_to_name: z
-    .string()
-    .trim()
-    .min(1, "Razón social del endosatario requerida.")
-    .max(120),
-  endorsed_to_cuit: optionalCuit,
-  notes: trimmedNullable,
-});
-
 export const RejectChequeSchema = z.object({
   check_id: z.string().uuid(),
   account_id: z.string().uuid("Cuenta bancaria requerida."),
@@ -129,7 +116,6 @@ export const RejectChequeSchema = z.object({
 export type ChequeCreateInput = z.infer<typeof ChequeCreateSchema>;
 export type DepositChequeInput = z.infer<typeof DepositChequeSchema>;
 export type CreditChequeInput = z.infer<typeof CreditChequeSchema>;
-export type EndorseChequeInput = z.infer<typeof EndorseChequeSchema>;
 export type RejectChequeInput = z.infer<typeof RejectChequeSchema>;
 
 export function isChequeKind(value: unknown): value is ChequeKind {

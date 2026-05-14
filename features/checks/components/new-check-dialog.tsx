@@ -123,12 +123,12 @@ export function NewChequeDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" />
-          Nuevo check
+          Nuevo cheque
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nuevo check</DialogTitle>
+          <DialogTitle>Nuevo cheque</DialogTitle>
           <DialogDescription>
             Carga manual. Cuando un cliente paga con check vía un recibo,
             el check se va a registrar automáticamente desde el recibo (en

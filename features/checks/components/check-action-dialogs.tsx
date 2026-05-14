@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, ArrowLeftRight, Check, HandCoins } from "lucide-react";
+import { Ban, ArrowLeftRight, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -30,7 +30,6 @@ import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import {
   useCreditCheque,
   useDepositCheque,
-  useEndorseCheque,
   useRejectCheque,
 } from "../hooks/use-checks";
 import type { Cheque } from "../schema";
@@ -240,129 +239,6 @@ export function CreditChequeDialog({ check }: { check: Cheque }) {
             </Button>
             <Button type="submit" disabled={mut.isPending}>
               {mut.isPending ? "Acreditando…" : "Marcar acreditado"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Endorse
-// ---------------------------------------------------------------------------
-
-export function EndorseChequeDialog({
-  check,
-  channels,
-}: {
-  check: Cheque;
-  channels: ChannelOption[];
-}) {
-  const [open, setOpen] = useState(false);
-  const mut = useEndorseCheque();
-  const [channelId, setChannelId] = useState(
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ?? channels[0]?.id ?? "",
-  );
-  const [eventDate, setEventDate] = useState(todayISO());
-  const [endorsedToName, setEndorsedToName] = useState("");
-  const [endorsedToCuit, setEndorsedToCuit] = useState("");
-  const [notes, setNotes] = useState("");
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    mut.mutate(
-      {
-        check_id: check.id,
-        channel_id: channelId,
-        event_date: eventDate,
-        endorsed_to_name: endorsedToName,
-        endorsed_to_cuit: endorsedToCuit,
-        notes,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Cheque endosado.");
-          setOpen(false);
-        },
-        onError: (err) => toast.error(err.message),
-      },
-    );
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <HandCoins className="size-4" />
-          Endosar
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Endosar check {check.check_number}</DialogTitle>
-          <DialogDescription>
-            Entregar el check a un proveedor como pago. Genera un egreso
-            en la cuenta de cartera.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <Label className="text-xs">Endosado a (razón social)</Label>
-            <Input
-              value={endorsedToName}
-              onChange={(e) => setEndorsedToName(e.target.value)}
-              placeholder="Ej. Proveedor SRL"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">CUIT (opcional)</Label>
-              <Input
-                value={endorsedToCuit}
-                onChange={(e) => setEndorsedToCuit(e.target.value)}
-                placeholder="30-12345678-9"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Fecha</Label>
-              <DatePicker value={eventDate} onChange={setEventDate} />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Canal</Label>
-            <Select value={channelId} onValueChange={setChannelId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {channels.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Notas (opcional)</Label>
-            <Textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={mut.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={mut.isPending}>
-              {mut.isPending ? "Endosando…" : "Endosar"}
             </Button>
           </DialogFooter>
         </form>

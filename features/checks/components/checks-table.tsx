@@ -24,7 +24,6 @@ import {
 import {
   CreditChequeDialog,
   DepositChequeDialog,
-  EndorseChequeDialog,
   RejectChequeDialog,
 } from "./check-action-dialogs";
 import { NewChequeDialog } from "./new-check-dialog";
@@ -170,20 +169,10 @@ export function ChequesTable({
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {canWrite && c.status === "en_cartera" && (
-                          <>
-                            <DepositChequeDialog
-                              check={c}
-                              channels={channels}
-                            />
-                            <EndorseChequeDialog
-                              check={c}
-                              channels={channels}
-                            />
-                            <RejectChequeDialog
-                              check={c}
-                              channels={channels}
-                            />
-                          </>
+                          <DepositChequeDialog
+                            check={c}
+                            channels={channels}
+                          />
                         )}
                         {canWrite && c.status === "depositado" && (
                           <>

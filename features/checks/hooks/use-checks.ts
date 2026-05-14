@@ -13,7 +13,6 @@ import {
   createCheckAction,
   creditCheckAction,
   depositCheckAction,
-  endorseCheckAction,
   getChequeByIdAction,
   listChecksAction,
   rejectCheckAction,
@@ -56,5 +55,4 @@ function makeChequeMutation<TInput, TData>(
 export const useCreateCheque = makeChequeMutation(createCheckAction);
 export const useDepositCheque = makeChequeMutation(depositCheckAction);
 export const useCreditCheque = makeChequeMutation(creditCheckAction);
-export const useEndorseCheque = makeChequeMutation(endorseCheckAction);
 export const useRejectCheque = makeChequeMutation(rejectCheckAction);
