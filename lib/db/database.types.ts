@@ -940,6 +940,103 @@ export type Database = {
           },
         ]
       }
+      issued_checks: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          bank_name: string
+          beneficiary_cuit: string | null
+          beneficiary_name: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cashed_at: string | null
+          check_number: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string
+          id: string
+          issue_date: string
+          kind: string
+          notes: string | null
+          payment_order_id: string | null
+          rejected_at: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id: string
+          bank_name: string
+          beneficiary_cuit?: string | null
+          beneficiary_name?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cashed_at?: string | null
+          check_number: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          due_date: string
+          id?: string
+          issue_date: string
+          kind: string
+          notes?: string | null
+          payment_order_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          bank_name?: string
+          beneficiary_cuit?: string | null
+          beneficiary_name?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cashed_at?: string | null
+          check_number?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string
+          id?: string
+          issue_date?: string
+          kind?: string
+          notes?: string | null
+          payment_order_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issued_checks_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issued_checks_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issued_checks_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           enabled: boolean
@@ -1008,6 +1105,285 @@ export type Database = {
           data?: Json
         }
         Relationships: []
+      }
+      payment_order_allocations: {
+        Row: {
+          amount_applied: number
+          created_at: string
+          id: string
+          payment_order_id: string
+          purchase_invoice_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_applied: number
+          created_at?: string
+          id?: string
+          payment_order_id: string
+          purchase_invoice_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_applied?: number
+          created_at?: string
+          id?: string
+          payment_order_id?: string
+          purchase_invoice_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_order_allocations_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
+      payment_order_payment_lines: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          id: string
+          payment_order_id: string
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          payment_order_id: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_order_id?: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_order_payment_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_payment_lines_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_orders: {
+        Row: {
+          canceled_at: string | null
+          canceled_by: string | null
+          channel_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          numero: number
+          payment_date: string
+          punto_venta: number
+          status: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          canceled_by?: string | null
+          channel_id: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          notes?: string | null
+          numero: number
+          payment_date: string
+          punto_venta: number
+          status?: string
+          supplier_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          canceled_by?: string | null
+          channel_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          numero?: number
+          payment_date?: string
+          punto_venta?: number
+          status?: string
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_orders_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoices: {
+        Row: {
+          cae_proveedor: string | null
+          cae_vto_proveedor: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          channel_id: string
+          cotizacion: number
+          created_at: string
+          created_by: string | null
+          fch_vto_pago: string | null
+          fecha: string
+          id: string
+          imp_iva: number
+          imp_neto: number
+          imp_total: number
+          imp_trib: number
+          invoice_origin_id: string | null
+          kind: string
+          letter: string | null
+          moneda: string
+          motivo_nc_nd: string | null
+          notes: string | null
+          numero: number
+          punto_venta: number
+          status: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          cae_proveedor?: string | null
+          cae_vto_proveedor?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel_id: string
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          fch_vto_pago?: string | null
+          fecha: string
+          id?: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_total: number
+          imp_trib?: number
+          invoice_origin_id?: string | null
+          kind: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notes?: string | null
+          numero: number
+          punto_venta: number
+          status?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          cae_proveedor?: string | null
+          cae_vto_proveedor?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel_id?: string
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          fch_vto_pago?: string | null
+          fecha?: string
+          id?: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_total?: number
+          imp_trib?: number
+          invoice_origin_id?: string | null
+          kind?: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notes?: string | null
+          numero?: number
+          punto_venta?: number
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -1344,6 +1720,57 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          real_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition: string
+          legal_name: string
+          notes?: string | null
+          phone?: string | null
+          real_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition?: string
+          legal_name?: string
+          notes?: string | null
+          phone?: string | null
+          real_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string
@@ -1351,6 +1778,7 @@ export type Database = {
           amount: number
           channel_id: string
           counterparty_client_id: string | null
+          counterparty_supplier_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -1358,6 +1786,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           kind: string
+          payment_order_id: string | null
           receipt_id: string | null
           transaction_date: string
           transfer_pair_id: string | null
@@ -1369,6 +1798,7 @@ export type Database = {
           amount: number
           channel_id: string
           counterparty_client_id?: string | null
+          counterparty_supplier_id?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -1376,6 +1806,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           kind: string
+          payment_order_id?: string | null
           receipt_id?: string | null
           transaction_date: string
           transfer_pair_id?: string | null
@@ -1387,6 +1818,7 @@ export type Database = {
           amount?: number
           channel_id?: string
           counterparty_client_id?: string | null
+          counterparty_supplier_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -1394,6 +1826,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           kind?: string
+          payment_order_id?: string | null
           receipt_id?: string | null
           transaction_date?: string
           transfer_pair_id?: string | null
@@ -1422,6 +1855,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_counterparty_supplier_id_fkey"
+            columns: ["counterparty_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transactions_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
@@ -1434,6 +1874,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_aging_documents"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "transactions_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "transactions_receipt_id_fkey"
@@ -1596,6 +2043,83 @@ export type Database = {
           },
         ]
       }
+      v_supplier_account_movements: {
+        Row: {
+          channel_division: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          created_at: string | null
+          gross_amount: number | null
+          kind: string | null
+          letter: string | null
+          movement_date: string | null
+          numero: number | null
+          punto_venta: number | null
+          signed_amount: number | null
+          source_id: string | null
+          source_type: string | null
+          status: string | null
+          supplier_id: string | null
+        }
+        Relationships: []
+      }
+      v_supplier_aging: {
+        Row: {
+          bucket_0_30: number | null
+          bucket_30_60: number | null
+          bucket_60_90: number | null
+          bucket_90_plus: number | null
+          document_count: number | null
+          oldest_days: number | null
+          supplier_id: string | null
+          total_open: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_supplier_aging_documents: {
+        Row: {
+          amount_applied: number | null
+          bucket: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          days_overdue: number | null
+          fecha: string | null
+          imp_total: number | null
+          kind: string | null
+          letter: string | null
+          numero: number | null
+          open_amount: number | null
+          punto_venta: number | null
+          purchase_invoice_id: string | null
+          supplier_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_transactions_tagged: {
         Row: {
           account_id: string | null
@@ -1714,6 +2238,21 @@ export type Database = {
       }
       create_chat_group: {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
+        Returns: string
+      }
+      create_payment_order: {
+        Args: {
+          p_allocations: Json
+          p_channel_id: string
+          p_currency: string
+          p_notes: string
+          p_numero: number
+          p_payment_date: string
+          p_payment_lines: Json
+          p_punto_venta: number
+          p_supplier_id: string
+          p_total_amount: number
+        }
         Returns: string
       }
       create_receipt: {
@@ -1901,10 +2440,93 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_purchase_invoices: {
+        Args: {
+          p_channel_id?: string
+          p_fecha_from?: string
+          p_fecha_to?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_status?: string
+          p_supplier_id?: string
+        }
+        Returns: {
+          cae_proveedor: string
+          cae_vto_proveedor: string
+          cancelled_at: string
+          cancelled_by: string
+          channel_id: string
+          cotizacion: number
+          created_at: string
+          created_by: string
+          fch_vto_pago: string
+          fecha: string
+          id: string
+          imp_iva: number
+          imp_neto: number
+          imp_total: number
+          imp_trib: number
+          invoice_origin_id: string
+          kind: string
+          letter: string
+          moneda: string
+          motivo_nc_nd: string
+          notes: string
+          numero: number
+          punto_venta: number
+          status: string
+          supplier_cuit: string
+          supplier_id: string
+          supplier_legal_name: string
+          updated_at: string
+        }[]
+      }
+      search_suppliers: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_only_active?: boolean
+          p_query: string
+        }
+        Returns: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          real_address: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "suppliers"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       update_chat_channel: {
         Args: { p_channel: string; p_description: string; p_name: string }
+        Returns: undefined
+      }
+      update_payment_order: {
+        Args: {
+          p_allocations: Json
+          p_id: string
+          p_notes: string
+          p_payment_date: string
+          p_payment_lines: Json
+          p_total_amount: number
+        }
         Returns: undefined
       }
       update_receipt: {

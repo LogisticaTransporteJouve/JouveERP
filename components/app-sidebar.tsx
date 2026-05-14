@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BookCheck,
+  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -13,6 +14,8 @@ import {
   ScrollText,
   Search,
   ShieldCheck,
+  ShoppingCart,
+  Truck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -60,6 +63,24 @@ const navItems: NavItem[] = [
     permission: "clients:read",
   },
   {
+    href: "/suppliers",
+    label: "Proveedores",
+    icon: Truck,
+    permission: "suppliers:read",
+  },
+  {
+    href: "/purchases",
+    label: "Compras",
+    icon: ShoppingCart,
+    permission: "purchase_invoices:read",
+  },
+  {
+    href: "/payment-orders",
+    label: "Órdenes de pago",
+    icon: CreditCard,
+    permission: "payment_orders:read",
+  },
+  {
     href: "/invoices",
     label: "Comprobantes",
     icon: ReceiptText,
@@ -85,15 +106,27 @@ const navItems: NavItem[] = [
   },
   {
     href: "/checks",
-    label: "Cheques",
+    label: "Cheques recibidos",
     icon: BookCheck,
     permission: "cheques:read",
   },
   {
+    href: "/issued-checks",
+    label: "Cheques propios",
+    icon: BookCheck,
+    permission: "issued_checks:read",
+  },
+  {
     href: "/aging",
-    label: "Aging",
+    label: "Aging clientes",
     icon: AlertTriangle,
     permission: "clients:read",
+  },
+  {
+    href: "/aging-suppliers",
+    label: "Aging proveedores",
+    icon: AlertTriangle,
+    permission: "suppliers:read",
   },
   {
     href: "/admin/users",

@@ -30,6 +30,23 @@ export const PERMISSIONS = [
   "clients:read",
   "clients:write",
 
+  // Suppliers (K.1)
+  "suppliers:read",
+  "suppliers:write",
+
+  // Purchase invoices (K.2)
+  "purchase_invoices:read",
+  "purchase_invoices:write",
+  "purchase_invoices:cancel",
+
+  // Payment orders (K.3)
+  "payment_orders:read",
+  "payment_orders:write",
+
+  // Issued checks (K.6 — cheques propios emitidos)
+  "issued_checks:read",
+  "issued_checks:write",
+
   // AFIP
   "padron:lookup",
   "afip:admin",
@@ -104,6 +121,15 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   finance: [
     "clients:read",
     "clients:write",
+    "suppliers:read",
+    "suppliers:write",
+    "purchase_invoices:read",
+    "purchase_invoices:write",
+    "purchase_invoices:cancel",
+    "payment_orders:read",
+    "payment_orders:write",
+    "issued_checks:read",
+    "issued_checks:write",
     "padron:lookup",
     "accounts:read",
     "accounts:write",
@@ -127,6 +153,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 
   operations: [
     "clients:read",
+    "suppliers:read",
     "drivers:read",
     "drivers:write",
     "vehicles:read",

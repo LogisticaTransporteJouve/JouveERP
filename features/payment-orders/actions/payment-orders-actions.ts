@@ -1,0 +1,521 @@
+"use server";
+
+import { requireUserContext } from "@/lib/auth/context";
+import { userCan } from "@/lib/auth/permissions";
+import { logger } from "@/lib/logger";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
+
+import {
+  PaymentOrderCancelSchema,
+  PaymentOrderCreateSchema,
+  PaymentOrderUpdateSchema,
+  isPaymentOrderCurrency,
+  isPaymentOrderStatus,
+  type PaymentOrder,
+  type PaymentOrderAllocation,
+  type PaymentOrderPaymentLine,
+} from "../schema";
+
+export type ActionResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [k: string]: JsonValue | undefined }
+  | JsonValue[];
+
+const UNIQUE_VIOLATION = "23505";
+
+async function logAudit(
+  eventType: string,
+  actorId: string,
+  payload: { [k: string]: JsonValue | undefined },
+  targetResourceId?: string,
+) {
+  const service = getServiceClient();
+  const { error } = await service.from("audit_events").insert({
+    actor_id: actorId,
+    event_type: eventType,
+    target_resource_id: targetResourceId ?? null,
+    payload,
+  });
+  if (error) logger.error("audit.insert.failed", { eventType, error });
+}
+
+function narrowPaymentOrder(row: {
+  status: string;
+  currency: string;
+  [key: string]: unknown;
+}): PaymentOrder | null {
+  if (!isPaymentOrderStatus(row.status)) return null;
+  if (!isPaymentOrderCurrency(row.currency)) return null;
+  return row as unknown as PaymentOrder;
+}
+
+const COLUMNS =
+  "id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
+
+export async function listPaymentOrdersAction(): Promise<
+  ActionResult<{
+    paymentOrders: (PaymentOrder & { supplier_legal_name: string })[];
+  }>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .select(`${COLUMNS}, suppliers ( legal_name )`)
+    .order("payment_date", { ascending: false })
+    .order("numero", { ascending: false });
+
+  if (error) {
+    logger.error("payment_orders.list.failed", { error });
+    return { ok: false, error: "No se pudieron listar las órdenes de pago." };
+  }
+
+  const paymentOrders = (data ?? [])
+    .map((row) => {
+      const narrowed = narrowPaymentOrder(row);
+      if (!narrowed) return null;
+      const sup = (row as { suppliers: { legal_name: string } | null }).suppliers;
+      return { ...narrowed, supplier_legal_name: sup?.legal_name ?? "—" };
+    })
+    .filter(
+      (r): r is PaymentOrder & { supplier_legal_name: string } => r !== null,
+    );
+
+  return { ok: true, data: { paymentOrders } };
+}
+
+export type PaymentOrderDetail = {
+  paymentOrder: PaymentOrder;
+  payment_lines: PaymentOrderPaymentLine[];
+  allocations: PaymentOrderAllocation[];
+};
+
+export async function getPaymentOrderByIdAction(
+  id: string,
+): Promise<ActionResult<PaymentOrderDetail | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: row, error: opErr } = await supabase
+    .from("payment_orders")
+    .select(COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (opErr) {
+    logger.error("payment_orders.get.failed", { id, error: opErr });
+    return { ok: false, error: "No se pudo cargar la orden de pago." };
+  }
+  if (!row) return { ok: true, data: null };
+  const paymentOrder = narrowPaymentOrder(row);
+  if (!paymentOrder) {
+    return { ok: false, error: "Orden de pago con datos inválidos." };
+  }
+
+  const [linesRes, allocsRes] = await Promise.all([
+    supabase
+      .from("payment_order_payment_lines")
+      .select("*, account:accounts(name, type)")
+      .eq("payment_order_id", id)
+      .order("created_at"),
+    supabase
+      .from("payment_order_allocations")
+      .select(
+        "*, purchase_invoice:purchase_invoices(letter, kind, punto_venta, numero, fecha, imp_total)",
+      )
+      .eq("payment_order_id", id)
+      .order("created_at"),
+  ]);
+
+  if (linesRes.error || allocsRes.error) {
+    logger.error("payment_orders.get.children_failed", {
+      id,
+      lines: linesRes.error,
+      allocs: allocsRes.error,
+    });
+    return { ok: false, error: "No se pudieron cargar los detalles." };
+  }
+
+  return {
+    ok: true,
+    data: {
+      paymentOrder,
+      payment_lines: linesRes.data ?? [],
+      allocations: allocsRes.data ?? [],
+    },
+  };
+}
+
+export async function getNextPaymentOrderNumeroAction(input: {
+  channel_id: string;
+}): Promise<ActionResult<{ next: number; isFirst: boolean }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+
+  const pos = await loadChannelPos(input.channel_id);
+  if (!pos) {
+    return {
+      ok: false,
+      error: "Configurá un POS habilitado para este canal.",
+    };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .select("numero")
+    .eq("channel_id", input.channel_id)
+    .eq("punto_venta", pos.punto_venta)
+    .order("numero", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("payment_orders.next_numero.failed", { error });
+    return { ok: false, error: "No se pudo calcular el próximo número." };
+  }
+
+  const lastNumero = data?.numero ?? 0;
+  return {
+    ok: true,
+    data: { next: lastNumero + 1, isFirst: lastNumero === 0 },
+  };
+}
+
+export type PendingPurchaseInvoice = {
+  id: string;
+  numero: number;
+  punto_venta: number;
+  letter: string | null;
+  kind: string;
+  fecha: string;
+  imp_total: number;
+  already_allocated: number;
+  outstanding: number;
+};
+
+export async function listPendingInvoicesForSupplierAction(
+  supplierId: string,
+  excludePaymentOrderId?: string,
+): Promise<ActionResult<PendingPurchaseInvoice[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+
+  const supabase = await createSupabaseClient();
+
+  type Row = {
+    id: string;
+    numero: number;
+    punto_venta: number;
+    letter: string | null;
+    kind: string;
+    fecha: string;
+    imp_total: number | string;
+  };
+  const CHUNK = 1000;
+  const HARD_CAP = 50000;
+  const invoices: Row[] = [];
+  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
+    const { data: chunk, error } = await supabase
+      .from("purchase_invoices")
+      .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+      .eq("supplier_id", supplierId)
+      .eq("status", "received")
+      .order("fecha", { ascending: true })
+      .range(offset, offset + CHUNK - 1);
+    if (error) {
+      logger.error("payment_orders.pending.list_invoices_failed", { error });
+      return { ok: false, error: "No se pudieron listar facturas pendientes." };
+    }
+    const got = (chunk ?? []) as Row[];
+    invoices.push(...got);
+    if (got.length < CHUNK) break;
+  }
+
+  if (invoices.length === 0) return { ok: true, data: [] };
+
+  const { data: allocations, error: aErr } = await supabase
+    .from("payment_order_allocations")
+    .select(
+      "purchase_invoice_id, amount_applied, payment_order_id, payment_orders!inner ( status, supplier_id )",
+    )
+    .eq("payment_orders.supplier_id", supplierId);
+  if (aErr) {
+    logger.error("payment_orders.pending.list_allocations_failed", { error: aErr });
+    return { ok: false, error: "No se pudieron leer las imputaciones." };
+  }
+
+  const allocatedByInvoice = new Map<string, number>();
+  for (const alloc of allocations ?? []) {
+    const status = (
+      alloc as unknown as { payment_orders: { status: string } | null }
+    ).payment_orders?.status;
+    if (status === "canceled") continue;
+    if (
+      excludePaymentOrderId &&
+      (alloc as unknown as { payment_order_id: string }).payment_order_id ===
+        excludePaymentOrderId
+    )
+      continue;
+    const prev = allocatedByInvoice.get(alloc.purchase_invoice_id) ?? 0;
+    allocatedByInvoice.set(
+      alloc.purchase_invoice_id,
+      prev + Number(alloc.amount_applied),
+    );
+  }
+
+  const pending: PendingPurchaseInvoice[] = invoices
+    .map((c) => {
+      // NCs descuentan: monto neto = factura/ND positivo, NC negativo. Acá
+      // tratamos solo facturas y ND (positivos); NCs se manejan por
+      // separado en una iteración futura.
+      if (c.kind === "nc") return null;
+      const already = allocatedByInvoice.get(c.id) ?? 0;
+      const total = Number(c.imp_total ?? 0);
+      const outstanding = Math.max(0, total - already);
+      return {
+        id: c.id,
+        numero: c.numero,
+        punto_venta: c.punto_venta,
+        letter: c.letter,
+        kind: c.kind,
+        fecha: c.fecha,
+        imp_total: total,
+        already_allocated: already,
+        outstanding,
+      };
+    })
+    .filter(
+      (c): c is PendingPurchaseInvoice => c !== null && c.outstanding > 0.005,
+    );
+
+  return { ok: true, data: pending };
+}
+
+async function loadChannelPos(
+  channelId: string,
+): Promise<{ punto_venta: number } | null> {
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("sales_points")
+    .select("numero, channel_id, is_enabled")
+    .eq("channel_id", channelId)
+    .eq("is_enabled", true)
+    .order("numero", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { punto_venta: data.numero };
+}
+
+export async function createPaymentOrderAction(
+  input: unknown,
+): Promise<
+  ActionResult<{ id: string; numero: number; punto_venta: number }>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:write")) {
+    return { ok: false, error: "No tenés permiso para emitir órdenes de pago." };
+  }
+
+  const parsed = PaymentOrderCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const data = parsed.data;
+
+  const pos = await loadChannelPos(data.channel_id);
+  if (!pos) {
+    return {
+      ok: false,
+      error: `El canal ${data.channel_id} no tiene un punto de venta habilitado.`,
+    };
+  }
+
+  // FIFO auto-allocation cuando el usuario no eligió imputaciones manuales.
+  let allocations = data.allocations ?? [];
+  if (allocations.length === 0) {
+    const pendingRes = await listPendingInvoicesForSupplierAction(
+      data.supplier_id,
+    );
+    if (pendingRes.ok) {
+      const oldestFirst = [...pendingRes.data].sort((a, b) =>
+        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
+      );
+      let remaining = data.total_amount;
+      const auto: typeof allocations = [];
+      for (const inv of oldestFirst) {
+        if (remaining <= 0.005) break;
+        const applied = Math.min(inv.outstanding, remaining);
+        if (applied <= 0.005) continue;
+        auto.push({
+          purchase_invoice_id: inv.id,
+          amount_applied: Math.round(applied * 100) / 100,
+        });
+        remaining -= applied;
+      }
+      allocations = auto;
+    }
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: opId, error } = await supabase.rpc("create_payment_order", {
+    p_channel_id: data.channel_id,
+    p_punto_venta: pos.punto_venta,
+    p_numero: data.numero,
+    p_supplier_id: data.supplier_id,
+    p_payment_date: data.payment_date,
+    p_total_amount: data.total_amount,
+    p_currency: data.currency,
+    p_notes: data.notes ?? "",
+    p_payment_lines: data.payment_lines.map((l) => ({
+      account_id: l.account_id,
+      amount: l.amount,
+      reference: l.reference ?? null,
+    })),
+    p_allocations: allocations.map((a) => ({
+      purchase_invoice_id: a.purchase_invoice_id,
+      amount_applied: a.amount_applied,
+    })),
+  });
+
+  if (error) {
+    if (error.code === UNIQUE_VIOLATION) {
+      return {
+        ok: false,
+        error: `El número ${data.numero} ya existe para ese canal/POS.`,
+      };
+    }
+    logger.error("payment_orders.create.failed", { error });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo crear la orden de pago.",
+    };
+  }
+
+  await logAudit(
+    "payment_order.created",
+    ctx.userId,
+    {
+      channel_id: data.channel_id,
+      numero: data.numero,
+      total_amount: data.total_amount,
+      supplier_id: data.supplier_id,
+    },
+    opId as string,
+  );
+  return {
+    ok: true,
+    data: {
+      id: opId as string,
+      numero: data.numero,
+      punto_venta: pos.punto_venta,
+    },
+  };
+}
+
+export async function updatePaymentOrderAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:write")) {
+    return { ok: false, error: "No tenés permiso para editar órdenes de pago." };
+  }
+
+  const parsed = PaymentOrderUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const data = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("update_payment_order", {
+    p_id: data.id,
+    p_payment_date: data.payment_date,
+    p_total_amount: data.total_amount,
+    p_notes: data.notes ?? "",
+    p_payment_lines: data.payment_lines.map((l) => ({
+      account_id: l.account_id,
+      amount: l.amount,
+      reference: l.reference ?? null,
+    })),
+    p_allocations: (data.allocations ?? []).map((a) => ({
+      purchase_invoice_id: a.purchase_invoice_id,
+      amount_applied: a.amount_applied,
+    })),
+  });
+
+  if (error) {
+    logger.error("payment_orders.update.failed", { error });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo actualizar la OP.",
+    };
+  }
+
+  await logAudit(
+    "payment_order.updated",
+    ctx.userId,
+    { total_amount: data.total_amount },
+    data.id,
+  );
+  return { ok: true, data: undefined };
+}
+
+export async function cancelPaymentOrderAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "payment_orders:write")) {
+    return { ok: false, error: "No tenés permiso para anular órdenes de pago." };
+  }
+
+  const parsed = PaymentOrderCancelSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase
+    .from("payment_orders")
+    .update({
+      status: "canceled",
+      canceled_at: new Date().toISOString(),
+      canceled_by: ctx.userId,
+    })
+    .eq("id", parsed.data.id)
+    .eq("status", "issued");
+
+  if (error) {
+    logger.error("payment_orders.cancel.failed", { error });
+    return { ok: false, error: "No se pudo anular la orden de pago." };
+  }
+
+  await logAudit("payment_order.canceled", ctx.userId, {}, parsed.data.id);
+  return { ok: true, data: undefined };
+}
