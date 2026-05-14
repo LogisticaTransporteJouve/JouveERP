@@ -487,7 +487,7 @@ export function PaymentOrderForm({
           {isSaving
             ? "Guardando…"
             : mode === "create"
-              ? "Emitir OP"
+              ? "Emitir orden de pago"
               : "Guardar cambios"}
         </Button>
       </div>
