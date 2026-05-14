@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -16,11 +17,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Account } from "@/features/accounts/schema";
+import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
 import {
   SupplierPicker,
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
 import { amountToInput } from "@/lib/format";
+import { runAction } from "@/lib/query/run-action";
 
 import type { PaymentOrderDetail } from "../actions/payment-orders-actions";
 import {
@@ -39,6 +42,7 @@ import {
 } from "./allocations-picker";
 import {
   PaymentLinesEditor,
+  type AccountLineDraft,
   type PaymentLineDraft,
 } from "./payment-lines-editor";
 
@@ -72,8 +76,13 @@ function formatMoney(value: number): string {
   return moneyFormatter.format(value);
 }
 
+function lineAmount(l: PaymentLineDraft): number {
+  if (l.line_kind === "endorse_check") return l.amount;
+  return parseAmount(l.amount) ?? 0;
+}
+
 function sumDraftLines(lines: PaymentLineDraft[]): number {
-  return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);
+  return lines.reduce((acc, l) => acc + lineAmount(l), 0);
 }
 
 function sumDraftAllocations(allocs: AllocationDraft[]): number {
@@ -135,13 +144,31 @@ export function PaymentOrderForm({
 
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
     paymentOrder
-      ? paymentOrder.payment_lines.map((l) => ({
-          account_id: l.account_id,
-          amount: amountToInput(Number(l.amount)),
-          reference: l.reference ?? "",
-        }))
-      : [{ account_id: "", amount: "", reference: "" }],
+      ? paymentOrder.payment_lines.map(
+          (l): AccountLineDraft => ({
+            line_kind: "account",
+            account_id: l.account_id,
+            amount: amountToInput(Number(l.amount)),
+            reference: l.reference ?? "",
+          }),
+        )
+      : [
+          {
+            line_kind: "account",
+            account_id: "",
+            amount: "",
+            reference: "",
+          },
+        ],
   );
+
+  const carteraChecksQuery = useQuery({
+    queryKey: ["checks", "en_cartera", currency],
+    queryFn: () =>
+      runAction(() => listEnCarteraChecksAction({ currency })),
+    enabled: mode === "create",
+    staleTime: 30_000,
+  });
 
   const [allocations, setAllocations] = useState<AllocationDraft[]>(
     paymentOrder
@@ -210,23 +237,79 @@ export function PaymentOrderForm({
       return;
     }
 
-    const lines = paymentLines.map((l) => ({
-      account_id: l.account_id,
-      amount: parseAmount(l.amount) ?? 0,
-      reference: l.reference.trim().length === 0 ? null : l.reference.trim(),
-    }));
+    const lines = paymentLines.map((l) => {
+      const ref = l.reference.trim().length === 0 ? null : l.reference.trim();
+      if (l.line_kind === "endorse_check") {
+        return {
+          line_kind: "endorse_check" as const,
+          endorsed_check_id: l.endorsed_check_id,
+          amount: l.amount,
+          reference: ref,
+        };
+      }
+      if (l.line_kind === "issue_check") {
+        return {
+          line_kind: "issue_check" as const,
+          account_id: l.account_id,
+          amount: parseAmount(l.amount) ?? 0,
+          reference: ref,
+          issued_check: {
+            kind: l.check_kind,
+            check_number: l.check_number.trim(),
+            bank_name: l.bank_name.trim(),
+            due_date: l.due_date,
+            issue_date: paymentDate,
+            beneficiary_name:
+              l.beneficiary_name.trim().length === 0
+                ? null
+                : l.beneficiary_name.trim(),
+            beneficiary_cuit:
+              l.beneficiary_cuit.trim().length === 0
+                ? null
+                : l.beneficiary_cuit.trim(),
+            notes: null,
+          },
+        };
+      }
+      return {
+        line_kind: "account" as const,
+        account_id: l.account_id,
+        amount: parseAmount(l.amount) ?? 0,
+        reference: ref,
+      };
+    });
     const allocs = allocations.map((a) => ({
       purchase_invoice_id: a.purchase_invoice_id,
       amount_applied: parseAmount(a.amount_applied) ?? 0,
     }));
 
-    if (lines.some((l) => !l.account_id)) {
-      toast.error("Cada línea de pago necesita una cuenta.");
-      return;
-    }
-    if (lines.some((l) => l.amount <= 0)) {
-      toast.error("Cada línea de pago necesita un monto mayor a cero.");
-      return;
+    for (const l of lines) {
+      if (l.line_kind === "account" && !l.account_id) {
+        toast.error("Cada línea de cuenta necesita una cuenta seleccionada.");
+        return;
+      }
+      if (l.line_kind === "issue_check") {
+        if (!l.account_id) {
+          toast.error("La chequera (cuenta bancaria) es requerida.");
+          return;
+        }
+        if (!l.issued_check.check_number) {
+          toast.error("Nº de cheque requerido.");
+          return;
+        }
+        if (!l.issued_check.bank_name) {
+          toast.error("Banco del cheque requerido.");
+          return;
+        }
+        if (!l.issued_check.due_date) {
+          toast.error("Fecha de vto. del cheque requerida.");
+          return;
+        }
+      }
+      if (l.amount <= 0) {
+        toast.error("Cada línea necesita un monto mayor a cero.");
+        return;
+      }
     }
 
     if (mode === "create") {
@@ -346,8 +429,12 @@ export function PaymentOrderForm({
 
       <PaymentLinesEditor
         accounts={accounts.filter((a) => a.is_active)}
+        carteraChecks={carteraChecksQuery.data ?? []}
+        carteraChecksLoading={carteraChecksQuery.isLoading}
+        currency={currency}
         lines={paymentLines}
         onChange={setPaymentLines}
+        disableNonAccount={mode === "edit"}
       />
 
       <AllocationsPicker

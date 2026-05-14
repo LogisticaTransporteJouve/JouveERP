@@ -1160,7 +1160,9 @@ export type Database = {
           account_id: string
           amount: number
           created_at: string
+          endorsed_check_id: string | null
           id: string
+          issued_check_id: string | null
           payment_order_id: string
           reference: string | null
           updated_at: string
@@ -1169,7 +1171,9 @@ export type Database = {
           account_id: string
           amount: number
           created_at?: string
+          endorsed_check_id?: string | null
           id?: string
+          issued_check_id?: string | null
           payment_order_id: string
           reference?: string | null
           updated_at?: string
@@ -1178,7 +1182,9 @@ export type Database = {
           account_id?: string
           amount?: number
           created_at?: string
+          endorsed_check_id?: string | null
           id?: string
+          issued_check_id?: string | null
           payment_order_id?: string
           reference?: string | null
           updated_at?: string
@@ -1189,6 +1195,20 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_payment_lines_endorsed_check_id_fkey"
+            columns: ["endorsed_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_payment_lines_issued_check_id_fkey"
+            columns: ["issued_check_id"]
+            isOneToOne: false
+            referencedRelation: "issued_checks"
             referencedColumns: ["id"]
           },
           {

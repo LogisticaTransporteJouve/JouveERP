@@ -80,8 +80,8 @@ function formatMovementNumber(m: AccountMovement): string {
   const num = String(m.numero).padStart(8, "0");
   if (m.source_type === "receipt") return `R${pos}-${num}`;
   if (m.kind === "factura") return `${m.letter ?? ""}${pos}-${num}`;
-  if (m.kind === "nc") return `NC-${m.letter ?? ""} ${pos}-${num}`;
-  if (m.kind === "nd") return `ND-${m.letter ?? ""} ${pos}-${num}`;
+  if (m.kind === "nc") return `NC${pos}-${num}`;
+  if (m.kind === "nd") return `ND${pos}-${num}`;
   return `${pos}-${num}`;
 }
 

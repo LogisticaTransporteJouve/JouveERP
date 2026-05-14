@@ -42,9 +42,9 @@ function formatDocumentNumber(m: {
     m.kind === "factura"
       ? m.letter ?? ""
       : m.kind === "nc"
-        ? `NC${m.letter ? "-" + m.letter : ""}`
+        ? "NC"
         : m.kind === "nd"
-          ? `ND${m.letter ? "-" + m.letter : ""}`
+          ? "ND"
           : "";
   return `${prefix}${pos}-${num}`;
 }

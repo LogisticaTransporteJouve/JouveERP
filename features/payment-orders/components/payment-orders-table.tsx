@@ -1,6 +1,10 @@
 "use client";
 
+import { Eye } from "lucide-react";
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -124,6 +128,16 @@ export function PaymentOrdersTable({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Ver detalle"
+                        >
+                          <Link href={`/payment-orders/${op.id}`}>
+                            <Eye className="size-4" />
+                          </Link>
+                        </Button>
                         {canWrite && !isCanceled && (
                           <EditPaymentOrderDialog
                             paymentOrderId={op.id}

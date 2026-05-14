@@ -174,12 +174,15 @@ export function isPurchaseInvoiceStatus(v: unknown): v is PurchaseInvoiceStatus 
 }
 
 export function formatInvoiceNumber(p: {
+  kind?: PurchaseInvoiceKind;
   letter: PurchaseInvoiceLetter | null;
   punto_venta: number;
   numero: number;
 }): string {
-  const letterPart = p.letter ?? "X";
   const pv = String(p.punto_venta).padStart(5, "0");
   const nu = String(p.numero).padStart(8, "0");
+  if (p.kind === "nc") return `NC${pv}-${nu}`;
+  if (p.kind === "nd") return `ND${pv}-${nu}`;
+  const letterPart = p.letter ?? "X";
   return `${letterPart}${pv}-${nu}`;
 }

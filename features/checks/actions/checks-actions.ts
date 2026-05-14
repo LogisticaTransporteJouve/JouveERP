@@ -127,6 +127,69 @@ export async function listChecksAction(): Promise<
   return { ok: true, data: { items } };
 }
 
+export type EnCarteraCheck = {
+  id: string;
+  kind: "fisico" | "echeq";
+  check_number: string;
+  bank_name: string;
+  drawer_name: string;
+  due_date: string;
+  amount: number;
+  currency: "ARS" | "USD";
+  cartera_account_id: string;
+  cartera_account_name: string;
+};
+
+export async function listEnCarteraChecksAction(filters?: {
+  currency?: "ARS" | "USD";
+}): Promise<ActionResult<EnCarteraCheck[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "cheques:read")) {
+    return { ok: false, error: "No tenés permiso para ver cheques." };
+  }
+  const supabase = await createSupabaseClient();
+  let query = supabase
+    .from("checks")
+    .select(
+      "id, kind, check_number, bank_name, drawer_name, due_date, amount, currency, cartera_account_id, cartera_account:accounts!checks_cartera_account_id_fkey(name)",
+    )
+    .eq("status", "en_cartera")
+    .order("due_date", { ascending: true });
+  if (filters?.currency) query = query.eq("currency", filters.currency);
+
+  const { data, error } = await query;
+  if (error) {
+    logger.error("cheques.en_cartera.list.failed", { error });
+    return { ok: false, error: "No se pudieron listar cheques en cartera." };
+  }
+  const items: EnCarteraCheck[] = (data ?? [])
+    .filter(
+      (row): row is typeof row & { kind: "fisico" | "echeq" } =>
+        row.kind === "fisico" || row.kind === "echeq",
+    )
+    .filter(
+      (row): row is typeof row & { currency: "ARS" | "USD" } =>
+        row.currency === "ARS" || row.currency === "USD",
+    )
+    .map((row) => {
+      const acct = (row as { cartera_account: { name: string } | null })
+        .cartera_account;
+      return {
+        id: row.id,
+        kind: row.kind,
+        check_number: row.check_number,
+        bank_name: row.bank_name,
+        drawer_name: row.drawer_name,
+        due_date: row.due_date,
+        amount: Number(row.amount),
+        currency: row.currency,
+        cartera_account_id: row.cartera_account_id,
+        cartera_account_name: acct?.name ?? "—",
+      };
+    });
+  return { ok: true, data: items };
+}
+
 export interface ChequeDetail {
   check: Cheque;
   movements: CheckMovement[];
