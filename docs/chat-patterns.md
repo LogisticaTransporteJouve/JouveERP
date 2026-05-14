@@ -29,9 +29,15 @@ Pestaña nueva **/chat** en la app. Mensajería interna entre empleados.
 - Editar / borrar mensajes propios.
 - Adjuntar archivos (queda como TODO si la fase de files no está
   terminada, pero el modelo lo deja listo — los adjuntos aparecen en
-  `/files` cuando ambas fases estén). En mobile, el botón de adjuntar
-  + cámara permite **tomar una foto directo desde el chat** (típico
-  caso: chofer manda foto de un remito firmado al grupo de logística).
+  `/files` cuando ambas fases estén). Tres caminos según el contexto:
+  - **Desktop:** arrastrar el archivo a cualquier punto del thread
+    (drag & drop sobre la conversación entera, no solo el ícono) o
+    pegar una imagen desde el clipboard con `⌘V` (típico:
+    screenshot de algo que querés discutir).
+  - **Mobile:** botón cámara que abre el lente trasero directo, ideal
+    para que un chofer foté un remito firmado y lo mande al grupo de
+    logística desde el camión.
+  - **Ambos:** botón clip clásico que abre el file picker del OS.
 - Avatar de usuario (depende de `docs/user-avatars.md`).
 - Realtime con Supabase Realtime (no servicios extra — decisión #8 del
   roadmap se respeta).
@@ -850,6 +856,124 @@ icon + copy "Eliminar mensaje para siempre"). Post-confirm: render
   reemplazo por el real cuando llega el realtime event (match por
   `client_temp_id` que mandamos en metadata extendida — o el más simple:
   match por `(sender_id, body, created_at∈[now-2s, now+2s])`).
+
+### 5.6.1 Drag & drop + paste (desktop)
+
+En desktop el patrón natural para mandar un archivo no es clickear un
+ícono — es **arrastrarlo a la conversación** (Slack / Linear / Discord
+lo hacen así). El thread completo es zona de drop, no solo el composer:
+así no tenés que apuntarle al ícono del clip.
+
+**Implementación:**
+
+- Listeners `onDragEnter` / `onDragOver` / `onDragLeave` / `onDrop` en
+  el contenedor del `MessageThread` (el `<div>` que envuelve la lista
+  de mensajes + composer, no en cada bubble).
+- Mientras hay un drag activo encima del thread, render overlay
+  semi-transparente con copy "Soltá para adjuntar" + ícono `Upload`.
+  Usar `pointer-events-none` en el overlay para que el drop pase al
+  contenedor por debajo.
+- Al `onDrop`: extraer archivos de `e.dataTransfer.files`, validar
+  uno por uno (mismo `validateFile` que el composer), encolarlos al
+  buffer de adjuntos del composer.
+- Visibilidad: solo en `pointer-fine:` (desktop con mouse). En mobile
+  no aplica — los listeners de drag no se atan.
+
+```tsx
+// features/chat/components/message-thread.tsx (skeleton, solo la parte de DnD)
+"use client";
+
+import { useState, useRef, type DragEvent } from "react";
+import { Upload } from "lucide-react";
+
+function useThreadDnD(onFiles: (files: File[]) => void) {
+  const [active, setActive] = useState(false);
+  // Contador para tolerar dragenter/dragleave en hijos sin parpadear.
+  const counter = useRef(0);
+
+  const handlers = {
+    onDragEnter: (e: DragEvent) => {
+      if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+      counter.current++;
+      setActive(true);
+    },
+    onDragLeave: () => {
+      counter.current = Math.max(0, counter.current - 1);
+      if (counter.current === 0) setActive(false);
+    },
+    onDragOver: (e: DragEvent) => {
+      if (Array.from(e.dataTransfer.types).includes("Files")) {
+        e.preventDefault();          // habilita el drop
+        e.dataTransfer.dropEffect = "copy";
+      }
+    },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      counter.current = 0;
+      setActive(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) onFiles(files);
+    },
+  };
+
+  return { active, handlers };
+}
+
+export function MessageThread({ channelId }: { channelId: string }) {
+  const { active, handlers } = useThreadDnD((files) => {
+    // append al buffer del composer (estado compartido vía context o
+    // store del feature de chat)
+  });
+
+  return (
+    <div className="relative flex-1 hidden pointer-fine:block" {...handlers}>
+      {/* lista de mensajes + composer */}
+      {active && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-foreground/30 bg-background/80 backdrop-blur-sm">
+          <Upload className="size-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Soltá para adjuntar</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Paste desde clipboard.** Listener `onPaste` en el textarea del
+composer: si el `clipboardData.items` incluye un `image/*`, llamar
+`getAsFile()` y encolarlo al buffer. Caso típico: hiciste un screenshot
+con `⌘+Shift+4` y querés pegarlo en el chat sin guardar el archivo
+intermedio.
+
+```tsx
+// dentro de MessageComposer:
+const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const files: File[] = [];
+  for (const item of e.clipboardData.items) {
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length > 0) {
+    e.preventDefault();              // no pegar la data URL como texto
+    appendToBuffer(files);
+  }
+};
+```
+
+**Edge cases que el patrón cubre:**
+
+- **Drag de un texto seleccionado** (no archivo): `dataTransfer.types`
+  no incluye `"Files"` → el handler ignora y no se prende el overlay.
+- **Drag desde otra pestaña del browser**: lo mismo, no son archivos
+  reales.
+- **Drag de una carpeta**: `dataTransfer.files` la representa como un
+  item con `size = 0` en algunos browsers. Validar en el server action
+  (el size = 0 ya cae por el cap) o pre-filtrar en cliente.
+- **Drag mientras estás scrolleando arriba** (cargando mensajes
+  viejos): no interfiere, el overlay se monta sobre `MessageThread`
+  pero `pointer-events-none` deja pasar la rueda del mouse.
 
 ### 5.7 `ReactionPicker` y `ReactionBar`
 
