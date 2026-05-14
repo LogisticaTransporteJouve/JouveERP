@@ -50,12 +50,20 @@ export function useChannels() {
 
 // Variante "lite" para mostrar un badge global desde fuera de /chat
 // (ej: sidebar). No suspende. Calcula el total de mensajes no leídos.
-// Suscribe también al realtime para que el badge se actualice sin F5.
+//
+// Estrategia de freshness en 3 capas:
+//   1. Realtime: invalida al recibir INSERT/UPDATE en chat_messages.
+//   2. refetchInterval: fallback de 15s por si el WS realtime se cae o
+//      el evento no llega (suele pasar cuando el browser duerme la tab).
+//   3. refetchOnWindowFocus (default de TanStack Query): al volver a la
+//      tab se recheckea inmediato.
 export function useChatUnreadCountLite() {
   const q = useQuery({
     queryKey: chatKeys.channels(),
     queryFn: () => runAction(() => listChannelsAction()),
     staleTime: 10_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
   useChannelsRealtime();
   return (q.data ?? []).reduce(
