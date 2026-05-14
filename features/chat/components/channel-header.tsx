@@ -1,10 +1,28 @@
 "use client";
 
-import { Pin, Users } from "lucide-react";
+import { Bell, BellOff, LogOut, Pin, Settings, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/user-avatar";
 
-import { useChannelHeader } from "../hooks/use-chat";
+import {
+  useChannelHeader,
+  useChannels,
+  useLeaveChannel,
+  useToggleChannelMute,
+} from "../hooks/use-chat";
+
+import { ChannelSettingsDialog } from "./channel-settings-dialog";
 
 type Props = {
   channelId: string;
@@ -13,6 +31,37 @@ type Props = {
 
 export function ChannelHeader({ channelId, currentUserId }: Props) {
   const { data } = useChannelHeader(channelId);
+  const { data: channels } = useChannels();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const toggleMute = useToggleChannelMute(channelId);
+  const leave = useLeaveChannel();
+  const router = useRouter();
+
+  // `is_muted` vive en chat_channel_members; lo leemos del list que ya
+  // está en cache (evita un fetch extra).
+  const isMuted = useMemo(
+    () => channels.find((c) => c.id === channelId)?.is_muted ?? false,
+    [channels, channelId],
+  );
+
+  const handleToggleMute = async () => {
+    try {
+      await toggleMute.mutateAsync(!isMuted);
+      toast.success(!isMuted ? "Notificaciones silenciadas." : "Notificaciones activadas.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error.");
+    }
+  };
+
+  const handleLeaveDm = async () => {
+    if (!confirm("¿Cerrar este chat? Vas a poder reabrirlo después.")) return;
+    try {
+      await leave.mutateAsync(channelId);
+      router.push("/chat");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error.");
+    }
+  };
 
   let leading: React.ReactNode;
   let subtitle: string;
@@ -46,14 +95,73 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-3 border-b px-4 py-3">
-      {leading}
-      <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold">{data.display_name}</h2>
-        {subtitle ? (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+    <>
+      <div className="flex items-center gap-3 border-b px-4 py-3">
+        {leading}
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-semibold">{data.display_name}</h2>
+          {subtitle ? (
+            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          ) : null}
+        </div>
+
+        {data.kind !== "self" ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Opciones del chat"
+              >
+                <Settings className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleToggleMute}>
+                {isMuted ? (
+                  <>
+                    <Bell className="size-3.5" />
+                    Activar notificaciones
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="size-3.5" />
+                    Silenciar
+                  </>
+                )}
+              </DropdownMenuItem>
+              {data.kind === "group" ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                    <Settings className="size-3.5" />
+                    Configurar grupo
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLeaveDm}>
+                    <LogOut className="size-3.5" />
+                    Cerrar chat
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
-    </div>
+
+      {data.kind === "group" ? (
+        <ChannelSettingsDialog
+          channelId={channelId}
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          currentUserId={currentUserId}
+        />
+      ) : null}
+    </>
   );
 }

@@ -13,6 +13,13 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  addChannelMembersAction,
+  leaveChannelAction,
+  removeChannelMemberAction,
+  toggleChannelMuteAction,
+  updateChannelAction,
+} from "../actions/channel-admin";
+import {
   createGroupAction,
   getChannelHeaderAction,
   getOrCreateSelfChannelAction,
@@ -222,6 +229,63 @@ export function useMarkChannelRead() {
   return useMutation({
     mutationFn: (channelId: string) =>
       runAction(() => markChannelReadAction(channelId)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatKeys.channels() });
+    },
+  });
+}
+
+export function useUpdateChannel(channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; description?: string | null }) =>
+      runAction(() => updateChannelAction({ channelId, ...input })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatKeys.channel(channelId) });
+      qc.invalidateQueries({ queryKey: chatKeys.channels() });
+    },
+  });
+}
+
+export function useAddChannelMembers(channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userIds: string[]) =>
+      runAction(() => addChannelMembersAction({ channelId, userIds })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatKeys.channel(channelId) });
+    },
+  });
+}
+
+export function useRemoveChannelMember(channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      runAction(() => removeChannelMemberAction({ channelId, userId })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatKeys.channel(channelId) });
+      qc.invalidateQueries({ queryKey: chatKeys.channels() });
+    },
+  });
+}
+
+export function useLeaveChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (channelId: string) =>
+      runAction(() => leaveChannelAction(channelId)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatKeys.channels() });
+    },
+  });
+}
+
+export function useToggleChannelMute(channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (muted: boolean) =>
+      runAction(() => toggleChannelMuteAction({ channelId, muted })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chatKeys.channels() });
     },

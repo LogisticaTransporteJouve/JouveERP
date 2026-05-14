@@ -15,7 +15,9 @@ export function formatRelativeShort(
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
   if (diff < DAY_MS) return `${Math.floor(diff / 3_600_000)}h`;
   if (diff < DAY_MS * 7) return `${Math.floor(diff / DAY_MS)}d`;
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
 }
 
 export function formatMessageTime(iso: string): string {
@@ -23,6 +25,7 @@ export function formatMessageTime(iso: string): string {
   return d.toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 

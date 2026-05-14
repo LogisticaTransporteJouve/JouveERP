@@ -312,6 +312,18 @@ export type DatabaseExtensions = {
         Args: Record<string, never>;
         Returns: number;
       };
+      add_chat_channel_members: {
+        Args: { p_channel: string; p_user_ids: string[] };
+        Returns: number;
+      };
+      update_chat_channel: {
+        Args: {
+          p_channel: string;
+          p_name: string;
+          p_description: string | null;
+        };
+        Returns: void;
+      };
     };
     Enums: {
       chat_channel_kind: "self" | "dm" | "group";
