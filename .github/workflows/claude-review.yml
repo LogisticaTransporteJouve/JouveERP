@@ -28,27 +28,44 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Load business rules context
+        id: context
+        run: |
+          {
+            echo "BUSINESS_RULES<<__EOF__"
+            cat .github/claude-review-context.md
+            echo "__EOF__"
+          } >> "$GITHUB_ENV"
+
       - name: Claude review
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model claude-opus-4-7
+            --max-turns 25
+            --allowed-tools "Bash(gh:*),Read,Grep,Glob"
           prompt: |
-            Review este PR del codebase JouveERP (Next.js 16 App Router + React 19 +
-            TypeScript strict + Tailwind v4 + shadcn, paleta monocromática oklch).
+            Estás revisando el PR #${{ github.event.pull_request.number }}
+            del repo ${{ github.repository }} (branch
+            `${{ github.event.pull_request.head.ref }}` → `main`).
 
-            Convenciones del proyecto:
-            - Server Components por default; Client Components solo cuando hay estado/efectos.
-            - Server Actions sobre API routes para mutaciones.
-            - Validación con Zod en bordes (entrada de actions, fetchers externos).
-            - Sin `any` implícito ni explícito (regla ESLint activa).
-            - Sin colores de marca: solo tokens del design system (oklch hue=0).
-            - Conventional commits.
+            Pasos obligatorios:
+            1. Leé el diff completo:
+               `gh pr diff ${{ github.event.pull_request.number }}`
+            2. Si necesitás más contexto, leé archivos adyacentes con
+               `Read` o buscá patrones con `Grep`.
+            3. Aplicá las reglas del contexto JouveERP de abajo.
+            4. POSTEÁ tu review como comentario en el PR con
+               `gh pr comment ${{ github.event.pull_request.number }} --body "..."`
+               usando un heredoc para preservar formato:
+               ```
+               gh pr comment ${{ github.event.pull_request.number }} --body-file - <<'COMMENT_EOF'
+               ## Code review
+               ...
+               COMMENT_EOF
+               ```
+               No olvides este paso — sin el comment posteado, la review no le
+               sirve a nadie.
 
-            Focos de review:
-            - Correctness y type safety (estrechar tipos, evitar `as` innecesarios).
-            - Seguridad: secrets, RLS de Supabase, validación de entrada.
-            - Performance: client/server boundary, memoization solo si justifica.
-            - Errores: manejo en bordes únicamente, no defensivo.
-
-            Sé conciso. Reportá issues concretos con `file:line`. No felicites, no comentes nits.
-            Si el PR está limpio, decilo en una línea.
+            ${{ env.BUSINESS_RULES }}
