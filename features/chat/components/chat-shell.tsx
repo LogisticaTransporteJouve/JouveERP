@@ -91,7 +91,7 @@ function EmptyState() {
   return (
     <div className="flex flex-1 items-center justify-center p-8 text-center">
       <p className="text-sm text-muted-foreground">
-        Elegí un chat de la lista o tocá "Nuevo" para empezar uno.
+        Elegí un chat de la lista o tocá &ldquo;Nuevo&rdquo; para empezar uno.
       </p>
     </div>
   );

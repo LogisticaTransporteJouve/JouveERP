@@ -63,7 +63,7 @@ export function ChatSearchDialog({ open, onOpenChange }: Props) {
             </p>
           ) : results.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No se encontraron mensajes con "{debounced}".
+              No se encontraron mensajes con &ldquo;{debounced}&rdquo;.
             </p>
           ) : (
             <ul className="divide-y">
