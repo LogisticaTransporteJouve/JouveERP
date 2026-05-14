@@ -242,7 +242,13 @@ export function PaymentLinesEditor({
                       </SelectTrigger>
                       <SelectContent position="popper">
                         {accounts
-                          .filter((a) => a.is_active && a.currency === currency)
+                          .filter(
+                            (a) =>
+                              a.is_active &&
+                              a.currency === currency &&
+                              a.type !== "checks" &&
+                              a.type !== "echeq",
+                          )
                           .map((a) => (
                             <SelectItem key={a.id} value={a.id}>
                               {a.name}{" "}
