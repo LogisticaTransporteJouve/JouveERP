@@ -43,6 +43,10 @@ export const PERMISSIONS = [
   "payment_orders:read",
   "payment_orders:write",
 
+  // Issued checks (K.6 — cheques propios emitidos)
+  "issued_checks:read",
+  "issued_checks:write",
+
   // AFIP
   "padron:lookup",
   "afip:admin",
@@ -124,6 +128,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "purchase_invoices:cancel",
     "payment_orders:read",
     "payment_orders:write",
+    "issued_checks:read",
+    "issued_checks:write",
     "padron:lookup",
     "accounts:read",
     "accounts:write",

@@ -940,6 +940,103 @@ export type Database = {
           },
         ]
       }
+      issued_checks: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          bank_name: string
+          beneficiary_cuit: string | null
+          beneficiary_name: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cashed_at: string | null
+          check_number: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string
+          id: string
+          issue_date: string
+          kind: string
+          notes: string | null
+          payment_order_id: string | null
+          rejected_at: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id: string
+          bank_name: string
+          beneficiary_cuit?: string | null
+          beneficiary_name?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cashed_at?: string | null
+          check_number: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          due_date: string
+          id?: string
+          issue_date: string
+          kind: string
+          notes?: string | null
+          payment_order_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          bank_name?: string
+          beneficiary_cuit?: string | null
+          beneficiary_name?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cashed_at?: string | null
+          check_number?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string
+          id?: string
+          issue_date?: string
+          kind?: string
+          notes?: string | null
+          payment_order_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issued_checks_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issued_checks_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issued_checks_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           enabled: boolean

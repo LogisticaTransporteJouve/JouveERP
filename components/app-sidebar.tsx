@@ -106,9 +106,15 @@ const navItems: NavItem[] = [
   },
   {
     href: "/checks",
-    label: "Cheques",
+    label: "Cheques recibidos",
     icon: BookCheck,
     permission: "cheques:read",
+  },
+  {
+    href: "/issued-checks",
+    label: "Cheques propios",
+    icon: BookCheck,
+    permission: "issued_checks:read",
   },
   {
     href: "/aging",
