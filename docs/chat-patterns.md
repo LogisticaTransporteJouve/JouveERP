@@ -29,11 +29,16 @@ Pestaña nueva **/chat** en la app. Mensajería interna entre empleados.
 - Editar / borrar mensajes propios.
 - Adjuntar archivos (queda como TODO si la fase de files no está
   terminada, pero el modelo lo deja listo — los adjuntos aparecen en
-  `/files` cuando ambas fases estén).
+  `/files` cuando ambas fases estén). En mobile, el botón de adjuntar
+  + cámara permite **tomar una foto directo desde el chat** (típico
+  caso: chofer manda foto de un remito firmado al grupo de logística).
 - Avatar de usuario (depende de `docs/user-avatars.md`).
 - Realtime con Supabase Realtime (no servicios extra — decisión #8 del
   roadmap se respeta).
 - Unread counts.
+- Layout responsivo: en mobile la sidebar de canales se colapsa a
+  drawer (`Sheet` shadcn que ya está en el design system §1.5), el
+  thread ocupa pantalla completa y el composer queda fijado al bottom.
 
 **v1 NO incluye (defer explícito):**
 
@@ -833,6 +838,11 @@ icon + copy "Eliminar mensaje para siempre"). Post-confirm: render
 - **Botón adjuntar:** abre file picker (multiple). Reusa `FileDropzone`
   del spec de files cuando esa fase exista. Hasta entonces, deshabilitar
   con tooltip "Disponible cuando se implemente la fase de archivos".
+- **Botón cámara (solo mobile):** input separado con
+  `capture="environment"` y `accept="image/*"` que abre la cámara
+  trasera directo. Visibilidad condicionada por `pointer-coarse:`
+  (tailwind variant nativa, sin user-agent sniffing). Patrón completo
+  documentado en `docs/files-patterns.md` §8.1.
 - **Botón emoji:** popover con un set fijo de ~32 emojis comunes. Sin
   full emoji picker en v1 — agregar `@emoji-mart/react` si los usuarios
   piden más en v2.

@@ -15,6 +15,11 @@
 - Subida de archivos por el usuario desde el frontend (comprobante recibido,
   remito escaneado, documentación de chofer/vehículo, comprobante de
   retención, ticket de gasto, foto de cheque físico, extracto bancario).
+- **Soporte mobile nativo:** captura directa desde cámara con
+  `capture="environment"` cuando la app se usa en celular (escanear un
+  remito desde el camión, fotear el comprobante de retención que te
+  acaban de dar, etc.). Sin user-agent sniffing — `pointer-coarse:`
+  media query.
 - Persistencia con metadata + asociación a entidades del negocio.
 - Procesamiento asíncrono opcional (OCR rápido, embeddings, sugerencias).
 - Lectura (signed URLs + preview en UI).
@@ -732,7 +737,21 @@ grant execute on function public.find_orphan_files(interval) to service_role;
 
 ## 8. Frontend
 
-### 8.1 Dropzone
+### 8.1 Dropzone (desktop + mobile aware)
+
+Una sola implementación que se comporta distinto según el dispositivo:
+
+- **Desktop:** drag & drop área grande + botón "Elegir archivo" (file
+  picker del OS).
+- **Mobile:** drag & drop se oculta (no aplica) y aparecen **dos botones**
+  visibles: **"Tomar foto"** (abre cámara directo gracias a
+  `capture="environment"`) y **"Elegir archivo"** (file picker del OS, que
+  en iOS/Android ya muestra "Cámara / Fotos / Archivos" como opciones).
+
+La detección no requiere user-agent sniffing: usamos un media query
+(`pointer: coarse`) que ya viene calibrado por el browser para distinguir
+touch-first de mouse-first. Tailwind expone `pointer-coarse:` /
+`pointer-fine:` variants.
 
 ```tsx
 // components/files/file-dropzone.tsx
@@ -740,19 +759,24 @@ grant execute on function public.find_orphan_files(interval) to service_role;
 
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Camera, Upload } from "lucide-react";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx";
+const ACCEPT_CAMERA = "image/*"; // la cámara solo emite imágenes
 const MAX_BYTES = 10 * 1024 * 1024;
 
 type Props = {
   onFile: (file: File) => void;
   disabled?: boolean;
+  // Si el caller solo acepta imágenes (ej. foto de cheque), pasa true para
+  // que el botón "Elegir archivo" también restrinja accept.
+  imagesOnly?: boolean;
 };
 
-export function FileDropzone({ onFile, disabled }: Props) {
+export function FileDropzone({ onFile, disabled, imagesOnly }: Props) {
   const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const validateAndEmit = useCallback(
     (file: File) => {
@@ -772,35 +796,114 @@ export function FileDropzone({ onFile, disabled }: Props) {
         const f = e.dataTransfer.files[0];
         if (f) validateAndEmit(f);
       }}
-      className={`flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 ${
+      className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 ${
         dragOver ? "bg-accent" : ""
       }`}
     >
-      <Upload className="size-5 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">Arrastrá un archivo o</p>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-      >
-        Elegir
-      </Button>
+      <Upload className="size-5 text-muted-foreground pointer-coarse:hidden" />
+      <p className="text-sm text-muted-foreground pointer-coarse:hidden">
+        Arrastrá un archivo o
+      </p>
+
+      <div className="flex flex-col gap-2 pointer-coarse:w-full sm:flex-row">
+        {/* Botón cámara: solo aparece en dispositivos touch (mobile/tablet). */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => cameraRef.current?.click()}
+          className="hidden pointer-coarse:inline-flex"
+        >
+          <Camera className="size-4" />
+          Tomar foto
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => pickerRef.current?.click()}
+        >
+          Elegir archivo
+        </Button>
+      </div>
+
+      {/* Input para foto desde cámara — capture="environment" = cámara trasera. */}
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
-        accept={ACCEPT}
+        accept={ACCEPT_CAMERA}
+        capture="environment"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) validateAndEmit(f);
+          e.target.value = ""; // permite re-tomar la misma foto
+        }}
+      />
+
+      {/* Input genérico — en mobile el OS muestra Cámara/Galería/Archivos. */}
+      <input
+        ref={pickerRef}
+        type="file"
+        accept={imagesOnly ? ACCEPT_CAMERA : ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) validateAndEmit(f);
+          e.target.value = "";
         }}
       />
     </div>
   );
 }
 ```
+
+**Detalles sutiles:**
+
+- `capture="environment"` → cámara trasera (mejor para escanear). Para
+  fotos de perfil/selfie usar `capture="user"`.
+- En **desktop**, el atributo `capture` se ignora silenciosamente — el
+  botón "Tomar foto" igual queda oculto por `pointer-coarse:hidden` así
+  no aparece confuso.
+- En **iOS Safari**, sin `capture` y con `accept="image/*"` el sheet
+  ofrece *Take Photo / Photo Library / Choose File*. **Con** `capture`
+  va directo a la cámara (sin opción de galería).
+- En **Android Chrome**, comportamiento equivalente.
+- `e.target.value = ""` al final permite que el `onChange` dispare si el
+  user selecciona el mismo archivo dos veces seguidas (ej. retomar foto
+  porque salió movida).
+- Para `multiple` (subir varias fotos juntas), agregar `multiple` al
+  input genérico — NO al de cámara (la cámara nativa solo emite una
+  foto por vez).
+
+**Compresión client-side (opcional, recomendado para fotos):**
+
+Las fotos de un smartphone moderno pesan 3-8 MB cada una. Para no
+toparse con el límite de 10 MB y bajar el costo de OCR, comprimir antes
+de upload con `browser-image-compression`:
+
+```ts
+// lib/files/compress-image.ts
+import imageCompression from "browser-image-compression";
+
+export async function compressImageForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  const compressed = await imageCompression(file, {
+    maxSizeMB: 2,
+    maxWidthOrHeight: 2400,   // suficiente para OCR de un comprobante A4
+    useWebWorker: true,
+    fileType: "image/jpeg",   // unificamos a JPEG para consistencia
+  });
+  return compressed;
+}
+```
+
+Llamar antes de pasar el `File` al `useUploadFile`. Diferir a un PR
+aparte si la latencia perceptible del compress molesta (no debería —
+mide ~200ms para una foto típica en celular medio).
 
 ### 8.2 Hook de upload
 
