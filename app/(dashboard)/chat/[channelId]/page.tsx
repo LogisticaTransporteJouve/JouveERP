@@ -9,6 +9,7 @@ import {
 import { ChatShell } from "@/features/chat/components/chat-shell";
 import { CHAT_MESSAGES_PAGE_SIZE, chatKeys } from "@/features/chat/keys";
 import { requireUserContext } from "@/lib/auth/context";
+import { getDisplayName } from "@/lib/avatars";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -56,9 +57,19 @@ export default async function ChannelPage({
     },
   ]);
 
+  const displayName = getDisplayName(
+    ctx.profile.firstName,
+    ctx.profile.lastName,
+    ctx.email,
+  );
+
   return (
     <Hydrate state={dehydratedState}>
-      <ChatShell activeChannelId={channelId} currentUserId={ctx.userId} />
+      <ChatShell
+        activeChannelId={channelId}
+        currentUserId={ctx.userId}
+        currentUserDisplayName={displayName}
+      />
     </Hydrate>
   );
 }

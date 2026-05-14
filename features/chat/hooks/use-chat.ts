@@ -156,6 +156,7 @@ export function useSendMessage() {
       channelId: string;
       body: string;
       replyToId?: string | null;
+      mentionUserIds?: string[];
     }) => runAction(() => sendMessageAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: chatKeys.messages(variables.channelId) });

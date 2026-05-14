@@ -10,6 +10,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { BrowserNotifier } from "@/features/notifications/components/browser-notifier";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
@@ -74,6 +75,7 @@ export default async function DashboardLayout({
               </div>
             </header>
             <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+            <BrowserNotifier currentUserId={ctx.userId} />
           </SidebarInset>
         </SidebarProvider>
       </DateRangeProvider>

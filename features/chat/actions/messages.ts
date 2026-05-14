@@ -174,6 +174,17 @@ export async function sendMessageAction(
     .single();
   if (error || !data) return { ok: false, error: error?.message ?? "Error" };
 
+  // Insert mentions (best-effort). Si falla, el mensaje ya está en BD —
+  // no abortar la operación; el usuario lo va a ver igual.
+  const mentions = (parsed.data.mentionUserIds ?? []).filter(
+    (id) => id !== ctx.userId,
+  );
+  if (mentions.length > 0) {
+    await supabase.from("chat_message_mentions").insert(
+      mentions.map((user_id) => ({ message_id: data.id, user_id })),
+    );
+  }
+
   const profile = ctx.profile;
   const message: Message = {
     id: data.id,

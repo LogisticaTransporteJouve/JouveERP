@@ -8,6 +8,7 @@ export const SendMessageSchema = z.object({
     .min(1, "El mensaje no puede estar vacío.")
     .max(4000, "Máx 4000 caracteres."),
   replyToId: z.string().uuid().nullable().optional(),
+  mentionUserIds: z.array(z.string().uuid()).max(50).optional(),
 });
 
 export type SendMessageInput = z.infer<typeof SendMessageSchema>;

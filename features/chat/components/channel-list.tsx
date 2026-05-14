@@ -1,8 +1,8 @@
 "use client";
 
-import { Pin, Plus, Users } from "lucide-react";
+import { Pin, Plus, Search, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useChannels, useChannelsRealtime } from "../hooks/use-chat";
 import { formatRelativeShort } from "../lib/format-time";
 import type { ChannelListItem } from "../types";
 
+import { ChatSearchDialog } from "./chat-search-dialog";
 import { NewChatDialog } from "./new-chat-dialog";
 
 type Props = {
@@ -25,6 +26,20 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
   const { data: channels } = useChannels();
   useChannelsRealtime();
   const [newOpen, setNewOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // ⌘K (Ctrl+K en Windows) abre la búsqueda. Solo cuando estamos en
+  // /chat — el listener vive en el component, que se monta con el shell.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const selfChannels = channels.filter((c) => c.kind === "self");
   const dms = channels.filter((c) => c.kind === "dm");
@@ -32,17 +47,30 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      <div className="flex items-center justify-between gap-1.5 border-b px-3 py-2">
         <h2 className="text-sm font-semibold">Chat</h2>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => setNewOpen(true)}
-        >
-          <Plus className="size-4" />
-          Nuevo
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            aria-label="Buscar (⌘K)"
+            title="Buscar (⌘K)"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setNewOpen(true)}
+          >
+            <Plus className="size-4" />
+            Nuevo
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -93,6 +121,7 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
       </ScrollArea>
 
       <NewChatDialog open={newOpen} onOpenChange={setNewOpen} />
+      <ChatSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }

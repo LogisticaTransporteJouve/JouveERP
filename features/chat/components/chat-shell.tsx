@@ -11,9 +11,14 @@ import { MessageThread } from "./message-thread";
 type Props = {
   activeChannelId: string | null;
   currentUserId: string;
+  currentUserDisplayName: string;
 };
 
-export function ChatShell({ activeChannelId, currentUserId }: Props) {
+export function ChatShell({
+  activeChannelId,
+  currentUserId,
+  currentUserDisplayName,
+}: Props) {
   return (
     <div className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-[260px_1fr] overflow-hidden rounded-lg border bg-card">
       <aside className="border-r">
@@ -38,6 +43,7 @@ export function ChatShell({ activeChannelId, currentUserId }: Props) {
                 <MessageThread
                   channelId={activeChannelId}
                   currentUserId={currentUserId}
+                  currentUserDisplayName={currentUserDisplayName}
                 />
               </Suspense>
             </div>

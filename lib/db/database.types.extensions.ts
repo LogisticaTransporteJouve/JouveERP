@@ -198,6 +198,32 @@ export type DatabaseExtensions = {
           },
         ];
       };
+      chat_message_mentions: {
+        Row: {
+          message_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          message_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          message_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_mentions_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: false;
+            referencedRelation: "chat_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -323,6 +349,27 @@ export type DatabaseExtensions = {
           p_description: string | null;
         };
         Returns: void;
+      };
+      search_chat_messages: {
+        Args: {
+          p_query: string;
+          p_limit?: number;
+          p_channel?: string | null;
+        };
+        Returns: {
+          id: string;
+          channel_id: string;
+          channel_kind: "self" | "dm" | "group";
+          channel_display_name: string | null;
+          sender_id: string;
+          sender_first_name: string | null;
+          sender_last_name: string | null;
+          sender_email: string | null;
+          sender_avatar_path: string | null;
+          sender_avatar_color: string | null;
+          body: string;
+          created_at: string;
+        }[];
       };
     };
     Enums: {

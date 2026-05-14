@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 import {
+  useChannelHeader,
   useChannelMessages,
   useChannelMessagesRealtime,
   useChannelReactions,
@@ -17,6 +18,7 @@ import type { Message, Reaction } from "../types";
 
 import { MessageBubble } from "./message-bubble";
 import { MessageComposer } from "./message-composer";
+import { TypingIndicator } from "./typing-indicator";
 
 const AUTHOR_GROUP_MINUTES = 5;
 const MARK_READ_DEBOUNCE_MS = 1500;
@@ -24,13 +26,19 @@ const MARK_READ_DEBOUNCE_MS = 1500;
 type Props = {
   channelId: string;
   currentUserId: string;
+  currentUserDisplayName: string;
 };
 
-export function MessageThread({ channelId, currentUserId }: Props) {
+export function MessageThread({
+  channelId,
+  currentUserId,
+  currentUserDisplayName,
+}: Props) {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const { messages, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useChannelMessages(channelId);
   const { data: reactionsRaw } = useChannelReactions(channelId);
+  const { data: header } = useChannelHeader(channelId);
   useChannelMessagesRealtime(channelId);
   useChannelReactionsRealtime(channelId);
 
@@ -174,10 +182,14 @@ export function MessageThread({ channelId, currentUserId }: Props) {
         )}
       </div>
 
+      <TypingIndicator channelId={channelId} currentUserId={currentUserId} />
+
       <MessageComposer
         channelId={channelId}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
+        me={{ userId: currentUserId, displayName: currentUserDisplayName }}
+        members={header.members}
       />
     </div>
   );

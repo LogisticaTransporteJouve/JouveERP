@@ -81,3 +81,19 @@ export type AssignableUser = {
   avatar_color: string | null;
   avatar_url: string | null;
 };
+
+export type SearchResult = {
+  id: string;
+  channel_id: string;
+  channel_kind: ChannelKind;
+  channel_display_name: string;
+  sender_id: string;
+  sender_first_name: string | null;
+  sender_last_name: string | null;
+  sender_email: string | null;
+  sender_avatar_path: string | null;
+  sender_avatar_color: string | null;
+  sender_avatar_url: string | null;
+  body: string;
+  created_at: string;
+};

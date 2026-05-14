@@ -59,6 +59,19 @@ export function NotificationBell({ currentUserId }: Props) {
     }
   };
 
+  // La primera vez que el user abre el bell, pedimos permiso para
+  // browser notifications (Notification API). Hace nada si ya fue
+  // accept/deny — el SO recuerda la elección.
+  const requestBrowserPermission = () => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {
+        // El user puede cerrar el prompt; nada que hacer.
+      });
+    }
+  };
+
   const handleMarkAll = async () => {
     try {
       await markAll.mutateAsync();
@@ -68,7 +81,13 @@ export function NotificationBell({ currentUserId }: Props) {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) requestBrowserPermission();
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"
