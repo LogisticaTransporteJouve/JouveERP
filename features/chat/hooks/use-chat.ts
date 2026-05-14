@@ -58,6 +58,12 @@ export function useChannelsRealtime() {
       table: "chat_messages",
       queryKeys: [chatKeys.channels()],
     },
+    {
+      // mute toggle + last_read_at sync entre devices, y entrar/salir
+      // de grupos refresca el sidebar al instante.
+      table: "chat_channel_members",
+      queryKeys: [chatKeys.channels()],
+    },
   ]);
 }
 
