@@ -198,6 +198,36 @@ export type DatabaseExtensions = {
           },
         ];
       };
+      notifications: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          sender_id: string | null;
+          type: string;
+          metadata: Json;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipient_id: string;
+          sender_id?: string | null;
+          type: string;
+          metadata?: Json;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          recipient_id?: string;
+          sender_id?: string | null;
+          type?: string;
+          metadata?: Json;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -256,6 +286,31 @@ export type DatabaseExtensions = {
       pick_default_avatar_color: {
         Args: { p_user_id: string };
         Returns: string;
+      };
+      list_my_notifications: {
+        Args: { p_filter?: string; p_limit?: number };
+        Returns: {
+          id: string;
+          recipient_id: string;
+          sender_id: string | null;
+          type: string;
+          metadata: Json;
+          read_at: string | null;
+          created_at: string;
+          sender_first_name: string | null;
+          sender_last_name: string | null;
+          sender_email: string | null;
+          sender_avatar_path: string | null;
+          sender_avatar_color: string | null;
+        }[];
+      };
+      get_my_unread_notification_count: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      mark_all_my_notifications_read: {
+        Args: Record<string, never>;
+        Returns: number;
       };
     };
     Enums: {

@@ -10,6 +10,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { isDivision, type InvoicingChannelSummary } from "@/lib/scope";
@@ -67,8 +68,9 @@ export default async function DashboardLayout({
           <SidebarInset>
             <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <SidebarTrigger className="-ml-1" />
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <ScopeSelector />
+                <NotificationBell currentUserId={ctx.userId} />
               </div>
             </header>
             <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
