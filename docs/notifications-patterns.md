@@ -13,29 +13,31 @@
 **Lo que cubre:**
 
 - Notificaciones in-app de eventos del chat (mensajes recibidos,
-  replies a tu mensaje). Easy de extender para otros eventos del ERP
-  cuando aparezca el caso (factura emitida, viaje asignado, doc por
-  vencer, etc.).
+  replies a tu mensaje, @-mentions). Easy de extender para otros
+  eventos del ERP cuando aparezca el caso (factura emitida, viaje
+  asignado, doc por vencer, etc.).
 - Realtime delivery con Supabase Realtime — sin servicios extra
   (decisión #8 del roadmap).
 - Badge con conteo de unread en el header global.
 - Popover con lista, click para navegar al recurso + mark as read.
 - "Marcar todas como leídas".
 - Mute por canal (chat).
+- **Notification preferences por tipo** (tabla `notification_settings`):
+  cada user puede prender/apagar in-app por cada tipo desde `/profile`.
+  Triggers consultan antes de insertar — el opt-out es silencioso.
+- **Push notifications reales** vía Web Push API + service worker
+  (`public/sw.js`) + `web-push` server-side + Inngest function
+  `notifications-dispatch`. Activable por dispositivo desde
+  `/profile`. Toda la stack es **gratis** (push services del browser
+  son parte del estándar W3C; solo necesitás generar VAPID keys una
+  vez). Sin VAPID seteado, el bell in-app sigue 100% funcional —
+  solo no llegan push con la app cerrada.
 
 **Lo que NO cubre — diferido a propósito:**
 
-- Email digest. Schema preparado (`metadata` admite campos extra) pero
-  el worker de envío + tabla `emails_sent` quedan para cuando se
-  cablée un provider (Resend recomendado).
-- Push notifications (Web Push API + service worker).
-- Notification preferences por tipo (tabla
-  `notification_settings`). En v1 cada user recibe todo lo que tiene
-  permiso de ver. Cuando aparezcan tipos ruidosos (ej: "factura
-  emitida" en alta concurrencia) se reabre.
-- @-mentions automáticas (el tipo `chat_mention` está cableado en el
-  schema pero el generador automático todavía no — depende de sumar
-  @-mentions al chat).
+- **Email digest. Decisión del owner: no mandamos mails.** Si en el
+  futuro cambia, sumar Resend + Inngest cron — el schema admite
+  ampliarlo fácil.
 - Centro de notificaciones full-page con búsqueda y filtros. v1 es un
   popover; si la cantidad crece y duele, se agrega `/inbox`.
 
@@ -43,7 +45,9 @@
 
 ## 1. Modelo de datos
 
-Una sola tabla. No `notification_settings`, no `emails_sent`, no
+Cuatro tablas: la principal `notifications`, `notification_settings`
+para preferencias por tipo, y `push_subscriptions` para los endpoints
+de Web Push de cada device. No hay tabla de emails ni
 `organization_id` (single-CUIT).
 
 ```sql
@@ -338,16 +342,28 @@ ver el mensaje, así que podés recibir la notif.
 
 ## 9. Plan de PRs
 
-1. **`feat: notifications schema + chat trigger`** (incluido en el PR de
-   chat porque están acoplados al modelo de membresía).
-2. **`feat: notification bell + popover`** (idem).
-3. *(futuro)* `feat: notification preferences (per-type opt-out)` —
-   tabla `notification_settings` y UI en `/profile`.
-4. *(futuro)* `feat: notifications via email (Resend)` — worker
-   Inngest que pickup `email_enabled = true AND email_sent_id IS NULL`,
-   render del template, send, persist resultado.
-5. *(futuro)* `feat: invoice_emitted notifications` — agrega type al
-   check + trigger en el workflow Inngest `issue-invoice`.
+Todos estos están **shipped** en el PR de chat (#44) porque están
+acoplados:
+
+1. ✅ Notifications schema + chat triggers.
+2. ✅ Notification bell + popover + realtime invalidation.
+3. ✅ Notification preferences per-type (`notification_settings` +
+   `/profile` UI).
+4. ✅ Push notifications reales (`push_subscriptions` + service
+   worker + `web-push` server + Inngest function
+   `notifications-dispatch`).
+5. ✅ `chat_mention` notifications con dedupe (reemplaza al
+   `chat_message` del mismo mensaje).
+
+Quedan **futuras** (cuando aparezca el caso):
+
+- `feat: invoice_emitted notifications` — agrega type al check +
+  inserción desde el workflow Inngest `issue-invoice` post-CAE.
+  Recipients: todos con `invoices:read`.
+- `feat: trip_assigned notifications` (Fase G) — chofer recibe notif
+  cuando le asignan un viaje.
+- `feat: cert_expiring notifications` — cron diario para owners +
+  admins cuando el cert AFIP esté a <30 días de vencer.
 
 ---
 
@@ -355,17 +371,23 @@ ver el mensaje, así que podés recibir la notif.
 
 1. **Tabla única vs por tipo.** Única. Discriminator `type` + `metadata
    jsonb`. Cuesta menos extender que mantener una tabla por categoría.
-2. **In-app primero, email después.** Sí. El badge realtime es lo que
-   más valor tiene. Email se cabléa cuando aparezca el caso de "el
-   user no está en la app y necesita enterarse".
+2. **Email digest: NO.** Decisión del owner. El bell in-app + push
+   real cubren el caso de "no estoy mirando la app".
 3. **Realtime vs polling.** Realtime. Polling cada 30s es ruido en BD;
    la suscripción es 0 carga hasta que llega un evento.
-4. **Mark-as-read sincrónico desde el cliente.** Sí, vía UPDATE
+4. **Push real via Web Push API + service worker** vs proveedores
+   comerciales (OneSignal/Pusher). Web Push: $0, sin servicios
+   externos, controlamos los endpoints. La complejidad agregada
+   (VAPID keys, service worker) es chica.
+5. **Mark-as-read sincrónico desde el cliente.** Sí, vía UPDATE
    directo (RLS lo permite). Sin optimistic update por ahora — el
    refresh es <100ms y la inconsistencia visible es despreciable.
    Si crece la lista a >50 unread habituales, sumar `onMutate` con
    setQueryData manual.
-5. **TTL / cleanup de notifs viejas.** No en v1. Si la tabla crece,
+6. **Preferences default-on (opt-out).** Los nuevos types se prenden
+   automáticamente; el user los apaga si molestan. Razón: si el
+   default fuera off, los tipos nuevos pasan desapercibidos.
+7. **TTL / cleanup de notifs viejas.** No en v1. Si la tabla crece,
    se suma una cron Inngest semanal que borra
    `read_at IS NOT NULL AND created_at < now() - '90 days'`.
 

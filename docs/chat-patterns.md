@@ -23,10 +23,20 @@ Pestaña nueva **/chat** en la app. Mensajería interna entre empleados.
 **v1 incluye:**
 
 - Crear / abrir conversación (self, DM, grupo).
-- Enviar mensajes de texto.
-- Reaccionar a un mensaje con emoji.
-- Responder a un mensaje específico (reply).
-- Editar / borrar mensajes propios.
+- Enviar mensajes con **markdown** (bold, italic, code, listas,
+  blockquote, links). Autolink de URLs sigue funcionando.
+- Reaccionar a un mensaje con emoji (set fijo de 12).
+- Responder a un mensaje específico (reply inline, con cita del
+  original arriba del nuevo mensaje).
+- Editar / borrar mensajes propios (soft-delete: preserva replies).
+- **@-mentions con popover navegable por teclado** + notif tipo
+  `chat_mention` que reemplaza al `chat_message` para evitar duplicar
+  el aviso.
+- **Búsqueda full-text** con ⌘K (FTS PostgreSQL con GIN).
+- **Typing indicators** ("X está escribiendo…") con Supabase Realtime
+  broadcast (efímero, sin BD).
+- Channel admin: rename, add/remove members (con auto-promote del
+  miembro más viejo si el último admin se va), leave, mute.
 - Adjuntar archivos (queda como TODO si la fase de files no está
   terminada, pero el modelo lo deja listo — los adjuntos aparecen en
   `/files` cuando ambas fases estén). Tres caminos según el contexto:
@@ -42,6 +52,8 @@ Pestaña nueva **/chat** en la app. Mensajería interna entre empleados.
 - Realtime con Supabase Realtime (no servicios extra — decisión #8 del
   roadmap se respeta).
 - Unread counts.
+- **Virtualización del thread** con `@tanstack/react-virtual`
+  (alturas dinámicas via `measureElement`).
 - Layout responsivo: en mobile la sidebar de canales se colapsa a
   drawer (`Sheet` shadcn que ya está en el design system §1.5), el
   thread ocupa pantalla completa y el composer queda fijado al bottom.
@@ -52,12 +64,9 @@ Pestaña nueva **/chat** en la app. Mensajería interna entre empleados.
   "cita" inline del mensaje original.
 - Canales públicos (todos los users por default). El negocio es chico;
   cuando crezca a >15 personas se reabre.
-- @-mentions con notificación. Se deja el hook para sumarlo en v2.
-- Typing indicators ("está escribiendo…"). v1: agregable después con
-  Realtime broadcast (presence channel), no bloquea.
-- Push notifications / email digests.
-- Búsqueda de mensajes.
-- Mensajes con markdown formatting. v1: texto plano + autolink de URLs.
+- Email digest. **Decisión del owner: no mandamos mails.**
+- Presencia ("Tomás está conectado"). Si se suma, vía Supabase
+  Realtime presence channel.
 
 ---
 
@@ -1103,30 +1112,38 @@ mergeables independientemente. **Total estimado: 6 PRs, ~3500 LOC.**
 
 ---
 
-## 10. Decisiones a cerrar antes de codear
+## 10. Decisiones cerradas
 
-1. **Self-chat como canal aparte (`kind='self'`) vs feature-flag sobre DM
-   contigo.** Default propuesto: canal aparte. Razón: hace explícito el
-   caso en RPC + RLS, no fuerza un user "fantasma" para emparejar, los
-   queries no le hacen excepciones.
-2. **Soft-delete vs hard-delete de mensajes.** Default: soft. Razón: §1.3.
-3. **Replies inline vs threads laterales.** Default v1: inline ("cita"
-   del original arriba del nuevo). Threads laterales se ven después si
-   el uso lo pide.
-4. **Realtime: Postgres Changes vs Broadcast.** Default: Postgres Changes
-   (alineado con `hooks/use-realtime-invalidate.ts`). Broadcast solo para
-   typing indicators (v2) y presence (futuro).
-5. **Emoji picker: set fijo vs full picker.** Default v1: set fijo de
-   12-16. Razón: payload chico, sin dependencias nuevas, UX simple.
-6. **Mentions @user.** Default v1: NO. Texto plano. `autolink` solo
-   procesa URLs. Mentions se agregan en v2 con la decisión de
-   notificación (in-app badge vs email).
-7. **Tracking de presencia ("Tomas está conectado").** No en v1. Si se
-   suma, vía Supabase Realtime presence channel — sin DB.
-8. **Bot del sistema.** ¿Mensajes automáticos del tipo "Nueva factura
-   emitida" en un canal `system`? No en v1. Cuando se quiera, vivirá
-   como un `sender_id` reservado (UUID conocido o un flag) +
-   `kind='system'` en `chat_channels`. Defer.
+1. **Self-chat como canal aparte (`kind='self'`)** — explícito en RPC +
+   RLS, sin user "fantasma" para emparejar.
+2. **Soft-delete sobre hard-delete de mensajes** — preserva replies y
+   no rompe realtime.
+3. **Replies inline (cita arriba del nuevo)** — threads laterales si
+   el uso lo pide después.
+4. **Realtime: Postgres Changes** para mensajes/reacciones/canales;
+   **Broadcast** para typing indicators (ya implementado, ephemeral).
+5. **Emoji picker: set fijo de 12** — payload chico, UX simple, sin
+   dependencias nuevas. Si alguien reacciona con uno fuera del set,
+   igual aparece en la bar.
+6. **Mentions @user**: implementadas. Popover navegable por teclado
+   (↑/↓/Enter/Tab/Esc) + tabla `chat_message_mentions` + trigger que
+   genera notif `chat_mention` (reemplaza al `chat_message` para
+   dedupe).
+7. **Markdown formatting**: implementado con `marked` + DOMPurify.
+   Bold, italic, code, listas, blockquote, links. Headings se
+   degradan a párrafo, imágenes stripped.
+8. **Búsqueda**: ⌘K abre `ChatSearchDialog` con FTS PostgreSQL (GIN
+   `to_tsvector('simple', body)`). Highlight del match en cliente.
+9. **Push real**: service worker en `/public/sw.js` + `web-push`
+   server-side + Inngest function `notifications-dispatch`. VAPID
+   gratis. Toggle por dispositivo en `/profile`.
+10. **Email digest**: explícitamente NO. Decisión del owner.
+11. **Virtualización**: implementada con `@tanstack/react-virtual`
+    (alturas dinámicas via `measureElement`).
+12. **Tracking de presencia ("Tomás está conectado")**: defer. Si se
+    suma, vía Realtime presence channel.
+13. **Bot del sistema**: defer. Cuando se quiera, vivirá como
+    `sender_id` reservado + tipo de canal `system`.
 
 ---
 
@@ -1160,6 +1177,5 @@ mergeables independientemente. **Total estimado: 6 PRs, ~3500 LOC.**
 6. **No marcar como leído desde el server (sin foco).** Solo desde el
    cliente cuando el tab está visible. Si no, abrimos badges fantasma
    que dicen "leído" cuando el user no vio nada.
-7. **No virtualizar antes del PR 4.** Hasta que un canal tenga 200+
-   mensajes nadie nota la diferencia. Si después duele, sumar
-   `@tanstack/react-virtual` en su propio PR.
+7. **No mandar emails de notificación.** Decisión del owner. El bell
+   in-app + push real cubren el caso.
