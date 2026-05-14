@@ -11,6 +11,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { isDivision, type InvoicingChannelSummary } from "@/lib/scope";
 import { createClient } from "@/lib/supabase/server";
 
@@ -53,7 +54,16 @@ export default async function DashboardLayout({
     <ScopeProvider channels={channels}>
       <DateRangeProvider>
         <SidebarProvider defaultOpen={defaultOpen}>
-          <AppSidebar userEmail={ctx.email} userRoles={ctx.roles} />
+          <AppSidebar
+            userEmail={ctx.email}
+            userRoles={ctx.roles}
+            profile={{
+              firstName: ctx.profile.firstName,
+              lastName: ctx.profile.lastName,
+              avatarUrl: resolveAvatarUrl(supabase, ctx.profile.avatarPath),
+              avatarColor: ctx.profile.avatarColor,
+            }}
+          />
           <SidebarInset>
             <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <SidebarTrigger className="-ml-1" />

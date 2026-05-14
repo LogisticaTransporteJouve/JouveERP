@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Receipt,
   ReceiptText,
   ScrollText,
@@ -32,11 +33,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   userCan,
   type Permission,
   type Role,
 } from "@/lib/auth/permissions";
+import { getDisplayName } from "@/lib/avatars";
 
 type NavItem = {
   href: string;
@@ -47,6 +50,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/chat", label: "Chat", icon: MessageSquare },
   {
     href: "/clients",
     label: "Clientes",
@@ -115,17 +119,32 @@ const navItems: NavItem[] = [
   },
 ];
 
+type ProfileSummary = {
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  avatarColor: string;
+};
+
 export function AppSidebar({
   userEmail,
   userRoles,
+  profile,
 }: {
   userEmail: string;
   userRoles: Role[];
+  profile: ProfileSummary;
 }) {
   const pathname = usePathname();
 
   const visibleItems = navItems.filter(
     (item) => !item.permission || userCan(userRoles, item.permission),
+  );
+
+  const displayName = getDisplayName(
+    profile.firstName,
+    profile.lastName,
+    userEmail,
   );
 
   return (
@@ -176,10 +195,38 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center justify-between px-2 py-1 group-data-[collapsible=icon]:justify-center">
-          <span className="truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-            {userEmail}
-          </span>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={
+                pathname === "/profile" || pathname.startsWith("/profile/")
+              }
+              tooltip={displayName}
+              className="h-auto py-2"
+            >
+              <Link href="/profile">
+                <UserAvatar
+                  firstName={profile.firstName}
+                  lastName={profile.lastName}
+                  email={userEmail}
+                  avatarUrl={profile.avatarUrl}
+                  color={profile.avatarColor}
+                  size="sm"
+                />
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-medium">
+                    {displayName}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {userEmail}
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <div className="flex items-center justify-end px-2 py-1 group-data-[collapsible=icon]:justify-center">
           <ThemeToggle />
         </div>
         <SidebarMenu>
