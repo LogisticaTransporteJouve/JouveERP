@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { shouldSkipAuthRedirect } from "@/lib/auth/public-pages";
-import type { Database } from "@/lib/db/database.types";
+import type { Database } from "@/lib/db/database";
 
 export async function updateSession(
   request: NextRequest,

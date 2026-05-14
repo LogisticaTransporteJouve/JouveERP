@@ -59,7 +59,9 @@ export function buildContentSecurityPolicy({
     // does not reliably nonce-tag, and modern browsers ignore 'unsafe-inline'
     // when a nonce is present. Scripts remain strict — that is where XSS lives.
     "style-src": "'self' 'unsafe-inline'",
-    "img-src": ["'self'", "data:", "blob:", ...extraImg].join(" "),
+    "img-src": ["'self'", "data:", "blob:", supabaseOrigin, ...extraImg]
+      .filter(Boolean)
+      .join(" "),
     "font-src": "'self' data:",
     "connect-src": [
       "'self'",

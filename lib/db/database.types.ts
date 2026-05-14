@@ -202,6 +202,180 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_channel_members: {
+        Row: {
+          channel_id: string
+          is_muted: boolean
+          joined_at: string
+          last_read_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          is_muted?: boolean
+          joined_at?: string
+          last_read_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          is_muted?: boolean
+          joined_at?: string
+          last_read_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_channel_members_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "chat_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_channels: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          dm_pair_key: string | null
+          id: string
+          kind: Database["public"]["Enums"]["chat_channel_kind"]
+          last_message_at: string | null
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          dm_pair_key?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["chat_channel_kind"]
+          last_message_at?: string | null
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          dm_pair_key?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["chat_channel_kind"]
+          last_message_at?: string | null
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chat_message_mentions: {
+        Row: {
+          created_at: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_mentions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          body: string
+          channel_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          reply_to_message_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          channel_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          channel_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "chat_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_movements: {
         Row: {
           check_id: string
@@ -766,6 +940,57 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          enabled: boolean
+          notification_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          notification_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          notification_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          read_at: string | null
+          recipient_id: string
+          sender_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          read_at?: string | null
+          recipient_id: string
+          sender_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
       padron_cache: {
         Row: {
           cached_at: string
@@ -781,6 +1006,39 @@ export type Database = {
           cached_at?: string
           cuit?: string
           data?: Json
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_seen_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -1200,6 +1458,36 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          avatar_color: string
+          avatar_path: string | null
+          created_at: string
+          first_name: string | null
+          last_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_color?: string
+          avatar_path?: string | null
+          created_at?: string
+          first_name?: string | null
+          last_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_color?: string
+          avatar_path?: string | null
+          created_at?: string
+          first_name?: string | null
+          last_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           granted_at: string
@@ -1385,6 +1673,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_chat_channel_members: {
+        Args: { p_channel: string; p_user_ids: string[] }
+        Returns: number
+      }
       apply_account_opening_balance: {
         Args: {
           p_account_id: string
@@ -1419,6 +1711,10 @@ export type Database = {
       clear_client_opening_balance: {
         Args: { p_client_id: string }
         Returns: undefined
+      }
+      create_chat_group: {
+        Args: { p_description: string; p_member_ids: string[]; p_name: string }
+        Returns: string
       }
       create_receipt: {
         Args: {
@@ -1477,6 +1773,77 @@ export type Database = {
         }
         Returns: string
       }
+      get_my_notification_settings: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          notification_type: string
+        }[]
+      }
+      get_my_unread_notification_count: { Args: never; Returns: number }
+      get_or_create_self_channel: { Args: never; Returns: string }
+      list_chat_assignable_users: {
+        Args: never
+        Returns: {
+          avatar_color: string
+          avatar_path: string
+          email: string
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
+      list_chat_channels_for_user: {
+        Args: never
+        Returns: {
+          avatar_color: string
+          avatar_path: string
+          display_name: string
+          id: string
+          is_muted: boolean
+          kind: Database["public"]["Enums"]["chat_channel_kind"]
+          last_message_at: string
+          last_message_preview: string
+          last_message_sender_id: string
+          member_count: number
+          other_email: string
+          other_first_name: string
+          other_last_name: string
+          other_user_id: string
+          unread_count: number
+        }[]
+      }
+      list_my_notifications: {
+        Args: { p_filter?: string; p_limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          metadata: Json
+          read_at: string
+          recipient_id: string
+          sender_avatar_color: string
+          sender_avatar_path: string
+          sender_email: string
+          sender_first_name: string
+          sender_id: string
+          sender_last_name: string
+          type: string
+        }[]
+      }
+      mark_all_my_notifications_read: { Args: never; Returns: number }
+      mark_chat_channel_read: {
+        Args: { p_channel: string }
+        Returns: undefined
+      }
+      notification_type_enabled: {
+        Args: { p_type: string; p_user_id: string }
+        Returns: boolean
+      }
+      open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      pick_default_avatar_color: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       reject_check: {
         Args: {
           p_account_id: string
@@ -1486,6 +1853,23 @@ export type Database = {
           p_notes: string
         }
         Returns: string
+      }
+      search_chat_messages: {
+        Args: { p_channel?: string; p_limit?: number; p_query: string }
+        Returns: {
+          body: string
+          channel_display_name: string
+          channel_id: string
+          channel_kind: Database["public"]["Enums"]["chat_channel_kind"]
+          created_at: string
+          id: string
+          sender_avatar_color: string
+          sender_avatar_path: string
+          sender_email: string
+          sender_first_name: string
+          sender_id: string
+          sender_last_name: string
+        }[]
       }
       search_clients: {
         Args: {
@@ -1519,6 +1903,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      update_chat_channel: {
+        Args: { p_channel: string; p_description: string; p_name: string }
+        Returns: undefined
+      }
       update_receipt: {
         Args: {
           p_allocations: Json
@@ -1531,10 +1919,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_my_notification_setting: {
+        Args: { p_enabled: boolean; p_type: string }
+        Returns: undefined
+      }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
+      user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      chat_channel_kind: "self" | "dm" | "group"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1661,7 +2054,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      chat_channel_kind: ["self", "dm", "group"],
+    },
   },
 } as const
 

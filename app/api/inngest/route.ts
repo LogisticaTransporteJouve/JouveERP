@@ -3,6 +3,7 @@ import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
+import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
 
 /**
  * Inngest webhook endpoint. The dev runtime (`inngest-cli dev`) and the
@@ -14,5 +15,5 @@ import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
  */
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [issueInvoice, agingWeeklySummary],
+  functions: [issueInvoice, agingWeeklySummary, notificationsDispatch],
 });
