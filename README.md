@@ -22,6 +22,13 @@ de facturación (fiscal/interno × DZ/Jouve).
 - [`docs/sumary-frontend-patterns.md`](docs/sumary-frontend-patterns.md) —
   referencia técnica de patrones (tooling, navegación, tablas, forms, hooks,
   CSP, RLS, tests). Snippets pegables.
+- [`docs/chat-patterns.md`](docs/chat-patterns.md),
+  [`docs/notifications-patterns.md`](docs/notifications-patterns.md),
+  [`docs/user-avatars.md`](docs/user-avatars.md) — specs del subsistema
+  social (chat, notifs, avatares). Implementados en PR #44.
+- [`docs/files-patterns.md`](docs/files-patterns.md) +
+  [`docs/files-reference.md`](docs/files-reference.md) — spec de archivos
+  + reference con el engine de OCR. Sin implementar todavía.
 
 ## Desarrollo local
 
@@ -50,8 +57,12 @@ hasta que el dev runtime esté arriba.
 ## Tests
 
 ```bash
-# Unit + integration (Vitest)
+# Unit + schema (Vitest). 220+ tests, corre en <2s.
 pnpm test
+
+# Integration suite contra Supabase local (triggers, RPCs, RLS).
+# Requiere `pnpm dlx supabase start` previo.
+RUN_INTEGRATION=1 pnpm test
 
 # E2E (Playwright). Requiere `pnpm dev` corriendo en otra terminal.
 pnpm test:e2e
@@ -63,6 +74,49 @@ pnpm test:e2e:ui
 Las E2E usan el usuario seedeado por `pnpm seed:dev` (`tomas@jouve.test` /
 `Test1234!` por default). Si querés sobreescribir, exportá `E2E_USER_EMAIL`
 y `E2E_USER_PASSWORD` antes de correr.
+
+## Probar el subsistema social (chat + notifs + perfil)
+
+Después de levantar Supabase + Next + Inngest dev, regenerar tipos y crear
+al menos un user con `pnpm seed:dev`, hacer este recorrido manual para
+validar end-to-end:
+
+1. **Perfil.** Entrar a `/profile` → setear nombre + apellido + foto +
+   color → guardar. El avatar del sidebar y del header debería
+   actualizarse al instante.
+2. **Self-chat + markdown.** Ir a `/chat` → debe redirigir al canal
+   propio "Mis notas" → mandar un mensaje con markdown:
+   `**hola** _mundo_ \`código\`` → verificar que renderiza con el
+   formato correcto. También probar listas (`- uno`), blockquote
+   (`> cita`), links autodetectados.
+3. **DMs.** Crear un segundo user en otra terminal:
+   `pnpm seed:dev otro@jouve.test Test1234!` → recargar la app.
+   Tocar "Nuevo" → tab Persona → seleccionar al otro user → se abre
+   un DM nuevo. Mandar un mensaje.
+4. **Realtime + bell.** Abrir incognito → loguearse como ese otro user
+   → ver el DM en el sidebar → mandar respuesta. En la primera
+   ventana, el mensaje aparece sin refresh y el bell suma badge.
+5. **Reactions + reply.** Hover sobre un mensaje → botón de emoji →
+   reaccionar. Botón de responder → escribir reply → enviar. El
+   reply muestra una cita del original arriba.
+6. **@-mentions.** En un grupo, escribir `@` → debería aparecer popover
+   de miembros navegable con `↑/↓/Enter/Tab`. Al mencionar a alguien
+   y enviar, el recipient recibe una notif tipo `chat_mention` (no
+   `chat_message` — el sistema deduplica).
+7. **Búsqueda.** `⌘K` (o `Ctrl+K`) abre el dialog de búsqueda. Buscar
+   una palabra de un mensaje anterior → verificar match con highlight.
+8. **Channel admin.** En un grupo, abrir el menú del header →
+   "Configurar grupo" → renombrar, agregar/quitar miembros, salir.
+9. **Push real (opcional).** Si configuraste las VAPID keys
+   (`pnpm dlx web-push generate-vapid-keys` y pegaste en
+   `.env.local`):
+   - `/profile` → "Activar push en este dispositivo" → permitir.
+   - Cerrar el tab.
+   - Desde la otra ventana mandar un mensaje.
+   - El SO debería mostrar una notificación nativa.
+10. **Notification preferences.** `/profile` → sección Notificaciones →
+    desactivar "Mensajes de chat" → mandar un mensaje desde la otra
+    ventana → no debería aparecer en el bell ni dispararse push.
 
 ## Convenciones
 
