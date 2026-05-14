@@ -13,6 +13,7 @@ import {
   ScrollText,
   Search,
   ShieldCheck,
+  ShoppingCart,
   Truck,
   Users,
   Wallet,
@@ -65,6 +66,12 @@ const navItems: NavItem[] = [
     label: "Proveedores",
     icon: Truck,
     permission: "suppliers:read",
+  },
+  {
+    href: "/purchases",
+    label: "Compras",
+    icon: ShoppingCart,
+    permission: "purchase_invoices:read",
   },
   {
     href: "/invoices",

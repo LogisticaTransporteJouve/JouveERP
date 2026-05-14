@@ -1009,6 +1009,115 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_invoices: {
+        Row: {
+          cae_proveedor: string | null
+          cae_vto_proveedor: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          channel_id: string
+          cotizacion: number
+          created_at: string
+          created_by: string | null
+          fch_vto_pago: string | null
+          fecha: string
+          id: string
+          imp_iva: number
+          imp_neto: number
+          imp_total: number
+          imp_trib: number
+          invoice_origin_id: string | null
+          kind: string
+          letter: string | null
+          moneda: string
+          motivo_nc_nd: string | null
+          notes: string | null
+          numero: number
+          punto_venta: number
+          status: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          cae_proveedor?: string | null
+          cae_vto_proveedor?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel_id: string
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          fch_vto_pago?: string | null
+          fecha: string
+          id?: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_total: number
+          imp_trib?: number
+          invoice_origin_id?: string | null
+          kind: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notes?: string | null
+          numero: number
+          punto_venta: number
+          status?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          cae_proveedor?: string | null
+          cae_vto_proveedor?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel_id?: string
+          cotizacion?: number
+          created_at?: string
+          created_by?: string | null
+          fch_vto_pago?: string | null
+          fecha?: string
+          id?: string
+          imp_iva?: number
+          imp_neto?: number
+          imp_total?: number
+          imp_trib?: number
+          invoice_origin_id?: string | null
+          kind?: string
+          letter?: string | null
+          moneda?: string
+          motivo_nc_nd?: string | null
+          notes?: string | null
+          numero?: number
+          punto_venta?: number
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth_key: string
@@ -1951,6 +2060,48 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      search_purchase_invoices: {
+        Args: {
+          p_channel_id?: string
+          p_fecha_from?: string
+          p_fecha_to?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_status?: string
+          p_supplier_id?: string
+        }
+        Returns: {
+          cae_proveedor: string
+          cae_vto_proveedor: string
+          cancelled_at: string
+          cancelled_by: string
+          channel_id: string
+          cotizacion: number
+          created_at: string
+          created_by: string
+          fch_vto_pago: string
+          fecha: string
+          id: string
+          imp_iva: number
+          imp_neto: number
+          imp_total: number
+          imp_trib: number
+          invoice_origin_id: string
+          kind: string
+          letter: string
+          moneda: string
+          motivo_nc_nd: string
+          notes: string
+          numero: number
+          punto_venta: number
+          status: string
+          supplier_cuit: string
+          supplier_id: string
+          supplier_legal_name: string
+          updated_at: string
+        }[]
       }
       search_suppliers: {
         Args: {

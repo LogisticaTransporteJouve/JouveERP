@@ -34,6 +34,11 @@ export const PERMISSIONS = [
   "suppliers:read",
   "suppliers:write",
 
+  // Purchase invoices (K.2)
+  "purchase_invoices:read",
+  "purchase_invoices:write",
+  "purchase_invoices:cancel",
+
   // AFIP
   "padron:lookup",
   "afip:admin",
@@ -110,6 +115,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "clients:write",
     "suppliers:read",
     "suppliers:write",
+    "purchase_invoices:read",
+    "purchase_invoices:write",
+    "purchase_invoices:cancel",
     "padron:lookup",
     "accounts:read",
     "accounts:write",
