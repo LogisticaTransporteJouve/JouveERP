@@ -167,11 +167,6 @@ export function ChannelSettingsDialog({
                           member.last_name,
                           member.email,
                         )}
-                        {member.user_id === currentUserId ? (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            (vos)
-                          </span>
-                        ) : null}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {member.role === "admin" ? "Admin" : "Miembro"}

@@ -173,7 +173,7 @@ export function MessageComposer({
         </div>
       ) : null}
 
-      <div className="flex items-end gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2">
         <div className="flex-1">
           <Textarea
             ref={textareaRef}

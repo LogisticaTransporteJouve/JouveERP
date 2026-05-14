@@ -26,7 +26,7 @@ export async function updateChannelAction(
   const { error } = await supabase.rpc("update_chat_channel", {
     p_channel: parsed.data.channelId,
     p_name: parsed.data.name,
-    p_description: parsed.data.description ?? null,
+    p_description: parsed.data.description ?? "",
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: { updated: true } };

@@ -11,6 +11,7 @@ type Props = {
   currentUserId: string;
   onToggle: (emoji: string) => void;
   disabled?: boolean;
+  align?: "start" | "end";
 };
 
 export function ReactionBar({
@@ -18,11 +19,17 @@ export function ReactionBar({
   currentUserId,
   onToggle,
   disabled,
+  align = "start",
 }: Props) {
   const grouped = useMemo(() => groupByEmoji(reactions), [reactions]);
   if (grouped.length === 0) return null;
   return (
-    <div className="mt-1 flex flex-wrap gap-1">
+    <div
+      className={cn(
+        "mt-1 flex flex-wrap gap-1",
+        align === "end" && "justify-end",
+      )}
+    >
       {grouped.map(({ emoji, users, mine }) => (
         <button
           key={emoji}

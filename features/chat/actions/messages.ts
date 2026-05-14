@@ -39,7 +39,7 @@ export async function listMessagesAction(input: {
   cursor?: string | null;
   limit?: number;
 }): Promise<ActionResult<MessagesPage>> {
-  await requireUserContext();
+  const ctx = await requireUserContext();
   const supabase = await createClient();
 
   const limit = Math.min(Math.max(input.limit ?? CHAT_MESSAGES_PAGE_SIZE, 1), 200);
@@ -106,6 +106,12 @@ export async function listMessagesAction(input: {
   );
   const emailMap = new Map<string, string>();
   for (const u of emailsRes.data ?? []) emailMap.set(u.user_id, u.email);
+  // El RPC `list_chat_assignable_users` excluye al actor, así que su email
+  // no entra al map. Sin esto, cualquier mensaje propio cae al fallback
+  // "Usuario" en `getDisplayName`.
+  if (!emailMap.has(ctx.userId) && ctx.email) {
+    emailMap.set(ctx.userId, ctx.email);
+  }
 
   const messages: Message[] = trimmed.map((m) => {
     const profile = profileMap.get(m.sender_id);

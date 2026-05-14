@@ -21,6 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useChatUnreadCountLite } from "@/features/chat/hooks/use-chat";
 import {
   Sidebar,
   SidebarContent,
@@ -40,6 +41,7 @@ import {
   type Role,
 } from "@/lib/auth/permissions";
 import { getDisplayName } from "@/lib/avatars";
+import { cn } from "@/lib/utils";
 
 type NavItem = {
   href: string;
@@ -136,6 +138,7 @@ export function AppSidebar({
   profile: ProfileSummary;
 }) {
   const pathname = usePathname();
+  const chatUnread = useChatUnreadCountLite();
 
   const visibleItems = navItems.filter(
     (item) => !item.permission || userCan(userRoles, item.permission),
@@ -148,7 +151,7 @@ export function AppSidebar({
   );
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="overflow-x-hidden">
       <SidebarHeader className="p-0">
         <div className="flex h-12 items-center">
           <div className="flex w-12 shrink-0 items-center justify-center">
@@ -166,7 +169,7 @@ export function AppSidebar({
           </span>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="overflow-x-hidden">
         <SidebarGroup>
           <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -175,6 +178,7 @@ export function AppSidebar({
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const badge = item.href === "/chat" ? chatUnread : 0;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -182,9 +186,17 @@ export function AppSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} className="relative">
                         <Icon className="size-4" />
                         <span>{item.label}</span>
+                        {badge > 0 ? (
+                          <span
+                            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:top-0.5"
+                            aria-label={`${badge} sin leer`}
+                          >
+                            {badge > 99 ? "99+" : badge}
+                          </span>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -194,55 +206,52 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={
-                pathname === "/profile" || pathname.startsWith("/profile/")
-              }
-              tooltip={displayName}
-              className="h-auto py-2"
-            >
-              <Link href="/profile">
-                <UserAvatar
-                  firstName={profile.firstName}
-                  lastName={profile.lastName}
-                  email={userEmail}
-                  avatarUrl={profile.avatarUrl}
-                  color={profile.avatarColor}
-                  size="sm"
-                />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-medium">
-                    {displayName}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {userEmail}
-                  </span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        <div className="flex items-center justify-end px-2 py-1 group-data-[collapsible=icon]:justify-center">
-          <ThemeToggle />
+      <SidebarFooter className="overflow-hidden p-0">
+        <Link
+          href="/profile"
+          title={displayName}
+          className={cn(
+            "flex h-12 items-center overflow-hidden text-sidebar-foreground hover:bg-sidebar-accent",
+            (pathname === "/profile" || pathname.startsWith("/profile/")) &&
+              "bg-sidebar-accent",
+          )}
+        >
+          <div className="flex w-12 shrink-0 items-center justify-center">
+            <UserAvatar
+              firstName={profile.firstName}
+              lastName={profile.lastName}
+              email={userEmail}
+              avatarUrl={profile.avatarUrl}
+              color={profile.avatarColor}
+              size="sm"
+            />
+          </div>
+          <div className="flex min-w-0 flex-col whitespace-nowrap pr-2 opacity-100 transition-opacity duration-150 delay-150 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
+            <span className="truncate text-sm font-medium">{displayName}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {userEmail}
+            </span>
+          </div>
+        </Link>
+        <div className="flex h-10 items-center overflow-hidden">
+          <div className="flex w-12 shrink-0 items-center justify-center">
+            <ThemeToggle />
+          </div>
         </div>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <form action="/auth/logout" method="post" className="w-full">
-              <SidebarMenuButton
-                type="submit"
-                tooltip="Cerrar sesión"
-                className="w-full"
-              >
-                <LogOut className="size-4" />
-                <span>Cerrar sesión</span>
-              </SidebarMenuButton>
-            </form>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <form action="/auth/logout" method="post">
+          <button
+            type="submit"
+            title="Cerrar sesión"
+            className="flex h-10 w-full items-center overflow-hidden text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <div className="flex w-12 shrink-0 items-center justify-center">
+              <LogOut className="size-4" />
+            </div>
+            <span className="whitespace-nowrap pr-2 text-sm opacity-100 transition-opacity duration-150 delay-150 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
+              Cerrar sesión
+            </span>
+          </button>
+        </form>
       </SidebarFooter>
     </Sidebar>
   );

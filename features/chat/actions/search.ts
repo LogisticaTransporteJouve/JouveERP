@@ -20,7 +20,7 @@ export async function searchChatMessagesAction(input: {
   const { data, error } = await supabase.rpc("search_chat_messages", {
     p_query: trimmed,
     p_limit: input.limit ?? 30,
-    p_channel: input.channelId ?? null,
+    p_channel: input.channelId ?? undefined,
   });
   if (error) return { ok: false, error: error.message };
 

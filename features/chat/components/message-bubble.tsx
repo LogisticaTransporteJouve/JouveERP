@@ -102,6 +102,7 @@ export function MessageBubble({
     <div
       className={cn(
         "group flex gap-3 px-4 py-1 transition-colors hover:bg-accent/30",
+        isMine && "flex-row-reverse",
         showAuthor && "pt-3",
       )}
     >
@@ -122,16 +123,20 @@ export function MessageBubble({
         )}
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className={cn("min-w-0 flex-1", isMine && "text-right")}>
         {showAuthor ? (
-          <div className="flex items-baseline gap-2">
+          <div
+            className={cn(
+              "flex items-baseline gap-2",
+              isMine && "justify-end",
+            )}
+          >
             <span className="text-sm font-medium">
               {getDisplayName(
                 message.sender_first_name,
                 message.sender_last_name,
                 message.sender_email,
               )}
-              {isMine ? <span className="ml-1 text-muted-foreground">(vos)</span> : null}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {formatMessageTime(message.created_at)}
@@ -198,6 +203,7 @@ export function MessageBubble({
             currentUserId={currentUserId}
             onToggle={react}
             disabled={reactMutation.isPending}
+            align={isMine ? "end" : "start"}
           />
         ) : null}
       </div>

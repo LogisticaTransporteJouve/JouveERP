@@ -66,7 +66,7 @@ export default async function DashboardLayout({
               avatarColor: ctx.profile.avatarColor,
             }}
           />
-          <SidebarInset>
+          <SidebarInset className="min-w-0">
             <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <SidebarTrigger className="-ml-1" />
               <div className="ml-auto flex items-center gap-2">
@@ -74,7 +74,9 @@ export default async function DashboardLayout({
                 <NotificationBell currentUserId={ctx.userId} />
               </div>
             </header>
-            <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+              {children}
+            </main>
             <BrowserNotifier currentUserId={ctx.userId} />
           </SidebarInset>
         </SidebarProvider>

@@ -48,6 +48,22 @@ export function useChannels() {
   });
 }
 
+// Variante "lite" para mostrar un badge global desde fuera de /chat
+// (ej: sidebar). No suspende. Calcula el total de mensajes no leídos.
+// Suscribe también al realtime para que el badge se actualice sin F5.
+export function useChatUnreadCountLite() {
+  const q = useQuery({
+    queryKey: chatKeys.channels(),
+    queryFn: () => runAction(() => listChannelsAction()),
+    staleTime: 10_000,
+  });
+  useChannelsRealtime();
+  return (q.data ?? []).reduce(
+    (sum, c) => sum + (c.is_muted ? 0 : c.unread_count),
+    0,
+  );
+}
+
 export function useChannelsRealtime() {
   useRealtimeInvalidate([
     {

@@ -43,7 +43,7 @@ export async function createGroupAction(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_chat_group", {
     p_name: parsed.data.name,
-    p_description: parsed.data.description ?? null,
+    p_description: parsed.data.description ?? "",
     p_member_ids: parsed.data.memberIds,
   });
   if (error) return { ok: false, error: error.message };

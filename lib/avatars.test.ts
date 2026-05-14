@@ -55,7 +55,7 @@ describe("isAvatarColor", () => {
 describe("getAvatarBgClass", () => {
   it("returns a class for each known color", () => {
     for (const c of AVATAR_COLORS) {
-      expect(getAvatarBgClass(c)).toMatch(/^bg-neutral-\d{3}$/);
+      expect(getAvatarBgClass(c)).toMatch(/bg-[a-z]+-\d{3}/);
     }
   });
 

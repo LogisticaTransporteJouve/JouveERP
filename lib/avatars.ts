@@ -12,15 +12,12 @@ export const AVATAR_COLORS = [
 ] as const;
 export type AvatarColor = (typeof AVATAR_COLORS)[number];
 
-// Tonos neutrales por consistencia con el design system del proyecto
-// (hue=0 en oklch). Si más adelante el dueño dice que no distingue los
-// avatares, se cambian los `bg-neutral-*` por hues discretos.
 const BG_BY_COLOR: Record<AvatarColor, string> = {
-  gray: "bg-neutral-500",
-  blue: "bg-neutral-600",
-  sage: "bg-neutral-400",
-  orange: "bg-neutral-700",
-  purple: "bg-neutral-800",
+  gray: "bg-slate-200 text-slate-700",
+  blue: "bg-sky-200 text-sky-800",
+  sage: "bg-emerald-200 text-emerald-800",
+  orange: "bg-orange-200 text-orange-800",
+  purple: "bg-violet-200 text-violet-800",
 };
 
 export function getAvatarBgClass(color: string | null | undefined): string {

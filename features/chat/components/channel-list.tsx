@@ -47,7 +47,7 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-1.5 border-b px-3 py-2">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-1.5 border-b px-3">
         <h2 className="text-sm font-semibold">Chat</h2>
         <div className="flex items-center gap-1">
           <Button
@@ -211,9 +211,9 @@ function ChannelLeading({ channel }: { channel: ChannelListItem }) {
   }
   return (
     <UserAvatar
-      firstName={null}
-      lastName={null}
-      email={channel.display_name}
+      firstName={channel.other_first_name}
+      lastName={channel.other_last_name}
+      email={channel.other_email ?? channel.display_name}
       avatarUrl={channel.avatar_url}
       color={channel.avatar_color}
       size="sm"

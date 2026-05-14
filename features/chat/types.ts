@@ -5,6 +5,9 @@ export type ChannelListItem = {
   kind: ChannelKind;
   display_name: string;
   other_user_id: string | null;
+  other_first_name: string | null;
+  other_last_name: string | null;
+  other_email: string | null;
   avatar_path: string | null;
   avatar_color: string | null;
   avatar_url: string | null;

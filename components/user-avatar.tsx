@@ -43,10 +43,7 @@ export function UserAvatar({
     >
       {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
       <AvatarFallback
-        className={cn(
-          getAvatarBgClass(color),
-          "text-white font-medium",
-        )}
+        className={cn(getAvatarBgClass(color), "font-medium")}
       >
         {getInitials(firstName, lastName, email)}
       </AvatarFallback>

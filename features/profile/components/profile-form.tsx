@@ -136,6 +136,7 @@ export function ProfileForm() {
             <Label htmlFor="first-name">Nombre</Label>
             <Input
               id="first-name"
+              autoComplete="given-name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               maxLength={80}
@@ -146,6 +147,7 @@ export function ProfileForm() {
             <Label htmlFor="last-name">Apellido</Label>
             <Input
               id="last-name"
+              autoComplete="family-name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               maxLength={80}

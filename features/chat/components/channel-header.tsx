@@ -96,7 +96,7 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b px-4 py-3">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
         {leading}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">{data.display_name}</h2>
