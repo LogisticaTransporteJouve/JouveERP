@@ -30,6 +30,10 @@ export const PERMISSIONS = [
   "clients:read",
   "clients:write",
 
+  // Suppliers (K.1)
+  "suppliers:read",
+  "suppliers:write",
+
   // AFIP
   "padron:lookup",
   "afip:admin",
@@ -104,6 +108,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   finance: [
     "clients:read",
     "clients:write",
+    "suppliers:read",
+    "suppliers:write",
     "padron:lookup",
     "accounts:read",
     "accounts:write",
@@ -127,6 +133,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 
   operations: [
     "clients:read",
+    "suppliers:read",
     "drivers:read",
     "drivers:write",
     "vehicles:read",

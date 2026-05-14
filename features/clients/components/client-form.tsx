@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { useCuitVerify } from "@/hooks/use-cuit-verify";
+
+import { findClientByCuitAction } from "../actions/clients-actions";
 import { useCreateClient, useUpdateClient } from "../hooks/use-clients";
-import { useCuitVerify } from "../hooks/use-cuit-verify";
 import {
   IVA_CONDITIONS,
   IVA_CONDITION_LABEL,
@@ -78,7 +80,9 @@ export function ClientForm({
   const updateMut = useUpdateClient();
   const isSaving = createMut.isPending || updateMut.isPending;
   const [existingClient, setExistingClient] = useState<Client | null>(null);
-  const { verify, isVerifying } = useCuitVerify();
+  const { verify, isVerifying } = useCuitVerify<Client>({
+    findByCuit: findClientByCuitAction,
+  });
 
   const form = useForm<FormValues>({
     defaultValues: clientToValues(client),
@@ -92,7 +96,7 @@ export function ClientForm({
     if (!result) return;
 
     if (result.kind === "existing") {
-      setExistingClient(result.client);
+      setExistingClient(result.entity);
       toast.warning("Ya existe un cliente con ese CUIT.");
       return;
     }

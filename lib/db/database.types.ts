@@ -1344,6 +1344,57 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          real_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition: string
+          legal_name: string
+          notes?: string | null
+          phone?: string | null
+          real_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          iva_condition?: string
+          legal_name?: string
+          notes?: string | null
+          phone?: string | null
+          real_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string
@@ -1897,6 +1948,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "clients"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_suppliers: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_only_active?: boolean
+          p_query: string
+        }
+        Returns: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          iva_condition: string
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          real_address: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "suppliers"
           isOneToOne: false
           isSetofReturn: true
         }

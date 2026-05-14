@@ -13,6 +13,7 @@ import {
   ScrollText,
   Search,
   ShieldCheck,
+  Truck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -58,6 +59,12 @@ const navItems: NavItem[] = [
     label: "Clientes",
     icon: Users,
     permission: "clients:read",
+  },
+  {
+    href: "/suppliers",
+    label: "Proveedores",
+    icon: Truck,
+    permission: "suppliers:read",
   },
   {
     href: "/invoices",
