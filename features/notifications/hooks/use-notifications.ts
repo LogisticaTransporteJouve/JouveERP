@@ -23,6 +23,11 @@ export function useUnreadCount() {
     queryFn: () => runAction(() => getUnreadCountAction()),
     // Datos chicos, refrescables. staleTime corto.
     staleTime: 5_000,
+    // Fallback de poll por si el WS realtime se cae. El realtime sigue
+    // invalidando vía useNotificationsRealtime, esto sólo garantiza
+    // freshness si el socket muere.
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 }
 
