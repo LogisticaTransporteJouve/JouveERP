@@ -2,6 +2,8 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
+import { inngest } from "@/lib/inngest/client";
+import { NOTIFICATIONS_DISPATCH } from "@/lib/inngest/events";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
@@ -183,6 +185,21 @@ export async function sendMessageAction(
     await supabase.from("chat_message_mentions").insert(
       mentions.map((user_id) => ({ message_id: data.id, user_id })),
     );
+  }
+
+  // Disparar push dispatch vía Inngest. Idempotente por message_id —
+  // si el action se retry-ea, Inngest dedupea. Fire-and-forget: el
+  // mensaje ya está persistido, los push no son críticos para el
+  // response. La función carga las notifs (creadas por trigger) y
+  // las distribuye a los devices suscriptos.
+  try {
+    await inngest.send({
+      name: NOTIFICATIONS_DISPATCH,
+      data: { message_id: data.id },
+    });
+  } catch {
+    // Log silencioso: el bell del header sigue funcionando por
+    // realtime aunque el push falle.
   }
 
   const profile = ctx.profile;

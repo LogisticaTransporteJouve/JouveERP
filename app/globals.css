@@ -110,3 +110,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Markdown rendering inside chat bubbles. Monocromo, sin colores de
+ * marca. Pegamos las clases acá en vez de instalar
+ * @tailwindcss/typography porque solo usamos ~6 elementos. */
+@layer components {
+  .prose-chat p {
+    @apply m-0;
+  }
+  .prose-chat p + p {
+    @apply mt-1.5;
+  }
+  .prose-chat strong {
+    @apply font-semibold;
+  }
+  .prose-chat em {
+    @apply italic;
+  }
+  .prose-chat code:not(pre code) {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[12px];
+  }
+  .prose-chat pre {
+    @apply my-1.5 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[12px];
+  }
+  .prose-chat pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-chat ul,
+  .prose-chat ol {
+    @apply my-1 ml-5 list-outside;
+  }
+  .prose-chat ul {
+    @apply list-disc;
+  }
+  .prose-chat ol {
+    @apply list-decimal;
+  }
+  .prose-chat li {
+    @apply my-0.5;
+  }
+  .prose-chat blockquote {
+    @apply my-1 border-l-2 border-muted-foreground/30 pl-2 text-muted-foreground;
+  }
+  .prose-chat a {
+    @apply underline underline-offset-2 hover:no-underline;
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,12 +23,22 @@ import { TypingIndicator } from "./typing-indicator";
 
 const AUTHOR_GROUP_MINUTES = 5;
 const MARK_READ_DEBOUNCE_MS = 1500;
+const ESTIMATED_ROW_HEIGHT = 64;
 
 type Props = {
   channelId: string;
   currentUserId: string;
   currentUserDisplayName: string;
 };
+
+type Row =
+  | { kind: "day_header"; key: string; iso: string }
+  | {
+      kind: "message";
+      key: string;
+      message: Message;
+      showAuthor: boolean;
+    };
 
 export function MessageThread({
   channelId,
@@ -52,37 +63,61 @@ export function MessageThread({
     return map;
   }, [reactionsRaw]);
 
-  // Refs para mantener scroll cuando llegan mensajes nuevos.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastMessageIdRef = useRef<string | null>(null);
+  const rows = useMemo<Row[]>(() => {
+    const out: Row[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i]!;
+      const prev = messages[i - 1];
+      const showDayHeader =
+        !prev || !isSameDay(prev.created_at, message.created_at);
+      const showAuthor =
+        showDayHeader
+        || !prev
+        || prev.sender_id !== message.sender_id
+        || !withinMinutes(prev.created_at, message.created_at, AUTHOR_GROUP_MINUTES);
+      if (showDayHeader) {
+        out.push({
+          kind: "day_header",
+          key: `day-${message.id}`,
+          iso: message.created_at,
+        });
+      }
+      out.push({
+        kind: "message",
+        key: message.id,
+        message,
+        showAuthor,
+      });
+    }
+    return out;
+  }, [messages]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 8,
+    getItemKey: (i) => rows[i]?.key ?? i,
+  });
+
+  // Scroll behavior: nuevo mensaje al final → bajar si estabas cerca del
+  // bottom. Si estás scrolleando arriba, no interrumpir.
+  const lastMessageIdRef = useRef<string | null>(null);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const lastId = messages[messages.length - 1]?.id ?? null;
     if (lastId !== lastMessageIdRef.current) {
-      // Si el user está cerca del bottom (≤120px), scrollear. Si no,
-      // dejarlo donde está (puede estar leyendo arriba).
       const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (fromBottom < 120) {
-        el.scrollTop = el.scrollHeight;
+      if (fromBottom < 120 || lastMessageIdRef.current === null) {
+        virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
       }
       lastMessageIdRef.current = lastId;
     }
-  }, [messages]);
+  }, [messages, rows.length, virtualizer]);
 
-  // Scroll inicial al bottom solo en el primer mount.
-  const didInitialScroll = useRef(false);
-  useEffect(() => {
-    if (didInitialScroll.current) return;
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-      didInitialScroll.current = true;
-    }
-  }, []);
-
-  // Mark as read con debounce mientras el thread esté visible.
+  // Mark-as-read debounce mientras el thread esté visible.
   const markRead = useMarkChannelRead();
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -106,7 +141,6 @@ export function MessageThread({
       const prevHeight = el?.scrollHeight ?? 0;
       const prevTop = el?.scrollTop ?? 0;
       fetchNextPage().then(() => {
-        // Mantener posición de scroll después de cargar mensajes viejos.
         requestAnimationFrame(() => {
           if (!el) return;
           const diff = el.scrollHeight - prevHeight;
@@ -116,9 +150,32 @@ export function MessageThread({
     }
   };
 
+  const virtualItems = virtualizer.getVirtualItems();
+
   return (
     <div className="flex h-full flex-col">
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {hasNextPage ? (
+          <div className="flex justify-center py-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Cargando…
+                </>
+              ) : (
+                "Cargar mensajes anteriores"
+              )}
+            </Button>
+          </div>
+        ) : null}
+
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center p-8 text-center">
             <p className="text-sm text-muted-foreground">
@@ -126,59 +183,45 @@ export function MessageThread({
             </p>
           </div>
         ) : (
-          <>
-            {hasNextPage ? (
-              <div className="flex justify-center py-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLoadMore}
-                  disabled={isFetchingNextPage}
-                >
-                  {isFetchingNextPage ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      Cargando…
-                    </>
-                  ) : (
-                    "Cargar mensajes anteriores"
-                  )}
-                </Button>
-              </div>
-            ) : null}
-
-            {messages.map((message, idx) => {
-              const prev = messages[idx - 1];
-              const showDayHeader =
-                !prev || !isSameDay(prev.created_at, message.created_at);
-              const showAuthor =
-                showDayHeader
-                || !prev
-                || prev.sender_id !== message.sender_id
-                || !withinMinutes(
-                  prev.created_at,
-                  message.created_at,
-                  AUTHOR_GROUP_MINUTES,
-                );
-
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: "relative",
+              width: "100%",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              if (!row) return null;
               return (
-                <div key={message.id}>
-                  {showDayHeader ? (
-                    <DayHeader iso={message.created_at} />
-                  ) : null}
-                  <MessageBubble
-                    channelId={channelId}
-                    message={message}
-                    reactions={reactionsByMessage.get(message.id) ?? []}
-                    currentUserId={currentUserId}
-                    showAuthor={showAuthor}
-                    onReply={setReplyTo}
-                  />
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {row.kind === "day_header" ? (
+                    <DayHeader iso={row.iso} />
+                  ) : (
+                    <MessageBubble
+                      channelId={channelId}
+                      message={row.message}
+                      reactions={reactionsByMessage.get(row.message.id) ?? []}
+                      currentUserId={currentUserId}
+                      showAuthor={row.showAuthor}
+                      onReply={setReplyTo}
+                    />
+                  )}
                 </div>
               );
             })}
-          </>
+          </div>
         )}
       </div>
 

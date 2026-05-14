@@ -198,6 +198,39 @@ export type DatabaseExtensions = {
           },
         ];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth_key: string;
+          user_agent: string | null;
+          created_at: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth_key: string;
+          user_agent?: string | null;
+          created_at?: string;
+          last_seen_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth_key?: string;
+          user_agent?: string | null;
+          created_at?: string;
+          last_seen_at?: string;
+        };
+        Relationships: [];
+      };
       chat_message_mentions: {
         Row: {
           message_id: string;
@@ -223,6 +256,27 @@ export type DatabaseExtensions = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      notification_settings: {
+        Row: {
+          user_id: string;
+          notification_type: string;
+          enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          notification_type: string;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          notification_type?: string;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -349,6 +403,27 @@ export type DatabaseExtensions = {
           p_description: string | null;
         };
         Returns: void;
+      };
+      get_my_notification_settings: {
+        Args: Record<string, never>;
+        Returns: {
+          notification_type: string;
+          enabled: boolean;
+        }[];
+      };
+      upsert_my_notification_setting: {
+        Args: {
+          p_type: string;
+          p_enabled: boolean;
+        };
+        Returns: void;
+      };
+      notification_type_enabled: {
+        Args: {
+          p_user_id: string;
+          p_type: string;
+        };
+        Returns: boolean;
       };
       search_chat_messages: {
         Args: {

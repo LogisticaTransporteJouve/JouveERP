@@ -27,8 +27,8 @@ import {
   useEditMessage,
   useToggleReaction,
 } from "../hooks/use-chat";
-import { autolink } from "../lib/autolink";
 import { formatMessageTime } from "../lib/format-time";
+import { MarkdownBody } from "../lib/markdown";
 import type { Message, Reaction } from "../types";
 
 import { ReactionBar } from "./reaction-bar";
@@ -184,12 +184,12 @@ export function MessageBubble({
             </div>
           </div>
         ) : (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-            {autolink(message.body)}
+          <div className="break-words">
+            <MarkdownBody body={message.body} />
             {message.edited_at ? (
-              <span className="ml-1 text-[10px] text-muted-foreground">(editado)</span>
+              <span className="text-[10px] text-muted-foreground">(editado)</span>
             ) : null}
-          </p>
+          </div>
         )}
 
         {!isDeleted ? (
