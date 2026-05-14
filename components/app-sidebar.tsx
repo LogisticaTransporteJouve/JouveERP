@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BookCheck,
+  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -72,6 +73,12 @@ const navItems: NavItem[] = [
     label: "Compras",
     icon: ShoppingCart,
     permission: "purchase_invoices:read",
+  },
+  {
+    href: "/payment-orders",
+    label: "Órdenes de pago",
+    icon: CreditCard,
+    permission: "payment_orders:read",
   },
   {
     href: "/invoices",
