@@ -186,17 +186,19 @@ export function AppSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                     >
-                      <Link href={item.href} className="relative">
-                        <Icon className="size-4" />
+                      <Link href={item.href}>
+                        <span className="relative inline-flex shrink-0">
+                          <Icon className="size-4" />
+                          {badge > 0 ? (
+                            <span
+                              className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white"
+                              aria-label={`${badge} sin leer`}
+                            >
+                              {badge > 99 ? "99+" : badge}
+                            </span>
+                          ) : null}
+                        </span>
                         <span>{item.label}</span>
-                        {badge > 0 ? (
-                          <span
-                            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:top-0.5"
-                            aria-label={`${badge} sin leer`}
-                          >
-                            {badge > 99 ? "99+" : badge}
-                          </span>
-                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
