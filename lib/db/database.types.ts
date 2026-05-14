@@ -1049,6 +1049,13 @@ export type Database = {
             referencedRelation: "purchase_invoices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
         ]
       }
       payment_order_payment_lines: {
@@ -1264,6 +1271,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "purchase_invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
           },
           {
             foreignKeyName: "purchase_invoices_supplier_id_fkey"
@@ -1928,6 +1942,83 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_supplier_account_movements: {
+        Row: {
+          channel_division: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          created_at: string | null
+          gross_amount: number | null
+          kind: string | null
+          letter: string | null
+          movement_date: string | null
+          numero: number | null
+          punto_venta: number | null
+          signed_amount: number | null
+          source_id: string | null
+          source_type: string | null
+          status: string | null
+          supplier_id: string | null
+        }
+        Relationships: []
+      }
+      v_supplier_aging: {
+        Row: {
+          bucket_0_30: number | null
+          bucket_30_60: number | null
+          bucket_60_90: number | null
+          bucket_90_plus: number | null
+          document_count: number | null
+          oldest_days: number | null
+          supplier_id: string | null
+          total_open: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_supplier_aging_documents: {
+        Row: {
+          amount_applied: number | null
+          bucket: string | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_name: string | null
+          days_overdue: number | null
+          fecha: string | null
+          imp_total: number | null
+          kind: string | null
+          letter: string | null
+          numero: number | null
+          open_amount: number | null
+          punto_venta: number | null
+          purchase_invoice_id: string | null
+          supplier_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]

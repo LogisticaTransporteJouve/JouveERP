@@ -9,4 +9,6 @@ export const suppliersKeys = {
   byId: (id: string) => [...suppliersKeys.all, "byId", id] as const,
   references: (id: string) =>
     [...suppliersKeys.all, "references", id] as const,
+  account: (id: string) => [...suppliersKeys.all, "account", id] as const,
+  aging: () => [...suppliersKeys.all, "aging"] as const,
 };

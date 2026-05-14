@@ -112,9 +112,15 @@ const navItems: NavItem[] = [
   },
   {
     href: "/aging",
-    label: "Aging",
+    label: "Aging clientes",
     icon: AlertTriangle,
     permission: "clients:read",
+  },
+  {
+    href: "/aging-suppliers",
+    label: "Aging proveedores",
+    icon: AlertTriangle,
+    permission: "suppliers:read",
   },
   {
     href: "/admin/users",

@@ -12,6 +12,10 @@ import { useMemo } from "react";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  getSupplierAccountAction,
+  getSupplierAgingAction,
+} from "../actions/account-actions";
+import {
   createSupplierAction,
   deleteSupplierAction,
   getSupplierByIdAction,
@@ -135,5 +139,19 @@ export function useDeleteSupplier() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: suppliersKeys.all });
     },
+  });
+}
+
+export function useSupplierAccount(id: string) {
+  return useSuspenseQuery({
+    queryKey: suppliersKeys.account(id),
+    queryFn: () => runAction(() => getSupplierAccountAction(id)),
+  });
+}
+
+export function useSupplierAging() {
+  return useSuspenseQuery({
+    queryKey: suppliersKeys.aging(),
+    queryFn: () => runAction(() => getSupplierAgingAction()),
   });
 }

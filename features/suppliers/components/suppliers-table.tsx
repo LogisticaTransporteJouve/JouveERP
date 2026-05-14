@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Suspense,
   useDeferredValue,
@@ -165,7 +166,12 @@ function SuppliersTableRows({
           className={!supplier.is_active ? "opacity-60" : undefined}
         >
           <TableCell>
-            <span className="font-medium">{supplier.legal_name}</span>
+            <Link
+              href={`/suppliers/${supplier.id}`}
+              className="font-medium hover:underline"
+            >
+              {supplier.legal_name}
+            </Link>
             {supplier.display_name && (
               <div className="text-xs text-muted-foreground">
                 {supplier.display_name}
