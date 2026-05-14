@@ -1740,6 +1740,97 @@ export type Database = {
           },
         ]
       }
+      supplier_opening_balance_allocations: {
+        Row: {
+          amount_applied: number
+          created_at: string
+          purchase_invoice_id: string
+          supplier_id: string
+        }
+        Insert: {
+          amount_applied: number
+          created_at?: string
+          purchase_invoice_id: string
+          supplier_id: string
+        }
+        Update: {
+          amount_applied?: number
+          created_at?: string
+          purchase_invoice_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_opening_balance_allocations_header_fk"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_opening_balances"
+            referencedColumns: ["supplier_id"]
+          },
+          {
+            foreignKeyName: "supplier_opening_balance_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_opening_balance_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "supplier_opening_balance_allocations_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_opening_balances: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          notes: string | null
+          opening_date: string
+          supplier_id: string
+          target_balance: number
+          total_settled: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          opening_date: string
+          supplier_id: string
+          target_balance: number
+          total_settled: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          opening_date?: string
+          supplier_id?: string
+          target_balance?: number
+          total_settled?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_opening_balances_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: true
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -2240,6 +2331,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_supplier_opening_balance: {
+        Args: {
+          p_notes?: string
+          p_opening_date: string
+          p_supplier_id: string
+          p_target_balance: number
+        }
+        Returns: undefined
+      }
       bump_rate_limit_bucket: {
         Args: {
           p_bucket_key: string
@@ -2254,6 +2354,10 @@ export type Database = {
       }
       clear_client_opening_balance: {
         Args: { p_client_id: string }
+        Returns: undefined
+      }
+      clear_supplier_opening_balance: {
+        Args: { p_supplier_id: string }
         Returns: undefined
       }
       create_chat_group: {
