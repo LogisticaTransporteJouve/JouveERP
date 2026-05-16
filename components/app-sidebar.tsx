@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CreditCard,
   FileText,
+  IdCard,
   LayoutDashboard,
   ListTree,
   LogOut,
@@ -106,6 +107,12 @@ const navSections: NavSection[] = [
     label: "Contabilidad",
     items: [
       { href: "/accounting/chart", label: "Plan de cuentas", icon: ListTree, permission: "accounting:read" },
+    ],
+  },
+  {
+    label: "Personal",
+    items: [
+      { href: "/employees", label: "Empleados", icon: IdCard, permission: "hr:read" },
     ],
   },
   {
