@@ -1,5 +1,9 @@
 "use client";
 
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +53,7 @@ export function AllocationsPicker({
   const pending: PendingPurchaseInvoice[] = pendingQuery.data ?? [];
   const loading = pendingQuery.isLoading;
   const error = pendingQuery.error?.message ?? null;
+  const [collapsed, setCollapsed] = useState(false);
 
   function setAlloc(invoiceId: string, amount: string | null) {
     if (amount === null) {
@@ -104,9 +109,38 @@ export function AllocationsPicker({
     );
   }
 
+  const selectedCount = allocations.length;
+  const selectedTotal = allocations.reduce((acc, a) => {
+    const n = Number(a.amount_applied.replace(/\./g, "").replace(",", "."));
+    return acc + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium">Imputar a facturas</Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Imputar a facturas</Label>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setCollapsed((c) => !c)}
+          className="h-7 gap-1 text-xs text-muted-foreground"
+        >
+          {collapsed ? (
+            <ChevronRight className="size-3.5" />
+          ) : (
+            <ChevronDown className="size-3.5" />
+          )}
+          {collapsed
+            ? `Mostrar (${pending.length} pendiente${pending.length === 1 ? "" : "s"}${
+                selectedCount > 0
+                  ? ` · ${selectedCount} imputada${selectedCount === 1 ? "" : "s"} · ${amountToInput(selectedTotal)}`
+                  : ""
+              })`
+            : "Ocultar tabla"}
+        </Button>
+      </div>
+      {collapsed ? null : (
       <div className="rounded-md border">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs">
@@ -184,6 +218,7 @@ export function AllocationsPicker({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

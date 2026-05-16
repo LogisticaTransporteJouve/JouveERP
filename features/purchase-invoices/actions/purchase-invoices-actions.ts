@@ -64,6 +64,8 @@ export type SearchPurchaseInvoicesInput = {
   fechaTo?: string | null;
   offset?: number;
   limit?: number;
+  kind?: string | null;
+  excludeId?: string | null;
 };
 
 export type SearchPurchaseInvoicesPage = {
@@ -92,6 +94,8 @@ export async function searchPurchaseInvoicesAction(
     p_fecha_to: input.fechaTo ?? undefined,
     p_offset: offset,
     p_limit: limit + 1,
+    p_kind: input.kind ?? undefined,
+    p_exclude_id: input.excludeId ?? undefined,
   });
 
   if (error) {

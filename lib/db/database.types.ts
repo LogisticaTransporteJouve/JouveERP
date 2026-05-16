@@ -2199,6 +2199,7 @@ export type Database = {
       v_supplier_aging_documents: {
         Row: {
           amount_applied: number | null
+          amount_credited_by_nc: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
@@ -2556,8 +2557,10 @@ export type Database = {
       search_purchase_invoices: {
         Args: {
           p_channel_id?: string
+          p_exclude_id?: string
           p_fecha_from?: string
           p_fecha_to?: string
+          p_kind?: string
           p_limit?: number
           p_offset?: number
           p_query?: string

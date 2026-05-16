@@ -42,7 +42,6 @@ import {
 } from "./allocations-picker";
 import {
   PaymentLinesEditor,
-  type AccountLineDraft,
   type PaymentLineDraft,
 } from "./payment-lines-editor";
 
@@ -144,14 +143,71 @@ export function PaymentOrderForm({
 
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
     paymentOrder
-      ? paymentOrder.payment_lines.map(
-          (l): AccountLineDraft => ({
+      ? paymentOrder.payment_lines.map((l): PaymentLineDraft => {
+          const accountJoin = (
+            l as unknown as {
+              account: { name: string; type: string } | null;
+            }
+          ).account;
+          const endorsed = (
+            l as unknown as {
+              endorsed_check: {
+                id: string;
+                kind: "fisico" | "echeq";
+                check_number: string;
+                bank_name: string;
+                due_date: string;
+                drawer_name: string;
+              } | null;
+            }
+          ).endorsed_check;
+          if (endorsed) {
+            const label =
+              `${endorsed.kind === "echeq" ? "ECHEQ" : "Cheque"} ${endorsed.bank_name} #${endorsed.check_number}` +
+              (endorsed.drawer_name ? ` · ${endorsed.drawer_name}` : "");
+            return {
+              line_kind: "endorse_check",
+              endorsed_check_id: endorsed.id,
+              check_label: label,
+              amount: Number(l.amount),
+              cartera_account_id: l.account_id,
+              cartera_account_name: accountJoin?.name ?? "—",
+              reference: l.reference ?? "",
+            };
+          }
+          const issued = (
+            l as unknown as {
+              issued_check: {
+                id: string;
+                kind: "fisico" | "echeq";
+                check_number: string;
+                bank_name: string;
+                due_date: string;
+                status: string;
+              } | null;
+            }
+          ).issued_check;
+          if (issued) {
+            return {
+              line_kind: "issue_check",
+              account_id: l.account_id,
+              amount: amountToInput(Number(l.amount)),
+              reference: l.reference ?? "",
+              check_kind: issued.kind,
+              check_number: issued.check_number,
+              bank_name: issued.bank_name,
+              due_date: issued.due_date,
+              beneficiary_name: "",
+              beneficiary_cuit: "",
+            };
+          }
+          return {
             line_kind: "account",
             account_id: l.account_id,
             amount: amountToInput(Number(l.amount)),
             reference: l.reference ?? "",
-          }),
-        )
+          };
+        })
       : [
           {
             line_kind: "account",
@@ -162,11 +218,11 @@ export function PaymentOrderForm({
         ],
   );
 
+  // En edit traemos también los cheques de cartera por si el usuario quiere
+  // endosar uno nuevo además de los que ya tenía la OP.
   const carteraChecksQuery = useQuery({
     queryKey: ["checks", "en_cartera", currency],
-    queryFn: () =>
-      runAction(() => listEnCarteraChecksAction({ currency })),
-    enabled: mode === "create",
+    queryFn: () => runAction(() => listEnCarteraChecksAction({ currency })),
     staleTime: 30_000,
   });
 
@@ -434,7 +490,6 @@ export function PaymentOrderForm({
         currency={currency}
         lines={paymentLines}
         onChange={setPaymentLines}
-        disableNonAccount={mode === "edit"}
       />
 
       <AllocationsPicker
