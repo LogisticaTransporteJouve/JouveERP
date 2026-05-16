@@ -1746,6 +1746,108 @@ export type Database = {
             referencedRelation: "v_payroll_entries_resolved"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payroll_entry_extras_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_with_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_payments: {
+        Row: {
+          account_id: string
+          amount: number
+          channel_id: string
+          created_at: string
+          created_by: string | null
+          entry_id: string
+          id: string
+          method: Database["public"]["Enums"]["payroll_payment_method"]
+          notes: string | null
+          paid_at: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          channel_id: string
+          created_at?: string
+          created_by?: string | null
+          entry_id: string
+          id?: string
+          method: Database["public"]["Enums"]["payroll_payment_method"]
+          notes?: string | null
+          paid_at: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          channel_id?: string
+          created_at?: string
+          created_by?: string | null
+          entry_id?: string
+          id?: string
+          method?: Database["public"]["Enums"]["payroll_payment_method"]
+          notes?: string | null
+          paid_at?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_resolved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_with_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payroll_periods: {
@@ -2826,6 +2928,42 @@ export type Database = {
           },
         ]
       }
+      v_payroll_entries_with_payments: {
+        Row: {
+          created_at: string | null
+          deudas: number | null
+          employee_id: string | null
+          extras_total: number | null
+          id: string | null
+          notes: string | null
+          paid_total: number | null
+          payments_count: number | null
+          period_id: string | null
+          saldo: number | null
+          sueldo_neto: number | null
+          telefono: number | null
+          total_a_pagar: number | null
+          updated_at: string | null
+          vacaciones_monto: number | null
+          viaticos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_supplier_account_movements: {
         Row: {
           channel_division: string | null
@@ -3477,6 +3615,7 @@ export type Database = {
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
+      payroll_payment_method: "transferencia" | "efectivo"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3634,6 +3773,7 @@ export const Constants = {
         "caja_apertura",
         "ajustes_caja",
       ],
+      payroll_payment_method: ["transferencia", "efectivo"],
     },
   },
 } as const

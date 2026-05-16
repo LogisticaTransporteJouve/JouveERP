@@ -30,6 +30,7 @@ import {
 
 import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
+import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
 
 const ARS = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 0,
@@ -62,6 +63,10 @@ export function PayrollPeriodGrid({
   const entries = data.entries;
   const isClosed = period?.status === "closed";
   const canEdit = canWrite && !!period && !isClosed;
+  // Los pagos pueden registrarse incluso con el período cerrado (esa es
+  // la idea: cerrás los valores y después vas pagando en tramos). Sólo
+  // requiere hr:write.
+  const canManagePayments = canWrite && !!period;
 
   function commit(
     entryId: string,
@@ -101,6 +106,8 @@ export function PayrollPeriodGrid({
       deudas: acc.deudas + e.deudas,
       telefono: acc.telefono + e.telefono,
       total: acc.total + e.total_a_pagar,
+      paid: acc.paid + e.paid_total,
+      saldo: acc.saldo + e.saldo,
     }),
     {
       sueldo: 0,
@@ -110,6 +117,8 @@ export function PayrollPeriodGrid({
       deudas: 0,
       telefono: 0,
       total: 0,
+      paid: 0,
+      saldo: 0,
     },
   );
 
@@ -199,13 +208,15 @@ export function PayrollPeriodGrid({
                 <TableHead className="w-32 text-right">Deudas</TableHead>
                 <TableHead className="w-32 text-right">Teléfono</TableHead>
                 <TableHead className="w-32 text-right">Total</TableHead>
+                <TableHead className="w-32 text-right">Pagado</TableHead>
+                <TableHead className="w-32 text-right">Saldo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={10}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     Sin entries. ¿No hay empleados activos?
@@ -274,6 +285,21 @@ export function PayrollPeriodGrid({
                     <TableCell className="text-right font-mono font-semibold">
                       {money(e.total_a_pagar)}
                     </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {money(e.paid_total)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <PayrollPaymentsDialog
+                        entryId={e.id}
+                        employeeName={e.employee_legal_name}
+                        total={e.total_a_pagar}
+                        paid={e.paid_total}
+                        saldo={e.saldo}
+                        year={year}
+                        month={month}
+                        disabled={!canManagePayments}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -302,6 +328,12 @@ export function PayrollPeriodGrid({
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     {money(totals.total)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {money(totals.paid)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-semibold">
+                    {money(totals.saldo)}
                   </TableCell>
                 </TableRow>
               </TableFooter>
