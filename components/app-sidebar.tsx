@@ -115,6 +115,7 @@ const navSections: NavSection[] = [
     label: "Personal",
     items: [
       { href: "/employees", label: "Empleados", icon: IdCard, permission: "hr:read" },
+      { href: "/hr/payroll", label: "Sueldos", icon: Receipt, permission: "hr:read" },
     ],
   },
   {

@@ -1643,6 +1643,150 @@ export type Database = {
           },
         ]
       }
+      payroll_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deudas: number
+          employee_id: string
+          id: string
+          notes: string | null
+          period_id: string
+          sueldo_neto: number
+          telefono: number
+          updated_at: string
+          vacaciones_monto: number
+          viaticos: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deudas?: number
+          employee_id: string
+          id?: string
+          notes?: string | null
+          period_id: string
+          sueldo_neto?: number
+          telefono?: number
+          updated_at?: string
+          vacaciones_monto?: number
+          viaticos?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deudas?: number
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          period_id?: string
+          sueldo_neto?: number
+          telefono?: number
+          updated_at?: string
+          vacaciones_monto?: number
+          viaticos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_entry_extras: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_entry_extras_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entry_extras_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_resolved"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          month: number
+          notes: string | null
+          status: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month: number
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month?: number
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       purchase_invoice_items: {
         Row: {
           created_at: string
@@ -2649,6 +2793,39 @@ export type Database = {
           },
         ]
       }
+      v_payroll_entries_resolved: {
+        Row: {
+          created_at: string | null
+          deudas: number | null
+          employee_id: string | null
+          extras_total: number | null
+          id: string | null
+          notes: string | null
+          period_id: string | null
+          sueldo_neto: number | null
+          telefono: number | null
+          total_a_pagar: number | null
+          updated_at: string | null
+          vacaciones_monto: number | null
+          viaticos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_supplier_account_movements: {
         Row: {
           channel_division: string | null
@@ -3230,6 +3407,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      seed_payroll_period: {
+        Args: { p_month: number; p_year: number }
+        Returns: string
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
