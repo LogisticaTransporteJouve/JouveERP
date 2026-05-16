@@ -52,6 +52,11 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
   return { ok: true, data: items };
 }
 
+// Pattern estricto: solo backup-YYYY-MM-DD.dump. Ningún '..', '/' o '\\'
+// puede pasar — el regex no los permite. Defensa adicional contra path
+// traversal (CWE-22) con verificaciones explícitas abajo.
+const BACKUP_FILE_RE = /^backup-\d{4}-\d{2}-\d{2}\.dump$/;
+
 export async function getBackupSignedUrlAction(
   fileName: string,
 ): Promise<ActionResult<{ url: string; expiresAt: string }>> {
@@ -59,7 +64,20 @@ export async function getBackupSignedUrlAction(
   if (!userCan(ctx.roles, "audit:read")) {
     return { ok: false, error: "Solo owner/admin pueden descargar backups." };
   }
-  if (!/^backup-\d{4}-\d{2}-\d{2}\.dump$/.test(fileName)) {
+
+  // Allow-list strict + belt-and-suspenders: rechazar cualquier rastro de
+  // path traversal aunque el regex ya lo cubra. El input viene de la lista
+  // que devolvió listBackupsAction (no es arbitrario) pero validamos como
+  // si fuera adversarial.
+  if (typeof fileName !== "string" || !BACKUP_FILE_RE.test(fileName)) {
+    return { ok: false, error: "Nombre de archivo inválido." };
+  }
+  if (
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    fileName.includes("..") ||
+    fileName.includes("\0")
+  ) {
     return { ok: false, error: "Nombre de archivo inválido." };
   }
 
