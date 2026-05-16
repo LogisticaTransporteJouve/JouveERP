@@ -4,6 +4,7 @@ import { Pencil, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -44,6 +45,7 @@ export function SupplierOpeningBalanceDialog({
   const [open, setOpen] = useState(false);
   const setMut = useSetSupplierOpeningBalance();
   const clearMut = useClearSupplierOpeningBalance();
+  const confirm = useConfirm();
 
   const [openingDate, setOpeningDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
@@ -94,10 +96,15 @@ export function SupplierOpeningBalanceDialog({
     );
   }
 
-  function onClear() {
+  async function onClear() {
     if (!existing) return;
-    if (!confirm("¿Borrar el ajuste de saldo? Las imputaciones se revierten."))
-      return;
+    const ok = await confirm({
+      title: "Borrar el ajuste de saldo",
+      description: "Las imputaciones del ajuste se revierten. Esta acción no se puede deshacer.",
+      confirmLabel: "Borrar",
+      tone: "destructive",
+    });
+    if (!ok) return;
     clearMut.mutate(supplierId, {
       onSuccess: () => {
         toast.success("Ajuste de saldo eliminado.");

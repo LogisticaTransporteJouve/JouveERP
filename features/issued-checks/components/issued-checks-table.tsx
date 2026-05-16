@@ -3,6 +3,7 @@
 import { Ban, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,21 +56,26 @@ export function IssuedChecksTable({
 }) {
   const { data: checks } = useIssuedChecksList();
   const transitionMut = useTransitionIssuedCheck();
+  const confirm = useConfirm();
   const canWrite = userCan(actorRoles, "issued_checks:write");
 
-  function transition(
+  async function transition(
     id: string,
     to: "cashed" | "rejected" | "cancelled",
     label: string,
   ) {
-    if (
-      !confirm(
-        to === "cancelled"
-          ? "¿Anular este cheque?"
-          : `¿Marcar el cheque como ${label.toLowerCase()}?`,
-      )
-    )
-      return;
+    const isCancel = to === "cancelled";
+    const ok = await confirm({
+      title: isCancel
+        ? "Anular este cheque"
+        : `Marcar el cheque como ${label.toLowerCase()}`,
+      description: isCancel
+        ? "El cheque queda fuera de circulación. Esta acción no se puede deshacer desde la UI."
+        : `Vas a cambiar el estado del cheque a ${label.toLowerCase()}.`,
+      confirmLabel: label,
+      tone: isCancel || to === "rejected" ? "destructive" : "default",
+    });
+    if (!ok) return;
     transitionMut.mutate(
       { id, to_status: to },
       {

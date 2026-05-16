@@ -4,6 +4,7 @@ import { Pencil, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,6 +69,7 @@ export function AccountOpeningBalanceDialog({
   const { data: existing } = useAccountOpeningBalance(accountId, open);
   const setMut = useSetAccountOpeningBalance();
   const clearMut = useClearAccountOpeningBalance();
+  const confirm = useConfirm();
 
   const [adjustmentDate, setAdjustmentDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
@@ -123,9 +125,15 @@ export function AccountOpeningBalanceDialog({
     );
   }
 
-  function onClear() {
+  async function onClear() {
     if (!existing) return;
-    if (!confirm("¿Borrar el saldo de apertura? Se elimina la transaction de ajuste.")) return;
+    const ok = await confirm({
+      title: "Borrar el saldo de apertura",
+      description: "Se elimina la transaction de ajuste asociada. Esta acción no se puede deshacer.",
+      confirmLabel: "Borrar",
+      tone: "destructive",
+    });
+    if (!ok) return;
     clearMut.mutate(accountId, {
       onSuccess: () => {
         toast.success("Saldo de apertura eliminado.");
