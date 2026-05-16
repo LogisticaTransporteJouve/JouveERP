@@ -127,6 +127,53 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_records: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          employee_id: string
+          hours_lost: number | null
+          id: string
+          kind: Database["public"]["Enums"]["attendance_kind"]
+          notes: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          employee_id: string
+          hours_lost?: number | null
+          id?: string
+          kind: Database["public"]["Enums"]["attendance_kind"]
+          notes?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          employee_id?: string
+          hours_lost?: number | null
+          id?: string
+          kind?: Database["public"]["Enums"]["attendance_kind"]
+          notes?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           actor_id: string | null
@@ -784,6 +831,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_centers: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -1045,6 +1122,33 @@ export type Database = {
         }
         Relationships: []
       }
+      holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          name: string
+          notes: string | null
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          name: string
+          notes?: string | null
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          name?: string
+          notes?: string | null
+          scope?: string
+        }
+        Relationships: []
+      }
       hr_settings: {
         Row: {
           key: string
@@ -1065,6 +1169,53 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      inflation_adjustments: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          coefficient: number
+          created_at: string
+          id: string
+          index_source: string | null
+          journal_entry_id: string | null
+          notes: string | null
+          period: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          coefficient: number
+          created_at?: string
+          id?: string
+          index_source?: string | null
+          journal_entry_id?: string | null
+          notes?: string | null
+          period: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          coefficient?: number
+          created_at?: string
+          id?: string
+          index_source?: string | null
+          journal_entry_id?: string | null
+          notes?: string | null
+          period?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inflation_adjustments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_items: {
         Row: {
@@ -1133,6 +1284,7 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
+          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -1173,6 +1325,7 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -1213,6 +1366,7 @@ export type Database = {
           channel_id?: string
           client_id?: string
           concepto?: number
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -1257,6 +1411,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1420,6 +1581,7 @@ export type Database = {
         Row: {
           accrual_period: string
           channel_id: string | null
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -1433,6 +1595,7 @@ export type Database = {
         Insert: {
           accrual_period: string
           channel_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description: string
@@ -1446,6 +1609,7 @@ export type Database = {
         Update: {
           accrual_period?: string
           channel_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -1462,6 +1626,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1706,6 +1877,7 @@ export type Database = {
           canceled_at: string | null
           canceled_by: string | null
           channel_id: string
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -1723,6 +1895,7 @@ export type Database = {
           canceled_at?: string | null
           canceled_by?: string | null
           channel_id: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -1740,6 +1913,7 @@ export type Database = {
           canceled_at?: string | null
           canceled_by?: string | null
           channel_id?: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -1759,6 +1933,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -2080,6 +2261,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           channel_id: string
+          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -2108,6 +2290,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id: string
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2136,6 +2319,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id?: string
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2164,6 +2348,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -2393,6 +2584,7 @@ export type Database = {
           canceled_by: string | null
           channel_id: string
           client_id: string
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -2410,6 +2602,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id: string
           client_id: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -2427,6 +2620,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id?: string
           client_id?: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -2452,6 +2646,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -2723,6 +2924,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          cost_center_id: string | null
           counterparty_client_id: string | null
           counterparty_supplier_id: string | null
           created_at: string
@@ -2743,6 +2945,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -2763,6 +2966,7 @@ export type Database = {
           accrual_month?: string
           amount?: number
           channel_id?: string
+          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -2791,6 +2995,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -2943,6 +3154,30 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_attendance_records_resolved: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          day_of_week: number | null
+          employee_id: string | null
+          employee_legal_name: string | null
+          hours_lost: number | null
+          id: string | null
+          kind: Database["public"]["Enums"]["attendance_kind"] | null
+          notes: string | null
+          source: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -3491,6 +3726,37 @@ export type Database = {
           id: string
         }[]
       }
+      get_account_balances: {
+        Args: { p_period_end: string; p_period_start?: string }
+        Returns: {
+          account_code: string
+          account_id: string
+          account_name: string
+          account_type: Database["public"]["Enums"]["coa_account_type"]
+          balance: number
+          eerr_category: string
+          total_credit: number
+          total_debit: number
+        }[]
+      }
+      get_ledger: {
+        Args: { p_account_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          accrual_period: string
+          channel_id: string
+          credit: number
+          debit: number
+          description: string
+          entry_date: string
+          entry_id: string
+          is_reversal: boolean
+          line_desc: string
+          line_id: string
+          running: number
+          source_id: string
+          source_table: string
+        }[]
+      }
       get_my_notification_settings: {
         Args: never
         Returns: {
@@ -3510,6 +3776,30 @@ export type Database = {
         }[]
       }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
+      libro_iva_compras: {
+        Args: { p_channel_id?: string; p_period: string }
+        Returns: {
+          cae_proveedor: string
+          cae_vto_proveedor: string
+          channel_id: string
+          channel_name: string
+          fecha: string
+          has_items: boolean
+          imp_total: number
+          imp_trib: number
+          iva: number
+          iva_rate_id: number
+          iva_rate_pct: number
+          kind: string
+          letter: string
+          neto: number
+          numero: number
+          punto_venta: number
+          purchase_invoice_id: string
+          supplier_cuit: string
+          supplier_legal_name: string
+        }[]
+      }
       libro_iva_ventas: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {
@@ -3817,6 +4107,14 @@ export type Database = {
       user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
     }
     Enums: {
+      attendance_kind:
+        | "absent_justified"
+        | "absent_unjustified"
+        | "late"
+        | "early_leave"
+        | "sick"
+        | "leave"
+        | "holiday"
       chat_channel_kind: "self" | "dm" | "group"
       coa_account_type:
         | "activo"
@@ -3980,6 +4278,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      attendance_kind: [
+        "absent_justified",
+        "absent_unjustified",
+        "late",
+        "early_leave",
+        "sick",
+        "leave",
+        "holiday",
+      ],
       chat_channel_kind: ["self", "dm", "group"],
       coa_account_type: [
         "activo",
