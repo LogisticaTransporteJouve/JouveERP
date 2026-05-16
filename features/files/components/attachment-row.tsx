@@ -1,6 +1,14 @@
 "use client";
 
-import { Eye, Loader2, Trash2 } from "lucide-react";
+import {
+  Eye,
+  FileIcon,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/files/format-file-size";
-import { iconForMimeType } from "@/lib/files/mime-type-icons";
+import { isImage, isPdf, isSpreadsheet } from "@/lib/files/preview";
 
 import {
   ATTACHMENT_KIND_LABELS,
@@ -31,9 +39,24 @@ type Props = {
   canDelete: boolean;
 };
 
+// Local component instead of `const Icon = iconForMimeType(...)` para no
+// disparar el lint react-hooks/incompatible-library "Cannot create components
+// during render" del React Compiler.
+function MimeIcon({
+  mimeType,
+  className,
+}: {
+  mimeType: string | null | undefined;
+  className?: string;
+}) {
+  if (isImage(mimeType)) return <FileImage className={className} />;
+  if (isPdf(mimeType)) return <FileText className={className} />;
+  if (isSpreadsheet(mimeType)) return <FileSpreadsheet className={className} />;
+  return <FileIcon className={className} />;
+}
+
 export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const Icon = iconForMimeType(row.mimeType);
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
@@ -49,7 +72,10 @@ export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
 
   return (
     <li className="flex items-center gap-3 rounded-md border bg-card px-3 py-2">
-      <Icon className="size-5 shrink-0 text-muted-foreground" />
+      <MimeIcon
+        mimeType={row.mimeType}
+        className="size-5 shrink-0 text-muted-foreground"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{row.filename}</p>
         <p className="text-xs text-muted-foreground">

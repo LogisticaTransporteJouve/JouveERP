@@ -26,9 +26,8 @@
 // running on a clean machine without those files.
 
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

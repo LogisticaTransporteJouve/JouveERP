@@ -76,7 +76,6 @@ export function SupplierCategoryDialog({
   }, [open, category, form]);
 
   const watchedName = form.watch("name");
-  const watchedSlug = form.watch("slug");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   // Auto-slug desde nombre en modo create, hasta que el user lo toque.
