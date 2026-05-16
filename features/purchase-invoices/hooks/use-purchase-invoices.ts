@@ -45,6 +45,7 @@ export function usePurchaseInvoicesSearchInfinite(
           status: filters.status,
           fechaFrom: filters.fechaFrom,
           fechaTo: filters.fechaTo,
+          isFiscal: filters.isFiscal,
           offset: pageParam,
           limit: PURCHASE_INVOICES_PAGE_SIZE,
         }),

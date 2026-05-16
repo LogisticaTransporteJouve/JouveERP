@@ -2815,6 +2815,7 @@ export type Database = {
           p_exclude_id?: string
           p_fecha_from?: string
           p_fecha_to?: string
+          p_is_fiscal?: boolean
           p_kind?: string
           p_limit?: number
           p_offset?: number

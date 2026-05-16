@@ -7,6 +7,7 @@ export type PurchaseInvoicesFilters = {
   status: string | null;
   fechaFrom: string | null;
   fechaTo: string | null;
+  isFiscal: boolean | null;
 };
 
 export type PurchaseInvoicesPickerFilters = {
