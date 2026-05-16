@@ -1207,7 +1207,6 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
-          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -1248,7 +1247,6 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
-          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -1289,7 +1287,6 @@ export type Database = {
           channel_id?: string
           client_id?: string
           concepto?: number
-          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2157,7 +2154,6 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           channel_id: string
-          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -2186,7 +2182,6 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id: string
-          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2215,7 +2210,6 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id?: string
-          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2803,7 +2797,6 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
-          cost_center_id: string | null
           counterparty_client_id: string | null
           counterparty_supplier_id: string | null
           created_at: string
@@ -2824,7 +2817,6 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
-          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -2845,7 +2837,6 @@ export type Database = {
           accrual_month?: string
           amount?: number
           channel_id?: string
-          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -3479,6 +3470,10 @@ export type Database = {
         Args: { p_supplier_id: string }
         Returns: undefined
       }
+      coa_role_for_account: {
+        Args: { p_account_id: string }
+        Returns: Database["public"]["Enums"]["coa_system_role"]
+      }
       create_chat_group: {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
         Returns: string
@@ -3592,19 +3587,6 @@ export type Database = {
           bucket: string
           bucket_path: string
           id: string
-        }[]
-      }
-      get_account_balances: {
-        Args: { p_period_end: string; p_period_start?: string }
-        Returns: {
-          account_code: string
-          account_id: string
-          account_name: string
-          account_type: Database["public"]["Enums"]["coa_account_type"]
-          balance: number
-          eerr_category: string
-          total_credit: number
-          total_debit: number
         }[]
       }
       get_ledger: {
