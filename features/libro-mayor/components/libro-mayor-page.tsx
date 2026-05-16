@@ -38,7 +38,8 @@ export function LibroMayorPage() {
   const [to, setTo] = useState<string>("");
 
   const ledger = useLedger(accountId, from || null, to || null);
-  const rows = ledger.data ?? [];
+  const rows = ledger.data?.rows ?? [];
+  const truncated = ledger.data?.truncated ?? false;
   const summary = useMemo(() => computeLedgerSummary(rows), [rows]);
 
   const sortedAccounts = useMemo(
@@ -122,7 +123,15 @@ export function LibroMayorPage() {
             La cuenta no tiene movimientos en el rango.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="space-y-3">
+            {truncated && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+                ⚠ La cuenta tiene más de 1000 movimientos. Mostrando los
+                primeros 1000 — filtrá por rango de fechas para ver el
+                resto.
+              </div>
+            )}
+            <div className="overflow-x-auto rounded-lg border bg-card">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/30 text-left text-xs">
                 <tr>
@@ -208,6 +217,7 @@ export function LibroMayorPage() {
                 </tr>
               </tfoot>
             </table>
+          </div>
           </div>
         )
       ) : (

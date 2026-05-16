@@ -63,6 +63,52 @@ export function formatAmountInput(raw: string): string {
   return decPart === null ? grouped : `${grouped},${decPart}`;
 }
 
+// Money formatters centralizados (replicados en 23 archivos antes de esto).
+// Usar siempre estos helpers en lugar de armar `Intl.NumberFormat` inline.
+
+const moneyFmt2 = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const moneyFmt0 = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+/** "3.865,59" — sin símbolo de moneda. */
+export function formatNumber2(value: number | string | null | undefined): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0,00";
+  return moneyFmt2.format(n);
+}
+
+/** "3.866" — entero, sin decimales. */
+export function formatInteger(value: number | string | null | undefined): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0";
+  return moneyFmt0.format(Math.round(n));
+}
+
+/** "$ 3.865,59" — peso por default; "US$ 3.865,59" si currency === "USD". */
+export function formatMoney(
+  value: number | string | null | undefined,
+  currency: "ARS" | "USD" | string = "ARS",
+): string {
+  const sign = currency === "USD" ? "US$" : "$";
+  return `${sign} ${formatNumber2(value)}`;
+}
+
+/** "-$ 3.865,59" — formatMoney con signo respetando negativos. */
+export function formatMoneySigned(
+  value: number | string | null | undefined,
+  currency: "ARS" | "USD" | string = "ARS",
+): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (n < 0) return `-${formatMoney(-n, currency)}`;
+  return formatMoney(n, currency);
+}
+
 export function formatArgentineDateTime(
   value: string | null | undefined,
 ): string {

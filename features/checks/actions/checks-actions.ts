@@ -99,7 +99,8 @@ export async function listChecksAction(): Promise<
        cartera_account:accounts!checks_cartera_account_id_fkey(name),
        source_client:clients(legal_name)`,
     )
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true })
+    .limit(500);
 
   if (error) {
     logger.error("cheques.list.failed", { error });

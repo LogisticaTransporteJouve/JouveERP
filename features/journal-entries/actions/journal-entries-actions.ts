@@ -11,13 +11,16 @@ import {
   type JournalFilters,
 } from "../schema";
 
-export type ActionResult<T = void> =
+import { JOURNAL_PAGE_SIZE } from "../lib/journal-pagination";
+import type { JournalPage } from "../lib/journal-pagination";
+
+type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
 export async function listJournalEntriesAction(
-  filters: JournalFilters,
-): Promise<ActionResult<JournalEntryWithLines[]>> {
+  filters: JournalFilters & { offset?: number; limit?: number },
+): Promise<ActionResult<JournalPage>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro diario." };
@@ -26,6 +29,9 @@ export async function listJournalEntriesAction(
   if (filters.period && !isPeriodFormat(filters.period)) {
     return { ok: false, error: "Período inválido, formato esperado YYYY-MM." };
   }
+
+  const offset = filters.offset ?? 0;
+  const limit = filters.limit ?? JOURNAL_PAGE_SIZE;
 
   const supabase = await createClient();
   const query = supabase
@@ -42,7 +48,7 @@ export async function listJournalEntriesAction(
     )
     .order("entry_date", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(offset, offset + limit - 1);
 
   if (filters.period) {
     query.eq("accrual_period", filters.period);
@@ -60,8 +66,12 @@ export async function listJournalEntriesAction(
     return { ok: false, error: "No se pudo leer el libro diario." };
   }
 
+  const items = (data ?? []) as unknown as JournalEntryWithLines[];
   return {
     ok: true,
-    data: (data ?? []) as unknown as JournalEntryWithLines[],
+    data: {
+      items,
+      nextOffset: items.length === limit ? offset + limit : null,
+    },
   };
 }

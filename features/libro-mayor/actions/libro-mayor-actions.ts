@@ -6,8 +6,12 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 import type { LedgerRow } from "../schema";
+import {
+  LEDGER_MAX_ROWS,
+  type LedgerResult,
+} from "../lib/libro-mayor-pagination";
 
-export type ActionResult<T = void> =
+type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
@@ -15,7 +19,7 @@ export async function getLedgerAction(input: {
   accountId: string;
   from?: string | null;
   to?: string | null;
-}): Promise<ActionResult<LedgerRow[]>> {
+}): Promise<ActionResult<LedgerResult>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
@@ -30,5 +34,13 @@ export async function getLedgerAction(input: {
     logger.error("get_ledger.failed", { error });
     return { ok: false, error: "No se pudo leer el libro mayor." };
   }
-  return { ok: true, data: (data ?? []) as unknown as LedgerRow[] };
+  const all = (data ?? []) as unknown as LedgerRow[];
+  const truncated = all.length > LEDGER_MAX_ROWS;
+  return {
+    ok: true,
+    data: {
+      rows: truncated ? all.slice(0, LEDGER_MAX_ROWS) : all,
+      truncated,
+    },
+  };
 }

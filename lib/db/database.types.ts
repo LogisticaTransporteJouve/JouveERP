@@ -861,6 +861,48 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error: string | null
+          id: string
+          provider_message_id: string | null
+          recipient: string
+          sent_by: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient: string
+          sent_by?: string | null
+          status: string
+          subject: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient?: string
+          sent_by?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -2677,6 +2719,7 @@ export type Database = {
           currency: string
           id: string
           notes: string | null
+          notified_at: string | null
           numero: number
           punto_venta: number
           receipt_date: string
@@ -2695,6 +2738,7 @@ export type Database = {
           currency: string
           id?: string
           notes?: string | null
+          notified_at?: string | null
           numero: number
           punto_venta: number
           receipt_date: string
@@ -2713,6 +2757,7 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          notified_at?: string | null
           numero?: number
           punto_venta?: number
           receipt_date?: string
@@ -2811,6 +2856,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      search_index_state: {
+        Row: {
+          dirty: boolean
+          id: number
+          last_refreshed: string
+        }
+        Insert: {
+          dirty?: boolean
+          id?: number
+          last_refreshed?: string
+        }
+        Update: {
+          dirty?: boolean
+          id?: number
+          last_refreshed?: string
+        }
+        Relationships: []
       }
       supplier_categories: {
         Row: {
@@ -3672,6 +3735,13 @@ export type Database = {
         }
         Returns: Json
       }
+      build_purchase_invoice_journal_lines: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
+          p_reverse?: boolean
+        }
+        Returns: Json
+      }
       bump_rate_limit_bucket: {
         Args: {
           p_bucket_key: string
@@ -3791,6 +3861,14 @@ export type Database = {
       emit_journal_for_payment_order: {
         Args: {
           p_payment_order_id: string
+          p_reverse?: boolean
+          p_reversed_entry_id?: string
+        }
+        Returns: string
+      }
+      emit_journal_for_purchase_invoice: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
           p_reverse?: boolean
           p_reversed_entry_id?: string
         }
@@ -3971,6 +4049,15 @@ export type Database = {
         Args: { p_channel: string }
         Returns: undefined
       }
+      next_internal_invoice_numero_atomic: {
+        Args: {
+          p_channel_id: string
+          p_invoice_id: string
+          p_kind: string
+          p_punto_venta: number
+        }
+        Returns: number
+      }
       next_internal_purchase_numero: {
         Args: { p_channel_id: string; p_supplier_id: string }
         Returns: number
@@ -3985,6 +4072,7 @@ export type Database = {
         Returns: string
       }
       refresh_search_index: { Args: never; Returns: undefined }
+      refresh_search_index_if_dirty: { Args: never; Returns: boolean }
       reject_check: {
         Args: {
           p_account_id: string

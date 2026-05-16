@@ -259,26 +259,22 @@ export const issueInvoice = inngest.createFunction(
       const reservedNumero: number = await step.run(
         "reserve-and-persist-numero-internal",
         async () => {
+          // B2: usa RPC atomic con advisory lock por (channel, pos, kind).
+          // Reemplaza el patrón MAX(numero)+1 que tenía race condition
+          // bajo emisión concurrente del mismo POS.
           const supabase = getServiceClient();
-          const { data, error: maxErr } = await supabase
-            .from("invoices")
-            .select("numero")
-            .eq("channel_id", draft.channel_id)
-            .eq("punto_venta", draft.punto_venta)
-            .eq("kind", draft.kind)
-            .not("numero", "is", null)
-            .order("numero", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (maxErr) throw new Error(`reserve-numero-internal: ${maxErr.message}`);
-          const next = (data?.numero ?? 0) + 1;
-          const { error: updErr } = await supabase
-            .from("invoices")
-            .update({ numero: next })
-            .eq("id", invoice_id);
-          if (updErr)
-            throw new Error(`persist-numero-internal: ${updErr.message}`);
-          return next;
+          const { data, error } = await supabase.rpc(
+            "next_internal_invoice_numero_atomic",
+            {
+              p_invoice_id: invoice_id,
+              p_channel_id: draft.channel_id,
+              p_punto_venta: draft.punto_venta,
+              p_kind: draft.kind,
+            },
+          );
+          if (error)
+            throw new Error(`reserve-numero-internal: ${error.message}`);
+          return data as unknown as number;
         },
       );
 

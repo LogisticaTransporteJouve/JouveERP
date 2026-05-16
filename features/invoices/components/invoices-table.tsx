@@ -2,6 +2,8 @@
 
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
+
+import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import {
   Suspense,
   useDeferredValue,
@@ -129,6 +131,7 @@ export function ComprobantesTable({
   const deferredQuery = useDeferredValue(debouncedQuery);
 
   const canIssue = userCan(actorRoles, "invoices:issue");
+  const canSendEmail = userCan(actorRoles, "email:send");
 
   // Realtime: any change to comprobantes invalidates the list (every
   // filter combo) and the aging summary (since unpaid invoices drive it).
@@ -213,6 +216,7 @@ export function ComprobantesTable({
               channel={deferredChannel}
               status={deferredStatus}
               query={deferredQuery}
+              canSendEmail={canSendEmail}
             />
           </Suspense>
         </Table>
@@ -225,10 +229,12 @@ function ComprobantesTableRows({
   channel,
   status,
   query,
+  canSendEmail,
 }: {
   channel: string | null;
   status: InvoiceStatus | null;
   query: string;
+  canSendEmail: boolean;
 }) {
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInvoicesSearchInfinite({ channel, status, query });
@@ -318,6 +324,9 @@ function ComprobantesTableRows({
                         <Download className="size-4" />
                       </a>
                     </Button>
+                    {canSendEmail && (
+                      <SendByEmailDialog kind="invoice" id={row.id} />
+                    )}
                   </>
                 )}
               </div>

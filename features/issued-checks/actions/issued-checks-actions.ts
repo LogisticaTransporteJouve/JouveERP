@@ -70,7 +70,8 @@ export async function listIssuedChecksAction(): Promise<
     .select(
       `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name )`,
     )
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true })
+    .limit(500);
 
   if (error) {
     logger.error("issued_checks.list.failed", { error });

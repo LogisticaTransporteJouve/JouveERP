@@ -96,9 +96,12 @@ function serializePaymentLine(line: PaymentLineInput) {
   };
 }
 
-export async function listPaymentOrdersAction(): Promise<
+export async function listPaymentOrdersAction(input?: {
+  limit?: number;
+}): Promise<
   ActionResult<{
-    paymentOrders: (PaymentOrder & { supplier_legal_name: string })[];
+    items: (PaymentOrder & { supplier_legal_name: string })[];
+    nextOffset: number | null;
   }>
 > {
   const ctx = await requireUserContext();
@@ -106,19 +109,21 @@ export async function listPaymentOrdersAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
   }
 
+  const limit = input?.limit ?? 100;
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("payment_orders")
     .select(`${COLUMNS}, suppliers ( legal_name )`)
     .order("payment_date", { ascending: false })
-    .order("numero", { ascending: false });
+    .order("numero", { ascending: false })
+    .range(0, limit - 1);
 
   if (error) {
     logger.error("payment_orders.list.failed", { error });
     return { ok: false, error: "No se pudieron listar las órdenes de pago." };
   }
 
-  const paymentOrders = (data ?? [])
+  const items = (data ?? [])
     .map((row) => {
       const narrowed = narrowPaymentOrder(row);
       if (!narrowed) return null;
@@ -129,7 +134,10 @@ export async function listPaymentOrdersAction(): Promise<
       (r): r is PaymentOrder & { supplier_legal_name: string } => r !== null,
     );
 
-  return { ok: true, data: { paymentOrders } };
+  return {
+    ok: true,
+    data: { items, nextOffset: items.length === limit ? limit : null },
+  };
 }
 
 export type PaymentOrderDetail = {

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
 import {
   Table,
@@ -53,8 +54,10 @@ export function ReceiptsTable({
 }) {
   const { data } = useReceiptsList();
   const { data: accounts } = useAccountsList();
-  const receipts = data.receipts;
+  const receipts = data.items;
+  const truncated = data.nextOffset !== null;
   const canWrite = userCan(actorRoles, "receipts:write");
+  const canSendEmail = userCan(actorRoles, "email:send");
 
   // Realtime: invalidate the list (and aging, since allocations live on
   // the parent's updated_at) whenever any receipt changes server-side.
@@ -70,6 +73,13 @@ export function ReceiptsTable({
       {canWrite && (
         <div className="flex justify-end">
           <NewReceiptDialog channels={channels} accounts={accounts} />
+        </div>
+      )}
+
+      {truncated && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          ⚠ Mostrando los 100 recibos más recientes. Usá búsqueda global (⌘K)
+          para encontrar uno específico.
         </div>
       )}
 
@@ -162,6 +172,9 @@ export function ReceiptsTable({
                             <Download className="size-4" />
                           </Link>
                         </Button>
+                        {canSendEmail && !isCanceled && (
+                          <SendByEmailDialog kind="receipt" id={r.id} />
+                        )}
                         {canWrite && !isCanceled && (
                           <EditReceiptDialog
                             receiptId={r.id}
