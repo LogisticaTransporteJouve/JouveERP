@@ -163,6 +163,50 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_journal_mapping: {
+        Row: {
+          account_role: Database["public"]["Enums"]["coa_system_role"] | null
+          chart_of_accounts_id: string
+          conditions: Json
+          created_at: string
+          event_type: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_role?: Database["public"]["Enums"]["coa_system_role"] | null
+          chart_of_accounts_id: string
+          conditions?: Json
+          created_at?: string
+          event_type: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_role?: Database["public"]["Enums"]["coa_system_role"] | null
+          chart_of_accounts_id?: string
+          conditions?: Json
+          created_at?: string
+          event_type?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_journal_mapping_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_units: {
         Row: {
           created_at: string
@@ -1184,6 +1228,108 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          accrual_period: string
+          channel_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          id: string
+          is_reversal: boolean
+          reversed_entry_id: string | null
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          accrual_period: string
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date: string
+          id?: string
+          is_reversal?: boolean
+          reversed_entry_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          accrual_period?: string
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          id?: string
+          is_reversal?: boolean
+          reversed_entry_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_reversed_entry_id_fkey"
+            columns: ["reversed_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entry_lines: {
+        Row: {
+          chart_of_accounts_id: string
+          credit: number
+          debit: number
+          description: string | null
+          id: string
+          journal_entry_id: string
+          sort_order: number
+        }
+        Insert: {
+          chart_of_accounts_id: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id: string
+          sort_order?: number
+        }
+        Update: {
+          chart_of_accounts_id?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -2657,6 +2803,20 @@ export type Database = {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
         Returns: string
       }
+      create_journal_entry: {
+        Args: {
+          p_accrual_period: string
+          p_channel_id?: string
+          p_description: string
+          p_entry_date: string
+          p_is_reversal?: boolean
+          p_lines: Json
+          p_reversed_entry_id?: string
+          p_source_id?: string
+          p_source_table?: string
+        }
+        Returns: string
+      }
       create_payment_order: {
         Args: {
           p_allocations: Json
@@ -2716,6 +2876,10 @@ export type Database = {
           p_description: string
           p_event_date: string
         }
+        Returns: string
+      }
+      find_account_by_role: {
+        Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
         Returns: string
       }
       find_orphan_files: {
