@@ -4,8 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { runAction } from "@/lib/query/run-action";
 
-import { getLedgerAction } from "../actions/libro-mayor-actions";
+import {
+  LEDGER_MAX_ROWS,
+  getLedgerAction,
+} from "../actions/libro-mayor-actions";
 import { libroMayorKeys } from "../lib/libro-mayor-keys";
+
+export { LEDGER_MAX_ROWS };
 
 export function useLedger(
   accountId: string | null,
