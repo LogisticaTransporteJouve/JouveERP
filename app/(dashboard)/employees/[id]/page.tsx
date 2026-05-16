@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { getEmployeeByIdAction } from "@/features/hr/actions/employees-actions";
 import { EditEmployeeDialog } from "@/features/hr/components/edit-employee-dialog";
+import { EmployeeVacationsCard } from "@/features/hr/components/employee-vacations-card";
 import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-employee-dialog";
 import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
@@ -140,6 +141,16 @@ export default async function EmployeeDetailPage({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Vacaciones y licencias</h2>
+        <div className="mt-3">
+          <EmployeeVacationsCard
+            employeeId={employee.id}
+            actorRoles={ctx.roles}
+          />
+        </div>
+      </div>
     </div>
   );
 }

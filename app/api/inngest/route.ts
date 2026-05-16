@@ -5,6 +5,7 @@ import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary
 import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
+import { vacationBalancesGrant } from "@/lib/inngest/functions/vacation-balances-grant";
 
 /**
  * Inngest webhook endpoint. The dev runtime (`inngest-cli dev`) and the
@@ -21,5 +22,6 @@ export const { GET, POST, PUT } = serve({
     agingWeeklySummary,
     notificationsDispatch,
     filesSweepOrphans,
+    vacationBalancesGrant,
   ],
 });
