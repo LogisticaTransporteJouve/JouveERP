@@ -4,11 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { runAction } from "@/lib/query/run-action";
 
-import {
-  LEDGER_MAX_ROWS,
-  getLedgerAction,
-} from "../actions/libro-mayor-actions";
+import { getLedgerAction } from "../actions/libro-mayor-actions";
 import { libroMayorKeys } from "../lib/libro-mayor-keys";
+import { LEDGER_MAX_ROWS } from "../lib/libro-mayor-pagination";
 
 export { LEDGER_MAX_ROWS };
 

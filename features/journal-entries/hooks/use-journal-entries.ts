@@ -5,11 +5,9 @@ import { useMemo } from "react";
 
 import { runAction } from "@/lib/query/run-action";
 
-import {
-  JOURNAL_PAGE_SIZE,
-  listJournalEntriesAction,
-} from "../actions/journal-entries-actions";
+import { listJournalEntriesAction } from "../actions/journal-entries-actions";
 import { journalEntriesKeys } from "../lib/journal-entries-keys";
+import { JOURNAL_PAGE_SIZE } from "../lib/journal-pagination";
 import type { JournalEntryWithLines, JournalFilters } from "../schema";
 
 export { JOURNAL_PAGE_SIZE };

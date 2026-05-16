@@ -76,9 +76,16 @@ const RECEIPT_COLUMNS =
 // Reads
 // ---------------------------------------------------------------------------
 
-export async function listReceiptsAction(): Promise<
+export async function listReceiptsAction(input?: {
+  offset?: number;
+  limit?: number;
+  query?: string | null;
+  status?: "issued" | "canceled" | null;
+  channelId?: string | null;
+}): Promise<
   ActionResult<{
-    receipts: (Receipt & { client_legal_name: string })[];
+    items: (Receipt & { client_legal_name: string })[];
+    nextOffset: number | null;
   }>
 > {
   const ctx = await requireUserContext();
@@ -86,19 +93,33 @@ export async function listReceiptsAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
+  const offset = input?.offset ?? 0;
+  const limit = input?.limit ?? 50;
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("receipts")
     .select(`${RECEIPT_COLUMNS}, clients ( legal_name )`)
     .order("receipt_date", { ascending: false })
-    .order("numero", { ascending: false });
+    .order("numero", { ascending: false })
+    .range(offset, offset + limit - 1);
 
+  if (input?.status) query = query.eq("status", input.status);
+  if (input?.channelId) query = query.eq("channel_id", input.channelId);
+  if (input?.query?.trim()) {
+    // Búsqueda por numero exact (no fulltext acá; el ⌘K global cubre eso).
+    const n = Number(input.query.trim());
+    if (Number.isFinite(n)) {
+      query = query.eq("numero", n);
+    }
+  }
+
+  const { data, error } = await query;
   if (error) {
     logger.error("receipts.list.failed", { error });
     return { ok: false, error: "No se pudieron listar los recibos." };
   }
 
-  const receipts = (data ?? [])
+  const items = (data ?? [])
     .map((row) => {
       const narrowed = narrowReceipt(row);
       if (!narrowed) return null;
@@ -110,12 +131,13 @@ export async function listReceiptsAction(): Promise<
       };
     })
     .filter(
-      (
-        r,
-      ): r is Receipt & { client_legal_name: string } => r !== null,
+      (r): r is Receipt & { client_legal_name: string } => r !== null,
     );
 
-  return { ok: true, data: { receipts } };
+  return {
+    ok: true,
+    data: { items, nextOffset: items.length === limit ? offset + limit : null },
+  };
 }
 
 /** Cheque metadata indexed by source_payment_line_id, so the receipt

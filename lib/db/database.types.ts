@@ -2857,6 +2857,24 @@ export type Database = {
           },
         ]
       }
+      search_index_state: {
+        Row: {
+          dirty: boolean
+          id: number
+          last_refreshed: string
+        }
+        Insert: {
+          dirty?: boolean
+          id?: number
+          last_refreshed?: string
+        }
+        Update: {
+          dirty?: boolean
+          id?: number
+          last_refreshed?: string
+        }
+        Relationships: []
+      }
       supplier_categories: {
         Row: {
           created_at: string
@@ -4054,6 +4072,7 @@ export type Database = {
         Returns: string
       }
       refresh_search_index: { Args: never; Returns: undefined }
+      refresh_search_index_if_dirty: { Args: never; Returns: boolean }
       reject_check: {
         Args: {
           p_account_id: string

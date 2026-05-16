@@ -11,16 +11,12 @@ import {
   type JournalFilters,
 } from "../schema";
 
-export type ActionResult<T = void> =
+import { JOURNAL_PAGE_SIZE } from "../lib/journal-pagination";
+import type { JournalPage } from "../lib/journal-pagination";
+
+type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
-
-export const JOURNAL_PAGE_SIZE = 50;
-
-export type JournalPage = {
-  items: JournalEntryWithLines[];
-  nextOffset: number | null;
-};
 
 export async function listJournalEntriesAction(
   filters: JournalFilters & { offset?: number; limit?: number },

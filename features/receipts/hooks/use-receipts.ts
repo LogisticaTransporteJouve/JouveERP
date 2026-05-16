@@ -26,7 +26,7 @@ import { receiptsKeys } from "../lib/receipts-keys";
 export function useReceiptsList() {
   return useSuspenseQuery({
     queryKey: receiptsKeys.list(),
-    queryFn: () => runAction(() => listReceiptsAction()),
+    queryFn: () => runAction(() => listReceiptsAction({ limit: 100 })),
   });
 }
 

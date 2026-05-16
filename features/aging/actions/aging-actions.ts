@@ -52,7 +52,8 @@ export async function getAgingSummaryAction(): Promise<
     .select(
       "client_id, bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus, total_open, document_count, oldest_days, clients!inner(legal_name, display_name, cuit)",
     )
-    .order("total_open", { ascending: false });
+    .order("total_open", { ascending: false })
+    .limit(500);
 
   if (error) {
     logger.error("aging.summary.failed", { error });

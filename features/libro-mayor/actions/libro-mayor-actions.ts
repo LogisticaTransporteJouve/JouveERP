@@ -6,21 +6,14 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 import type { LedgerRow } from "../schema";
+import {
+  LEDGER_MAX_ROWS,
+  type LedgerResult,
+} from "../lib/libro-mayor-pagination";
 
-export type ActionResult<T = void> =
+type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
-
-// Cap pragmático: 1000 movimientos. Si una cuenta tiene más, el usuario
-// debe filtrar por rango de fechas. No usamos paginación real porque el
-// `running` se calcula desde el inicio del rango y partirlo perdería el
-// saldo acumulado.
-export const LEDGER_MAX_ROWS = 1000;
-
-export type LedgerResult = {
-  rows: LedgerRow[];
-  truncated: boolean;
-};
 
 export async function getLedgerAction(input: {
   accountId: string;

@@ -54,7 +54,8 @@ export function ReceiptsTable({
 }) {
   const { data } = useReceiptsList();
   const { data: accounts } = useAccountsList();
-  const receipts = data.receipts;
+  const receipts = data.items;
+  const truncated = data.nextOffset !== null;
   const canWrite = userCan(actorRoles, "receipts:write");
   const canSendEmail = userCan(actorRoles, "email:send");
 
@@ -72,6 +73,13 @@ export function ReceiptsTable({
       {canWrite && (
         <div className="flex justify-end">
           <NewReceiptDialog channels={channels} accounts={accounts} />
+        </div>
+      )}
+
+      {truncated && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          ⚠ Mostrando los 100 recibos más recientes. Usá búsqueda global (⌘K)
+          para encontrar uno específico.
         </div>
       )}
 

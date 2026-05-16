@@ -53,7 +53,8 @@ export function PaymentOrdersTable({
 }) {
   const { data } = usePaymentOrdersList();
   const { data: accounts } = useAccountsList();
-  const paymentOrders = data.paymentOrders;
+  const paymentOrders = data.items;
+  const truncated = data.nextOffset !== null;
   const canWrite = userCan(actorRoles, "payment_orders:write");
 
   useRealtimeInvalidate([
@@ -68,6 +69,13 @@ export function PaymentOrdersTable({
       {canWrite && (
         <div className="flex justify-end">
           <NewPaymentOrderDialog channels={channels} accounts={accounts} />
+        </div>
+      )}
+
+      {truncated && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          ⚠ Mostrando las 100 órdenes más recientes. Usá búsqueda global (⌘K)
+          para encontrar una específica.
         </div>
       )}
 
