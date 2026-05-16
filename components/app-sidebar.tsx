@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BookCheck,
+  BookOpen,
   ChevronRight,
   CreditCard,
   FileText,
@@ -107,6 +108,7 @@ const navSections: NavSection[] = [
     label: "Contabilidad",
     items: [
       { href: "/accounting/chart", label: "Plan de cuentas", icon: ListTree, permission: "accounting:read" },
+      { href: "/accounting/journal", label: "Libro diario", icon: BookOpen, permission: "accounting:read" },
     ],
   },
   {
