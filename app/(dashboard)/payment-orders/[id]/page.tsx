@@ -1,7 +1,9 @@
+import { FileDown } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -98,6 +100,16 @@ export default async function PaymentOrderDetailPage({
             )}
           </p>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={`/api/payment-orders/${paymentOrder.id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <FileDown />
+            PDF
+          </a>
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

@@ -92,6 +92,7 @@ export type SearchSuppliersInput = {
   onlyActive?: boolean;
   offset?: number;
   limit?: number;
+  categoryId?: string | null;
 };
 
 export type SearchSuppliersPage = {
@@ -116,6 +117,7 @@ export async function searchSuppliersAction(
     p_only_active: input.onlyActive ?? true,
     p_offset: offset,
     p_limit: limit + 1,
+    p_category_id: input.categoryId ?? undefined,
   });
 
   if (error) {
@@ -214,6 +216,9 @@ export async function createSupplierAction(
       address: parsed.data.address ?? null,
       real_address: parsed.data.real_address ?? null,
       notes: parsed.data.notes ?? null,
+      default_channel_id: parsed.data.default_channel_id ?? null,
+      default_payment_term_days: parsed.data.default_payment_term_days ?? null,
+      category_id: parsed.data.category_id ?? null,
       created_by: ctx.userId,
     })
     .select("id")
@@ -271,6 +276,15 @@ export async function updateSupplierAction(
         real_address: rest.real_address ?? null,
       }),
       ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
+      ...(rest.default_channel_id !== undefined && {
+        default_channel_id: rest.default_channel_id ?? null,
+      }),
+      ...(rest.default_payment_term_days !== undefined && {
+        default_payment_term_days: rest.default_payment_term_days ?? null,
+      }),
+      ...(rest.category_id !== undefined && {
+        category_id: rest.category_id ?? null,
+      }),
     })
     .eq("id", id);
 

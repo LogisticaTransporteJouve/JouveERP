@@ -26,10 +26,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
   SupplierPicker,
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
+import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
 
 import {
   usePurchaseInvoiceByIdOptional,
@@ -260,6 +262,85 @@ export function PurchaseInvoiceForm({
     }
   }, [watchedNeto, watchedIva, watchedTrib, form]);
 
+  // K.12 Part A — Pre-fill desde defaults del supplier (solo create + campos
+  // vacíos). En edit no tocamos nada para no machear data ya cargada.
+  const supplierDetailQuery = useSupplierByIdOptional(
+    mode === "create" ? watchedSupplierId : null,
+  );
+  const supplierDetail = supplierDetailQuery.data ?? null;
+
+  useEffect(() => {
+    if (mode !== "create" || !supplierDetail) return;
+    // Canal: pre-fill solo si el form todavía tiene el canal default-from-scope
+    // y el supplier tiene uno guardado.
+    if (
+      supplierDetail.default_channel_id &&
+      form.getValues("channel_id") === defaultChannelId &&
+      supplierDetail.default_channel_id !== defaultChannelId
+    ) {
+      form.setValue("channel_id", supplierDetail.default_channel_id, {
+        shouldDirty: false,
+      });
+    }
+    // fch_vto_pago: pre-fill solo si está vacío y hay fecha y supplier tiene
+    // días default.
+    const fchVtoPago = form.getValues("fch_vto_pago");
+    const fecha = form.getValues("fecha");
+    if (
+      !fchVtoPago &&
+      fecha &&
+      supplierDetail.default_payment_term_days != null
+    ) {
+      const d = new Date(fecha + "T00:00:00");
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + supplierDetail.default_payment_term_days);
+        const iso = d.toISOString().slice(0, 10);
+        form.setValue("fch_vto_pago", iso, { shouldDirty: false });
+      }
+    }
+  }, [mode, supplierDetail, defaultChannelId, form]);
+
+  // K.12 Part C — Internal expense auto-numero. Cuando el canal es interno
+  // y el supplier está pickeado, traer el próximo numero para ese par. Solo
+  // en mode=create y solo si el campo numero está vacío.
+  const watchedChannelId = form.watch("channel_id");
+  const watchedChannelIsFiscal =
+    activeChannels.find((c) => c.id === watchedChannelId)?.is_fiscal ?? true;
+  const isInternalChannel = !watchedChannelIsFiscal;
+
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (!isInternalChannel) return;
+    if (!watchedSupplierId || !watchedChannelId) return;
+    if (form.getValues("numero")) return; // ya tipeó algo
+
+    let cancelled = false;
+    (async () => {
+      const supabase = createBrowserClient();
+      const { data, error } = await supabase.rpc(
+        "next_internal_purchase_numero",
+        {
+          p_channel_id: watchedChannelId,
+          p_supplier_id: watchedSupplierId,
+        },
+      );
+      if (cancelled || error || data == null) return;
+      form.setValue("numero", String(data), { shouldDirty: false });
+      if (!form.getValues("punto_venta")) {
+        form.setValue("punto_venta", "1", { shouldDirty: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    mode,
+    isInternalChannel,
+    watchedSupplierId,
+    watchedChannelId,
+    form,
+  ]);
+
   function onSubmit(values: FormValues) {
     if (!values.supplier) {
       toast.error("Seleccioná un proveedor.");
@@ -293,11 +374,16 @@ export function PurchaseInvoiceForm({
         ? []
         : undefined;
 
+    // Si el canal es interno, forzamos letter/CAE a null incluso si el form
+    // quedó con valores (ej: cambiaste canal después de tipear).
+    const isInternal = !activeChannels.find((c) => c.id === values.channel_id)
+      ?.is_fiscal;
+
     const payload = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
       kind: values.kind,
-      letter: values.letter === "" ? null : values.letter,
+      letter: isInternal ? null : values.letter === "" ? null : values.letter,
       punto_venta: Number(values.punto_venta),
       numero: Number(values.numero),
       fecha: values.fecha,
@@ -308,8 +394,8 @@ export function PurchaseInvoiceForm({
       imp_total: Number(values.imp_total),
       moneda: values.moneda,
       cotizacion: Number(values.cotizacion || 1),
-      cae_proveedor: values.cae_proveedor || null,
-      cae_vto_proveedor: values.cae_vto_proveedor || null,
+      cae_proveedor: isInternal ? null : values.cae_proveedor || null,
+      cae_vto_proveedor: isInternal ? null : values.cae_vto_proveedor || null,
       invoice_origin_id:
         values.kind === "factura" ? null : values.origin_invoice?.id ?? null,
       motivo_nc_nd: values.motivo_nc_nd || null,
@@ -418,35 +504,45 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-4">
-          <FormField
-            control={form.control}
-            name="letter"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Letra</FormLabel>
-                <FormControl>
-                  <Select
-                    value={field.value || "__none"}
-                    onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none">— Sin letra</SelectItem>
-                      {PURCHASE_INVOICE_LETTERS.map((l) => (
-                        <SelectItem key={l} value={l}>
-                          {l}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {isInternalChannel && (
+          <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <strong className="font-medium text-foreground">Gasto interno.</strong>{" "}
+            Sin letra fiscal ni CAE. Número auto-asignado por proveedor.
+            Pagable con OP interna; no va al libro IVA Compras.
+          </div>
+        )}
+
+        <div className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+          {!isInternalChannel && (
+            <FormField
+              control={form.control}
+              name="letter"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Letra</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value || "__none"}
+                      onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">— Sin letra</SelectItem>
+                        {PURCHASE_INVOICE_LETTERS.map((l) => (
+                          <SelectItem key={l} value={l}>
+                            {l}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             control={form.control}
             name="punto_venta"
@@ -715,42 +811,44 @@ export function PurchaseInvoiceForm({
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="cae_proveedor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CAE proveedor (opcional)</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="14 dígitos"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="cae_vto_proveedor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Vto. CAE proveedor</FormLabel>
-                <FormControl>
-                  <DatePicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    clearable
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {!isInternalChannel && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="cae_proveedor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CAE proveedor (opcional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      autoComplete="off"
+                      placeholder="14 dígitos"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="cae_vto_proveedor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vto. CAE proveedor</FormLabel>
+                  <FormControl>
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      clearable
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         {isNcOrNd && (
           <div className="space-y-4 rounded-md border border-dashed bg-muted/20 p-4">

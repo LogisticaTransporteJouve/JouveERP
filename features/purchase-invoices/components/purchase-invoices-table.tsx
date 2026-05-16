@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useScope } from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -52,13 +53,18 @@ export function PurchaseInvoicesTable({
   actorRoles,
   initialQuery,
   initialStatus,
+  initialFiscalFilter,
 }: {
   actorRoles: Role[];
   initialQuery: string;
   initialStatus: string | null;
+  initialFiscalFilter?: string | null;
 }) {
   const [queryInput, setQueryInput] = useState(initialQuery);
   const [status, setStatus] = useState<string | null>(initialStatus);
+  const [fiscalFilter, setFiscalFilter] = useState<string>(
+    initialFiscalFilter ?? "all",
+  );
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const setUrlFilters = useUrlFilter();
@@ -66,16 +72,29 @@ export function PurchaseInvoicesTable({
   const canWrite = userCan(actorRoles, "purchase_invoices:write");
   const canCancel = userCan(actorRoles, "purchase_invoices:cancel");
 
+  const { channels } = useScope();
+  const channelsById = Object.fromEntries(
+    channels.map((c) => [c.id, c]),
+  );
+
   useEffect(() => {
     setUrlFilters({
       q: debouncedQuery || null,
       status: status ?? null,
+      type: fiscalFilter === "all" ? null : fiscalFilter,
     });
-  }, [debouncedQuery, status, setUrlFilters]);
+  }, [debouncedQuery, status, fiscalFilter, setUrlFilters]);
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
   }
+
+  const isFiscalParam =
+    fiscalFilter === "fiscal"
+      ? true
+      : fiscalFilter === "internal"
+        ? false
+        : null;
 
   const filters: PurchaseInvoicesFilters = {
     query: debouncedQuery,
@@ -84,6 +103,7 @@ export function PurchaseInvoicesTable({
     status,
     fechaFrom: null,
     fechaTo: null,
+    isFiscal: isFiscalParam,
   };
   const deferredFilters = useDeferredValue(filters);
 
@@ -112,6 +132,16 @@ export function PurchaseInvoicesTable({
             ))}
           </SelectContent>
         </Select>
+        <Select value={fiscalFilter} onValueChange={setFiscalFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="fiscal">Solo fiscales</SelectItem>
+            <SelectItem value="internal">Solo internas</SelectItem>
+          </SelectContent>
+        </Select>
         {canWrite && (
           <div className="ml-auto">
             <NewPurchaseInvoiceDialog />
@@ -125,6 +155,7 @@ export function PurchaseInvoicesTable({
             <TableRow>
               <TableHead>Comprobante</TableHead>
               <TableHead>Proveedor</TableHead>
+              <TableHead className="w-20">Tipo</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead>Estado</TableHead>
@@ -136,6 +167,7 @@ export function PurchaseInvoicesTable({
               filters={deferredFilters}
               canWrite={canWrite}
               canCancel={canCancel}
+              channelsById={channelsById}
             />
           </Suspense>
         </Table>
@@ -148,10 +180,12 @@ function PurchaseInvoicesRows({
   filters,
   canWrite,
   canCancel,
+  channelsById,
 }: {
   filters: PurchaseInvoicesFilters;
   canWrite: boolean;
   canCancel: boolean;
+  channelsById: Record<string, { is_fiscal: boolean; name: string } | undefined>;
 }) {
   const {
     items,
@@ -172,7 +206,7 @@ function PurchaseInvoicesRows({
       <TableBody>
         <TableRow>
           <TableCell
-            colSpan={6}
+            colSpan={7}
             className="py-10 text-center text-sm text-muted-foreground"
           >
             No hay facturas que coincidan.
@@ -207,6 +241,17 @@ function PurchaseInvoicesRows({
             <div className="font-mono text-xs text-muted-foreground">
               CUIT {inv.supplier_cuit}
             </div>
+          </TableCell>
+          <TableCell>
+            {channelsById[inv.channel_id]?.is_fiscal === false ? (
+              <Badge variant="outline" className="text-xs">
+                Interno
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">
+                Fiscal
+              </Badge>
+            )}
           </TableCell>
           <TableCell className="text-sm text-muted-foreground">
             {formatArgentineDate(inv.fecha)}
@@ -250,7 +295,7 @@ function PurchaseInvoicesRows({
       {hasNextPage && (
         <TableRow ref={sentinelRef}>
           <TableCell
-            colSpan={6}
+            colSpan={7}
             className="py-3 text-center text-xs text-muted-foreground"
           >
             {isFetchingNextPage ? "Cargando más…" : ""}
@@ -266,7 +311,7 @@ function PurchaseInvoicesSkeletonRows() {
     <TableBody>
       {Array.from({ length: 6 }).map((_, i) => (
         <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
+          {Array.from({ length: 7 }).map((__, j) => (
             <TableCell key={j}>
               <Skeleton className="h-4 w-full" />
             </TableCell>

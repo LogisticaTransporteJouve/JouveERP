@@ -10,6 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   getPurchaseInvoiceAllocationsAction,
   getPurchaseInvoiceByIdAction,
@@ -24,6 +25,7 @@ import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,14 @@ export default async function PurchaseInvoiceDetailPage({
   const invoice = invRes.data;
   const allocations = allocRes.ok ? allocRes.data : [];
   const items = itemsRes.ok ? itemsRes.data : [];
+
+  const supabase = await createClient();
+  const { data: channelRow } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_fiscal")
+    .eq("id", invoice.channel_id)
+    .maybeSingle();
+  const isInternal = channelRow?.is_fiscal === false;
 
   const number = formatInvoiceNumber(invoice);
   const isCancelled = invoice.status === "cancelled";
@@ -86,6 +96,14 @@ export default async function PurchaseInvoiceDetailPage({
           </h1>
           <p className="text-sm text-muted-foreground">
             {formatArgentineDate(invoice.fecha)}
+            {channelRow && (
+              <Badge
+                variant={isInternal ? "outline" : "secondary"}
+                className="ml-2 text-xs"
+              >
+                {isInternal ? "Gasto interno" : channelRow.name}
+              </Badge>
+            )}
             {isCancelled && (
               <Badge
                 variant="secondary"
@@ -279,6 +297,21 @@ export default async function PurchaseInvoiceDetailPage({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Adjuntos</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Factura del proveedor, remito, otros documentos.
+        </p>
+        <div className="mt-3">
+          <AttachmentsZone
+            targetType="purchase_invoice"
+            targetId={invoice.id}
+            canWrite={userCan(ctx.roles, "files:write") && !isCancelled}
+            canDelete={userCan(ctx.roles, "files:write")}
+          />
+        </div>
+      </div>
     </div>
   );
 }

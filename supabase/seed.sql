@@ -1,13 +1,51 @@
 -- Dev seed data, runs after migrations during `supabase db reset`.
 --
--- Auth users + role grants are NOT seeded here because they require the
--- supabase admin API. Run `pnpm seed:dev` after `db reset` to recreate the
--- dev user with the owner role.
+-- Auth users + role grants are NOT seeded here (they need the admin API).
+-- Run `pnpm seed:all` after `db reset` to:
+--   * create the dev user with owner role
+--   * import the AFIP comprobantes (clients/suppliers + sales/purchase invoices)
+--   * synthesize operational data (receipts, OPs, checks, transfers, openings)
 --
--- Clients are seeded from a real Libro de IVA snapshot deduped by CUIT.
--- iva_condition is set to 'responsable_inscripto' as a placeholder — open
--- any client and click "Verificar AFIP" to refresh from padrón A4.
+-- This file only holds *static* base data (channels were seeded by the
+-- migration that created them; accounts, sales points, and a small
+-- starter clients/suppliers set live here so an empty `db reset` still
+-- boots into a usable UI).
 
+------------------------------------------------------------------------------
+-- 1. Sales points (AFIP POS).
+--    Mapping from the user's memory: 00003 jouve_fiscal · 00004 dz_fiscal.
+--    POS 1 and 2 are the conventional "internal" PVs used by recibos /
+--    OPs / comprobantes internos so the per-channel correlativo has a
+--    home.
+------------------------------------------------------------------------------
+insert into public.sales_points (numero, channel_id, nickname, is_enabled) values
+  (1,    'jouve_internal', 'Interno Jouve',           true),
+  (2,    'dz_internal',    'Interno DZ Instalaciones', true),
+  (3,    'jouve_fiscal',   'Jouve Fiscal',            true),
+  (4,    'dz_fiscal',      'DZ Instalaciones Fiscal',  true)
+on conflict (numero) do nothing;
+
+------------------------------------------------------------------------------
+-- 2. Caja accounts (D.1). Canonical list used by Recibos (F.3) and OPs
+--    (K.3) so payment-method pickers have stable defaults from day one.
+------------------------------------------------------------------------------
+insert into public.accounts (name, type, currency) values
+  ('Caja General',                 'cash',    'ARS'),
+  ('Caja Cambio',                  'cash',    'ARS'),
+  ('Caja USD',                     'cash',    'USD'),
+  ('Cheques físicos en cartera',   'checks',  'ARS'),
+  ('Cheques electrónicos (e-cheq)','echeq',   'ARS'),
+  ('Banco Galicia',                'bank',    'ARS'),
+  ('Banco Provincia',              'bank',    'ARS'),
+  ('Banco Macro',                  'bank',    'ARS'),
+  ('Banco Nación',                 'bank',    'ARS'),
+  ('Banco Santander USD',          'bank',    'USD'),
+  ('Mercado Pago',                 'wallet',  'ARS')
+on conflict do nothing;
+
+------------------------------------------------------------------------------
+-- 3. Starter clients (small handful — bulk import happens via seed:all).
+------------------------------------------------------------------------------
 insert into public.clients (cuit, legal_name, iva_condition) values
   ('30718543866', 'PALLET SIRANS S.R.L.',                                 'responsable_inscripto'),
   ('30621884634', 'OSCAR DIOJTAR S A',                                    'responsable_inscripto'),
@@ -40,17 +78,3 @@ insert into public.clients (cuit, legal_name, iva_condition) values
   ('30546741253', 'OSDE ORGANIZACION DE SERVICIOS DIRECTOS',              'responsable_inscripto'),
   ('20309192916', 'VIOLA, VICTOR ABELARDO',                               'responsable_inscripto')
 on conflict (cuit) do nothing;
-
--- Caja accounts (D.1). Pre-seeded with the canonical list used by the
--- business so Recibos (F.3) has somewhere to credit payments out of the box.
-insert into public.accounts (name, type, currency) values
-  ('Caja General',                 'cash',    'ARS'),
-  ('Caja Cambio',                  'cash',    'ARS'),
-  ('Cheques físicos en cartera',   'checks',  'ARS'),
-  ('Cheques electrónicos (e-cheq)','echeq',   'ARS'),
-  ('Banco Galicia',                'bank',    'ARS'),
-  ('Banco Provincia',              'bank',    'ARS'),
-  ('Banco Macro',                  'bank',    'ARS'),
-  ('Mercado Pago',                 'wallet',  'ARS'),
-  ('Banco Nación',                 'bank',    'ARS')
-on conflict do nothing;

@@ -687,6 +687,104 @@ export type Database = {
         }
         Relationships: []
       }
+      file_attachments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_id: string
+          id: string
+          kind: string
+          purchase_invoice_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_id: string
+          id?: string
+          kind: string
+          purchase_invoice_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_id?: string
+          id?: string
+          kind?: string
+          purchase_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "v_file_attachments_resolved"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          bucket: string
+          bucket_path: string
+          created_at: string
+          file_size: number | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          original_filename: string
+          quick_ocr: string | null
+          source: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket?: string
+          bucket_path: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          original_filename: string
+          quick_ocr?: string | null
+          source: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          bucket_path?: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          original_filename?: string
+          quick_ocr?: string | null
+          source?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -1797,6 +1895,33 @@ export type Database = {
           },
         ]
       }
+      supplier_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       supplier_opening_balance_allocations: {
         Row: {
           amount_applied: number
@@ -1891,9 +2016,12 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           cuit: string
+          default_channel_id: string | null
+          default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string
@@ -1907,9 +2035,12 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           cuit: string
+          default_channel_id?: string | null
+          default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -1923,9 +2054,12 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           cuit?: string
+          default_channel_id?: string | null
+          default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -1937,7 +2071,22 @@ export type Database = {
           real_address?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_channel_id_fkey"
+            columns: ["default_channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
@@ -2208,6 +2357,39 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_file_attachments_resolved: {
+        Row: {
+          attached_at: string | null
+          attachment_id: string | null
+          bucket: string | null
+          bucket_path: string | null
+          created_by: string | null
+          file_id: string | null
+          file_size: number | null
+          kind: string | null
+          mime_type: string | null
+          original_filename: string | null
+          quick_ocr: string | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
           },
         ]
       }
@@ -2483,6 +2665,14 @@ export type Database = {
         }
         Returns: string
       }
+      find_orphan_files: {
+        Args: { p_max_age?: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+          id: string
+        }[]
+      }
       get_my_notification_settings: {
         Args: never
         Returns: {
@@ -2544,6 +2734,10 @@ export type Database = {
       mark_chat_channel_read: {
         Args: { p_channel: string }
         Returns: undefined
+      }
+      next_internal_purchase_numero: {
+        Args: { p_channel_id: string; p_supplier_id: string }
+        Returns: number
       }
       notification_type_enabled: {
         Args: { p_type: string; p_user_id: string }
@@ -2621,6 +2815,7 @@ export type Database = {
           p_exclude_id?: string
           p_fecha_from?: string
           p_fecha_to?: string
+          p_is_fiscal?: boolean
           p_kind?: string
           p_limit?: number
           p_offset?: number
@@ -2661,6 +2856,7 @@ export type Database = {
       }
       search_suppliers: {
         Args: {
+          p_category_id?: string
           p_limit?: number
           p_offset?: number
           p_only_active?: boolean
@@ -2668,9 +2864,12 @@ export type Database = {
         }
         Returns: {
           address: string | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           cuit: string
+          default_channel_id: string | null
+          default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string

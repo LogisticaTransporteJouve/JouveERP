@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function PurchasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; type?: string }>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:read")) {
@@ -27,6 +27,14 @@ export default async function PurchasesPage({
   const params = await searchParams;
   const initialQuery = (params.q ?? "").trim();
   const initialStatus = params.status ?? null;
+  const initialFiscalFilter =
+    params.type === "fiscal" || params.type === "internal" ? params.type : null;
+  const isFiscalParam =
+    initialFiscalFilter === "fiscal"
+      ? true
+      : initialFiscalFilter === "internal"
+        ? false
+        : null;
 
   const filters = {
     query: initialQuery,
@@ -35,6 +43,7 @@ export default async function PurchasesPage({
     status: initialStatus,
     fechaFrom: null,
     fechaTo: null,
+    isFiscal: isFiscalParam,
   };
 
   const dehydratedState = await prefetchQueries([
@@ -50,6 +59,7 @@ export default async function PurchasesPage({
             status: filters.status,
             fechaFrom: filters.fechaFrom,
             fechaTo: filters.fechaTo,
+            isFiscal: filters.isFiscal,
             offset: pageParam,
             limit: PURCHASE_INVOICES_PAGE_SIZE,
           }),
@@ -65,7 +75,8 @@ export default async function PurchasesPage({
           Facturas de compra
         </h1>
         <p className="text-sm text-muted-foreground">
-          Facturas, notas de crédito y débito recibidas de proveedores.
+          Facturas, notas de crédito y débito recibidas de proveedores +
+          gastos internos sin factura formal.
         </p>
       </div>
       <Hydrate state={dehydratedState}>
@@ -73,6 +84,7 @@ export default async function PurchasesPage({
           actorRoles={ctx.roles}
           initialQuery={initialQuery}
           initialStatus={initialStatus}
+          initialFiscalFilter={initialFiscalFilter}
         />
       </Hydrate>
     </div>

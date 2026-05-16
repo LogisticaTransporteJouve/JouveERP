@@ -2,6 +2,7 @@ import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
 import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary";
+import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
 
@@ -15,5 +16,10 @@ import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dis
  */
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [issueInvoice, agingWeeklySummary, notificationsDispatch],
+  functions: [
+    issueInvoice,
+    agingWeeklySummary,
+    notificationsDispatch,
+    filesSweepOrphans,
+  ],
 });

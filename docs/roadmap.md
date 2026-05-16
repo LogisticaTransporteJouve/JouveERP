@@ -295,7 +295,7 @@ Antes de inlinear state machines / effects / async flows en un componente,
 | K.6 | Issued checks (cheques propios) | ✅ PR #47 |
 | K.7 | OPs editables con cheques (RPC revierte endosos + borra issued_checks antes de reaplicar) | ⏳ PR #48 draft |
 
-**Falta para cerrar K** — ver §4.1: K.8, K.9, K.10, K.11. (K.4 descartado, decisión #18.)
+**Falta para cerrar K** — ver §4.1: K.8, K.9, K.10a/b/c, K.11. (K.4 descartado, decisión #18.)
 
 ### 3.3 En vuelo
 
@@ -325,10 +325,11 @@ Antes de inlinear state machines / effects / async flows en un componente,
 
 ### 4.1 Fase K — Cerrar Compras/Pagos (próximo, antes de L)
 
-> Para que la pata AP quede al nivel de la pata AR, faltan 4 sub-PRs:
+> Para que la pata AP quede al nivel de la pata AR, faltan 6 sub-PRs:
 > K.11 (bugfix NC origen), K.8 (items por línea, bloqueante para L.4),
-> K.9 (PDF), K.10 (adjuntos). K.4 (retenciones) **descartado** por la
-> decisión #18 — Jouve no es agente de retención ni de percepción.
+> K.9 (PDF), K.10a/b/c (subsistema files unificado, solo cableado a
+> purchases por ahora). K.4 (retenciones) **descartado** por la decisión
+> #18 — Jouve no es agente de retención ni de percepción.
 
 #### ~~K.4 — `feat: retenciones en OPs (agente de retención)`~~ ❌ descartado
 
@@ -396,24 +397,85 @@ Fix en 3 partes:
   retenciones discriminadas, totales, observaciones, firma.
 - Botón "Descargar PDF" en `/payment-orders/[id]`.
 
-#### K.10 — `feat: adjuntos a compras (storage polimorfo — purchases only)`
+#### K.10 — Subsistema files unificado (purchases-only wiring)
 
-- Bucket Supabase `purchase-attachments` con políticas: read finance/admin,
-  write finance/admin.
-- Tabla `purchase_invoice_attachments(id, purchase_invoice_id, file_path,
-  file_name, mime_type, size_bytes, uploaded_by, uploaded_at)`.
-- UI: drop zone en `/purchases/[id]` + preview inline de PDFs/imágenes,
-  download para otros tipos.
-- Sirve para guardar la factura del proveedor (PDF o foto) junto al
-  registro contable.
-- **Nota:** la generalización a cualquier entidad (comprobantes, OPs,
-  clientes, suppliers) entra en **M.4**. K.10 implementa solo purchases
-  porque es el caso más doloroso hoy (el contador siempre pide el PDF
-  de la factura que se asentó). Spec completo en
-  `docs/files-patterns.md`; OCR queda para Fase I.
+> **Re-escopeado 2026-05-16.** El plan original era un bucket dedicado
+> `purchase-attachments` + tabla `purchase_invoice_attachments`. Pasamos a
+> implementar el subsistema files completo (calcado del patrón validado en
+> `sumary copy`) y cablearlo solo a `purchase_invoices` por ahora. M.4 se
+> reduce a "sumar entidades atachables sobre la infra de K.10".
+>
+> **OCR diferido a Fase I.2.** La columna `files.quick_ocr` se crea en K.10a
+> y queda `null` hasta que llegue I.2 — el worker se suma sin migración.
+>
+> Spec completo en `docs/files-patterns.md`; deep-dive de implementación en
+> `docs/files-reference.md`.
 
-**PRs Fase K para cerrar: 4 (K.11 → K.8 → K.9 → K.10) + K.7 que ya está en
-PR #48.** ~1050 LOC totales.
+##### K.10a — `feat: files registry + file_attachments + bucket + RLS + orphan sweep`
+
+Solo backend + permisos, no toca UI. ~280 LOC.
+
+- Migración `files` (registry blob-only): `id, uploaded_by, original_filename,
+  mime_type, file_size, bucket, bucket_path, source, quick_ocr, metadata,
+  created_at` + checks (`bucket_whitelist`, `bucket_path_shape`).
+- Migración `file_attachments` (n:1): FK a `purchase_invoices` única por
+  ahora + check "exactly one target" (decisión cerrada: una FK por entidad,
+  cascade real). Vista `v_file_attachments_resolved`.
+- Migración bucket `files` (privado, 10MB, MIME whitelist:
+  PDF/PNG/JPG/JPEG/WebP/CSV/XLS/XLSX) + 3 storage policies que joinean
+  contra `public.files`.
+- RPC `find_orphan_files(p_max_age interval)` (service-role only).
+- Función Inngest `files-sweep-orphans` con cron diario 03:00 ART.
+- `lib/auth/permissions.ts` sumar `files:read|write|admin` + matriz.
+- Regenerar tipos.
+- Tests Vitest: matriz permisos + RLS smoke.
+
+##### K.10b — `feat: files lib + dropzone + preview`
+
+Helpers + UI primitives reusables, sin server actions. ~380 LOC.
+
+- `lib/files/storage-path.ts` — `buildStorageKey`, `getSafeExtension`.
+- `lib/files/file-association-utils.ts` — `deleteFileIfOrphaned`,
+  `deleteFileAttachmentsAndOrphanCheck`.
+- `lib/files/preview.ts` — type guards `isImage`, `isPdf`, `isSpreadsheet`.
+- `lib/files/mime-type-icons.ts` + `lib/files/format-file-size.ts` (port
+  desde sumary).
+- `components/file-upload/file-upload-utils.ts` — `ALLOWED_DOCUMENT_TYPES`,
+  `MAX_DOCUMENT_SIZE`, `validateFile`, presets.
+- `components/file-upload/FileDropzone.tsx` — port + `capture="environment"`
+  + `pointer-coarse:` variants (mobile camera ready desde día 1).
+- `components/file-preview/FilePreviewDialog.tsx` + `FilePreviewImage` +
+  `FilePreviewPdf` (`react-pdf` ya está como dep).
+- Tests Vitest: `buildStorageKey` con filenames raros, `validateFile`.
+
+##### K.10c — `feat: attach files to purchases`
+
+Server actions + hook + zona en `/purchases/[id]`. ~250 LOC.
+
+- `features/files/actions/upload.ts` — `uploadFileAction(formData)` con
+  rollback en cada paso del flow (spec §4.1).
+- `features/files/actions/sign.ts` — `getSignedFileUrlAction(fileId)` TTL
+  1h con `Content-Disposition: attachment`.
+- `features/files/actions/detach.ts` — `detachFileAction(attachmentId)`
+  con orphan check via helper de K.10b.
+- `features/files/actions/list.ts` — `listAttachmentsForPurchaseInvoice`.
+- Hooks `use-upload-file` + `use-attachments`.
+- `features/files/components/attachments-zone.tsx` — recibe
+  `{ targetType, targetId }`, renderiza dropzone + lista + preview + delete.
+- Wire en `app/(dashboard)/purchases/[id]/page.tsx`.
+- Realtime: sumar `file_attachments` a la publication + invalidar
+  `attachmentsKeys.byTarget` cross-user.
+- Playwright E2E: adjuntar PDF, listar, descargar, borrar.
+
+**Decisiones cerradas para K.10 (2026-05-16):**
+- D1 — Cablear solo `purchase_invoices`. Otras entidades en M.4.
+- D2 — Single-upload only. Bulk + página `/files` global cuando llegue I.2.
+- D3 — Sin compresión client-side de imágenes (sin caso hoy).
+- D4 — Captura mobile (`capture="environment"` + `pointer-coarse:`) sí
+  desde el día 1.
+
+**PRs Fase K para cerrar: 6 (K.11 → K.8 → K.9 → K.10a → K.10b → K.10c) +
+K.7 que ya está en PR #48.** ~1820 LOC totales.
 
 ---
 
@@ -583,6 +645,32 @@ Heredado de la vieja Fase J:
 - J.4 notificaciones ✅ (PR #44)
 - J.8 CITI + CAEA → **movido a L.6 y L.7** (responsabilidad contable)
 
+#### M.0 — `refactor: comprobantes PDF on-demand (drop invoices bucket)`
+
+> Decidido 2026-05-16 junto con K.10. Hoy los PDFs de comprobantes
+> emitidos se guardan en el bucket `invoices` (mig 20260509140000). El QR
+> AFIP es función pura de los datos (`comprobantes.cae` + campos del row),
+> así que regenerar produce el mismo QR escaneable. Tener una copia en
+> Storage no agrega validez fiscal — solo inmutabilidad visual (logo,
+> footer, layout). Para esa parte alcanza con un hash.
+
+- Endpoint `/api/invoices/[id]/pdf` que regenera desde `comprobantes` +
+  `comprobante_items` (template ya existe en `lib/pdf/`).
+- Reemplazar lecturas de `comprobantes.pdf_url` por llamada al endpoint.
+- Migración: dropear columna `comprobantes.pdf_url` (si existe), sumar
+  `pdf_hash text` opcional (SHA256 calculado y persistido el día de la
+  emisión — prueba criptográfica sin guardar bytes).
+- Trigger `BEFORE UPDATE` en `comprobantes` que rechaza updates a
+  `cae, cae_vencimiento, imp_total, nro_cmp` cuando `status = 'emitted'`
+  (blinda inmutabilidad post-CAE en la DB, no solo por convención).
+- Cron one-shot que borra el contenido del bucket `invoices` después de
+  smoke test de regeneración.
+- Migración final que dropea el bucket `invoices`.
+- Mantener inalterado el flow de emisión (E.4 `issueInvoice`) — solo
+  cambia qué se guarda al final (hash en vez de bytes).
+
+~150 LOC. Va antes que M.1, no bloquea nada.
+
 #### M.1 — `feat: backups automáticos + restore drill`
 
 - Cron Inngest diario: `pg_dump --schema-only` + `pg_dump --data-only`
@@ -613,15 +701,22 @@ Heredado de la vieja Fase J:
 - Atajo `⌘K` extendido (ya existe para chat en PR #44) que busca en
   todo y navega al detalle.
 
-#### M.4 — `feat: storage polimorfo (adjuntos a cualquier entidad)`
+#### M.4 — `feat: extender entidades atachables sobre infra K.10`
 
-- Generalización de **K.10** (purchase attachments) a cualquier entidad:
-  comprobantes, OPs, clientes, suppliers, transactions.
-- Tabla `attachments(id, entity_type text, entity_id uuid, file_path,
-  file_name, mime_type, size_bytes, uploaded_by, uploaded_at)`.
-- Componente reusable `<AttachmentZone entityType entityId />`.
-- Spec completo en `docs/files-patterns.md` (el motor de OCR queda para
-  Fase I.2, no entra acá).
+> Re-escopeado 2026-05-16. K.10 ya implementa el subsistema files
+> completo (registry + attachments + bucket + RLS + helpers + dropzone)
+> cableado solo a `purchase_invoices`. M.4 solo extiende.
+
+- Migración: sumar FKs a `file_attachments` (`comprobante_id`,
+  `receipt_id`, `payment_order_id`, `cheque_id`, `client_id`,
+  `supplier_id`, `transaction_id`) + rebuild del check "exactly one
+  target".
+- Wire del `<AttachmentsZone>` (ya existe desde K.10c) en cada detail
+  page: `/invoices/[id]`, `/receipts/[id]`, `/payment-orders/[id]`,
+  `/clients/[id]`, `/suppliers/[id]`, `/checks/[id]`,
+  `/transactions/[id]`.
+- Sumar cada FK al check del polimorfismo y al RLS storage.
+- OCR sigue diferido a Fase I.2.
 
 #### M.5 — `feat: aprobaciones de montos altos`
 
@@ -642,7 +737,7 @@ Heredado de la vieja Fase J:
 - Permite "self-service" para clientes Jouve grandes que piden estados
   mensuales por email hoy.
 
-**PRs Fase M: 6.** Paralelizables con L (son independientes).
+**PRs Fase M: 7** (M.0 + M.1–M.6). Paralelizables con L (son independientes).
 
 ---
 
@@ -690,18 +785,18 @@ que vive untracked en el repo hoy.
 ```
 HOY ────► PR #48 (cerrar K.7)
           ↓
-          K.11 → K.8 → K.9 → K.10             (cerrar K — 4 PRs, ~1050 LOC)
+          K.11 → K.8 → K.9 → K.10a → K.10b → K.10c  (cerrar K — 6 PRs, ~1820 LOC)
           ↓
-          L.1 → L.2 → L.3 → L.4 → L.5         (contabilidad core — 5 PRs)
+          L.1 → L.2 → L.3 → L.4 → L.5               (contabilidad core — 5 PRs)
           ↓
-          L.6 → L.7 → L.8 → L.9               (exports + ajustes — 4 PRs)
+          L.6 → L.7 → L.8 → L.9                     (exports + ajustes — 4 PRs)
           ↓
-          M.1 → M.2 → M.3 → M.4 → M.5 → M.6   (hardening — 6 PRs, paralelizables)
+          M.0 → M.1 → M.2 → M.3 → M.4 → M.5 → M.6   (hardening — 7 PRs, paralelizables)
           ↓
           G (7) → H (5) → I (7)
 ```
 
-**Total restante: ~38 PRs.** (4 K + 9 L + 6 M + 7 G + 5 H + 7 I.)
+**Total restante: ~41 PRs.** (6 K + 9 L + 7 M + 7 G + 5 H + 7 I.)
 
 ---
 

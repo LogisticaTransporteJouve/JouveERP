@@ -6,6 +6,14 @@
 > aplicar al stack actual (Next.js + Supabase Storage + Inngest + RLS) el
 > patrón validado de "blob registry + n:1 attachments + async OCR".
 
+> **Estado 2026-05-16.** K.10 implementa §1–§5 y §7–§10 (registry,
+> attachments, bucket, RLS, upload/sign/detach, dropzone, lista, cron de
+> huérfanos, permisos, tests) cableado solo a `purchase_invoices`. **§6
+> (Quick OCR) queda diferido a Fase I.2** — la columna `quick_ocr` se crea
+> en K.10a pero el worker se suma con la pata de IA, no antes. Spec de
+> M.4 = extender entidades atachables sobre esta misma infra (sumar FKs a
+> `file_attachments` + wire por feature).
+
 ---
 
 ## 0. Alcance
@@ -534,6 +542,14 @@ export const isSpreadsheet = (m?: string | null) =>
 
 ## 6. Procesamiento asíncrono (Inngest)
 
+> **Diferido a Fase I.2 (2026-05-16).** El subsistema files de K.10 NO
+> implementa OCR — solo crea la columna `quick_ocr` para que I.2 la llene
+> sin migración. Las secciones §6.1–§6.4 son la referencia para cuando
+> llegue I.2; al momento de codearlas, revisar si Inngest sigue siendo el
+> mejor transporte vs. `after()` + pool en server action (patrón usado en
+> `sumary copy`). La decisión se cierra cuando arranque I.1 (Vercel AI
+> SDK), no antes.
+
 ### 6.1 Evento
 
 ```ts
@@ -995,47 +1011,54 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
 
 ## 11. Plan de PRs sugerido (≤500 LOC c/u)
 
-1. **`feat: files table + RLS + permissions`** — migración 1 (tabla
-   `files`, indexes, RLS), update de `lib/auth/permissions.ts`, tests
-   de matriz.
-2. **`feat: file_attachments table + RLS + view`** — migración 2 (tabla
-   `file_attachments`, vista `v_file_attachments_resolved`, RLS, ampliar la
-   publication de realtime).
-3. **`feat: storage bucket + policies`** — migración 3 (bucket `files` con
-   limits y storage policies).
-4. **`feat: upload + sign + detach server actions`** — server actions,
-   helpers `lib/files/`, dropzone, hook, lista de adjuntos. Conectar a una
-   sola entidad para empezar (sugerencia: `invoices`).
-5. **`feat: quick OCR via Inngest`** — evento, función, engine de OCR,
-   ampliar `app/api/inngest/route.ts`.
-6. **`feat: orphan sweep cron`** — RPC + función Inngest con cron.
-7. **`feat: attachments on receipts/cheques/retentions`** — sumar las FKs a
-   `file_attachments` en una migración y wire del UI en cada feature.
+**K.10 — Subsistema files unificado (purchases-only wiring):**
 
-Cada PR cierra una unidad lógica con su test. La rama 7 puede partirse si
-crece.
+1. **K.10a `feat: files registry + file_attachments + bucket + RLS + orphan sweep`**
+   — migraciones 1-4 (`files`, `file_attachments` con FK única a
+   `purchase_invoices`, bucket `files`, RPC `find_orphan_files`),
+   publication realtime, `lib/auth/permissions.ts`
+   (`files:read|write|admin`), función Inngest `files-sweep-orphans` con
+   cron diario, tests RLS + matriz. ~280 LOC.
+2. **K.10b `feat: files lib + dropzone + preview`** — helpers
+   `lib/files/{storage-path,file-association-utils,preview,mime-type-icons,format-file-size}.ts`,
+   `components/file-upload/{FileDropzone,file-upload-utils}.tsx`
+   (port desde `sumary copy` + `capture="environment"` para mobile),
+   `components/file-preview/FilePreviewDialog.tsx`, tests Vitest.
+   ~380 LOC.
+3. **K.10c `feat: attach files to purchases`** — server actions
+   (`upload`, `sign`, `detach`, `list`), hooks (`use-upload-file`,
+   `use-attachments`), `<AttachmentsZone>` en
+   `features/files/components/`, wire en `/purchases/[id]`, realtime,
+   Playwright E2E. ~250 LOC.
+
+**Diferido:**
+
+- **Quick OCR** → Fase I.2 (depende de I.1 — Vercel AI SDK).
+- **Bulk upload + página `/files` global** → cuando llegue I.2 (sirve
+  para cargar masivamente y dejar que el matcher proponga
+  asociaciones).
+- **Extender entidades atachables** (comprobantes, OPs, recibos,
+  clientes, suppliers, transactions, cheques) → **M.4**: una migración
+  que suma las FKs + check rebuild, más wire del `<AttachmentsZone>` en
+  cada detail page.
 
 ---
 
-## 12. Decisiones que conviene cerrar antes de codear
+## 12. Decisiones cerradas (2026-05-16)
 
-1. **Bucket único `files` vs uno por dominio.** Default: único, gana
-   simplicidad. Bucket por dominio solo si hace falta lifecycle distinto
-   (ej. chat-attachments con TTL de 30 días).
-2. **¿Polimorfismo "una FK por target" vs `(target_type, target_id)`?**
-   Default: una FK por target. Cascade real, joins normales, ESLint y
-   tipos felices.
-3. **¿OCR síncrono o asíncrono?** Asíncrono (Inngest). El upload debe
-   responder rápido y el OCR puede tardar segundos (LLM call). UI muestra
-   "Procesando…" si `quick_ocr is null`.
-4. **¿Quién paga el LLM en OCR?** Cuenta del proyecto (igual que el resto
-   de I.2). Cap por usuario via rate-limit RPC ya existente, key
-   `ocr:{userId}`.
-5. **¿Versionado de archivos?** No en v1. Reemplazar = subir nuevo +
-   adjuntar + borrar el viejo. Si aparece auditoría compliance, se agrega
-   una columna `parent_file_id` self-fk.
-6. **¿Antivirus scanning?** No en v1 (single-CUIT, usuarios internos, mime
-   whitelist). Reconsiderar si llega el portal cliente (J.5).
+| # | Decisión | Resolución |
+|---|---|---|
+| 1 | Bucket único vs uno por dominio | **Único `files`.** Lifecycle distinto justifica bucket nuevo en el futuro, no ahora. |
+| 2 | Polimorfismo: FK por target vs `(target_type, target_id)` | **FK por target + check "exactly one".** Cascade real, joins normales, set chico y bien definido (5-8 entidades a Fase M). |
+| 3 | OCR síncrono vs asíncrono | **Diferido a Fase I.2.** La columna se crea en K.10a, el worker lo agrega I.2. Transporte (Inngest vs `after()` + pool) se decide ahí. |
+| 4 | Quién paga el LLM | Cuenta del proyecto. Cap por usuario via rate-limit existente, key `ocr:{userId}`. Aplica cuando se implemente §6. |
+| 5 | Versionado de archivos | No en v1. Reemplazar = nuevo upload + atachar + borrar viejo. Si compliance lo exige, `parent_file_id` self-fk en migración futura. |
+| 6 | Antivirus scanning | No en v1. Reconsiderar si llega portal cliente (M.6). |
+| D1 | Scope de cableado en K.10 | **Solo `purchase_invoices`.** Otras entidades en M.4. |
+| D2 | Bulk multi-upload | **Single-upload.** Bulk + página `/files` global cuando llegue I.2. |
+| D3 | Compresión client-side de imágenes | **No.** Las facturas son PDF; se suma cuando aparezca el caso (fotos desde celular). |
+| D4 | Captura mobile (`capture="environment"`) | **Sí desde día 1.** `pointer-coarse:` Tailwind variants ocultan el botón en desktop. |
+| D5 | PDFs auto-generados (comprobantes) | **Refactor a on-demand en M.0** (drop bucket `invoices`). El QR es función pura del dato + CAE; regenerar es seguro. Hash SHA256 opcional para auditoría. |
 
 ---
 

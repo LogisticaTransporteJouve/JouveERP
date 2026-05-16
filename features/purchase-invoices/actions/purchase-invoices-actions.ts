@@ -70,6 +70,7 @@ export type SearchPurchaseInvoicesInput = {
   limit?: number;
   kind?: string | null;
   excludeId?: string | null;
+  isFiscal?: boolean | null;
 };
 
 export type SearchPurchaseInvoicesPage = {
@@ -100,6 +101,7 @@ export async function searchPurchaseInvoicesAction(
     p_limit: limit + 1,
     p_kind: input.kind ?? undefined,
     p_exclude_id: input.excludeId ?? undefined,
+    p_is_fiscal: input.isFiscal ?? undefined,
   });
 
   if (error) {
