@@ -91,6 +91,10 @@ export const PERMISSIONS = [
   "trip_documents:read",
   "trip_documents:write",
 
+  // Contabilidad (Phase L)
+  "accounting:read",
+  "accounting:write",
+
   // Pallets (Phase H)
   "warehouses:read",
   "warehouses:write",
@@ -154,6 +158,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "credit_debit_notes:read",
     "credit_debit_notes:issue",
     "channels:read",
+    "accounting:read",
+    "accounting:write",
     "storage_billing:read",
     "storage_billing:issue",
   ],

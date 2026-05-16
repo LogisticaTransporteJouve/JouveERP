@@ -8,6 +8,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  ListTree,
   LogOut,
   MessageSquare,
   Receipt,
@@ -99,6 +100,12 @@ const navSections: NavSection[] = [
       { href: "/transactions", label: "Caja", icon: ArrowLeftRight, permission: "transactions:read" },
       { href: "/checks", label: "Cheques recibidos", icon: BookCheck, permission: "cheques:read" },
       { href: "/issued-checks", label: "Cheques propios", icon: BookCheck, permission: "issued_checks:read" },
+    ],
+  },
+  {
+    label: "Contabilidad",
+    items: [
+      { href: "/accounting/chart", label: "Plan de cuentas", icon: ListTree, permission: "accounting:read" },
     ],
   },
   {
