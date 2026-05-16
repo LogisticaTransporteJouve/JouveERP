@@ -76,7 +76,7 @@ export function useInvoiceDetail(id: string) {
  * while the status is non-terminal (draft / emitting); stops once it
  * lands on emitted / failed / cancelled. The detail query (the page-level
  * useInvoiceDetail) is invalidated on terminal transitions so CAE,
- * pdf_url and observaciones reload.
+ * pdf_hash and observaciones reload.
  */
 export function useInvoiceStatusPoll(
   id: string,
@@ -110,7 +110,7 @@ export function useInvoiceStatusPoll(
     staleTime: 0,
     notifyOnChangeProps: ["data"],
     // When the polled status flips to terminal, refresh the detail query so
-    // the page picks up CAE, pdf_url, observaciones in one go.
+    // the page picks up CAE, pdf_hash, observaciones in one go.
     structuralSharing: (oldData, newData) => {
       const oldStatus = (oldData as InvoiceStatusSnapshot | undefined)
         ?.status as InvoiceStatus | undefined;

@@ -659,7 +659,7 @@ Heredado de la vieja Fase J:
 - J.4 notificaciones ✅ (PR #44)
 - J.8 CITI + CAEA → **movido a L.6 y L.7** (responsabilidad contable)
 
-#### M.0 — `refactor: comprobantes PDF on-demand (drop invoices bucket)`
+#### M.0 — `refactor: comprobantes PDF on-demand (drop invoices bucket)` ✅
 
 > Decidido 2026-05-16 junto con K.10. Hoy los PDFs de comprobantes
 > emitidos se guardan en el bucket `invoices` (mig 20260509140000). El QR

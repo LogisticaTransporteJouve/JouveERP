@@ -504,7 +504,7 @@ export interface ComprobanteDetail {
   cae_vencimiento: string | null;
   afip_observaciones: unknown;
   status: InvoiceRow["status"];
-  pdf_url: string | null;
+  pdf_hash: string | null;
   motivo_nc_nd: string | null;
   emitted_at: string | null;
   items: Array<{
@@ -569,7 +569,7 @@ export async function getInvoiceDetailAction(
     cae_vencimiento: string | null;
     afip_observaciones: unknown;
     status: string;
-    pdf_url: string | null;
+    pdf_hash: string | null;
     motivo_nc_nd: string | null;
     emitted_at: string | null;
     channel: { id: string; name: string; is_fiscal: boolean } | null;
@@ -625,7 +625,7 @@ export async function getInvoiceDetailAction(
       cae_vencimiento: row.cae_vencimiento,
       afip_observaciones: row.afip_observaciones,
       status: row.status as InvoiceRow["status"],
-      pdf_url: row.pdf_url,
+      pdf_hash: row.pdf_hash,
       motivo_nc_nd: row.motivo_nc_nd,
       emitted_at: row.emitted_at,
       items: (row.items ?? [])
@@ -713,22 +713,23 @@ export async function listEnabledPosAction(
 }
 
 // ---------------------------------------------------------------------------
-// PDF regeneration (recovery if the post-CAE step failed)
+// M.0 — Forzar recálculo del pdf_hash (recovery si el step post-CAE falló).
+// El PDF en sí se regenera siempre en /api/invoices/[id]/pdf.
 // ---------------------------------------------------------------------------
 
 export async function regeneratePdfAction(
   id: string,
-): Promise<ActionResult<{ pdf_url: string }>> {
+): Promise<ActionResult<{ pdf_hash: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso." };
   }
   try {
-    const { generateAndStoreInvoicePdf } = await import(
-      "@/lib/pdf/generate-and-store"
+    const { generateAndPersistInvoicePdfHash } = await import(
+      "@/lib/pdf/generate-and-hash"
     );
-    const result = await generateAndStoreInvoicePdf(id);
-    return { ok: true, data: { pdf_url: result.signedUrl } };
+    const result = await generateAndPersistInvoicePdfHash(id);
+    return { ok: true, data: { pdf_hash: result.pdfHash } };
   } catch (err) {
     return {
       ok: false,

@@ -1,14 +1,9 @@
 import "server-only";
 
-// Builds the InvoiceTemplateData by joining comprobante + items + client +
-// channel + business_unit, renders the PDF via @react-pdf/renderer, uploads
-// to Supabase Storage, and persists `pdf_url` on the comprobantes row.
-//
-// Reusable from:
-//   - The Inngest workflow (after persist-cae).
-//   - A future "regenerate PDF" action when the first attempt failed.
-//   - The /admin/afip/preview-pdf page that lets us look at any comprobante
-//     without re-emitting.
+// M.0 — Builds InvoiceTemplateData (joining comprobante + items + client +
+// channel + business_unit). El render PDF y la persistencia del hash
+// viven en generate-and-hash.ts. Este archivo dejó de subir a Storage
+// — los PDFs se regeneran on-demand en /api/invoices/[id]/pdf.
 
 import {
   buildInvoiceQRUrl,
@@ -17,8 +12,6 @@ import {
 } from "@/lib/afip/qr";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { renderInvoicePdf } from "./render";
-import { uploadInvoicePdf } from "./upload";
 import type {
   InvoiceTemplateData,
   InvoiceTemplateItem,
@@ -42,35 +35,6 @@ const IVA_LABEL: Record<IvaCondition, string> = {
   consumidor_final: "Consumidor Final",
   no_categorizado: "No Categorizado",
 };
-
-export interface GeneratedPdf {
-  storagePath: string;
-  signedUrl: string;
-  pdfBuffer: Buffer;
-  data: InvoiceTemplateData;
-}
-
-export async function generateAndStoreInvoicePdf(
-  comprobanteId: string,
-): Promise<GeneratedPdf> {
-  const data = await buildTemplateData(comprobanteId);
-  const pdfBuffer = await renderInvoicePdf(data);
-  const upload = await uploadInvoicePdf(comprobanteId, pdfBuffer);
-
-  const supabase = getServiceClient();
-  const { error } = await supabase
-    .from("invoices")
-    .update({ pdf_url: upload.signedUrl })
-    .eq("id", comprobanteId);
-  if (error) throw new Error(`persist-pdf-url: ${error.message}`);
-
-  return {
-    storagePath: upload.storagePath,
-    signedUrl: upload.signedUrl,
-    pdfBuffer,
-    data,
-  };
-}
 
 export async function buildTemplateData(
   comprobanteId: string,
