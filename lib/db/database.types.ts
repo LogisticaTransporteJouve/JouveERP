@@ -2856,10 +2856,6 @@ export type Database = {
         Args: { p_supplier_id: string }
         Returns: undefined
       }
-      coa_role_for_account: {
-        Args: { p_account_id: string }
-        Returns: Database["public"]["Enums"]["coa_system_role"]
-      }
       create_chat_group: {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
         Returns: string
