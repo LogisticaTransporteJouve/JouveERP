@@ -20,7 +20,7 @@ describe("getSafeExtension", () => {
   });
 
   it("rejects extensions longer than 8 chars", () => {
-    expect(getSafeExtension("archive.tarbz222")).toBe("");
+    expect(getSafeExtension("archive.123456789")).toBe("");
   });
 
   it("rejects non-alphanumeric extensions", () => {
