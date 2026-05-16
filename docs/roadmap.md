@@ -508,6 +508,14 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 
 #### L.2 — `feat: asientos automáticos desde transactions/invoices/OPs/receipts`
 
+> Dividido en 5 sub-PRs ejecutables en orden:
+> - **L.2a ✅** — Foundation: `journal_entries`, `journal_entry_lines`, trigger `enforce_journal_balance`, `auto_journal_mapping`, RPC `create_journal_entry`, helper `find_account_by_role`. Sin triggers en source tables.
+> - **L.2b** — Trigger en `transactions` + backfill (caso más simple, 2 cuentas).
+> - **L.2c** — Trigger en `comprobantes` (ventas + IVA débito + percepciones).
+> - **L.2d** — Triggers en `payment_orders` + `receipts`.
+> - **L.2e** — UI `/accounting/journal` con timeline + filtros.
+
+
 - Tabla `journal_entries(id uuid pk, entry_date date, accrual_period text
   'YYYY-MM', description, source_table text, source_id uuid, channel_id,
   created_by, created_at, is_reversal bool default false, reversed_entry_id
