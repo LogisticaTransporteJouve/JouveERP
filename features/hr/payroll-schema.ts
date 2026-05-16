@@ -74,8 +74,62 @@ export type PayrollEntryResolved = {
   deudas: number;
   telefono: number;
   total_a_pagar: number;
+  paid_total: number;
+  saldo: number;
+  payments_count: number;
   notes: string | null;
 };
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+export const PAYROLL_PAYMENT_METHODS = ["transferencia", "efectivo"] as const;
+export type PayrollPaymentMethod = (typeof PAYROLL_PAYMENT_METHODS)[number];
+
+export const PAYROLL_PAYMENT_METHOD_LABEL: Record<PayrollPaymentMethod, string> = {
+  transferencia: "Transferencia",
+  efectivo: "Efectivo",
+};
+
+export const CreatePayrollPaymentSchema = z.object({
+  entry_id: z.string().uuid(),
+  account_id: z.string().uuid(),
+  channel_id: z.string().trim().min(1, "Canal requerido."),
+  amount: z.coerce.number().positive().max(999999999.99),
+  method: z.enum(PAYROLL_PAYMENT_METHODS),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
+export const UpdatePayrollPaymentSchema = z.object({
+  id: z.string().uuid(),
+  account_id: z.string().uuid().optional(),
+  channel_id: z.string().trim().min(1).optional(),
+  amount: z.coerce.number().positive().max(999999999.99).optional(),
+  method: z.enum(PAYROLL_PAYMENT_METHODS).optional(),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
+export const DeletePayrollPaymentSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export type CreatePayrollPaymentInput = z.infer<typeof CreatePayrollPaymentSchema>;
+export type UpdatePayrollPaymentInput = z.infer<typeof UpdatePayrollPaymentSchema>;
+
+type PayrollPaymentRow = Database["public"]["Tables"]["payroll_payments"]["Row"];
+export type PayrollPayment = Omit<PayrollPaymentRow, "method"> & {
+  method: PayrollPaymentMethod;
+};
+
+export function isPayrollPaymentMethod(
+  value: unknown,
+): value is PayrollPaymentMethod {
+  return (
+    typeof value === "string" &&
+    (PAYROLL_PAYMENT_METHODS as readonly string[]).includes(value)
+  );
+}
 
 // ─── Extras ──────────────────────────────────────────────────────────────────
 
