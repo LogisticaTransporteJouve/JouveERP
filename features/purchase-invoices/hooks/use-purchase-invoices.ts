@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
   useSuspenseQuery,
@@ -23,6 +24,7 @@ import {
   PURCHASE_INVOICES_PAGE_SIZE,
   purchaseInvoicesKeys,
   type PurchaseInvoicesFilters,
+  type PurchaseInvoicesPickerFilters,
 } from "../lib/purchase-invoices-keys";
 import type { PurchaseInvoice } from "../schema";
 
@@ -63,6 +65,40 @@ export function usePurchaseInvoiceById(id: string) {
   return useSuspenseQuery({
     queryKey: purchaseInvoicesKeys.byId(id),
     queryFn: () => runAction(() => getPurchaseInvoiceByIdAction(id)),
+  });
+}
+
+export function usePurchaseInvoiceByIdOptional(
+  id: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.byId(id ?? ""),
+    queryFn: () => runAction(() => getPurchaseInvoiceByIdAction(id ?? "")),
+    enabled: !!id && options.enabled !== false,
+  });
+}
+
+export function usePurchaseInvoicesSearch(
+  filters: PurchaseInvoicesPickerFilters,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.search(filters),
+    queryFn: () =>
+      runAction(() =>
+        searchPurchaseInvoicesAction({
+          query: filters.query,
+          supplierId: filters.supplierId,
+          kind: filters.kind,
+          excludeId: filters.excludeId,
+          status: filters.status,
+          offset: 0,
+          limit: filters.limit,
+        }),
+      ),
+    enabled: options.enabled,
+    placeholderData: (prev) => prev,
   });
 }
 

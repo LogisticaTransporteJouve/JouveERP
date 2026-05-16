@@ -32,6 +32,7 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 
 import {
+  usePurchaseInvoiceByIdOptional,
   useCreatePurchaseInvoice,
   useUpdatePurchaseInvoice,
 } from "../hooks/use-purchase-invoices";
@@ -43,6 +44,10 @@ import {
   type PurchaseInvoiceKind,
   type PurchaseInvoiceLetter,
 } from "../schema";
+import {
+  PurchaseInvoicePicker,
+  type PickedPurchaseInvoice,
+} from "./purchase-invoice-picker";
 
 type Mode = "create" | "edit";
 
@@ -63,6 +68,7 @@ type FormValues = {
   cotizacion: string;
   cae_proveedor: string;
   cae_vto_proveedor: string;
+  origin_invoice: PickedPurchaseInvoice | null;
   motivo_nc_nd: string;
   notes: string;
 };
@@ -105,6 +111,7 @@ function invoiceToValues(
     cotizacion: inv ? String(inv.cotizacion) : "1",
     cae_proveedor: inv?.cae_proveedor ?? "",
     cae_vto_proveedor: inv?.cae_vto_proveedor ?? "",
+    origin_invoice: null,
     motivo_nc_nd: inv?.motivo_nc_nd ?? "",
     notes: inv?.notes ?? "",
   };
@@ -145,6 +152,48 @@ export function PurchaseInvoiceForm({
   const watchedNeto = form.watch("imp_neto");
   const watchedIva = form.watch("imp_iva");
   const watchedTrib = form.watch("imp_trib");
+  const watchedSupplierId = form.watch("supplier")?.id ?? null;
+  const watchedOriginId = form.watch("origin_invoice")?.id ?? null;
+
+  const originInvoiceQuery = usePurchaseInvoiceByIdOptional(
+    invoice?.invoice_origin_id ?? null,
+  );
+  const originInvoiceData = originInvoiceQuery.data ?? null;
+
+  useEffect(() => {
+    if (!originInvoiceData) return;
+    if (watchedOriginId === originInvoiceData.id) return;
+    form.setValue(
+      "origin_invoice",
+      {
+        id: originInvoiceData.id,
+        kind: originInvoiceData.kind,
+        letter: originInvoiceData.letter,
+        punto_venta: originInvoiceData.punto_venta,
+        numero: originInvoiceData.numero,
+        imp_total: originInvoiceData.imp_total,
+        fecha: originInvoiceData.fecha,
+      },
+      { shouldDirty: false },
+    );
+  }, [originInvoiceData, watchedOriginId, form]);
+
+  // Si cambia el proveedor o el tipo deja de ser NC/ND, soltar el origen.
+  useEffect(() => {
+    const current = form.getValues("origin_invoice");
+    if (!current) return;
+    if (watchedKind === "factura") {
+      form.setValue("origin_invoice", null, { shouldDirty: true });
+    }
+  }, [watchedKind, form]);
+
+  useEffect(() => {
+    const current = form.getValues("origin_invoice");
+    if (!current) return;
+    if (!watchedSupplierId) {
+      form.setValue("origin_invoice", null, { shouldDirty: true });
+    }
+  }, [watchedSupplierId, form]);
 
   // Auto-sumar imp_total = neto + iva + trib mientras el user no lo toque.
   useEffect(() => {
@@ -190,6 +239,8 @@ export function PurchaseInvoiceForm({
       cotizacion: Number(values.cotizacion || 1),
       cae_proveedor: values.cae_proveedor || null,
       cae_vto_proveedor: values.cae_vto_proveedor || null,
+      invoice_origin_id:
+        values.kind === "factura" ? null : values.origin_invoice?.id ?? null,
       motivo_nc_nd: values.motivo_nc_nd || null,
       notes: values.notes || null,
     };
@@ -553,23 +604,48 @@ export function PurchaseInvoiceForm({
         </div>
 
         {isNcOrNd && (
-          <FormField
-            control={form.control}
-            name="motivo_nc_nd"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Motivo</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="Ej: ajuste por devolución"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-4 rounded-md border border-dashed bg-muted/20 p-4">
+            <FormField
+              control={form.control}
+              name="origin_invoice"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Factura origen{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      (opcional, recomendado para que el aging la descuente)
+                    </span>
+                  </FormLabel>
+                  <FormControl>
+                    <PurchaseInvoicePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      supplierId={watchedSupplierId}
+                      excludeId={invoice?.id ?? null}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="motivo_nc_nd"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Motivo</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      autoComplete="off"
+                      placeholder="Ej: ajuste por devolución"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         )}
 
         <FormField
