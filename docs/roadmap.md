@@ -506,14 +506,14 @@ y exports regulatorios AFIP. **9 sub-PRs.**
   patrimonio, resultados positivos, resultados negativos) que el
   contador puede ajustar.
 
-#### L.2 — `feat: asientos automáticos desde transactions/invoices/OPs/receipts`
+#### L.2 — `feat: asientos automáticos desde transactions/invoices/OPs/receipts` ✅
 
 > Dividido en 5 sub-PRs ejecutables en orden:
 > - **L.2a ✅** — Foundation: `journal_entries`, `journal_entry_lines`, trigger `enforce_journal_balance`, `auto_journal_mapping`, RPC `create_journal_entry`, helper `find_account_by_role`. Sin triggers en source tables.
 > - **L.2b ✅** — Trigger en `transactions` + backfill (caso más simple, 2 cuentas). Incluye 2 hotfixes: `create_journal_entry` reset DEFERRED, y `transactions.transfer_pair_id` FK ahora DEFERRABLE INITIALLY DEFERRED.
 > - **L.2c ✅** — Trigger en `invoices` (factura/NC/ND, fiscal y interno). Cancelación genera reversal con `is_reversal=true`.
 > - **L.2d ✅** — Triggers en `payment_orders` + `receipts`. Constraint triggers DEFERRED para esperar las payment_lines insertadas en la misma tx. Cheques propios emitidos → cuenta `cheques_diferidos_emitidos` (pasivo).
-> - **L.2e** — UI `/accounting/journal` con timeline + filtros.
+> - **L.2e ✅** — UI `/accounting/journal` con timeline + filtros (período / origen / canal) + drill-down a las líneas Debe/Haber y link al source.
 
 
 - Tabla `journal_entries(id uuid pk, entry_date date, accrual_period text
