@@ -35,11 +35,27 @@ const ALLOWED_MIME = new Set([
 // plus this — attach is gated by the user's right to write the target.
 const TARGET_WRITE_PERMISSION: Record<AttachmentTargetType, Permission> = {
   purchase_invoice: "purchase_invoices:write",
+  invoice:          "invoices:issue",
+  receipt:          "receipts:write",
+  payment_order:    "payment_orders:write",
+  check:            "cheques:write",
+  issued_check:     "issued_checks:write",
+  client:           "clients:write",
+  supplier:         "suppliers:write",
+  transaction:      "transactions:write",
 };
 
-// FK column on file_attachments per target type. M.4 extends this map.
+// FK column on file_attachments per target type.
 const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> = {
   purchase_invoice: "purchase_invoice_id",
+  invoice:          "invoice_id",
+  receipt:          "receipt_id",
+  payment_order:    "payment_order_id",
+  check:            "check_id",
+  issued_check:     "issued_check_id",
+  client:           "client_id",
+  supplier:         "supplier_id",
+  transaction:      "transaction_id",
 };
 
 // ─── uploadFileAction ────────────────────────────────────────────────────────
@@ -125,17 +141,18 @@ export async function uploadFileAction(
     created_by: ctx.userId,
   } as const;
 
-  const insertResult =
-    targetType === "purchase_invoice"
-      ? await supabase
-          .from("file_attachments")
-          .insert({ ...baseInsert, purchase_invoice_id: targetId })
-          .select("id")
-          .single()
-      : null;
+  // Polimorfismo: una sola insert con el FK column dinámico, indexada
+  // por TARGET_FK_COLUMN. La typing de supabase-js no permite la columna
+  // dinámica directo, así que casteamos el payload.
+  const fkColumn = TARGET_FK_COLUMN[targetType];
+  const insertResult = await supabase
+    .from("file_attachments")
+    .insert({ ...baseInsert, [fkColumn]: targetId } as never)
+    .select("id")
+    .single();
 
-  const attRow = insertResult?.data;
-  const attachErr = insertResult?.error;
+  const attRow = insertResult.data;
+  const attachErr = insertResult.error;
   if (attachErr || !attRow) {
     await supabase.from("files").delete().eq("id", fileId);
     await supabase.storage.from(BUCKET).remove([bucketPath]);

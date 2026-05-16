@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   ACCOUNT_TYPE_LABEL,
   type AccountType,
@@ -264,6 +265,18 @@ export default async function ReceiptDetailPage({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Adjuntos</h2>
+        <div className="mt-3">
+          <AttachmentsZone
+            targetType="receipt"
+            targetId={receipt.id}
+            canWrite={userCan(ctx.roles, "files:write")}
+            canDelete={userCan(ctx.roles, "files:write")}
+          />
+        </div>
+      </div>
     </div>
   );
 }

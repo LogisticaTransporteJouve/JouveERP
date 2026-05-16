@@ -1026,30 +1026,68 @@ export type Database = {
       }
       file_attachments: {
         Row: {
+          check_id: string | null
+          client_id: string | null
           created_at: string
           created_by: string | null
           file_id: string
           id: string
+          invoice_id: string | null
+          issued_check_id: string | null
           kind: string
+          payment_order_id: string | null
           purchase_invoice_id: string | null
+          receipt_id: string | null
+          supplier_id: string | null
+          transaction_id: string | null
         }
         Insert: {
+          check_id?: string | null
+          client_id?: string | null
           created_at?: string
           created_by?: string | null
           file_id: string
           id?: string
+          invoice_id?: string | null
+          issued_check_id?: string | null
           kind: string
+          payment_order_id?: string | null
           purchase_invoice_id?: string | null
+          receipt_id?: string | null
+          supplier_id?: string | null
+          transaction_id?: string | null
         }
         Update: {
+          check_id?: string | null
+          client_id?: string | null
           created_at?: string
           created_by?: string | null
           file_id?: string
           id?: string
+          invoice_id?: string | null
+          issued_check_id?: string | null
           kind?: string
+          payment_order_id?: string | null
           purchase_invoice_id?: string | null
+          receipt_id?: string | null
+          supplier_id?: string | null
+          transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "file_attachments_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "file_attachments_file_id_fkey"
             columns: ["file_id"]
@@ -1058,11 +1096,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "file_attachments_file_id_fkey"
-            columns: ["file_id"]
+            foreignKeyName: "file_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "v_file_attachments_resolved"
-            referencedColumns: ["file_id"]
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "file_attachments_issued_check_id_fkey"
+            columns: ["issued_check_id"]
+            isOneToOne: false
+            referencedRelation: "issued_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
@@ -1077,6 +1136,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "file_attachments_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3123,6 +3210,19 @@ export type Database = {
       }
     }
     Views: {
+      search_index: {
+        Row: {
+          body: string | null
+          channel_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          subtitle: string | null
+          title: string | null
+          tsv: unknown
+          url: string | null
+        }
+        Relationships: []
+      }
       v_aging_documents: {
         Row: {
           amount_applied: number | null
@@ -3302,22 +3402,7 @@ export type Database = {
           target_id: string | null
           target_type: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-        ]
+        Relationships: []
       }
       v_payroll_entries_resolved: {
         Row: {
@@ -3894,6 +3979,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      refresh_search_index: { Args: never; Returns: undefined }
       reject_check: {
         Args: {
           p_account_id: string
@@ -3986,6 +4072,17 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      search_global: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          entity_id: string
+          entity_type: string
+          rank: number
+          subtitle: string
+          title: string
+          url: string
+        }[]
       }
       search_purchase_invoices: {
         Args: {

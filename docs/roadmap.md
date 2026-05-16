@@ -706,7 +706,7 @@ Heredado de la vieja Fase J:
 - Indexación de tarifas (que Fase H necesita) queda con escalator
   vinculado a USD.
 
-#### M.3 — `feat: full-text search global`
+#### M.3 — `feat: full-text search global` ✅
 
 - Vista materializada `search_index` con `(entity_type, entity_id, title,
   body, tsv tsvector)` que une clientes, suppliers, comprobantes,
@@ -715,7 +715,7 @@ Heredado de la vieja Fase J:
 - Atajo `⌘K` extendido (ya existe para chat en PR #44) que busca en
   todo y navega al detalle.
 
-#### M.4 — `feat: extender entidades atachables sobre infra K.10`
+#### M.4 — `feat: extender entidades atachables sobre infra K.10` ✅
 
 > Re-escopeado 2026-05-16. K.10 ya implementa el subsistema files
 > completo (registry + attachments + bucket + RLS + helpers + dropzone)

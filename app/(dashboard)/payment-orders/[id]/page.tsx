@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -329,6 +330,18 @@ export default async function PaymentOrderDetailPage({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Adjuntos</h2>
+        <div className="mt-3">
+          <AttachmentsZone
+            targetType="payment_order"
+            targetId={paymentOrder.id}
+            canWrite={userCan(ctx.roles, "files:write")}
+            canDelete={userCan(ctx.roles, "files:write")}
+          />
+        </div>
+      </div>
     </div>
   );
 }
