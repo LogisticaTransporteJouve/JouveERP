@@ -90,6 +90,17 @@ export function useSupplierById(id: string) {
   });
 }
 
+export function useSupplierByIdOptional(
+  id: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: suppliersKeys.byId(id ?? ""),
+    queryFn: () => runAction(() => getSupplierByIdAction(id ?? "")),
+    enabled: !!id && options.enabled !== false,
+  });
+}
+
 export function useSupplierReferences(
   id: string,
   options: { enabled?: boolean } = {},
