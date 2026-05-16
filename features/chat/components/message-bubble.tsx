@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -58,6 +59,7 @@ export function MessageBubble({
   const editMutation = useEditMessage(channelId);
   const deleteMutation = useDeleteMessage(channelId);
   const reactMutation = useToggleReaction(channelId);
+  const confirm = useConfirm();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -82,7 +84,13 @@ export function MessageBubble({
   };
 
   const remove = async () => {
-    if (!confirm("¿Eliminar este mensaje para siempre?")) return;
+    const ok = await confirm({
+      title: "Eliminar este mensaje",
+      description: "Se borra para todos los participantes. No se puede deshacer.",
+      confirmLabel: "Eliminar",
+      tone: "destructive",
+    });
+    if (!ok) return;
     try {
       await deleteMutation.mutateAsync(message.id);
     } catch (err) {

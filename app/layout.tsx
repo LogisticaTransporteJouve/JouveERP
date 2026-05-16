@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
+import { ConfirmProvider } from "@/components/providers/confirm-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -37,7 +38,9 @@ export default async function RootLayout({
     >
       <body className="min-h-svh bg-background text-foreground antialiased">
         <ThemeProvider nonce={nonce}>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </QueryProvider>
           <Toaster richColors closeButton />
         </ThemeProvider>
       </body>

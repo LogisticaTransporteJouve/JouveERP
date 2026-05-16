@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,6 +37,7 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
   const toggleMute = useToggleChannelMute(channelId);
   const leave = useLeaveChannel();
   const router = useRouter();
+  const confirm = useConfirm();
 
   // `is_muted` vive en chat_channel_members; lo leemos del list que ya
   // está en cache (evita un fetch extra).
@@ -54,7 +56,12 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
   };
 
   const handleLeaveDm = async () => {
-    if (!confirm("¿Cerrar este chat? Vas a poder reabrirlo después.")) return;
+    const ok = await confirm({
+      title: "Cerrar este chat",
+      description: "Vas a poder reabrirlo después escribiéndole de nuevo a esta persona.",
+      confirmLabel: "Cerrar",
+    });
+    if (!ok) return;
     try {
       await leave.mutateAsync(channelId);
       router.push("/chat");

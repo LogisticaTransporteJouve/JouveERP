@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,6 +52,7 @@ export function ChannelSettingsDialog({
   const removeMember = useRemoveChannelMember(channelId);
   const leave = useLeaveChannel();
   const router = useRouter();
+  const confirm = useConfirm();
 
   const [name, setName] = useState(header.name ?? "");
   const [description, setDescription] = useState(header.description ?? "");
@@ -78,13 +80,18 @@ export function ChannelSettingsDialog({
   const handleRemove = async (userId: string) => {
     const member = header.members.find((m) => m.user_id === userId);
     if (!member) return;
-    if (
-      !confirm(
-        `¿Quitar a ${getDisplayName(member.first_name, member.last_name, member.email)} del grupo?`,
-      )
-    ) {
-      return;
-    }
+    const memberName = getDisplayName(
+      member.first_name,
+      member.last_name,
+      member.email,
+    );
+    const ok = await confirm({
+      title: `Quitar a ${memberName} del grupo`,
+      description: "No va a poder ver los mensajes nuevos. Podés volver a agregarla/o más adelante.",
+      confirmLabel: "Quitar",
+      tone: "destructive",
+    });
+    if (!ok) return;
     try {
       await removeMember.mutateAsync(userId);
       toast.success("Miembro removido.");
@@ -94,7 +101,13 @@ export function ChannelSettingsDialog({
   };
 
   const handleLeave = async () => {
-    if (!confirm("¿Salir del grupo? No vas a poder ver mensajes nuevos.")) return;
+    const ok = await confirm({
+      title: "Salir del grupo",
+      description: "No vas a poder ver mensajes nuevos. Alguien va a tener que agregarte de nuevo.",
+      confirmLabel: "Salir",
+      tone: "destructive",
+    });
+    if (!ok) return;
     try {
       await leave.mutateAsync(channelId);
       toast.success("Saliste del grupo.");
