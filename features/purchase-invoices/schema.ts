@@ -22,6 +22,35 @@ export const PURCHASE_INVOICE_STATUS_LABEL: Record<PurchaseInvoiceStatus, string
 
 export const PURCHASE_INVOICES_PATH = "/purchases";
 
+// AFIP alícuota IDs — mirror del catálogo usado en `invoice_items` (ventas).
+export const PURCHASE_IVA_RATE_IDS = [3, 4, 5, 6, 8, 9] as const;
+export type PurchaseIvaRateId = (typeof PURCHASE_IVA_RATE_IDS)[number];
+
+export const PURCHASE_IVA_RATE_LABEL: Record<PurchaseIvaRateId, string> = {
+  3: "0%",
+  4: "10.5%",
+  5: "21%",
+  6: "27%",
+  8: "5%",
+  9: "2.5%",
+};
+
+export const PURCHASE_IVA_RATE_PERCENT: Record<PurchaseIvaRateId, number> = {
+  3: 0,
+  4: 10.5,
+  5: 21,
+  6: 27,
+  8: 5,
+  9: 2.5,
+};
+
+export function isPurchaseIvaRateId(v: unknown): v is PurchaseIvaRateId {
+  return (
+    typeof v === "number" &&
+    (PURCHASE_IVA_RATE_IDS as readonly number[]).includes(v)
+  );
+}
+
 const trimmedNullable = z
   .string()
   .trim()
@@ -64,6 +93,35 @@ const letterNullable = z
   .nullable()
   .optional();
 
+// Items son OPCIONALES. Cuando hay items, los totales del header (`imp_neto`,
+// `imp_iva`, `imp_total`) se recalculan server-side desde la suma de items
+// vía RPC `replace_purchase_invoice_items`. Cuando no hay items (caso típico:
+// las 1313 facturas importadas de AFIP en K.2), el header queda con los
+// totales que se cargaron a mano.
+export const PurchaseInvoiceItemSchema = z.object({
+  description: z.string().trim().min(1, "Descripción requerida.").max(500),
+  quantity: amount.refine((v) => v > 0, { message: "Cantidad > 0." }),
+  unit_price: positiveAmount,
+  iva_rate_id: z
+    .union([
+      z.literal(3),
+      z.literal(4),
+      z.literal(5),
+      z.literal(6),
+      z.literal(8),
+      z.literal(9),
+    ])
+    .nullable(),
+  line_neto: positiveAmount,
+  line_iva: positiveAmount.default(0),
+  line_total: positiveAmount,
+  sort_order: z.coerce.number().int().default(0),
+});
+
+export type PurchaseInvoiceItemInput = z.infer<typeof PurchaseInvoiceItemSchema>;
+
+const itemsArray = z.array(PurchaseInvoiceItemSchema).default([]);
+
 const baseFields = {
   channel_id: z.string().min(1, "Canal requerido."),
   supplier_id: z.string().uuid("Proveedor requerido."),
@@ -92,6 +150,7 @@ const baseFields = {
     .optional(),
   motivo_nc_nd: trimmedNullable,
   notes: trimmedNullable,
+  items: itemsArray,
 };
 
 export const PurchaseInvoiceCreateSchema = z
@@ -125,6 +184,7 @@ export const PurchaseInvoiceUpdateSchema = z.object({
   invoice_origin_id: baseFields.invoice_origin_id,
   motivo_nc_nd: baseFields.motivo_nc_nd,
   notes: baseFields.notes,
+  items: itemsArray.optional(),
 });
 
 export const PurchaseInvoiceCancelSchema = z.object({
@@ -163,6 +223,20 @@ export type PurchaseInvoice = {
   cancelled_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PurchaseInvoiceItem = {
+  id: string;
+  purchase_invoice_id: string;
+  sort_order: number;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  iva_rate_id: PurchaseIvaRateId | null;
+  line_neto: number;
+  line_iva: number;
+  line_total: number;
+  created_at: string;
 };
 
 export function isPurchaseInvoiceKind(v: unknown): v is PurchaseInvoiceKind {

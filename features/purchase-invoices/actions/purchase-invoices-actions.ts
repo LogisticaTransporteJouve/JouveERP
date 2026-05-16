@@ -12,8 +12,12 @@ import {
   PurchaseInvoiceUpdateSchema,
   isPurchaseInvoiceKind,
   isPurchaseInvoiceStatus,
+  isPurchaseIvaRateId,
   type PurchaseInvoice,
+  type PurchaseInvoiceItem,
+  type PurchaseInvoiceItemInput,
   type PurchaseInvoiceLetter,
+  type PurchaseIvaRateId,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -151,6 +155,46 @@ export async function getPurchaseInvoiceByIdAction(
   return { ok: true, data: narrowRow(flat) };
 }
 
+export async function getPurchaseInvoiceItemsAction(
+  invoiceId: string,
+): Promise<ActionResult<PurchaseInvoiceItem[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("purchase_invoice_items")
+    .select(
+      "id, purchase_invoice_id, sort_order, description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, created_at",
+    )
+    .eq("purchase_invoice_id", invoiceId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    logger.error("purchase_invoices.items.list.failed", { error });
+    return { ok: false, error: "No se pudieron leer los ítems." };
+  }
+
+  const items: PurchaseInvoiceItem[] = (data ?? []).map((row) => ({
+    id: row.id,
+    purchase_invoice_id: row.purchase_invoice_id,
+    sort_order: row.sort_order,
+    description: row.description,
+    quantity: Number(row.quantity),
+    unit_price: Number(row.unit_price),
+    iva_rate_id: isPurchaseIvaRateId(row.iva_rate_id)
+      ? (row.iva_rate_id as PurchaseIvaRateId)
+      : null,
+    line_neto: Number(row.line_neto),
+    line_iva: Number(row.line_iva),
+    line_total: Number(row.line_total),
+    created_at: row.created_at,
+  }));
+
+  return { ok: true, data: items };
+}
+
 export type PurchaseInvoiceAllocation = {
   payment_order_id: string;
   payment_order_numero: number;
@@ -259,6 +303,20 @@ export async function createPurchaseInvoiceAction(
     return { ok: false, error: "No se pudo cargar la factura." };
   }
 
+  // Si la factura trae items, los inserto + recalculo header totales vía
+  // RPC. Si la RPC falla, dejamos el header sin items (mejor que orphan):
+  // los totales del header ya son válidos porque vinieron del input.
+  if (parsed.data.items && parsed.data.items.length > 0) {
+    const itemsError = await applyItems(supabase, data.id, parsed.data.items);
+    if (itemsError) {
+      logger.error("purchase_invoices.items.insert.failed", {
+        id: data.id,
+        error: itemsError,
+      });
+      return { ok: false, error: "Factura cargada pero no se pudieron guardar los ítems." };
+    }
+  }
+
   await logAudit(
     "purchase_invoice.created",
     ctx.userId,
@@ -267,10 +325,32 @@ export async function createPurchaseInvoiceAction(
       kind: parsed.data.kind,
       numero: parsed.data.numero,
       imp_total: parsed.data.imp_total,
+      items_count: parsed.data.items?.length ?? 0,
     },
     data.id,
   );
   return { ok: true, data: { id: data.id } };
+}
+
+async function applyItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  invoiceId: string,
+  items: PurchaseInvoiceItemInput[],
+): Promise<string | null> {
+  const { error } = await supabase.rpc("replace_purchase_invoice_items", {
+    p_invoice_id: invoiceId,
+    p_items: items.map((it, idx) => ({
+      description: it.description,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      iva_rate_id: it.iva_rate_id,
+      line_neto: it.line_neto,
+      line_iva: it.line_iva,
+      line_total: it.line_total,
+      sort_order: it.sort_order ?? idx,
+    })),
+  });
+  return error ? error.message : null;
 }
 
 export async function updatePurchaseInvoiceAction(
@@ -332,6 +412,19 @@ export async function updatePurchaseInvoiceAction(
     }
     logger.error("purchase_invoices.update.failed", { error });
     return { ok: false, error: "No se pudo actualizar la factura." };
+  }
+
+  // Items son opcionales en update. Si el caller pasa un array (incluso
+  // vacío), reemplazamos. Si pasa undefined, no tocamos los items.
+  if (rest.items !== undefined) {
+    const itemsError = await applyItems(supabase, id, rest.items);
+    if (itemsError) {
+      logger.error("purchase_invoices.items.update.failed", {
+        id,
+        error: itemsError,
+      });
+      return { ok: false, error: "Factura actualizada pero no se pudieron guardar los ítems." };
+    }
   }
 
   await logAudit(

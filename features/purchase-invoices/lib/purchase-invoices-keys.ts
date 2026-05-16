@@ -25,4 +25,5 @@ export const purchaseInvoicesKeys = {
   search: (filters: PurchaseInvoicesPickerFilters) =>
     [...purchaseInvoicesKeys.all, "search", filters] as const,
   byId: (id: string) => [...purchaseInvoicesKeys.all, "byId", id] as const,
+  items: (id: string) => [...purchaseInvoicesKeys.all, "items", id] as const,
 };

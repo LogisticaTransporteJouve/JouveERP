@@ -33,6 +33,7 @@ import {
 
 import {
   usePurchaseInvoiceByIdOptional,
+  usePurchaseInvoiceItems,
   useCreatePurchaseInvoice,
   useUpdatePurchaseInvoice,
 } from "../hooks/use-purchase-invoices";
@@ -48,6 +49,13 @@ import {
   PurchaseInvoicePicker,
   type PickedPurchaseInvoice,
 } from "./purchase-invoice-picker";
+import {
+  PurchaseInvoiceItemsEditor,
+  computeLine,
+  computeTotals,
+  emptyItem,
+  type PurchaseInvoiceItemDraft,
+} from "./purchase-invoice-items-editor";
 
 type Mode = "create" | "edit";
 
@@ -71,6 +79,8 @@ type FormValues = {
   origin_invoice: PickedPurchaseInvoice | null;
   motivo_nc_nd: string;
   notes: string;
+  with_items: boolean;
+  items: PurchaseInvoiceItemDraft[];
 };
 
 function todayIso(): string {
@@ -114,6 +124,8 @@ function invoiceToValues(
     origin_invoice: null,
     motivo_nc_nd: inv?.motivo_nc_nd ?? "",
     notes: inv?.notes ?? "",
+    with_items: false,
+    items: [],
   };
 }
 
@@ -154,6 +166,42 @@ export function PurchaseInvoiceForm({
   const watchedTrib = form.watch("imp_trib");
   const watchedSupplierId = form.watch("supplier")?.id ?? null;
   const watchedOriginId = form.watch("origin_invoice")?.id ?? null;
+  const watchedWithItems = form.watch("with_items");
+  const watchedItems = form.watch("items");
+
+  const itemsQuery = usePurchaseInvoiceItems(invoice?.id ?? null);
+  const itemsData = itemsQuery.data ?? null;
+
+  // En edit, si la factura ya tiene items en DB → activar el modo "con detalle"
+  // y poblar el editor. Una sola vez por carga (no re-aplicar después del primer
+  // hidrato para no pisar ediciones del user).
+  useEffect(() => {
+    if (!itemsData || itemsData.length === 0) return;
+    if (form.getValues("with_items")) return;
+    form.setValue(
+      "items",
+      itemsData.map((it) => ({
+        description: it.description,
+        quantity: String(it.quantity),
+        unit_price: String(it.unit_price),
+        iva_rate_id: it.iva_rate_id,
+      })),
+      { shouldDirty: false },
+    );
+    form.setValue("with_items", true, { shouldDirty: false });
+  }, [itemsData, form]);
+
+  // Cuando hay items, recalcular header totals desde items en cada cambio.
+  useEffect(() => {
+    if (!watchedWithItems) return;
+    const t = computeTotals(watchedItems);
+    const trib = Number(form.getValues("imp_trib") || 0);
+    form.setValue("imp_neto", String(t.imp_neto), { shouldDirty: false });
+    form.setValue("imp_iva", String(t.imp_iva), { shouldDirty: false });
+    form.setValue("imp_total", String(+(t.imp_total_lines + trib).toFixed(2)), {
+      shouldDirty: false,
+    });
+  }, [watchedWithItems, watchedItems, watchedTrib, form]);
 
   const originInvoiceQuery = usePurchaseInvoiceByIdOptional(
     invoice?.invoice_origin_id ?? null,
@@ -222,6 +270,29 @@ export function PurchaseInvoiceForm({
       return;
     }
 
+    // Items: si el toggle "Con detalle" está prendido, mando los items
+    // computados. En update, mando array vacío si pasó de con-items a
+    // sin-items (limpia la tabla). En create sin items, mando undefined.
+    const itemsPayload = values.with_items
+      ? values.items
+          .filter((it) => it.description.trim().length > 0)
+          .map((it, idx) => {
+            const c = computeLine(it);
+            return {
+              description: it.description.trim(),
+              quantity: Number(it.quantity),
+              unit_price: Number(it.unit_price),
+              iva_rate_id: it.iva_rate_id,
+              line_neto: c.line_neto,
+              line_iva: c.line_iva,
+              line_total: c.line_total,
+              sort_order: idx,
+            };
+          })
+      : mode === "edit"
+        ? []
+        : undefined;
+
     const payload = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
@@ -243,6 +314,7 @@ export function PurchaseInvoiceForm({
         values.kind === "factura" ? null : values.origin_invoice?.id ?? null,
       motivo_nc_nd: values.motivo_nc_nd || null,
       notes: values.notes || null,
+      items: itemsPayload,
     };
 
     if (mode === "create") {
@@ -446,19 +518,77 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
+        <div className="space-y-3 rounded-md border bg-muted/10 p-4">
+          <FormField
+            control={form.control}
+            name="with_items"
+            render={({ field }) => (
+              <FormItem className="flex items-start gap-3 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={(e) => {
+                      field.onChange(e.target.checked);
+                      if (e.target.checked && form.getValues("items").length === 0) {
+                        form.setValue("items", [emptyItem()]);
+                      }
+                    }}
+                    className="mt-1 size-4 accent-foreground"
+                  />
+                </FormControl>
+                <div className="space-y-1">
+                  <FormLabel className="cursor-pointer">
+                    Cargar con detalle por ítem
+                  </FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Discrimina IVA por alícuota (necesario para libro IVA Compras).
+                    Si lo dejás apagado, cargás solo los totales del header.
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+          {watchedWithItems && (
+            <FormField
+              control={form.control}
+              name="items"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <PurchaseInvoiceItemsEditor
+                      items={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-4">
           <FormField
             control={form.control}
             name="imp_neto"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Neto</FormLabel>
+                <FormLabel>
+                  Neto{watchedWithItems && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      (auto)
+                    </span>
+                  )}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
+                    readOnly={watchedWithItems}
+                    className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
                 </FormControl>
                 <FormMessage />
@@ -470,13 +600,21 @@ export function PurchaseInvoiceForm({
             name="imp_iva"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>IVA</FormLabel>
+                <FormLabel>
+                  IVA{watchedWithItems && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      (auto)
+                    </span>
+                  )}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
+                    readOnly={watchedWithItems}
+                    className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
                 </FormControl>
                 <FormMessage />
@@ -506,14 +644,25 @@ export function PurchaseInvoiceForm({
             name="imp_total"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Total</FormLabel>
+                <FormLabel>
+                  Total{watchedWithItems && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      (auto)
+                    </span>
+                  )}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
-                    className="font-semibold"
+                    readOnly={watchedWithItems}
+                    className={
+                      watchedWithItems
+                        ? "bg-muted/40 font-semibold"
+                        : "font-semibold"
+                    }
                   />
                 </FormControl>
                 <FormMessage />
