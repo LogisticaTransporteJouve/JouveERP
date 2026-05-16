@@ -129,9 +129,9 @@ export async function getPayrollPeriodAction(
   }
 
   const { data: entries, error: entriesErr } = await supabase
-    .from("v_payroll_entries_resolved")
+    .from("v_payroll_entries_with_payments")
     .select(
-      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, total_a_pagar, notes",
+      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, total_a_pagar, paid_total, saldo, payments_count, notes",
     )
     .eq("period_id", period.id);
 
@@ -180,6 +180,9 @@ export async function getPayrollPeriodAction(
         deudas: Number(row.deudas ?? 0),
         telefono: Number(row.telefono ?? 0),
         total_a_pagar: Number(row.total_a_pagar ?? 0),
+        paid_total: Number(row.paid_total ?? 0),
+        saldo: Number(row.saldo ?? 0),
+        payments_count: Number(row.payments_count ?? 0),
         notes: row.notes ?? null,
       };
     })
