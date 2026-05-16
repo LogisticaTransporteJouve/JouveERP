@@ -3672,6 +3672,13 @@ export type Database = {
         }
         Returns: Json
       }
+      build_purchase_invoice_journal_lines: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
+          p_reverse?: boolean
+        }
+        Returns: Json
+      }
       bump_rate_limit_bucket: {
         Args: {
           p_bucket_key: string
@@ -3791,6 +3798,14 @@ export type Database = {
       emit_journal_for_payment_order: {
         Args: {
           p_payment_order_id: string
+          p_reverse?: boolean
+          p_reversed_entry_id?: string
+        }
+        Returns: string
+      }
+      emit_journal_for_purchase_invoice: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
           p_reverse?: boolean
           p_reversed_entry_id?: string
         }
@@ -3970,6 +3985,15 @@ export type Database = {
       mark_chat_channel_read: {
         Args: { p_channel: string }
         Returns: undefined
+      }
+      next_internal_invoice_numero_atomic: {
+        Args: {
+          p_channel_id: string
+          p_invoice_id: string
+          p_kind: string
+          p_punto_venta: number
+        }
+        Returns: number
       }
       next_internal_purchase_numero: {
         Args: { p_channel_id: string; p_supplier_id: string }
