@@ -784,6 +784,112 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_leaves: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          days: number | null
+          employee_id: string
+          end_date: string
+          id: string
+          kind: Database["public"]["Enums"]["leave_kind"]
+          notes: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          days?: number | null
+          employee_id: string
+          end_date: string
+          id?: string
+          kind: Database["public"]["Enums"]["leave_kind"]
+          notes?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          days?: number | null
+          employee_id?: string
+          end_date?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["leave_kind"]
+          notes?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_leaves_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_vacation_balances: {
+        Row: {
+          bonus_days: number
+          carryover_days: number
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          entitled_days: number
+          expires_at: string
+          granted_at: string
+          id: string
+          notes: string | null
+          period_year: number
+          status: string
+          updated_at: string
+          used_days: number
+        }
+        Insert: {
+          bonus_days?: number
+          carryover_days?: number
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          entitled_days?: number
+          expires_at: string
+          granted_at: string
+          id?: string
+          notes?: string | null
+          period_year: number
+          status?: string
+          updated_at?: string
+          used_days?: number
+        }
+        Update: {
+          bonus_days?: number
+          carryover_days?: number
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          entitled_days?: number
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          notes?: string | null
+          period_year?: number
+          status?: string
+          updated_at?: string
+          used_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_balances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           base_salary: number | null
@@ -936,6 +1042,27 @@ export type Database = {
           quick_ocr?: string | null
           source?: string
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      hr_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
         }
         Relationships: []
       }
@@ -2862,6 +2989,68 @@ export type Database = {
           },
         ]
       }
+      v_employee_vacation_balances: {
+        Row: {
+          bonus_days: number | null
+          carryover_days: number | null
+          created_at: string | null
+          created_by: string | null
+          employee_id: string | null
+          entitled_days: number | null
+          expires_at: string | null
+          granted_at: string | null
+          id: string | null
+          notes: string | null
+          period_year: number | null
+          remaining_days: number | null
+          status: string | null
+          updated_at: string | null
+          used_days: number | null
+        }
+        Insert: {
+          bonus_days?: number | null
+          carryover_days?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_id?: string | null
+          entitled_days?: number | null
+          expires_at?: string | null
+          granted_at?: string | null
+          id?: string | null
+          notes?: string | null
+          period_year?: number | null
+          remaining_days?: never
+          status?: string | null
+          updated_at?: string | null
+          used_days?: number | null
+        }
+        Update: {
+          bonus_days?: number | null
+          carryover_days?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_id?: string | null
+          entitled_days?: number | null
+          expires_at?: string | null
+          granted_at?: string | null
+          id?: string | null
+          notes?: string | null
+          period_year?: number | null
+          remaining_days?: never
+          status?: string | null
+          updated_at?: string | null
+          used_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_balances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_file_attachments_resolved: {
         Row: {
           attached_at: string | null
@@ -3151,6 +3340,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_vacation_delta: {
+        Args: { p_delta: number; p_employee_id: string }
+        Returns: undefined
+      }
       build_invoice_journal_lines: {
         Args: {
           p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
@@ -3307,7 +3500,44 @@ export type Database = {
       }
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
+      grant_vacation_balances: {
+        Args: { p_carryover?: boolean; p_target_year?: number }
+        Returns: {
+          balance_id: string
+          carryover_days: number
+          employee_id: string
+          entitled_days: number
+        }[]
+      }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
+      libro_iva_ventas: {
+        Args: { p_channel_id?: string; p_period: string }
+        Returns: {
+          cae: string
+          cae_vencimiento: string
+          cbte_tipo_afip: number
+          channel_id: string
+          channel_name: string
+          client_legal_name: string
+          doc_nro: string
+          doc_tipo: number
+          fecha: string
+          has_items: boolean
+          imp_op_ex: number
+          imp_tot_conc: number
+          imp_total: number
+          imp_trib: number
+          invoice_id: string
+          iva: number
+          iva_rate_id: number
+          iva_rate_pct: number
+          kind: string
+          letter: string
+          neto: number
+          numero: number
+          punto_venta: number
+        }[]
+      }
       list_chat_assignable_users: {
         Args: never
         Returns: {
@@ -3615,6 +3845,13 @@ export type Database = {
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
+      leave_kind:
+        | "vacaciones"
+        | "enfermedad"
+        | "franco"
+        | "maternidad"
+        | "paternidad"
+        | "otro"
       payroll_payment_method: "transferencia" | "efectivo"
     }
     CompositeTypes: {
@@ -3772,6 +4009,14 @@ export const Constants = {
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",
+      ],
+      leave_kind: [
+        "vacaciones",
+        "enfermedad",
+        "franco",
+        "maternidad",
+        "paternidad",
+        "otro",
       ],
       payroll_payment_method: ["transferencia", "efectivo"],
     },
