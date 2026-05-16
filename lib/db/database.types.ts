@@ -3170,6 +3170,34 @@ export type Database = {
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
+      libro_iva_ventas: {
+        Args: { p_channel_id?: string; p_period: string }
+        Returns: {
+          cae: string
+          cae_vencimiento: string
+          cbte_tipo_afip: number
+          channel_id: string
+          channel_name: string
+          client_legal_name: string
+          doc_nro: string
+          doc_tipo: number
+          fecha: string
+          has_items: boolean
+          imp_op_ex: number
+          imp_tot_conc: number
+          imp_total: number
+          imp_trib: number
+          invoice_id: string
+          iva: number
+          iva_rate_id: number
+          iva_rate_pct: number
+          kind: string
+          letter: string
+          neto: number
+          numero: number
+          punto_venta: number
+        }[]
+      }
       list_chat_assignable_users: {
         Args: never
         Returns: {

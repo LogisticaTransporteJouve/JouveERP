@@ -552,6 +552,12 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 
 #### L.4 — `feat: libros IVA Ventas y Compras (RG 1361)`
 
+> Dividido en sub-PRs:
+> - **L.4a ✅** — Libro IVA Ventas (RPC + UI + PDF). Solo canales fiscales. Detección de comprobantes sin CAE o sin items (legacy AFIP).
+> - **L.4b** — Libro IVA Compras (consume items por línea de K.8).
+> - **L.4c** — Exports CITI / SIAP (TXT posicional).
+
+
 - **Libro IVA Ventas:** una fila por comprobante emitido (factura, NC, ND).
   Columnas: Fecha, Tipo, Letra, POS, Número, CUIT cliente, Razón social,
   Neto gravado por alícuota (21/10.5/27/0/no gravado/exento), IVA por
