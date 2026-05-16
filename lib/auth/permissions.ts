@@ -95,6 +95,11 @@ export const PERMISSIONS = [
   "accounting:read",
   "accounting:write",
 
+  // Personal / Sueldos (Phase N)
+  "hr:read",
+  "hr:write",
+  "hr:admin",
+
   // Pallets (Phase H)
   "warehouses:read",
   "warehouses:write",
@@ -160,6 +165,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "channels:read",
     "accounting:read",
     "accounting:write",
+    "hr:read",
+    "hr:write",
     "storage_billing:read",
     "storage_billing:issue",
   ],
