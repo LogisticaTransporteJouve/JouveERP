@@ -63,15 +63,11 @@ interface InvoiceChannelOption {
 }
 
 
-const decimalFormatter = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-// es-AR currency style inserts a space between $ and the number; we want
-// them tight, so format as decimal and prefix `$` manually.
-const formatter = {
-  format: (value: number) => `$${decimalFormatter.format(value)}`,
-};
+// es-AR currency style inserts a space between $ and the number; queremos
+// el `$` pegado al número en esta tabla, así que armamos un formatter
+// custom con el helper.
+import { formatNumber2 } from "@/lib/format";
+const formatter = { format: (n: number) => `$${formatNumber2(n)}` };
 
 function formatMovementNumber(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "—";

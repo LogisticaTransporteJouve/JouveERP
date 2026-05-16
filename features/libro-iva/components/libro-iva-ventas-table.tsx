@@ -6,7 +6,7 @@ import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 
 import { useLibroIvaVentas } from "../hooks/use-libro-iva";
 import {
@@ -15,12 +15,6 @@ import {
   IVA_RATES,
   KIND_LABEL,
 } from "../schema";
-
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number) => fmt.format(n);
 
 export function LibroIvaVentasTable({
   period,

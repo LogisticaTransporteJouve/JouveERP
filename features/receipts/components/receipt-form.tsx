@@ -20,7 +20,7 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
-import { amountToInput } from "@/lib/format";
+import { amountToInput, formatNumber2 } from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -68,13 +68,7 @@ function parseAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const moneyFormatter = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-function formatMoney(value: number): string {
-  return moneyFormatter.format(value);
-}
+const formatMoney = formatNumber2;
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
   return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);

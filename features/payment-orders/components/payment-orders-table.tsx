@@ -16,33 +16,19 @@ import {
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import { usePaymentOrdersList } from "../hooks/use-payment-orders";
 import { paymentOrdersKeys } from "../lib/payment-orders-keys";
-import {
-  formatPaymentOrderNumber,
-  type PaymentOrderCurrency,
-} from "../schema";
+import { formatPaymentOrderNumber } from "../schema";
 import { CancelPaymentOrderDialog } from "./cancel-payment-order-dialog";
 import { EditPaymentOrderDialog } from "./edit-payment-order-dialog";
 import { NewPaymentOrderDialog } from "./new-payment-order-dialog";
 import type { ChannelOption } from "./payment-order-form";
 
-const formatters: Record<PaymentOrderCurrency, Intl.NumberFormat> = {
-  ARS: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }),
-  USD: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }),
-};
+// Money formatter centralizado en lib/format (formatMoney).
 
 export function PaymentOrdersTable({
   channels,
@@ -127,7 +113,7 @@ export function PaymentOrdersTable({
                       {formatArgentineDate(op.payment_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {formatters[op.currency].format(Number(op.total_amount))}
+                      {formatMoney(Number(op.total_amount), op.currency)}
                     </TableCell>
                     <TableCell>
                       {isCanceled ? (

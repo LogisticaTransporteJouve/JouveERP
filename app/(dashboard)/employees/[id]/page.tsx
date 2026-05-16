@@ -16,19 +16,15 @@ import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-empl
 import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const money = (n: number | string | null) => {
   if (n === null) return "—";
   const num = typeof n === "string" ? Number(n) : n;
   if (!Number.isFinite(num)) return "—";
-  return `$ ${ARS.format(num)}`;
+  return `$ ${formatNumber2(num)}`;
 };
 
 export default async function EmployeeDetailPage({

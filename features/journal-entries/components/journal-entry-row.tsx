@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney as money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -15,12 +15,6 @@ import {
   SOURCE_LABEL,
   type JournalEntryWithLines,
 } from "../schema";
-
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number) => `$${fmt.format(n)}`;
 
 export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
   const [open, setOpen] = useState(false);

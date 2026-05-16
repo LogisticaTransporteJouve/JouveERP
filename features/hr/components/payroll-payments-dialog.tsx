@@ -45,13 +45,10 @@ import {
   type PayrollPaymentMethod,
 } from "../payroll-schema";
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+import { formatNumber2 } from "@/lib/format";
 
 function money(n: number): string {
-  return `$ ${ARS.format(n)}`;
+  return `$ ${formatNumber2(n)}`;
 }
 
 type Props = {

@@ -68,13 +68,7 @@ function parseAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const moneyFormatter = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-function formatMoney(value: number): string {
-  return moneyFormatter.format(value);
-}
+import { formatNumber2 as formatMoney } from "@/lib/format";
 
 function lineAmount(l: PaymentLineDraft): number {
   if (l.line_kind === "endorse_check") return l.amount;

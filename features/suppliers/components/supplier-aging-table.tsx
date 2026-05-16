@@ -12,16 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
+import { formatMoney } from "@/lib/format";
 
 import { useSupplierAging } from "../hooks/use-suppliers";
 import { suppliersKeys } from "../lib/suppliers-keys";
 import type { SupplierAgingSummary } from "../actions/account-actions";
 
-const fmtMoney = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-});
+const fmtMoney = { format: (n: number) => formatMoney(n, "ARS") };
 
 function MoneyCell({
   amount,

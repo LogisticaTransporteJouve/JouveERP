@@ -12,7 +12,7 @@ import {
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useChecksList } from "../hooks/use-checks";
 import { checksKeys } from "../lib/checks-keys";
@@ -36,16 +36,7 @@ const STATUS_TONE: Record<ChequeStatus, string> = {
   rechazado: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
-const arsFmt = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-});
-const usdFmt = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-});
+// Money formatter centralizado en lib/format (formatMoney).
 
 interface ChannelOption {
   id: string;
@@ -99,7 +90,7 @@ export function ChequesTable({
               {CHECK_STATUS_LABEL[status]}
             </div>
             <div className="font-mono text-base font-semibold">
-              {arsFmt.format(totalsByStatus[status])}
+              {formatMoney(totalsByStatus[status], "ARS")}
             </div>
           </div>
         ))}
@@ -137,7 +128,6 @@ export function ChequesTable({
               </TableRow>
             ) : (
               items.map((c) => {
-                const formatter = c.currency === "USD" ? usdFmt : arsFmt;
                 return (
                   <TableRow key={c.id}>
                     <TableCell className="text-sm">
@@ -159,7 +149,7 @@ export function ChequesTable({
                       {formatArgentineDate(c.due_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {formatter.format(Number(c.amount))}
+                      {formatMoney(Number(c.amount), c.currency)}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={STATUS_TONE[c.status]}>
