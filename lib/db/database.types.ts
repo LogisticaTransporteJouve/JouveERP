@@ -1895,6 +1895,33 @@ export type Database = {
           },
         ]
       }
+      supplier_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       supplier_opening_balance_allocations: {
         Row: {
           amount_applied: number
@@ -1989,9 +2016,12 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           cuit: string
+          default_channel_id: string | null
+          default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string
@@ -2005,9 +2035,12 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           cuit: string
+          default_channel_id?: string | null
+          default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -2021,9 +2054,12 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           cuit?: string
+          default_channel_id?: string | null
+          default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -2035,7 +2071,22 @@ export type Database = {
           real_address?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_channel_id_fkey"
+            columns: ["default_channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
@@ -2684,6 +2735,10 @@ export type Database = {
         Args: { p_channel: string }
         Returns: undefined
       }
+      next_internal_purchase_numero: {
+        Args: { p_channel_id: string; p_supplier_id: string }
+        Returns: number
+      }
       notification_type_enabled: {
         Args: { p_type: string; p_user_id: string }
         Returns: boolean
@@ -2807,9 +2862,12 @@ export type Database = {
         }
         Returns: {
           address: string | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           cuit: string
+          default_channel_id: string | null
+          default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string

@@ -16,6 +16,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Tags,
   Truck,
   Users,
   Wallet,
@@ -85,6 +86,7 @@ const navSections: NavSection[] = [
     label: "Compras",
     items: [
       { href: "/suppliers", label: "Proveedores", icon: Truck, permission: "suppliers:read" },
+      { href: "/suppliers/categories", label: "Categorías", icon: Tags, permission: "suppliers:read" },
       { href: "/purchases", label: "Compras", icon: ShoppingCart, permission: "purchase_invoices:read" },
       { href: "/payment-orders", label: "Órdenes de pago", icon: CreditCard, permission: "payment_orders:read" },
       { href: "/aging-suppliers", label: "Aging proveedores", icon: AlertTriangle, permission: "suppliers:read" },

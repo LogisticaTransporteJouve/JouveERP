@@ -47,6 +47,25 @@ const cuit = z.preprocess(
   z.string().regex(/^[0-9]{11}$/, "El CUIT debe tener 11 dígitos."),
 );
 
+const optionalChannelId = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : v))
+  .nullable()
+  .optional();
+
+const optionalCategoryId = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
+const optionalPaymentTermDays = z
+  .union([z.literal(""), z.coerce.number().int().min(1).max(365)])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
 const baseSupplierFields = {
   cuit,
   legal_name: z.string().trim().min(2, "Razón social requerida.").max(120),
@@ -63,6 +82,9 @@ const baseSupplierFields = {
   address: trimmedNullable,
   real_address: trimmedNullable,
   notes: trimmedNullable,
+  default_channel_id: optionalChannelId,
+  default_payment_term_days: optionalPaymentTermDays,
+  category_id: optionalCategoryId,
 };
 
 export const SupplierCreateSchema = z.object(baseSupplierFields);
@@ -78,6 +100,9 @@ export const SupplierUpdateSchema = z.object({
   address: baseSupplierFields.address,
   real_address: baseSupplierFields.real_address,
   notes: baseSupplierFields.notes,
+  default_channel_id: baseSupplierFields.default_channel_id,
+  default_payment_term_days: baseSupplierFields.default_payment_term_days,
+  category_id: baseSupplierFields.category_id,
 });
 
 export const SupplierToggleActiveSchema = z.object({
