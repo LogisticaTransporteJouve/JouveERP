@@ -87,6 +87,14 @@ const PV_TO_CHANNEL = {
   2: "dz_internal",
 };
 
+// Sanity cap for imp_total. AFIP's "Mis Comprobantes" export sometimes
+// contains user-entered errors (e.g. an invoice with a 13-digit amount
+// from a single typo that was later annulled with a matching NC). Both
+// the bogus factura and its NC land in the export, polluting reports
+// with a 2.3-trillion-peso outlier. 100 B ARS is a generous ceiling
+// that still leaves real high-nominal late-2025 invoices intact.
+const IMP_TOTAL_SANITY_CAP = 1e11;
+
 // ---------------------------------------------------------------------------
 // Args + env
 // ---------------------------------------------------------------------------
@@ -237,6 +245,13 @@ function parsePurchaseRows(path) {
     const numero = Number.parseInt(cols[3], 10);
     const cuit = (cols[7] ?? "").replace(/[^0-9]/g, "");
     if (!fecha || !pv || !numero || !cuit || cuit.length !== 11) continue;
+    const imp_total = parseNumber(cols[29]);
+    if (imp_total > IMP_TOTAL_SANITY_CAP) continue;
+    const imp_iva = parseNumber(cols[28]);
+    const imp_trib = parseNumber(cols[27]);
+    // Same per-cent rounding fix as for sales; auto-journal requires
+    // imp_neto + imp_iva + imp_trib == imp_total exactly.
+    const imp_neto = Math.round((imp_total - imp_iva - imp_trib) * 100) / 100;
     rows.push({
       tipo,
       kind: mapping.kind,
@@ -248,10 +263,10 @@ function parsePurchaseRows(path) {
       cuit,
       legal_name: (cols[8] ?? "").trim().slice(0, 120),
       moneda: (cols[12] ?? "").trim() === "$" ? "PES" : "DOL",
-      imp_neto: parseNumber(cols[24]),
-      imp_iva: parseNumber(cols[28]),
-      imp_trib: parseNumber(cols[27]),
-      imp_total: parseNumber(cols[29]),
+      imp_neto,
+      imp_iva,
+      imp_trib,
+      imp_total,
     });
   }
   return rows;
@@ -270,6 +285,16 @@ function parseSalesRows(path) {
     const docTipo = Number.parseInt(cols[6], 10);
     const docNro = (cols[7] ?? "").replace(/[^0-9]/g, "");
     if (!fecha || !pv || !numero || !docNro) continue;
+    const imp_total = parseNumber(cols[27]);
+    if (imp_total > IMP_TOTAL_SANITY_CAP) continue;
+    const imp_iva = parseNumber(cols[26]);
+    const imp_trib = parseNumber(cols[25]);
+    const imp_op_ex = parseNumber(cols[24]);
+    // AFIP's printed imp_neto can differ from (imp_total − iva − trib − opex)
+    // by ±1 cent due to per-line rounding. The auto-journal trigger
+    // requires Σdebit = Σcredit exactly, so we snap imp_neto to absorb
+    // the rounding while preserving the reported imp_iva/imp_trib/imp_total.
+    const imp_neto = Math.round((imp_total - imp_iva - imp_trib - imp_op_ex) * 100) / 100;
     rows.push({
       tipo,
       kind: mapping.kind,
@@ -282,11 +307,11 @@ function parseSalesRows(path) {
       doc_nro: docNro,
       receptor_name: (cols[8] ?? "").trim().slice(0, 120),
       moneda: (cols[10] ?? "").trim() === "$" ? "PES" : "DOL",
-      imp_neto: parseNumber(cols[22]),
-      imp_iva: parseNumber(cols[26]),
-      imp_trib: parseNumber(cols[25]),
-      imp_op_ex: parseNumber(cols[24]),
-      imp_total: parseNumber(cols[27]),
+      imp_neto,
+      imp_iva,
+      imp_trib,
+      imp_op_ex,
+      imp_total,
     });
   }
   return rows;
@@ -475,11 +500,20 @@ async function importSales(supabase, target, opts) {
       { onConflict: "cuit", ignoreDuplicates: true },
     );
 
-  const { data: clientRows, error: cliErr } = await supabase
-    .from("clients")
-    .select("id, cuit");
-  if (cliErr) throw new Error(`fetch clients: ${cliErr.message}`);
-  const clientIdByCuit = new Map(clientRows.map((c) => [c.cuit, c.id]));
+  // PostgREST caps responses at 1000 rows by default, and the clients
+  // table grows past that quickly. Re-fetch in chunks by CUIT to make
+  // sure every imported client lands in the lookup map.
+  const allCuits = [...clientByCuit.keys(), cfCuit];
+  const clientIdByCuit = new Map();
+  for (let i = 0; i < allCuits.length; i += 500) {
+    const slice = allCuits.slice(i, i + 500);
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, cuit")
+      .in("cuit", slice);
+    if (error) throw new Error(`fetch clients: ${error.message}`);
+    for (const c of data) clientIdByCuit.set(c.cuit, c.id);
+  }
   const cfId = clientIdByCuit.get(cfCuit);
 
   // Bulk insert sales invoices.
@@ -1004,7 +1038,9 @@ async function synthOpeningBalances(supabase) {
     .map(([id]) => id);
   let m = 0;
   for (const supplierId of topSuppliers) {
-    const openingDate = "2024-12-31";
+    // Compras AFIP en este export son todas 2025; el cutoff debe caer
+    // dentro del rango para que las facturas previas existan.
+    const openingDate = "2025-06-30";
     const { data: prior } = await supabase
       .from("purchase_invoices")
       .select("imp_total")
@@ -1105,6 +1141,208 @@ function round2(n) {
 }
 
 // ---------------------------------------------------------------------------
+// Synth 2026 invoices (current year, missing from AFIP exports)
+// ---------------------------------------------------------------------------
+//
+// The AFIP exports go up to 2025. We're operating in 2026 so the
+// dashboards (planilla mensual, libro IVA, ventas-por-mes,
+// cuenta corriente abierta) all look empty for the current year.
+// This function fills Jan→May 2026 with believable monthly activity:
+//   * ~25 sales invoices/month spread across both fiscal channels
+//     (jouve_fiscal PV 3, dz_fiscal PV 4)
+//   * ~10 purchase invoices/month for the same window
+// All amounts stay in the 200k–4M ARS range so they look like
+// late-2025/early-2026 ticket sizes without dwarfing prior years.
+async function synth2026Invoices(supabase) {
+  const { count: existing2026 } = await supabase
+    .from("invoices")
+    .select("id", { count: "exact", head: true })
+    .gte("fecha", "2026-01-01");
+  if ((existing2026 ?? 0) > 0) {
+    console.log("  facturas 2026: ya hay datos, skip");
+    return 0;
+  }
+  console.log("→ Sintetizando facturas 2026 (ene–may)");
+
+  // Pull a stable sample of clients with CUIT for letter A, and a
+  // small set of CF/monotributo for letter B.
+  const { data: clientsA } = await supabase
+    .from("clients")
+    .select("id, iva_condition")
+    .eq("iva_condition", "responsable_inscripto")
+    .limit(80);
+  const { data: clientsB } = await supabase
+    .from("clients")
+    .select("id, iva_condition")
+    .in("iva_condition", ["monotributo", "consumidor_final", "exento"])
+    .limit(40);
+  const cliA = clientsA ?? [];
+  const cliB = clientsB ?? [];
+  if (!cliA.length && !cliB.length) {
+    console.log("  no hay clientes; skip");
+    return 0;
+  }
+
+  // Resume per-channel counters from the existing max numero.
+  const counters = {};
+  for (const [pv, ch] of [
+    [3, "jouve_fiscal"],
+    [4, "dz_fiscal"],
+  ]) {
+    const { data } = await supabase
+      .from("invoices")
+      .select("numero")
+      .eq("channel_id", ch)
+      .eq("punto_venta", pv)
+      .order("numero", { ascending: false })
+      .limit(1);
+    counters[ch] = (data?.[0]?.numero ?? 0) + 1;
+  }
+
+  const months = [
+    { ym: "2026-01", days: 31 },
+    { ym: "2026-02", days: 28 },
+    { ym: "2026-03", days: 31 },
+    { ym: "2026-04", days: 30 },
+    { ym: "2026-05", days: 15 },
+  ];
+
+  const rows = [];
+  let seq = 0;
+  for (const { ym, days } of months) {
+    const perMonth = 25;
+    for (let i = 0; i < perMonth; i++) {
+      const day = String(((i * 3 + 1) % days) + 1).padStart(2, "0");
+      const fecha = `${ym}-${day}`;
+      const useA = (seq % 3) !== 0; // ~66% letter A
+      const channel = (seq % 2 === 0) ? "jouve_fiscal" : "dz_fiscal";
+      const pv = channel === "jouve_fiscal" ? 3 : 4;
+      const numero = counters[channel]++;
+      const letter = useA ? "A" : "B";
+      const pool = useA ? cliA : (cliB.length ? cliB : cliA);
+      const client = pool[seq % pool.length];
+
+      // Base neto in the 200k–4M ARS band, IVA 21%.
+      const base = 200_000 + ((seq * 73 + 17) % 38) * 100_000;
+      const imp_neto = round2(base);
+      const imp_iva = round2(imp_neto * 0.21);
+      const imp_total = round2(imp_neto + imp_iva);
+
+      const condIvaRec =
+        letter === "A"
+          ? COND_IVA.responsable_inscripto
+          : client.iva_condition === "monotributo"
+            ? COND_IVA.monotributo
+            : client.iva_condition === "exento"
+              ? COND_IVA.exento
+              : COND_IVA.consumidor_final;
+
+      rows.push({
+        channel_id: channel,
+        client_id: client.id,
+        kind: "factura",
+        letter,
+        punto_venta: pv,
+        numero,
+        fecha,
+        concepto: 1,
+        doc_tipo: 80,
+        doc_nro: "0",
+        iva_condition_receptor: condIvaRec,
+        cbte_tipo_afip: CBTE_TIPO.factura[letter],
+        imp_neto,
+        imp_iva,
+        imp_trib: 0,
+        imp_op_ex: 0,
+        imp_total,
+        moneda: "PES",
+        cae: `7${(70000000000000 + seq).toString().padStart(14, "0")}`,
+        status: "emitted",
+        emitted_at: `${fecha}T11:30:00Z`,
+        idempotency_key: `seed2026-${channel}-${pv}-${numero}`,
+      });
+      seq += 1;
+    }
+  }
+
+  let inserted = 0;
+  await chunked(rows, 500, async (batch) => {
+    const { error, data } = await supabase
+      .from("invoices")
+      .upsert(batch, { onConflict: "idempotency_key", ignoreDuplicates: true })
+      .select("id");
+    if (error) throw new Error(`invoices 2026 upsert: ${error.message}`);
+    inserted += data?.length ?? 0;
+  });
+  console.log(`  ↑ ${inserted} facturas 2026 (ventas)`);
+
+  // Compras 2026 — same window, smaller volume.
+  const { data: suppliers } = await supabase
+    .from("suppliers")
+    .select("id, iva_condition")
+    .limit(80);
+  const supList = suppliers ?? [];
+  if (!supList.length) {
+    console.log("  no hay proveedores; skip compras 2026");
+    return inserted;
+  }
+  const purchRows = [];
+  let pseq = 0;
+  for (const { ym, days } of months) {
+    const perMonth = 10;
+    for (let i = 0; i < perMonth; i++) {
+      const day = String(((i * 5 + 2) % days) + 1).padStart(2, "0");
+      const fecha = `${ym}-${day}`;
+      const supplier = supList[pseq % supList.length];
+      const letter = supplier.iva_condition === "responsable_inscripto" ? "A" : "B";
+      // Suppliers use their own AFIP PV (we don't control them); fake
+      // it as the supplier's CUIT mod 999 for variety.
+      const pv = (pseq % 4) + 1;
+      const numero = 50000 + pseq;
+      const base = 100_000 + ((pseq * 41 + 9) % 30) * 80_000;
+      const imp_neto = round2(base);
+      const imp_iva = round2(imp_neto * 0.21);
+      const imp_total = round2(imp_neto + imp_iva);
+      // Default to jouve_fiscal for the receiving channel; suppliers
+      // are not channel-scoped in real life, only the receiving side
+      // is. PV_TO_CHANNEL is good enough here.
+      const channel = "jouve_fiscal";
+      purchRows.push({
+        channel_id: channel,
+        supplier_id: supplier.id,
+        kind: "factura",
+        letter,
+        punto_venta: pv,
+        numero,
+        fecha,
+        imp_neto,
+        imp_iva,
+        imp_trib: 0,
+        imp_total,
+        moneda: "PES",
+        cae_proveedor: null,
+        status: "received",
+      });
+      pseq += 1;
+    }
+  }
+  let pInserted = 0;
+  await chunked(purchRows, 500, async (batch) => {
+    const { error, data } = await supabase
+      .from("purchase_invoices")
+      .upsert(batch, {
+        onConflict: "supplier_id,kind,letter,punto_venta,numero",
+        ignoreDuplicates: true,
+      })
+      .select("id");
+    if (error) throw new Error(`purchase_invoices 2026 upsert: ${error.message}`);
+    pInserted += data?.length ?? 0;
+  });
+  console.log(`  ↑ ${pInserted} facturas 2026 (compras)`);
+  return inserted + pInserted;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
@@ -1146,6 +1384,7 @@ async function main() {
 
   if (!args.skipOps) {
     const accounts = await fetchAccounts(supabase);
+    await synth2026Invoices(supabase);
     await synthReceipts(supabase, accounts);
     await synthPaymentOrders(supabase, accounts);
     await synthManualChecks(supabase, accounts);
