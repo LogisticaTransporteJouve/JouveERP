@@ -22,6 +22,7 @@
     "db:types:check": "bash scripts/db-types-check.sh",
     "seed:dev": "node scripts/seed-dev-user.mjs",
     "seed:all": "node scripts/seed-everything.mjs",
+    "db:reset": "supabase db reset && node scripts/seed-everything.mjs",
     "import:afip-purchases": "node scripts/import-afip-purchases.mjs",
     "prepare": "husky"
   },
