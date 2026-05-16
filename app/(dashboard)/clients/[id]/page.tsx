@@ -20,6 +20,7 @@ import { ClientAccountTab } from "@/features/clients/components/client-account-t
 import { ClientForm } from "@/features/clients/components/client-form";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { IVA_CONDITION_LABEL } from "@/features/clients/schema";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -110,6 +111,7 @@ export default async function ClientDetailPage({
         <TabsList>
           <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
           <TabsTrigger value="data">Datos</TabsTrigger>
+          <TabsTrigger value="files">Adjuntos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="mt-4">
@@ -140,6 +142,23 @@ export default async function ClientDetailPage({
               No tenés permiso para editar clientes.
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="files" className="mt-4 max-w-3xl">
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Adjuntos del cliente</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Constancia de inscripción, contratos, otros documentos.
+            </p>
+            <div className="mt-3">
+              <AttachmentsZone
+                targetType="client"
+                targetId={client.id}
+                canWrite={userCan(ctx.roles, "files:write") && canWrite}
+                canDelete={userCan(ctx.roles, "files:write") && canWrite}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { getSupplierAccountAction } from "@/features/suppliers/actions/account-actions";
 import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-actions";
 import { SupplierAccountTab } from "@/features/suppliers/components/supplier-account-tab";
@@ -95,6 +96,7 @@ export default async function SupplierDetailPage({
         <TabsList>
           <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
           <TabsTrigger value="data">Datos</TabsTrigger>
+          <TabsTrigger value="files">Adjuntos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="mt-4">
@@ -125,6 +127,23 @@ export default async function SupplierDetailPage({
               No tenés permiso para editar proveedores.
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="files" className="mt-4 max-w-3xl">
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Adjuntos del proveedor</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Constancia de inscripción, contratos, otros documentos.
+            </p>
+            <div className="mt-3">
+              <AttachmentsZone
+                targetType="supplier"
+                targetId={supplier.id}
+                canWrite={userCan(ctx.roles, "files:write") && canWrite}
+                canDelete={userCan(ctx.roles, "files:write") && canWrite}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { InvoiceJobStatus } from "@/features/invoices/components/invoice-job-status";
 import {
   IssueNcNdDialog,
@@ -338,6 +339,21 @@ export default async function ComprobanteDetailPage({
             </p>
           </div>
         )}
+
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="text-sm font-medium">Adjuntos</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Remitos, comprobantes de respaldo, otros documentos.
+          </p>
+          <div className="mt-3">
+            <AttachmentsZone
+              targetType="invoice"
+              targetId={c.id}
+              canWrite={userCan(ctx.roles, "files:write")}
+              canDelete={userCan(ctx.roles, "files:write")}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
