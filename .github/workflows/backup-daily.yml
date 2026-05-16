@@ -1,0 +1,96 @@
+name: Backup diario de la base
+
+# Corre todos los días a las 03:00 UTC (00:00 ART). Hace pg_dump en
+# formato custom comprimido y sube el .dump al bucket `backups-daily`
+# de Supabase Storage. Después borra los archivos > 30 días.
+#
+# Requiere los siguientes secrets en GitHub:
+#   - DATABASE_URL: postgresql://... (de Supabase Dashboard → Settings → Database)
+#   - SUPABASE_URL: https://<project>.supabase.co
+#   - SUPABASE_SERVICE_ROLE_KEY: del Supabase Dashboard → Settings → API
+#   - SLACK_WEBHOOK_URL: (opcional) para notificación de éxito/error
+#
+# Se puede correr manualmente desde la pestaña Actions con
+# "Run workflow" para probar.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      RETENTION_DAYS: "30"
+      BUCKET: "backups-daily"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pg_dump (Postgres 16 client)
+        run: |
+          # ubuntu-24.04 trae postgresql-client 16 preinstalado.
+          pg_dump --version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install supabase-js
+        run: npm install --no-save @supabase/supabase-js@2
+
+      - name: Dump database
+        id: dump
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          FILE="backup-${DATE}.dump"
+          echo "Dumping to $FILE ..."
+          # custom format (Fc) + compresión nivel 9 + sin owner para
+          # que el restore funcione contra cualquier rol target.
+          pg_dump "$DATABASE_URL" \
+            --format=custom \
+            --compress=9 \
+            --no-owner \
+            --no-acl \
+            --file="$FILE"
+          SIZE=$(stat -c %s "$FILE")
+          SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA"  >> "$GITHUB_OUTPUT"
+          echo "Dump OK — ${SIZE} bytes, sha256=${SHA}"
+
+      - name: Upload + prune old (Node)
+        env:
+          DUMP_FILE: ${{ steps.dump.outputs.file }}
+          DUMP_SIZE: ${{ steps.dump.outputs.size }}
+          DUMP_SHA: ${{ steps.dump.outputs.sha }}
+        run: node .github/workflows/backup-upload.mjs
+
+      - name: Notify Slack on success
+        if: success() && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          MB=$(( ${{ steps.dump.outputs.size }} / 1024 / 1024 ))
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"✅ Backup JouveERP OK — ${{ steps.dump.outputs.file }} (${MB} MB, sha=${{ steps.dump.outputs.sha }})\"}" \
+            "$SLACK_WEBHOOK_URL" || true
+
+      - name: Notify Slack on failure
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text": "❌ Backup JouveERP FALLÓ — revisar https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            "$SLACK_WEBHOOK_URL" || true

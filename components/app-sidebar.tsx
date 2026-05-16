@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronRight,
   CreditCard,
+  DatabaseBackup,
   FileText,
   IdCard,
   LayoutDashboard,
@@ -137,6 +138,7 @@ const navSections: NavSection[] = [
       { href: "/admin/padron", label: "Padrón AFIP", icon: Search, permission: "padron:lookup" },
       { href: "/admin/afip/puntos-de-venta", label: "Puntos de venta", icon: Receipt, permission: "afip:admin" },
       { href: "/admin/afip/preview-pdf", label: "Preview PDF", icon: FileText, permission: "afip:admin" },
+      { href: "/admin/backups", label: "Backups", icon: DatabaseBackup, permission: "audit:read" },
     ],
   },
 ];

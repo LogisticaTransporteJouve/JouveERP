@@ -685,7 +685,7 @@ Heredado de la vieja Fase J:
 
 ~150 LOC. Va antes que M.1, no bloquea nada.
 
-#### M.1 — `feat: backups automáticos + restore drill`
+#### M.1 — `feat: backups automáticos + restore drill` ✅
 
 - Cron Inngest diario: `pg_dump --schema-only` + `pg_dump --data-only`
   comprimido → Supabase Storage `backups-daily/` con retención 30 días.
