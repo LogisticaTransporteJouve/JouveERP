@@ -1,4 +1,115 @@
 export const LIBRO_IVA_VENTAS_PATH = "/accounting/libro-iva-ventas";
+export const LIBRO_IVA_COMPRAS_PATH = "/accounting/libro-iva-compras";
+
+export type LibroIvaComprasRow = {
+  purchase_invoice_id: string;
+  fecha: string;
+  kind: string;
+  letter: string | null;
+  punto_venta: number;
+  numero: number;
+  supplier_legal_name: string;
+  supplier_cuit: string | null;
+  cae_proveedor: string | null;
+  cae_vto_proveedor: string | null;
+  iva_rate_id: number | null;
+  iva_rate_pct: string | number | null;
+  neto: string | number;
+  iva: string | number;
+  imp_trib: string | number;
+  imp_total: string | number;
+  channel_id: string;
+  channel_name: string;
+  has_items: boolean;
+};
+
+export type LibroIvaComprasGroupedRow = {
+  purchase_invoice_id: string;
+  fecha: string;
+  kind: string;
+  letter: string | null;
+  punto_venta: number;
+  numero: number;
+  supplier_legal_name: string;
+  supplier_cuit: string | null;
+  cae_proveedor: string | null;
+  cae_vto_proveedor: string | null;
+  imp_trib: number;
+  imp_total: number;
+  channel_name: string;
+  channel_id: string;
+  has_items: boolean;
+  per_rate: Record<number, { neto: number; iva: number }>;
+};
+
+export function groupComprasByInvoice(
+  rows: readonly LibroIvaComprasRow[],
+): LibroIvaComprasGroupedRow[] {
+  const map = new Map<string, LibroIvaComprasGroupedRow>();
+  for (const r of rows) {
+    let acc = map.get(r.purchase_invoice_id);
+    if (!acc) {
+      acc = {
+        purchase_invoice_id: r.purchase_invoice_id,
+        fecha: r.fecha,
+        kind: r.kind,
+        letter: r.letter,
+        punto_venta: r.punto_venta,
+        numero: r.numero,
+        supplier_legal_name: r.supplier_legal_name,
+        supplier_cuit: r.supplier_cuit,
+        cae_proveedor: r.cae_proveedor,
+        cae_vto_proveedor: r.cae_vto_proveedor,
+        imp_trib: Number(r.imp_trib),
+        imp_total: Number(r.imp_total),
+        channel_name: r.channel_name,
+        channel_id: r.channel_id,
+        has_items: r.has_items,
+        per_rate: {},
+      };
+      map.set(r.purchase_invoice_id, acc);
+    }
+    const key = r.iva_rate_id ?? -1;
+    const existing = acc.per_rate[key] ?? { neto: 0, iva: 0 };
+    acc.per_rate[key] = {
+      neto: existing.neto + Number(r.neto),
+      iva: existing.iva + Number(r.iva),
+    };
+  }
+  return Array.from(map.values());
+}
+
+export type LibroIvaComprasTotals = {
+  count: number;
+  per_rate: Record<number, { neto: number; iva: number }>;
+  imp_trib: number;
+  imp_total: number;
+};
+
+export function computeComprasTotals(
+  grouped: readonly LibroIvaComprasGroupedRow[],
+): LibroIvaComprasTotals {
+  const totals: LibroIvaComprasTotals = {
+    count: grouped.length,
+    per_rate: {},
+    imp_trib: 0,
+    imp_total: 0,
+  };
+  for (const row of grouped) {
+    for (const [k, v] of Object.entries(row.per_rate)) {
+      const id = Number(k);
+      const existing = totals.per_rate[id] ?? { neto: 0, iva: 0 };
+      totals.per_rate[id] = {
+        neto: existing.neto + v.neto,
+        iva: existing.iva + v.iva,
+      };
+    }
+    totals.imp_trib += row.imp_trib;
+    totals.imp_total += row.imp_total;
+  }
+  return totals;
+}
+
 
 export type LibroIvaVentasRow = {
   invoice_id: string;
