@@ -2779,6 +2779,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      build_invoice_journal_lines: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
+          p_is_fiscal: boolean
+          p_reverse?: boolean
+        }
+        Returns: Json
+      }
       bump_rate_limit_bucket: {
         Args: {
           p_bucket_key: string
@@ -2879,6 +2887,14 @@ export type Database = {
           p_check_id: string
           p_description: string
           p_event_date: string
+        }
+        Returns: string
+      }
+      emit_journal_for_invoice: {
+        Args: {
+          p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
+          p_reverse?: boolean
+          p_reversed_entry_id?: string
         }
         Returns: string
       }
