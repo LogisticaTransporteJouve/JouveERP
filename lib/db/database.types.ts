@@ -784,6 +784,63 @@ export type Database = {
         }
         Relationships: []
       }
+      employees: {
+        Row: {
+          base_salary: number | null
+          cbu: string | null
+          created_at: string
+          created_by: string | null
+          cuil: string | null
+          hire_date: string
+          id: string
+          is_active: boolean
+          is_monotributo: boolean
+          legal_name: string
+          notes: string | null
+          pay_frequency: string
+          position: string | null
+          termination_date: string | null
+          updated_at: string
+          viatico_monthly: number
+        }
+        Insert: {
+          base_salary?: number | null
+          cbu?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuil?: string | null
+          hire_date: string
+          id?: string
+          is_active?: boolean
+          is_monotributo?: boolean
+          legal_name: string
+          notes?: string | null
+          pay_frequency: string
+          position?: string | null
+          termination_date?: string | null
+          updated_at?: string
+          viatico_monthly?: number
+        }
+        Update: {
+          base_salary?: number | null
+          cbu?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuil?: string | null
+          hire_date?: string
+          id?: string
+          is_active?: boolean
+          is_monotributo?: boolean
+          legal_name?: string
+          notes?: string | null
+          pay_frequency?: string
+          position?: string | null
+          termination_date?: string | null
+          updated_at?: string
+          viatico_monthly?: number
+        }
+        Relationships: []
+      }
       file_attachments: {
         Row: {
           created_at: string
@@ -3058,6 +3115,38 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "clients"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_employees: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_only_active?: boolean
+          p_query: string
+        }
+        Returns: {
+          base_salary: number | null
+          cbu: string | null
+          created_at: string
+          created_by: string | null
+          cuil: string | null
+          hire_date: string
+          id: string
+          is_active: boolean
+          is_monotributo: boolean
+          legal_name: string
+          notes: string | null
+          pay_frequency: string
+          position: string | null
+          termination_date: string | null
+          updated_at: string
+          viatico_monthly: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "employees"
           isOneToOne: false
           isSetofReturn: true
         }
