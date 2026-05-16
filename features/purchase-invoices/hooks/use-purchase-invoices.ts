@@ -16,6 +16,7 @@ import {
   cancelPurchaseInvoiceAction,
   createPurchaseInvoiceAction,
   getPurchaseInvoiceByIdAction,
+  getPurchaseInvoiceItemsAction,
   searchPurchaseInvoicesAction,
   updatePurchaseInvoiceAction,
   type SearchPurchaseInvoicesPage,
@@ -65,6 +66,17 @@ export function usePurchaseInvoiceById(id: string) {
   return useSuspenseQuery({
     queryKey: purchaseInvoicesKeys.byId(id),
     queryFn: () => runAction(() => getPurchaseInvoiceByIdAction(id)),
+  });
+}
+
+export function usePurchaseInvoiceItems(
+  id: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.items(id ?? ""),
+    queryFn: () => runAction(() => getPurchaseInvoiceItemsAction(id ?? "")),
+    enabled: !!id && options.enabled !== false,
   });
 }
 
@@ -126,7 +138,10 @@ export function useUpdatePurchaseInvoice() {
     onSuccess: (_data, variables) => {
       invalidatePurchaseEffects(qc);
       const id = (variables as { id?: string }).id;
-      if (id) qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.byId(id) });
+      if (id) {
+        qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.byId(id) });
+        qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.items(id) });
+      }
     },
   });
 }

@@ -1289,6 +1289,63 @@ export type Database = {
           },
         ]
       }
+      purchase_invoice_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          iva_rate_id: number | null
+          line_iva: number
+          line_neto: number
+          line_total: number
+          purchase_invoice_id: string
+          quantity: number
+          sort_order: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          iva_rate_id?: number | null
+          line_iva?: number
+          line_neto: number
+          line_total: number
+          purchase_invoice_id: string
+          quantity: number
+          sort_order?: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          iva_rate_id?: number | null
+          line_iva?: number
+          line_neto?: number
+          line_total?: number
+          purchase_invoice_id?: string
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
       purchase_invoices: {
         Row: {
           cae_proveedor: string | null
@@ -2506,6 +2563,10 @@ export type Database = {
           p_notes: string
         }
         Returns: string
+      }
+      replace_purchase_invoice_items: {
+        Args: { p_invoice_id: string; p_items: Json }
+        Returns: undefined
       }
       search_chat_messages: {
         Args: { p_channel?: string; p_limit?: number; p_query: string }

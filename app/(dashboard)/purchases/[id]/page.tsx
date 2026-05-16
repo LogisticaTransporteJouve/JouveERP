@@ -13,9 +13,11 @@ import {
 import {
   getPurchaseInvoiceAllocationsAction,
   getPurchaseInvoiceByIdAction,
+  getPurchaseInvoiceItemsAction,
 } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import {
   PURCHASE_INVOICE_KIND_LABEL,
+  PURCHASE_IVA_RATE_LABEL,
   formatInvoiceNumber,
 } from "@/features/purchase-invoices/schema";
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
@@ -42,13 +44,15 @@ export default async function PurchaseInvoiceDetailPage({
   }
 
   const { id } = await params;
-  const [invRes, allocRes] = await Promise.all([
+  const [invRes, allocRes, itemsRes] = await Promise.all([
     getPurchaseInvoiceByIdAction(id),
     getPurchaseInvoiceAllocationsAction(id),
+    getPurchaseInvoiceItemsAction(id),
   ]);
   if (!invRes.ok || !invRes.data) notFound();
   const invoice = invRes.data;
   const allocations = allocRes.ok ? allocRes.data : [];
+  const items = itemsRes.ok ? itemsRes.data : [];
 
   const number = formatInvoiceNumber(invoice);
   const isCancelled = invoice.status === "cancelled";
@@ -146,6 +150,67 @@ export default async function PurchaseInvoiceDetailPage({
             <Row label="Saldo" value={money(outstanding, invoice.moneda)} />
           </dl>
         </div>
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Ítems</h2>
+          {items.length === 0 && (
+            <Badge variant="secondary" className="text-xs">
+              Sin detalle (cargada solo por totales)
+            </Badge>
+          )}
+        </div>
+        {items.length > 0 ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b">
+                  <th className="px-2 py-2 text-left font-medium">Descripción</th>
+                  <th className="px-2 py-2 text-right font-medium w-20">Cant.</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">P. unit</th>
+                  <th className="px-2 py-2 text-left font-medium w-20">IVA</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">Neto</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">IVA</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it) => (
+                  <tr key={it.id} className="border-b last:border-b-0">
+                    <td className="px-2 py-1">{it.description}</td>
+                    <td className="px-2 py-1 text-right font-mono">
+                      {fmt.format(it.quantity)}
+                    </td>
+                    <td className="px-2 py-1 text-right font-mono">
+                      {fmt.format(it.unit_price)}
+                    </td>
+                    <td className="px-2 py-1">
+                      {it.iva_rate_id != null
+                        ? PURCHASE_IVA_RATE_LABEL[it.iva_rate_id]
+                        : "No gr."}
+                    </td>
+                    <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                      {fmt.format(it.line_neto)}
+                    </td>
+                    <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                      {fmt.format(it.line_iva)}
+                    </td>
+                    <td className="px-2 py-1 text-right font-mono">
+                      {fmt.format(it.line_total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Esta factura tiene solo los totales del header. Para tener detalle
+            por alícuota (libro IVA Compras), edítala y activá &ldquo;Cargar con
+            detalle por ítem&rdquo;.
+          </p>
+        )}
       </div>
 
       {invoice.motivo_nc_nd && (
