@@ -127,53 +127,6 @@ export type Database = {
         }
         Relationships: []
       }
-      attendance_records: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          date: string
-          employee_id: string
-          hours_lost: number | null
-          id: string
-          kind: Database["public"]["Enums"]["attendance_kind"]
-          notes: string | null
-          source: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          date: string
-          employee_id: string
-          hours_lost?: number | null
-          id?: string
-          kind: Database["public"]["Enums"]["attendance_kind"]
-          notes?: string | null
-          source?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          date?: string
-          employee_id?: string
-          hours_lost?: number | null
-          id?: string
-          kind?: Database["public"]["Enums"]["attendance_kind"]
-          notes?: string | null
-          source?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_records_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       audit_events: {
         Row: {
           actor_id: string | null
@@ -1119,33 +1072,6 @@ export type Database = {
           quick_ocr?: string | null
           source?: string
           uploaded_by?: string | null
-        }
-        Relationships: []
-      }
-      holidays: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          date: string
-          name: string
-          notes: string | null
-          scope: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          date: string
-          name: string
-          notes?: string | null
-          scope?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          date?: string
-          name?: string
-          notes?: string | null
-          scope?: string
         }
         Relationships: []
       }
@@ -3158,30 +3084,6 @@ export type Database = {
           },
         ]
       }
-      v_attendance_records_resolved: {
-        Row: {
-          created_at: string | null
-          date: string | null
-          day_of_week: number | null
-          employee_id: string | null
-          employee_legal_name: string | null
-          hours_lost: number | null
-          id: string | null
-          kind: Database["public"]["Enums"]["attendance_kind"] | null
-          notes: string | null
-          source: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_records_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_client_account_movements: {
         Row: {
           channel_division: string | null
@@ -4107,14 +4009,6 @@ export type Database = {
       user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
     }
     Enums: {
-      attendance_kind:
-        | "absent_justified"
-        | "absent_unjustified"
-        | "late"
-        | "early_leave"
-        | "sick"
-        | "leave"
-        | "holiday"
       chat_channel_kind: "self" | "dm" | "group"
       coa_account_type:
         | "activo"
@@ -4278,15 +4172,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      attendance_kind: [
-        "absent_justified",
-        "absent_unjustified",
-        "late",
-        "early_leave",
-        "sick",
-        "leave",
-        "holiday",
-      ],
       chat_channel_kind: ["self", "dm", "group"],
       coa_account_type: [
         "activo",
