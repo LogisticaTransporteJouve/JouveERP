@@ -144,6 +144,11 @@ export function PaymentOrderForm({
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
     paymentOrder
       ? paymentOrder.payment_lines.map((l): PaymentLineDraft => {
+          const accountJoin = (
+            l as unknown as {
+              account: { name: string; type: string } | null;
+            }
+          ).account;
           const endorsed = (
             l as unknown as {
               endorsed_check: {
@@ -166,7 +171,7 @@ export function PaymentOrderForm({
               check_label: label,
               amount: Number(l.amount),
               cartera_account_id: l.account_id,
-              cartera_account_name: "",
+              cartera_account_name: accountJoin?.name ?? "—",
               reference: l.reference ?? "",
             };
           }
