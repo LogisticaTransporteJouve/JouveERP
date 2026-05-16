@@ -100,7 +100,7 @@ export default async function ComprobanteDetailPage({
             id={c.id}
             initialStatus={c.status as InvoiceStatus}
           />
-          {c.pdf_url && (
+          {c.status === "emitted" && (
             <Button asChild variant="outline" size="sm">
               <a
                 href={`/api/invoices/${c.id}/pdf`}
@@ -112,9 +112,9 @@ export default async function ComprobanteDetailPage({
               </a>
             </Button>
           )}
-          {canIssue &&
-            c.status === "emitted" &&
-            !c.pdf_url && <RegeneratePdfButton id={c.id} />}
+          {canIssue && c.status === "emitted" && !c.pdf_hash && (
+            <RegeneratePdfButton id={c.id} />
+          )}
           {canIssue &&
             c.status === "emitted" &&
             c.kind === "factura" &&

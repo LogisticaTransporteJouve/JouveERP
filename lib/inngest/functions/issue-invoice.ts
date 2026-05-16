@@ -294,14 +294,14 @@ export const issueInvoice = inngest.createFunction(
         if (updErr) throw new Error(`mark-emitted-internal: ${updErr.message}`);
       });
 
-      await step.run("generate-pdf-internal", async () => {
+      await step.run("hash-pdf-internal", async () => {
         try {
-          const { generateAndStoreInvoicePdf } = await import(
-            "@/lib/pdf/generate-and-store"
+          const { generateAndPersistInvoicePdfHash } = await import(
+            "@/lib/pdf/generate-and-hash"
           );
-          await generateAndStoreInvoicePdf(invoice_id);
+          await generateAndPersistInvoicePdfHash(invoice_id);
         } catch (err) {
-          logger.warn("issue_invoice.pdf_failed_internal", {
+          logger.warn("issue_invoice.pdf_hash_failed_internal", {
             invoice_id,
             err: err instanceof Error ? err.message : String(err),
           });
@@ -395,18 +395,19 @@ export const issueInvoice = inngest.createFunction(
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
 
-    // PDF generation runs after persist-cae and is best-effort: a failure
-    // here must NOT mark the row as failed, since the CAE is already valid.
-    // The user can retry generation later via a manual "regenerate PDF"
-    // action (E.6+). Errors get logged + observaciones updated.
-    await step.run("generate-pdf", async () => {
+    // M.0: PDF hash runs after persist-cae and is best-effort. El PDF
+    // se regenera on-demand desde /api/invoices/[id]/pdf; acá solo
+    // calculamos y persistimos el SHA256 para tener prueba criptográfica
+    // de integridad. Si falla, el comprobante sigue válido — el hash es
+    // opcional.
+    await step.run("hash-pdf", async () => {
       try {
-        const { generateAndStoreInvoicePdf } = await import(
-          "@/lib/pdf/generate-and-store"
+        const { generateAndPersistInvoicePdfHash } = await import(
+          "@/lib/pdf/generate-and-hash"
         );
-        await generateAndStoreInvoicePdf(invoice_id);
+        await generateAndPersistInvoicePdfHash(invoice_id);
       } catch (err) {
-        logger.warn("issue_invoice.pdf_failed", {
+        logger.warn("issue_invoice.pdf_hash_failed", {
           invoice_id,
           err: err instanceof Error ? err.message : String(err),
         });
