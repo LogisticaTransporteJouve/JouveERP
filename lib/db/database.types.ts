@@ -3308,6 +3308,30 @@ export type Database = {
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
+      libro_iva_compras: {
+        Args: { p_channel_id?: string; p_period: string }
+        Returns: {
+          cae_proveedor: string
+          cae_vto_proveedor: string
+          channel_id: string
+          channel_name: string
+          fecha: string
+          has_items: boolean
+          imp_total: number
+          imp_trib: number
+          iva: number
+          iva_rate_id: number
+          iva_rate_pct: number
+          kind: string
+          letter: string
+          neto: number
+          numero: number
+          punto_venta: number
+          purchase_invoice_id: string
+          supplier_cuit: string
+          supplier_legal_name: string
+        }[]
+      }
       libro_iva_ventas: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {

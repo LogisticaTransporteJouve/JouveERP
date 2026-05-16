@@ -110,6 +110,7 @@ const navSections: NavSection[] = [
       { href: "/accounting/chart", label: "Plan de cuentas", icon: ListTree, permission: "accounting:read" },
       { href: "/accounting/journal", label: "Libro diario", icon: BookOpen, permission: "accounting:read" },
       { href: "/accounting/libro-iva-ventas", label: "Libro IVA Ventas", icon: ReceiptText, permission: "accounting:read" },
+      { href: "/accounting/libro-iva-compras", label: "Libro IVA Compras", icon: ShoppingCart, permission: "accounting:read" },
     ],
   },
   {
