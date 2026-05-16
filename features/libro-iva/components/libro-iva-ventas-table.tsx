@@ -1,0 +1,216 @@
+"use client";
+
+import { AlertTriangle, FileDown } from "lucide-react";
+import Link from "next/link";
+import { useMemo } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatArgentineDate } from "@/lib/format";
+
+import { useLibroIvaVentas } from "../hooks/use-libro-iva";
+import {
+  computeTotals,
+  groupByInvoice,
+  IVA_RATES,
+  KIND_LABEL,
+} from "../schema";
+
+const fmt = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const money = (n: number) => fmt.format(n);
+
+export function LibroIvaVentasTable({
+  period,
+  channelId,
+}: {
+  period: string;
+  channelId: string | null;
+}) {
+  const { data: rows } = useLibroIvaVentas(period, channelId);
+
+  const grouped = useMemo(() => groupByInvoice(rows), [rows]);
+  const totals = useMemo(() => computeTotals(grouped), [grouped]);
+
+  const sinCae = grouped.filter((g) => !g.cae).length;
+  const sinItems = grouped.filter((g) => !g.has_items).length;
+
+  if (grouped.length === 0) {
+    return (
+      <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No hay comprobantes emitidos fiscales para este período.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {(sinCae > 0 || sinItems > 0) && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+          <div className="space-y-1">
+            {sinCae > 0 && (
+              <p>
+                <span className="font-medium">{sinCae}</span> comprobante(s){" "}
+                <span className="font-medium">sin CAE</span> en el período. La
+                presentación a AFIP los va a rechazar.
+              </p>
+            )}
+            {sinItems > 0 && (
+              <p>
+                <span className="font-medium">{sinItems}</span> comprobante(s)
+                <span className="font-medium"> sin desglose por alícuota</span>{" "}
+                (probablemente legacy AFIP imports). El IVA total se muestra
+                pero sin separar por tasa.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <table className="w-full text-sm">
+          <thead className="border-b bg-muted/30 text-left text-xs">
+            <tr>
+              <th className="px-2 py-2 font-medium">Fecha</th>
+              <th className="px-2 py-2 font-medium">Tipo</th>
+              <th className="px-2 py-2 font-medium">Comprobante</th>
+              <th className="px-2 py-2 font-medium">Cliente</th>
+              <th className="px-2 py-2 font-medium">CUIT</th>
+              {IVA_RATES.map((r) => (
+                <th key={r.id} colSpan={2} className="border-l px-2 py-2 text-center font-medium">
+                  {r.label}
+                </th>
+              ))}
+              <th className="border-l px-2 py-2 text-right font-medium">Perc.</th>
+              <th className="px-2 py-2 text-right font-medium">No grav.</th>
+              <th className="px-2 py-2 text-right font-medium">Total</th>
+              <th className="px-2 py-2 font-medium">CAE</th>
+            </tr>
+            <tr className="border-b text-xs text-muted-foreground">
+              <th />
+              <th />
+              <th />
+              <th />
+              <th />
+              {IVA_RATES.map((r) => (
+                <>
+                  <th key={`${r.id}-n`} className="border-l px-2 py-1 text-right font-normal">
+                    Neto
+                  </th>
+                  <th key={`${r.id}-i`} className="px-2 py-1 text-right font-normal">
+                    IVA
+                  </th>
+                </>
+              ))}
+              <th className="border-l" />
+              <th />
+              <th />
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {grouped.map((row) => {
+              const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+              return (
+                <tr key={row.invoice_id} className="border-b last:border-b-0 hover:bg-muted/20">
+                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                    {formatArgentineDate(row.fecha)}
+                  </td>
+                  <td className="px-2 py-1 text-xs">
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {KIND_LABEL[row.kind] ?? row.kind}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-1 font-mono text-xs">
+                    <Link href={`/invoices/${row.invoice_id}`} className="hover:underline">
+                      {number}
+                    </Link>
+                  </td>
+                  <td className="px-2 py-1 max-w-[200px] truncate" title={row.client_legal_name}>
+                    {row.client_legal_name}
+                  </td>
+                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                    {row.doc_nro}
+                  </td>
+                  {IVA_RATES.map((r) => {
+                    const cell = row.per_rate[r.id];
+                    return (
+                      <>
+                        <td key={`${r.id}-n`} className="border-l px-2 py-1 text-right font-mono text-xs">
+                          {cell?.neto ? money(cell.neto) : ""}
+                        </td>
+                        <td key={`${r.id}-i`} className="px-2 py-1 text-right font-mono text-xs">
+                          {cell?.iva ? money(cell.iva) : ""}
+                        </td>
+                      </>
+                    );
+                  })}
+                  <td className="border-l px-2 py-1 text-right font-mono text-xs">
+                    {row.imp_trib > 0 ? money(row.imp_trib) : ""}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono text-xs">
+                    {row.imp_op_ex > 0 ? money(row.imp_op_ex) : ""}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono text-xs font-medium">
+                    {money(row.imp_total)}
+                  </td>
+                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                    {row.cae ? (
+                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>{row.cae}</span>
+                    ) : (
+                      <span className="text-amber-600">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
+            <tr>
+              <td colSpan={5} className="px-2 py-2 text-right">
+                Totales ({totals.count} comprobantes)
+              </td>
+              {IVA_RATES.map((r) => {
+                const cell = totals.per_rate[r.id];
+                return (
+                  <>
+                    <td key={`t-${r.id}-n`} className="border-l px-2 py-2 text-right font-mono">
+                      {cell?.neto ? money(cell.neto) : ""}
+                    </td>
+                    <td key={`t-${r.id}-i`} className="px-2 py-2 text-right font-mono">
+                      {cell?.iva ? money(cell.iva) : ""}
+                    </td>
+                  </>
+                );
+              })}
+              <td className="border-l px-2 py-2 text-right font-mono">
+                {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
+              </td>
+              <td className="px-2 py-2 text-right font-mono">
+                {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
+              </td>
+              <td className="px-2 py-2 text-right font-mono">{money(totals.imp_total)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div className="flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={`/api/accounting/libro-iva-ventas/pdf?period=${period}${channelId ? `&channel=${channelId}` : ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <FileDown />
+            Exportar PDF
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
