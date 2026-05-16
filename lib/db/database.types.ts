@@ -784,6 +784,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_centers: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -1066,6 +1096,53 @@ export type Database = {
         }
         Relationships: []
       }
+      inflation_adjustments: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          coefficient: number
+          created_at: string
+          id: string
+          index_source: string | null
+          journal_entry_id: string | null
+          notes: string | null
+          period: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          coefficient: number
+          created_at?: string
+          id?: string
+          index_source?: string | null
+          journal_entry_id?: string | null
+          notes?: string | null
+          period: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          coefficient?: number
+          created_at?: string
+          id?: string
+          index_source?: string | null
+          journal_entry_id?: string | null
+          notes?: string | null
+          period?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inflation_adjustments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -1133,6 +1210,7 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
+          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -1173,6 +1251,7 @@ export type Database = {
           channel_id: string
           client_id: string
           concepto: number
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -1213,6 +1292,7 @@ export type Database = {
           channel_id?: string
           client_id?: string
           concepto?: number
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -1257,6 +1337,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1420,6 +1507,7 @@ export type Database = {
         Row: {
           accrual_period: string
           channel_id: string | null
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -1433,6 +1521,7 @@ export type Database = {
         Insert: {
           accrual_period: string
           channel_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description: string
@@ -1446,6 +1535,7 @@ export type Database = {
         Update: {
           accrual_period?: string
           channel_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -1462,6 +1552,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1706,6 +1803,7 @@ export type Database = {
           canceled_at: string | null
           canceled_by: string | null
           channel_id: string
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -1723,6 +1821,7 @@ export type Database = {
           canceled_at?: string | null
           canceled_by?: string | null
           channel_id: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -1740,6 +1839,7 @@ export type Database = {
           canceled_at?: string | null
           canceled_by?: string | null
           channel_id?: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -1759,6 +1859,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -2080,6 +2187,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           channel_id: string
+          cost_center_id: string | null
           cotizacion: number
           created_at: string
           created_by: string | null
@@ -2108,6 +2216,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id: string
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2136,6 +2245,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id?: string
+          cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
           created_by?: string | null
@@ -2164,6 +2274,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -2393,6 +2510,7 @@ export type Database = {
           canceled_by: string | null
           channel_id: string
           client_id: string
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -2410,6 +2528,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id: string
           client_id: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -2427,6 +2546,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id?: string
           client_id?: string
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -2452,6 +2572,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -2723,6 +2850,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          cost_center_id: string | null
           counterparty_client_id: string | null
           counterparty_supplier_id: string | null
           created_at: string
@@ -2743,6 +2871,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -2763,6 +2892,7 @@ export type Database = {
           accrual_month?: string
           amount?: number
           channel_id?: string
+          cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
           created_at?: string
@@ -2791,6 +2921,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
@@ -3489,6 +3626,37 @@ export type Database = {
           bucket: string
           bucket_path: string
           id: string
+        }[]
+      }
+      get_account_balances: {
+        Args: { p_period_end: string; p_period_start?: string }
+        Returns: {
+          account_code: string
+          account_id: string
+          account_name: string
+          account_type: Database["public"]["Enums"]["coa_account_type"]
+          balance: number
+          eerr_category: string
+          total_credit: number
+          total_debit: number
+        }[]
+      }
+      get_ledger: {
+        Args: { p_account_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          accrual_period: string
+          channel_id: string
+          credit: number
+          debit: number
+          description: string
+          entry_date: string
+          entry_id: string
+          is_reversal: boolean
+          line_desc: string
+          line_id: string
+          running: number
+          source_id: string
+          source_table: string
         }[]
       }
       get_my_notification_settings: {

@@ -539,7 +539,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 - Estados de cuentas y libros (L.3) leen de `journal_entry_lines`, no
   de las tablas operacionales.
 
-#### L.3 — `feat: libro diario + libro mayor`
+#### L.3 — `feat: libro diario + libro mayor` ✅ (parcial — libro mayor con saldo running)
 
 - **Libro Diario:** vista cronológica de `journal_entries` con drill-down a
   líneas. Filtro por período + canal.
@@ -573,7 +573,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 - Validación previa: lista comprobantes sin CAE, purchase_invoices sin
   items (de K.8) — no deja exportar si hay rotos.
 
-#### L.5 — `feat: balance de saldos + estado de resultados + balance general`
+#### L.5 — `feat: balance de saldos + estado de resultados + balance general` ✅
 
 - **Balance de saldos** a una fecha: código + cuenta + saldo deudor +
   saldo acreedor, agrupado por capítulo. Verifica `Σ deudor = Σ acreedor`.
@@ -616,7 +616,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 - Anteriormente estaba en J.8; movido acá porque es responsabilidad
   contable / regulatoria.
 
-#### L.8 — `feat: ajuste por inflación (RG 4667)`
+#### L.8 — `feat: ajuste por inflación (RG 4667)` ✅ (parcial — tabla + UI; asiento de reexpresión queda como manual)
 
 - Tabla `inflation_adjustments(id, period text 'YYYY-MM', coefficient
   numeric, applied_at, applied_by, journal_entry_id, notes)`.
@@ -629,7 +629,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 - Reporte de cuentas reexpresadas vs cuentas a valor histórico para
   el contador.
 
-#### L.9 — `feat: centros de costo (dimensiones contables)`
+#### L.9 — `feat: centros de costo (dimensiones contables)` ✅
 
 - Tabla `cost_centers(id, name, description, is_required bool,
   show_in_sales bool, show_in_purchases bool, is_active, timestamps)`.
