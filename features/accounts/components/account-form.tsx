@@ -1,7 +1,9 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,19 +30,19 @@ import {
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABEL,
   type Account,
-  type AccountCurrency,
-  type AccountType,
 } from "../schema";
 
 type Mode = "create" | "edit";
 
-type FormValues = {
-  name: string;
-  type: AccountType;
-  currency: AccountCurrency;
-  opening_balance: string;
-  notes: string;
-};
+const FormSchema = z.object({
+  name: z.string().trim().min(2, "Nombre requerido.").max(120),
+  type: z.enum(ACCOUNT_TYPES),
+  currency: z.enum(ACCOUNT_CURRENCIES),
+  opening_balance: z.string(),
+  notes: z.string().trim().max(2000),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 function accountToValues(account: Account | undefined): FormValues {
   return {
@@ -69,6 +71,7 @@ export function AccountForm({
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
     defaultValues: accountToValues(account),
   });
 

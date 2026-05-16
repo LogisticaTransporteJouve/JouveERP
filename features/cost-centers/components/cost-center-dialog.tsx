@@ -1,8 +1,10 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,12 +36,19 @@ import type { CostCenter } from "../schema";
 
 type Mode = "create" | "edit";
 
-type FormValues = {
-  code: string;
-  name: string;
-  description: string;
-  is_active: boolean;
-};
+const FormSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(2, "Mínimo 2 caracteres.")
+    .max(30)
+    .regex(/^[A-Z0-9_-]+$/, "Solo MAYÚSCULAS, números, _ y -."),
+  name: z.string().trim().min(2, "Nombre requerido.").max(60),
+  description: z.string().trim().max(200),
+  is_active: z.boolean(),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 export function CostCenterDialog({
   mode,
@@ -57,6 +66,7 @@ export function CostCenterDialog({
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
       code: costCenter?.code ?? "",
       name: costCenter?.name ?? "",
