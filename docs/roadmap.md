@@ -554,7 +554,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 
 > Dividido en sub-PRs:
 > - **L.4a ✅** — Libro IVA Ventas (RPC + UI + PDF). Solo canales fiscales. Detección de comprobantes sin CAE o sin items (legacy AFIP).
-> - **L.4b** — Libro IVA Compras (consume items por línea de K.8) + PDF.
+> - **L.4b ✅** — Libro IVA Compras (RPC + UI + PDF, mismo patrón que ventas).
 > - ~~**L.4c** — Exports CITI / SIAP (TXT posicional)~~ — descartado. Decisión: con PDF alcanza, el contador no procesa el TXT.
 
 
