@@ -163,6 +163,12 @@ function stringify(c: unknown): string {
 
 ### 1.4 PDF / imagen — Claude Haiku vision
 
+> **Diferido a Fase I.2.** No entra en K.10 — depende de I.1 (Vercel AI
+> SDK + Claude wired). Al implementar, evaluar si usar Anthropic SDK
+> directo (este código de referencia) o `@ai-sdk/anthropic` +
+> `generateText` (patrón usado en `sumary copy`, consistente con el resto
+> de I.x). La decisión va junto con la del transporte (§6 más arriba).
+
 Prompt corto, temperature 0, sin streaming. Se usa Anthropic SDK directo
 (no `ai` SDK) para tener control fino sobre el formato del binario y poder
 sumar `cache_control` cuando el prompt se estabilice (ver

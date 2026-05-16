@@ -687,6 +687,104 @@ export type Database = {
         }
         Relationships: []
       }
+      file_attachments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_id: string
+          id: string
+          kind: string
+          purchase_invoice_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_id: string
+          id?: string
+          kind: string
+          purchase_invoice_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_id?: string
+          id?: string
+          kind?: string
+          purchase_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "v_file_attachments_resolved"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          bucket: string
+          bucket_path: string
+          created_at: string
+          file_size: number | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          original_filename: string
+          quick_ocr: string | null
+          source: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket?: string
+          bucket_path: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          original_filename: string
+          quick_ocr?: string | null
+          source: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          bucket_path?: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          original_filename?: string
+          quick_ocr?: string | null
+          source?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -2211,6 +2309,39 @@ export type Database = {
           },
         ]
       }
+      v_file_attachments_resolved: {
+        Row: {
+          attached_at: string | null
+          attachment_id: string | null
+          bucket: string | null
+          bucket_path: string | null
+          created_by: string | null
+          file_id: string | null
+          file_size: number | null
+          kind: string | null
+          mime_type: string | null
+          original_filename: string | null
+          quick_ocr: string | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
       v_supplier_account_movements: {
         Row: {
           channel_division: string | null
@@ -2482,6 +2613,14 @@ export type Database = {
           p_event_date: string
         }
         Returns: string
+      }
+      find_orphan_files: {
+        Args: { p_max_age?: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+          id: string
+        }[]
       }
       get_my_notification_settings: {
         Args: never

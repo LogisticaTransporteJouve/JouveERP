@@ -47,6 +47,11 @@ export const PERMISSIONS = [
   "issued_checks:read",
   "issued_checks:write",
 
+  // Files (K.10 — adjuntos a entidades)
+  "files:read",
+  "files:write",
+  "files:admin",
+
   // AFIP
   "padron:lookup",
   "afip:admin",
@@ -130,6 +135,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "payment_orders:write",
     "issued_checks:read",
     "issued_checks:write",
+    "files:read",
+    "files:write",
     "padron:lookup",
     "accounts:read",
     "accounts:write",
@@ -154,6 +161,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   operations: [
     "clients:read",
     "suppliers:read",
+    "files:read",
+    "files:write",
     "drivers:read",
     "drivers:write",
     "vehicles:read",
@@ -177,6 +186,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "products:read",
     "stock_movements:read",
     "stock_movements:write",
+    "files:read",
+    "files:write",
   ],
 
   // Driver-level access stays minimal until G.3 adds `:own` scoping.
