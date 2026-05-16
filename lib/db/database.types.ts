@@ -3680,6 +3680,11 @@ export type Database = {
         }
         Returns: number
       }
+      cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
+      cleanup_rate_limit_buckets: {
+        Args: { p_older_than?: string }
+        Returns: number
+      }
       clear_account_opening_balance: {
         Args: { p_account_id: string }
         Returns: undefined
