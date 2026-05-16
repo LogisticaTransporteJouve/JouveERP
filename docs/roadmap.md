@@ -485,7 +485,7 @@ K.7 que ya está en PR #48.** ~1820 LOC totales.
 exports a mano. Cubre plan de cuentas, asientos auto, libros, balances
 y exports regulatorios AFIP. **9 sub-PRs.**
 
-#### L.1 — `feat: plan de cuentas jerárquico (chart of accounts)`
+#### L.1 — `feat: plan de cuentas jerárquico (chart of accounts)` ✅
 
 - Tabla `chart_of_accounts(id uuid pk, parent_id uuid self-fk, code text
   unique, name text, level int, account_type activo|pasivo|patrimonio|resultado_positivo|resultado_negativo|orden,

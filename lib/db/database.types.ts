@@ -202,6 +202,59 @@ export type Database = {
         }
         Relationships: []
       }
+      chart_of_accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["coa_account_type"]
+          code: string
+          created_at: string
+          created_by: string | null
+          eerr_category: string | null
+          id: string
+          is_active: boolean
+          level: number
+          name: string
+          parent_id: string | null
+          system_role: Database["public"]["Enums"]["coa_system_role"] | null
+          updated_at: string
+        }
+        Insert: {
+          account_type: Database["public"]["Enums"]["coa_account_type"]
+          code: string
+          created_at?: string
+          created_by?: string | null
+          eerr_category?: string | null
+          id?: string
+          is_active?: boolean
+          level: number
+          name: string
+          parent_id?: string | null
+          system_role?: Database["public"]["Enums"]["coa_system_role"] | null
+          updated_at?: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["coa_account_type"]
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          eerr_category?: string | null
+          id?: string
+          is_active?: boolean
+          level?: number
+          name?: string
+          parent_id?: string | null
+          system_role?: Database["public"]["Enums"]["coa_system_role"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_channel_members: {
         Row: {
           channel_id: string
@@ -2926,6 +2979,33 @@ export type Database = {
     }
     Enums: {
       chat_channel_kind: "self" | "dm" | "group"
+      coa_account_type:
+        | "activo"
+        | "pasivo"
+        | "patrimonio"
+        | "resultado_positivo"
+        | "resultado_negativo"
+        | "orden"
+      coa_system_role:
+        | "caja"
+        | "banco"
+        | "clientes"
+        | "proveedores"
+        | "iva_debito"
+        | "iva_credito"
+        | "iva_percibido"
+        | "iva_retenido"
+        | "percepciones_iibb_pagadas"
+        | "percepciones_iibb_cobradas"
+        | "retenciones_pagadas"
+        | "retenciones_cobradas"
+        | "ventas"
+        | "compras"
+        | "gastos"
+        | "cheques_cartera"
+        | "cheques_diferidos_emitidos"
+        | "caja_apertura"
+        | "ajustes_caja"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3054,6 +3134,35 @@ export const Constants = {
   public: {
     Enums: {
       chat_channel_kind: ["self", "dm", "group"],
+      coa_account_type: [
+        "activo",
+        "pasivo",
+        "patrimonio",
+        "resultado_positivo",
+        "resultado_negativo",
+        "orden",
+      ],
+      coa_system_role: [
+        "caja",
+        "banco",
+        "clientes",
+        "proveedores",
+        "iva_debito",
+        "iva_credito",
+        "iva_percibido",
+        "iva_retenido",
+        "percepciones_iibb_pagadas",
+        "percepciones_iibb_cobradas",
+        "retenciones_pagadas",
+        "retenciones_cobradas",
+        "ventas",
+        "compras",
+        "gastos",
+        "cheques_cartera",
+        "cheques_diferidos_emitidos",
+        "caja_apertura",
+        "ajustes_caja",
+      ],
     },
   },
 } as const
