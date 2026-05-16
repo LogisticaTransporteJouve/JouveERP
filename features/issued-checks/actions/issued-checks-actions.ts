@@ -50,7 +50,7 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
   if (!isIssuedCheckKind(row.kind)) return null;
   if (!isIssuedCheckStatus(row.status)) return null;
   if (!isIssuedCheckCurrency(row.currency)) return null;
-  return row as unknown as IssuedCheck;
+  return row as IssuedCheck;
 }
 
 const COLUMNS =

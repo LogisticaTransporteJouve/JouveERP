@@ -28,5 +28,5 @@ export async function searchGlobalAction(input: {
     logger.error("search_global.failed", { error });
     return { ok: false, error: "Búsqueda falló." };
   }
-  return { ok: true, data: (data ?? []) as unknown as SearchResult[] };
+  return { ok: true, data: (data ?? []) as SearchResult[] };
 }

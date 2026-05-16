@@ -54,7 +54,7 @@ function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
   if (!isPurchaseInvoiceKind(row.kind)) return null;
   if (!isPurchaseInvoiceStatus(row.status)) return null;
   return {
-    ...(row as unknown as PurchaseInvoice),
+    ...(row as PurchaseInvoice),
     letter: row.letter as PurchaseInvoiceLetter | null,
   };
 }

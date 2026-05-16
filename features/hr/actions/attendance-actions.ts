@@ -61,7 +61,7 @@ function narrowAttendance(row: {
     logger.error("attendance.unknown_source", { value: row.source });
     return null;
   }
-  return row as unknown as AttendanceRecord;
+  return row as AttendanceRecord;
 }
 
 const COLS =

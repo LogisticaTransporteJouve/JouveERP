@@ -57,7 +57,7 @@ function narrowClient(row: {
     });
     return null;
   }
-  return row as unknown as Client;
+  return row as Client;
 }
 
 export async function listClientsAction(): Promise<ActionResult<Client[]>> {

@@ -66,7 +66,7 @@ export async function listJournalEntriesAction(
     return { ok: false, error: "No se pudo leer el libro diario." };
   }
 
-  const items = (data ?? []) as unknown as JournalEntryWithLines[];
+  const items = (data ?? []) as JournalEntryWithLines[];
   return {
     ok: true,
     data: {

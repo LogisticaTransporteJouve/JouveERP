@@ -36,5 +36,5 @@ export async function getAccountBalancesAction(input: {
     logger.error("get_account_balances.failed", { error });
     return { ok: false, error: "No se pudieron leer los saldos." };
   }
-  return { ok: true, data: (data ?? []) as unknown as AccountBalanceRow[] };
+  return { ok: true, data: (data ?? []) as AccountBalanceRow[] };
 }

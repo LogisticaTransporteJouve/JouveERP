@@ -34,7 +34,7 @@ export async function getLedgerAction(input: {
     logger.error("get_ledger.failed", { error });
     return { ok: false, error: "No se pudo leer el libro mayor." };
   }
-  const all = (data ?? []) as unknown as LedgerRow[];
+  const all = (data ?? []) as LedgerRow[];
   const truncated = all.length > LEDGER_MAX_ROWS;
   return {
     ok: true,

@@ -34,7 +34,7 @@ export async function listLibroIvaVentasAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Ventas." };
   }
 
-  return { ok: true, data: (data ?? []) as unknown as LibroIvaVentasRow[] };
+  return { ok: true, data: (data ?? []) as LibroIvaVentasRow[] };
 }
 
 export async function listLibroIvaComprasAction(input: {
@@ -60,5 +60,5 @@ export async function listLibroIvaComprasAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
 
-  return { ok: true, data: (data ?? []) as unknown as LibroIvaComprasRow[] };
+  return { ok: true, data: (data ?? []) as LibroIvaComprasRow[] };
 }
