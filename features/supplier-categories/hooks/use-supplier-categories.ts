@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -25,6 +26,23 @@ export function useSupplierCategories(
     queryKey: supplierCategoriesKeys.list(onlyActive),
     queryFn: () =>
       runAction(() => listSupplierCategoriesAction({ onlyActive })),
+  });
+}
+
+/**
+ * Non-suspense variant para usar dentro de dialogs / pickers sin obligar
+ * un Suspense boundary upstream. Devuelve [] mientras carga.
+ */
+export function useSupplierCategoriesList(
+  options: { onlyActive?: boolean; enabled?: boolean } = {},
+) {
+  const onlyActive = options.onlyActive ?? false;
+  return useQuery({
+    queryKey: supplierCategoriesKeys.list(onlyActive),
+    queryFn: () =>
+      runAction(() => listSupplierCategoriesAction({ onlyActive })),
+    enabled: options.enabled !== false,
+    placeholderData: (prev) => prev,
   });
 }
 

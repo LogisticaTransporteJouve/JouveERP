@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { useScope } from "@/components/providers/scope-provider";
+import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 import { useCuitVerify } from "@/hooks/use-cuit-verify";
 
 import { findSupplierByCuitAction } from "../actions/suppliers-actions";
@@ -48,9 +50,18 @@ type FormValues = {
   address: string;
   real_address: string;
   notes: string;
+  default_channel_id: string;
+  default_payment_term_days: string;
+  category_id: string;
 };
 
-function supplierToValues(supplier: Supplier | undefined): FormValues {
+function supplierToValues(
+  supplier: (Supplier & {
+    default_channel_id?: string | null;
+    default_payment_term_days?: number | null;
+    category_id?: string | null;
+  }) | undefined,
+): FormValues {
   return {
     cuit: supplier?.cuit ?? "",
     legal_name: supplier?.legal_name ?? "",
@@ -61,6 +72,12 @@ function supplierToValues(supplier: Supplier | undefined): FormValues {
     address: supplier?.address ?? "",
     real_address: supplier?.real_address ?? "",
     notes: supplier?.notes ?? "",
+    default_channel_id: supplier?.default_channel_id ?? "",
+    default_payment_term_days:
+      supplier?.default_payment_term_days != null
+        ? String(supplier.default_payment_term_days)
+        : "",
+    category_id: supplier?.category_id ?? "",
   };
 }
 
@@ -85,6 +102,11 @@ export function SupplierForm({
   const { verify, isVerifying } = useCuitVerify<Supplier>({
     findByCuit: findSupplierByCuitAction,
   });
+
+  const { channels } = useScope();
+  const activeChannels = channels.filter((c) => c.is_active);
+  const categoriesQuery = useSupplierCategoriesList({ onlyActive: true });
+  const categories = categoriesQuery.data ?? [];
 
   const form = useForm<FormValues>({
     defaultValues: supplierToValues(supplier),
@@ -351,6 +373,102 @@ export function SupplierForm({
             </FormItem>
           )}
         />
+
+        <div className="space-y-4 rounded-md border bg-muted/10 p-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium">Defaults para compras</h3>
+            <p className="text-xs text-muted-foreground">
+              Opcional. Pre-completan campos al cargar una factura de este
+              proveedor. Siempre se pueden sobreescribir.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="default_channel_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Canal por defecto</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value || "__none"}
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none" ? "" : v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">Sin default</SelectItem>
+                        {activeChannels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            {c.is_fiscal ? " · fiscal" : " · interno"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="default_payment_term_days"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Días de pago default</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={365}
+                      placeholder="Ej: 30"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="category_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoría</FormLabel>
+                <FormControl>
+                  <Select
+                    value={field.value || "__none"}
+                    onValueChange={(v) =>
+                      field.onChange(v === "__none" ? "" : v)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Sin categoría</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="flex items-center justify-end gap-2">
           <Button
