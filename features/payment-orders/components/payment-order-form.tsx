@@ -18,6 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { Account } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
+import { checksKeys } from "@/features/checks/lib/checks-keys";
 import {
   SupplierPicker,
   type PickedSupplier,
@@ -221,7 +222,7 @@ export function PaymentOrderForm({
   // En edit traemos también los cheques de cartera por si el usuario quiere
   // endosar uno nuevo además de los que ya tenía la OP.
   const carteraChecksQuery = useQuery({
-    queryKey: ["checks", "en_cartera", currency],
+    queryKey: checksKeys.enCartera(currency),
     queryFn: () => runAction(() => listEnCarteraChecksAction({ currency })),
     staleTime: 30_000,
   });

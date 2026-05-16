@@ -25,6 +25,7 @@ type ScopeContextValue = Scope & {
 };
 
 const STORAGE_KEY = "jouve_scope_v1";
+const COOKIE_KEY = "jouve_scope";
 const DEFAULT_SCOPE: Scope = { division: null, fiscalFilter: "all" };
 
 const ScopeContext = createContext<ScopeContextValue | null>(null);
@@ -48,16 +49,22 @@ function readFromStorage(): Scope {
 
 export function ScopeProvider({
   channels,
+  initialScope,
   children,
 }: {
   channels: InvoicingChannelSummary[];
+  initialScope?: Scope;
   children: React.ReactNode;
 }) {
-  const [scope, setScope] = useState<Scope>(DEFAULT_SCOPE);
+  // Server pasa initialScope leído de cookie en el layout, evitando el
+  // flash de "todos los canales" durante el primer render.
+  const [scope, setScope] = useState<Scope>(initialScope ?? DEFAULT_SCOPE);
 
-  // Hydrate from localStorage after mount; drop any persisted division that
-  // no longer maps to an active channel.
+  // Solo hidratamos desde localStorage si server no nos pasó initialScope
+  // (caso pre-cookie en sesiones viejas). Drop persisted division que ya
+  // no mapea a un canal activo.
   useEffect(() => {
+    if (initialScope) return;
     const stored = readFromStorage();
     const activeDivisions = new Set(
       channels.filter((c) => c.is_active).map((c) => c.division),
@@ -67,11 +74,13 @@ export function ScopeProvider({
     } else {
       setScope(stored);
     }
-  }, [channels]);
+  }, [channels, initialScope]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scope));
+    // Persistimos también en cookie para SSR del próximo navegación.
+    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(JSON.stringify(scope))}; path=/; max-age=31536000; SameSite=Lax`;
   }, [scope]);
 
   const setDivision = useCallback((division: Division | null) => {

@@ -15,7 +15,12 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
-import { isDivision, type InvoicingChannelSummary } from "@/lib/scope";
+import {
+  isDivision,
+  isFiscalFilter,
+  type InvoicingChannelSummary,
+  type Scope,
+} from "@/lib/scope";
 import { createClient } from "@/lib/supabase/server";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
@@ -53,8 +58,26 @@ export default async function DashboardLayout({
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
   const defaultOpen = sidebarCookie === "true";
 
+  // Leer scope desde cookie para evitar el flash de "todos los canales"
+  // durante el primer render del cliente.
+  const scopeCookie = cookieStore.get("jouve_scope")?.value;
+  let initialScope: Scope | undefined;
+  if (scopeCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(scopeCookie)) as Partial<Scope>;
+      initialScope = {
+        division: isDivision(parsed.division) ? parsed.division : null,
+        fiscalFilter: isFiscalFilter(parsed.fiscalFilter)
+          ? parsed.fiscalFilter
+          : "all",
+      };
+    } catch {
+      initialScope = undefined;
+    }
+  }
+
   return (
-    <ScopeProvider channels={channels}>
+    <ScopeProvider channels={channels} initialScope={initialScope}>
       <DateRangeProvider>
         <SidebarProvider defaultOpen={defaultOpen}>
           <AppSidebar
