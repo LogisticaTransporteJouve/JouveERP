@@ -861,6 +861,48 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error: string | null
+          id: string
+          provider_message_id: string | null
+          recipient: string
+          sent_by: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient: string
+          sent_by?: string | null
+          status: string
+          subject: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient?: string
+          sent_by?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -2677,6 +2719,7 @@ export type Database = {
           currency: string
           id: string
           notes: string | null
+          notified_at: string | null
           numero: number
           punto_venta: number
           receipt_date: string
@@ -2695,6 +2738,7 @@ export type Database = {
           currency: string
           id?: string
           notes?: string | null
+          notified_at?: string | null
           numero: number
           punto_venta: number
           receipt_date: string
@@ -2713,6 +2757,7 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          notified_at?: string | null
           numero?: number
           punto_venta?: number
           receipt_date?: string

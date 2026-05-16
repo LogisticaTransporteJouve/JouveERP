@@ -56,6 +56,9 @@ export const PERMISSIONS = [
   "padron:lookup",
   "afip:admin",
 
+  // Envío por email de comprobantes (facturas / recibos)
+  "email:send",
+
   // Caja: accounts and transactions
   "accounts:read",
   "accounts:write",
@@ -147,6 +150,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "files:read",
     "files:write",
     "padron:lookup",
+    "email:send",
     "accounts:read",
     "accounts:write",
     "transactions:read",
