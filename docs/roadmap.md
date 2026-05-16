@@ -512,7 +512,7 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 > - **L.2a ✅** — Foundation: `journal_entries`, `journal_entry_lines`, trigger `enforce_journal_balance`, `auto_journal_mapping`, RPC `create_journal_entry`, helper `find_account_by_role`. Sin triggers en source tables.
 > - **L.2b ✅** — Trigger en `transactions` + backfill (caso más simple, 2 cuentas). Incluye 2 hotfixes: `create_journal_entry` reset DEFERRED, y `transactions.transfer_pair_id` FK ahora DEFERRABLE INITIALLY DEFERRED.
 > - **L.2c ✅** — Trigger en `invoices` (factura/NC/ND, fiscal y interno). Cancelación genera reversal con `is_reversal=true`.
-> - **L.2d** — Triggers en `payment_orders` + `receipts`.
+> - **L.2d ✅** — Triggers en `payment_orders` + `receipts`. Constraint triggers DEFERRED para esperar las payment_lines insertadas en la misma tx. Cheques propios emitidos → cuenta `cheques_diferidos_emitidos` (pasivo).
 > - **L.2e** — UI `/accounting/journal` con timeline + filtros.
 
 
