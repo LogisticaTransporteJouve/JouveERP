@@ -10,6 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   getPurchaseInvoiceAllocationsAction,
   getPurchaseInvoiceByIdAction,
@@ -279,6 +280,21 @@ export default async function PurchaseInvoiceDetailPage({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Adjuntos</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Factura del proveedor, remito, otros documentos.
+        </p>
+        <div className="mt-3">
+          <AttachmentsZone
+            targetType="purchase_invoice"
+            targetId={invoice.id}
+            canWrite={userCan(ctx.roles, "files:write") && !isCancelled}
+            canDelete={userCan(ctx.roles, "files:write")}
+          />
+        </div>
+      </div>
     </div>
   );
 }

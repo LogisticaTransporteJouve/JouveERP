@@ -36,6 +36,7 @@ export { SUPPLIERS_PAGE_SIZE };
 export function useSuppliersSearchInfinite(filters: {
   query: string;
   onlyActive: boolean;
+  categoryId: string | null;
 }) {
   const query = useSuspenseInfiniteQuery({
     queryKey: suppliersKeys.searchInfinite(filters),
@@ -44,6 +45,7 @@ export function useSuppliersSearchInfinite(filters: {
         searchSuppliersAction({
           query: filters.query,
           onlyActive: filters.onlyActive,
+          categoryId: filters.categoryId,
           offset: pageParam,
           limit: SUPPLIERS_PAGE_SIZE,
         }),

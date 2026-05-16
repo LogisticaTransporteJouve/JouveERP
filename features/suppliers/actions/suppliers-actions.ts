@@ -92,6 +92,7 @@ export type SearchSuppliersInput = {
   onlyActive?: boolean;
   offset?: number;
   limit?: number;
+  categoryId?: string | null;
 };
 
 export type SearchSuppliersPage = {
@@ -116,6 +117,7 @@ export async function searchSuppliersAction(
     p_only_active: input.onlyActive ?? true,
     p_offset: offset,
     p_limit: limit + 1,
+    p_category_id: input.categoryId ?? undefined,
   });
 
   if (error) {

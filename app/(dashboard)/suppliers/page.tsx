@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { listSupplierCategoriesAction } from "@/features/supplier-categories/actions/supplier-categories-actions";
+import { supplierCategoriesKeys } from "@/features/supplier-categories/lib/supplier-categories-keys";
 import { searchSuppliersAction } from "@/features/suppliers/actions/suppliers-actions";
 import { SuppliersTable } from "@/features/suppliers/components/suppliers-table";
 import {
@@ -17,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; inactive?: string }>;
+  searchParams: Promise<{ q?: string; inactive?: string; category?: string }>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "suppliers:read")) {
@@ -27,8 +29,13 @@ export default async function SuppliersPage({
   const params = await searchParams;
   const initialQuery = (params.q ?? "").trim();
   const initialOnlyActive = params.inactive !== "1";
+  const initialCategoryId = params.category?.trim() || null;
 
-  const filters = { query: initialQuery, onlyActive: initialOnlyActive };
+  const filters = {
+    query: initialQuery,
+    onlyActive: initialOnlyActive,
+    categoryId: initialCategoryId,
+  };
   const dehydratedState = await prefetchQueries([
     {
       infinite: true,
@@ -42,6 +49,10 @@ export default async function SuppliersPage({
           }),
         ),
       initialPageParam: 0,
+    },
+    {
+      queryKey: supplierCategoriesKeys.list(false),
+      queryFn: () => runAction(() => listSupplierCategoriesAction({ onlyActive: false })),
     },
   ]);
 
@@ -59,6 +70,7 @@ export default async function SuppliersPage({
           actorRoles={ctx.roles}
           initialQuery={initialQuery}
           initialOnlyActive={initialOnlyActive}
+          initialCategoryId={initialCategoryId}
         />
       </Hydrate>
     </div>

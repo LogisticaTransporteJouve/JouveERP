@@ -12,6 +12,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -21,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -46,27 +54,34 @@ export function SuppliersTable({
   actorRoles,
   initialQuery,
   initialOnlyActive,
+  initialCategoryId,
 }: {
   actorRoles: Role[];
   initialQuery: string;
   initialOnlyActive: boolean;
+  initialCategoryId: string | null;
 }) {
   const [queryInput, setQueryInput] = useState(initialQuery);
   const [onlyActive, setOnlyActive] = useState(initialOnlyActive);
+  const [categoryId, setCategoryId] = useState<string | null>(initialCategoryId);
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const deferredQuery = useDeferredValue(debouncedQuery);
   const deferredOnlyActive = useDeferredValue(onlyActive);
+  const deferredCategoryId = useDeferredValue(categoryId);
   const setUrlFilters = useUrlFilter();
 
   const canWrite = userCan(actorRoles, "suppliers:write");
+  const categoriesQuery = useSupplierCategoriesList({ onlyActive: false });
+  const categories = categoriesQuery.data ?? [];
 
   useEffect(() => {
     setUrlFilters({
       q: debouncedQuery || null,
       inactive: onlyActive ? null : "1",
+      category: categoryId,
     });
-  }, [debouncedQuery, onlyActive, setUrlFilters]);
+  }, [debouncedQuery, onlyActive, categoryId, setUrlFilters]);
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
@@ -81,6 +96,22 @@ export function SuppliersTable({
           onChange={onSearchChange}
           className="max-w-md"
         />
+        <Select
+          value={categoryId ?? "__all"}
+          onValueChange={(v) => setCategoryId(v === "__all" ? null : v)}
+        >
+          <SelectTrigger className="h-9 w-48">
+            <SelectValue placeholder="Todas las categorías" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">Todas las categorías</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox
             checked={onlyActive}
@@ -102,6 +133,7 @@ export function SuppliersTable({
               <TableHead>Razón social</TableHead>
               <TableHead>CUIT</TableHead>
               <TableHead>Condición IVA</TableHead>
+              <TableHead>Categoría</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Actualizado</TableHead>
               <TableHead className="w-24 text-right">Acciones</TableHead>
@@ -111,6 +143,10 @@ export function SuppliersTable({
             <SuppliersTableRows
               query={deferredQuery}
               onlyActive={deferredOnlyActive}
+              categoryId={deferredCategoryId}
+              categoriesById={Object.fromEntries(
+                categories.map((c) => [c.id, c.name]),
+              )}
               canWrite={canWrite}
             />
           </Suspense>
@@ -123,10 +159,14 @@ export function SuppliersTable({
 function SuppliersTableRows({
   query,
   onlyActive,
+  categoryId,
+  categoriesById,
   canWrite,
 }: {
   query: string;
   onlyActive: boolean;
+  categoryId: string | null;
+  categoriesById: Record<string, string>;
   canWrite: boolean;
 }) {
   const {
@@ -134,7 +174,7 @@ function SuppliersTableRows({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useSuppliersSearchInfinite({ query, onlyActive });
+  } = useSuppliersSearchInfinite({ query, onlyActive, categoryId });
 
   const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
     () => {
@@ -148,7 +188,7 @@ function SuppliersTableRows({
       <TableBody>
         <TableRow>
           <TableCell
-            colSpan={6}
+            colSpan={7}
             className="py-10 text-center text-sm text-muted-foreground"
           >
             No hay proveedores que coincidan.
@@ -188,6 +228,15 @@ function SuppliersTableRows({
             </Badge>
           </TableCell>
           <TableCell>
+            {supplier.category_id && categoriesById[supplier.category_id] ? (
+              <Badge variant="outline" className="text-xs">
+                {categoriesById[supplier.category_id]}
+              </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </TableCell>
+          <TableCell>
             {supplier.is_active ? (
               <span className="text-sm text-emerald-600 dark:text-emerald-400">
                 Activo
@@ -210,7 +259,7 @@ function SuppliersTableRows({
       {hasNextPage && (
         <TableRow ref={sentinelRef}>
           <TableCell
-            colSpan={6}
+            colSpan={7}
             className="py-3 text-center text-xs text-muted-foreground"
           >
             {isFetchingNextPage ? "Cargando más…" : ""}
@@ -226,7 +275,7 @@ function SuppliersTableSkeletonRows() {
     <TableBody>
       {Array.from({ length: 6 }).map((_, i) => (
         <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
+          {Array.from({ length: 7 }).map((__, j) => (
             <TableCell key={j}>
               <Skeleton className="h-4 w-full" />
             </TableCell>
