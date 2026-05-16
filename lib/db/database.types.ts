@@ -2992,6 +2992,7 @@ export type Database = {
       }
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
+      is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       list_chat_assignable_users: {
         Args: never
         Returns: {
