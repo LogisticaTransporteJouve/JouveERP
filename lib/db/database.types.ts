@@ -2898,6 +2898,22 @@ export type Database = {
         }
         Returns: string
       }
+      emit_journal_for_payment_order: {
+        Args: {
+          p_payment_order_id: string
+          p_reverse?: boolean
+          p_reversed_entry_id?: string
+        }
+        Returns: string
+      }
+      emit_journal_for_receipt: {
+        Args: {
+          p_receipt_id: string
+          p_reverse?: boolean
+          p_reversed_entry_id?: string
+        }
+        Returns: string
+      }
       find_account_by_role: {
         Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
         Returns: string
