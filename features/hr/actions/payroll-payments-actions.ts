@@ -8,6 +8,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
+  BulkCreatePayrollPaymentsSchema,
   CreatePayrollPaymentSchema,
   DeletePayrollPaymentSchema,
   isPayrollPaymentMethod,
@@ -170,6 +171,66 @@ export async function updatePayrollPaymentAction(
     id,
   );
   return { ok: true, data: undefined };
+}
+
+// Pago masivo: 1 batch insert de N payroll_payments → trigger crea N
+// transactions en la cuenta elegida. Si alguna falla (ej. entry_id que
+// no existe), la transacción del batch entero hace rollback.
+export async function bulkCreatePayrollPaymentsAction(
+  input: unknown,
+): Promise<ActionResult<{ inserted: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "hr:write")) {
+    return { ok: false, error: "Sin permiso para registrar pagos." };
+  }
+  const parsed = BulkCreatePayrollPaymentsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+
+  const rows = parsed.data.entry_ids.map((entry_id) => ({
+    entry_id,
+    account_id: parsed.data.account_id,
+    channel_id: parsed.data.channel_id,
+    amount: parsed.data.amount_each,
+    method: parsed.data.method,
+    paid_at: parsed.data.paid_at,
+    notes: parsed.data.notes ?? null,
+    created_by: ctx.userId,
+  }));
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("payroll_payments")
+    .insert(rows)
+    .select("id");
+
+  if (error) {
+    logger.error("payroll_payments.bulk_create.failed", {
+      userId: ctx.userId,
+      count: rows.length,
+      error,
+    });
+    return {
+      ok: false,
+      error: error.message ?? "No se pudo registrar el pago masivo.",
+    };
+  }
+  await logAudit(
+    "payroll.payment_bulk_created",
+    ctx.userId,
+    {
+      count: data?.length ?? 0,
+      amount_each: parsed.data.amount_each,
+      method: parsed.data.method,
+      account_id: parsed.data.account_id,
+      entry_ids: parsed.data.entry_ids,
+    },
+  );
+  return { ok: true, data: { inserted: data?.length ?? 0 } };
 }
 
 export async function deletePayrollPaymentAction(

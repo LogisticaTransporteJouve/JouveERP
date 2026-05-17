@@ -110,6 +110,9 @@ export async function listReceiptsAction(input?: {
     .select(`${RECEIPT_COLUMNS}, clients ( legal_name )`)
     .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false })
+    // Tie-breaker: numero es unique per channel. Sin channel filter, dos
+    // canales pueden compartir (receipt_date, numero) → paginación no-det.
+    .order("id", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (input?.status) query = query.eq("status", input.status);

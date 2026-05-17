@@ -1141,6 +1141,230 @@ function round2(n) {
 }
 
 // ---------------------------------------------------------------------------
+// Synth employees (HR data — nombres y sueldos reales de la planilla MAYO 26)
+// ---------------------------------------------------------------------------
+//
+// Source: /Users/tomasdziurdzia/Downloads/SUELDOS 2026.xlsx (sheet MAYO 26).
+// Choferes: pay_frequency=semanal, base_salary NULL (cobran liquidación
+// semanal + viático 20k/mes). Administrativos: pay_frequency=mensual con
+// neto fijo y viático 20k. CBUs reales solo donde figuran en la planilla;
+// CUIL queda NULL salvo donde lo sepamos (la planilla no los trae).
+async function synthEmployees(supabase) {
+  if (!(await tableEmpty(supabase, "employees"))) {
+    console.log("→ employees: ya hay datos, skip");
+    return 0;
+  }
+  console.log("→ Sintetizando empleados");
+
+  const employees = [
+    // Choferes (semanal, sin base_salary mensual)
+    {
+      legal_name: "Bartolomeo Axel",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2022-01-10",
+    },
+    {
+      legal_name: "Cabral Agustin",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2021-06-15",
+    },
+    {
+      legal_name: "Casco Maximiliano",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2020-09-01",
+    },
+    {
+      legal_name: "Magnifico Pablo",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2019-03-12",
+    },
+    {
+      legal_name: "Olmedo Ezequiel",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2022-11-05",
+    },
+    {
+      legal_name: "Ramirez Matias",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2021-04-20",
+    },
+    {
+      legal_name: "Sanchez Jorge",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2018-07-08",
+    },
+    {
+      legal_name: "Santana Daniel",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2023-02-14",
+    },
+    {
+      legal_name: "Villagra Jorge",
+      position: "Chofer",
+      pay_frequency: "semanal",
+      base_salary: null,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2020-05-22",
+    },
+
+    // Administrativos (mensual, sueldo neto fijo)
+    {
+      legal_name: "Baez Martin",
+      position: "Administrativo",
+      pay_frequency: "mensual",
+      base_salary: 1_181_838.95,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2021-08-01",
+    },
+    {
+      legal_name: "Alejo Mauro",
+      position: "Administrativo",
+      cbu: "0070182830004024923814",
+      pay_frequency: "mensual",
+      base_salary: 1_155_528.64,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2022-03-15",
+    },
+    {
+      legal_name: "Arias Juan Martin",
+      position: "Administrativo",
+      cbu: "0140022903717551619674",
+      pay_frequency: "mensual",
+      base_salary: 1_464_820.53,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2019-11-04",
+    },
+    {
+      legal_name: "Parra Ma. Florencia",
+      position: "Administrativa",
+      pay_frequency: "mensual",
+      base_salary: 2_120_689.4,
+      viatico_monthly: 20000,
+      is_monotributo: true,
+      hire_date: "2018-02-19",
+      notes:
+        "Combina sueldo en relación de dependencia + factura monotributo (65k mensuales).",
+    },
+    {
+      legal_name: "Reynoso Lucas",
+      position: "Administrativo",
+      pay_frequency: "mensual",
+      base_salary: 1_699_360.37,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2020-06-10",
+    },
+
+    // Mecánico (mensual con neto fijo, pero recibe adelantos y mezcla cash)
+    {
+      legal_name: "Apesteguia Tete",
+      position: "Mecánico de flota",
+      cbu: "0720149988000000563486",
+      pay_frequency: "mixto",
+      base_salary: 1_531_827.46,
+      viatico_monthly: 20000,
+      is_monotributo: false,
+      hire_date: "2017-09-25",
+    },
+  ];
+
+  const { data, error } = await supabase
+    .from("employees")
+    .insert(employees)
+    .select("id, legal_name, position");
+  if (error) throw new Error(`employees insert: ${error.message}`);
+  console.log(`  ↑ ${data.length} empleados creados`);
+
+  // Documentos sample: para que el cron + UI tengan algo que mostrar.
+  // Mix de: vencido (rojo), por vencer en 10/25 días (amarillo), vigente
+  // 1 año (verde). Solo a choferes y mecánico (los admins no manejan).
+  const today = new Date();
+  const addDays = (days) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const chofer = (name) =>
+    data.find((e) => e.legal_name === name)?.id ?? null;
+
+  const docsRaw = [
+    // Bartolomeo Axel — carnet por vencer en 10 días (alerta inminente)
+    [chofer("Bartolomeo Axel"), "licencia_conducir", "ABC123456", addDays(-365 * 4 + 10), addDays(10), "Categoría D2 — Municipalidad de Tigre"],
+    // Cabral Agustin — LNH ya vencido (rojo)
+    [chofer("Cabral Agustin"), "lnh", "LNH-554321", addDays(-365 * 2 - 30), addDays(-15), "CNRT"],
+    // Casco Maximiliano — carnet vigente 2 años
+    [chofer("Casco Maximiliano"), "licencia_conducir", "CSM998877", addDays(-365), addDays(730), "Categoría D2"],
+    // Magnifico Pablo — psicofísica por vencer en 25 días
+    [chofer("Magnifico Pablo"), "aptitud_psicofisica", null, addDays(-340), addDays(25), null],
+    // Olmedo Ezequiel — curso cargas peligrosas vigente 6 meses
+    [chofer("Olmedo Ezequiel"), "curso_cargas_peligrosas", "CCP-2023-456", addDays(-180), addDays(180), null],
+    // Ramirez Matias — libreta sanitaria por vencer en 5 días (alerta crítica)
+    [chofer("Ramirez Matias"), "libreta_sanitaria", null, addDays(-360), addDays(5), "Municipalidad de Tigre"],
+    // Sanchez Jorge — carnet vencido hace 2 meses
+    [chofer("Sanchez Jorge"), "licencia_conducir", "SJG112233", addDays(-365 * 5 - 60), addDays(-60), "Categoría D2"],
+    // Apesteguia Tete (mecánico) — aptitud visual vigente 8 meses
+    [chofer("Apesteguia Tete"), "aptitud_visual", null, addDays(-120), addDays(240), null],
+  ].filter(([employeeId]) => employeeId);
+
+  if (docsRaw.length > 0) {
+    const docs = docsRaw.map(([employee_id, kind, number, issued_at, expires_at, issuing_authority]) => ({
+      employee_id,
+      kind,
+      number,
+      issued_at,
+      expires_at,
+      issuing_authority,
+    }));
+    const { error: docsErr } = await supabase
+      .from("employee_documents")
+      .insert(docs);
+    if (docsErr) {
+      console.warn(`  ⚠ documents skip: ${docsErr.message}`);
+    } else {
+      console.log(`  ↑ ${docs.length} documentos sample (vencidos, por vencer y vigentes)`);
+    }
+  }
+
+  return data.length;
+}
+
+// ---------------------------------------------------------------------------
 // Synth 2026 invoices (current year, missing from AFIP exports)
 // ---------------------------------------------------------------------------
 //
@@ -1391,6 +1615,7 @@ async function main() {
     await synthIssuedChecks(supabase, accounts);
     await synthTransfers(supabase, accounts);
     await synthOpeningBalances(supabase);
+    await synthEmployees(supabase);
   } else {
     console.log("✓ --skip-ops, no operational synthesis");
   }

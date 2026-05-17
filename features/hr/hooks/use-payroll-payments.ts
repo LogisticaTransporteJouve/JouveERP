@@ -9,6 +9,7 @@ import {
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  bulkCreatePayrollPaymentsAction,
   createPayrollPaymentAction,
   deletePayrollPaymentAction,
   listPayrollPaymentsAction,
@@ -92,6 +93,40 @@ type DeleteVars = {
   period_year: number;
   period_month: number;
 };
+
+type BulkVars = {
+  entry_ids: string[];
+  account_id: string;
+  channel_id: string;
+  amount_each: number;
+  method: "transferencia" | "efectivo";
+  paid_at: string;
+  notes?: string | null;
+  period_year: number;
+  period_month: number;
+};
+
+export function useBulkCreatePayrollPayments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      period_year: _y,
+      period_month: _m,
+      ...rest
+    }: BulkVars) =>
+      runAction(() => bulkCreatePayrollPaymentsAction(rest)),
+    onSuccess: (_data, vars) => {
+      // Invalidate todos los entries del período: la grilla recalcula
+      // saldos para cada uno.
+      qc.invalidateQueries({
+        queryKey: payrollKeys.period(vars.period_year, vars.period_month),
+      });
+      for (const id of vars.entry_ids) {
+        qc.invalidateQueries({ queryKey: paymentKeys.byEntry(id) });
+      }
+    },
+  });
+}
 
 export function useDeletePayrollPayment() {
   const qc = useQueryClient();

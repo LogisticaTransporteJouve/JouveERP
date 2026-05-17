@@ -9,6 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { EmployeeDocumentsCard } from "@/features/employee-documents/components/employee-documents-card";
 import { getEmployeeByIdAction } from "@/features/hr/actions/employees-actions";
 import { EditEmployeeDialog } from "@/features/hr/components/edit-employee-dialog";
 import { EmployeeVacationsCard } from "@/features/hr/components/employee-vacations-card";
@@ -147,6 +148,8 @@ export default async function EmployeeDetailPage({
           />
         </div>
       </div>
+
+      <EmployeeDocumentsCard employeeId={employee.id} canWrite={canWrite} />
     </div>
   );
 }
