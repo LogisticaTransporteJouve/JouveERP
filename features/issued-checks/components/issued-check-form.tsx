@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -36,20 +45,22 @@ import {
 
 type Mode = "create" | "edit";
 
-type FormValues = {
-  kind: IssuedCheckKind;
-  check_number: string;
-  bank_name: string;
-  beneficiary_name: string;
-  beneficiary_cuit: string;
-  issue_date: string;
-  due_date: string;
-  amount: string;
-  currency: IssuedCheckCurrency;
-  bank_account_id: string;
-  supplier: PickedSupplier | null;
-  notes: string;
-};
+const FormSchema = z.object({
+  kind: z.enum(ISSUED_CHECK_KINDS),
+  check_number: z.string().trim().min(1, "Número requerido."),
+  bank_name: z.string().trim().min(1, "Banco requerido."),
+  beneficiary_name: z.string().trim().max(120),
+  beneficiary_cuit: z.string().trim().max(20),
+  issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+  currency: z.enum(ISSUED_CHECK_CURRENCIES),
+  bank_account_id: z.string().uuid("Cuenta bancaria requerida."),
+  supplier: z.custom<PickedSupplier>().nullable(),
+  notes: z.string().trim().max(500),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 function todayIso() {
   const d = new Date();
@@ -102,21 +113,12 @@ export function IssuedCheckForm({
   );
   const defaultAccountId = check?.bank_account_id ?? bankAccounts[0]?.id ?? "";
 
-  const [values, setValues] = useState<FormValues>(
-    toValues(check, defaultAccountId, initialSupplier),
-  );
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: toValues(check, defaultAccountId, initialSupplier),
+  });
 
-  function set<K extends keyof FormValues>(key: K, val: FormValues[K]) {
-    setValues((v) => ({ ...v, [key]: val }));
-  }
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!values.bank_account_id) {
-      toast.error("Seleccioná una cuenta bancaria.");
-      return;
-    }
-
+  function onSubmit(values: FormValues) {
     const payload = {
       kind: values.kind,
       check_number: values.check_number.trim(),
@@ -155,165 +157,253 @@ export function IssuedCheckForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Tipo</Label>
-          <Select
-            value={values.kind}
-            onValueChange={(v) => set("kind", v as IssuedCheckKind)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ISSUED_CHECK_KINDS.map((k) => (
-                <SelectItem key={k} value={k}>
-                  {ISSUED_CHECK_KIND_LABEL[k]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Número</Label>
-          <Input
-            value={values.check_number}
-            onChange={(e) => set("check_number", e.target.value)}
-            placeholder="12345678"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="kind"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Tipo</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v as IssuedCheckKind)}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {ISSUED_CHECK_KINDS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {ISSUED_CHECK_KIND_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="check_number"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Número</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="12345678" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="bank_name"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Banco</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Banco Galicia" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Banco</Label>
-          <Input
-            value={values.bank_name}
-            onChange={(e) => set("bank_name", e.target.value)}
-            placeholder="Banco Galicia"
-          />
-        </div>
-      </div>
 
-      <div className="space-y-1">
-        <Label className="text-xs">Cuenta bancaria (chequera)</Label>
-        <Select
-          value={values.bank_account_id}
-          onValueChange={(v) => set("bank_account_id", v)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Elegir cuenta" />
-          </SelectTrigger>
-          <SelectContent>
-            {bankAccounts.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.name} · {a.currency}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Fecha de emisión</Label>
-          <DatePicker
-            value={values.issue_date}
-            onChange={(v) => set("issue_date", v)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Fecha de cobro</Label>
-          <DatePicker
-            value={values.due_date}
-            onChange={(v) => set("due_date", v)}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
-        <div className="space-y-1">
-          <Label className="text-xs">Monto</Label>
-          <Input
-            value={values.amount}
-            onChange={(e) => set("amount", e.target.value)}
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            placeholder="0,00"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Moneda</Label>
-          <Select
-            value={values.currency}
-            onValueChange={(v) => set("currency", v as IssuedCheckCurrency)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ISSUED_CHECK_CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label className="text-xs">Beneficiario (proveedor)</Label>
-        <SupplierPicker
-          value={values.supplier}
-          onChange={(v) => set("supplier", v)}
+        <FormField
+          control={form.control}
+          name="bank_account_id"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs">
+                Cuenta bancaria (chequera)
+              </FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Elegir cuenta" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {bankAccounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} · {a.currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Nombre del beneficiario (opcional)</Label>
-          <Input
-            value={values.beneficiary_name}
-            onChange={(e) => set("beneficiary_name", e.target.value)}
-            placeholder="Si difiere del proveedor"
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="issue_date"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Fecha de emisión</FormLabel>
+                <FormControl>
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="due_date"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Fecha de cobro</FormLabel>
+                <FormControl>
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">CUIT beneficiario (opcional)</Label>
-          <Input
-            value={values.beneficiary_cuit}
-            onChange={(e) => set("beneficiary_cuit", e.target.value)}
-            placeholder="30-12345678-9"
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Monto</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    placeholder="0,00"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Moneda</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) =>
+                    field.onChange(v as IssuedCheckCurrency)
+                  }
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {ISSUED_CHECK_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-      </div>
 
-      <div className="space-y-1">
-        <Label className="text-xs">Notas</Label>
-        <Textarea
-          rows={2}
-          value={values.notes}
-          onChange={(e) => set("notes", e.target.value)}
+        <FormField
+          control={form.control}
+          name="supplier"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs">Beneficiario (proveedor)</FormLabel>
+              <FormControl>
+                <SupplierPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onCancel?.()}
-          disabled={isSaving}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving
-            ? "Guardando…"
-            : mode === "create"
-              ? "Cargar cheque"
-              : "Guardar cambios"}
-        </Button>
-      </div>
-    </form>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="beneficiary_name"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">
+                  Nombre del beneficiario (opcional)
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Si difiere del proveedor" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="beneficiary_cuit"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">
+                  CUIT beneficiario (opcional)
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="30-12345678-9" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs">Notas</FormLabel>
+              <FormControl>
+                <Textarea rows={2} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onCancel?.()}
+            disabled={isSaving}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving
+              ? "Guardando…"
+              : mode === "create"
+                ? "Cargar cheque"
+                : "Guardar cambios"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
