@@ -30,7 +30,12 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
-import { amountToInput, formatNumber2, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatNumber2,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -65,28 +70,21 @@ export interface ChannelOption {
 
 type Mode = "create" | "edit";
 
-function parseAmount(raw: string): number | null {
-  const cleaned = raw.trim().replace(/\./g, "").replace(",", ".");
-  if (!cleaned) return null;
-  const n = Number.parseFloat(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
 const formatMoney = formatNumber2;
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
-  return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);
+  return lines.reduce((acc, l) => acc + (parseArAmount(l.amount) ?? 0), 0);
 }
 
 function sumDraftAllocations(allocs: AllocationDraft[]): number {
   return allocs.reduce(
-    (acc, a) => acc + (parseAmount(a.amount_applied) ?? 0),
+    (acc, a) => acc + (parseArAmount(a.amount_applied) ?? 0),
     0,
   );
 }
 
 function sumDraftRetentions(rets: RetentionDraft[]): number {
-  return rets.reduce((acc, r) => acc + (parseAmount(r.amount) ?? 0), 0);
+  return rets.reduce((acc, r) => acc + (parseArAmount(r.amount) ?? 0), 0);
 }
 
 const FormSchema = z.object({
@@ -262,7 +260,7 @@ export function ReceiptForm({
 
     const lines = values.paymentLines.map((l) => ({
       account_id: l.account_id,
-      amount: parseAmount(l.amount) ?? 0,
+      amount: parseArAmount(l.amount) ?? 0,
       reference: l.reference.trim().length === 0 ? null : l.reference.trim(),
       check: l.check
         ? {
@@ -278,7 +276,7 @@ export function ReceiptForm({
     }));
     const allocs = values.allocations.map((a) => ({
       invoice_id: a.invoice_id,
-      amount_applied: parseAmount(a.amount_applied) ?? 0,
+      amount_applied: parseArAmount(a.amount_applied) ?? 0,
     }));
     const rets = values.retentions.map((r) => ({
       kind: r.kind,
@@ -287,7 +285,7 @@ export function ReceiptForm({
         r.jurisdiction.trim().length === 0 ? null : r.jurisdiction.trim(),
       certificate_number: r.certificate_number.trim(),
       certificate_date: r.certificate_date,
-      amount: parseAmount(r.amount) ?? 0,
+      amount: parseArAmount(r.amount) ?? 0,
       notes: r.notes.trim().length === 0 ? null : r.notes.trim(),
     }));
 

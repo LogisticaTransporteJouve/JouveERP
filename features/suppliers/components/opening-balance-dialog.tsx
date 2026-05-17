@@ -19,19 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, parseArAmount } from "@/lib/format";
 
 import {
   useClearSupplierOpeningBalance,
   useSetSupplierOpeningBalance,
   useSupplierOpeningBalance,
 } from "../hooks/use-suppliers";
-
-function parseAmount(raw: string): number {
-  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ".");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : NaN;
-}
 
 export function SupplierOpeningBalanceDialog({
   supplierId,
@@ -67,8 +61,8 @@ export function SupplierOpeningBalanceDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const target = parseAmount(targetRaw);
-    if (!Number.isFinite(target) || target < 0) {
+    const target = parseArAmount(targetRaw);
+    if (target == null || target < 0) {
       toast.error("Ingresá un saldo válido (no negativo).");
       return;
     }

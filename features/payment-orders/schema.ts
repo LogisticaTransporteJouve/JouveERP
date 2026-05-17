@@ -231,6 +231,13 @@ export type PaymentOrderStatusJoin = {
   payment_orders: { status: string } | null;
 };
 
+/** Forma del row al traer `payment_order_id, payment_orders!inner ( status )`
+ *  para calcular saldos imputados (combina StatusJoin + FK del padre). */
+export type PaymentOrderAllocationStatusRow = {
+  payment_order_id: string;
+  payment_orders: { status: string } | null;
+};
+
 /** Embedded `endorsed_check ( id, kind, … )` shape inside a payment line row. */
 export type EndorsedCheckJoin = {
   endorsed_check: {

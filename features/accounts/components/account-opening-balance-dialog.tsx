@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, parseArAmount } from "@/lib/format";
 
 import {
   useAccountOpeningBalance,
@@ -37,15 +37,6 @@ import {
 interface ChannelOption {
   id: string;
   name: string;
-}
-
-function parseAmount(raw: string): number {
-  const cleaned = raw
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : NaN;
 }
 
 /**
@@ -93,8 +84,8 @@ export function AccountOpeningBalanceDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const target = parseAmount(targetRaw);
-    if (!Number.isFinite(target)) {
+    const target = parseArAmount(targetRaw);
+    if (target == null) {
       toast.error("Ingresá un saldo válido.");
       return;
     }

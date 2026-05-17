@@ -130,3 +130,23 @@ export function todayInAR(): string {
   const ar = new Date(Date.now() - AR_OFFSET_MS);
   return ar.toISOString().slice(0, 10);
 }
+
+/** Redondeo a 2 decimales — usado en cálculos monetarios (IVA, totales,
+ *  cotizaciones). Centralizado para evitar las 4+ copias verbatim que
+ *  vivían en schemas, actions, inngest y renders. */
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Parsea un monto en formato es-AR ("1.234,56" → 1234.56). Devuelve null
+ *  si la cadena no representa un número finito. Es el inverso semántico de
+ *  `formatAmountInput` / `amountToInput`. */
+export function parseArAmount(raw: string): number | null {
+  const cleaned = raw
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+  if (cleaned.length === 0) return null;
+  const n = Number.parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}

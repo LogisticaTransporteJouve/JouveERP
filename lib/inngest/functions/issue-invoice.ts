@@ -13,6 +13,7 @@ import {
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
 import { rpcAs } from "@/lib/db/rpc";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -91,6 +92,12 @@ type OriginRow = {
   numero: number;
 };
 
+/** Shape de la join `channel:invoicing_channels(id, is_fiscal, name)` embebida
+ *  en el draft cuando se lee con select expandido en issue-invoice. */
+type DraftChannelJoin = {
+  channel: { id: string; is_fiscal: boolean; name: string } | null;
+};
+
 type DraftLoad = {
   draft: DraftRow;
   iva: InvoiceIvaEntry[];
@@ -120,10 +127,6 @@ function aggregateIva(items: ItemRow[]): InvoiceIvaEntry[] {
     out.push({ id: id as IvaRateId, baseImp: b.base, importe: b.importe });
   }
   return out;
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 function buildAfipInput(load: DraftLoad, cbteNro: number): InvoiceRequestInput {
@@ -216,9 +219,7 @@ export const issueInvoice = inngest.createFunction(
         );
       }
 
-      const channel = (draft as unknown as {
-        channel: { id: string; is_fiscal: boolean; name: string } | null;
-      }).channel;
+      const channel = (draft as unknown as DraftChannelJoin).channel;
       if (!channel) {
         throw new Error(
           `Comprobante ${invoice_id} — canal no encontrado.`,

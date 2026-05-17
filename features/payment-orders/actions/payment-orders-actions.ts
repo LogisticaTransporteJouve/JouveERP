@@ -16,7 +16,7 @@ import {
   type PaymentOrder,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
-  type PaymentOrderStatusJoin,
+  type PaymentOrderAllocationStatusRow,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -346,13 +346,11 @@ export async function listPendingInvoicesForSupplierAction(
 
   const allocatedByInvoice = new Map<string, number>();
   for (const alloc of allocations ?? []) {
-    const status = (alloc as unknown as PaymentOrderStatusJoin).payment_orders
-      ?.status;
-    if (status === "canceled") continue;
+    const narrowed = alloc as unknown as PaymentOrderAllocationStatusRow;
+    if (narrowed.payment_orders?.status === "canceled") continue;
     if (
       excludePaymentOrderId &&
-      (alloc as unknown as { payment_order_id: string }).payment_order_id ===
-        excludePaymentOrderId
+      narrowed.payment_order_id === excludePaymentOrderId
     )
       continue;
     const prev = allocatedByInvoice.get(alloc.purchase_invoice_id) ?? 0;

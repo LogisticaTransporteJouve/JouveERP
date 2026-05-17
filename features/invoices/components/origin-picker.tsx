@@ -15,11 +15,13 @@ import { formatNumber2 } from "@/lib/format";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
+import { formatInvoiceNumero } from "../schema";
 
-// Argentine convention: letter glued to the POS (no space). The picker
-// only lists facturas, so we never get the "NC-A 00003-…" form here.
+// Picker que solo lista facturas; pasamos kind="factura" para que use la
+// rama con letra ("X" si la letra viene null, manteniendo el comportamiento
+// histórico de este componente).
 function formatNumero(letter: string | null, pos: number, numero: number) {
-  return `${letter ?? "X"}${String(pos).padStart(5, "0")}-${String(numero).padStart(8, "0")}`;
+  return formatInvoiceNumero("factura", letter ?? "X", pos, numero);
 }
 
 const formatARS = formatNumber2;
