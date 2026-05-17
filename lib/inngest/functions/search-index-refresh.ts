@@ -1,3 +1,4 @@
+import { rpcAs } from "@/lib/db/rpc";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -20,7 +21,7 @@ export const searchIndexRefresh = inngest.createFunction(
       const supabase = getServiceClient();
       const { data, error } = await supabase.rpc("refresh_search_index_if_dirty");
       if (error) throw new Error(`refresh_search_index_if_dirty: ${error.message}`);
-      return data as unknown as boolean;
+      return rpcAs<boolean>(data);
     });
 
     if (refreshed) {

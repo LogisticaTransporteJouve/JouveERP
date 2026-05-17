@@ -12,6 +12,7 @@ import {
 } from "@/lib/afip/wsfev1";
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
+import { rpcAs } from "@/lib/db/rpc";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -274,7 +275,7 @@ export const issueInvoice = inngest.createFunction(
           );
           if (error)
             throw new Error(`reserve-numero-internal: ${error.message}`);
-          return data as unknown as number;
+          return rpcAs<number>(data);
         },
       );
 

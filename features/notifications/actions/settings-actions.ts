@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +10,18 @@ export type NotificationSetting = {
   notification_type: string;
   enabled: boolean;
 };
+
+const UpsertSettingInput = z.object({
+  // type es libre porque las notification_types son extensibles desde DB.
+  // Cap defensivo de 64 chars + caracteres seguros para keys.
+  type: z
+    .string()
+    .trim()
+    .min(1, "Tipo requerido.")
+    .max(64, "Tipo demasiado largo.")
+    .regex(/^[a-z0-9_-]+$/i, "Solo letras, números, _ y -."),
+  enabled: z.boolean(),
+});
 
 export async function getMyNotificationSettingsAction(): Promise<
   ActionResult<NotificationSetting[]>
@@ -24,6 +38,11 @@ export async function upsertNotificationSettingAction(input: {
   enabled: boolean;
 }): Promise<ActionResult<{ updated: true }>> {
   await requireUserContext();
+  const parsed = UpsertSettingInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase.rpc("upsert_my_notification_setting", {
     p_type: input.type,

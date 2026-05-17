@@ -1,9 +1,24 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import {
+  IsoDateSchema,
+  NonNegativeAmountSchema,
+  NotesSchema,
+  UuidSchema,
+} from "@/lib/validation/common";
+
+const SetSupplierOpeningInput = z.object({
+  supplier_id: UuidSchema,
+  opening_date: IsoDateSchema,
+  target_balance: NonNegativeAmountSchema,
+  notes: NotesSchema,
+});
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -26,6 +41,11 @@ export async function getSupplierOpeningBalanceAction(
   if (!userCan(ctx.roles, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
+  const idParsed = UuidSchema.safeParse(supplierId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de proveedor inválido." };
+  }
+  supplierId = idParsed.data;
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("supplier_opening_balances")
@@ -66,9 +86,11 @@ export async function setSupplierOpeningBalanceAction(input: {
       error: "Solo el owner puede ajustar saldos de proveedor.",
     };
   }
-  if (!input.supplier_id) return { ok: false, error: "Proveedor requerido." };
-  if (input.target_balance < 0)
-    return { ok: false, error: "El saldo no puede ser negativo." };
+  const parsed = SetSupplierOpeningInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
 
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("apply_supplier_opening_balance", {
@@ -100,6 +122,11 @@ export async function clearSupplierOpeningBalanceAction(
       error: "Solo el owner puede borrar el ajuste de saldo.",
     };
   }
+  const idParsed = UuidSchema.safeParse(supplierId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de proveedor inválido." };
+  }
+  supplierId = idParsed.data;
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("clear_supplier_opening_balance", {
     p_supplier_id: supplierId,
@@ -157,6 +184,11 @@ export async function getSupplierAccountAction(
   if (!userCan(ctx.roles, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
+  const idParsed = UuidSchema.safeParse(supplierId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de proveedor inválido." };
+  }
+  supplierId = idParsed.data;
 
   const supabase = await createSupabaseClient();
 

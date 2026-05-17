@@ -1,11 +1,20 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
+import { UuidSchema } from "@/lib/validation/common";
 
 import type { SearchResult } from "../types";
+
+const SearchInput = z.object({
+  query: z.string().trim().max(200, "Búsqueda demasiado larga."),
+  channelId: UuidSchema.nullable().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
 
 export async function searchChatMessagesAction(input: {
   query: string;
@@ -13,6 +22,11 @@ export async function searchChatMessagesAction(input: {
   limit?: number;
 }): Promise<ActionResult<SearchResult[]>> {
   await requireUserContext();
+  const parsed = SearchInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
   const trimmed = input.query.trim();
   if (trimmed.length === 0) return { ok: true, data: [] };
 

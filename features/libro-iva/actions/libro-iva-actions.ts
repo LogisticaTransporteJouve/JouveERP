@@ -1,15 +1,23 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { PeriodSchema } from "@/lib/validation/common";
 
 import type { LibroIvaComprasRow, LibroIvaVentasRow } from "../schema";
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+const LibroIvaInput = z.object({
+  period: PeriodSchema,
+  channelId: z.string().nullable().optional(),
+});
 
 export async function listLibroIvaVentasAction(input: {
   period: string;
@@ -19,9 +27,11 @@ export async function listLibroIvaVentasAction(input: {
   if (!userCan(ctx.roles, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro IVA." };
   }
-  if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(input.period)) {
-    return { ok: false, error: "Período inválido (formato YYYY-MM)." };
+  const parsed = LibroIvaInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
   }
+  input = parsed.data;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("libro_iva_ventas", {
@@ -45,9 +55,11 @@ export async function listLibroIvaComprasAction(input: {
   if (!userCan(ctx.roles, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro IVA." };
   }
-  if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(input.period)) {
-    return { ok: false, error: "Período inválido (formato YYYY-MM)." };
+  const parsed = LibroIvaInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
   }
+  input = parsed.data;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("libro_iva_compras", {

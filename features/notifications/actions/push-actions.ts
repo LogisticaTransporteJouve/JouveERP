@@ -1,8 +1,17 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
+
+const SubscribePushInput = z.object({
+  endpoint: z.string().url("Endpoint inválido.").max(2000),
+  p256dh: z.string().min(1).max(500),
+  auth: z.string().min(1).max(500),
+  userAgent: z.string().max(500).nullable().optional(),
+});
 
 export async function subscribePushAction(input: {
   endpoint: string;
@@ -11,6 +20,11 @@ export async function subscribePushAction(input: {
   userAgent?: string | null;
 }): Promise<ActionResult<{ subscribed: true }>> {
   const ctx = await requireUserContext();
+  const parsed = SubscribePushInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
   const supabase = await createClient();
 
   // upsert por endpoint (unique). Si el browser regenera la subscription
@@ -37,6 +51,11 @@ export async function unsubscribePushAction(
   endpoint: string,
 ): Promise<ActionResult<{ unsubscribed: true }>> {
   const ctx = await requireUserContext();
+  const parsed = z.string().url().max(2000).safeParse(endpoint);
+  if (!parsed.success) {
+    return { ok: false, error: "Endpoint inválido." };
+  }
+  endpoint = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase
     .from("push_subscriptions")
