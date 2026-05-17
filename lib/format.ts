@@ -150,3 +150,20 @@ export function parseArAmount(raw: string): number | null {
   const n = Number.parseFloat(cleaned);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Sanitiza un fragmento de string para usarlo en un nombre de archivo de
+ *  download (PDF de comprobante, recibo, etc.):
+ *  - normaliza Unicode (NFKD) para evitar combinaciones raras
+ *  - quita reservados del sistema de archivos (< > : " / \ | ? * y control chars)
+ *  - quita comas/punto-y-coma (rompen filenames en algunos clientes de mail)
+ *  - colapsa whitespace en un único espacio
+ *  Consolidado de 3 dupes verbatim que vivían en send-receipt-email,
+ *  send-invoice-email e invoices-table. */
+export function safeFilenamePart(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+    .replace(/[,;]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}

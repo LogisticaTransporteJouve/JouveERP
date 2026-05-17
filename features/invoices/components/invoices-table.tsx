@@ -37,7 +37,11 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import {
+  formatArgentineDate,
+  formatNumber2,
+  safeFilenamePart,
+} from "@/lib/format";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 
@@ -55,15 +59,6 @@ import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
 function formatNumero(row: InvoiceListItem): string {
   return formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero);
-}
-
-function safeFilenamePart(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
-    .replace(/[,;]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function formatPdfFilename(row: InvoiceListItem): string {

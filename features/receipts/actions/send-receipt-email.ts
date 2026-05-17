@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, safeFilenamePart } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import {
   buildReceiptTemplateData,
@@ -36,15 +36,6 @@ export type SendReceiptEmailInput = z.input<typeof SendReceiptEmailSchema>;
 
 function formatReceiptNumero(pos: number, numero: number): string {
   return `R${String(pos).padStart(4, "0")}-${String(numero).padStart(8, "0")}`;
-}
-
-function safeFilenamePart(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
-    .replace(/[,;]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export async function sendReceiptByEmailAction(
