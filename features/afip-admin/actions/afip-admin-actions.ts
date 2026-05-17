@@ -71,6 +71,7 @@ export async function loadAfipAdminAction(): Promise<
   const [diagnosticsRes, dbRes] = await Promise.all([
     runAfipDiagnostics().catch((err): AfipDiagnostics => {
       logger.warn("afip.diagnostics_threw", {
+        userId: ctx.userId,
         err: err instanceof Error ? err.message : String(err),
       });
       throw err;

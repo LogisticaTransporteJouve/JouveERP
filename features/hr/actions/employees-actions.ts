@@ -42,7 +42,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -79,7 +84,7 @@ export async function listEmployeesAction(): Promise<
     .order("legal_name");
 
   if (error) {
-    logger.error("employees.list.failed", { error });
+    logger.error("employees.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo listar los empleados." };
   }
 
@@ -122,7 +127,11 @@ export async function searchEmployeesAction(
   });
 
   if (error) {
-    logger.error("employees.search.failed", { error });
+    logger.error("employees.search.failed", {
+      userId: ctx.userId,
+      query: input.query,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar empleados." };
   }
 
@@ -155,7 +164,7 @@ export async function getEmployeeByIdAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("employees.get.failed", { id, error });
+    logger.error("employees.get.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo cargar el empleado." };
   }
 
@@ -198,7 +207,11 @@ export async function createEmployeeAction(
     .single();
 
   if (error) {
-    logger.error("employees.create.failed", { error });
+    logger.error("employees.create.failed", {
+      userId: ctx.userId,
+      legal_name: parsed.data.legal_name,
+      error,
+    });
     return { ok: false, error: "No se pudo crear el empleado." };
   }
 
@@ -239,7 +252,11 @@ export async function updateEmployeeAction(
     .eq("id", id)
     .maybeSingle();
   if (prevErr) {
-    logger.error("employees.update.prev_fetch_failed", { id, error: prevErr });
+    logger.error("employees.update.prev_fetch_failed", {
+      userId: ctx.userId,
+      id,
+      error: prevErr,
+    });
   }
 
   type EmployeeUpdate =
@@ -270,7 +287,7 @@ export async function updateEmployeeAction(
     .eq("id", id);
 
   if (error) {
-    logger.error("employees.update.failed", { id, error });
+    logger.error("employees.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el empleado." };
   }
 
@@ -330,7 +347,11 @@ export async function terminateEmployeeAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("employees.terminate.failed", { id: parsed.data.id, error });
+    logger.error("employees.terminate.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo dar de baja al empleado." };
   }
 
@@ -366,7 +387,11 @@ export async function reactivateEmployeeAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("employees.reactivate.failed", { id: parsed.data.id, error });
+    logger.error("employees.reactivate.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo reactivar al empleado." };
   }
 

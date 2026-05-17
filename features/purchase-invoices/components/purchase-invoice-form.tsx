@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -193,17 +193,57 @@ export function PurchaseInvoiceForm({
     form.setValue("with_items", true, { shouldDirty: false });
   }, [itemsData, form]);
 
-  // Cuando hay items, recalcular header totals desde items en cada cambio.
+  // Totales derivados: si hay items, recalcular neto/iva/total desde el editor;
+  // sino, sumar neto + iva + trib en imp_total. Centralizado en un useMemo
+  // para evitar re-fires por cada keystroke en cada effect separado.
+  const derivedTotals = useMemo(() => {
+    const trib = Number(watchedTrib || 0);
+    if (watchedWithItems) {
+      const t = computeTotals(watchedItems);
+      return {
+        mode: "items" as const,
+        imp_neto: t.imp_neto,
+        imp_iva: t.imp_iva,
+        imp_total: +(t.imp_total_lines + trib).toFixed(2),
+      };
+    }
+    const neto = Number(watchedNeto || 0);
+    const iva = Number(watchedIva || 0);
+    if (!Number.isFinite(neto) || !Number.isFinite(iva) || !Number.isFinite(trib)) {
+      return null;
+    }
+    return {
+      mode: "header" as const,
+      imp_total: +(neto + iva + trib).toFixed(2),
+    };
+  }, [watchedWithItems, watchedItems, watchedNeto, watchedIva, watchedTrib]);
+
   useEffect(() => {
-    if (!watchedWithItems) return;
-    const t = computeTotals(watchedItems);
-    const trib = Number(form.getValues("imp_trib") || 0);
-    form.setValue("imp_neto", String(t.imp_neto), { shouldDirty: false });
-    form.setValue("imp_iva", String(t.imp_iva), { shouldDirty: false });
-    form.setValue("imp_total", String(+(t.imp_total_lines + trib).toFixed(2)), {
-      shouldDirty: false,
-    });
-  }, [watchedWithItems, watchedItems, watchedTrib, form]);
+    if (!derivedTotals) return;
+    if (derivedTotals.mode === "items") {
+      form.setValue("imp_neto", String(derivedTotals.imp_neto), {
+        shouldDirty: false,
+      });
+      form.setValue("imp_iva", String(derivedTotals.imp_iva), {
+        shouldDirty: false,
+      });
+      form.setValue("imp_total", String(derivedTotals.imp_total), {
+        shouldDirty: false,
+      });
+      return;
+    }
+    // Header mode: solo overwrite si el total no fue tocado manualmente, o
+    // coincide con el cálculo previo (heurística ±0.01).
+    const currentTotal = Number(form.getValues("imp_total") || 0);
+    if (
+      currentTotal === 0 ||
+      Math.abs(currentTotal - derivedTotals.imp_total) < 0.01
+    ) {
+      form.setValue("imp_total", String(derivedTotals.imp_total), {
+        shouldDirty: false,
+      });
+    }
+  }, [derivedTotals, form]);
 
   const originInvoiceQuery = usePurchaseInvoiceByIdOptional(
     invoice?.invoice_origin_id ?? null,
@@ -244,23 +284,6 @@ export function PurchaseInvoiceForm({
       form.setValue("origin_invoice", null, { shouldDirty: true });
     }
   }, [watchedSupplierId, form]);
-
-  // Auto-sumar imp_total = neto + iva + trib mientras el user no lo toque.
-  useEffect(() => {
-    const neto = Number(watchedNeto || 0);
-    const iva = Number(watchedIva || 0);
-    const trib = Number(watchedTrib || 0);
-    if (!Number.isFinite(neto) || !Number.isFinite(iva) || !Number.isFinite(trib)) {
-      return;
-    }
-    const total = +(neto + iva + trib).toFixed(2);
-    const currentTotal = Number(form.getValues("imp_total") || 0);
-    // Solo overwrite si el total no fue tocado manualmente, o coincide con el
-    // cálculo previo. Heurística: si total es 0 o suma de otros tres ± 0.01.
-    if (currentTotal === 0 || Math.abs(currentTotal - total) < 0.01) {
-      form.setValue("imp_total", String(total), { shouldDirty: false });
-    }
-  }, [watchedNeto, watchedIva, watchedTrib, form]);
 
   // K.12 Part A — Pre-fill desde defaults del supplier (solo create + campos
   // vacíos). En edit no tocamos nada para no machear data ya cargada.

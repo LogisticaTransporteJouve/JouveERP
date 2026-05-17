@@ -30,7 +30,10 @@ export async function listInflationAdjustmentsAction(): Promise<
     .select("*")
     .order("period", { ascending: false });
   if (error) {
-    logger.error("inflation_adjustments.list.failed", { error });
+    logger.error("inflation_adjustments.list.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudieron leer." };
   }
   return { ok: true, data: data ?? [] };
@@ -62,7 +65,11 @@ export async function createInflationAdjustmentAction(
     if (error.code === UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya hay un coeficiente para ese período." };
     }
-    logger.error("inflation_adjustments.create.failed", { error });
+    logger.error("inflation_adjustments.create.failed", {
+      userId: ctx.userId,
+      period: parsed.data.period,
+      error,
+    });
     return { ok: false, error: "No se pudo crear." };
   }
   return { ok: true, data: { id: data.id } };
@@ -83,7 +90,11 @@ export async function deleteInflationAdjustmentAction(
     .delete()
     .eq("id", parsed.data.id);
   if (error) {
-    logger.error("inflation_adjustments.delete.failed", { error });
+    logger.error("inflation_adjustments.delete.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar." };
   }
   return { ok: true, data: undefined };

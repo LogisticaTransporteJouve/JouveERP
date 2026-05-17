@@ -43,7 +43,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -75,7 +80,7 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
     .order("legal_name");
 
   if (error) {
-    logger.error("clients.list.failed", { error });
+    logger.error("clients.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo listar los clientes." };
   }
 
@@ -120,7 +125,11 @@ export async function searchClientsAction(
   });
 
   if (error) {
-    logger.error("clients.search.failed", { error });
+    logger.error("clients.search.failed", {
+      userId: ctx.userId,
+      query: input.query,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar clientes." };
   }
 
@@ -155,7 +164,7 @@ export async function getClientByIdAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("clients.get.failed", { id, error });
+    logger.error("clients.get.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo cargar el cliente." };
   }
 
@@ -185,7 +194,11 @@ export async function findClientByCuitAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("clients.find_by_cuit.failed", { error });
+    logger.error("clients.find_by_cuit.failed", {
+      userId: ctx.userId,
+      cuit: cuitClean,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar el cliente por CUIT." };
   }
 
@@ -228,7 +241,11 @@ export async function createClientAction(
     if (error.code === UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un cliente con ese CUIT." };
     }
-    logger.error("clients.create.failed", { error });
+    logger.error("clients.create.failed", {
+      userId: ctx.userId,
+      cuit: parsed.data.cuit,
+      error,
+    });
     return { ok: false, error: "No se pudo crear el cliente." };
   }
 
@@ -283,7 +300,7 @@ export async function updateClientAction(
     if (error.code === UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un cliente con ese CUIT." };
     }
-    logger.error("clients.update.failed", { error });
+    logger.error("clients.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el cliente." };
   }
 
@@ -333,6 +350,8 @@ export async function getClientReferencesAction(
       .eq(dep.column, id);
     if (error) {
       logger.warn("clients.refs.count_failed", {
+        userId: ctx.userId,
+        id,
         table: dep.table,
         err: error.message,
       });
@@ -369,7 +388,7 @@ export async function deleteClientAction(id: string): Promise<ActionResult> {
   const { error } = await service.from("clients").delete().eq("id", id);
 
   if (error) {
-    logger.error("clients.delete.failed", { id, error });
+    logger.error("clients.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo eliminar el cliente." };
   }
 
@@ -397,7 +416,12 @@ export async function setClientActiveAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("clients.toggle_active.failed", { error });
+    logger.error("clients.toggle_active.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      is_active: parsed.data.is_active,
+      error,
+    });
     return { ok: false, error: "No se pudo cambiar el estado del cliente." };
   }
 

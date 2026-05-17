@@ -225,3 +225,8 @@ export function formatPaymentOrderNumber(
   const num = String(numero).padStart(8, "0");
   return `OP${pos}-${num}`;
 }
+
+/** Join row shape for `payment_orders ( status )` selected from another table. */
+export type PaymentOrderStatusJoin = {
+  payment_orders: { status: string } | null;
+};

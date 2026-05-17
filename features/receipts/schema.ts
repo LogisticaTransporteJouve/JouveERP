@@ -259,6 +259,9 @@ export function isRetentionTaxType(value: unknown): value is RetentionTaxType {
   );
 }
 
+/** Join row shape for `receipts ( status )` selected from another table. */
+export type ReceiptStatusJoin = { receipts: { status: string } | null };
+
 /**
  * Format `R{POS:4}-{numero:8}` — e.g. `R0003-00000001`. Used everywhere a
  * recibo number is rendered (table, dialog title, PDF when added in F.7).

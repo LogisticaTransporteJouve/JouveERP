@@ -13,6 +13,9 @@ import {
   UuidSchema,
 } from "@/lib/validation/common";
 
+import type { PaymentOrderStatusJoin } from "@/features/payment-orders/schema";
+import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
+
 const SetSupplierOpeningInput = z.object({
   supplier_id: UuidSchema,
   opening_date: IsoDateSchema,
@@ -55,7 +58,7 @@ export async function getSupplierOpeningBalanceAction(
     .eq("supplier_id", supplierId)
     .maybeSingle();
   if (error) {
-    logger.error("suppliers.opening.read_failed", { supplierId, error });
+    logger.error("suppliers.opening.read_failed", { userId: ctx.userId, supplierId, error });
     return { ok: false, error: "No se pudo cargar el saldo de apertura." };
   }
   if (!data) return { ok: true, data: null };
@@ -101,6 +104,7 @@ export async function setSupplierOpeningBalanceAction(input: {
   });
   if (error) {
     logger.error("suppliers.opening.apply_failed", {
+      userId: ctx.userId,
       supplierId: input.supplier_id,
       error,
     });
@@ -132,7 +136,7 @@ export async function clearSupplierOpeningBalanceAction(
     p_supplier_id: supplierId,
   });
   if (error) {
-    logger.error("suppliers.opening.clear_failed", { supplierId, error });
+    logger.error("suppliers.opening.clear_failed", { userId: ctx.userId, supplierId, error });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
   return { ok: true, data: undefined };
@@ -222,7 +226,7 @@ export async function getSupplierAccountAction(
       .order("created_at", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("suppliers.account.list_failed", { supplierId, error });
+      logger.error("suppliers.account.list_failed", { userId: ctx.userId, supplierId, error });
       return { ok: false, error: "No se pudo cargar la cuenta corriente." };
     }
     const got = (chunk ?? []) as Row[];
@@ -248,12 +252,11 @@ export async function getSupplierAccountAction(
       )
       .eq("payment_orders.supplier_id", supplierId);
     if (aErr) {
-      logger.error("suppliers.account.allocations_failed", { error: aErr });
+      logger.error("suppliers.account.allocations_failed", { userId: ctx.userId, error: aErr });
     }
     for (const a of allocs ?? []) {
-      const status = (
-        a as unknown as { payment_orders: { status: string } | null }
-      ).payment_orders?.status;
+      const status = (a as unknown as PaymentOrderStatusJoin).payment_orders
+        ?.status;
       if (status !== "issued") continue;
       const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
       appliedByInvoice.set(
@@ -283,7 +286,7 @@ export async function getSupplierAccountAction(
       .select("payment_order_id, amount_applied")
       .in("payment_order_id", opIds);
     if (oErr) {
-      logger.error("suppliers.account.op_allocations_failed", { error: oErr });
+      logger.error("suppliers.account.op_allocations_failed", { userId: ctx.userId, error: oErr });
     }
     for (const a of opAllocs ?? []) {
       const prev = appliedByOP.get(a.payment_order_id) ?? 0;
@@ -389,14 +392,14 @@ export async function getSupplierAgingAction(): Promise<
     );
 
   if (error) {
-    logger.error("suppliers.aging.list_failed", { error });
+    logger.error("suppliers.aging.list_failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el aging de proveedores." };
   }
 
   const summaries: SupplierAgingSummary[] = (agingRows ?? [])
     .filter((r): r is typeof r & { supplier_id: string } => r.supplier_id !== null)
     .map((r) => {
-      const sup = (r as unknown as { suppliers: { legal_name: string; cuit: string } }).suppliers;
+      const sup = (r as unknown as SupplierIdentityJoin).suppliers;
       return {
         supplier_id: r.supplier_id,
         supplier_legal_name: sup.legal_name,

@@ -40,7 +40,11 @@ export async function listLibroIvaVentasAction(input: {
   });
 
   if (error) {
-    logger.error("libro_iva_ventas.failed", { error });
+    logger.error("libro_iva_ventas.failed", {
+      userId: ctx.userId,
+      period: input.period,
+      error,
+    });
     return { ok: false, error: "No se pudo leer el libro IVA Ventas." };
   }
 
@@ -68,7 +72,11 @@ export async function listLibroIvaComprasAction(input: {
   });
 
   if (error) {
-    logger.error("libro_iva_compras.failed", { error });
+    logger.error("libro_iva_compras.failed", {
+      userId: ctx.userId,
+      period: input.period,
+      error,
+    });
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
 

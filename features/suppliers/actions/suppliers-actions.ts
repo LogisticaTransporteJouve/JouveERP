@@ -43,7 +43,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -76,7 +81,7 @@ export async function listSuppliersAction(): Promise<ActionResult<Supplier[]>> {
     .order("legal_name");
 
   if (error) {
-    logger.error("suppliers.list.failed", { error });
+    logger.error("suppliers.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo listar los proveedores." };
   }
 
@@ -121,7 +126,11 @@ export async function searchSuppliersAction(
   });
 
   if (error) {
-    logger.error("suppliers.search.failed", { error });
+    logger.error("suppliers.search.failed", {
+      userId: ctx.userId,
+      query: input.query,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar proveedores." };
   }
 
@@ -154,7 +163,7 @@ export async function getSupplierByIdAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("suppliers.get.failed", { id, error });
+    logger.error("suppliers.get.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo cargar el proveedor." };
   }
 
@@ -182,7 +191,11 @@ export async function findSupplierByCuitAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("suppliers.find_by_cuit.failed", { error });
+    logger.error("suppliers.find_by_cuit.failed", {
+      userId: ctx.userId,
+      cuit: cuitClean,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar el proveedor por CUIT." };
   }
 
@@ -228,7 +241,11 @@ export async function createSupplierAction(
     if (error.code === UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
-    logger.error("suppliers.create.failed", { error });
+    logger.error("suppliers.create.failed", {
+      userId: ctx.userId,
+      cuit: parsed.data.cuit,
+      error,
+    });
     return { ok: false, error: "No se pudo crear el proveedor." };
   }
 
@@ -292,7 +309,7 @@ export async function updateSupplierAction(
     if (error.code === UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
-    logger.error("suppliers.update.failed", { error });
+    logger.error("suppliers.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el proveedor." };
   }
 
@@ -337,6 +354,8 @@ export async function getSupplierReferencesAction(
       .eq(dep.column, id);
     if (error) {
       logger.warn("suppliers.refs.count_failed", {
+        userId: ctx.userId,
+        id,
         table: dep.table,
         err: error.message,
       });
@@ -372,7 +391,7 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
   const { error } = await service.from("suppliers").delete().eq("id", id);
 
   if (error) {
-    logger.error("suppliers.delete.failed", { id, error });
+    logger.error("suppliers.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo eliminar el proveedor." };
   }
 
@@ -400,7 +419,12 @@ export async function setSupplierActiveAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("suppliers.toggle_active.failed", { error });
+    logger.error("suppliers.toggle_active.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      is_active: parsed.data.is_active,
+      error,
+    });
     return { ok: false, error: "No se pudo cambiar el estado del proveedor." };
   }
 

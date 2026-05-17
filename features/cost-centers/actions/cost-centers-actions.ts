@@ -30,7 +30,7 @@ export async function listCostCentersAction(
   if (options.onlyActive) query.eq("is_active", true);
   const { data, error } = await query;
   if (error) {
-    logger.error("cost_centers.list.failed", { error });
+    logger.error("cost_centers.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer los centros." };
   }
   return { ok: true, data: data ?? [] };
@@ -61,7 +61,7 @@ export async function createCostCenterAction(
   if (error) {
     if (error.code === UNIQUE_VIOLATION)
       return { ok: false, error: "Ya existe un centro con ese código." };
-    logger.error("cost_centers.create.failed", { error });
+    logger.error("cost_centers.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear." };
   }
   return { ok: true, data: { id: data.id } };
@@ -88,7 +88,7 @@ export async function updateCostCenterAction(
   const supabase = await createClient();
   const { error } = await supabase.from("cost_centers").update(update).eq("id", id);
   if (error) {
-    logger.error("cost_centers.update.failed", { error });
+    logger.error("cost_centers.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar." };
   }
   return { ok: true, data: undefined };
@@ -106,7 +106,7 @@ export async function deleteCostCenterAction(
   const supabase = await createClient();
   const { error } = await supabase.from("cost_centers").delete().eq("id", parsed.data.id);
   if (error) {
-    logger.error("cost_centers.delete.failed", { error });
+    logger.error("cost_centers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar (¿en uso?)." };
   }
   return { ok: true, data: undefined };

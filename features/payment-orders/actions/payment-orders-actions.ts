@@ -16,6 +16,7 @@ import {
   type PaymentOrder,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
+  type PaymentOrderStatusJoin,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -45,7 +46,13 @@ async function logAudit(
     target_resource_id: targetResourceId ?? null,
     payload,
   });
-  if (error) logger.error("audit.insert.failed", { eventType, error });
+  if (error)
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
 }
 
 function narrowPaymentOrder(row: {
@@ -119,7 +126,7 @@ export async function listPaymentOrdersAction(input?: {
     .range(0, limit - 1);
 
   if (error) {
-    logger.error("payment_orders.list.failed", { error });
+    logger.error("payment_orders.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las órdenes de pago." };
   }
 
@@ -165,7 +172,11 @@ export async function getPaymentOrderByIdAction(
     .maybeSingle();
 
   if (opErr) {
-    logger.error("payment_orders.get.failed", { id, error: opErr });
+    logger.error("payment_orders.get.failed", {
+      userId: ctx.userId,
+      id,
+      error: opErr,
+    });
     return { ok: false, error: "No se pudo cargar la orden de pago." };
   }
   if (!row) return { ok: true, data: null };
@@ -196,6 +207,7 @@ export async function getPaymentOrderByIdAction(
 
   if (linesRes.error || allocsRes.error) {
     logger.error("payment_orders.get.children_failed", {
+      userId: ctx.userId,
       id,
       lines: linesRes.error,
       allocs: allocsRes.error,
@@ -244,7 +256,11 @@ export async function getNextPaymentOrderNumeroAction(input: {
     .maybeSingle();
 
   if (error) {
-    logger.error("payment_orders.next_numero.failed", { error });
+    logger.error("payment_orders.next_numero.failed", {
+      userId: ctx.userId,
+      channel_id: input.channel_id,
+      error,
+    });
     return { ok: false, error: "No se pudo calcular el próximo número." };
   }
 
@@ -299,7 +315,11 @@ export async function listPendingInvoicesForSupplierAction(
       .order("fecha", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("payment_orders.pending.list_invoices_failed", { error });
+      logger.error("payment_orders.pending.list_invoices_failed", {
+        userId: ctx.userId,
+        supplierId,
+        error,
+      });
       return { ok: false, error: "No se pudieron listar facturas pendientes." };
     }
     const got = (chunk ?? []) as Row[];
@@ -316,15 +336,18 @@ export async function listPendingInvoicesForSupplierAction(
     )
     .eq("payment_orders.supplier_id", supplierId);
   if (aErr) {
-    logger.error("payment_orders.pending.list_allocations_failed", { error: aErr });
+    logger.error("payment_orders.pending.list_allocations_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error: aErr,
+    });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
 
   const allocatedByInvoice = new Map<string, number>();
   for (const alloc of allocations ?? []) {
-    const status = (
-      alloc as unknown as { payment_orders: { status: string } | null }
-    ).payment_orders?.status;
+    const status = (alloc as unknown as PaymentOrderStatusJoin).payment_orders
+      ?.status;
     if (status === "canceled") continue;
     if (
       excludePaymentOrderId &&
@@ -460,7 +483,13 @@ export async function createPaymentOrderAction(
         error: `El número ${data.numero} ya existe para ese canal/POS.`,
       };
     }
-    logger.error("payment_orders.create.failed", { error });
+    logger.error("payment_orders.create.failed", {
+      userId: ctx.userId,
+      channel_id: data.channel_id,
+      numero: data.numero,
+      supplier_id: data.supplier_id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo crear la orden de pago.",
@@ -519,7 +548,11 @@ export async function updatePaymentOrderAction(
   });
 
   if (error) {
-    logger.error("payment_orders.update.failed", { error });
+    logger.error("payment_orders.update.failed", {
+      userId: ctx.userId,
+      id: data.id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo actualizar la OP.",
@@ -560,7 +593,11 @@ export async function cancelPaymentOrderAction(
     .eq("status", "issued");
 
   if (error) {
-    logger.error("payment_orders.cancel.failed", { error });
+    logger.error("payment_orders.cancel.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo anular la orden de pago." };
   }
 

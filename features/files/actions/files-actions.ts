@@ -113,7 +113,7 @@ export async function uploadFileAction(
     .from(BUCKET)
     .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
   if (storageErr) {
-    logger.warn("files.upload.storage_failed", { error: storageErr.message });
+    logger.warn("files.upload.storage_failed", { userId: ctx.userId, error: storageErr.message });
     return { ok: false, error: "No se pudo subir el archivo." };
   }
 
@@ -129,7 +129,7 @@ export async function uploadFileAction(
   });
   if (registryErr) {
     await supabase.storage.from(BUCKET).remove([bucketPath]);
-    logger.warn("files.upload.registry_failed", { error: registryErr.message });
+    logger.warn("files.upload.registry_failed", { userId: ctx.userId, error: registryErr.message });
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
@@ -157,6 +157,9 @@ export async function uploadFileAction(
     await supabase.from("files").delete().eq("id", fileId);
     await supabase.storage.from(BUCKET).remove([bucketPath]);
     logger.warn("files.upload.attach_failed", {
+      userId: ctx.userId,
+      targetType,
+      targetId,
       error: attachErr?.message ?? "no row",
     });
     return { ok: false, error: "No se pudo asociar el archivo." };
@@ -174,7 +177,7 @@ export async function getSignedFileUrlAction(
 ): Promise<
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
-  await requireUserContext();
+  const ctx = await requireUserContext();
   const parsed = z.string().uuid().safeParse(fileId);
   if (!parsed.success) {
     return { ok: false, error: "ID inválido." };
@@ -187,7 +190,11 @@ export async function getSignedFileUrlAction(
     .eq("id", parsed.data)
     .maybeSingle();
   if (lookupErr) {
-    logger.warn("files.sign.lookup_failed", { error: lookupErr.message });
+    logger.warn("files.sign.lookup_failed", {
+      userId: ctx.userId,
+      fileId: parsed.data,
+      error: lookupErr.message,
+    });
     return { ok: false, error: "Archivo no encontrado." };
   }
   if (!file) {
@@ -200,7 +207,11 @@ export async function getSignedFileUrlAction(
       download: file.original_filename,
     });
   if (signErr || !data) {
-    logger.warn("files.sign.create_url_failed", { error: signErr?.message });
+    logger.warn("files.sign.create_url_failed", {
+      userId: ctx.userId,
+      fileId: parsed.data,
+      error: signErr?.message,
+    });
     return { ok: false, error: "No se pudo generar la URL." };
   }
 
@@ -282,7 +293,7 @@ const ListSchema = AttachmentTargetSchema;
 export async function listAttachmentsAction(
   input: unknown,
 ): Promise<ActionResult<FileAttachmentRow[]>> {
-  await requireUserContext();
+  const ctx = await requireUserContext();
   const parsed = ListSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Parámetros inválidos." };
@@ -299,7 +310,12 @@ export async function listAttachmentsAction(
     .order("created_at", { ascending: false });
 
   if (error) {
-    logger.warn("files.list.failed", { error: error.message });
+    logger.warn("files.list.failed", {
+      userId: ctx.userId,
+      targetType,
+      targetId,
+      error: error.message,
+    });
     return { ok: false, error: error.message };
   }
 

@@ -13,6 +13,8 @@ import {
   UuidSchema,
 } from "@/lib/validation/common";
 
+import type { ReceiptStatusJoin } from "@/features/receipts/schema";
+
 const SetOpeningInput = z.object({
   client_id: UuidSchema,
   opening_date: IsoDateSchema,
@@ -121,7 +123,7 @@ export async function getClientAccountAction(
       .order("created_at", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("clients.account.list_failed", { clientId, error });
+      logger.error("clients.account.list_failed", { userId: ctx.userId, clientId, error });
       return { ok: false, error: "No se pudo cargar la cuenta corriente." };
     }
     const got = (chunk ?? []) as MovementRow[];
@@ -168,9 +170,7 @@ export async function getClientAccountAction(
       .eq("receipts.client_id", clientId);
 
     for (const a of allocs ?? []) {
-      const status = (
-        a as unknown as { receipts: { status: string } | null }
-      ).receipts?.status;
+      const status = (a as unknown as ReceiptStatusJoin).receipts?.status;
       if (status === "canceled") continue;
       const amt = Number(a.amount_applied);
       if (a.invoice_id) {
@@ -226,7 +226,11 @@ export async function getClientAccountAction(
       row.signed_amount == null ||
       row.gross_amount == null
     ) {
-      logger.warn("clients.account.row_with_nulls", { clientId, row });
+      logger.warn("clients.account.row_with_nulls", {
+        userId: ctx.userId,
+        clientId,
+        row,
+      });
       continue;
     }
     let signed = Number(row.signed_amount);
@@ -304,7 +308,7 @@ export async function getClientOpeningBalanceAction(
     .eq("client_id", clientId)
     .maybeSingle();
   if (error) {
-    logger.error("clients.opening.read_failed", { clientId, error });
+    logger.error("clients.opening.read_failed", { userId: ctx.userId, clientId, error });
     return { ok: false, error: "No se pudo cargar el saldo de apertura." };
   }
   if (!data) return { ok: true, data: null };
@@ -356,6 +360,7 @@ export async function setClientOpeningBalanceAction(input: {
   });
   if (error) {
     logger.error("clients.opening.apply_failed", {
+      userId: ctx.userId,
       clientId: input.client_id,
       error,
     });
@@ -388,7 +393,7 @@ export async function clearClientOpeningBalanceAction(
     p_client_id: clientId,
   });
   if (error) {
-    logger.error("clients.opening.clear_failed", { clientId, error });
+    logger.error("clients.opening.clear_failed", { userId: ctx.userId, clientId, error });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
   return { ok: true, data: undefined };

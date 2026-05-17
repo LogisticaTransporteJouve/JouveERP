@@ -203,6 +203,9 @@ export async function issueFiscalInvoiceAction(
     .maybeSingle();
   if (inserted.error || !inserted.data) {
     logger.warn("issue_invoice.insert_draft_failed", {
+      userId: ctx.userId,
+      channel_id: data.channel_id,
+      client_id: data.client_id,
       err: inserted.error?.message,
     });
     return {

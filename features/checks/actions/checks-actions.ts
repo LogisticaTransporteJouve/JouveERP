@@ -46,7 +46,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -103,7 +108,7 @@ export async function listChecksAction(): Promise<
     .limit(500);
 
   if (error) {
-    logger.error("cheques.list.failed", { error });
+    logger.error("cheques.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los cheques." };
   }
 
@@ -159,7 +164,11 @@ export async function listEnCarteraChecksAction(filters?: {
 
   const { data, error } = await query;
   if (error) {
-    logger.error("cheques.en_cartera.list.failed", { error });
+    logger.error("cheques.en_cartera.list.failed", {
+      userId: ctx.userId,
+      currency: filters?.currency,
+      error,
+    });
     return { ok: false, error: "No se pudieron listar cheques en cartera." };
   }
   const items: EnCarteraCheck[] = (data ?? [])
@@ -210,7 +219,11 @@ export async function getChequeByIdAction(
     .eq("id", id)
     .maybeSingle();
   if (chequeErr) {
-    logger.error("cheques.get.failed", { id, error: chequeErr });
+    logger.error("cheques.get.failed", {
+      userId: ctx.userId,
+      id,
+      error: chequeErr,
+    });
     return { ok: false, error: "No se pudo cargar el check." };
   }
   if (!chequeRow) return { ok: true, data: null };
@@ -224,7 +237,11 @@ export async function getChequeByIdAction(
     .order("event_date", { ascending: true });
 
   if (movErr) {
-    logger.error("cheques.get.movements_failed", { id, error: movErr });
+    logger.error("cheques.get.movements_failed", {
+      userId: ctx.userId,
+      id,
+      error: movErr,
+    });
     return { ok: false, error: "No se pudieron cargar los movimientos." };
   }
 
@@ -286,7 +303,12 @@ export async function createCheckAction(
         error: `Ya existe un check ${data.check_number} para ${data.bank_name}.`,
       };
     }
-    logger.error("cheques.create.failed", { error });
+    logger.error("cheques.create.failed", {
+      userId: ctx.userId,
+      bank_name: data.bank_name,
+      check_number: data.check_number,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo registrar el check.",
@@ -343,7 +365,11 @@ export async function depositCheckAction(
   });
 
   if (error) {
-    logger.error("cheques.deposit.failed", { error });
+    logger.error("cheques.deposit.failed", {
+      userId: ctx.userId,
+      check_id: data.check_id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo depositar el check.",
@@ -383,7 +409,11 @@ export async function creditCheckAction(
     p_notes: data.notes ?? "",
   });
   if (error) {
-    logger.error("cheques.credit.failed", { error });
+    logger.error("cheques.credit.failed", {
+      userId: ctx.userId,
+      check_id: data.check_id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo acreditar el check.",
@@ -420,7 +450,11 @@ export async function rejectCheckAction(
     p_notes: data.notes ?? "",
   });
   if (error) {
-    logger.error("cheques.reject.failed", { error });
+    logger.error("cheques.reject.failed", {
+      userId: ctx.userId,
+      check_id: data.check_id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo rechazar el check.",
