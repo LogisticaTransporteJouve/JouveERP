@@ -132,6 +132,12 @@ export type ClientLegalJoin = {
   client: { legal_name: string; email?: string | null } | null;
 };
 
+/** Variante plural para list queries que devuelven `clients ( legal_name )`
+ *  como join embebido en la fila padre. */
+export type ClientsListLegalJoin = {
+  clients: { legal_name: string } | null;
+};
+
 /** Variante extendida con CUIT + iva_condition (usada por PDFs fiscales). */
 export type ClientIdentityJoin = {
   client: {

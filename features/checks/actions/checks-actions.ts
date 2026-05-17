@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -30,7 +31,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -79,6 +79,13 @@ function narrowCheck(row: {
 const CHECK_COLUMNS =
   "id, kind, check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, amount, currency, source_kind, source_receipt_id, source_payment_line_id, source_client_id, cartera_account_id, status, notes, created_by, created_at, updated_at";
 
+/** Embedded joins en select queries de cheques: cartera_account siempre,
+ *  source_client opcional según si el cheque venía de un recibo. */
+type CarteraAccountJoin = { cartera_account: { name: string } | null };
+type SourceClientLegalJoin = {
+  source_client: { legal_name: string } | null;
+};
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -116,11 +123,8 @@ export async function listChecksAction(): Promise<
     .map((row) => {
       const narrowed = narrowCheck(row);
       if (!narrowed) return null;
-      const cartera = (row as { cartera_account: { name: string } | null })
-        .cartera_account;
-      const sourceClient = (
-        row as { source_client: { legal_name: string } | null }
-      ).source_client;
+      const cartera = (row as CarteraAccountJoin).cartera_account;
+      const sourceClient = (row as SourceClientLegalJoin).source_client;
       return {
         ...narrowed,
         cartera_account_name: cartera?.name ?? "—",
@@ -181,8 +185,7 @@ export async function listEnCarteraChecksAction(filters?: {
         row.currency === "ARS" || row.currency === "USD",
     )
     .map((row) => {
-      const acct = (row as { cartera_account: { name: string } | null })
-        .cartera_account;
+      const acct = (row as CarteraAccountJoin).cartera_account;
       return {
         id: row.id,
         kind: row.kind,
@@ -297,7 +300,7 @@ export async function createCheckAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: `Ya existe un check ${data.check_number} para ${data.bank_name}.`,

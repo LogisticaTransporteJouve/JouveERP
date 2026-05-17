@@ -6,7 +6,11 @@ import { z } from "zod";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import { formatNumber2, safeFilenamePart } from "@/lib/format";
+import {
+  buildPdfFilename,
+  formatArDateShort,
+  formatNumber2,
+} from "@/lib/format";
 import { logger } from "@/lib/logger";
 import {
   buildReceiptTemplateData,
@@ -89,9 +93,12 @@ export async function sendReceiptByEmailAction(
     templateData.punto_venta,
     templateData.numero,
   );
-  const fechaLabel = new Date(templateData.fecha).toLocaleDateString("es-AR");
+  const fechaLabel = formatArDateShort(templateData.fecha);
   const totalLabel = `$${formatNumber2(templateData.total_amount)}`;
-  const pdfFilename = `${numeroLabel} - ${safeFilenamePart(templateData.receptor.legal_name)}.pdf`;
+  const pdfFilename = buildPdfFilename(
+    numeroLabel,
+    templateData.receptor.legal_name,
+  );
 
   const result = await sendComprobanteByEmail({
     entity_type: "receipt",

@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -27,7 +28,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -238,7 +238,7 @@ export async function createSupplierAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
     logger.error("suppliers.create.failed", {
@@ -306,7 +306,7 @@ export async function updateSupplierAction(
     .eq("id", id);
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
     logger.error("suppliers.update.failed", { userId: ctx.userId, id, error });

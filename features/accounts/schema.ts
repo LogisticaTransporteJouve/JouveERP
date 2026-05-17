@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
+import { openingBalancePreprocess } from "@/lib/validation/common";
 
 export const ACCOUNT_TYPES = [
   "bank",
@@ -40,15 +41,7 @@ const trimmedNullable = z
   .optional();
 
 const openingBalance = z.preprocess(
-  (value) => {
-    if (typeof value === "string") {
-      const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
-      if (cleaned.length === 0) return 0;
-      const parsed = Number.parseFloat(cleaned);
-      return Number.isFinite(parsed) ? parsed : value;
-    }
-    return value;
-  },
+  openingBalancePreprocess,
   z
     .number()
     .finite("Saldo inicial inválido.")
@@ -107,4 +100,10 @@ export type Account = Omit<AccountRow, "type" | "currency"> & {
 /** Join row shape para `account ( name, type )` embebido en payment lines. */
 export type AccountNameJoin = {
   account: { name: string; type: string } | null;
+};
+
+/** Variante plural para list queries que devuelven `accounts ( name )`
+ *  como join embebido en la fila padre. */
+export type AccountsListNameJoin = {
+  accounts: { name: string } | null;
 };

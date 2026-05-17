@@ -32,10 +32,13 @@ import {
 import type { Account } from "@/features/accounts/schema";
 import {
   amountToInput,
+  round2,
   formatNumber2,
   parseArAmount,
+  sumArAmountsBy,
   todayInAR,
 } from "@/lib/format";
+import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -61,8 +64,6 @@ import {
   type RetentionDraft,
 } from "./retentions-editor";
 
-const DEFAULT_CHANNEL_ID = "jouve_fiscal";
-
 export interface ChannelOption {
   id: string;
   name: string;
@@ -73,18 +74,11 @@ type Mode = "create" | "edit";
 const formatMoney = formatNumber2;
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
-  return lines.reduce((acc, l) => acc + (parseArAmount(l.amount) ?? 0), 0);
-}
-
-function sumDraftAllocations(allocs: AllocationDraft[]): number {
-  return allocs.reduce(
-    (acc, a) => acc + (parseArAmount(a.amount_applied) ?? 0),
-    0,
-  );
+  return sumArAmountsBy(lines, (l) => l.amount);
 }
 
 function sumDraftRetentions(rets: RetentionDraft[]): number {
-  return rets.reduce((acc, r) => acc + (parseArAmount(r.amount) ?? 0), 0);
+  return sumArAmountsBy(rets, (r) => r.amount);
 }
 
 const FormSchema = z.object({
@@ -226,16 +220,16 @@ export function ReceiptForm({
   }, [mode, nextNumero.next]);
 
   const paymentSum = useMemo(
-    () => Math.round(sumDraftLines(paymentLines) * 100) / 100,
+    () => round2(sumDraftLines(paymentLines)),
     [paymentLines],
   );
   const retentionSum = useMemo(
-    () => Math.round(sumDraftRetentions(retentions) * 100) / 100,
+    () => round2(sumDraftRetentions(retentions)),
     [retentions],
   );
-  const totalAmount = Math.round((paymentSum + retentionSum) * 100) / 100;
+  const totalAmount = round2(paymentSum + retentionSum);
   const allocatedAmount = useMemo(
-    () => Math.round(sumDraftAllocations(allocations) * 100) / 100,
+    () => round2(sumArAmountsBy(allocations, (a) => a.amount_applied)),
     [allocations],
   );
   const aCuenta = Math.max(0, totalAmount - allocatedAmount);

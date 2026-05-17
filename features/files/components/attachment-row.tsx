@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/files/format-file-size";
 import { isImage, isPdf, isSpreadsheet } from "@/lib/files/preview";
+import { formatArDateShort } from "@/lib/format";
 
 import {
   ATTACHMENT_KIND_LABELS,
@@ -81,7 +82,7 @@ export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
         <p className="text-xs text-muted-foreground">
           {ATTACHMENT_KIND_LABELS[row.kind] ?? row.kind} ·{" "}
           {formatFileSize(row.fileSize)} ·{" "}
-          {new Date(row.attachedAt).toLocaleDateString("es-AR")}
+          {formatArDateShort(row.attachedAt)}
         </p>
       </div>
       <Button

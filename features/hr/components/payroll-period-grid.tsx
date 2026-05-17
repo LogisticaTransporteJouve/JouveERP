@@ -32,11 +32,11 @@ import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
 import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
 
-import { formatNumber2 } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 
 function money(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return `$ ${formatNumber2(n)}`;
+  return formatMoney(n);
 }
 
 export function PayrollPeriodGrid({

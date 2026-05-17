@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +17,6 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-const UNIQUE_VIOLATION = "23505";
 
 export async function listCostCentersAction(
   options: { onlyActive?: boolean } = {},
@@ -59,7 +59,7 @@ export async function createCostCenterAction(
     .select("id")
     .single();
   if (error) {
-    if (error.code === UNIQUE_VIOLATION)
+    if (error.code === PG_UNIQUE_VIOLATION)
       return { ok: false, error: "Ya existe un centro con ese código." };
     logger.error("cost_centers.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear." };

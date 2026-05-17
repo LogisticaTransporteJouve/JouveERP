@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,7 +16,6 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-const UNIQUE_VIOLATION = "23505";
 
 export async function listInflationAdjustmentsAction(): Promise<
   ActionResult<InflationAdjustment[]>
@@ -62,7 +62,7 @@ export async function createInflationAdjustmentAction(
     .select("id")
     .single();
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya hay un coeficiente para ese período." };
     }
     logger.error("inflation_adjustments.create.failed", {

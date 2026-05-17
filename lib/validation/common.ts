@@ -30,3 +30,46 @@ export const NonNegativeAmountSchema = z
   .number()
   .finite()
   .min(0, "El monto no puede ser negativo.");
+
+/**
+ * Preprocess zod para montos en formato es-AR ("1.234,56" → 1234.56) que
+ * además acepta `number` directo. Empty/whitespace string → `undefined` (lo
+ * que falla con `.number()`). Consolida 4 copias verbatim que vivían en
+ * receipts/checks/transactions/payment-orders schemas. */
+export const moneyAmountPreprocess = (value: unknown) => {
+  if (typeof value === "string") {
+    const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
+    if (cleaned.length === 0) return undefined;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+  return value;
+};
+
+/** Variante de moneyAmountPreprocess para el saldo de apertura de cuentas:
+ *  empty string → 0 (vacío significa "sin saldo inicial", no "inválido"). */
+export const openingBalancePreprocess = (value: unknown) => {
+  if (typeof value === "string") {
+    const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
+    if (cleaned.length === 0) return 0;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+  return value;
+};
+
+/** Variante con pre-strip de caracteres no-numéricos (mantiene `0-9 , . -`).
+ *  Más defensivo para inputs typed donde el user puede pegar "$ 1.234,56"
+ *  o "ARS 1.234,56". Usado por purchase-invoices y issued-checks schemas. */
+export const moneyAmountWithStripPreprocess = (value: unknown) => {
+  if (typeof value === "string") {
+    const cleaned = value
+      .replace(/[^0-9.,-]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    if (cleaned.length === 0) return undefined;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+  return value;
+};

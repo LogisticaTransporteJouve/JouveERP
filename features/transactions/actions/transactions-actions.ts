@@ -137,6 +137,17 @@ export async function listTransactionsAction(
     return { ok: false, error: "No se pudieron listar los movimientos." };
   }
 
+  /** Columnas extra del view `v_transactions_tagged` + join `counterparty_client`
+   *  que no están en el typing generado de Supabase (las views no se generan). */
+  type TaggedTransactionRow = {
+    channel_name: string;
+    channel_division: string;
+    channel_is_fiscal: boolean;
+    account_name: string;
+    account_type: string;
+    counterparty_client: { legal_name: string } | null;
+  };
+
   const rows = data ?? [];
   const hasMore = rows.length > limit;
   const items = rows
@@ -144,20 +155,15 @@ export async function listTransactionsAction(
     .map((row) => {
       const narrowed = narrowTransaction(row);
       if (!narrowed) return null;
-      const counterparty = (
-        row as {
-          counterparty_client: { legal_name: string } | null;
-        }
-      ).counterparty_client;
+      const tagged = row as unknown as TaggedTransactionRow;
       return {
         ...narrowed,
-        channel_name: (row as { channel_name: string }).channel_name,
-        channel_division: (row as { channel_division: string }).channel_division,
-        channel_is_fiscal: (row as { channel_is_fiscal: boolean })
-          .channel_is_fiscal,
-        account_name: (row as { account_name: string }).account_name,
-        account_type: (row as { account_type: string }).account_type,
-        counterparty_legal_name: counterparty?.legal_name ?? null,
+        channel_name: tagged.channel_name,
+        channel_division: tagged.channel_division,
+        channel_is_fiscal: tagged.channel_is_fiscal,
+        account_name: tagged.account_name,
+        account_type: tagged.account_type,
+        counterparty_legal_name: tagged.counterparty_client?.legal_name ?? null,
       };
     })
     .filter((item): item is TransactionListItem => item !== null);

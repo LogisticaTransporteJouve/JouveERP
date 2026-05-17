@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,8 +17,6 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-const UNIQUE_VIOLATION = "23505";
-const FK_VIOLATION = "23503";
 
 export async function listSupplierCategoriesAction(
   options: { onlyActive?: boolean } = {},
@@ -74,7 +73,7 @@ export async function createSupplierCategoryAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: "Ya existe una categoría con ese nombre o slug.",
@@ -115,7 +114,7 @@ export async function updateSupplierCategoryAction(
     .eq("id", id);
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: "Ya existe una categoría con ese nombre o slug.",
@@ -166,7 +165,7 @@ export async function deleteSupplierCategoryAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    if (error.code === FK_VIOLATION) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return { ok: false, error: "La categoría está en uso, no se puede borrar." };
     }
     logger.error("supplier_categories.delete.failed", { userId: ctx.userId, error });

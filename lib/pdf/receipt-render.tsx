@@ -21,6 +21,7 @@ import {
   type RetentionKind,
   type RetentionTaxType,
 } from "@/features/receipts/schema";
+import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -185,10 +186,10 @@ export async function buildReceiptTemplateData(
     retentions,
     allocations,
     total_amount: totalAmount,
-    payment_sum: Math.round(paymentSum * 100) / 100,
-    retention_sum: Math.round(retentionSum * 100) / 100,
-    allocated_sum: Math.round(allocatedSum * 100) / 100,
-    a_cuenta: Math.round((totalAmount - allocatedSum) * 100) / 100,
+    payment_sum: round2(paymentSum),
+    retention_sum: round2(retentionSum),
+    allocated_sum: round2(allocatedSum),
+    a_cuenta: round2(totalAmount - allocatedSum),
     notes: receipt.notes ?? null,
     status: receipt.status as "issued" | "canceled",
   };

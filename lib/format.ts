@@ -109,6 +109,17 @@ export function formatMoneySigned(
   return formatMoney(n, currency);
 }
 
+/** "ARS 3.865,59" — usa el código literal en lugar del símbolo. Pensado para
+ *  detail pages donde queremos mostrar el código formal de moneda en vez del
+ *  símbolo (`formatMoney` devuelve `$`/`US$`). Consolida los `money(n, code)`
+ *  definidos localmente en receipts/[id], purchases/[id], payment-orders/[id]. */
+export function formatMoneyWithCode(
+  value: number | string | null | undefined,
+  currencyCode: string,
+): string {
+  return `${currencyCode} ${formatNumber2(value)}`;
+}
+
 export function formatArgentineDateTime(
   value: string | null | undefined,
 ): string {
@@ -122,6 +133,16 @@ export function formatArgentineDateTime(
   const hh = String(ar.getUTCHours()).padStart(2, "0");
   const mm = String(ar.getUTCMinutes()).padStart(2, "0");
   return `${day} ${month} ${year}, ${hh}:${mm}`;
+}
+
+/** "17/5/2026" — date corto es-AR vía `toLocaleDateString`. Usado por
+ *  emails y attachments donde el formato compacto es preferido al "17 may 2026"
+ *  de `formatArgentineDate`. Acepta ISO string o Date; inválidos → "—". */
+export function formatArDateShort(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-AR");
 }
 
 /** "YYYY-MM-DD" del día actual en hora Argentina (UTC-3). Usado como default
@@ -151,6 +172,17 @@ export function parseArAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Suma montos es-AR (string `"1.234,56"`) de una colección, extrayendo el
+ *  string con un picker. Inválidos / vacíos contribuyen 0. Consolida la
+ *  lógica de `sumDraftAllocations` que estaba duplicada en receipt-form y
+ *  payment-order-form. */
+export function sumArAmountsBy<T>(
+  items: readonly T[],
+  pick: (item: T) => string,
+): number {
+  return items.reduce((acc, item) => acc + (parseArAmount(pick(item)) ?? 0), 0);
+}
+
 /** Sanitiza un fragmento de string para usarlo en un nombre de archivo de
  *  download (PDF de comprobante, recibo, etc.):
  *  - normaliza Unicode (NFKD) para evitar combinaciones raras
@@ -166,4 +198,12 @@ export function safeFilenamePart(value: string): string {
     .replace(/[,;]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Construye el nombre de archivo PDF para un comprobante / recibo:
+ *  `<numero> - <name>.pdf`, con `name` sanitizado vía safeFilenamePart.
+ *  Consolida el patrón duplicado en send-receipt-email, send-invoice-email
+ *  e invoices-table. */
+export function buildPdfFilename(numero: string, name: string): string {
+  return `${numero} - ${safeFilenamePart(name)}.pdf`;
 }

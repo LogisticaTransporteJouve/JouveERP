@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
+import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -138,7 +139,7 @@ export function useUpdatePurchaseInvoice() {
       runAction(() => updatePurchaseInvoiceAction(input)),
     onSuccess: (_data, variables) => {
       invalidatePurchaseEffects(qc);
-      const id = (variables as { id?: string }).id;
+      const id = getMutationId(variables);
       if (id) {
         qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.byId(id) });
         qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.items(id) });

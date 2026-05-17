@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -331,14 +332,14 @@ export async function getSupplierAccountAction(
       channel_name: r.channel_name,
       channel_division: r.channel_division,
       channel_is_fiscal: r.channel_is_fiscal,
-      balance: Math.round(running * 100) / 100,
+      balance: round2(running),
       outstanding: outstanding,
     };
   });
 
   return {
     ok: true,
-    data: { movements, balance: Math.round(running * 100) / 100 },
+    data: { movements, balance: round2(running) },
   };
 }
 

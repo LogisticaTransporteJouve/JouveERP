@@ -17,12 +17,6 @@ import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
 import { formatInvoiceNumero } from "../schema";
 
-// Picker que solo lista facturas; pasamos kind="factura" para que use la
-// rama con letra ("X" si la letra viene null, manteniendo el comportamiento
-// histórico de este componente).
-function formatNumero(letter: string | null, pos: number, numero: number) {
-  return formatInvoiceNumero("factura", letter ?? "X", pos, numero);
-}
 
 const formatARS = formatNumber2;
 
@@ -49,7 +43,12 @@ export function OriginPicker({
       <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
         <div className="min-w-0">
           <p className="font-mono text-xs">
-            {formatNumero(value.letter, value.punto_venta, value.numero)}
+            {formatInvoiceNumero(
+              "factura",
+              value.letter ?? "X",
+              value.punto_venta,
+              value.numero,
+            )}
           </p>
           <p className="truncate font-medium">{value.client_legal_name}</p>
           <p className="font-mono text-xs text-muted-foreground">
@@ -118,7 +117,12 @@ export function OriginPicker({
                   >
                     <div className="flex min-w-0 flex-col">
                       <span className="font-mono text-xs">
-                        {formatNumero(it.letter, it.punto_venta, it.numero)}
+                        {formatInvoiceNumero(
+                          "factura",
+                          it.letter ?? "X",
+                          it.punto_venta,
+                          it.numero,
+                        )}
                       </span>
                       <span className="truncate">{it.client_legal_name}</span>
                     </div>

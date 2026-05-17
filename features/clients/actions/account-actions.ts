@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -238,17 +239,17 @@ export async function getClientAccountAction(
     if (row.source_type === "opening_balance") {
       // El saldo "salta" al target. signed efectivo = target - running.
       const target = Number(row.signed_amount); // la vista deja target_balance acá
-      signed = Math.round((target - running) * 100) / 100;
+      signed = round2(target - running);
       gross = Math.abs(signed);
     }
-    running = Math.round((running + signed) * 100) / 100;
+    running = round2(running + signed);
     let outstanding: number | null = null;
     if (row.source_type === "invoice" && row.source_id && row.kind !== "credit_note") {
       const applied = appliedByInvoice.get(row.source_id) ?? 0;
-      outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
+      outstanding = Math.max(0, round2(gross - applied));
     } else if (row.source_type === "receipt" && row.source_id) {
       const applied = appliedByReceipt.get(row.source_id) ?? 0;
-      outstanding = Math.max(0, Math.round((gross - applied) * 100) / 100);
+      outstanding = Math.max(0, round2(gross - applied));
     }
     movements.push({
       source_type: row.source_type as AccountMovementSourceType,

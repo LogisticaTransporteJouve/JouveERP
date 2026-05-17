@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -112,12 +113,11 @@ export async function getAgingSummaryAction(): Promise<
   }
   totals.client_count = clients.length;
   // Round bucket sums; views return numeric(18,2) but JS float sums drift.
-  const round = (n: number) => Math.round(n * 100) / 100;
-  totals.bucket_0_30 = round(totals.bucket_0_30);
-  totals.bucket_30_60 = round(totals.bucket_30_60);
-  totals.bucket_60_90 = round(totals.bucket_60_90);
-  totals.bucket_90_plus = round(totals.bucket_90_plus);
-  totals.total_open = round(totals.total_open);
+  totals.bucket_0_30 = round2(totals.bucket_0_30);
+  totals.bucket_30_60 = round2(totals.bucket_30_60);
+  totals.bucket_60_90 = round2(totals.bucket_60_90);
+  totals.bucket_90_plus = round2(totals.bucket_90_plus);
+  totals.total_open = round2(totals.total_open);
 
   return { ok: true, data: { clients, totals } };
 }

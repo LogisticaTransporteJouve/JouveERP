@@ -24,12 +24,16 @@ import {
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import {
+  formatArgentineDate,
+  formatMoneyWithCode,
+  formatNumber2,
+} from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const money = (n: number, currency: string) => `${currency} ${formatNumber2(n)}`;
+const money = formatMoneyWithCode;
 
 export default async function PurchaseInvoiceDetailPage({
   params,

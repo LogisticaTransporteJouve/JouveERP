@@ -10,6 +10,7 @@ import {
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -120,7 +121,7 @@ export function useUpdateReceipt() {
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
       qc.invalidateQueries({ queryKey: clientsKeys.all });
       qc.invalidateQueries({ queryKey: agingKeys.all });
-      const id = (variables as { id?: string }).id;
+      const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: receiptsKeys.detail(id) });
     },
   });
