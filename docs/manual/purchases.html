@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compras — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Compras</strong></div>
+        <div class="pill">Proveedores · Facturas · Pagos · Aging</div>
+      </header>
+      <main>
+        <h1>Compras</h1>
+        <p class="lead">
+          Padrón de proveedores y sus categorías, facturas de compra con
+          apertura de IVA, órdenes de pago con cheques propios y endosados, y
+          aging de cuentas por pagar.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#proveedores">Proveedores</a></li>
+            <li><a href="#categorias">Categorías de proveedores</a></li>
+            <li><a href="#facturas-de-compra">Facturas de compra</a></li>
+            <li><a href="#ordenes-de-pago">Órdenes de pago</a></li>
+            <li><a href="#aging-proveedores">Aging de proveedores</a></li>
+            <li><a href="#flujo-pago">Flujo: compra → OP → cheque/transferencia</a></li>
+          </ul>
+        </div>
+
+        <!-- ──────── PROVEEDORES ──────── -->
+        <h2 id="proveedores">Proveedores</h2>
+        <p>
+          Padrón único compartido por ambas divisiones. Cada proveedor tiene
+          CUIT único, condición frente al IVA y, opcionalmente, canal por
+          defecto, plazo de pago y categoría.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Compras &gt; <em>Proveedores</em>.</p>
+
+        <h3>Listado y filtros</h3>
+        <div class="fields">
+          <div class="field-name">Buscar</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Por razón social, nombre de fantasía o CUIT.</div>
+          <div class="field-name">Categoría</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Drop‑down con todas las categorías activas.</div>
+          <div class="field-name">Sólo activos</div>
+          <div class="field-req">toggle</div>
+          <div class="field-desc">Activado por defecto.</div>
+        </div>
+
+        <h3>Alta de proveedor</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nuevo proveedor</strong>.</li>
+          <li>Ingresá CUIT y opcionalmente <em>Verificar AFIP</em> para
+            traer razón social y domicilio fiscal.</li>
+          <li>Completá <strong>Razón social</strong>, <strong>Condición IVA</strong>,
+            y opcionales: nombre de fantasía, email, teléfono, domicilio real
+            y comercial, notas, <strong>canal por defecto</strong>, <strong>plazo
+            de pago en días</strong>, <strong>categoría</strong>.</li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <h3>Detalle del proveedor</h3>
+        <table>
+          <thead><tr><th>Pestaña</th><th>Qué hacés ahí</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cuenta corriente</strong></td><td>Feed cronológico de facturas (factura/NC/ND), órdenes de pago y saldo de apertura. Saldo corrido (positivo = le debemos). Botón <em>Crear orden de pago</em> en línea.</td></tr>
+            <tr><td><strong>Datos</strong></td><td>Edición del proveedor.</td></tr>
+            <tr><td><strong>Adjuntos</strong></td><td>Subir constancia de inscripción, contratos, presupuestos, etc.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Baja, eliminación y saldo de apertura</h3>
+        <ul>
+          <li><strong>Activar / desactivar:</strong> toggle por fila.</li>
+          <li><strong>Eliminar:</strong> bloqueado si tiene facturas u OPs;
+            usá desactivar.</li>
+          <li><strong>Saldo de apertura</strong> (solo <span class="badge solid">owner</span>):
+            fecha y monto. Se crea un movimiento + imputaciones que reducen
+            la antigüedad de las facturas más viejas.</li>
+        </ul>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">suppliers:read</span> ver,
+          <span class="badge">suppliers:write</span> crear/editar/eliminar.
+        </div>
+
+        <!-- ──────── CATEGORÍAS ──────── -->
+        <h2 id="categorias">Categorías de proveedores</h2>
+        <p>
+          Clasificación lógica de proveedores (p. ej. "Hardware", "Logística",
+          "Personal eventual") para agrupar y filtrar.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Compras &gt; <em>Categorías</em>.</p>
+
+        <h3>Acciones</h3>
+        <div class="fields">
+          <div class="field-name">Nombre</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">2 a 60 caracteres. Único.</div>
+          <div class="field-name">Slug</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Si lo dejás vacío se genera del nombre. Sólo minúsculas, alfanumérico y guión bajo.</div>
+          <div class="field-name">Activa</div>
+          <div class="field-req">toggle</div>
+          <div class="field-desc">Si la desactivás deja de aparecer en el picker.</div>
+        </div>
+        <p>No se puede eliminar una categoría si tiene proveedores asignados:
+          desasignalos primero.</p>
+
+        <!-- ──────── FACTURAS DE COMPRA ──────── -->
+        <h2 id="facturas-de-compra">Facturas de compra</h2>
+        <p>
+          Registro de facturas, notas de crédito y débito recibidas de
+          proveedores. Soporta canal fiscal o interno, apertura de IVA por
+          alícuota e ítems opcionales.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Compras &gt; <em>Compras</em>
+          (<code>/purchases</code>).</p>
+
+        <h3>Listado y filtros</h3>
+        <div class="fields">
+          <div class="field-name">Buscar</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Por proveedor, número de factura o CUIT.</div>
+          <div class="field-name">Estado</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Recibida · Anulada.</div>
+          <div class="field-name">Tipo</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Factura · NC · ND.</div>
+          <div class="field-name">Rango de fechas</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Desde / hasta.</div>
+          <div class="field-name">Canal</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Fiscal o interno (sigue al scope del topbar).</div>
+        </div>
+
+        <h3>Crear factura de compra</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nueva factura de compra</strong>.</li>
+          <li>Seleccioná <strong>proveedor</strong>, <strong>canal</strong>,
+            <strong>tipo</strong> (factura/NC/ND) y <strong>letra</strong>
+            (A/B/C; null para internas).</li>
+          <li>Ingresá <strong>punto de venta</strong>, <strong>número</strong>,
+            <strong>fecha</strong>, <strong>fecha de vencimiento</strong> (opcional),
+            <strong>moneda</strong> y, si es ME, cotización.</li>
+          <li>Si tenés la apertura: cargá <strong>ítems</strong> (descripción,
+            cantidad, precio unitario, alícuota IVA 0/2,5/5/10,5/21/27). Los
+            totales se calculan línea por línea.</li>
+          <li>Sino, cargá directamente los totales: neto, IVA, tributos,
+            total. Para NC/ND elegí el comprobante de origen.</li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <div class="callout warn">
+          <strong>Anular factura.</strong> Sólo se pueden anular las que aún
+          no tienen pagos imputados. Una vez con OPs, se trabaja con NC del
+          proveedor.
+        </div>
+
+        <h3>Detalle</h3>
+        <p>
+          Header con datos del proveedor, ítems con alícuotas, totales,
+          listado de OPs imputadas + saldo pendiente, y zona de adjuntos
+          (subí el PDF que mandó el proveedor).
+        </p>
+
+        <!-- ──────── ÓRDENES DE PAGO ──────── -->
+        <h2 id="ordenes-de-pago">Órdenes de pago</h2>
+        <p>
+          Documentan el pago a un proveedor. Cada OP puede tener múltiples
+          <strong>líneas de pago</strong> y se imputa a una o varias facturas
+          pendientes (FIFO si no imputás manualmente).
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Compras &gt; <em>Órdenes de pago</em>.</p>
+
+        <h3>Tres tipos de línea de pago</h3>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="meta">Cuenta</div>
+            <div class="title">Transferencia bancaria</div>
+            <p>Elegís una cuenta bancaria, monto y referencia. Genera la salida en la cuenta.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Endosar</div>
+            <div class="title">Cheque de tercero en cartera</div>
+            <p>Tomás un cheque recibido que esté <em>en cartera</em> y lo entregás al proveedor. El cheque pasa a estado <span class="badge">endosado</span>.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Emitir</div>
+            <div class="title">Cheque propio nuevo</div>
+            <p>Librás un cheque (físico o e‑cheq) desde una chequera. Definís número, banco, fecha de vencimiento, beneficiario, CUIT. Se registra en <a href="treasury.html#cheques-propios">Cheques propios</a>.</p>
+          </div>
+        </div>
+
+        <h3>Crear OP</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nueva orden de pago</strong>.</li>
+          <li>Elegí <strong>canal</strong>, <strong>proveedor</strong> (el
+            sistema trae sus facturas pendientes), <strong>fecha de pago</strong>
+            y <strong>moneda</strong>.</li>
+          <li>Agregá una o más <strong>líneas de pago</strong>. El total de
+            líneas debe igualar al total de la OP.</li>
+          <li>En <strong>Imputaciones</strong> marcá facturas y montos. Si
+            dejás vacío, se imputa FIFO (las facturas más viejas primero).</li>
+          <li><strong>Guardar.</strong> Se asigna número automático
+            (formato <code>OP{POS}-00000123</code>).</li>
+        </ol>
+
+        <h3>Editar y anular</h3>
+        <ul>
+          <li><strong>Editar:</strong> mismo dialog mientras esté
+            <span class="badge">issued</span>. No se puede editar una anulada.</li>
+          <li><strong>Anular:</strong> pasa a
+            <span class="badge warn">canceled</span>. Las imputaciones quedan
+            "dormidas" (no impactan en el aging).</li>
+        </ul>
+
+        <h3>Detalle</h3>
+        <p>
+          Número, proveedor, fecha, total, badge de estado, lista de
+          <em>medios de pago</em> (cuenta / endose / emisión, con detalle),
+          imputaciones (facturas + montos), adjuntos.
+        </p>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">payment_orders:read</span> ver,
+          <span class="badge">payment_orders:write</span> crear/editar/anular.
+        </div>
+
+        <!-- ──────── AGING ──────── -->
+        <h2 id="aging-proveedores">Aging de proveedores</h2>
+        <p>
+          Reporte de cuentas por pagar por antigüedad: cuánto le debemos a
+          cada proveedor y cuánto vencido tiene en buckets 0‑30 / 30‑60 /
+          60‑90 / 90+ días.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Compras &gt; <em>Aging proveedores</em>.</p>
+        <table>
+          <thead><tr><th>Columna</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td>Razón social / CUIT</td><td>Proveedor.</td></tr>
+            <tr><td>0‑30 / 30‑60 / 60‑90 / 90+</td><td>Saldo por bucket.</td></tr>
+            <tr><td>Total abierto</td><td>Suma de buckets. Ordena de mayor a menor.</td></tr>
+            <tr><td>Comprobantes</td><td>Cantidad de facturas/ND con saldo.</td></tr>
+            <tr><td>Antigüedad máx.</td><td>Días desde la factura más vieja sin saldar.</td></tr>
+          </tbody>
+        </table>
+
+        <!-- ──────── FLUJO ──────── -->
+        <h2 id="flujo-pago">Flujo: compra → OP → cheque o transferencia</h2>
+        <div class="diagram">
+          <div class="mermaid">
+flowchart TB
+    A[Alta proveedor] --> B[Categoría opcional]
+    A --> C[Factura de compra]
+    C --> D[Saldo en aging]
+    D --> E[Crear OP]
+    E --> F{Línea de pago}
+    F -- Cuenta --> G[Transferencia bancaria]
+    F -- Endose --> H[Cheque de tercero<br/>en cartera -> endosado]
+    F -- Emisión --> I[Cheque propio nuevo<br/>status: emitted]
+    G --> J[Imputación FIFO o manual]
+    H --> J
+    I --> J
+    J --> K[Saldo de factura cae]
+    K --> L[Aging proveedores<br/>actualizado en vivo]
+          </div>
+        </div>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="treasury.html">Tesorería →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>
