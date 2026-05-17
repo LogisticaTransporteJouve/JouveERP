@@ -234,7 +234,6 @@ export function PaymentOrderForm({
   });
 
   const channelId = form.watch("channelId");
-  const paymentDate = form.watch("paymentDate");
   const currency = form.watch("currency");
   const supplier = form.watch("supplier");
   const paymentLines = form.watch("paymentLines");

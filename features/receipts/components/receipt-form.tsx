@@ -192,7 +192,6 @@ export function ReceiptForm({
   });
 
   const channelId = form.watch("channelId");
-  const numero = form.watch("numero");
   const reciboDate = form.watch("reciboDate");
   const currency = form.watch("currency");
   const client = form.watch("client");
