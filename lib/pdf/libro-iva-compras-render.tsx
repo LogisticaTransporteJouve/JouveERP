@@ -3,6 +3,7 @@ import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 
 import type { LibroIvaComprasRow } from "@/features/libro-iva/schema";
+import { formatArgentineDateTime } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -38,7 +39,7 @@ export async function buildLibroIvaComprasTemplateData(
   return {
     period,
     channelName,
-    generatedAt: new Date().toLocaleString("es-AR"),
+    generatedAt: formatArgentineDateTime(new Date().toISOString()),
     rows,
   };
 }

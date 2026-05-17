@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
+import { formatNumber2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -114,10 +115,7 @@ export async function sendInvoiceByEmailAction(
   }
 
   const fechaLabel = new Date(invoice.fecha).toLocaleDateString("es-AR");
-  const totalLabel = `$${Number(invoice.imp_total).toLocaleString("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  const totalLabel = `$${formatNumber2(Number(invoice.imp_total))}`;
   const pdfFilename = `${numeroLabel} - ${safeFilenamePart(client?.legal_name ?? "Cliente")}.pdf`;
 
   const result = await sendComprobanteByEmail({

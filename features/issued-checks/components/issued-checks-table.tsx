@@ -17,7 +17,7 @@ import {
 import type { Account } from "@/features/accounts/schema";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 import {
   useIssuedChecksList,
@@ -31,14 +31,6 @@ import {
 
 import { EditIssuedCheckDialog } from "./edit-issued-check-dialog";
 import { NewIssuedCheckDialog } from "./new-issued-check-dialog";
-
-const fmtMoney = (amount: number, currency: string) => {
-  const sign = currency === "USD" ? "US$" : "$";
-  return `${sign}${amount.toLocaleString("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
 
 const STATUS_BADGE: Record<string, string> = {
   emitted: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
@@ -147,7 +139,7 @@ export function IssuedChecksTable({
                       {formatArgentineDate(c.due_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {fmtMoney(Number(c.amount), c.currency)}
+                      {c.currency === "USD" ? "US$" : "$"}{formatNumber2(Number(c.amount))}
                     </TableCell>
                     <TableCell>
                       <Badge
