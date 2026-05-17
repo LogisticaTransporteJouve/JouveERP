@@ -55,7 +55,7 @@ function narrowPaymentOrder(row: {
 }): PaymentOrder | null {
   if (!isPaymentOrderStatus(row.status)) return null;
   if (!isPaymentOrderCurrency(row.currency)) return null;
-  return row as unknown as PaymentOrder;
+  return row as PaymentOrder;
 }
 
 const COLUMNS =

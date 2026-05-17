@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,12 +33,9 @@ import {
 import {
   defaultAccrualMonth,
   TRANSACTION_CURRENCIES,
-  type TransactionCurrency,
 } from "../schema";
 
 const DEFAULT_CHANNEL_ID = "jouve_fiscal";
-
-type FormKind = "income" | "expense" | "transfer";
 
 export interface ChannelOption {
   id: string;
@@ -42,6 +48,63 @@ function todayISO() {
   return ar.toISOString().slice(0, 10);
 }
 
+const FormSchema = z
+  .object({
+    kind: z.enum(["income", "expense", "transfer"]),
+    channel_id: z.string().min(1, "Canal requerido."),
+    account_id: z.string().optional(),
+    account_from_id: z.string().optional(),
+    account_to_id: z.string().optional(),
+    amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+    currency: z.enum(TRANSACTION_CURRENCIES),
+    transaction_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+    accrual_month: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Mes devengado inválido."),
+    description: z.string().trim().max(500),
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === "transfer") {
+      if (!data.account_from_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["account_from_id"],
+          message: "Cuenta origen requerida.",
+        });
+      }
+      if (!data.account_to_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["account_to_id"],
+          message: "Cuenta destino requerida.",
+        });
+      }
+      if (
+        data.account_from_id &&
+        data.account_to_id &&
+        data.account_from_id === data.account_to_id
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["account_to_id"],
+          message: "Origen y destino deben ser distintos.",
+        });
+      }
+    } else {
+      if (!data.account_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["account_id"],
+          message: "Cuenta requerida.",
+        });
+      }
+    }
+  });
+
+type FormValues = z.infer<typeof FormSchema>;
+
 export function TransactionForm({
   channels,
   onSuccess,
@@ -52,10 +115,6 @@ export function TransactionForm({
   onCancel?: () => void;
 }) {
   const { data: accounts } = useAccountsList();
-  // Las cuentas tipo checks/echeq se administran desde /checks (carga
-  // manual, depósito, endoso, acreditación). No las exponemos como
-  // destino/origen de movimientos manuales en /transactions para evitar
-  // drift entre la cartera de cheques y la caja.
   const activeAccounts = accounts.filter(
     (a) => a.is_active && a.type !== "checks" && a.type !== "echeq",
   );
@@ -64,54 +123,53 @@ export function TransactionForm({
   const createTransferMut = useCreateTransfer();
   const isSaving = createTxMut.isPending || createTransferMut.isPending;
 
-  const [kind, setKind] = useState<FormKind>("income");
-  const [channelId, setChannelId] = useState(
+  const defaultChannel =
     channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-      channels[0]?.id ??
-      "",
-  );
-  const [accountId, setAccountId] = useState("");
-  const [accountFromId, setAccountFromId] = useState("");
-  const [accountToId, setAccountToId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<TransactionCurrency>("ARS");
-  const [transactionDate, setTransactionDate] = useState(todayISO());
-  const [accrualMonth, setAccrualMonth] = useState(
-    defaultAccrualMonth(todayISO()),
-  );
-  const [description, setDescription] = useState("");
+    channels[0]?.id ??
+    "";
+  const today = todayISO();
 
-  function onTransactionDateChange(value: string) {
-    setTransactionDate(value);
-    setAccrualMonth(defaultAccrualMonth(value));
-  }
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      kind: "income",
+      channel_id: defaultChannel,
+      account_id: "",
+      account_from_id: "",
+      account_to_id: "",
+      amount: "",
+      currency: "ARS",
+      transaction_date: today,
+      accrual_month: defaultAccrualMonth(today),
+      description: "",
+    },
+  });
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const kind = form.watch("kind");
+  const accountFromId = form.watch("account_from_id");
 
-    if (kind === "transfer") {
-      if (!accountFromId || !accountToId) {
-        toast.error("Elegí cuenta origen y destino.");
-        return;
-      }
-      const fromAcc = activeAccounts.find((a) => a.id === accountFromId);
-      const toAcc = activeAccounts.find((a) => a.id === accountToId);
+  function onSubmit(values: FormValues) {
+    if (values.kind === "transfer") {
+      const fromAcc = activeAccounts.find(
+        (a) => a.id === values.account_from_id,
+      );
+      const toAcc = activeAccounts.find((a) => a.id === values.account_to_id);
       if (fromAcc && toAcc && fromAcc.currency !== toAcc.currency) {
         toast.error(
-          `Moneda incompatible: ${fromAcc.currency} → ${toAcc.currency}. Por ahora solo se permiten transferencias entre cuentas con la misma moneda.`,
+          `Moneda incompatible: ${fromAcc.currency} → ${toAcc.currency}.`,
         );
         return;
       }
       createTransferMut.mutate(
         {
-          account_from_id: accountFromId,
-          account_to_id: accountToId,
-          channel_id: channelId,
-          amount,
-          currency,
-          transaction_date: transactionDate,
-          accrual_month: accrualMonth,
-          description,
+          account_from_id: values.account_from_id!,
+          account_to_id: values.account_to_id!,
+          channel_id: values.channel_id,
+          amount: values.amount,
+          currency: values.currency,
+          transaction_date: values.transaction_date,
+          accrual_month: values.accrual_month,
+          description: values.description,
         },
         {
           onSuccess: () => {
@@ -124,25 +182,24 @@ export function TransactionForm({
       return;
     }
 
-    if (!accountId) {
-      toast.error("Elegí una cuenta.");
-      return;
-    }
-
     createTxMut.mutate(
       {
-        account_id: accountId,
-        channel_id: channelId,
-        kind,
-        amount,
-        currency,
-        transaction_date: transactionDate,
-        accrual_month: accrualMonth,
-        description,
+        account_id: values.account_id!,
+        channel_id: values.channel_id,
+        kind: values.kind,
+        amount: values.amount,
+        currency: values.currency,
+        transaction_date: values.transaction_date,
+        accrual_month: values.accrual_month,
+        description: values.description,
       },
       {
         onSuccess: () => {
-          toast.success(kind === "income" ? "Ingreso registrado." : "Egreso registrado.");
+          toast.success(
+            values.kind === "income"
+              ? "Ingreso registrado."
+              : "Egreso registrado.",
+          );
           onSuccess?.();
         },
         onError: (err) => toast.error(err.message),
@@ -151,190 +208,280 @@ export function TransactionForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      {/* Kind picker — three buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        <KindButton
-          active={kind === "income"}
-          onClick={() => setKind("income")}
-          label="Ingreso"
-        />
-        <KindButton
-          active={kind === "expense"}
-          onClick={() => setKind("expense")}
-          label="Egreso"
-        />
-        <KindButton
-          active={kind === "transfer"}
-          onClick={() => setKind("transfer")}
-          label="Transferencia"
-        />
-      </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {/* Kind picker */}
+        <div className="grid grid-cols-3 gap-2">
+          <KindButton
+            active={kind === "income"}
+            onClick={() => form.setValue("kind", "income")}
+            label="Ingreso"
+          />
+          <KindButton
+            active={kind === "expense"}
+            onClick={() => form.setValue("kind", "expense")}
+            label="Egreso"
+          />
+          <KindButton
+            active={kind === "transfer"}
+            onClick={() => form.setValue("kind", "transfer")}
+            label="Transferencia"
+          />
+        </div>
 
-      {/* Account(s) */}
-      {kind === "transfer" ? (
+        {/* Account(s) */}
+        {kind === "transfer" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="account_from_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Cuenta origen</FormLabel>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elegir cuenta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {activeAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            · {a.currency}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="account_to_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Cuenta destino</FormLabel>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elegir cuenta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {activeAccounts
+                        .filter((a) => a.id !== accountFromId)
+                        .map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              · {a.currency}
+                            </span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ) : (
+          <FormField
+            control={form.control}
+            name="account_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Cuenta</FormLabel>
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elegir cuenta" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {activeAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          · {a.currency}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Channel + amount + currency */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px_100px]">
+          <FormField
+            control={form.control}
+            name="channel_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Canal</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {channels.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Monto</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Moneda</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {TRANSACTION_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Dates */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label className="text-xs">Cuenta origen</Label>
-            <Select value={accountFromId} onValueChange={setAccountFromId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Elegir cuenta" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {activeAccounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}{" "}
-                    <span className="text-xs text-muted-foreground">
-                      · {a.currency}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Cuenta destino</Label>
-            <Select value={accountToId} onValueChange={setAccountToId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Elegir cuenta" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {activeAccounts
-                  .filter((a) => a.id !== accountFromId)
-                  .map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}{" "}
-                      <span className="text-xs text-muted-foreground">
-                        · {a.currency}
-                      </span>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <Label className="text-xs">Cuenta</Label>
-          <Select value={accountId} onValueChange={setAccountId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Elegir cuenta" />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {activeAccounts.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    · {a.currency}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Channel + amount + currency */}
-      <div className="grid gap-3 sm:grid-cols-[1fr_140px_100px]">
-        <div className="space-y-1">
-          <Label className="text-xs">Canal</Label>
-          <Select value={channelId} onValueChange={setChannelId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {channels.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Monto</Label>
-          <Input
-            type="number"
-            step="0.01"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+          <FormField
+            control={form.control}
+            name="transaction_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Fecha</FormLabel>
+                <FormControl>
+                  <DatePicker
+                    value={field.value}
+                    onChange={(v) => {
+                      field.onChange(v);
+                      form.setValue("accrual_month", defaultAccrualMonth(v));
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="accrual_month"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">
+                  Mes devengado{" "}
+                  <span className="text-muted-foreground">(día 1)</span>
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="month"
+                    value={field.value.slice(0, 7)}
+                    onChange={(e) => field.onChange(`${e.target.value}-01`)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Moneda</Label>
-          <Select
-            value={currency}
-            onValueChange={(v) => setCurrency(v as TransactionCurrency)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {TRANSACTION_CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      {/* Dates */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Fecha</Label>
-          <DatePicker
-            value={transactionDate}
-            onChange={onTransactionDateChange}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">
-            Mes devengado{" "}
-            <span className="text-muted-foreground">(día 1)</span>
-          </Label>
-          <Input
-            type="month"
-            value={accrualMonth.slice(0, 7)}
-            onChange={(e) => setAccrualMonth(`${e.target.value}-01`)}
-          />
-        </div>
-      </div>
-
-      {/* Description */}
-      <div className="space-y-1">
-        <Label className="text-xs">Descripción</Label>
-        <Textarea
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={
-            kind === "transfer"
-              ? "Ej. Pase de Caja a Banco Galicia"
-              : kind === "income"
-                ? "Ej. Cobro factura a cliente X"
-                : "Ej. Pago combustible flota"
-          }
+        {/* Description */}
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Descripción</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  rows={2}
+                  placeholder={
+                    kind === "transfer"
+                      ? "Ej. Pase de Caja a Banco Galicia"
+                      : kind === "income"
+                        ? "Ej. Cobro factura a cliente X"
+                        : "Ej. Pago combustible flota"
+                  }
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onCancel?.()}
-          disabled={isSaving}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? "Guardando…" : "Registrar"}
-        </Button>
-      </div>
-    </form>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onCancel?.()}
+            disabled={isSaving}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? "Guardando…" : "Registrar"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
 
