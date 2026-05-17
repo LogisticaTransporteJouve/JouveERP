@@ -6,6 +6,11 @@ import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type {
+  SupplierIdentityJoin,
+  SupplierListLegalJoin,
+} from "@/features/suppliers/schema";
+
 import {
   PaymentOrderCancelSchema,
   PaymentOrderCreateSchema,
@@ -134,7 +139,7 @@ export async function listPaymentOrdersAction(input?: {
     .map((row) => {
       const narrowed = narrowPaymentOrder(row);
       if (!narrowed) return null;
-      const sup = (row as { suppliers: { legal_name: string } | null }).suppliers;
+      const sup = (row as unknown as SupplierListLegalJoin).suppliers;
       return { ...narrowed, supplier_legal_name: sup?.legal_name ?? "—" };
     })
     .filter(
@@ -184,9 +189,7 @@ export async function getPaymentOrderByIdAction(
   if (!paymentOrder) {
     return { ok: false, error: "Orden de pago con datos inválidos." };
   }
-  const sup = (
-    row as { suppliers: { legal_name: string; cuit: string } | null }
-  ).suppliers;
+  const sup = (row as unknown as SupplierIdentityJoin).suppliers;
 
   const [linesRes, allocsRes] = await Promise.all([
     supabase

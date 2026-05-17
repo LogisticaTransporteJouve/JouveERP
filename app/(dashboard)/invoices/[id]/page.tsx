@@ -22,6 +22,7 @@ import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-act
 import type { IvaCondition } from "@/features/clients/schema";
 import {
   INVOICE_KIND_LABEL,
+  formatInvoiceNumero,
   type InvoiceStatus,
 } from "@/features/invoices/schema";
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
@@ -32,22 +33,6 @@ import { formatArgentineDateTime, formatNumber2 } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 const formatARS = formatNumber2;
-
-// Argentine convention: letter glued to POS, no space. While AFIP hasn't
-// answered (numero is null in draft/emitting), show a placeholder instead
-// of the misleading "0000null" that String(null).padStart produced.
-function formatNumero(
-  kind: string,
-  letter: string | null,
-  ptoVta: number,
-  numero: number | null,
-): string {
-  const pos = String(ptoVta).padStart(5, "0");
-  const num = numero == null ? "pendiente" : String(numero).padStart(8, "0");
-  const prefix =
-    kind === "nc" ? "NC" : kind === "nd" ? "ND" : (letter ?? "");
-  return `${prefix}${pos}-${num}`;
-}
 
 export default async function ComprobanteDetailPage({
   params,
@@ -65,7 +50,7 @@ export default async function ComprobanteDetailPage({
   const c = res.data;
   const canIssue = userCan(ctx.roles, "invoices:issue");
 
-  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${formatNumero(c.kind, c.letter, c.punto_venta, c.numero)}`;
+  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, { whenNullNumero: "pendiente" })}`;
 
   return (
     <div className="space-y-6">
@@ -85,7 +70,7 @@ export default async function ComprobanteDetailPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             {INVOICE_KIND_LABEL[c.kind]}{" "}
             <span className="font-mono text-base text-muted-foreground">
-              {formatNumero(c.kind, c.letter, c.punto_venta, c.numero)}
+              {formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, { whenNullNumero: "pendiente" })}
             </span>
           </h1>
           <p className="text-sm text-muted-foreground">

@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
+
 import {
   IssuedCheckCreateSchema,
   IssuedCheckTransitionSchema,
@@ -80,8 +82,7 @@ export async function listIssuedChecksAction(): Promise<
 
   const items: IssuedCheck[] = (data ?? [])
     .map((row) => {
-      const sup = (row as { suppliers: { legal_name: string } | null })
-        .suppliers;
+      const sup = (row as unknown as SupplierListLegalJoin).suppliers;
       const acc = (row as { accounts: { name: string } | null }).accounts;
       const flat: Record<string, unknown> = {
         ...row,

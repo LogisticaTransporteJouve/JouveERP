@@ -308,17 +308,23 @@ export type InvoiceWithChannelRefJoin = {
 /** Formatea el número fiscal de un comprobante según convención AR:
  *  - factura: `A00003-00000001` (letra + POS 5d + dash + número 8d)
  *  - NC/ND: `NC00003-00000001` / `ND00003-00000001` (sin letra)
- *  - `numero == null` (borrador no emitido): devuelve `"—"`.
- *  Consolida 3 dupes que vivían en invoices-table, origin-picker y send-invoice-email. */
+ *  - `numero == null` (borrador / AFIP procesando): el segmento del número se
+ *    reemplaza por `opts.whenNullNumero` (default `"—"`; la detail page usa
+ *    `"pendiente"`). El prefijo + POS se preserva → `"A00003-pendiente"`.
+ *  Consolida 4 dupes que vivían en invoices-table, origin-picker,
+ *  send-invoice-email y la detail page `app/(dashboard)/invoices/[id]/page.tsx`. */
 export function formatInvoiceNumero(
   kind: string,
   letter: string | null,
   puntoVenta: number,
   numero: number | null,
+  opts: { whenNullNumero?: string } = {},
 ): string {
-  if (numero == null) return "—";
   const pos = String(puntoVenta).padStart(5, "0");
-  const num = String(numero).padStart(8, "0");
+  const num =
+    numero == null
+      ? (opts.whenNullNumero ?? "—")
+      : String(numero).padStart(8, "0");
   if (kind === "factura") return letter ? `${letter}${pos}-${num}` : `${pos}-${num}`;
   return `${kind === "nc" ? "NC" : "ND"}${pos}-${num}`;
 }

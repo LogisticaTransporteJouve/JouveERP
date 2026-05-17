@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, safeFilenamePart } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -37,15 +37,6 @@ const SendInvoiceEmailSchema = z.object({
 });
 
 export type SendInvoiceEmailInput = z.input<typeof SendInvoiceEmailSchema>;
-
-function safeFilenamePart(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
-    .replace(/[,;]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 export async function sendInvoiceByEmailAction(
   rawInput: SendInvoiceEmailInput,
