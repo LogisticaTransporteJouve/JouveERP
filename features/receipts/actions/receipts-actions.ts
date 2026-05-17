@@ -19,7 +19,7 @@ import {
   type ReceiptAllocation,
   type ReceiptPaymentLine,
   type ReceiptRetention,
-  type ReceiptStatusJoin,
+  type ReceiptAllocationStatusRow,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -437,14 +437,9 @@ export async function listPendingComprobantesForClientAction(
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {
-    const status = (alloc as unknown as ReceiptStatusJoin).receipts?.status;
-    if (status === "canceled") continue;
-    if (
-      excludeReceiptId &&
-      (alloc as unknown as { receipt_id: string }).receipt_id ===
-        excludeReceiptId
-    )
-      continue;
+    const narrowed = alloc as unknown as ReceiptAllocationStatusRow;
+    if (narrowed.receipts?.status === "canceled") continue;
+    if (excludeReceiptId && narrowed.receipt_id === excludeReceiptId) continue;
     const prev = allocatedByComprobante.get(alloc.invoice_id) ?? 0;
     allocatedByComprobante.set(
       alloc.invoice_id,

@@ -36,6 +36,7 @@ import {
 import {
   amountToInput,
   formatNumber2 as formatMoney,
+  parseArAmount,
   todayInAR,
 } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
@@ -71,16 +72,9 @@ export interface ChannelOption {
 
 type Mode = "create" | "edit";
 
-function parseAmount(raw: string): number | null {
-  const cleaned = raw.trim().replace(/\./g, "").replace(",", ".");
-  if (!cleaned) return null;
-  const n = Number.parseFloat(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
 function lineAmount(l: PaymentLineDraft): number {
   if (l.line_kind === "endorse_check") return l.amount;
-  return parseAmount(l.amount) ?? 0;
+  return parseArAmount(l.amount) ?? 0;
 }
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
@@ -89,7 +83,7 @@ function sumDraftLines(lines: PaymentLineDraft[]): number {
 
 function sumDraftAllocations(allocs: AllocationDraft[]): number {
   return allocs.reduce(
-    (acc, a) => acc + (parseAmount(a.amount_applied) ?? 0),
+    (acc, a) => acc + (parseArAmount(a.amount_applied) ?? 0),
     0,
   );
 }
@@ -299,7 +293,7 @@ export function PaymentOrderForm({
         return {
           line_kind: "issue_check" as const,
           account_id: l.account_id,
-          amount: parseAmount(l.amount) ?? 0,
+          amount: parseArAmount(l.amount) ?? 0,
           reference: ref,
           issued_check: {
             kind: l.check_kind,
@@ -322,13 +316,13 @@ export function PaymentOrderForm({
       return {
         line_kind: "account" as const,
         account_id: l.account_id,
-        amount: parseAmount(l.amount) ?? 0,
+        amount: parseArAmount(l.amount) ?? 0,
         reference: ref,
       };
     });
     const allocs = values.allocations.map((a) => ({
       purchase_invoice_id: a.purchase_invoice_id,
-      amount_applied: parseAmount(a.amount_applied) ?? 0,
+      amount_applied: parseArAmount(a.amount_applied) ?? 0,
     }));
 
     for (const l of lines) {

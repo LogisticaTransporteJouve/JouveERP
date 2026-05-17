@@ -8,7 +8,10 @@ import {
   type AccountType,
 } from "@/features/accounts/schema";
 import type { IvaCondition } from "@/features/clients/schema";
-import type { ChannelDivisionJoin } from "@/features/invoices/schema";
+import type {
+  ChannelDivisionJoin,
+  InvoiceWithChannelRefJoin,
+} from "@/features/invoices/schema";
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -102,16 +105,7 @@ export async function buildPaymentOrderTemplateData(
   });
 
   const allocations = (allocsRes.data ?? []).map((a) => {
-    const inv = (a as unknown as {
-      invoice: {
-        kind: string;
-        letter: string | null;
-        punto_venta: number;
-        numero: number;
-        fecha: string;
-        channel: { is_fiscal: boolean } | null;
-      } | null;
-    }).invoice;
+    const inv = (a as unknown as InvoiceWithChannelRefJoin).invoice;
     const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
     const num = String(inv?.numero ?? 0).padStart(8, "0");
     const letter = inv?.letter ?? "";

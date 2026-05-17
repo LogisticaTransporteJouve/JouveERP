@@ -10,6 +10,7 @@ import {
   type InvoiceLetter,
 } from "@/lib/afip/codes";
 import type { Database } from "@/lib/db/database.types";
+import { round2 } from "@/lib/format";
 
 // --------------------------------------------------------------------------
 // Enums and constants surfaced for the form layer.
@@ -269,10 +270,6 @@ export function computeTotals(
   };
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 /** Join row shape para `channel ( name, division, business_unit_id )` usado
  *  por los renders de PDF (receipt y payment-order). */
 export type ChannelDivisionJoin = {
@@ -294,3 +291,34 @@ export type InvoiceRefJoin = {
     fecha: string;
   } | null;
 };
+
+/** Variante de InvoiceRefJoin que además incluye `invoice.channel.is_fiscal`,
+ *  necesaria para el PDF de orden de pago (distingue facturas internas). */
+export type InvoiceWithChannelRefJoin = {
+  invoice: {
+    letter: string | null;
+    kind: string;
+    punto_venta: number;
+    numero: number;
+    fecha: string;
+    channel: { is_fiscal: boolean } | null;
+  } | null;
+};
+
+/** Formatea el número fiscal de un comprobante según convención AR:
+ *  - factura: `A00003-00000001` (letra + POS 5d + dash + número 8d)
+ *  - NC/ND: `NC00003-00000001` / `ND00003-00000001` (sin letra)
+ *  - `numero == null` (borrador no emitido): devuelve `"—"`.
+ *  Consolida 3 dupes que vivían en invoices-table, origin-picker y send-invoice-email. */
+export function formatInvoiceNumero(
+  kind: string,
+  letter: string | null,
+  puntoVenta: number,
+  numero: number | null,
+): string {
+  if (numero == null) return "—";
+  const pos = String(puntoVenta).padStart(5, "0");
+  const num = String(numero).padStart(8, "0");
+  if (kind === "factura") return letter ? `${letter}${pos}-${num}` : `${pos}-${num}`;
+  return `${kind === "nc" ? "NC" : "ND"}${pos}-${num}`;
+}

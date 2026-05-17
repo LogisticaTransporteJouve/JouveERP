@@ -11,6 +11,7 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+import { round2 } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
@@ -741,6 +742,3 @@ export async function regeneratePdfAction(
   }
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}

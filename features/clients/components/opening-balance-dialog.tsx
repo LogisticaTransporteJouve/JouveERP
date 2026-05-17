@@ -25,18 +25,7 @@ import {
   useSetClientOpeningBalance,
 } from "../hooks/use-clients";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
-import { formatNumber2 } from "@/lib/format";
-
-function parseAmount(raw: string): number {
-  // Acepta "1.234,56" o "1234.56" o "1234". Removemos miles AR ("."),
-  // cambiamos coma decimal por punto.
-  const cleaned = raw
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : NaN;
-}
+import { formatNumber2, parseArAmount } from "@/lib/format";
 
 /**
  * Dialog para fijar/editar/borrar el saldo de apertura del cliente.
@@ -87,8 +76,8 @@ export function OpeningBalanceDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const target = parseAmount(targetRaw);
-    if (!Number.isFinite(target) || target < 0) {
+    const target = parseArAmount(targetRaw);
+    if (target == null || target < 0) {
       toast.error("Ingresá un saldo válido (no negativo).");
       return;
     }

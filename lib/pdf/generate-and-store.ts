@@ -10,6 +10,7 @@ import {
   renderInvoiceQR,
   type InvoiceQRPayload,
 } from "@/lib/afip/qr";
+import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type {
@@ -212,6 +213,3 @@ export async function buildTemplateData(
 // renderer transitively at module load time.
 export type { InvoiceRow };
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}

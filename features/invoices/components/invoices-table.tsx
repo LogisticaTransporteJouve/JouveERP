@@ -47,22 +47,14 @@ import { invoicesKeys } from "../lib/invoices-keys";
 import {
   INVOICE_STATUSES,
   INVOICE_STATUS_LABEL,
+  formatInvoiceNumero,
   type InvoiceStatus,
 } from "../schema";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
-// Argentine convention: letter prefix glued to the POS (no space), 5 digits
-// punto de venta + dash + 8 digits sequential. NC/ND drop the letter and glue
-// the kind prefix directly to the digits.
 function formatNumero(row: InvoiceListItem): string {
-  const number =
-    row.numero == null
-      ? "—"
-      : `${String(row.punto_venta).padStart(5, "0")}-${String(row.numero).padStart(8, "0")}`;
-  if (row.kind === "factura") return row.letter ? `${row.letter}${number}` : number;
-  const prefix = row.kind === "nc" ? "NC" : "ND";
-  return `${prefix}${number}`;
+  return formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero);
 }
 
 function safeFilenamePart(value: string): string {

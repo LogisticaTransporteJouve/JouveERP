@@ -13,6 +13,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import type { ClientLegalJoin } from "@/features/clients/schema";
 
+import { formatInvoiceNumero } from "../schema";
 import type { ActionResult } from "./invoices-actions";
 
 /** Shape específico de `channel:invoicing_channels ( business_unit:business_units(name) )`
@@ -36,19 +37,6 @@ const SendInvoiceEmailSchema = z.object({
 });
 
 export type SendInvoiceEmailInput = z.input<typeof SendInvoiceEmailSchema>;
-
-function formatNumero(
-  kind: string,
-  letter: string | null,
-  pos: number,
-  numero: number | null,
-): string {
-  if (numero == null) return "—";
-  const posStr = String(pos).padStart(5, "0");
-  const numStr = String(numero).padStart(8, "0");
-  if (kind === "factura") return letter ? `${letter}${posStr}-${numStr}` : `${posStr}-${numStr}`;
-  return `${kind === "nc" ? "NC" : "ND"}${posStr}-${numStr}`;
-}
 
 function safeFilenamePart(value: string): string {
   return value
@@ -101,7 +89,7 @@ export async function sendInvoiceByEmailAction(
     (invoice as unknown as ChannelBusinessUnitJoin).channel?.business_unit
       ?.name ?? "DZ & Sons";
 
-  const numeroLabel = formatNumero(
+  const numeroLabel = formatInvoiceNumero(
     invoice.kind,
     invoice.letter,
     invoice.punto_venta,
@@ -178,7 +166,7 @@ export async function getInvoiceEmailDefaultsAction(
 
   const client = (invoice as unknown as ClientLegalJoin).client;
 
-  const numeroLabel = formatNumero(
+  const numeroLabel = formatInvoiceNumero(
     invoice.kind,
     invoice.letter,
     invoice.punto_venta,

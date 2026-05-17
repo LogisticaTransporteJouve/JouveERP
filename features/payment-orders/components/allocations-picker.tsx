@@ -11,6 +11,7 @@ import {
   amountToInput,
   formatAmountInput,
   formatArgentineDate,
+  parseArAmount,
 } from "@/lib/format";
 
 import type { PendingPurchaseInvoice } from "../actions/payment-orders-actions";
@@ -110,10 +111,10 @@ export function AllocationsPicker({
   }
 
   const selectedCount = allocations.length;
-  const selectedTotal = allocations.reduce((acc, a) => {
-    const n = Number(a.amount_applied.replace(/\./g, "").replace(",", "."));
-    return acc + (Number.isFinite(n) ? n : 0);
-  }, 0);
+  const selectedTotal = allocations.reduce(
+    (acc, a) => acc + (parseArAmount(a.amount_applied) ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-2">
