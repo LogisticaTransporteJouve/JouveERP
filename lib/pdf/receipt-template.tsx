@@ -6,6 +6,8 @@ import {
   View,
 } from "@react-pdf/renderer";
 
+import { formatReceiptNumber } from "@/features/receipts/schema";
+
 // Receipt PDF template. Receipts in Argentina are NOT fiscal documents
 // — no CAE, no QR, no AFIP letter. Internal numbering per channel.
 // The template mirrors the visual language of the invoice template but
@@ -157,10 +159,6 @@ function formatARS(value: number, currency: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)}`;
-}
-
-function formatReceiptNumber(pos: number, numero: number): string {
-  return `R${String(pos).padStart(4, "0")}-${String(numero).padStart(8, "0")}`;
 }
 
 export function ReceiptDocument({ data }: { data: ReceiptTemplateData }) {
