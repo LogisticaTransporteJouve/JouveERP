@@ -56,7 +56,7 @@ function narrowEmployee(row: {
     });
     return null;
   }
-  return row as unknown as Employee;
+  return row as Employee;
 }
 
 const SELECT_COLS =

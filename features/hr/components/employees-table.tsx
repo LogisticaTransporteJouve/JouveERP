@@ -50,16 +50,13 @@ const FREQUENCY_BADGE_TONE: Record<PayFrequency, string> = {
   mixto: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
 };
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+import { formatInteger } from "@/lib/format";
 
 function formatMoney(value: number | string | null): string {
   if (value === null) return "—";
   const num = typeof value === "string" ? Number(value) : value;
   if (!Number.isFinite(num)) return "—";
-  return `$ ${ARS.format(num)}`;
+  return `$ ${formatInteger(num)}`;
 }
 
 export function EmployeesTable({

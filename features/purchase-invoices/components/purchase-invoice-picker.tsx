@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { formatMoney } from "@/lib/format";
 
 import { usePurchaseInvoicesSearch } from "../hooks/use-purchase-invoices";
 import {
@@ -32,11 +33,7 @@ export interface PickedPurchaseInvoice {
 
 const RESULT_LIMIT = 8;
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-});
+const ARS = { format: (n: number) => formatMoney(n, "ARS") };
 
 export function PurchaseInvoicePicker({
   value,

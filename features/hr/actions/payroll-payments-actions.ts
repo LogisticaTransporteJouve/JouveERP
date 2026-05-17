@@ -53,7 +53,7 @@ function narrowPayment(row: {
     logger.error("payroll.unknown_payment_method", { value: row.method });
     return null;
   }
-  return row as unknown as PayrollPayment;
+  return row as PayrollPayment;
 }
 
 const COLS =

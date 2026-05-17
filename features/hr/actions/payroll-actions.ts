@@ -59,7 +59,7 @@ function narrowPeriod(row: {
     logger.error("payroll.unknown_status", { value: row.status });
     return null;
   }
-  return row as unknown as PayrollPeriod;
+  return row as PayrollPeriod;
 }
 
 const PERIOD_COLS =

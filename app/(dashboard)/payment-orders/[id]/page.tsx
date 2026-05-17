@@ -27,15 +27,11 @@ import {
 } from "@/features/purchase-invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number, currency: string) => `${currency} ${fmt.format(n)}`;
+const money = (n: number, currency: string) => `${currency} ${formatNumber2(n)}`;
 
 export default async function PaymentOrderDetailPage({
   params,

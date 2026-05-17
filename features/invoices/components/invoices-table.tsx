@@ -37,7 +37,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 
@@ -282,11 +282,7 @@ function ComprobantesTableRows({
               {formatArgentineDate(row.fecha)}
             </TableCell>
             <TableCell className="text-right font-mono">
-              $
-              {row.imp_total.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              ${formatNumber2(row.imp_total)}
             </TableCell>
             <TableCell>
               <Badge

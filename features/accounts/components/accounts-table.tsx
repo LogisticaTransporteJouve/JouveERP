@@ -12,6 +12,8 @@ import {
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 
+import { formatMoney } from "@/lib/format";
+
 import { useAccountsList } from "../hooks/use-accounts";
 import { ACCOUNT_TYPE_LABEL, type AccountCurrency } from "../schema";
 import { AccountOpeningBalanceDialog } from "./account-opening-balance-dialog";
@@ -19,21 +21,8 @@ import { EditAccountDialog } from "./edit-account-dialog";
 import { NewAccountDialog } from "./new-account-dialog";
 import { ToggleAccountActiveButton } from "./toggle-account-active-button";
 
-const formatters: Record<AccountCurrency, Intl.NumberFormat> = {
-  ARS: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }),
-  USD: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }),
-};
-
 function formatBalance(amount: number, currency: AccountCurrency) {
-  return formatters[currency].format(amount);
+  return formatMoney(amount, currency);
 }
 
 export function AccountsTable({

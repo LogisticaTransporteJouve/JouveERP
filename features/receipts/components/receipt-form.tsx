@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -20,7 +30,7 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
-import { amountToInput } from "@/lib/format";
+import { amountToInput, formatNumber2 } from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -68,13 +78,7 @@ function parseAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const moneyFormatter = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-function formatMoney(value: number): string {
-  return moneyFormatter.format(value);
-}
+const formatMoney = formatNumber2;
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
   return lines.reduce((acc, l) => acc + (parseAmount(l.amount) ?? 0), 0);
@@ -90,6 +94,20 @@ function sumDraftAllocations(allocs: AllocationDraft[]): number {
 function sumDraftRetentions(rets: RetentionDraft[]): number {
   return rets.reduce((acc, r) => acc + (parseAmount(r.amount) ?? 0), 0);
 }
+
+const FormSchema = z.object({
+  channelId: z.string().min(1, "Canal requerido."),
+  numero: z.string().regex(/^\d+$/, "Número inválido."),
+  reciboDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  currency: z.enum(RECEIPT_CURRENCIES),
+  client: z.custom<PickedClient>().nullable(),
+  notes: z.string().trim().max(500),
+  paymentLines: z.custom<PaymentLineDraft[]>(),
+  allocations: z.custom<AllocationDraft[]>(),
+  retentions: z.custom<RetentionDraft[]>(),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 export function ReceiptForm({
   mode,
@@ -118,68 +136,73 @@ export function ReceiptForm({
     channels[0]?.id ??
     "";
 
-  const [channelId, setChannelId] = useState(initialChannel);
-  const [numero, setNumero] = useState<string>(
-    receipt ? String(receipt.receipt.numero) : "",
-  );
+  const initialPaymentLines: PaymentLineDraft[] = receipt
+    ? receipt.payment_lines.map((l) => {
+        const check = receipt.checks_by_line[l.id];
+        return {
+          account_id: l.account_id,
+          amount: amountToInput(Number(l.amount)),
+          reference: l.reference ?? check?.check_number ?? "",
+          check: check
+            ? {
+                bank_name: check.bank_name,
+                drawer_name: check.drawer_name,
+                drawer_cuit: check.drawer_cuit ?? "",
+                issue_date: check.issue_date,
+                due_date: check.due_date,
+              }
+            : undefined,
+        };
+      })
+    : [{ account_id: "", amount: "", reference: "" }];
+
+  const initialAllocations: AllocationDraft[] = receipt
+    ? receipt.allocations.map((a) => ({
+        invoice_id: a.invoice_id,
+        amount_applied: amountToInput(Number(a.amount_applied)),
+      }))
+    : [];
+
+  const initialRetentions: RetentionDraft[] = receipt
+    ? receipt.retentions.map((r) => ({
+        kind: r.kind,
+        tax_type: r.tax_type,
+        jurisdiction: r.jurisdiction ?? "",
+        certificate_number: r.certificate_number,
+        certificate_date: r.certificate_date,
+        amount: amountToInput(Number(r.amount)),
+        notes: r.notes ?? "",
+      }))
+    : [];
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      channelId: initialChannel,
+      numero: receipt ? String(receipt.receipt.numero) : "",
+      reciboDate: receipt?.receipt.receipt_date ?? todayISO(),
+      currency:
+        (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
+      client: initialClient ?? null,
+      notes: receipt?.receipt.notes ?? "",
+      paymentLines: initialPaymentLines,
+      allocations: initialAllocations,
+      retentions: initialRetentions,
+    },
+  });
+
+  const channelId = form.watch("channelId");
+  const reciboDate = form.watch("reciboDate");
+  const currency = form.watch("currency");
+  const client = form.watch("client");
+  const paymentLines = form.watch("paymentLines");
+  const allocations = form.watch("allocations");
+  const retentions = form.watch("retentions");
+
   const nextNumero = useNextReceiptNumero(
     mode === "create" ? channelId : null,
   );
   const isFirst = nextNumero.isFirst;
-
-  const [reciboDate, setReciboDate] = useState<string>(
-    receipt?.receipt.receipt_date ?? todayISO(),
-  );
-  const [currency, setCurrency] = useState<ReceiptCurrency>(
-    (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
-  );
-  const [client, setClient] = useState<PickedClient | null>(initialClient ?? null);
-  const [notes, setNotes] = useState<string>(receipt?.receipt.notes ?? "");
-
-  const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>(
-    receipt
-      ? receipt.payment_lines.map((l) => {
-          const check = receipt.checks_by_line[l.id];
-          return {
-            account_id: l.account_id,
-            amount: amountToInput(Number(l.amount)),
-            reference: l.reference ?? check?.check_number ?? "",
-            check: check
-              ? {
-                  bank_name: check.bank_name,
-                  drawer_name: check.drawer_name,
-                  drawer_cuit: check.drawer_cuit ?? "",
-                  issue_date: check.issue_date,
-                  due_date: check.due_date,
-                }
-              : undefined,
-          };
-        })
-      : [{ account_id: "", amount: "", reference: "" }],
-  );
-
-  const [allocations, setAllocations] = useState<AllocationDraft[]>(
-    receipt
-      ? receipt.allocations.map((a) => ({
-          invoice_id: a.invoice_id,
-          amount_applied: amountToInput(Number(a.amount_applied)),
-        }))
-      : [],
-  );
-
-  const [retentions, setRetentions] = useState<RetentionDraft[]>(
-    receipt
-      ? receipt.retentions.map((r) => ({
-          kind: r.kind,
-          tax_type: r.tax_type,
-          jurisdiction: r.jurisdiction ?? "",
-          certificate_number: r.certificate_number,
-          certificate_date: r.certificate_date,
-          amount: amountToInput(Number(r.amount)),
-          notes: r.notes ?? "",
-        }))
-      : [],
-  );
 
   // Pre-load the picked client when editing.
   useEffect(() => {
@@ -188,7 +211,7 @@ export function ReceiptForm({
       const mod = await import("@/features/clients/actions/clients-actions");
       const res = await mod.getClientByIdAction(receipt.receipt.client_id);
       if (res.ok && res.data) {
-        setClient({
+        form.setValue("client", {
           id: res.data.id,
           legal_name: res.data.legal_name,
           display_name: res.data.display_name,
@@ -197,6 +220,7 @@ export function ReceiptForm({
         });
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt]);
 
   // Mirror the suggested next number into the local input when the channel
@@ -205,7 +229,8 @@ export function ReceiptForm({
   useEffect(() => {
     if (mode !== "create") return;
     if (nextNumero.next == null) return;
-    setNumero(String(nextNumero.next));
+    form.setValue("numero", String(nextNumero.next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, nextNumero.next]);
 
   const paymentSum = useMemo(
@@ -216,7 +241,6 @@ export function ReceiptForm({
     () => Math.round(sumDraftRetentions(retentions) * 100) / 100,
     [retentions],
   );
-  // Total = real money + retention certificates. Both cancel allocations.
   const totalAmount = Math.round((paymentSum + retentionSum) * 100) / 100;
   const allocatedAmount = useMemo(
     () => Math.round(sumDraftAllocations(allocations) * 100) / 100,
@@ -226,36 +250,23 @@ export function ReceiptForm({
 
   const numeroLocked = mode === "edit" || !isFirst;
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!client) {
+  function onSubmit(values: FormValues) {
+    if (!values.client) {
       toast.error("Seleccioná un cliente.");
       return;
     }
-    if (paymentLines.length === 0) {
+    if (values.paymentLines.length === 0) {
       toast.error("Agregá al menos una línea de pago.");
       return;
     }
 
-    const numeroParsed = Number.parseInt(numero, 10);
+    const numeroParsed = Number.parseInt(values.numero, 10);
     if (!Number.isFinite(numeroParsed) || numeroParsed < 1) {
       toast.error("Número inválido.");
       return;
     }
 
-    const lines: Array<{
-      account_id: string;
-      amount: number;
-      reference: string | null;
-      check?: {
-        check_number: string | undefined;
-        bank_name: string;
-        drawer_name: string;
-        drawer_cuit: string;
-        issue_date: string;
-        due_date: string;
-      };
-    }> = paymentLines.map((l) => ({
+    const lines = values.paymentLines.map((l) => ({
       account_id: l.account_id,
       amount: parseAmount(l.amount) ?? 0,
       reference: l.reference.trim().length === 0 ? null : l.reference.trim(),
@@ -266,16 +277,16 @@ export function ReceiptForm({
             bank_name: l.check.bank_name.trim(),
             drawer_name: l.check.drawer_name.trim(),
             drawer_cuit: l.check.drawer_cuit.trim(),
-            issue_date: l.check.issue_date || reciboDate,
+            issue_date: l.check.issue_date || values.reciboDate,
             due_date: l.check.due_date,
           }
         : undefined,
     }));
-    const allocs = allocations.map((a) => ({
+    const allocs = values.allocations.map((a) => ({
       invoice_id: a.invoice_id,
       amount_applied: parseAmount(a.amount_applied) ?? 0,
     }));
-    const rets = retentions.map((r) => ({
+    const rets = values.retentions.map((r) => ({
       kind: r.kind,
       tax_type: r.tax_type,
       jurisdiction:
@@ -311,13 +322,13 @@ export function ReceiptForm({
     if (mode === "create") {
       createMut.mutate(
         {
-          channel_id: channelId,
+          channel_id: values.channelId,
           numero: numeroParsed,
-          client_id: client.id,
-          receipt_date: reciboDate,
+          client_id: values.client.id,
+          receipt_date: values.reciboDate,
           total_amount: totalAmount,
-          currency,
-          notes,
+          currency: values.currency,
+          notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
           retentions: rets,
@@ -336,9 +347,9 @@ export function ReceiptForm({
       updateMut.mutate(
         {
           id: receipt.receipt.id,
-          receipt_date: reciboDate,
+          receipt_date: values.reciboDate,
           total_amount: totalAmount,
-          notes,
+          notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
           retentions: rets,
@@ -355,158 +366,216 @@ export function ReceiptForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      {/* Header: channel + numero + date + currency */}
-      <div className="grid gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
-        <div className="space-y-1">
-          <Label className="text-xs">Canal</Label>
-          <Select
-            value={channelId}
-            onValueChange={setChannelId}
-            disabled={mode === "edit"}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {channels.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Número</Label>
-          <Input
-            value={numero}
-            onChange={(e) => setNumero(e.target.value)}
-            disabled={numeroLocked}
-            type="number"
-            min={1}
-            inputMode="numeric"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {/* Header: channel + numero + date + currency */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
+          <FormField
+            control={form.control}
+            name="channelId"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Canal</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={mode === "edit"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {channels.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="numero"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Número</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    disabled={numeroLocked}
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reciboDate"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Fecha</FormLabel>
+                <FormControl>
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Moneda</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v as ReceiptCurrency)}
+                  disabled={mode === "edit"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {RECEIPT_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Fecha</Label>
-          <DatePicker value={reciboDate} onChange={setReciboDate} />
+
+        {mode === "create" && isFirst && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+            Es el primer recibo de este canal. Si ya tenías una numeración previa
+            en otro sistema, podés escribir el siguiente número manualmente.
+            Después queda fijado.
+          </div>
+        )}
+
+        {/* Client */}
+        <FormField
+          control={form.control}
+          name="client"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs">Cliente</FormLabel>
+              <FormControl>
+                <ClientPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Payment lines */}
+        <PaymentLinesEditor
+          accounts={accounts.filter((a) => a.is_active)}
+          lines={paymentLines}
+          onChange={(lines) => form.setValue("paymentLines", lines)}
+          defaultDate={reciboDate}
+        />
+
+        {/* Retentions / Percepciones */}
+        <RetentionsEditor
+          retentions={retentions}
+          onChange={(rets) => form.setValue("retentions", rets)}
+          defaultDate={reciboDate}
+        />
+
+        {/* Allocations */}
+        <AllocationsPicker
+          clientId={client?.id ?? null}
+          excludeReceiptId={receipt?.receipt.id}
+          allocations={allocations}
+          onChange={(allocs) => form.setValue("allocations", allocs)}
+        />
+
+        {/* Totals strip */}
+        <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
+          <div>
+            <div className="text-xs text-muted-foreground">Pago real</div>
+            <div className="font-mono">
+              {formatMoney(paymentSum)} {currency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Retenciones</div>
+            <div className="font-mono">
+              {formatMoney(retentionSum)} {currency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Total</div>
+            <div className="font-mono font-semibold">
+              {formatMoney(totalAmount)} {currency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Imputado</div>
+            <div className="font-mono">
+              {formatMoney(allocatedAmount)} {currency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">A cuenta</div>
+            <div className="font-mono">
+              {formatMoney(aCuenta)} {currency}
+            </div>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Moneda</Label>
-          <Select
-            value={currency}
-            onValueChange={(v) => setCurrency(v as ReceiptCurrency)}
-            disabled={mode === "edit"}
+
+        {/* Notes */}
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs">Notas</FormLabel>
+              <FormControl>
+                <Textarea rows={2} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onCancel?.()}
+            disabled={isSaving}
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {RECEIPT_CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving
+              ? "Guardando…"
+              : mode === "create"
+                ? "Emitir recibo"
+                : "Guardar cambios"}
+          </Button>
         </div>
-      </div>
-
-      {mode === "create" && isFirst && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
-          Es el primer recibo de este canal. Si ya tenías una numeración previa
-          en otro sistema, podés escribir el siguiente número manualmente.
-          Después queda fijado.
-        </div>
-      )}
-
-      {/* Client */}
-      <div className="space-y-1">
-        <Label className="text-xs">Cliente</Label>
-        <ClientPicker value={client} onChange={setClient} />
-      </div>
-
-      {/* Payment lines */}
-      <PaymentLinesEditor
-        accounts={accounts.filter((a) => a.is_active)}
-        lines={paymentLines}
-        onChange={setPaymentLines}
-        defaultDate={reciboDate}
-      />
-
-      {/* Retentions / Percepciones */}
-      <RetentionsEditor
-        retentions={retentions}
-        onChange={setRetentions}
-        defaultDate={reciboDate}
-      />
-
-      {/* Allocations */}
-      <AllocationsPicker
-        clientId={client?.id ?? null}
-        excludeReceiptId={receipt?.receipt.id}
-        allocations={allocations}
-        onChange={setAllocations}
-      />
-
-      {/* Totals strip */}
-      <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
-        <div>
-          <div className="text-xs text-muted-foreground">Pago real</div>
-          <div className="font-mono">
-            {formatMoney(paymentSum)} {currency}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">Retenciones</div>
-          <div className="font-mono">
-            {formatMoney(retentionSum)} {currency}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="font-mono font-semibold">
-            {formatMoney(totalAmount)} {currency}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">Imputado</div>
-          <div className="font-mono">
-            {formatMoney(allocatedAmount)} {currency}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">A cuenta</div>
-          <div className="font-mono">
-            {formatMoney(aCuenta)} {currency}
-          </div>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div className="space-y-1">
-        <Label className="text-xs">Notas</Label>
-        <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </div>
-
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onCancel?.()}
-          disabled={isSaving}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving
-            ? "Guardando…"
-            : mode === "create"
-              ? "Emitir recibo"
-              : "Guardar cambios"}
-        </Button>
-      </div>
-    </form>
+      </form>
+    </Form>
   );
 }

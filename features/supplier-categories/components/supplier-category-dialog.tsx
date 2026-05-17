@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -36,11 +38,13 @@ import {
 
 type Mode = "create" | "edit";
 
-type FormValues = {
-  name: string;
-  slug: string;
-  is_active: boolean;
-};
+const FormSchema = z.object({
+  name: z.string().trim().min(2, "Nombre requerido.").max(60),
+  slug: z.string().trim().max(40),
+  is_active: z.boolean(),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 export function SupplierCategoryDialog({
   mode,
@@ -58,6 +62,7 @@ export function SupplierCategoryDialog({
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
       name: category?.name ?? "",
       slug: category?.slug ?? "",

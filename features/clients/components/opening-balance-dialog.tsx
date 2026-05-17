@@ -25,6 +25,7 @@ import {
   useSetClientOpeningBalance,
 } from "../hooks/use-clients";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
+import { formatNumber2 } from "@/lib/format";
 
 function parseAmount(raw: string): number {
   // Acepta "1.234,56" o "1234.56" o "1234". Removemos miles AR ("."),
@@ -188,8 +189,8 @@ export function OpeningBalanceDialog({
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p className="font-medium">Registrado actualmente</p>
               <p className="font-mono">
-                Corte: {existing.opening_date} · Saldo: ${existing.target_balance.toFixed(2)} ·
-                Imputado a facturas: ${existing.total_settled.toFixed(2)}
+                Corte: {existing.opening_date} · Saldo: ${formatNumber2(existing.target_balance)} ·
+                Imputado a facturas: ${formatNumber2(existing.total_settled)}
               </p>
             </div>
           )}

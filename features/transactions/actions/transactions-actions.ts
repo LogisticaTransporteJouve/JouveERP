@@ -60,7 +60,7 @@ function narrowTransaction(row: {
     logger.error("transactions.unknown_currency", { value: row.currency });
     return null;
   }
-  return row as unknown as Transaction;
+  return row as Transaction;
 }
 
 const SELECT_COLUMNS =

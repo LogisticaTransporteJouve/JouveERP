@@ -29,10 +29,8 @@ import {
   useRemovePayrollEntryExtra,
 } from "../hooks/use-payroll";
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+import { formatNumber2 } from "@/lib/format";
+const ARS = { format: (n: number) => formatNumber2(n) };
 
 type AddValues = { amount: string; description: string };
 

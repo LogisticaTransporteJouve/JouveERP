@@ -27,15 +27,11 @@ import {
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { formatArgentineDateTime, formatNumber2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-function formatARS(n: number): string {
-  return n.toLocaleString("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+const formatARS = formatNumber2;
 
 // Argentine convention: letter glued to POS, no space. While AFIP hasn't
 // answered (numero is null in draft/emitting), show a placeholder instead
@@ -303,7 +299,7 @@ export default async function ComprobanteDetailPage({
                   {c.emitted_at && (
                     <DetailRow
                       label="Emitido el"
-                      value={new Date(c.emitted_at).toLocaleString("es-AR")}
+                      value={formatArgentineDateTime(c.emitted_at)}
                     />
                   )}
                 </>

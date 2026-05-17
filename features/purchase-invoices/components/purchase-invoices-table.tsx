@@ -35,7 +35,7 @@ import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 import { usePurchaseInvoicesSearchInfinite } from "../hooks/use-purchase-invoices";
 import { type PurchaseInvoicesFilters } from "../lib/purchase-invoices-keys";
@@ -258,10 +258,7 @@ function PurchaseInvoicesRows({
           </TableCell>
           <TableCell className="text-right font-mono">
             {inv.moneda === "PES" ? "$" : "US$"}
-            {inv.imp_total.toLocaleString("es-AR", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {formatNumber2(inv.imp_total)}
           </TableCell>
           <TableCell>
             <Badge

@@ -27,14 +27,13 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useTransactionsList } from "../hooks/use-transactions";
 import { transactionsKeys } from "../lib/transactions-keys";
 import {
   TRANSACTION_KINDS,
   TRANSACTION_KIND_LABEL,
-  type TransactionCurrency,
   type TransactionKind,
 } from "../schema";
 import { NewTransactionDialog } from "./new-transaction-dialog";
@@ -44,18 +43,7 @@ const ANY_CHANNEL = "__any_channel__";
 const ANY_ACCOUNT = "__any_account__";
 const ANY_KIND = "__any_kind__";
 
-const formatters: Record<TransactionCurrency, Intl.NumberFormat> = {
-  ARS: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }),
-  USD: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }),
-};
+// Money formatter centralizado en lib/format (formatMoney).
 
 const KIND_TONE: Record<TransactionKind, string> = {
   income: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
@@ -313,7 +301,6 @@ function TransactionsTableRows({
         const Icon = KIND_ICON[row.kind];
         const isOutflow = row.kind === "expense" || row.kind === "transfer_out";
         const sign = isOutflow ? -1 : 1;
-        const formatter = formatters[row.currency];
         return (
           <TableRow key={row.id}>
             <TableCell className="text-sm text-muted-foreground">
@@ -348,7 +335,7 @@ function TransactionsTableRows({
                 }
               >
                 {sign < 0 ? "-" : "+"}
-                {formatter.format(Number(row.amount))}
+                {formatMoney(Number(row.amount), row.currency)}
               </span>
             </TableCell>
           </TableRow>

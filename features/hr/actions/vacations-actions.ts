@@ -62,7 +62,7 @@ function narrowLeave(row: {
     logger.error("leaves.unknown_kind", { value: row.kind });
     return null;
   }
-  return row as unknown as EmployeeLeave;
+  return row as EmployeeLeave;
 }
 
 export async function listEmployeeLeavesAction(
@@ -194,7 +194,7 @@ function narrowBalance(row: {
     logger.error("balances.unknown_status", { value: row.status });
     return null;
   }
-  return row as unknown as VacationBalance;
+  return row as VacationBalance;
 }
 
 export async function listVacationBalancesAction(

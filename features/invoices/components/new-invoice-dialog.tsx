@@ -1,9 +1,12 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +18,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -38,6 +49,7 @@ import {
   type IvaCondition,
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
+import { formatNumber2 } from "@/lib/format";
 
 import type {
   InvoiceListItem,
@@ -150,6 +162,19 @@ export function NewInvoiceDialog({
   );
 }
 
+const FormSchema = z.object({
+  kind: z.enum(["factura", "nc", "nd"]),
+  channelId: z.string(),
+  puntoVenta: z.string(),
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  origin: z.custom<InvoiceListItem>().nullable(),
+  client: z.custom<PickedClient>().nullable(),
+  items: z.custom<ItemDraft[]>(),
+  motivo: z.string(),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
+
 function NewInvoiceForm({
   channels,
   initialClient,
@@ -170,15 +195,30 @@ function NewInvoiceForm({
     channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
     channels[0]?.id ??
     "";
-  const [kind, setKind] = useState<Kind>("factura");
-  const [channelId, setChannelId] = useState<string>(initialChannel);
-  const [puntoVenta, setPuntoVenta] = useState<string>("");
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // NC/ND origen. The list-item gives us enough to show the pill in the
-  // picker; the on-demand detail fetch gives us items + concepto + doc_nro
-  // to prefill the form.
-  const [origin, setOrigin] = useState<InvoiceListItem | null>(null);
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      kind: "factura",
+      channelId: initialChannel,
+      puntoVenta: "",
+      fecha: new Date().toISOString().slice(0, 10),
+      origin: null,
+      client: initialClient,
+      items: defaultItems(),
+      motivo: "",
+    },
+  });
+
+  const kind = form.watch("kind");
+  const channelId = form.watch("channelId");
+  const puntoVenta = form.watch("puntoVenta");
+  const fecha = form.watch("fecha");
+  const origin = form.watch("origin");
+  const client = form.watch("client");
+  const items = form.watch("items");
+  const motivo = form.watch("motivo");
+
   const isNote = kind !== "factura";
   const { data: originDetail } = useInvoiceDetailOnDemand(
     isNote && origin ? origin.id : null,
@@ -195,25 +235,14 @@ function NewInvoiceForm({
   useEffect(() => {
     if (isNote) return;
     if (posOptions.length === 1) {
-      setPuntoVenta(String(posOptions[0]!.numero));
+      form.setValue("puntoVenta", String(posOptions[0]!.numero));
     } else if (posOptions.length === 0) {
-      setPuntoVenta("");
+      form.setValue("puntoVenta", "");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posOptions, isNote]);
 
   const currentChannel = channels.find((c) => c.id === channelId) ?? null;
-  // Cliente
-  const [client, setClient] = useState<PickedClient | null>(initialClient);
-
-  // Items — first row is the user's, last row is the Seguro line that's
-  // always present (factura) and can't be removed. Seguro stores
-  // `quantity = pct/100` so `line_neto = unit_price (valor declarado) ×
-  // quantity (pct)` matches what computeTotals expects without a special
-  // case. NC/ND don't carry Seguro — items prefill from origen.
-  const [items, setItems] = useState<ItemDraft[]>(() => defaultItems());
-
-  // Notes (factura) / Motivo NC-ND
-  const [motivo, setMotivo] = useState("");
 
   // Bumped after "Emitir y continuar" to force a fresh ClientPicker mount,
   // which auto-focuses its search input.
@@ -222,16 +251,17 @@ function NewInvoiceForm({
   // When origen detail lands, prefill channel + POS + client + items.
   useEffect(() => {
     if (!isNote || !originDetail) return;
-    setChannelId(originDetail.channel.id);
-    setPuntoVenta(String(originDetail.punto_venta));
-    setClient({
+    form.setValue("channelId", originDetail.channel.id);
+    form.setValue("puntoVenta", String(originDetail.punto_venta));
+    form.setValue("client", {
       id: originDetail.client.id,
       legal_name: originDetail.client.legal_name,
       display_name: null,
       cuit: originDetail.doc_nro,
       iva_condition: originDetail.client.iva_condition as IvaCondition,
     });
-    setItems(
+    form.setValue(
+      "items",
       originDetail.items.length === 0
         ? [
             {
@@ -248,47 +278,49 @@ function NewInvoiceForm({
             iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
           })),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNote, originDetail]);
 
   function handleKindChange(next: Kind) {
     if (next === kind) return;
-    setKind(next);
+    form.setValue("kind", next);
     // Reset the parts of the form that mean different things across kinds.
     // Items get repopulated from origin on NC/ND, or reset to defaults on
     // factura. Origin is meaningless for factura — clear it. Motivo resets
     // because the label and meaning change.
-    setOrigin(null);
-    setMotivo("");
+    form.setValue("origin", null);
+    form.setValue("motivo", "");
     if (next === "factura") {
-      setChannelId(initialChannel);
-      setItems(defaultItems());
-      setClient(initialClient);
+      form.setValue("channelId", initialChannel);
+      form.setValue("items", defaultItems());
+      form.setValue("client", initialClient);
     } else {
       // Until origen is picked, the form sits in an inert state.
-      setItems([]);
-      setClient(null);
-      setChannelId("");
-      setPuntoVenta("");
+      form.setValue("items", []);
+      form.setValue("client", null);
+      form.setValue("channelId", "");
+      form.setValue("puntoVenta", "");
     }
   }
 
   function resetForContinue() {
-    setClient(null);
-    setItems(defaultItems());
-    setMotivo("");
+    form.setValue("client", null);
+    form.setValue("items", defaultItems());
+    form.setValue("motivo", "");
     setClientPickerKey((k) => k + 1);
   }
 
   function updateItem(index: number, patch: Partial<ItemDraft>) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    form.setValue(
+      "items",
+      items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
     );
   }
 
   function addItem() {
     if (isNote) {
-      setItems((prev) => [
-        ...prev,
+      form.setValue("items", [
+        ...items,
         {
           description: "",
           quantity: "1",
@@ -299,20 +331,21 @@ function NewInvoiceForm({
       return;
     }
     // Factura: insert before the Seguro row so it always stays at the bottom.
-    setItems((prev) => {
-      const next = [...prev];
-      next.splice(next.length - 1, 0, {
-        description: "",
-        quantity: "1",
-        unit_price: "",
-        iva_rate_id: IVA_RATE.TWENTY_ONE,
-      });
-      return next;
+    const next = [...items];
+    next.splice(next.length - 1, 0, {
+      description: "",
+      quantity: "1",
+      unit_price: "",
+      iva_rate_id: IVA_RATE.TWENTY_ONE,
     });
+    form.setValue("items", next);
   }
 
   function removeItem(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+    form.setValue(
+      "items",
+      items.filter((_, i) => i !== index),
+    );
   }
 
   function isSeguroRow(item: ItemDraft): boolean {
@@ -441,8 +474,7 @@ function NewInvoiceForm({
     );
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function onSubmit() {
     issue(false);
   }
 
@@ -457,312 +489,365 @@ function NewInvoiceForm({
   const showSeguro = !isNote;
 
   return (
-    <form onSubmit={onSubmit} onKeyDown={onFormKeyDown} className="space-y-5">
-      {/* Tipo + Canal + Fecha. POS is resolved from the channel (1:1 mapping)
-          and Concepto from the division (Jouve→Servicios, DZ→Productos+
-          Servicios) so neither needs to live in the UI for facturas. NC/ND
-          inherit canal + POS + concepto from the origen invoice. */}
-      <div className="grid gap-4 sm:grid-cols-[180px_1fr_180px]">
-        <div className="space-y-2">
-          <Label>Tipo</Label>
-          <Select value={kind} onValueChange={(v) => handleKindChange(v as Kind)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {KIND_OPTIONS.map((k) => (
-                <SelectItem key={k.value} value={k.value}>
-                  {k.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Canal</Label>
-          <Select
-            value={channelId}
-            onValueChange={setChannelId}
-            disabled={channelLocked}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  channelLocked ? "Lo define la factura origen" : "Elegí un canal"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {channels.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {channelId && !isNote && posOptions.length === 0 && (
-            <p className="text-xs text-destructive">
-              Sin POS habilitados — configurá uno en
-              {" "}
-              <code className="font-mono">/admin/afip/puntos-de-venta</code>.
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Fecha de emisión</Label>
-          <DatePicker value={fecha} onChange={setFecha} />
-        </div>
-      </div>
-
-      {/* NC/ND-specific: factura origen + motivo */}
-      {isNote && (
-        <>
-          <div className="space-y-2">
-            <Label>Factura origen</Label>
-            <OriginPicker value={origin} onChange={setOrigin} />
-            <p className="text-xs text-muted-foreground">
-              La letra, el cliente y el punto de venta se heredan de la
-              factura origen (RG 1415).
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>
-              Motivo <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              placeholder={
-                kind === "nc"
-                  ? "Ej. devolución de servicios prestados"
-                  : "Ej. diferencia de tarifa"
-              }
-            />
-          </div>
-        </>
-      )}
-
-      {/* Cliente. Para factura va el ClientPicker. Para NC/ND, el cliente
-          se hereda de origen: mostramos un summary read-only para que el
-          usuario lo vea y no haya forma de cambiarlo (AFIP requiere mismo
-          receptor). */}
-      {!isNote && (
-        <div className="space-y-2">
-          <Label>Cliente</Label>
-          <ClientPicker
-            key={clientPickerKey}
-            value={client}
-            onChange={setClient}
-            autoFocus={clientPickerKey > 0}
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        onKeyDown={onFormKeyDown}
+        className="space-y-5"
+      >
+        {/* Tipo + Canal + Fecha. POS is resolved from the channel (1:1 mapping)
+            and Concepto from the division (Jouve→Servicios, DZ→Productos+
+            Servicios) so neither needs to live in the UI for facturas. NC/ND
+            inherit canal + POS + concepto from the origen invoice. */}
+        <div className="grid gap-4 sm:grid-cols-[180px_1fr_180px]">
+          <FormField
+            control={form.control}
+            name="kind"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Tipo</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => handleKindChange(v as Kind)}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {KIND_OPTIONS.map((k) => (
+                      <SelectItem key={k.value} value={k.value}>
+                        {k.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="channelId"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Canal</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={channelLocked}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          channelLocked
+                            ? "Lo define la factura origen"
+                            : "Elegí un canal"
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent position="popper">
+                    {channels.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {channelId && !isNote && posOptions.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Sin POS habilitados — configurá uno en
+                    {" "}
+                    <code className="font-mono">/admin/afip/puntos-de-venta</code>.
+                  </p>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="fecha"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Fecha de emisión</FormLabel>
+                <FormControl>
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
-      )}
-      {isNote && client && (
-        <div className="space-y-2">
-          <Label>Cliente (heredado de la factura origen)</Label>
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <p className="font-medium">{client.legal_name}</p>
-            <p className="font-mono text-xs text-muted-foreground">
-              CUIT {client.cuit} · {IVA_CONDITION_LABEL[client.iva_condition]}
-            </p>
-          </div>
-        </div>
-      )}
 
-      {/* Items — habilitados sólo cuando hay un canal/origen elegido. Para
-          factura, la fila Seguro queda fija al final. */}
-      {(!isNote || originDetail) && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Ítems</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addItem}>
-              <Plus />
-              Agregar ítem
-            </Button>
-          </div>
-          <div className="space-y-2 rounded-md border p-2">
-            <div className="grid grid-cols-12 gap-2 px-1 text-xs text-muted-foreground">
-              <div className="col-span-5">Descripción</div>
-              <div className="col-span-2">Cantidad</div>
-              <div className="col-span-2">Precio unitario</div>
-              <div className="col-span-2">IVA</div>
-              <div className="col-span-1" />
-            </div>
-            {items.map((item, idx) => {
-              const qty = Number(item.quantity) || 0;
-              const price = Number(item.unit_price) || 0;
-              const lineTotal =
-                qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100);
-              const seguro = showSeguro && isSeguroRow(item);
-              return (
-                <div
-                  key={idx}
-                  className="grid grid-cols-12 gap-2 rounded-md p-1"
-                >
-                  <div className="col-span-5">
-                    {seguro && <CellLabel />}
-                    <Input
-                      placeholder="Descripción"
-                      value={item.description}
-                      onChange={(e) =>
-                        updateItem(idx, { description: e.target.value })
-                      }
-                      disabled={seguro}
+        {/* NC/ND-specific: factura origen + motivo */}
+        {isNote && (
+          <>
+            <FormField
+              control={form.control}
+              name="origin"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Factura origen</FormLabel>
+                  <FormControl>
+                    <OriginPicker
+                      value={field.value}
+                      onChange={field.onChange}
                     />
-                  </div>
-                  <div className="col-span-2">
-                    {seguro && <CellLabel>Porcentaje</CellLabel>}
-                    {seguro ? (
-                      <SeguroPercentInput
-                        value={item.quantity}
-                        onChange={(q) => updateItem(idx, { quantity: q })}
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    La letra, el cliente y el punto de venta se heredan de la
+                    factura origen (RG 1415).
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="motivo"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>
+                    Motivo <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder={
+                        kind === "nc"
+                          ? "Ej. devolución de servicios prestados"
+                          : "Ej. diferencia de tarifa"
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        {/* Cliente. Para factura va el ClientPicker. Para NC/ND, el cliente
+            se hereda de origen: mostramos un summary read-only para que el
+            usuario lo vea y no haya forma de cambiarlo (AFIP requiere mismo
+            receptor). */}
+        {!isNote && (
+          <FormField
+            control={form.control}
+            name="client"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Cliente</FormLabel>
+                <FormControl>
+                  <ClientPicker
+                    key={clientPickerKey}
+                    value={field.value}
+                    onChange={field.onChange}
+                    autoFocus={clientPickerKey > 0}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        {isNote && client && (
+          <div className="space-y-2">
+            <Label>Cliente (heredado de la factura origen)</Label>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <p className="font-medium">{client.legal_name}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                CUIT {client.cuit} · {IVA_CONDITION_LABEL[client.iva_condition]}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Items — habilitados sólo cuando hay un canal/origen elegido. Para
+            factura, la fila Seguro queda fija al final. */}
+        {(!isNote || originDetail) && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Ítems</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                <Plus />
+                Agregar ítem
+              </Button>
+            </div>
+            <div className="space-y-2 rounded-md border p-2">
+              <div className="grid grid-cols-12 gap-2 px-1 text-xs text-muted-foreground">
+                <div className="col-span-5">Descripción</div>
+                <div className="col-span-2">Cantidad</div>
+                <div className="col-span-2">Precio unitario</div>
+                <div className="col-span-2">IVA</div>
+                <div className="col-span-1" />
+              </div>
+              {items.map((item, idx) => {
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.unit_price) || 0;
+                const lineTotal =
+                  qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100);
+                const seguro = showSeguro && isSeguroRow(item);
+                return (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 gap-2 rounded-md p-1"
+                  >
+                    <div className="col-span-5">
+                      {seguro && <CellLabel />}
+                      <Input
+                        placeholder="Descripción"
+                        value={item.description}
+                        onChange={(e) =>
+                          updateItem(idx, { description: e.target.value })
+                        }
+                        disabled={seguro}
                       />
-                    ) : (
+                    </div>
+                    <div className="col-span-2">
+                      {seguro && <CellLabel>Porcentaje</CellLabel>}
+                      {seguro ? (
+                        <SeguroPercentInput
+                          value={item.quantity}
+                          onChange={(q) => updateItem(idx, { quantity: q })}
+                        />
+                      ) : (
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Cantidad"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateItem(idx, { quantity: e.target.value })
+                          }
+                        />
+                      )}
+                    </div>
+                    <div className="col-span-2">
+                      {seguro && <CellLabel>Valor declarado</CellLabel>}
                       <Input
                         type="text"
                         inputMode="decimal"
-                        placeholder="Cantidad"
-                        value={item.quantity}
+                        placeholder="$ 0,00"
+                        value={item.unit_price}
                         onChange={(e) =>
-                          updateItem(idx, { quantity: e.target.value })
+                          updateItem(idx, { unit_price: e.target.value })
                         }
                       />
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    {seguro && <CellLabel>Valor declarado</CellLabel>}
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="$ 0,00"
-                      value={item.unit_price}
-                      onChange={(e) =>
-                        updateItem(idx, { unit_price: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    {seguro && <CellLabel />}
-                    <Select
-                      value={String(item.iva_rate_id)}
-                      onValueChange={(v) =>
-                        updateItem(idx, {
-                          iva_rate_id: Number(v) as IvaRateId,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent position="popper">
-                        {RATE_OPTIONS.map((r) => (
-                          <SelectItem key={r.value} value={String(r.value)}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-1 text-right">
-                    {!seguro && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(idx)}
-                        disabled={items.length <= (showSeguro ? 2 : 1)}
-                        aria-label="Quitar ítem"
+                    </div>
+                    <div className="col-span-2">
+                      {seguro && <CellLabel />}
+                      <Select
+                        value={String(item.iva_rate_id)}
+                        onValueChange={(v) =>
+                          updateItem(idx, {
+                            iva_rate_id: Number(v) as IvaRateId,
+                          })
+                        }
                       >
-                        ×
-                      </Button>
-                    )}
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                          {RATE_OPTIONS.map((r) => (
+                            <SelectItem key={r.value} value={String(r.value)}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-1 text-right">
+                      {!seguro && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(idx)}
+                          disabled={items.length <= (showSeguro ? 2 : 1)}
+                          aria-label="Quitar ítem"
+                        >
+                          ×
+                        </Button>
+                      )}
+                    </div>
+                    <div className="col-span-12 text-right text-xs text-muted-foreground font-mono">
+                      Subtotal: ${formatNumber2(lineTotal)}
+                    </div>
                   </div>
-                  <div className="col-span-12 text-right text-xs text-muted-foreground font-mono">
-                    Subtotal: $
-                    {lineTotal.toLocaleString("es-AR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Totals */}
-      {(!isNote || originDetail) && (
-        <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3">
-          <div className="text-sm">
-            Neto:{" "}
-            <span className="font-mono">
-              ${totals.imp_neto.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                );
               })}
-            </span>
+            </div>
           </div>
-          <div className="text-sm">
-            IVA:{" "}
-            <span className="font-mono">
-              ${totals.imp_iva.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-          <div className="text-base font-semibold">
-            Total:{" "}
-            <span className="font-mono">
-              ${totals.imp_total.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Notas internas — para factura. Para NC/ND el motivo ya está arriba. */}
-      {!isNote && (
-        <div className="space-y-2">
-          <Label>Notas internas (no van a AFIP)</Label>
-          <Textarea
-            rows={2}
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
-        </div>
-      )}
+        {/* Totals */}
+        {(!isNote || originDetail) && (
+          <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3">
+            <div className="text-sm">
+              Neto:{" "}
+              <span className="font-mono">${formatNumber2(totals.imp_neto)}</span>
+            </div>
+            <div className="text-sm">
+              IVA:{" "}
+              <span className="font-mono">${formatNumber2(totals.imp_iva)}</span>
+            </div>
+            <div className="text-base font-semibold">
+              Total:{" "}
+              <span className="font-mono">${formatNumber2(totals.imp_total)}</span>
+            </div>
+          </div>
+        )}
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Cancelar
-        </Button>
-        {/* "Emitir y continuar" sólo aplica a facturas — para NC/ND el flow
-            es one-shot por origen. */}
+        {/* Notas internas — para factura. Para NC/ND el motivo ya está arriba. */}
         {!isNote && (
+          <FormField
+            control={form.control}
+            name="motivo"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Notas internas (no van a AFIP)</FormLabel>
+                <FormControl>
+                  <Textarea rows={2} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        <div className="flex items-center justify-end gap-2">
           <Button
             type="button"
-            variant="outline"
-            onClick={() => issue(true)}
+            variant="ghost"
+            onClick={onCancel}
             disabled={isSubmitting}
-            title="⌘+Enter"
           >
-            Emitir y continuar
+            Cancelar
           </Button>
-        )}
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Emitiendo…" : "Emitir y solicitar CAE"}
-        </Button>
-      </div>
-    </form>
+          {/* "Emitir y continuar" sólo aplica a facturas — para NC/ND el flow
+              es one-shot por origen. */}
+          {!isNote && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => issue(true)}
+              disabled={isSubmitting}
+              title="⌘+Enter"
+            >
+              Emitir y continuar
+            </Button>
+          )}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Emitiendo…" : "Emitir y solicitar CAE"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
 

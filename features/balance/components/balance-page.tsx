@@ -12,6 +12,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { formatNumber2 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { useAccountBalances } from "../hooks/use-balance";
@@ -23,11 +24,7 @@ import {
   type AccountBalanceRow,
 } from "../schema";
 
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number) => fmt.format(Math.abs(n));
+const money = (n: number) => formatNumber2(Math.abs(n));
 const signed = (n: number) => (n >= 0 ? money(n) : `-${money(n)}`);
 
 export function BalancePage() {

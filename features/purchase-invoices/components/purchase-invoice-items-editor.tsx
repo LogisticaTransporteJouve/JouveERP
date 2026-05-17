@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { formatMoney } from "@/lib/format";
+
 import {
   PURCHASE_IVA_RATE_IDS,
   PURCHASE_IVA_RATE_LABEL,
@@ -33,11 +35,7 @@ export type PurchaseInvoiceItemsTotals = {
   imp_total_lines: number;
 };
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-});
+const ARS = { format: (n: number) => formatMoney(n, "ARS") };
 
 function parseNumber(v: string): number {
   if (v === "") return 0;

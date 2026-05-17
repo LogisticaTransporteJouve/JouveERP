@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +37,12 @@ import {
 import { useSeedPayrollPeriod } from "../hooks/use-payroll";
 import { MONTH_LABELS } from "../payroll-schema";
 
-type FormValues = { year: string; month: string };
+const FormSchema = z.object({
+  year: z.string().regex(/^\d{4}$/, "Año inválido."),
+  month: z.string().regex(/^(?:[1-9]|1[0-2])$/, "Mes inválido."),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 export function NewPayrollPeriodDialog() {
   const [open, setOpen] = useState(false);
@@ -44,6 +51,7 @@ export function NewPayrollPeriodDialog() {
 
   const today = new Date();
   const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
       year: String(today.getFullYear()),
       month: String(today.getMonth() + 1),

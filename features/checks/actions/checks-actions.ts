@@ -68,7 +68,7 @@ function narrowCheck(row: {
     logger.error("cheques.unknown_currency", { value: row.currency });
     return null;
   }
-  return row as unknown as Cheque;
+  return row as Cheque;
 }
 
 const CHECK_COLUMNS =

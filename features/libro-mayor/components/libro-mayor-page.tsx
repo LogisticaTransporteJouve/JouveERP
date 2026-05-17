@@ -19,17 +19,11 @@ import {
   SOURCE_LABEL,
   isKnownSource,
 } from "@/features/journal-entries/schema";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { useLedger } from "../hooks/use-libro-mayor";
 import { computeLedgerSummary } from "../schema";
-
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number) => fmt.format(n);
 
 export function LibroMayorPage() {
   const { data: accounts } = useChartOfAccounts({ onlyActive: true });

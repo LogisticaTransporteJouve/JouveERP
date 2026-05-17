@@ -1,10 +1,14 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -13,9 +17,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -41,6 +51,22 @@ function todayISO() {
   return ar.toISOString().slice(0, 10);
 }
 
+const FormSchema = z.object({
+  kind: z.enum(CHECK_KINDS),
+  check_number: z.string().trim().min(1, "Número requerido.").max(60),
+  bank_name: z.string().trim().min(1, "Banco requerido.").max(120),
+  drawer_name: z.string().trim().min(1, "Firmante requerido.").max(120),
+  drawer_cuit: z.string().trim().max(20),
+  issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+  currency: z.enum(CHEQUE_CURRENCIES),
+  cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
+  notes: z.string().trim().max(500),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
+
 export function NewChequeDialog() {
   const [open, setOpen] = useState(false);
   const { data: accounts } = useAccountsList();
@@ -49,68 +75,82 @@ export function NewChequeDialog() {
   );
   const createMut = useCreateCheque();
 
-  const [kind, setKind] = useState<ChequeKind>("fisico");
-  const [chequeNumber, setChequeNumber] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [drawerName, setDrawerName] = useState("");
-  const [drawerCuit, setDrawerCuit] = useState("");
-  const [issueDate, setIssueDate] = useState(todayISO());
-  const [dueDate, setDueDate] = useState(todayISO());
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<ChequeCurrency>("ARS");
-  const [carteraAccountId, setCarteraAccountId] = useState<string>(() => {
-    // Pre-pick the first cartera account that matches the default kind.
-    const match = carteraOptions.find((a) => a.type === "checks");
+  const defaultCarteraId = (kind: ChequeKind) => {
+    const target = kind === "fisico" ? "checks" : "echeq";
+    const match = carteraOptions.find((a) => a.type === target);
     return match?.id ?? carteraOptions[0]?.id ?? "";
-  });
-  const [notes, setNotes] = useState("");
+  };
 
-  function reset() {
-    setKind("fisico");
-    setChequeNumber("");
-    setBankName("");
-    setDrawerName("");
-    setDrawerCuit("");
-    setIssueDate(todayISO());
-    setDueDate(todayISO());
-    setAmount("");
-    setCurrency("ARS");
-    setNotes("");
-  }
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      kind: "fisico",
+      check_number: "",
+      bank_name: "",
+      drawer_name: "",
+      drawer_cuit: "",
+      issue_date: todayISO(),
+      due_date: todayISO(),
+      amount: "",
+      currency: "ARS",
+      cartera_account_id: defaultCarteraId("fisico"),
+      notes: "",
+    },
+  });
+
+  useEffect(() => {
+    if (open && !form.getValues("cartera_account_id")) {
+      form.setValue(
+        "cartera_account_id",
+        defaultCarteraId(form.getValues("kind")),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, accounts]);
 
   function onKindChange(next: ChequeKind) {
-    setKind(next);
-    // Auto-pick the cartera account that matches the selected kind.
-    const target = next === "fisico" ? "checks" : "echeq";
-    const match = carteraOptions.find((a) => a.type === target);
-    if (match) setCarteraAccountId(match.id);
+    form.setValue("kind", next);
+    form.setValue("cartera_account_id", defaultCarteraId(next));
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!carteraAccountId) {
-      toast.error("Configurá una cuenta de cartera primero (Cheques físicos o e-cheq).");
+  function onSubmit(values: FormValues) {
+    if (!values.cartera_account_id) {
+      toast.error(
+        "Configurá una cuenta de cartera primero (Cheques físicos o e-cheq).",
+      );
       return;
     }
     createMut.mutate(
       {
-        kind,
-        check_number: chequeNumber,
-        bank_name: bankName,
-        drawer_name: drawerName,
-        drawer_cuit: drawerCuit,
-        issue_date: issueDate,
-        due_date: dueDate,
-        amount,
-        currency,
-        cartera_account_id: carteraAccountId,
+        kind: values.kind,
+        check_number: values.check_number,
+        bank_name: values.bank_name,
+        drawer_name: values.drawer_name,
+        drawer_cuit: values.drawer_cuit,
+        issue_date: values.issue_date,
+        due_date: values.due_date,
+        amount: values.amount,
+        currency: values.currency,
+        cartera_account_id: values.cartera_account_id,
         source_kind: "manual",
-        notes,
+        notes: values.notes,
       },
       {
         onSuccess: () => {
           toast.success("Cheque registrado.");
-          reset();
+          form.reset({
+            kind: "fisico",
+            check_number: "",
+            bank_name: "",
+            drawer_name: "",
+            drawer_cuit: "",
+            issue_date: todayISO(),
+            due_date: todayISO(),
+            amount: "",
+            currency: "ARS",
+            cartera_account_id: defaultCarteraId("fisico"),
+            notes: "",
+          });
           setOpen(false);
         },
         onError: (err) => toast.error(err.message),
@@ -136,144 +176,239 @@ export function NewChequeDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-[140px_1fr_140px]">
-            <div className="space-y-1">
-              <Label className="text-xs">Tipo</Label>
-              <Select value={kind} onValueChange={(v) => onKindChange(v as ChequeKind)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {CHECK_KINDS.map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {CHECK_KIND_LABEL[k]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Número de check</Label>
-              <Input
-                value={chequeNumber}
-                onChange={(e) => setChequeNumber(e.target.value)}
-                placeholder="Ej. 00012345"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-[140px_1fr_140px]">
+              <FormField
+                control={form.control}
+                name="kind"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Tipo</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) => onKindChange(v as ChequeKind)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {CHECK_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {CHECK_KIND_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="check_number"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Número de check</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ej. 00012345" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Moneda</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) =>
+                        field.onChange(v as ChequeCurrency)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {CHEQUE_CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Moneda</Label>
-              <Select
-                value={currency}
-                onValueChange={(v) => setCurrency(v as ChequeCurrency)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {CHEQUE_CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Banco emisor</Label>
-              <Input
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="Ej. Banco Galicia"
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="bank_name"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Banco emisor</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ej. Banco Galicia" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cartera_account_id"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Cuenta de cartera</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Elegir cuenta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {carteraOptions.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Cuenta de cartera</Label>
-              <Select
-                value={carteraAccountId}
-                onValueChange={setCarteraAccountId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Elegir cuenta" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {carteraOptions.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Firmante (razón social)</Label>
-              <Input
-                value={drawerName}
-                onChange={(e) => setDrawerName(e.target.value)}
-                placeholder="Ej. Cliente SRL"
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="drawer_name"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">
+                      Firmante (razón social)
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ej. Cliente SRL" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="drawer_cuit"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">
+                      CUIT firmante (opcional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="30-12345678-9" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">CUIT firmante (opcional)</Label>
-              <Input
-                value={drawerCuit}
-                onChange={(e) => setDrawerCuit(e.target.value)}
-                placeholder="30-12345678-9"
-              />
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Fecha de emisión</Label>
-              <DatePicker value={issueDate} onChange={setIssueDate} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Fecha de cobro</Label>
-              <DatePicker value={dueDate} onChange={setDueDate} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Monto</Label>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="issue_date"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Fecha de emisión</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Fecha de cobro</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Monto</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Notas (opcional)</Label>
-            <Textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs">Notas (opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={createMut.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={createMut.isPending}>
-              {createMut.isPending ? "Registrando…" : "Registrar"}
-            </Button>
-          </div>
-        </form>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                disabled={createMut.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMut.isPending}>
+                {createMut.isPending ? "Registrando…" : "Registrar"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

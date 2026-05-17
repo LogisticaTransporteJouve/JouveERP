@@ -18,32 +18,20 @@ import {
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 
 import { useReceiptsList } from "../hooks/use-receipts";
 import { receiptsKeys } from "../lib/receipts-keys";
-import { type ReceiptCurrency } from "../schema";
 import { formatReceiptNumber } from "../schema";
 import { CancelReceiptDialog } from "./cancel-receipt-dialog";
 import { EditReceiptDialog } from "./edit-receipt-dialog";
 import { NewReceiptDialog } from "./new-receipt-dialog";
 import type { ChannelOption } from "./receipt-form";
 
-const formatters: Record<ReceiptCurrency, Intl.NumberFormat> = {
-  ARS: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }),
-  USD: new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }),
-};
+// Money formatter centralizado en lib/format (formatMoney).
 
 export function ReceiptsTable({
   channels,
@@ -131,7 +119,7 @@ export function ReceiptsTable({
                       {formatArgentineDate(r.receipt_date)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {formatters[r.currency].format(Number(r.total_amount))}
+                      {formatMoney(Number(r.total_amount), r.currency)}
                     </TableCell>
                     <TableCell>
                       {isCanceled ? (

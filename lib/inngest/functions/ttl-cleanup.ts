@@ -1,3 +1,4 @@
+import { rpcAs } from "@/lib/db/rpc";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -25,7 +26,7 @@ export const ttlCleanup = inngest.createFunction(
         p_older_than: "7 days",
       });
       if (error) throw new Error(`cleanup_rate_limit_buckets: ${error.message}`);
-      return data as unknown as number;
+      return rpcAs<number>(data);
     });
 
     const padron = await step.run("cleanup-padron-cache", async () => {
@@ -34,7 +35,7 @@ export const ttlCleanup = inngest.createFunction(
         p_older_than: "30 days",
       });
       if (error) throw new Error(`cleanup_padron_cache: ${error.message}`);
-      return data as unknown as number;
+      return rpcAs<number>(data);
     });
 
     logger.info("ttl_cleanup.ok", { rate_buckets: rate, padron: padron });

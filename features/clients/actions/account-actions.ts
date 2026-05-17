@@ -1,9 +1,24 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import {
+  IsoDateSchema,
+  NonNegativeAmountSchema,
+  NotesSchema,
+  UuidSchema,
+} from "@/lib/validation/common";
+
+const SetOpeningInput = z.object({
+  client_id: UuidSchema,
+  opening_date: IsoDateSchema,
+  target_balance: NonNegativeAmountSchema,
+  notes: NotesSchema,
+});
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -65,6 +80,11 @@ export async function getClientAccountAction(
   if (!userCan(ctx.roles, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
+  const idParsed = UuidSchema.safeParse(clientId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de cliente inválido." };
+  }
+  clientId = idParsed.data;
 
   const supabase = await createSupabaseClient();
 
@@ -270,6 +290,11 @@ export async function getClientOpeningBalanceAction(
   if (!userCan(ctx.roles, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
+  const idParsed = UuidSchema.safeParse(clientId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de cliente inválido." };
+  }
+  clientId = idParsed.data;
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("client_opening_balances")
@@ -316,9 +341,11 @@ export async function setClientOpeningBalanceAction(input: {
       error: "No tenés permiso para ajustar saldos de cliente.",
     };
   }
-  if (!input.client_id) return { ok: false, error: "Cliente requerido." };
-  if (input.target_balance < 0)
-    return { ok: false, error: "El saldo no puede ser negativo." };
+  const parsed = SetOpeningInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
 
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("apply_client_opening_balance", {
@@ -351,6 +378,11 @@ export async function clearClientOpeningBalanceAction(
       error: "Solo el owner puede borrar el ajuste de saldo.",
     };
   }
+  const idParsed = UuidSchema.safeParse(clientId);
+  if (!idParsed.success) {
+    return { ok: false, error: "ID de cliente inválido." };
+  }
+  clientId = idParsed.data;
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("clear_client_opening_balance", {
     p_client_id: clientId,

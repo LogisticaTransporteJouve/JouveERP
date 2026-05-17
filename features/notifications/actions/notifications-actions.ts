@@ -1,17 +1,30 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
+import { UuidSchema } from "@/lib/validation/common";
 
 import type { Notification } from "../types";
+
+const ListNotificationsInput = z.object({
+  filter: z.enum(["all", "unread"]).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+});
 
 export async function listNotificationsAction(input: {
   filter?: "all" | "unread";
   limit?: number;
 }): Promise<ActionResult<Notification[]>> {
   await requireUserContext();
+  const parsed = ListNotificationsInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  input = parsed.data;
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("list_my_notifications", {
@@ -59,6 +72,11 @@ export async function markNotificationReadAction(
   id: string,
 ): Promise<ActionResult<{ marked: true }>> {
   const ctx = await requireUserContext();
+  const parsed = UuidSchema.safeParse(id);
+  if (!parsed.success) {
+    return { ok: false, error: "ID inválido." };
+  }
+  id = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase
     .from("notifications")

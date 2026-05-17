@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { formatNumber2 } from "@/lib/format";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
@@ -21,12 +22,7 @@ function formatNumero(letter: string | null, pos: number, numero: number) {
   return `${letter ?? "X"}${String(pos).padStart(5, "0")}-${String(numero).padStart(8, "0")}`;
 }
 
-function formatARS(amount: number) {
-  return amount.toLocaleString("es-AR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+const formatARS = formatNumber2;
 
 /**
  * OriginPicker — combobox-style picker para facturas fiscales emitidas que

@@ -24,16 +24,12 @@ import {
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number, currency: string) => `${currency} ${fmt.format(n)}`;
+const money = (n: number, currency: string) => `${currency} ${formatNumber2(n)}`;
 
 export default async function PurchaseInvoiceDetailPage({
   params,
@@ -198,10 +194,10 @@ export default async function PurchaseInvoiceDetailPage({
                   <tr key={it.id} className="border-b last:border-b-0">
                     <td className="px-2 py-1">{it.description}</td>
                     <td className="px-2 py-1 text-right font-mono">
-                      {fmt.format(it.quantity)}
+                      {formatNumber2(it.quantity)}
                     </td>
                     <td className="px-2 py-1 text-right font-mono">
-                      {fmt.format(it.unit_price)}
+                      {formatNumber2(it.unit_price)}
                     </td>
                     <td className="px-2 py-1">
                       {it.iva_rate_id != null
@@ -209,13 +205,13 @@ export default async function PurchaseInvoiceDetailPage({
                         : "No gr."}
                     </td>
                     <td className="px-2 py-1 text-right font-mono text-muted-foreground">
-                      {fmt.format(it.line_neto)}
+                      {formatNumber2(it.line_neto)}
                     </td>
                     <td className="px-2 py-1 text-right font-mono text-muted-foreground">
-                      {fmt.format(it.line_iva)}
+                      {formatNumber2(it.line_iva)}
                     </td>
                     <td className="px-2 py-1 text-right font-mono">
-                      {fmt.format(it.line_total)}
+                      {formatNumber2(it.line_total)}
                     </td>
                   </tr>
                 ))}

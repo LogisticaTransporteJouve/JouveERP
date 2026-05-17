@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
+import { formatNumber2 } from "@/lib/format";
 
 import {
   useClearSupplierOpeningBalance,
@@ -168,8 +169,8 @@ export function SupplierOpeningBalanceDialog({
               <p className="font-medium">Registrado actualmente</p>
               <p className="font-mono">
                 Corte: {existing.opening_date} · Saldo: $
-                {existing.target_balance.toFixed(2)} · Imputado a facturas: $
-                {existing.total_settled.toFixed(2)}
+                {formatNumber2(existing.target_balance)} · Imputado a facturas: $
+                {formatNumber2(existing.total_settled)}
               </p>
             </div>
           )}

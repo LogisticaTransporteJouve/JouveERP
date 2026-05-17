@@ -2,8 +2,10 @@
 
 import { UserMinus } from "lucide-react";
 import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,10 +34,14 @@ import {
 } from "../hooks/use-employees";
 import type { Employee } from "../schema";
 
-type FormValues = {
-  termination_date: string;
-  notes: string;
-};
+const FormSchema = z.object({
+  termination_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  notes: z.string().trim().max(500),
+});
+
+type FormValues = z.infer<typeof FormSchema>;
 
 export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
   const [open, setOpen] = useState(false);
@@ -44,6 +50,7 @@ export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
   const isTerminated = !employee.is_active && !!employee.termination_date;
 
   const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
       termination_date: new Date().toISOString().slice(0, 10),
       notes: "",

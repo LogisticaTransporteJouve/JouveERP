@@ -32,14 +32,11 @@ import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
 import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
 
-const ARS = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+import { formatNumber2 } from "@/lib/format";
 
 function money(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return `$ ${ARS.format(n)}`;
+  return `$ ${formatNumber2(n)}`;
 }
 
 export function PayrollPeriodGrid({

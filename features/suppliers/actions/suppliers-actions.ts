@@ -57,7 +57,7 @@ function narrowSupplier(row: {
     });
     return null;
   }
-  return row as unknown as Supplier;
+  return row as Supplier;
 }
 
 const SELECT_COLS =

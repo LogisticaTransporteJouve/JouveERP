@@ -60,10 +60,8 @@ export type PaymentLineDraft =
   | EndorseLineDraft
   | IssueLineDraft;
 
-const moneyFmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+import { formatNumber2 } from "@/lib/format";
+const moneyFmt = { format: (n: number) => formatNumber2(n) };
 
 export function PaymentLinesEditor({
   accounts,

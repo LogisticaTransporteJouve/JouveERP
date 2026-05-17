@@ -66,7 +66,7 @@ function narrowReceipt(row: {
     logger.error("receipts.unknown_currency", { value: row.currency });
     return null;
   }
-  return row as unknown as Receipt;
+  return row as Receipt;
 }
 
 const RECEIPT_COLUMNS =
@@ -178,7 +178,7 @@ function narrowRetention(row: {
     });
     return null;
   }
-  return row as unknown as ReceiptRetention;
+  return row as ReceiptRetention;
 }
 
 export async function getReceiptByIdAction(

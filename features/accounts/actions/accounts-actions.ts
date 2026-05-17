@@ -60,7 +60,7 @@ function narrowAccount(row: {
     logger.error("accounts.unknown_currency", { value: row.currency });
     return null;
   }
-  return row as unknown as Account;
+  return row as Account;
 }
 
 const SELECT_COLUMNS =

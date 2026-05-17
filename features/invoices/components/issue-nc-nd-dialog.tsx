@@ -34,6 +34,8 @@ import {
 } from "@/lib/afip/codes";
 import type { IvaCondition } from "@/features/clients/schema";
 
+import { formatNumber2 } from "@/lib/format";
+
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
 import { computeTotals } from "../schema";
 
@@ -328,16 +330,16 @@ export function NcNdForm({
       <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
         <div>
           <div className="text-xs text-muted-foreground">Neto</div>
-          <div className="font-mono">{totals.imp_neto.toFixed(2)}</div>
+          <div className="font-mono">{formatNumber2(totals.imp_neto)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">IVA</div>
-          <div className="font-mono">{totals.imp_iva.toFixed(2)}</div>
+          <div className="font-mono">{formatNumber2(totals.imp_iva)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Total</div>
           <div className="font-mono font-semibold">
-            {totals.imp_total.toFixed(2)}
+            {formatNumber2(totals.imp_total)}
           </div>
         </div>
       </div>
