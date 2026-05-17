@@ -41,7 +41,7 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
   }
 }
 
@@ -75,7 +75,7 @@ export async function listPayrollPaymentsAction(
     .order("paid_at", { ascending: true });
 
   if (error) {
-    logger.error("payroll_payments.list.failed", { error });
+    logger.error("payroll_payments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: error.message };
   }
   return {
@@ -115,7 +115,7 @@ export async function createPayrollPaymentAction(
     .single();
 
   if (error || !data) {
-    logger.error("payroll_payments.create.failed", { error });
+    logger.error("payroll_payments.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: error?.message ?? "No se pudo registrar el pago." };
   }
   await logAudit(

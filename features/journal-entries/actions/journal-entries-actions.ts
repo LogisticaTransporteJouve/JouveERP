@@ -77,7 +77,7 @@ export async function listJournalEntriesAction(
 
   const { data, error } = await query;
   if (error) {
-    logger.error("journal_entries.list.failed", { error });
+    logger.error("journal_entries.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer el libro diario." };
   }
 

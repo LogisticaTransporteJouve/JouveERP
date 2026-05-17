@@ -21,7 +21,7 @@ export async function searchGlobalAction(input: {
   query: string;
   limit?: number;
 }): Promise<ActionResult<SearchResult[]>> {
-  await requireUserContext();
+  const ctx = await requireUserContext();
   const parsed = SearchGlobalInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
@@ -37,7 +37,11 @@ export async function searchGlobalAction(input: {
     p_limit: Math.min(input.limit ?? 20, 50),
   });
   if (error) {
-    logger.error("search_global.failed", { error });
+    logger.error("search_global.failed", {
+      userId: ctx.userId,
+      query: q,
+      error,
+    });
     return { ok: false, error: "Búsqueda falló." };
   }
   return { ok: true, data: (data ?? []) as SearchResult[] };

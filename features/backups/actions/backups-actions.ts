@@ -31,7 +31,7 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
       // Bucket aún no creado en este entorno.
       return { ok: true, data: [] };
     }
-    logger.error("backups.list.failed", { error });
+    logger.error("backups.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer la lista de backups." };
   }
 
@@ -88,7 +88,11 @@ export async function getBackupSignedUrlAction(
     .createSignedUrl(fileName, 60 * 5);
 
   if (error || !data?.signedUrl) {
-    logger.error("backups.signed_url.failed", { error });
+    logger.error("backups.signed_url.failed", {
+      userId: ctx.userId,
+      fileName,
+      error,
+    });
     return { ok: false, error: "No se pudo generar URL de descarga." };
   }
 

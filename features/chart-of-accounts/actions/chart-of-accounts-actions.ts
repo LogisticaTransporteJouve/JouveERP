@@ -41,7 +41,7 @@ export async function listChartOfAccountsAction(
 
   const { data, error } = await query;
   if (error) {
-    logger.error("chart_of_accounts.list.failed", { error });
+    logger.error("chart_of_accounts.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer el plan de cuentas." };
   }
 
@@ -128,7 +128,7 @@ export async function createChartAccountAction(
       }
       return { ok: false, error: "Ya existe una cuenta con ese código." };
     }
-    logger.error("chart_of_accounts.create.failed", { error });
+    logger.error("chart_of_accounts.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear la cuenta." };
   }
 
@@ -181,7 +181,7 @@ export async function updateChartAccountAction(
       }
       return { ok: false, error: "Conflicto de unicidad al actualizar." };
     }
-    logger.error("chart_of_accounts.update.failed", { error });
+    logger.error("chart_of_accounts.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
   }
 
@@ -209,7 +209,7 @@ export async function deleteChartAccountAction(
     .eq("parent_id", parsed.data.id);
 
   if (countErr) {
-    logger.error("chart_of_accounts.delete.precheck_failed", { error: countErr });
+    logger.error("chart_of_accounts.delete.precheck_failed", { userId: ctx.userId, error: countErr });
     return { ok: false, error: "No se pudo verificar dependencias." };
   }
   if ((count ?? 0) > 0) {
@@ -231,7 +231,7 @@ export async function deleteChartAccountAction(
         error: "La cuenta tiene movimientos asociados, no se puede borrar.",
       };
     }
-    logger.error("chart_of_accounts.delete.failed", { error });
+    logger.error("chart_of_accounts.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar la cuenta." };
   }
 

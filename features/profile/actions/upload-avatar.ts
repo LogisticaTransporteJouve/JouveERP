@@ -37,7 +37,10 @@ export async function uploadAvatarAction(
     .from("avatars")
     .upload(path, file, { upsert: false });
   if (upErr) {
-    logger.warn("profile.avatar_upload_storage_failed", { err: upErr.message });
+    logger.warn("profile.avatar_upload_storage_failed", {
+      userId: ctx.userId,
+      err: upErr.message,
+    });
     return { ok: false, error: "No se pudo subir la imagen." };
   }
 
@@ -47,7 +50,10 @@ export async function uploadAvatarAction(
     .eq("user_id", ctx.userId);
   if (dbErr) {
     await supabase.storage.from("avatars").remove([path]);
-    logger.warn("profile.avatar_upload_db_failed", { err: dbErr.message });
+    logger.warn("profile.avatar_upload_db_failed", {
+      userId: ctx.userId,
+      err: dbErr.message,
+    });
     return { ok: false, error: "No se pudo guardar la imagen." };
   }
 

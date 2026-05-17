@@ -43,7 +43,7 @@ async function logAudit(
     target_resource_id: targetResourceId ?? null,
     payload,
   });
-  if (error) logger.error("audit.insert.failed", { eventType, error });
+  if (error) logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
 }
 
 function narrow(row: Record<string, unknown>): IssuedCheck | null {
@@ -74,7 +74,7 @@ export async function listIssuedChecksAction(): Promise<
     .limit(500);
 
   if (error) {
-    logger.error("issued_checks.list.failed", { error });
+    logger.error("issued_checks.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los cheques propios." };
   }
 
@@ -142,7 +142,7 @@ export async function createIssuedCheckAction(
         error: "Ya cargaste un cheque con ese número del mismo banco.",
       };
     }
-    logger.error("issued_checks.create.failed", { error });
+    logger.error("issued_checks.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el cheque." };
   }
 
@@ -212,7 +212,7 @@ export async function updateIssuedCheckAction(
         error: "Otro cheque del mismo banco ya usa ese número.",
       };
     }
-    logger.error("issued_checks.update.failed", { error });
+    logger.error("issued_checks.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar el cheque." };
   }
 
@@ -256,7 +256,7 @@ export async function transitionIssuedCheckAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("issued_checks.transition.failed", { error });
+    logger.error("issued_checks.transition.failed", { userId: ctx.userId, error });
     return {
       ok: false,
       error: error.message ?? "No se pudo cambiar el estado.",

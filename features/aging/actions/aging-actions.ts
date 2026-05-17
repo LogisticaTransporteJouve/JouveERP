@@ -56,7 +56,7 @@ export async function getAgingSummaryAction(): Promise<
     .limit(500);
 
   if (error) {
-    logger.error("aging.summary.failed", { error });
+    logger.error("aging.summary.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el aging." };
   }
 

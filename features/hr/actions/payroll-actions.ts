@@ -47,7 +47,7 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
   }
 }
 
@@ -83,7 +83,7 @@ export async function listPayrollPeriodsAction(): Promise<
     .order("month", { ascending: false });
 
   if (error) {
-    logger.error("payroll.list_periods.failed", { error });
+    logger.error("payroll.list_periods.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los períodos." };
   }
   return {
@@ -215,7 +215,7 @@ export async function seedPayrollPeriodAction(
   });
 
   if (error) {
-    logger.error("payroll.seed.failed", { error });
+    logger.error("payroll.seed.failed", { userId: ctx.userId, error });
     return { ok: false, error: error.message };
   }
   await logAudit(

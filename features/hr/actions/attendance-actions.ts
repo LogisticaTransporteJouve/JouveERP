@@ -40,7 +40,7 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
   }
 }
 

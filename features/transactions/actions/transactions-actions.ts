@@ -43,7 +43,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -128,7 +133,7 @@ export async function listTransactionsAction(
 
   const { data, error } = await query;
   if (error) {
-    logger.error("transactions.list.failed", { error });
+    logger.error("transactions.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los movimientos." };
   }
 
@@ -179,7 +184,7 @@ export async function getTransactionByIdAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("transactions.get.failed", { id, error });
+    logger.error("transactions.get.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo cargar el movimiento." };
   }
   return { ok: true, data: data ? narrowTransaction(data) : null };
@@ -244,7 +249,7 @@ export async function createTransactionAction(
     .single();
 
   if (error) {
-    logger.error("transactions.create.failed", { error });
+    logger.error("transactions.create.failed", { userId: ctx.userId, error });
     return {
       ok: false,
       error: error.message ?? "No se pudo registrar el movimiento.",
@@ -295,7 +300,10 @@ export async function createTransferAction(
   });
 
   if (error) {
-    logger.error("transactions.create_transfer.failed", { error });
+    logger.error("transactions.create_transfer.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo registrar la transferencia.",
@@ -358,7 +366,11 @@ export async function updateTransactionAction(
     .eq("id", data.id);
 
   if (error) {
-    logger.error("transactions.update.failed", { error });
+    logger.error("transactions.update.failed", {
+      userId: ctx.userId,
+      id: data.id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo actualizar el movimiento.",
@@ -388,7 +400,7 @@ export async function deleteTransactionAction(
   const { error } = await supabase.from("transactions").delete().eq("id", id);
 
   if (error) {
-    logger.error("transactions.delete.failed", { id, error });
+    logger.error("transactions.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo borrar el movimiento." };
   }
 

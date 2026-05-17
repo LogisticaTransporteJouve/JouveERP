@@ -65,7 +65,11 @@ export async function verifyCuitAction(
     .maybeSingle();
 
   if (cacheErr) {
-    logger.warn("padron_cache.read_failed", { err: cacheErr.message });
+    logger.warn("padron_cache.read_failed", {
+      userId: ctx.userId,
+      cuit,
+      err: cacheErr.message,
+    });
   }
 
   if (cached) {
@@ -94,13 +98,18 @@ export async function verifyCuitAction(
         { onConflict: "cuit" },
       );
     if (upsertErr) {
-      logger.warn("padron_cache.write_failed", { err: upsertErr.message });
+      logger.warn("padron_cache.write_failed", {
+        userId: ctx.userId,
+        cuit,
+        err: upsertErr.message,
+      });
     }
 
     return { ok: true, data, fromCache: false };
   } catch (err) {
     if (cached) {
       logger.warn("padron.live_failed_serving_stale", {
+        userId: ctx.userId,
         cuit,
         err: err instanceof Error ? err.message : String(err),
       });
@@ -112,6 +121,7 @@ export async function verifyCuitAction(
       };
     }
     logger.warn("padron.lookup_failed", {
+      userId: ctx.userId,
       cuit,
       err: err instanceof Error ? err.message : String(err),
     });

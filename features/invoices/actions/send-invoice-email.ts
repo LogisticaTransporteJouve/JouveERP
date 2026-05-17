@@ -108,6 +108,7 @@ export async function sendInvoiceByEmailAction(
     pdf = await generateInvoicePdfBuffer(input.invoice_id);
   } catch (err) {
     logger.error("send_invoice_email.pdf_failed", {
+      userId: ctx.userId,
       invoice_id: input.invoice_id,
       err: err instanceof Error ? err.message : String(err),
     });

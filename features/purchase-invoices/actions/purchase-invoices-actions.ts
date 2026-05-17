@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
+
 import {
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
@@ -47,7 +49,13 @@ async function logAudit(
     target_resource_id: targetResourceId ?? null,
     payload,
   });
-  if (error) logger.error("audit.insert.failed", { eventType, error });
+  if (error)
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
 }
 
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
@@ -105,7 +113,11 @@ export async function searchPurchaseInvoicesAction(
   });
 
   if (error) {
-    logger.error("purchase_invoices.search.failed", { error });
+    logger.error("purchase_invoices.search.failed", {
+      userId: ctx.userId,
+      query: input.query,
+      error,
+    });
     return { ok: false, error: "No se pudo buscar facturas de compra." };
   }
 
@@ -141,12 +153,16 @@ export async function getPurchaseInvoiceByIdAction(
     .maybeSingle();
 
   if (error) {
-    logger.error("purchase_invoices.get.failed", { id, error });
+    logger.error("purchase_invoices.get.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
     return { ok: false, error: "No se pudo cargar la factura." };
   }
   if (!data) return { ok: true, data: null };
 
-  const supplier = (data as unknown as { suppliers: { legal_name: string; cuit: string } }).suppliers;
+  const supplier = (data as unknown as SupplierIdentityJoin).suppliers;
   const flat = {
     ...data,
     supplier_legal_name: supplier.legal_name,
@@ -174,7 +190,11 @@ export async function getPurchaseInvoiceItemsAction(
     .order("sort_order", { ascending: true });
 
   if (error) {
-    logger.error("purchase_invoices.items.list.failed", { error });
+    logger.error("purchase_invoices.items.list.failed", {
+      userId: ctx.userId,
+      invoiceId,
+      error,
+    });
     return { ok: false, error: "No se pudieron leer los ítems." };
   }
 
@@ -223,7 +243,11 @@ export async function getPurchaseInvoiceAllocationsAction(
     .order("created_at", { ascending: true });
 
   if (error) {
-    logger.error("purchase_invoices.allocations.failed", { error });
+    logger.error("purchase_invoices.allocations.failed", {
+      userId: ctx.userId,
+      invoiceId,
+      error,
+    });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
 
@@ -301,7 +325,12 @@ export async function createPurchaseInvoiceAction(
           "Ya cargaste esta factura del proveedor (mismo tipo / letra / PV / número).",
       };
     }
-    logger.error("purchase_invoices.create.failed", { error });
+    logger.error("purchase_invoices.create.failed", {
+      userId: ctx.userId,
+      supplier_id: parsed.data.supplier_id,
+      numero: parsed.data.numero,
+      error,
+    });
     return { ok: false, error: "No se pudo cargar la factura." };
   }
 
@@ -312,6 +341,7 @@ export async function createPurchaseInvoiceAction(
     const itemsError = await applyItems(supabase, data.id, parsed.data.items);
     if (itemsError) {
       logger.error("purchase_invoices.items.insert.failed", {
+        userId: ctx.userId,
         id: data.id,
         error: itemsError,
       });
@@ -412,7 +442,11 @@ export async function updatePurchaseInvoiceAction(
         error: "Otra factura del proveedor ya usa esa combinación de número.",
       };
     }
-    logger.error("purchase_invoices.update.failed", { error });
+    logger.error("purchase_invoices.update.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
     return { ok: false, error: "No se pudo actualizar la factura." };
   }
 
@@ -422,6 +456,7 @@ export async function updatePurchaseInvoiceAction(
     const itemsError = await applyItems(supabase, id, rest.items);
     if (itemsError) {
       logger.error("purchase_invoices.items.update.failed", {
+        userId: ctx.userId,
         id,
         error: itemsError,
       });
@@ -461,7 +496,11 @@ export async function cancelPurchaseInvoiceAction(
     .eq("status", "received");
 
   if (error) {
-    logger.error("purchase_invoices.cancel.failed", { error });
+    logger.error("purchase_invoices.cancel.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo anular la factura." };
   }
 

@@ -43,7 +43,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -80,7 +85,7 @@ export async function listAccountsAction(): Promise<ActionResult<Account[]>> {
     .order("name");
 
   if (error) {
-    logger.error("accounts.list.failed", { error });
+    logger.error("accounts.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cuentas." };
   }
 
@@ -126,7 +131,12 @@ export async function createAccountAction(
         error: "Ya existe una cuenta con ese nombre, tipo y moneda.",
       };
     }
-    logger.error("accounts.create.failed", { error });
+    logger.error("accounts.create.failed", {
+      userId: ctx.userId,
+      name: parsed.data.name,
+      type: parsed.data.type,
+      error,
+    });
     return { ok: false, error: "No se pudo crear la cuenta." };
   }
 
@@ -180,7 +190,7 @@ export async function updateAccountAction(
         error: "Ya existe una cuenta con ese nombre, tipo y moneda.",
       };
     }
-    logger.error("accounts.update.failed", { error });
+    logger.error("accounts.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
   }
 
@@ -213,7 +223,12 @@ export async function setAccountActiveAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("accounts.toggle_active.failed", { error });
+    logger.error("accounts.toggle_active.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      is_active: parsed.data.is_active,
+      error,
+    });
     return { ok: false, error: "No se pudo cambiar el estado de la cuenta." };
   }
 
@@ -256,7 +271,11 @@ export async function getAccountOpeningBalanceAction(
     .eq("account_id", accountId)
     .maybeSingle();
   if (error) {
-    logger.error("accounts.opening.read_failed", { accountId, error });
+    logger.error("accounts.opening.read_failed", {
+      userId: ctx.userId,
+      accountId,
+      error,
+    });
     return { ok: false, error: "No se pudo cargar el saldo de apertura." };
   }
   if (!data) return { ok: true, data: null };
@@ -303,6 +322,7 @@ export async function setAccountOpeningBalanceAction(input: {
   });
   if (error) {
     logger.error("accounts.opening.apply_failed", {
+      userId: ctx.userId,
       accountId: input.account_id,
       error,
     });
@@ -336,7 +356,11 @@ export async function clearAccountOpeningBalanceAction(
     p_account_id: accountId,
   });
   if (error) {
-    logger.error("accounts.opening.clear_failed", { accountId, error });
+    logger.error("accounts.opening.clear_failed", {
+      userId: ctx.userId,
+      accountId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
   await logAudit(

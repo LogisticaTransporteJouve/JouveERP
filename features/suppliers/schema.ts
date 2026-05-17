@@ -119,3 +119,8 @@ type SupplierRow = Database["public"]["Tables"]["suppliers"]["Row"];
 export type Supplier = Omit<SupplierRow, "iva_condition"> & {
   iva_condition: IvaCondition;
 };
+
+/** Join row shape for `suppliers ( legal_name, cuit )` selected from another table. */
+export type SupplierIdentityJoin = {
+  suppliers: { legal_name: string; cuit: string };
+};

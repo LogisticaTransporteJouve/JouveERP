@@ -38,7 +38,7 @@ export async function getAccountBalancesAction(input: {
     p_period_start: input.periodStart ?? undefined,
   });
   if (error) {
-    logger.error("get_account_balances.failed", { error });
+    logger.error("get_account_balances.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer los saldos." };
   }
   return { ok: true, data: (data ?? []) as AccountBalanceRow[] };

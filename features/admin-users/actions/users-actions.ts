@@ -64,7 +64,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetUserId,
+      error,
+    });
   }
 }
 
@@ -92,7 +97,7 @@ export async function bootstrapOwnerIfNeeded(): Promise<ActionResult<boolean>> {
     .from("user_roles")
     .insert({ user_id: ctx.userId, role_id: "owner", granted_by: ctx.userId });
   if (error) {
-    logger.error("bootstrap.owner.failed", { error });
+    logger.error("bootstrap.owner.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo inicializar el owner." };
   }
   await logAudit("user.role.granted", ctx.userId, { role: "owner", reason: "bootstrap" }, ctx.userId);
@@ -122,7 +127,11 @@ export async function inviteUserAction(
     parsed.data.email,
   );
   if (error || !data.user) {
-    logger.warn("invite.failed", { email: parsed.data.email, error });
+    logger.warn("invite.failed", {
+      userId: ctx.userId,
+      email: parsed.data.email,
+      error,
+    });
     return { ok: false, error: "No se pudo enviar la invitación." };
   }
 
@@ -133,7 +142,11 @@ export async function inviteUserAction(
   }));
   const { error: rolesError } = await service.from("user_roles").insert(inserts);
   if (rolesError) {
-    logger.error("invite.roles.failed", { userId: data.user.id, rolesError });
+    logger.error("invite.roles.failed", {
+      userId: ctx.userId,
+      targetUserId: data.user.id,
+      rolesError,
+    });
     return { ok: false, error: "Usuario invitado pero no se asignaron roles." };
   }
 
@@ -174,7 +187,12 @@ export async function assignRoleAction(
       { onConflict: "user_id,role_id" },
     );
   if (error) {
-    logger.error("role.assign.failed", { error, ...parsed.data });
+    logger.error("role.assign.failed", {
+      userId: ctx.userId,
+      targetUserId: parsed.data.userId,
+      role: parsed.data.roleId,
+      error,
+    });
     return { ok: false, error: "No se pudo asignar el rol." };
   }
 
@@ -214,7 +232,12 @@ export async function revokeRoleAction(
     const message = /owner role/i.test(error.message)
       ? "Tiene que quedar al menos un usuario con rol owner."
       : "No se pudo revocar el rol.";
-    logger.warn("role.revoke.failed", { error, ...parsed.data });
+    logger.warn("role.revoke.failed", {
+      userId: ctx.userId,
+      targetUserId: parsed.data.userId,
+      role: parsed.data.roleId,
+      error,
+    });
     return { ok: false, error: message };
   }
 
@@ -251,7 +274,11 @@ export async function setUserRolesAction(
     .select("role_id")
     .eq("user_id", parsed.data.userId);
   if (readError) {
-    logger.error("role.read.failed", { readError });
+    logger.error("role.read.failed", {
+      userId: ctx.userId,
+      targetUserId: parsed.data.userId,
+      readError,
+    });
     return { ok: false, error: "No se pudieron leer los roles actuales." };
   }
 
@@ -293,7 +320,12 @@ export async function setUserRolesAction(
       })),
     );
     if (error) {
-      logger.error("role.bulk.assign.failed", { error });
+      logger.error("role.bulk.assign.failed", {
+        userId: ctx.userId,
+        targetUserId: parsed.data.userId,
+        toAdd,
+        error,
+      });
       return { ok: false, error: "No se pudieron asignar los roles nuevos." };
     }
   }
@@ -307,7 +339,12 @@ export async function setUserRolesAction(
       const message = /owner role/i.test(error.message)
         ? "Tiene que quedar al menos un usuario con rol owner."
         : `No se pudo revocar el rol ${role}.`;
-      logger.warn("role.bulk.revoke.failed", { error, role });
+      logger.warn("role.bulk.revoke.failed", {
+        userId: ctx.userId,
+        targetUserId: parsed.data.userId,
+        role,
+        error,
+      });
       return { ok: false, error: message };
     }
   }

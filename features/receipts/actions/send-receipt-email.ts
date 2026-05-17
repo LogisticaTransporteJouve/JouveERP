@@ -85,6 +85,7 @@ export async function sendReceiptByEmailAction(
     pdfBuffer = await renderReceiptPdf(templateData);
   } catch (err) {
     logger.error("send_receipt_email.pdf_failed", {
+      userId: ctx.userId,
       receipt_id: input.receipt_id,
       err: err instanceof Error ? err.message : String(err),
     });

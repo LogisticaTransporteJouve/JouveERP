@@ -45,7 +45,11 @@ export async function getLedgerAction(input: {
     p_date_to: input.to ?? undefined,
   });
   if (error) {
-    logger.error("get_ledger.failed", { error });
+    logger.error("get_ledger.failed", {
+      userId: ctx.userId,
+      accountId: input.accountId,
+      error,
+    });
     return { ok: false, error: "No se pudo leer el libro mayor." };
   }
   const all = (data ?? []) as LedgerRow[];

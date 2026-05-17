@@ -19,6 +19,7 @@ import {
   type ReceiptAllocation,
   type ReceiptPaymentLine,
   type ReceiptRetention,
+  type ReceiptStatusJoin,
 } from "../schema";
 
 export type ActionResult<T = void> =
@@ -49,7 +50,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { eventType, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -115,7 +121,11 @@ export async function listReceiptsAction(input?: {
 
   const { data, error } = await query;
   if (error) {
-    logger.error("receipts.list.failed", { error });
+    logger.error("receipts.list.failed", {
+      userId: ctx.userId,
+      filters: { status: input?.status, channelId: input?.channelId },
+      error,
+    });
     return { ok: false, error: "No se pudieron listar los recibos." };
   }
 
@@ -197,7 +207,11 @@ export async function getReceiptByIdAction(
     .maybeSingle();
 
   if (receiptError) {
-    logger.error("receipts.get.failed", { id, error: receiptError });
+    logger.error("receipts.get.failed", {
+      userId: ctx.userId,
+      id,
+      error: receiptError,
+    });
     return { ok: false, error: "No se pudo cargar el recibo." };
   }
   if (!receiptRow) return { ok: true, data: null };
@@ -239,6 +253,7 @@ export async function getReceiptByIdAction(
     chequesRes.error
   ) {
     logger.error("receipts.get.children_failed", {
+      userId: ctx.userId,
       id,
       lines: linesRes.error,
       allocs: allocsRes.error,
@@ -311,7 +326,11 @@ export async function getNextReceiptNumeroAction(input: {
     .maybeSingle();
 
   if (error) {
-    logger.error("receipts.next_numero.failed", { error });
+    logger.error("receipts.next_numero.failed", {
+      userId: ctx.userId,
+      channel_id: input.channel_id,
+      error,
+    });
     return { ok: false, error: "No se pudo calcular el próximo número." };
   }
 
@@ -374,7 +393,11 @@ export async function listPendingComprobantesForClientAction(
       .order("fecha", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("receipts.pending.list_comprobantes_failed", { error });
+      logger.error("receipts.pending.list_comprobantes_failed", {
+        userId: ctx.userId,
+        clientId,
+        error,
+      });
       return {
         ok: false,
         error: "No se pudieron listar los comprobantes pendientes.",
@@ -396,7 +419,11 @@ export async function listPendingComprobantesForClientAction(
     )
     .eq("receipts.client_id", clientId);
   if (aErr) {
-    logger.error("receipts.pending.list_allocations_failed", { error: aErr });
+    logger.error("receipts.pending.list_allocations_failed", {
+      userId: ctx.userId,
+      clientId,
+      error: aErr,
+    });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
 
@@ -410,9 +437,7 @@ export async function listPendingComprobantesForClientAction(
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {
-    const status = (
-      alloc as unknown as { receipts: { status: string } | null }
-    ).receipts?.status;
+    const status = (alloc as unknown as ReceiptStatusJoin).receipts?.status;
     if (status === "canceled") continue;
     if (
       excludeReceiptId &&
@@ -582,7 +607,13 @@ export async function createReceiptAction(
         error: `El número ${data.numero} ya existe para ese canal/POS.`,
       };
     }
-    logger.error("receipts.create.failed", { error });
+    logger.error("receipts.create.failed", {
+      userId: ctx.userId,
+      channel_id: data.channel_id,
+      numero: data.numero,
+      client_id: data.client_id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo crear el recibo.",
@@ -665,7 +696,11 @@ export async function updateReceiptAction(
   });
 
   if (error) {
-    logger.error("receipts.update.failed", { error });
+    logger.error("receipts.update.failed", {
+      userId: ctx.userId,
+      id: data.id,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo actualizar el recibo.",
@@ -706,7 +741,11 @@ export async function cancelReceiptAction(
     .eq("status", "issued");
 
   if (error) {
-    logger.error("receipts.cancel.failed", { error });
+    logger.error("receipts.cancel.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
     return { ok: false, error: "No se pudo anular el recibo." };
   }
 
