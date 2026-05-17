@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -42,11 +43,6 @@ export interface ChannelOption {
   name: string;
 }
 
-function todayISO() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
-}
 
 const FormSchema = z
   .object({
@@ -127,7 +123,7 @@ export function TransactionForm({
     channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
     channels[0]?.id ??
     "";
-  const today = todayISO();
+  const today = todayInAR();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),

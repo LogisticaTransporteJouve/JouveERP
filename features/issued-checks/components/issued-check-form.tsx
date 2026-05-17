@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 import type { Account } from "@/features/accounts/schema";
 import {
   SupplierPicker,
@@ -62,12 +63,6 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
-function todayIso() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
-}
-
 function toValues(
   c: IssuedCheck | undefined,
   defaultAccountId: string,
@@ -79,8 +74,8 @@ function toValues(
     bank_name: c?.bank_name ?? "",
     beneficiary_name: c?.beneficiary_name ?? "",
     beneficiary_cuit: c?.beneficiary_cuit ?? "",
-    issue_date: c?.issue_date ?? todayIso(),
-    due_date: c?.due_date ?? todayIso(),
+    issue_date: c?.issue_date ?? todayInAR(),
+    due_date: c?.due_date ?? todayInAR(),
     amount: c ? String(c.amount) : "",
     currency: c?.currency ?? "ARS",
     bank_account_id: c?.bank_account_id ?? defaultAccountId,

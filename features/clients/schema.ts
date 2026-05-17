@@ -125,3 +125,18 @@ type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 export type Client = Omit<ClientRow, "iva_condition"> & {
   iva_condition: IvaCondition;
 };
+
+/** Join row shape para `client ( legal_name )` o `client ( legal_name, email )`
+ *  embebido en otra tabla. Usado en send-email, PDFs y detail rows. */
+export type ClientLegalJoin = {
+  client: { legal_name: string; email?: string | null } | null;
+};
+
+/** Variante extendida con CUIT + iva_condition (usada por PDFs fiscales). */
+export type ClientIdentityJoin = {
+  client: {
+    legal_name: string;
+    cuit: string;
+    iva_condition: string;
+  } | null;
+};

@@ -2,8 +2,19 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import { ACCOUNT_TYPE_LABEL, type AccountType } from "@/features/accounts/schema";
-import type { IvaCondition } from "@/features/clients/schema";
+import {
+  ACCOUNT_TYPE_LABEL,
+  type AccountNameJoin,
+  type AccountType,
+} from "@/features/accounts/schema";
+import type {
+  ClientIdentityJoin,
+  IvaCondition,
+} from "@/features/clients/schema";
+import type {
+  ChannelDivisionJoin,
+  InvoiceRefJoin,
+} from "@/features/invoices/schema";
 import {
   RETENTION_KIND_LABEL,
   RETENTION_TAX_TYPE_LABEL,
@@ -48,16 +59,8 @@ export async function buildReceiptTemplateData(
     throw new Error(`receipt-pdf: receipt not found (${receiptId})`);
   }
 
-  const channel = (receipt as unknown as {
-    channel: {
-      name: string;
-      division: string;
-      business_unit_id: string;
-    } | null;
-  }).channel;
-  const client = (receipt as unknown as {
-    client: { legal_name: string; cuit: string; iva_condition: string } | null;
-  }).client;
+  const channel = (receipt as unknown as ChannelDivisionJoin).channel;
+  const client = (receipt as unknown as ClientIdentityJoin).client;
   if (!client) throw new Error("receipt-pdf: client missing");
 
   // Issuer comes from the business unit's fiscal fields.
@@ -108,9 +111,7 @@ export async function buildReceiptTemplateData(
   }
 
   const payment_lines = (linesRes.data ?? []).map((l) => {
-    const acc = (l as unknown as {
-      account: { name: string; type: string } | null;
-    }).account;
+    const acc = (l as unknown as AccountNameJoin).account;
     return {
       account_name: acc?.name ?? "—",
       account_type_label:
@@ -131,15 +132,7 @@ export async function buildReceiptTemplateData(
   }));
 
   const allocations = (allocsRes.data ?? []).map((a) => {
-    const inv = (a as unknown as {
-      invoice: {
-        letter: string | null;
-        kind: string;
-        punto_venta: number;
-        numero: number;
-        fecha: string;
-      } | null;
-    }).invoice;
+    const inv = (a as unknown as InvoiceRefJoin).invoice;
     const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
     const num = String(inv?.numero ?? 0).padStart(8, "0");
     const letter = inv?.letter ?? "";

@@ -124,3 +124,13 @@ export type Supplier = Omit<SupplierRow, "iva_condition"> & {
 export type SupplierIdentityJoin = {
   suppliers: { legal_name: string; cuit: string };
 };
+
+/** Variante singular para joins `supplier ( legal_name, cuit, iva_condition )`
+ *  embebidos en otro objeto (ej. payment_orders, PDF render). */
+export type SupplierFullJoin = {
+  supplier: {
+    legal_name: string;
+    cuit: string;
+    iva_condition: string;
+  } | null;
+};

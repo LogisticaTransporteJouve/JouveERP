@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -39,12 +40,6 @@ const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 interface ChannelOption {
   id: string;
   name: string;
-}
-
-function todayISO() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +64,7 @@ export function DepositChequeDialog({
   const [channelId, setChannelId] = useState(
     channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ?? channels[0]?.id ?? "",
   );
-  const [eventDate, setEventDate] = useState(todayISO());
+  const [eventDate, setEventDate] = useState(todayInAR());
   const [description, setDescription] = useState("");
 
   function onSubmit(e: React.FormEvent) {
@@ -182,7 +177,7 @@ export function DepositChequeDialog({
 export function CreditChequeDialog({ check }: { check: Cheque }) {
   const [open, setOpen] = useState(false);
   const mut = useCreditCheque();
-  const [eventDate, setEventDate] = useState(todayISO());
+  const [eventDate, setEventDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
 
   function onSubmit(e: React.FormEvent) {
@@ -269,7 +264,7 @@ export function RejectChequeDialog({
   const [channelId, setChannelId] = useState(
     channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ?? channels[0]?.id ?? "",
   );
-  const [eventDate, setEventDate] = useState(todayISO());
+  const [eventDate, setEventDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
 
   function onSubmit(e: React.FormEvent) {

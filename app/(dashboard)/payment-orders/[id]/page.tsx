@@ -15,15 +15,21 @@ import {
 } from "@/components/ui/breadcrumb";
 import {
   ACCOUNT_TYPE_LABEL,
+  type AccountNameJoin,
   type AccountType,
 } from "@/features/accounts/schema";
 import { getPaymentOrderByIdAction } from "@/features/payment-orders/actions/payment-orders-actions";
-import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
+import {
+  formatPaymentOrderNumber,
+  type EndorsedCheckJoin,
+  type IssuedCheckJoin,
+} from "@/features/payment-orders/schema";
 import {
   PURCHASE_INVOICE_KIND_LABEL,
   formatInvoiceNumber,
   type PurchaseInvoiceKind,
   type PurchaseInvoiceLetter,
+  type PurchaseInvoiceRefJoin,
 } from "@/features/purchase-invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -157,39 +163,14 @@ export default async function PaymentOrderDetailPage({
         ) : (
           <dl className="mt-3 space-y-2 text-sm">
             {payment_lines.map((l) => {
-              const account = (
-                l as unknown as {
-                  account: { name: string; type: string } | null;
-                }
-              ).account;
+              const account = (l as unknown as AccountNameJoin).account;
               const typeLabel =
                 account?.type &&
                 ACCOUNT_TYPE_LABEL[account.type as AccountType];
 
-              const endorsed = (
-                l as unknown as {
-                  endorsed_check: {
-                    id: string;
-                    kind: "fisico" | "echeq";
-                    check_number: string;
-                    bank_name: string;
-                    due_date: string;
-                    drawer_name: string;
-                  } | null;
-                }
-              ).endorsed_check;
-              const issued = (
-                l as unknown as {
-                  issued_check: {
-                    id: string;
-                    kind: "fisico" | "echeq";
-                    check_number: string;
-                    bank_name: string;
-                    due_date: string;
-                    status: string;
-                  } | null;
-                }
-              ).issued_check;
+              const endorsed = (l as unknown as EndorsedCheckJoin)
+                .endorsed_check;
+              const issued = (l as unknown as IssuedCheckJoin).issued_check;
 
               return (
                 <div
@@ -267,17 +248,8 @@ export default async function PaymentOrderDetailPage({
           <h2 className="text-sm font-medium">Imputaciones</h2>
           <dl className="mt-3 space-y-2 text-sm">
             {allocations.map((a) => {
-              const inv = (
-                a as unknown as {
-                  purchase_invoice: {
-                    letter: PurchaseInvoiceLetter | null;
-                    kind: PurchaseInvoiceKind;
-                    punto_venta: number;
-                    numero: number;
-                    fecha: string;
-                  } | null;
-                }
-              ).purchase_invoice;
+              const inv = (a as unknown as PurchaseInvoiceRefJoin)
+                .purchase_invoice;
               const number = inv
                 ? formatInvoiceNumber({
                     kind: inv.kind,

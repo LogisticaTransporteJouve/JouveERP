@@ -14,6 +14,8 @@ import {
 } from "@/lib/pdf/receipt-render";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { ClientLegalJoin } from "@/features/clients/schema";
+
 import type { ActionResult } from "./receipts-actions";
 
 const SendReceiptEmailSchema = z.object({
@@ -151,9 +153,7 @@ export async function getReceiptEmailDefaultsAction(
   if (error) return { ok: false, error: error.message };
   if (!receipt) return { ok: false, error: "Recibo no encontrado." };
 
-  const client = (receipt as unknown as {
-    client: { legal_name: string; email: string | null } | null;
-  }).client;
+  const client = (receipt as unknown as ClientLegalJoin).client;
 
   const numeroLabel = formatReceiptNumero(receipt.punto_venta, receipt.numero);
 

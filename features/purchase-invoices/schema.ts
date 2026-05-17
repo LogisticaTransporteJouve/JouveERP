@@ -247,6 +247,17 @@ export function isPurchaseInvoiceStatus(v: unknown): v is PurchaseInvoiceStatus 
   return typeof v === "string" && (PURCHASE_INVOICE_STATUSES as readonly string[]).includes(v);
 }
 
+/** Embedded `purchase_invoice ( letter, kind, punto_venta, numero, fecha )` join. */
+export type PurchaseInvoiceRefJoin = {
+  purchase_invoice: {
+    letter: PurchaseInvoiceLetter | null;
+    kind: PurchaseInvoiceKind;
+    punto_venta: number;
+    numero: number;
+    fecha: string;
+  } | null;
+};
+
 export function formatInvoiceNumber(p: {
   kind?: PurchaseInvoiceKind;
   letter: PurchaseInvoiceLetter | null;

@@ -30,7 +30,7 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import type { Account } from "@/features/accounts/schema";
-import { amountToInput, formatNumber2 } from "@/lib/format";
+import { amountToInput, formatNumber2, todayInAR } from "@/lib/format";
 
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
@@ -64,12 +64,6 @@ export interface ChannelOption {
 }
 
 type Mode = "create" | "edit";
-
-function todayISO() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
-}
 
 function parseAmount(raw: string): number | null {
   const cleaned = raw.trim().replace(/\./g, "").replace(",", ".");
@@ -180,7 +174,7 @@ export function ReceiptForm({
     defaultValues: {
       channelId: initialChannel,
       numero: receipt ? String(receipt.receipt.numero) : "",
-      reciboDate: receipt?.receipt.receipt_date ?? todayISO(),
+      reciboDate: receipt?.receipt.receipt_date ?? todayInAR(),
       currency:
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
       client: initialClient ?? null,

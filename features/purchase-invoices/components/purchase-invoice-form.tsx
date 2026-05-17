@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { todayIsoLocal } from "@/lib/date-range";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
   SupplierPicker,
@@ -85,13 +86,6 @@ type FormValues = {
   items: PurchaseInvoiceItemDraft[];
 };
 
-function todayIso(): string {
-  const d = new Date();
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
-}
-
 function invoiceToValues(
   inv: PurchaseInvoice | undefined,
   initialChannelId: string,
@@ -113,7 +107,7 @@ function invoiceToValues(
     letter: inv?.letter ?? "",
     punto_venta: inv ? String(inv.punto_venta) : "",
     numero: inv ? String(inv.numero) : "",
-    fecha: inv?.fecha ?? todayIso(),
+    fecha: inv?.fecha ?? todayIsoLocal(),
     fch_vto_pago: inv?.fch_vto_pago ?? "",
     imp_neto: inv ? String(inv.imp_neto) : "0",
     imp_iva: inv ? String(inv.imp_iva) : "0",

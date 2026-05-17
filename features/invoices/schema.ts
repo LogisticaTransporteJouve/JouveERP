@@ -272,3 +272,25 @@ export function computeTotals(
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/** Join row shape para `channel ( name, division, business_unit_id )` usado
+ *  por los renders de PDF (receipt y payment-order). */
+export type ChannelDivisionJoin = {
+  channel: {
+    name: string;
+    division: string;
+    business_unit_id: string;
+  } | null;
+};
+
+/** Embedded `invoice ( letter, kind, punto_venta, numero, fecha )` shape para
+ *  filas de allocations (receipts + payment-orders detail/PDF). */
+export type InvoiceRefJoin = {
+  invoice: {
+    letter: string | null;
+    kind: string;
+    punto_venta: number;
+    numero: number;
+    fecha: string;
+  } | null;
+};

@@ -251,18 +251,18 @@ export async function getPurchaseInvoiceAllocationsAction(
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
 
+  type AllocationJoinedRow = {
+    payment_orders: {
+      id: string;
+      numero: number;
+      punto_venta: number;
+      payment_date: string;
+      status: string;
+    };
+  };
+
   const out: PurchaseInvoiceAllocation[] = (data ?? []).map((row) => {
-    const op = (
-      row as unknown as {
-        payment_orders: {
-          id: string;
-          numero: number;
-          punto_venta: number;
-          payment_date: string;
-          status: string;
-        };
-      }
-    ).payment_orders;
+    const op = (row as unknown as AllocationJoinedRow).payment_orders;
     return {
       payment_order_id: op.id,
       payment_order_numero: op.numero,

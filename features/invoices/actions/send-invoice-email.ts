@@ -11,7 +11,15 @@ import { logger } from "@/lib/logger";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { ClientLegalJoin } from "@/features/clients/schema";
+
 import type { ActionResult } from "./invoices-actions";
+
+/** Shape específico de `channel:invoicing_channels ( business_unit:business_units(name) )`
+ *  que devuelve el SELECT de send-invoice-email para sacar el nombre del emisor. */
+type ChannelBusinessUnitJoin = {
+  channel: { business_unit: { name: string } | null } | null;
+};
 
 const SendInvoiceEmailSchema = z.object({
   invoice_id: z.string().uuid(),
@@ -88,13 +96,10 @@ export async function sendInvoiceByEmailAction(
     };
   }
 
-  const client = (invoice as unknown as {
-    client: { legal_name: string } | null;
-  }).client;
+  const client = (invoice as unknown as ClientLegalJoin).client;
   const emisorName =
-    (invoice as unknown as {
-      channel: { business_unit: { name: string } | null } | null;
-    }).channel?.business_unit?.name ?? "DZ & Sons";
+    (invoice as unknown as ChannelBusinessUnitJoin).channel?.business_unit
+      ?.name ?? "DZ & Sons";
 
   const numeroLabel = formatNumero(
     invoice.kind,
@@ -171,9 +176,7 @@ export async function getInvoiceEmailDefaultsAction(
   if (error) return { ok: false, error: error.message };
   if (!invoice) return { ok: false, error: "Comprobante no encontrado." };
 
-  const client = (invoice as unknown as {
-    client: { legal_name: string; email: string | null } | null;
-  }).client;
+  const client = (invoice as unknown as ClientLegalJoin).client;
 
   const numeroLabel = formatNumero(
     invoice.kind,
