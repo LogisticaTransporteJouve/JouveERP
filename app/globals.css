@@ -39,9 +39,9 @@
 }
 
 /*
- * Paleta monocromática (oklch con hue=0). El producto comunica con contraste,
- * espaciado y tipografía — no con hue. `--destructive` es un gris oscuro;
- * acciones destructivas se marcan con copy + iconos (Trash2, TriangleAlert).
+ * Paleta: superficies y texto son monocromáticos (gris/blanco/negro). Las
+ * acciones primarias usan indigo Jouve (#35358a). Acciones destructivas se
+ * marcan con copy + iconos (Trash2, TriangleAlert).
  */
 :root {
   --radius: 0.625rem;
@@ -51,7 +51,8 @@
   --card-foreground: oklch(0.141 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0 0);
-  --primary: oklch(0.21 0 0);
+  /* Indigo Jouve #35358a — botones primarios y focus ring. */
+  --primary: #35358a;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.967 0 0);
   --secondary-foreground: oklch(0.21 0 0);
@@ -62,15 +63,15 @@
   --destructive: oklch(0.45 0 0);
   --border: oklch(0.92 0 0);
   --input: oklch(0.92 0 0);
-  --ring: oklch(0.705 0 0);
+  --ring: #35358a;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.141 0 0);
-  --sidebar-primary: oklch(0.21 0 0);
+  --sidebar-primary: #35358a;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.967 0 0);
   --sidebar-accent-foreground: oklch(0.21 0 0);
   --sidebar-border: oklch(0.92 0 0);
-  --sidebar-ring: oklch(0.705 0 0);
+  --sidebar-ring: #35358a;
 }
 
 .dark {
