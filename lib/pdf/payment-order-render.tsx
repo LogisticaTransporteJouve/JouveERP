@@ -2,8 +2,14 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import { ACCOUNT_TYPE_LABEL, type AccountType } from "@/features/accounts/schema";
+import {
+  ACCOUNT_TYPE_LABEL,
+  type AccountNameJoin,
+  type AccountType,
+} from "@/features/accounts/schema";
 import type { IvaCondition } from "@/features/clients/schema";
+import type { ChannelDivisionJoin } from "@/features/invoices/schema";
+import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -42,24 +48,8 @@ export async function buildPaymentOrderTemplateData(
     throw new Error(`payment-order-pdf: OP not found (${paymentOrderId})`);
   }
 
-  const channel = (
-    op as unknown as {
-      channel: {
-        name: string;
-        division: string;
-        business_unit_id: string;
-      } | null;
-    }
-  ).channel;
-  const supplier = (
-    op as unknown as {
-      supplier: {
-        legal_name: string;
-        cuit: string;
-        iva_condition: string;
-      } | null;
-    }
-  ).supplier;
+  const channel = (op as unknown as ChannelDivisionJoin).channel;
+  const supplier = (op as unknown as SupplierFullJoin).supplier;
   if (!supplier) throw new Error("payment-order-pdf: supplier missing");
 
   // Emisor desde business_unit del canal.
@@ -101,9 +91,7 @@ export async function buildPaymentOrderTemplateData(
   }
 
   const payment_lines = (linesRes.data ?? []).map((l) => {
-    const acc = (l as unknown as {
-      account: { name: string; type: string } | null;
-    }).account;
+    const acc = (l as unknown as AccountNameJoin).account;
     return {
       account_name: acc?.name ?? "—",
       account_type_label:

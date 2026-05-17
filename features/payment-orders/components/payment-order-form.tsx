@@ -26,14 +26,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Account } from "@/features/accounts/schema";
+import type { Account, AccountNameJoin } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import {
   SupplierPicker,
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
-import { amountToInput, formatNumber2 as formatMoney } from "@/lib/format";
+import {
+  amountToInput,
+  formatNumber2 as formatMoney,
+  todayInAR,
+} from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
 
 import type { PaymentOrderDetail } from "../actions/payment-orders-actions";
@@ -45,6 +49,8 @@ import {
 import {
   PAYMENT_ORDER_CURRENCIES,
   formatPaymentOrderNumber,
+  type EndorsedCheckJoin,
+  type IssuedCheckJoin,
   type PaymentOrderCurrency,
 } from "../schema";
 import {
@@ -64,12 +70,6 @@ export interface ChannelOption {
 }
 
 type Mode = "create" | "edit";
-
-function todayISO() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
-}
 
 function parseAmount(raw: string): number | null {
   const cleaned = raw.trim().replace(/\./g, "").replace(",", ".");
@@ -136,23 +136,8 @@ export function PaymentOrderForm({
 
   const initialPaymentLines: PaymentLineDraft[] = paymentOrder
     ? paymentOrder.payment_lines.map((l): PaymentLineDraft => {
-        const accountJoin = (
-          l as unknown as {
-            account: { name: string; type: string } | null;
-          }
-        ).account;
-        const endorsed = (
-          l as unknown as {
-            endorsed_check: {
-              id: string;
-              kind: "fisico" | "echeq";
-              check_number: string;
-              bank_name: string;
-              due_date: string;
-              drawer_name: string;
-            } | null;
-          }
-        ).endorsed_check;
+        const accountJoin = (l as unknown as AccountNameJoin).account;
+        const endorsed = (l as unknown as EndorsedCheckJoin).endorsed_check;
         if (endorsed) {
           const label =
             `${endorsed.kind === "echeq" ? "ECHEQ" : "Cheque"} ${endorsed.bank_name} #${endorsed.check_number}` +
@@ -167,18 +152,7 @@ export function PaymentOrderForm({
             reference: l.reference ?? "",
           };
         }
-        const issued = (
-          l as unknown as {
-            issued_check: {
-              id: string;
-              kind: "fisico" | "echeq";
-              check_number: string;
-              bank_name: string;
-              due_date: string;
-              status: string;
-            } | null;
-          }
-        ).issued_check;
+        const issued = (l as unknown as IssuedCheckJoin).issued_check;
         if (issued) {
           return {
             line_kind: "issue_check",
@@ -221,7 +195,7 @@ export function PaymentOrderForm({
     defaultValues: {
       channelId: initialChannel,
       numero: paymentOrder ? String(paymentOrder.paymentOrder.numero) : "",
-      paymentDate: paymentOrder?.paymentOrder.payment_date ?? todayISO(),
+      paymentDate: paymentOrder?.paymentOrder.payment_date ?? todayInAR(),
       currency:
         (paymentOrder?.paymentOrder.currency as
           | PaymentOrderCurrency

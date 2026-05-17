@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import { useCreateCheque } from "../hooks/use-checks";
@@ -44,12 +45,6 @@ import {
   type ChequeCurrency,
   type ChequeKind,
 } from "../schema";
-
-function todayISO() {
-  const d = new Date();
-  const ar = new Date(d.getTime() - 3 * 60 * 60 * 1000);
-  return ar.toISOString().slice(0, 10);
-}
 
 const FormSchema = z.object({
   kind: z.enum(CHECK_KINDS),
@@ -89,8 +84,8 @@ export function NewChequeDialog() {
       bank_name: "",
       drawer_name: "",
       drawer_cuit: "",
-      issue_date: todayISO(),
-      due_date: todayISO(),
+      issue_date: todayInAR(),
+      due_date: todayInAR(),
       amount: "",
       currency: "ARS",
       cartera_account_id: defaultCarteraId("fisico"),
@@ -144,8 +139,8 @@ export function NewChequeDialog() {
             bank_name: "",
             drawer_name: "",
             drawer_cuit: "",
-            issue_date: todayISO(),
-            due_date: todayISO(),
+            issue_date: todayInAR(),
+            due_date: todayInAR(),
             amount: "",
             currency: "ARS",
             cartera_account_id: defaultCarteraId("fisico"),

@@ -523,6 +523,45 @@ export interface ComprobanteDetail {
   }>;
 }
 
+/** Raw row shape devuelto por `select("*, channel(...), client(...), items(...)")`
+ *  para getInvoiceDetailAction. Los campos numéricos llegan como `number | string`
+ *  porque Postgres NUMERIC se serializa como string en supabase-js. */
+type InvoiceItemJoinedRow = Pick<
+  Database["public"]["Tables"]["invoice_items"]["Row"],
+  | "id"
+  | "description"
+  | "iva_rate_id"
+  | "sort_order"
+> & {
+  quantity: number | string;
+  unit_price: number | string;
+  line_neto: number | string;
+  line_iva: number | string;
+  line_total: number | string;
+};
+
+type InvoiceDetailJoinedRow = Omit<
+  Database["public"]["Tables"]["invoices"]["Row"],
+  | "imp_neto"
+  | "imp_iva"
+  | "imp_trib"
+  | "imp_tot_conc"
+  | "imp_op_ex"
+  | "imp_total"
+  | "cotizacion"
+> & {
+  imp_neto: number | string;
+  imp_iva: number | string;
+  imp_trib: number | string;
+  imp_tot_conc: number | string;
+  imp_op_ex: number | string;
+  imp_total: number | string;
+  cotizacion: number | string;
+  channel: { id: string; name: string; is_fiscal: boolean } | null;
+  client: { id: string; legal_name: string; iva_condition: string } | null;
+  items: InvoiceItemJoinedRow[] | null;
+};
+
 export async function getInvoiceDetailAction(
   id: string,
 ): Promise<ActionResult<ComprobanteDetail>> {
@@ -546,52 +585,13 @@ export async function getInvoiceDetailAction(
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: `Comprobante ${id} no encontrado.` };
 
-  const row = data as unknown as {
-    id: string;
-    kind: string;
-    letter: string | null;
-    punto_venta: number;
-    numero: number;
-    fecha: string;
-    fch_serv_desde: string | null;
-    fch_serv_hasta: string | null;
-    fch_vto_pago: string | null;
-    concepto: number;
-    doc_tipo: number;
-    doc_nro: string;
-    iva_condition_receptor: number | null;
-    imp_neto: number | string;
-    imp_iva: number | string;
-    imp_trib: number | string;
-    imp_tot_conc: number | string;
-    imp_op_ex: number | string;
-    imp_total: number | string;
-    moneda: string;
-    cotizacion: number | string;
-    cae: string | null;
-    cae_vencimiento: string | null;
-    afip_observaciones: unknown;
-    status: string;
-    pdf_hash: string | null;
-    motivo_nc_nd: string | null;
-    emitted_at: string | null;
-    channel: { id: string; name: string; is_fiscal: boolean } | null;
-    client: { id: string; legal_name: string; iva_condition: string } | null;
-    items: Array<{
-      id: string;
-      description: string;
-      quantity: number | string;
-      unit_price: number | string;
-      iva_rate_id: number | null;
-      line_neto: number | string;
-      line_iva: number | string;
-      line_total: number | string;
-      sort_order: number;
-    }> | null;
-  };
+  const row = data as unknown as InvoiceDetailJoinedRow;
 
   if (!row.channel || !row.client) {
     return { ok: false, error: "Comprobante con relaciones inválidas." };
+  }
+  if (row.numero == null) {
+    return { ok: false, error: "Comprobante sin número asignado." };
   }
 
   return {

@@ -103,3 +103,8 @@ export type Account = Omit<AccountRow, "type" | "currency"> & {
   type: AccountType;
   currency: AccountCurrency;
 };
+
+/** Join row shape para `account ( name, type )` embebido en payment lines. */
+export type AccountNameJoin = {
+  account: { name: string; type: string } | null;
+};

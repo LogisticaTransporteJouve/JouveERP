@@ -230,3 +230,27 @@ export function formatPaymentOrderNumber(
 export type PaymentOrderStatusJoin = {
   payment_orders: { status: string } | null;
 };
+
+/** Embedded `endorsed_check ( id, kind, … )` shape inside a payment line row. */
+export type EndorsedCheckJoin = {
+  endorsed_check: {
+    id: string;
+    kind: "fisico" | "echeq";
+    check_number: string;
+    bank_name: string;
+    due_date: string;
+    drawer_name: string;
+  } | null;
+};
+
+/** Embedded `issued_check ( id, kind, … )` shape inside a payment line row. */
+export type IssuedCheckJoin = {
+  issued_check: {
+    id: string;
+    kind: "fisico" | "echeq";
+    check_number: string;
+    bank_name: string;
+    due_date: string;
+    status: string;
+  } | null;
+};

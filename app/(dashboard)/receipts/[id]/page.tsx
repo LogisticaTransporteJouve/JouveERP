@@ -14,8 +14,10 @@ import { Button } from "@/components/ui/button";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   ACCOUNT_TYPE_LABEL,
+  type AccountNameJoin,
   type AccountType,
 } from "@/features/accounts/schema";
+import type { InvoiceRefJoin } from "@/features/invoices/schema";
 import { getReceiptByIdAction } from "@/features/receipts/actions/receipts-actions";
 import { formatReceiptNumber } from "@/features/receipts/schema";
 import { requireUserContext } from "@/lib/auth/context";
@@ -110,11 +112,7 @@ export default async function ReceiptDetailPage({
           ) : (
             <dl className="mt-3 space-y-2 text-sm">
               {payment_lines.map((l) => {
-                const account = (
-                  l as unknown as {
-                    account: { name: string; type: string } | null;
-                  }
-                ).account;
+                const account = (l as unknown as AccountNameJoin).account;
                 const typeLabel =
                   account?.type &&
                   ACCOUNT_TYPE_LABEL[account.type as AccountType];
@@ -206,17 +204,7 @@ export default async function ReceiptDetailPage({
           <h2 className="text-sm font-medium">Imputaciones</h2>
           <dl className="mt-3 space-y-2 text-sm">
             {allocations.map((a) => {
-              const inv = (
-                a as unknown as {
-                  invoice: {
-                    letter: string | null;
-                    kind: string;
-                    punto_venta: number;
-                    numero: number;
-                    fecha: string;
-                  } | null;
-                }
-              ).invoice;
+              const inv = (a as unknown as InvoiceRefJoin).invoice;
               const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
               const num = String(inv?.numero ?? 0).padStart(8, "0");
               const letter = inv?.letter ?? "";

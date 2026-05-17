@@ -123,3 +123,10 @@ export function formatArgentineDateTime(
   const mm = String(ar.getUTCMinutes()).padStart(2, "0");
   return `${day} ${month} ${year}, ${hh}:${mm}`;
 }
+
+/** "YYYY-MM-DD" del día actual en hora Argentina (UTC-3). Usado como default
+ *  para los date inputs de los forms (recibos, cheques, transacciones, OPs). */
+export function todayInAR(): string {
+  const ar = new Date(Date.now() - AR_OFFSET_MS);
+  return ar.toISOString().slice(0, 10);
+}

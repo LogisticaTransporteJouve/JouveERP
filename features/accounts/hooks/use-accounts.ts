@@ -7,6 +7,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -87,7 +88,7 @@ export function useSetAccountOpeningBalance() {
       });
       qc.invalidateQueries({ queryKey: accountsKeys.all });
       // Las transactions list también cambian (se agrega la fila de ajuste).
-      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: transactionsKeys.all });
     },
   });
 }
@@ -102,7 +103,7 @@ export function useClearAccountOpeningBalance() {
         queryKey: accountsKeys.openingBalance(accountId),
       });
       qc.invalidateQueries({ queryKey: accountsKeys.all });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: transactionsKeys.all });
     },
   });
 }

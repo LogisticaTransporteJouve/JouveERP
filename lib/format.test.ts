@@ -9,6 +9,7 @@ import {
   formatMoney,
   formatMoneySigned,
   formatNumber2,
+  todayInAR,
 } from "./format";
 
 describe("formatArgentineDate", () => {
@@ -183,5 +184,20 @@ describe("formatMoneySigned", () => {
 
   it("cero no lleva signo", () => {
     expect(formatMoneySigned(0)).toBe("$ 0,00");
+  });
+});
+
+describe("todayInAR", () => {
+  it("devuelve YYYY-MM-DD válido", () => {
+    expect(todayInAR()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("aplica shift UTC-3 (formato y rango plausible)", () => {
+    const today = todayInAR();
+    // Re-compute para comparar y asegurar que no usa el UTC puro
+    const ar = new Date(Date.now() - 3 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    expect(today).toBe(ar);
   });
 });
