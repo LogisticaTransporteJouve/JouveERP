@@ -1,7 +1,10 @@
 "use client";
 
 import { Lock, Unlock } from "lucide-react";
+import { useMemo } from "react";
 import { toast } from "sonner";
+
+import { useScope } from "@/components/providers/scope-provider";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ import {
   formatPayrollPeriod,
 } from "../payroll-schema";
 
+import { BulkPayrollPaymentDialog } from "./bulk-payroll-payment-dialog";
 import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
 import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
@@ -52,6 +56,7 @@ export function PayrollPeriodGrid({
   const updateMut = useUpdatePayrollEntry();
   const closeMut = useClosePayrollPeriod();
   const reopenMut = useReopenPayrollPeriod();
+  const { channels } = useScope();
 
   const canWrite = userCan(actorRoles, "hr:write");
   const canAdmin = userCan(actorRoles, "hr:admin");
@@ -64,6 +69,21 @@ export function PayrollPeriodGrid({
   // la idea: cerrás los valores y después vas pagando en tramos). Sólo
   // requiere hr:write.
   const canManagePayments = canWrite && !!period;
+
+  const activeChannels = useMemo(
+    () => channels.filter((c) => c.is_active),
+    [channels],
+  );
+  const bulkEmployees = useMemo(
+    () =>
+      entries.map((e) => ({
+        entry_id: e.id,
+        employee_id: e.employee_id,
+        employee_name: e.employee_legal_name,
+        saldo: e.saldo ?? 0,
+      })),
+    [entries],
+  );
 
   function commit(
     entryId: string,
@@ -152,6 +172,14 @@ export function PayrollPeriodGrid({
         </div>
         {period && (
           <div className="flex items-center gap-2">
+            {canManagePayments && bulkEmployees.length > 0 && (
+              <BulkPayrollPaymentDialog
+                employees={bulkEmployees}
+                channels={activeChannels}
+                year={year}
+                month={month}
+              />
+            )}
             {!isClosed && canWrite && (
               <Button
                 variant="outline"

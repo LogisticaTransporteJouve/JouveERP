@@ -63,6 +63,9 @@ export async function listJournalEntriesAction(
     )
     .order("entry_date", { ascending: false })
     .order("created_at", { ascending: false })
+    // Tie-breaker: dos asientos creados en el mismo tx (ej. emit_journal_*
+    // disparado por insert múltiple) comparten created_at.
+    .order("id", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (filters.period) {

@@ -1,4 +1,8 @@
-export type NotificationType = "chat_message" | "chat_reply" | "chat_mention";
+export type NotificationType =
+  | "chat_message"
+  | "chat_reply"
+  | "chat_mention"
+  | "document_expiring";
 
 export type Notification = {
   id: string;

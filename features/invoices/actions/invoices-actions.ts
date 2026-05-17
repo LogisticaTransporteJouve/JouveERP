@@ -403,6 +403,9 @@ export async function listInvoicesAction(
     )
     .order("fecha", { ascending: false })
     .order("numero", { ascending: false })
+    // Tie-breaker: sin channel_id filter dos canales pueden compartir
+    // (fecha, numero) → paginación no-determinística + duplicate React keys.
+    .order("id", { ascending: false })
     .range(offset, offset + limit); // limit + 1 trick
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);

@@ -117,6 +117,28 @@ export const DeletePayrollPaymentSchema = z.object({
 export type CreatePayrollPaymentInput = z.infer<typeof CreatePayrollPaymentSchema>;
 export type UpdatePayrollPaymentInput = z.infer<typeof UpdatePayrollPaymentSchema>;
 
+// Pago masivo: una transferencia de N pesos a M empleados → genera M
+// payroll_payments rows (uno por entry_id seleccionado) con el mismo
+// monto. El trigger del DB crea M transactions individuales en la cuenta
+// elegida. Útil para "transferí 500k a cada uno de estos 10 choferes
+// el 15 del mes".
+export const BulkCreatePayrollPaymentsSchema = z.object({
+  entry_ids: z
+    .array(z.string().uuid())
+    .min(1, "Seleccioná al menos un empleado.")
+    .max(100, "Demasiados pagos en un solo batch."),
+  account_id: z.string().uuid(),
+  channel_id: z.string().trim().min(1, "Canal requerido."),
+  amount_each: z.coerce.number().positive().max(999999999.99),
+  method: z.enum(PAYROLL_PAYMENT_METHODS),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
+export type BulkCreatePayrollPaymentsInput = z.infer<
+  typeof BulkCreatePayrollPaymentsSchema
+>;
+
 type PayrollPaymentRow = Database["public"]["Tables"]["payroll_payments"]["Row"];
 export type PayrollPayment = Omit<PayrollPaymentRow, "method"> & {
   method: PayrollPaymentMethod;

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, FileDown } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -90,14 +90,14 @@ export function LibroIvaVentasTable({
               <th />
               <th />
               {IVA_RATES.map((r) => (
-                <>
-                  <th key={`${r.id}-n`} className="border-l px-2 py-1 text-right font-normal">
+                <Fragment key={r.id}>
+                  <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
                   </th>
-                  <th key={`${r.id}-i`} className="px-2 py-1 text-right font-normal">
+                  <th className="px-2 py-1 text-right font-normal">
                     IVA
                   </th>
-                </>
+                </Fragment>
               ))}
               <th className="border-l" />
               <th />
@@ -132,14 +132,14 @@ export function LibroIvaVentasTable({
                   {IVA_RATES.map((r) => {
                     const cell = row.per_rate[r.id];
                     return (
-                      <>
-                        <td key={`${r.id}-n`} className="border-l px-2 py-1 text-right font-mono text-xs">
+                      <Fragment key={r.id}>
+                        <td className="border-l px-2 py-1 text-right font-mono text-xs">
                           {cell?.neto ? money(cell.neto) : ""}
                         </td>
-                        <td key={`${r.id}-i`} className="px-2 py-1 text-right font-mono text-xs">
+                        <td className="px-2 py-1 text-right font-mono text-xs">
                           {cell?.iva ? money(cell.iva) : ""}
                         </td>
-                      </>
+                      </Fragment>
                     );
                   })}
                   <td className="border-l px-2 py-1 text-right font-mono text-xs">
@@ -170,14 +170,14 @@ export function LibroIvaVentasTable({
               {IVA_RATES.map((r) => {
                 const cell = totals.per_rate[r.id];
                 return (
-                  <>
-                    <td key={`t-${r.id}-n`} className="border-l px-2 py-2 text-right font-mono">
+                  <Fragment key={r.id}>
+                    <td className="border-l px-2 py-2 text-right font-mono">
                       {cell?.neto ? money(cell.neto) : ""}
                     </td>
-                    <td key={`t-${r.id}-i`} className="px-2 py-2 text-right font-mono">
+                    <td className="px-2 py-2 text-right font-mono">
                       {cell?.iva ? money(cell.iva) : ""}
                     </td>
-                  </>
+                  </Fragment>
                 );
               })}
               <td className="border-l px-2 py-2 text-right font-mono">

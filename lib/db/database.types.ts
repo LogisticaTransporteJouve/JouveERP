@@ -903,6 +903,69 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_documents: {
+        Row: {
+          attachment_file_id: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          expires_at: string
+          id: string
+          issued_at: string | null
+          issuing_authority: string | null
+          kind: Database["public"]["Enums"]["employee_document_kind"]
+          notes: string | null
+          notified_at: string | null
+          number: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachment_file_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          expires_at: string
+          id?: string
+          issued_at?: string | null
+          issuing_authority?: string | null
+          kind: Database["public"]["Enums"]["employee_document_kind"]
+          notes?: string | null
+          notified_at?: string | null
+          number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachment_file_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          expires_at?: string
+          id?: string
+          issued_at?: string | null
+          issuing_authority?: string | null
+          kind?: Database["public"]["Enums"]["employee_document_kind"]
+          notes?: string | null
+          notified_at?: string | null
+          number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_attachment_file_id_fkey"
+            columns: ["attachment_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -3387,6 +3450,28 @@ export type Database = {
           },
         ]
       }
+      v_documents_expiring: {
+        Row: {
+          days_until_expiry: number | null
+          employee_id: string | null
+          employee_is_active: boolean | null
+          employee_name: string | null
+          expires_at: string | null
+          id: string | null
+          kind: Database["public"]["Enums"]["employee_document_kind"] | null
+          notified_at: string | null
+          number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_employee_vacation_balances: {
         Row: {
           bonus_days: number | null
@@ -4333,6 +4418,19 @@ export type Database = {
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
+      employee_document_kind:
+        | "licencia_conducir"
+        | "lnh"
+        | "libreta_sanitaria"
+        | "curso_cargas_peligrosas"
+        | "curso_mercaderias_peligrosas"
+        | "aptitud_psicofisica"
+        | "aptitud_visual"
+        | "cedula_verde"
+        | "cedula_azul"
+        | "seguro_personal"
+        | "arn"
+        | "otro"
       leave_kind:
         | "vacaciones"
         | "enfermedad"
@@ -4506,6 +4604,20 @@ export const Constants = {
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",
+      ],
+      employee_document_kind: [
+        "licencia_conducir",
+        "lnh",
+        "libreta_sanitaria",
+        "curso_cargas_peligrosas",
+        "curso_mercaderias_peligrosas",
+        "aptitud_psicofisica",
+        "aptitud_visual",
+        "cedula_verde",
+        "cedula_azul",
+        "seguro_personal",
+        "arn",
+        "otro",
       ],
       leave_kind: [
         "vacaciones",

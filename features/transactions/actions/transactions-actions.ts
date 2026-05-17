@@ -119,7 +119,12 @@ export async function listTransactionsAction(
       { count: "exact" },
     )
     .order("transaction_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    // Tie-breaker: transfer_in + transfer_out comparten transaction_date y
+    // created_at (insertados atomicamente en el mismo tx, now() devuelve igual).
+    // Sin orden por id la paginación es no-determinística y el mismo row puede
+    // aparecer en dos páginas → React duplicate key error.
+    .order("id", { ascending: false });
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
   if (filters.account_id) query = query.eq("account_id", filters.account_id);

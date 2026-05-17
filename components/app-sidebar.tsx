@@ -6,6 +6,7 @@ import {
   BookCheck,
   BookOpen,
   CalendarDays,
+  CalendarClock,
   ChevronRight,
   CreditCard,
   DatabaseBackup,
@@ -129,6 +130,7 @@ const navSections: NavSection[] = [
       { href: "/employees", label: "Empleados", icon: IdCard, permission: "hr:read" },
       { href: "/hr/payroll", label: "Sueldos", icon: Receipt, permission: "hr:read" },
       { href: "/hr/attendance", label: "Asistencia", icon: CalendarDays, permission: "hr:read" },
+      { href: "/hr/document-expirations", label: "Vencimientos", icon: CalendarClock, permission: "hr:read" },
     ],
   },
   {
