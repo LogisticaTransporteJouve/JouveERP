@@ -13,6 +13,7 @@ import type {
   InvoiceWithChannelRefJoin,
 } from "@/features/invoices/schema";
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
+import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -160,9 +161,9 @@ export async function buildPaymentOrderTemplateData(
     payment_lines,
     allocations,
     total_amount: totalAmount,
-    payment_sum: Math.round(paymentSum * 100) / 100,
-    allocated_sum: Math.round(allocatedSum * 100) / 100,
-    a_cuenta: Math.round((totalAmount - allocatedSum) * 100) / 100,
+    payment_sum: round2(paymentSum),
+    allocated_sum: round2(allocatedSum),
+    a_cuenta: round2(totalAmount - allocatedSum),
     notes: op.notes ?? null,
     status: op.status as "issued" | "canceled",
   };

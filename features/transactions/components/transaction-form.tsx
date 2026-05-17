@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
+import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -35,8 +36,6 @@ import {
   defaultAccrualMonth,
   TRANSACTION_CURRENCIES,
 } from "../schema";
-
-const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 
 export interface ChannelOption {
   id: string;

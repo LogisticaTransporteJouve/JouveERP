@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contabilidad — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Contabilidad</strong></div>
+        <div class="pill">Plan · Diario · Mayor · IVA · Balance</div>
+      </header>
+      <main>
+        <h1>Contabilidad</h1>
+        <p class="lead">
+          Plan de cuentas jerárquico, libro diario alimentado por las
+          operaciones, libro mayor por cuenta, libros IVA de ventas y
+          compras (con export PDF), balance y EERR, centros de costo y
+          coeficientes de ajuste por inflación.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#plan-de-cuentas">Plan de cuentas</a></li>
+            <li><a href="#libro-diario">Libro diario</a></li>
+            <li><a href="#libro-mayor">Libro mayor</a></li>
+            <li><a href="#libro-iva-ventas">Libro IVA Ventas</a></li>
+            <li><a href="#libro-iva-compras">Libro IVA Compras</a></li>
+            <li><a href="#balance-eerr">Balance y EERR</a></li>
+            <li><a href="#centros-de-costo">Centros de costo</a></li>
+            <li><a href="#ajuste-por-inflacion">Ajuste por inflación</a></li>
+          </ul>
+        </div>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">accounting:read</span> ver,
+          <span class="badge">accounting:write</span> crear/editar/eliminar. Aplica
+          a todos los módulos de esta área.
+        </div>
+
+        <!-- ──────── PLAN DE CUENTAS ──────── -->
+        <h2 id="plan-de-cuentas">Plan de cuentas</h2>
+        <p>
+          Árbol jerárquico de cuentas contables clasificadas por tipo
+          (activo, pasivo, patrimonio, resultado positivo/negativo, orden).
+          Cada cuenta tiene un código numérico (p. ej. <code>1.1.2.3</code>),
+          un padre, y opcionalmente un <em>rol de sistema</em> (caja, banco,
+          iva_debito, etc.) y una <em>categoría EERR</em>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Plan de cuentas</em>.</p>
+
+        <h3>Alta de cuenta</h3>
+        <div class="fields">
+          <div class="field-name">Código</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">Numérico con puntos (<code>1.1.2.3</code>). Hasta 8 niveles. El sistema sugiere el siguiente hermano.</div>
+          <div class="field-name">Nombre</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">Descripción legible.</div>
+          <div class="field-name">Padre</div>
+          <div class="field-req">requerido*</div>
+          <div class="field-desc">Sólo opcional en el nivel 1. El código del padre debe ser prefijo del nuevo.</div>
+          <div class="field-name">Tipo</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">activo · pasivo · patrimonio · resultado positivo · resultado negativo · orden.</div>
+          <div class="field-name">Rol de sistema</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Único. Se usa para imputaciones automáticas (caja, banco, gastos, ajustes_caja, iva_debito, iva_credito, etc.).</div>
+          <div class="field-name">Categoría EERR</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Etiqueta para agrupar en el estado de resultados.</div>
+        </div>
+
+        <h3>Eliminar</h3>
+        <p>
+          Bloqueado si la cuenta tiene hijos o está referenciada por un
+          asiento. Si es así, el sistema lo explica con copy claro.
+        </p>
+
+        <!-- ──────── LIBRO DIARIO ──────── -->
+        <h2 id="libro-diario">Libro diario</h2>
+        <p>
+          Registro cronológico de todos los <strong>asientos</strong>. Cada
+          asiento balancea (Σ débitos = Σ créditos), tiene fecha, período de
+          devengamiento (YYYY‑MM), descripción y origen
+          (transacciones / facturas / recibos / órdenes de pago / manual).
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Libro diario</em>.</p>
+
+        <h3>Generación automática</h3>
+        <p>
+          La mayoría de los asientos se generan solos cuando creás
+          operaciones en otros módulos:
+        </p>
+        <table>
+          <thead><tr><th>Origen</th><th>Regla</th></tr></thead>
+          <tbody>
+            <tr><td>Transacción · Ingreso (sin factura)</td><td>Débito en caja/banco · Crédito en ajustes_caja.</td></tr>
+            <tr><td>Transacción · Egreso (sin factura)</td><td>Débito en gastos · Crédito en caja/banco.</td></tr>
+            <tr><td>Transacción · Transferencia</td><td>Débito en cuenta destino · Crédito en cuenta origen (toma el lado <code>transfer_in</code>).</td></tr>
+            <tr><td>Facturas / Recibos / OPs</td><td><span class="badge muted">próximamente (L.2d)</span></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Filtros</h3>
+        <div class="fields">
+          <div class="field-name">Período</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">YYYY‑MM (mes).</div>
+          <div class="field-name">Origen</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Transactions · Invoices · Receipts · Payment orders · Manual · Todos.</div>
+          <div class="field-name">Canal</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Hereda del scope del topbar.</div>
+        </div>
+        <p>
+          Los asientos se expanden mostrando sus líneas (código, nombre de
+          cuenta, débito, crédito).
+        </p>
+
+        <!-- ──────── LIBRO MAYOR ──────── -->
+        <h2 id="libro-mayor">Libro mayor</h2>
+        <p>
+          Detalle de una cuenta en un rango de fechas. Cada línea de
+          asiento que la toca, con débito, crédito y saldo corrido. Útil
+          para conciliar.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Libro mayor</em>.</p>
+
+        <ol class="steps">
+          <li>Elegí la <strong>cuenta</strong> en el dropdown (ordenado por código).</li>
+          <li>Definí <strong>desde / hasta</strong> (opcional; vacío = todas).</li>
+          <li>El sistema lista hasta 5 000 líneas con: fecha, devengamiento,
+            descripción, origen, canal, débito, crédito y saldo corrido.</li>
+          <li>Cada origen es clickeable y abre el documento que generó la
+            línea (factura, recibo, OP, transacción).</li>
+        </ol>
+
+        <!-- ──────── LIBRO IVA VENTAS ──────── -->
+        <h2 id="libro-iva-ventas">Libro IVA Ventas</h2>
+        <p>
+          Reporte fiscal AFIP (RG 1361) de los comprobantes emitidos del
+          período, con apertura de neto / IVA por alícuota.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Libro IVA Ventas</em>.</p>
+
+        <ol class="steps">
+          <li>Elegí <strong>período</strong> (YYYY‑MM; por defecto el mes en curso).</li>
+          <li>Opcional: filtrá por <strong>canal fiscal</strong>.</li>
+          <li>Revisá la tabla: fecha, tipo, comprobante, razón social, CUIT,
+            columnas por alícuota (0 / 2,5 / 5 / 10,5 / 21 / 27) y totales.</li>
+          <li>Click en <strong>Exportar PDF</strong> para descargar
+            <code>libro-iva-ventas-{periodo}.pdf</code>.</li>
+        </ol>
+
+        <div class="callout warn">
+          <strong>Advertencias en pantalla:</strong>
+          <em>sinCae</em> = comprobante sin CAE (revisar emisión AFIP);
+          <em>sinItems</em> = comprobante sin apertura por alícuota (importado legacy).
+        </div>
+
+        <!-- ──────── LIBRO IVA COMPRAS ──────── -->
+        <h2 id="libro-iva-compras">Libro IVA Compras</h2>
+        <p>
+          Equivalente al de ventas pero para <strong>facturas de
+          compra</strong>. Mismo formato: período, canal, exportable a PDF.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Libro IVA Compras</em>.</p>
+
+        <!-- ──────── BALANCE / EERR ──────── -->
+        <h2 id="balance-eerr">Balance / EERR</h2>
+        <p>
+          Reporte multi‑pestaña sobre saldos de cuentas a una fecha.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Balance / EERR</em>.</p>
+
+        <div class="cards-grid">
+          <div class="card">
+            <div class="meta">Pestaña</div>
+            <div class="title">Saldos (sumas y saldos)</div>
+            <p>Por cuenta: código, nombre, tipo, debe, haber, saldo. Agrupado por tipo, con totales y badge verde/rojo indicando si el balance cierra.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Pestaña</div>
+            <div class="title">EERR (estado de resultados)</div>
+            <p>Ingresos vs gastos agrupados por <em>categoría EERR</em>. Resultado neto al pie.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Pestaña</div>
+            <div class="title">Balance General</div>
+            <p>Activos, pasivos y patrimonio totales. Valida la ecuación contable.</p>
+          </div>
+        </div>
+
+        <ol class="steps">
+          <li>Elegí el <strong>período</strong> (mes de cierre, YYYY‑MM).</li>
+          <li>Revisá cada pestaña. Los saldos se calculan en vivo a partir
+            de las líneas de asiento.</li>
+        </ol>
+
+        <!-- ──────── CENTROS DE COSTO ──────── -->
+        <h2 id="centros-de-costo">Centros de costo</h2>
+        <p>
+          Buckets para imputar gastos a proyectos, áreas o divisiones. Hoy
+          es un CRUD plano; la asignación automática en líneas de asiento
+          llega con la fase <span class="badge muted">L.3</span>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Centros de costo</em>.</p>
+
+        <div class="fields">
+          <div class="field-name">Código</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">Mayúsculas + alfanumérico + <code>_</code> / <code>-</code> (2 a 30). Inmutable.</div>
+          <div class="field-name">Nombre</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">2 a 60 caracteres.</div>
+          <div class="field-name">Descripción</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Hasta 200 caracteres.</div>
+          <div class="field-name">Activo</div>
+          <div class="field-req">toggle</div>
+          <div class="field-desc">Si lo desactivás deja de aparecer en pickers.</div>
+        </div>
+
+        <!-- ──────── AJUSTE POR INFLACIÓN ──────── -->
+        <h2 id="ajuste-por-inflacion">Ajuste por inflación</h2>
+        <p>
+          Registro de coeficientes mensuales de RG 4667 (UVA o índice). Por
+          ahora es CRUD de referencia; la reexpresión automática del
+          balance llega con <span class="badge muted">L.4</span>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Ajuste inflación</em>.</p>
+
+        <div class="fields">
+          <div class="field-name">Período</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">YYYY‑MM. Único.</div>
+          <div class="field-name">Coeficiente</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">Positivo, hasta 999,999999.</div>
+          <div class="field-name">Fuente</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">P. ej. "UVA", "IPC".</div>
+          <div class="field-name">Notas</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Hasta 500 caracteres.</div>
+        </div>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="hr.html">Personal →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

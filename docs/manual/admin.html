@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Administración — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Administración</strong></div>
+        <div class="pill">Usuarios · AFIP · Backups</div>
+      </header>
+      <main>
+        <h1>Administración</h1>
+        <p class="lead">
+          Configuración global del ERP: alta de usuarios y roles,
+          integración fiscal con AFIP (padrón, puntos de venta, preview de
+          PDF) y descarga de backups diarios. Acceso restringido a owner /
+          admin.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#usuarios">Usuarios y roles</a></li>
+            <li><a href="#padron-afip">Padrón AFIP</a></li>
+            <li><a href="#puntos-de-venta">Puntos de venta AFIP</a></li>
+            <li><a href="#preview-pdf">Preview de PDF</a></li>
+            <li><a href="#backups">Backups</a></li>
+          </ul>
+        </div>
+
+        <!-- ──────── USUARIOS ──────── -->
+        <h2 id="usuarios">Usuarios y roles</h2>
+        <p>
+          Alta, baja y asignación de roles de los usuarios que pueden
+          ingresar al ERP. El primer usuario que entra al sistema se vuelve
+          <span class="badge solid">owner</span> automáticamente
+          ("bootstrap"); a partir de ese momento, los nuevos vienen por
+          invitación.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Usuarios</em>.</p>
+
+        <h3>Listar usuarios</h3>
+        <p>Tabla con nombre, email, avatar, roles actuales y última actividad.</p>
+
+        <h3>Invitar usuario</h3>
+        <ol class="steps">
+          <li>Click en <strong>Invitar usuario</strong>.</li>
+          <li>Email (requerido) + al menos un rol.</li>
+          <li>Al confirmar, el usuario recibe un mail con link de alta.</li>
+        </ol>
+
+        <h3>Asignar / revocar roles</h3>
+        <ol class="steps">
+          <li>En la fila del usuario, abrí el dropdown de roles.</li>
+          <li>Tildá / destildá. Owner puede asignar cualquier rol incluso
+            <em>owner</em>; admin puede todos menos owner.</li>
+          <li>El sistema impide quedarse sin owners: no podés revocarle el
+            rol al último owner.</li>
+        </ol>
+
+        <h3>Matriz de roles vs permisos</h3>
+        <table>
+          <thead><tr><th>Permiso</th><th>owner</th><th>admin</th><th>finance</th><th>operations</th><th>warehouse</th><th>driver</th></tr></thead>
+          <tbody>
+            <tr><td>Ventas (clientes, comprobantes, recibos, aging)</td><td>✓</td><td>✓</td><td>✓</td><td>solo lectura</td><td>—</td><td>—</td></tr>
+            <tr><td>Compras (proveedores, facturas, OPs)</td><td>✓</td><td>✓</td><td>✓</td><td>solo lectura</td><td>—</td><td>—</td></tr>
+            <tr><td>Tesorería (cuentas, caja, cheques)</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Contabilidad</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Personal (HR)</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Flota / viajes (futuro)</td><td>✓</td><td>✓</td><td>—</td><td>✓</td><td>—</td><td>solo sus viajes</td></tr>
+            <tr><td>Depósitos / pallets (futuro)</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>✓</td><td>—</td></tr>
+            <tr><td>Admin (usuarios, AFIP, backups)</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Saldos de apertura · reabrir período sueldos</td><td>✓</td><td>según permiso</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Auditoría.</strong> Cada invitación, asignación o
+          revocación queda registrada en <code>audit_events</code> con
+          actor, evento, usuario destino y payload.
+        </div>
+
+        <!-- ──────── PADRÓN ──────── -->
+        <h2 id="padron-afip">Padrón AFIP</h2>
+        <p>
+          Consulta directa al padrón AFIP por CUIT. Devuelve razón social,
+          condición frente al IVA y domicilio fiscal. Se usa desde el alta
+          de cliente / proveedor (botón <em>Verificar AFIP</em>), pero
+          también está disponible como herramienta standalone.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Padrón AFIP</em>.</p>
+        <ol class="steps">
+          <li>Ingresá un CUIT de 11 dígitos.</li>
+          <li>Click en <strong>Buscar</strong>. El resultado se cachea 24
+            horas.</li>
+          <li>Hay un <strong>rate limit</strong> de 60 consultas por hora
+            por usuario, para no quemar el cupo AFIP.</li>
+        </ol>
+        <p>Permiso: <span class="badge">padron:lookup</span>.</p>
+
+        <!-- ──────── PUNTOS DE VENTA ──────── -->
+        <h2 id="puntos-de-venta">Puntos de venta AFIP</h2>
+        <p>
+          Sincroniza los puntos de venta declarados en AFIP (WSFEv1) y los
+          mapea a los canales del ERP. Cada POS define en qué letra y bajo
+          qué canal se emiten los comprobantes fiscales.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Puntos de venta</em>.</p>
+
+        <h3>Mapeo actual</h3>
+        <table>
+          <thead><tr><th>POS</th><th>Canal</th><th>Uso</th></tr></thead>
+          <tbody>
+            <tr><td><code>00003</code></td><td>Jouve fiscal</td><td>Facturas A/B/C de Logística Jouve.</td></tr>
+            <tr><td><code>00004</code></td><td>DZ fiscal</td><td>Facturas A/B/C de DZ Instalaciones.</td></tr>
+            <tr><td><code>00005</code></td><td>Deshabilitado</td><td>No usar (legacy).</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Acciones</h3>
+        <ol class="steps">
+          <li><strong>Diagnóstico:</strong> al entrar a la página el
+            sistema muestra el estado del certificado AFIP (serial, vencimiento)
+            y la última conexión.</li>
+          <li><strong>Sincronizar:</strong> botón <em>Sincronizar AFIP</em>
+            trae el listado de POS habilitados y actualiza la tabla local.</li>
+          <li><strong>Configurar POS:</strong> abrir un POS y asignar
+            canal, alias y el toggle <em>habilitado</em>. Para habilitarlo
+            es obligatorio asignarle canal.</li>
+        </ol>
+
+        <p>Permiso: <span class="badge">afip:admin</span> (owner / admin).</p>
+
+        <!-- ──────── PREVIEW PDF ──────── -->
+        <h2 id="preview-pdf">Preview de PDF de comprobantes</h2>
+        <p>
+          Visualizador para diseñar / verificar cómo sale el PDF de cada
+          punto de venta. Útil después de cambiar el logo, el footer o el
+          formato del comprobante.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Preview PDF</em>.</p>
+        <ol class="steps">
+          <li>Elegí POS + un comprobante de muestra (puede ser real o
+            dummy).</li>
+          <li>Se renderiza el PDF tal cual le va a llegar al cliente por
+            email.</li>
+        </ol>
+
+        <!-- ──────── BACKUPS ──────── -->
+        <h2 id="backups">Backups</h2>
+        <p>
+          Descarga de los backups diarios de la base. Se generan por un
+          cron externo y se guardan en el bucket
+          <code>backups-daily</code>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Backups</em>.</p>
+
+        <ol class="steps">
+          <li>El listado muestra un archivo por día con formato
+            <code>backup-YYYY-MM-DD.dump</code>, tamaño y hash SHA256.</li>
+          <li>Click <strong>Descargar</strong> &gt; el sistema genera un
+            <em>signed URL</em> de 5 minutos.</li>
+          <li>Verificá el hash SHA256 contra el del archivo para confirmar
+            integridad.</li>
+        </ol>
+
+        <div class="callout warn">
+          <strong>Cuidado.</strong> El backup contiene datos sensibles. No
+          lo subas a servicios públicos ni lo compartas por canales no
+          autorizados.
+        </div>
+
+        <p>Permiso: <span class="badge">audit:read</span> (owner / admin).</p>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="collaboration.html">Colaboración →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

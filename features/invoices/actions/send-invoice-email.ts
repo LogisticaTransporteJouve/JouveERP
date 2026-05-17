@@ -6,7 +6,11 @@ import { z } from "zod";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import { formatNumber2, safeFilenamePart } from "@/lib/format";
+import {
+  buildPdfFilename,
+  formatArDateShort,
+  formatNumber2,
+} from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -99,9 +103,12 @@ export async function sendInvoiceByEmailAction(
     return { ok: false, error: "No se pudo generar el PDF." };
   }
 
-  const fechaLabel = new Date(invoice.fecha).toLocaleDateString("es-AR");
+  const fechaLabel = formatArDateShort(invoice.fecha);
   const totalLabel = `$${formatNumber2(Number(invoice.imp_total))}`;
-  const pdfFilename = `${numeroLabel} - ${safeFilenamePart(client?.legal_name ?? "Cliente")}.pdf`;
+  const pdfFilename = buildPdfFilename(
+    numeroLabel,
+    client?.legal_name ?? "Cliente",
+  );
 
   const result = await sendComprobanteByEmail({
     entity_type: "invoice",

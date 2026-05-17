@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,8 +19,6 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-const UNIQUE_VIOLATION = "23505";
-const FK_VIOLATION = "23503";
 
 export async function listChartOfAccountsAction(
   options: { onlyActive?: boolean } = {},
@@ -119,7 +118,7 @@ export async function createChartAccountAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       if (error.message.includes("system_role")) {
         return {
           ok: false,
@@ -172,7 +171,7 @@ export async function updateChartAccountAction(
     .eq("id", id);
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       if (error.message.includes("system_role")) {
         return {
           ok: false,
@@ -225,7 +224,7 @@ export async function deleteChartAccountAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    if (error.code === FK_VIOLATION) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return {
         ok: false,
         error: "La cuenta tiene movimientos asociados, no se puede borrar.",

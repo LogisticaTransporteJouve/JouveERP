@@ -33,11 +33,11 @@ import {
 } from "@/features/purchase-invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import { formatArgentineDate, formatMoneyWithCode } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const money = (n: number, currency: string) => `${currency} ${formatNumber2(n)}`;
+const money = formatMoneyWithCode;
 
 export default async function PaymentOrderDetailPage({
   params,

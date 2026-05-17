@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><strong>Manual JouveERP</strong></div>
+        <div class="pill">v1 · 2026</div>
+      </header>
+      <main>
+        <section class="hero">
+          <div class="kicker">Documentación de usuario</div>
+          <h1>Manual JouveERP</h1>
+          <p>
+            Guía operativa para todos los procesos del ERP: ventas, compras,
+            tesorería, contabilidad, personal y administración. Cada sección
+            explica qué hace cada módulo, qué datos pide y los pasos a seguir
+            para completar cada operación.
+          </p>
+        </section>
+
+        <h2>Mapa del sistema</h2>
+        <p class="lead">
+          La barra lateral del manual replica la del ERP. Los módulos se
+          agrupan por área funcional. Hacé clic en una tarjeta para abrir su
+          guía.
+        </p>
+
+        <div class="cards-grid">
+          <a class="card" href="getting-started.html">
+            <div class="meta">Primeros pasos</div>
+            <div class="title">🚀 Bienvenida</div>
+            <p>Ingreso, navegación, selector de canal (DZ / Jouve, fiscal /
+              interno), búsqueda global, tema claro/oscuro y notificaciones.</p>
+          </a>
+
+          <a class="card" href="sales.html">
+            <div class="meta">Ventas</div>
+            <div class="title">🧾 Clientes, comprobantes y cobros</div>
+            <p>Alta y cuenta corriente de clientes, emisión de facturas
+              fiscales con AFIP, NC/ND, recibos con imputaciones y aging de
+              cuentas por cobrar.</p>
+          </a>
+
+          <a class="card" href="purchases.html">
+            <div class="meta">Compras</div>
+            <div class="title">🛒 Proveedores y pagos</div>
+            <p>Padrón de proveedores y categorías, facturas de compra,
+              órdenes de pago con cheques propios y endosados, aging por
+              vencimientos.</p>
+          </a>
+
+          <a class="card" href="treasury.html">
+            <div class="meta">Tesorería</div>
+            <div class="title">👛 Cuentas, caja y cheques</div>
+            <p>Cuentas bancarias y de caja, movimientos manuales y
+              transferencias, ciclo de cheques recibidos y emitidos.</p>
+          </a>
+
+          <a class="card" href="accounting.html">
+            <div class="meta">Contabilidad</div>
+            <div class="title">📒 Plan de cuentas, libros y balances</div>
+            <p>Plan de cuentas jerárquico, asientos automáticos, libro
+              mayor, IVA ventas/compras, balance y EERR, centros de costo,
+              ajuste por inflación.</p>
+          </a>
+
+          <a class="card" href="hr.html">
+            <div class="meta">Personal</div>
+            <div class="title">🪪 Empleados, sueldos y asistencia</div>
+            <p>Legajo de empleados, grilla mensual de asistencia, períodos
+              de sueldos con extras y pagos parciales, vacaciones y licencias.</p>
+          </a>
+
+          <a class="card" href="admin.html">
+            <div class="meta">Administración</div>
+            <div class="title">🛡 Usuarios, AFIP y backups</div>
+            <p>Alta de usuarios y roles, padrón AFIP, puntos de venta,
+              preview de PDF y descarga de backups diarios.</p>
+          </a>
+
+          <a class="card" href="collaboration.html">
+            <div class="meta">Colaboración</div>
+            <div class="title">💬 Chat, búsqueda y adjuntos</div>
+            <p>Mensajería interna con menciones, búsqueda global
+              (Ctrl/⌘ K), notificaciones in-app + push, archivos
+              adjuntos a cualquier documento y configuración del perfil.</p>
+          </a>
+        </div>
+
+        <h2>Convenciones del manual</h2>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="meta">Estilo</div>
+            <div class="title">Diseño espejado del ERP</div>
+            <p>Paleta monocromática y tipografía Geist iguales a la app.
+              No hay colores de marca: el contraste y el copy guían la lectura.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Diagramas</div>
+            <div class="title">Mermaid para flujos</div>
+            <p>Cada proceso de varios pasos viene con su diagrama. Si tu
+              navegador no carga Mermaid, el texto debajo describe lo mismo.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Permisos</div>
+            <div class="title">Roles indicados por módulo</div>
+            <p>Cada sección aclara quién puede ver / escribir / administrar:
+              <span class="badge">owner</span> <span class="badge">admin</span>
+              <span class="badge">finance</span> <span class="badge">operations</span>
+              <span class="badge">warehouse</span> <span class="badge">driver</span>.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Glosario rápido</div>
+            <div class="title">Términos AR</div>
+            <p>CAE, NC/ND, IVA débito/crédito, libro IVA, retenciones,
+              cheque en cartera, e-cheq, viático, padrón AFIP — todos
+              definidos en su sección correspondiente.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Nota.</strong> El manual describe la funcionalidad del
+          sistema al <em>2026‑05‑17</em>. Las funciones marcadas como
+          <span class="badge muted">próximamente</span> están definidas
+          en el roadmap pero todavía no están disponibles en producción.
+        </div>
+
+        <div class="footer-note">
+          JouveERP — DZ &amp; Sons S.A · Transporte Jouve + DZ Instalaciones.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

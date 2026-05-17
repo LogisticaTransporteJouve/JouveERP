@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { moneyAmountPreprocess } from "@/lib/validation/common";
 
 import type { Database } from "@/lib/db/database.types";
 
@@ -39,15 +40,7 @@ const trimmedNullable = z
   .optional();
 
 const moneyAmount = z.preprocess(
-  (value) => {
-    if (typeof value === "string") {
-      const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
-      if (cleaned.length === 0) return undefined;
-      const parsed = Number.parseFloat(cleaned);
-      return Number.isFinite(parsed) ? parsed : value;
-    }
-    return value;
-  },
+  moneyAmountPreprocess,
   z
     .number()
     .finite("Importe inválido.")

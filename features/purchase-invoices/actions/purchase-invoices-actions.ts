@@ -2,6 +2,7 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -34,7 +35,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -318,7 +318,7 @@ export async function createPurchaseInvoiceAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error:
@@ -436,7 +436,7 @@ export async function updatePurchaseInvoiceAction(
     .eq("id", id);
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: "Otra factura del proveedor ya usa esa combinación de número.",

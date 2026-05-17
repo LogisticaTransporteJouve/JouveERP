@@ -12,6 +12,7 @@ import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-key
 import { purchaseInvoicesKeys } from "@/features/purchase-invoices/lib/purchase-invoices-keys";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -110,7 +111,7 @@ export function useUpdatePaymentOrder() {
       runAction(() => updatePaymentOrderAction(input)),
     onSuccess: (_data, variables) => {
       invalidatePaymentOrderEffects(qc);
-      const id = (variables as { id?: string }).id;
+      const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: paymentOrdersKeys.detail(id) });
     },
   });

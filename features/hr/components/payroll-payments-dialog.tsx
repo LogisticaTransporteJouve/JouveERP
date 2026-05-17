@@ -45,11 +45,7 @@ import {
   type PayrollPaymentMethod,
 } from "../payroll-schema";
 
-import { formatNumber2 } from "@/lib/format";
-
-function money(n: number): string {
-  return `$ ${formatNumber2(n)}`;
-}
+import { formatMoney as money } from "@/lib/format";
 
 type Props = {
   entryId: string;

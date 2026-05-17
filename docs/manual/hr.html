@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Personal — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Personal</strong></div>
+        <div class="pill">Empleados · Sueldos · Asistencia · Vacaciones</div>
+      </header>
+      <main>
+        <h1>Personal</h1>
+        <p class="lead">
+          Legajo de empleados, grilla mensual de asistencia, períodos de
+          sueldos con extras y pagos parciales, y administración de
+          vacaciones y licencias.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#empleados">Empleados</a></li>
+            <li><a href="#asistencia">Asistencia</a></li>
+            <li><a href="#sueldos">Sueldos (payroll)</a></li>
+            <li><a href="#pagos-sueldos">Pagos de sueldos</a></li>
+            <li><a href="#vacaciones">Vacaciones y licencias</a></li>
+            <li><a href="#flujo-mensual">Flujo mensual completo</a></li>
+          </ul>
+        </div>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">hr:read</span> ver,
+          <span class="badge">hr:write</span> crear/editar/eliminar,
+          <span class="badge">hr:admin</span> para acciones admin
+          (reabrir período, otorgar/ajustar saldo vacaciones).
+        </div>
+
+        <!-- ──────── EMPLEADOS ──────── -->
+        <h2 id="empleados">Empleados</h2>
+        <p>
+          Padrón maestro de empleados. Cada empleado tiene nombre legal,
+          datos de identificación (CUIL, CBU), fecha de ingreso, frecuencia
+          de pago, sueldo base y viático.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Personal &gt; <em>Empleados</em>.</p>
+
+        <h3>Listado</h3>
+        <ul>
+          <li>Búsqueda por nombre.</li>
+          <li>Filtro <em>solo activos</em> (por defecto activo).</li>
+          <li>Paginación 50 por página.</li>
+        </ul>
+
+        <h3>Alta de empleado</h3>
+        <div class="fields">
+          <div class="field-name">Nombre legal</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">Como figura en el recibo.</div>
+          <div class="field-name">Frecuencia de pago</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">semanal · mensual · mixto.</div>
+          <div class="field-name">Fecha de ingreso</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">YYYY‑MM‑DD.</div>
+          <div class="field-name">Viático</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">≥ 0. Acepta notación argentina.</div>
+          <div class="field-name">Posición</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Puesto.</div>
+          <div class="field-name">CUIL</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">11 dígitos (se limpian guiones).</div>
+          <div class="field-name">CBU</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">22 dígitos.</div>
+          <div class="field-name">Sueldo base</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Para referencia. Los cambios quedan auditados.</div>
+          <div class="field-name">Notas</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Comentarios libres.</div>
+        </div>
+
+        <h3>Baja y reactivación</h3>
+        <ol class="steps">
+          <li>Desde el detalle: <em>Dar de baja</em> → elegir fecha de
+            egreso (opcional: notas).</li>
+          <li>El empleado pasa a <span class="badge warn">inactivo</span>
+            pero conserva todo el histórico.</li>
+          <li>Para revertir, usar <em>Reactivar</em>.</li>
+        </ol>
+
+        <h3>Detalle del empleado</h3>
+        <p>
+          Datos personales, info de pago, badges de estado, sección de
+          <a href="#vacaciones">vacaciones y licencias</a> (saldo + alta
+          rápida).
+        </p>
+
+        <!-- ──────── ASISTENCIA ──────── -->
+        <h2 id="asistencia">Asistencia</h2>
+        <p>
+          Grilla mensual: filas = empleados, columnas = días. Cada celda
+          muestra un código corto (AJ, AI, Ta, ET, Ef, Li, Fe) según el
+          tipo de evento. Los feriados están marcados visualmente y los
+          fines de semana atenuados.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Personal &gt;
+          <em>Asistencia</em> → te lleva al mes actual. Podés navegar mes
+          a mes con flechas en el header.</p>
+
+        <h3>Cargar / editar asistencia</h3>
+        <ol class="steps">
+          <li>Click sobre la celda del empleado y día.</li>
+          <li>Elegí <strong>tipo</strong>:
+            <ul>
+              <li><strong>absent_justified</strong> — ausencia con aviso.</li>
+              <li><strong>absent_unjustified</strong> — ausencia sin aviso.</li>
+              <li><strong>late</strong> — llegada tarde.</li>
+              <li><strong>early_leave</strong> — retiro temprano.</li>
+              <li><strong>sick</strong> — parte médico.</li>
+            </ul>
+          </li>
+          <li>Opcional: <strong>horas perdidas</strong> (0 a 24) y
+            <strong>notas</strong> (hasta 500).</li>
+          <li><strong>Guardar.</strong> Si ya había un registro ese día, lo
+            sobrescribe.</li>
+        </ol>
+
+        <h3>Eventos automáticos</h3>
+        <p>
+          Las celdas con <strong>vacaciones / licencias</strong> y los
+          <strong>feriados</strong> son auto-sincronizadas (no editables
+          desde acá): se administran desde
+          <a href="#vacaciones">Vacaciones</a> y desde el calendario de
+          feriados.
+        </p>
+
+        <h3>Eliminar</h3>
+        <p>
+          Sólo se pueden eliminar registros <em>manuales</em>. Los que
+          vienen de licencias/feriados se borran desde su fuente.
+        </p>
+
+        <!-- ──────── SUELDOS ──────── -->
+        <h2 id="sueldos">Sueldos (payroll)</h2>
+        <p>
+          Períodos mensuales de sueldo. Cada período tiene una <em>entry</em>
+          por empleado activo y va de
+          <span class="badge">borrador</span> a
+          <span class="badge solid">cerrado</span>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Personal &gt; <em>Sueldos</em>.</p>
+
+        <h3>Crear período mensual (seed)</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nuevo período</strong> y elegí año + mes.</li>
+          <li>El sistema crea el período y una <em>entry</em> por cada
+            empleado activo, con todos los conceptos en cero.</li>
+        </ol>
+
+        <h3>Grilla del período</h3>
+        <p>
+          Una fila por empleado. Columnas editables inline (deshabilitadas
+          si el período está cerrado):
+        </p>
+        <table>
+          <thead><tr><th>Columna</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td>Sueldo neto</td><td>Importe principal del recibo.</td></tr>
+            <tr><td>Extras</td><td>Suma de bonos y deducciones. Editás desde el botón <em>Extras</em>.</td></tr>
+            <tr><td>Vacaciones</td><td>Pago de vacaciones del mes.</td></tr>
+            <tr><td>Viáticos</td><td>Para divisiones que viajan.</td></tr>
+            <tr><td>Deudas</td><td>Descuentos por adelantos, multas, préstamos.</td></tr>
+            <tr><td>Teléfono</td><td>Reintegro telefonía.</td></tr>
+            <tr><td><strong>Total a pagar</strong></td><td><code>sueldo + extras + vacaciones + viáticos − deudas − teléfono</code>.</td></tr>
+            <tr><td>Pagado</td><td>Suma de los pagos parciales registrados.</td></tr>
+            <tr><td>Saldo</td><td>Total a pagar − pagado.</td></tr>
+            <tr><td>Notas</td><td>Libre.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Extras (bonos / deducciones)</h3>
+        <ol class="steps">
+          <li>Desde la fila del empleado, click <em>Extras</em>.</li>
+          <li>Agregá una línea: monto + descripción. La convención de
+            signo va en la descripción (p. ej. "−10 000 multa").</li>
+          <li>Editás o eliminás cada extra individualmente.</li>
+        </ol>
+
+        <h3>Cerrar y reabrir período</h3>
+        <ul>
+          <li><strong>Cerrar:</strong> el período pasa a
+            <span class="badge solid">cerrado</span>. Las entries quedan
+            congeladas pero los pagos siguen permitidos.</li>
+          <li><strong>Reabrir:</strong> sólo <span class="badge solid">owner</span>
+            / <span class="badge">admin</span> (permiso
+            <span class="badge">hr:admin</span>).</li>
+        </ul>
+
+        <!-- ──────── PAGOS DE SUELDOS ──────── -->
+        <h2 id="pagos-sueldos">Pagos de sueldos</h2>
+        <p>
+          Cada empleado puede recibir varios pagos parciales: una
+          transferencia + un complemento en efectivo, dos quincenas, etc.
+        </p>
+        <p><strong>Ubicación:</strong> botón <em>Pagos</em> en cada fila de la
+          grilla mensual.</p>
+        <ol class="steps">
+          <li>Click en <em>Pagos</em> &gt; <strong>Nuevo pago</strong>.</li>
+          <li>Completá: cuenta bancaria/caja, canal, monto (&gt; 0), método
+            (<em>transferencia</em> o <em>efectivo</em>), fecha de pago.</li>
+          <li>Opcional: notas, ID de transacción externa.</li>
+          <li><strong>Guardar.</strong> Recalcula el saldo de la entry.</li>
+        </ol>
+        <p>
+          Los pagos se pueden editar o eliminar. No hay tope: si el total
+          pagado supera el total a pagar, el saldo queda en negativo.
+        </p>
+
+        <!-- ──────── VACACIONES ──────── -->
+        <h2 id="vacaciones">Vacaciones y licencias</h2>
+        <p>
+          Saldo anual de vacaciones por empleado + registro de licencias
+          de cualquier tipo (vacaciones, enfermedad, franco, maternidad,
+          paternidad, otro). Las licencias se sincronizan a la grilla de
+          asistencia automáticamente.
+        </p>
+        <p><strong>Ubicación:</strong> tarjeta <em>Vacaciones</em> en el
+          detalle del empleado.</p>
+
+        <h3>Otorgar saldos del año (admin)</h3>
+        <ol class="steps">
+          <li>Acción masiva ejecutada una vez al año por
+            <span class="badge solid">owner</span> /
+            <span class="badge">admin</span>.</li>
+          <li>Indica el año destino y si se traslada saldo del año previo.</li>
+          <li>Crea filas para todos los empleados activos con días
+            entitled (defaulteado a 21) y bonus_days del año anterior si
+            se eligió arrastre.</li>
+        </ol>
+
+        <h3>Ajustar saldo (admin)</h3>
+        <p>
+          Permite editar bonus_days, marcar el saldo como
+          <span class="badge">expired</span> o
+          <span class="badge">extended</span> y dejar nota. Útil para
+          extensiones por convenio o correcciones.
+        </p>
+
+        <h3>Cargar una licencia</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nueva licencia</strong>.</li>
+          <li>Tipo (vacaciones / enfermedad / franco / maternidad /
+            paternidad / otro), fecha desde, fecha hasta (≥ desde) y notas.</li>
+          <li>El sistema calcula días = hasta − desde + 1.</li>
+          <li>Si es <em>vacaciones</em>, suma al <em>used_days</em> del
+            saldo y crea automáticamente las celdas de
+            <a href="#asistencia">Asistencia</a>.</li>
+        </ol>
+
+        <h3>Editar / eliminar licencia</h3>
+        <p>
+          Si la editás o la borrás, los días vacacionales se recalculan y
+          la grilla de asistencia se sincroniza.
+        </p>
+
+        <!-- ──────── FLUJO ──────── -->
+        <h2 id="flujo-mensual">Flujo mensual completo</h2>
+        <div class="diagram">
+          <div class="mermaid">
+flowchart TB
+    A[Día a día<br/>cargar asistencia] --> B[Cargar licencias<br/>se sincronizan a asistencia]
+    B --> C[Fin de mes<br/>crear período de sueldos]
+    C --> D[Ajustar sueldo neto<br/>y extras]
+    D --> E[Cerrar período]
+    E --> F[Pagos parciales<br/>transferencias o efectivo]
+    F --> G[Saldo = total - pagado]
+          </div>
+        </div>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="admin.html">Administración →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

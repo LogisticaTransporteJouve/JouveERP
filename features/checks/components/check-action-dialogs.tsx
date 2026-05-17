@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
+import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -34,8 +35,6 @@ import {
   useRejectCheque,
 } from "../hooks/use-checks";
 import type { Cheque } from "../schema";
-
-const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 
 interface ChannelOption {
   id: string;

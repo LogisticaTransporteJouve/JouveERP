@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -86,7 +87,7 @@ export function useUpdateEmployee() {
       runAction(() => updateEmployeeAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: employeesKeys.all });
-      const id = (variables as { id?: string }).id;
+      const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: employeesKeys.byId(id) });
     },
   });

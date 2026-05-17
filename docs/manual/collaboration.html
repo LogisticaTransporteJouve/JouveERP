@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Colaboración — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Colaboración</strong></div>
+        <div class="pill">Chat · Búsqueda · Notif · Adjuntos · Perfil</div>
+      </header>
+      <main>
+        <h1>Colaboración</h1>
+        <p class="lead">
+          Mensajería interna entre empleados, búsqueda global, sistema de
+          notificaciones in‑app + push, adjuntos polimórficos a cualquier
+          documento y configuración del propio perfil.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#chat">Chat</a></li>
+            <li><a href="#busqueda-global">Búsqueda global</a></li>
+            <li><a href="#notificaciones">Notificaciones</a></li>
+            <li><a href="#archivos-adjuntos">Archivos adjuntos</a></li>
+            <li><a href="#perfil">Mi perfil</a></li>
+          </ul>
+        </div>
+
+        <!-- ──────── CHAT ──────── -->
+        <h2 id="chat">Chat</h2>
+        <p>
+          Mensajería interna en tiempo real. Tres tipos de canal:
+          <em>self</em> (notas personales),
+          <em>DM</em> (chat 1‑a‑1) y
+          <em>grupo</em>. Soporta markdown, reacciones con emoji, respuestas,
+          menciones <code>@usuario</code> e indicador de "escribiendo…".
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; arriba &gt; <em>Chat</em>.
+          El sidebar muestra un <strong>badge rojo</strong> con la cantidad
+          de mensajes sin leer.</p>
+
+        <h3>Crear un DM o grupo</h3>
+        <ol class="steps">
+          <li>En la lista de canales, click en <strong>Nuevo</strong>.</li>
+          <li><strong>DM:</strong> elegí un usuario. Si ya existe el DM, se
+            abre el existente (idempotente).</li>
+          <li><strong>Grupo:</strong> nombre (1‑60), descripción opcional
+            (0‑280) y entre 2 y 50 miembros. El creador queda como admin
+            del grupo.</li>
+        </ol>
+
+        <h3>Enviar y editar mensajes</h3>
+        <div class="fields">
+          <div class="field-name">Texto</div>
+          <div class="field-req">1‑4000 chars</div>
+          <div class="field-desc">Soporta markdown (bold, italic, listas, links, code blocks).</div>
+          <div class="field-name">@mención</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Escribí <code>@</code>; aparece un popover con autocompletado (↑ ↓ Enter Esc).</div>
+          <div class="field-name">Responder</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Click en el mensaje &gt; <em>Responder</em>. Aparece el contexto en tu mensaje.</div>
+          <div class="field-name">Reacciones</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">12 emojis rápidos; click para alternar.</div>
+        </div>
+        <ul>
+          <li>Sólo podés editar tus propios mensajes.</li>
+          <li>Eliminar es <em>soft‑delete</em>: el texto queda en blanco
+            pero el hilo se preserva.</li>
+        </ul>
+
+        <h3>Administración de grupo</h3>
+        <p>
+          Los admins del grupo pueden renombrarlo, agregar y quitar
+          miembros, y silenciar.
+        </p>
+
+        <h3>Marcar como leído</h3>
+        <p>
+          Cuando estás viendo un canal, todos los mensajes y notificaciones
+          de ese canal se marcan como leídos automáticamente (con un
+          retraso de ~1,5 s para evitar marcar mensajes que estás scrolleando).
+        </p>
+
+        <div class="callout">
+          <strong>Permisos.</strong> Todos los roles excepto driver pueden
+          leer y escribir. Para crear grupos se necesita
+          <span class="badge">chat:create_group</span> (owner, admin,
+          finance, operations).
+        </div>
+
+        <!-- ──────── BÚSQUEDA ──────── -->
+        <h2 id="busqueda-global">Búsqueda global</h2>
+        <p>
+          Atajo <strong>Ctrl + K</strong> / <strong>⌘ + K</strong> abre la
+          paleta de búsqueda. Devuelve hasta 50 resultados rankeados de:
+        </p>
+        <ul>
+          <li>Clientes</li>
+          <li>Proveedores</li>
+          <li>Comprobantes de venta (facturas, NC, ND)</li>
+          <li>Facturas de compra</li>
+          <li>Recibos</li>
+          <li>Órdenes de pago</li>
+          <li>Transacciones de caja</li>
+        </ul>
+        <ol class="steps">
+          <li>Apretá <strong>Ctrl/⌘ + K</strong>.</li>
+          <li>Escribí mínimo 2 caracteres, máximo 200.</li>
+          <li>Navegá con flechas, Enter para abrir el resultado.</li>
+        </ol>
+        <p>
+          Los resultados respetan permisos: si no podés ver una entidad,
+          tampoco aparece en la búsqueda.
+        </p>
+
+        <!-- ──────── NOTIFICACIONES ──────── -->
+        <h2 id="notificaciones">Notificaciones</h2>
+        <p>
+          Campana en el topbar. Hasta 50 ítems en el popover, badge rojo
+          con la cantidad de no leídas. La generación es por trigger en
+          DB.
+        </p>
+
+        <h3>Tipos actuales</h3>
+        <table>
+          <thead><tr><th>Tipo</th><th>Cuándo se dispara</th></tr></thead>
+          <tbody>
+            <tr><td><code>chat_message</code></td><td>Nuevo mensaje en un canal donde sos miembro. No te llega para tus propios mensajes.</td></tr>
+            <tr><td><code>chat_reply</code></td><td>Alguien respondió un mensaje tuyo.</td></tr>
+            <tr><td><code>chat_mention</code></td><td>Te mencionaron con <code>@</code>. Se de‑duplica respecto a la notif de mensaje.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Acciones</h3>
+        <ul>
+          <li>Click en una notif → te lleva al recurso (canal de chat,
+            comprobante) y la marca como leída.</li>
+          <li>Botón <strong>Marcar todas como leídas</strong>.</li>
+          <li><strong>Silenciar un canal</strong> desde el chat → deja de
+            generar notificaciones (pero los mensajes siguen apareciendo).</li>
+        </ul>
+
+        <h3>Push web</h3>
+        <p>
+          Si en tu perfil activaste <em>push notifications</em>, recibís
+          también notificaciones del sistema operativo (escritorio / mobile)
+          aunque el ERP no esté abierto. Se manejan vía Web Push + Service
+          Worker; podés desuscribirte desde el perfil o desde la
+          configuración del navegador.
+        </p>
+
+        <!-- ──────── ARCHIVOS ──────── -->
+        <h2 id="archivos-adjuntos">Archivos adjuntos</h2>
+        <p>
+          Subida polimórfica de archivos asociados a una entidad: comprobantes
+          de venta y de compra, recibos, órdenes de pago, cheques recibidos y
+          emitidos, clientes, proveedores y transacciones.
+        </p>
+        <p><strong>Ubicación:</strong> sección <em>Adjuntos</em> dentro del
+          detalle de cada entidad (p. ej. detalle de cliente, de factura, etc.).</p>
+
+        <h3>Subir un archivo</h3>
+        <ol class="steps">
+          <li>En el detalle de la entidad, arrastrá el archivo a la zona o
+            click en <strong>Subir</strong>. En mobile podés usar la cámara
+            (botón con ícono de cámara) o pegar una imagen del portapapeles.</li>
+          <li>Elegí el <strong>tipo</strong> (varía según la entidad:
+            <em>comprobante / remito / otro</em> para invoices,
+            <em>foto_cheque / otro</em> para checks, etc.).</li>
+          <li>Confirmá. Tope: 10 MB por archivo. Formatos aceptados: PDF,
+            PNG, JPEG, WebP, CSV, XLS, XLSX.</li>
+        </ol>
+
+        <h3>Descargar / eliminar</h3>
+        <ul>
+          <li><strong>Descargar:</strong> click en el nombre &gt; se genera
+            un <em>signed URL</em> válido 1 hora, con el nombre original.</li>
+          <li><strong>Eliminar:</strong> soft‑delete. Si el archivo no
+            queda referenciado en ninguna entidad, una tarea nocturna lo
+            borra del bucket.</li>
+        </ul>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">files:read</span> ver/descargar,
+          <span class="badge">files:write</span> subir/eliminar lo propio,
+          <span class="badge">files:admin</span> eliminar lo de otros
+          (owner / admin).
+        </div>
+
+        <!-- ──────── PERFIL ──────── -->
+        <h2 id="perfil">Mi perfil</h2>
+        <p>
+          Cada usuario administra su nombre, avatar, color del avatar y sus
+          suscripciones a notificaciones push.
+        </p>
+        <p><strong>Ubicación:</strong> pie del sidebar &gt; click en el
+          avatar / nombre.</p>
+
+        <h3>Datos</h3>
+        <div class="fields">
+          <div class="field-name">Nombre</div>
+          <div class="field-req">1‑80 chars</div>
+          <div class="field-desc">Tu nombre.</div>
+          <div class="field-name">Apellido</div>
+          <div class="field-req">1‑80 chars</div>
+          <div class="field-desc">Tu apellido.</div>
+          <div class="field-name">Color del avatar</div>
+          <div class="field-req">opción</div>
+          <div class="field-desc">5 tonos neutros (gris, azul, salvia, naranja, púrpura).</div>
+          <div class="field-name">Foto</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">PNG / JPEG / WebP. Hasta 1 MB. Drag &amp; drop o file picker.</div>
+        </div>
+        <p>
+          Si no hay foto, el sistema muestra las iniciales sobre el color
+          del avatar. La foto se reemplaza al subir una nueva (la anterior
+          se borra automáticamente).
+        </p>
+
+        <h3>Preferencias de notificación</h3>
+        <ul>
+          <li>Toggle por tipo (chat_message, chat_reply, chat_mention). Por
+            defecto vienen todos activos: es modelo <em>opt‑out</em>.</li>
+          <li>Suscripción push web: botón <strong>Activar push</strong>; el
+            navegador te pide permiso. Se guarda una suscripción por
+            dispositivo.</li>
+        </ul>
+
+        <div class="footer-note">
+          Fin del manual. Volver al <a href="index.html">índice</a>.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

@@ -35,11 +35,14 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 import {
   amountToInput,
+  round2,
   formatNumber2 as formatMoney,
   parseArAmount,
+  sumArAmountsBy,
   todayInAR,
 } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
+import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type { PaymentOrderDetail } from "../actions/payment-orders-actions";
 import {
@@ -63,8 +66,6 @@ import {
   type PaymentLineDraft,
 } from "./payment-lines-editor";
 
-const DEFAULT_CHANNEL_ID = "jouve_fiscal";
-
 export interface ChannelOption {
   id: string;
   name: string;
@@ -79,13 +80,6 @@ function lineAmount(l: PaymentLineDraft): number {
 
 function sumDraftLines(lines: PaymentLineDraft[]): number {
   return lines.reduce((acc, l) => acc + lineAmount(l), 0);
-}
-
-function sumDraftAllocations(allocs: AllocationDraft[]): number {
-  return allocs.reduce(
-    (acc, a) => acc + (parseArAmount(a.amount_applied) ?? 0),
-    0,
-  );
 }
 
 const FormSchema = z.object({
@@ -251,12 +245,12 @@ export function PaymentOrderForm({
   }, [mode, nextNumero.next]);
 
   const paymentSum = useMemo(
-    () => Math.round(sumDraftLines(paymentLines) * 100) / 100,
+    () => round2(sumDraftLines(paymentLines)),
     [paymentLines],
   );
   const totalAmount = paymentSum;
   const allocatedAmount = useMemo(
-    () => Math.round(sumDraftAllocations(allocations) * 100) / 100,
+    () => round2(sumArAmountsBy(allocations, (a) => a.amount_applied)),
     [allocations],
   );
   const aCuenta = Math.max(0, totalAmount - allocatedAmount);

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Primeros pasos — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Primeros pasos</strong></div>
+        <div class="pill">⌘ K para buscar</div>
+      </header>
+      <main>
+        <h1>Primeros pasos</h1>
+        <p class="lead">
+          Cómo entrar al sistema, qué hay en cada zona de la pantalla y los
+          controles globales que vas a usar todos los días.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#ingreso">Ingreso y cierre de sesión</a></li>
+            <li><a href="#layout">Layout: sidebar + topbar</a></li>
+            <li><a href="#scope">Selector de canal (división + fiscal)</a></li>
+            <li><a href="#buscar">Búsqueda global ⌘ K</a></li>
+            <li><a href="#notificaciones">Campana de notificaciones</a></li>
+            <li><a href="#tema">Tema claro / oscuro</a></li>
+            <li><a href="#roles">Roles y qué ve cada uno</a></li>
+            <li><a href="#tablas">Tablas, formularios y diálogos</a></li>
+          </ul>
+        </div>
+
+        <h2 id="ingreso">Ingreso y cierre de sesión</h2>
+        <ol class="steps">
+          <li>Abrí la URL del ERP en el navegador. Si no estás autenticado,
+            te redirige a <code>/auth/login</code>.</li>
+          <li>Ingresá email y contraseña. La sesión se guarda en cookie
+            HTTP-only por Supabase.</li>
+          <li>Para cerrar sesión usá el botón <strong>Cerrar sesión</strong> al
+            pie del sidebar (ícono de salida).</li>
+        </ol>
+        <div class="callout">
+          <strong>Importante.</strong> El primer usuario que entra al sistema
+          se convierte automáticamente en <span class="badge solid">owner</span>.
+          Desde ahí, ese usuario invita al resto desde
+          <a href="admin.html#usuarios">Admin · Usuarios</a> asignando roles.
+        </div>
+
+        <h2 id="layout">Layout: sidebar + topbar</h2>
+        <p>El layout principal tiene tres zonas:</p>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="meta">Izquierda</div>
+            <div class="title">Sidebar</div>
+            <p>Logo arriba, menú agrupado por área (Ventas, Compras,
+              Tesorería, Contabilidad, Personal, Admin), avatar + perfil y
+              botón de logout al pie. Se colapsa a íconos con el botón del
+              topbar.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Arriba</div>
+            <div class="title">Topbar</div>
+            <p>Botón colapsar sidebar, <strong>búsqueda global</strong>,
+              <strong>selector de canal</strong> y <strong>campana de
+              notificaciones</strong>.</p>
+          </div>
+          <div class="card">
+            <div class="meta">Centro</div>
+            <div class="title">Contenido</div>
+            <p>Cada módulo abre acá. Tabla + filtros arriba, dialogs
+              centrados para el CRUD.</p>
+          </div>
+        </div>
+
+        <h2 id="scope">Selector de canal (división + fiscal)</h2>
+        <p>
+          El selector en el topbar afecta a <strong>todos los listados que
+          dependen de canal</strong>: comprobantes, recibos, facturas de
+          compra, órdenes de pago, transacciones y reportes contables.
+        </p>
+        <div class="fields">
+          <div class="field-name">División</div>
+          <div class="field-req">Filtro</div>
+          <div class="field-desc">Todas / DZ Instalaciones / Logística Jouve.</div>
+
+          <div class="field-name">Tipo de canal</div>
+          <div class="field-req">Filtro</div>
+          <div class="field-desc">Todos / Solo fiscal / Solo interno.</div>
+        </div>
+        <p>
+          El scope queda persistido en cookie, así que cada usuario tiene su
+          última selección al volver al sistema.
+        </p>
+
+        <div class="diagram">
+          <div class="mermaid">
+flowchart LR
+    A[División: Todas / DZ / Jouve] --> C{Combinación}
+    B[Tipo: Todos / Fiscal / Interno] --> C
+    C --> D[Listados filtrados<br/>Comprobantes · Recibos · Compras · Pagos · Caja · Contabilidad]
+          </div>
+        </div>
+
+        <h2 id="buscar">Búsqueda global ⌘ K</h2>
+        <ol class="steps">
+          <li>Apretá <strong>Ctrl + K</strong> (Windows/Linux) o
+            <strong>⌘ + K</strong> (Mac) en cualquier pantalla.</li>
+          <li>Escribí al menos 2 caracteres. La búsqueda corre full-text
+            sobre clientes, proveedores, facturas, recibos, órdenes de pago,
+            facturas de compra y transacciones.</li>
+          <li>Hacé clic (o Enter) sobre el resultado para saltar al detalle.</li>
+        </ol>
+
+        <h2 id="notificaciones">Campana de notificaciones</h2>
+        <p>
+          El ícono de campana en el topbar muestra hasta las últimas 50
+          notificaciones. El número rojo indica las no leídas. Los tipos
+          actuales son:
+        </p>
+        <ul>
+          <li><strong>chat_message</strong> — nuevo mensaje en un canal del que sos miembro.</li>
+          <li><strong>chat_reply</strong> — alguien respondió a un mensaje tuyo.</li>
+          <li><strong>chat_mention</strong> — te mencionaron con <code>@nombre</code>.</li>
+        </ul>
+        <p>
+          Si activaste <em>push web</em> desde el perfil, además vas a recibir
+          notificaciones del sistema operativo (escritorio o mobile) aunque
+          no tengas el ERP abierto. Configurá silenciado por canal en
+          <a href="collaboration.html#chat">Chat</a> y opt‑out por tipo en
+          <a href="collaboration.html#perfil">Mi perfil</a>.
+        </p>
+
+        <h2 id="tema">Tema claro / oscuro</h2>
+        <p>
+          El conmutador está al pie del sidebar, debajo del avatar. La paleta
+          es 100% monocromática en ambos modos: no hay colores de marca; los
+          estados se diferencian por <em>copy</em>, contraste e íconos.
+        </p>
+
+        <h2 id="roles">Roles y qué ve cada uno</h2>
+        <p>
+          Hay seis roles. La barra lateral oculta automáticamente las
+          secciones para las que no tenés permiso.
+        </p>
+        <table>
+          <thead>
+            <tr><th>Rol</th><th>Alcance</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge solid">owner</span></td><td>Todo el sistema. Único que puede ajustar saldos de apertura y reabrir períodos de sueldos.</td></tr>
+            <tr><td><span class="badge">admin</span></td><td>Todo excepto asignar el rol owner.</td></tr>
+            <tr><td><span class="badge">finance</span></td><td>Ventas, compras, tesorería, contabilidad, personal (lectura + escritura). No ve flota, depósitos, ni admin AFIP.</td></tr>
+            <tr><td><span class="badge">operations</span></td><td>Lectura de clientes y proveedores, módulo de flota/viajes/combustible/mantenimiento (futuro), archivos.</td></tr>
+            <tr><td><span class="badge">warehouse</span></td><td>Pallets, productos, movimientos de stock, archivos (futuro).</td></tr>
+            <tr><td><span class="badge">driver</span></td><td>Solo lectura de sus propios viajes (futuro G.3).</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="tablas">Tablas, formularios y diálogos</h2>
+        <p>Todas las pantallas siguen el mismo patrón:</p>
+        <ul>
+          <li><strong>Listado</strong> con búsqueda, filtros y un botón
+            primario arriba a la derecha (ej.: <em>Nuevo comprobante</em>).</li>
+          <li><strong>CRUD en Dialog centrado</strong> (no en panel lateral):
+            campos validados, botón <em>Cancelar</em> a la izquierda, primario
+            a la derecha; en edición, el primario se deshabilita si no hay
+            cambios.</li>
+          <li><strong>Acciones destructivas</strong> usan ícono de papelera +
+            texto explícito; nunca hay color rojo "agresivo".</li>
+          <li><strong>Paginación infinita</strong> en los listados largos
+            (clientes, proveedores, comprobantes, recibos, transacciones).</li>
+        </ul>
+
+        <div class="callout">
+          <strong>Atajo útil.</strong> En la mayoría de los dialogs, presionar
+          <code>Enter</code> dentro del último campo envía el formulario;
+          <code>Esc</code> lo cierra sin guardar.
+        </div>
+
+        <div class="footer-note">
+          ¿Te falta una sección? Volvé al <a href="index.html">índice</a>.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

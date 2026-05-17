@@ -2,10 +2,12 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { AccountsListNameJoin } from "@/features/accounts/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
 
 import {
@@ -30,7 +32,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -83,7 +84,7 @@ export async function listIssuedChecksAction(): Promise<
   const items: IssuedCheck[] = (data ?? [])
     .map((row) => {
       const sup = (row as unknown as SupplierListLegalJoin).suppliers;
-      const acc = (row as { accounts: { name: string } | null }).accounts;
+      const acc = (row as AccountsListNameJoin).accounts;
       const flat: Record<string, unknown> = {
         ...row,
         supplier_legal_name: sup?.legal_name ?? null,
@@ -137,7 +138,7 @@ export async function createIssuedCheckAction(
     .single();
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: "Ya cargaste un cheque con ese número del mismo banco.",
@@ -207,7 +208,7 @@ export async function updateIssuedCheckAction(
     .eq("id", id);
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: "Otro cheque del mismo banco ya usa ese número.",

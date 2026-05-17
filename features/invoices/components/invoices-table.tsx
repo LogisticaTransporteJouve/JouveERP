@@ -38,9 +38,9 @@ import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import {
+  buildPdfFilename,
   formatArgentineDate,
   formatNumber2,
-  safeFilenamePart,
 } from "@/lib/format";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
@@ -57,14 +57,14 @@ import {
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
-function formatNumero(row: InvoiceListItem): string {
-  return formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero);
-}
-
 function formatPdfFilename(row: InvoiceListItem): string {
-  const numero = formatNumero(row);
-  const client = safeFilenamePart(row.client_legal_name);
-  return `${numero} - ${client}.pdf`;
+  const numero = formatInvoiceNumero(
+    row.kind,
+    row.letter,
+    row.punto_venta,
+    row.numero,
+  );
+  return buildPdfFilename(numero, row.client_legal_name);
 }
 
 const ANY_STATUS = "__any__";
@@ -255,7 +255,7 @@ function ComprobantesTableRows({
         return (
           <TableRow key={row.id}>
             <TableCell className="font-mono text-xs">
-              {formatNumero(row)}
+              {formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero)}
             </TableCell>
             <TableCell className="font-medium">
               <Link
@@ -293,7 +293,7 @@ function ComprobantesTableRows({
                 </Button>
                 {hasPdf && (
                   <>
-                    <PdfViewerDialog id={row.id} label={formatNumero(row)} />
+                    <PdfViewerDialog id={row.id} label={formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero)} />
                     <Button
                       asChild
                       variant="ghost"

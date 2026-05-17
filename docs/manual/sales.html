@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ventas — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Ventas</strong></div>
+        <div class="pill">Clientes · Comprobantes · Recibos · Aging</div>
+      </header>
+      <main>
+        <h1>Ventas</h1>
+        <p class="lead">
+          Catálogo de clientes, emisión de comprobantes fiscales e internos
+          (facturas, notas de crédito y débito), recibos con imputaciones a
+          facturas y reporte de aging de cuentas por cobrar.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#clientes">Clientes</a></li>
+            <li><a href="#comprobantes">Comprobantes (facturas, NC, ND)</a></li>
+            <li><a href="#recibos">Recibos</a></li>
+            <li><a href="#aging-clientes">Aging de clientes</a></li>
+            <li><a href="#flujo-cobranza">Flujo: factura → cobro → aging</a></li>
+          </ul>
+        </div>
+
+        <!-- ──────── CLIENTES ──────── -->
+        <h2 id="clientes">Clientes</h2>
+        <p>
+          Padrón único de clientes para ambas divisiones (DZ + Jouve). Cada
+          cliente tiene un CUIT único, condición frente al IVA, datos de
+          contacto y opcionalmente un saldo de apertura.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Ventas &gt; <em>Clientes</em>.</p>
+
+        <h3>Listado</h3>
+        <div class="fields">
+          <div class="field-name">Búsqueda</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Por CUIT o razón social (búsqueda parcial).</div>
+          <div class="field-name">Sólo activos</div>
+          <div class="field-req">toggle</div>
+          <div class="field-desc">Activado por defecto. Desactivá para ver dados de baja.</div>
+          <div class="field-name">Nuevo cliente</div>
+          <div class="field-req">botón</div>
+          <div class="field-desc">Abre el dialog de alta.</div>
+        </div>
+
+        <h3>Alta de cliente</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nuevo cliente</strong>.</li>
+          <li>Ingresá el <strong>CUIT</strong> (11 dígitos) y opcionalmente
+            apretá <em>Verificar AFIP</em>: trae razón social y domicilio
+            fiscal desde el padrón AFIP. La consulta cachea 24 horas y está
+            limitada a 60 consultas por hora por usuario.</li>
+          <li>Completá <strong>Razón social</strong>, <strong>Condición IVA</strong>
+            (responsable inscripto, monotributo, exento, consumidor final,
+            no categorizado) y, si corresponde, nombre de fantasía, email,
+            teléfono, domicilio comercial, domicilio real y notas.</li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <h3>Editar / dar de baja / eliminar</h3>
+        <ul>
+          <li><strong>Editar:</strong> mismo dialog. Casi todo es opcional; el
+            CUIT debe seguir siendo único.</li>
+          <li><strong>Activar / desactivar:</strong> toggle por fila. La baja
+            esconde al cliente de los pickers, pero conserva el histórico.</li>
+          <li><strong>Eliminar:</strong> sólo si no tiene comprobantes ni
+            recibos. Si tiene, el sistema obliga a desactivarlo.</li>
+        </ul>
+
+        <h3>Detalle del cliente <code>/clients/[id]</code></h3>
+        <p>Tres pestañas:</p>
+        <table>
+          <thead><tr><th>Pestaña</th><th>Qué hacés ahí</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cuenta corriente</strong></td><td>Feed cronológico de facturas, notas de crédito/débito y recibos. Saldo corrido; saldo pendiente por comprobante; badges <span class="badge">Pagada</span> <span class="badge">Parcial</span> <span class="badge warn">Pendiente</span>. Selector de rango de fechas.</td></tr>
+            <tr><td><strong>Datos</strong></td><td>Formulario de edición del cliente (mismos campos del alta).</td></tr>
+            <tr><td><strong>Adjuntos</strong></td><td>Subir/listar archivos (constancia AFIP, contratos, etc.). Ver <a href="collaboration.html#archivos-adjuntos">Adjuntos</a>.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Saldo de apertura (solo owner)</h3>
+        <ol class="steps">
+          <li>En la pestaña Cuenta corriente, click en <em>Saldo de apertura</em>.</li>
+          <li>Elegí fecha y monto. Al guardar, el sistema imputa hacia atrás
+            (FIFO) marcando facturas como saldadas. Limpiar y reaplicar borra
+            la imputación previa y vuelve a calcular.</li>
+        </ol>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">clients:read</span> para ver,
+          <span class="badge">clients:write</span> para crear/editar/eliminar,
+          <span class="badge">padron:lookup</span> para verificar CUIT en AFIP.
+          El saldo de apertura es exclusivo de <span class="badge solid">owner</span>.
+        </div>
+
+        <!-- ──────── COMPROBANTES ──────── -->
+        <h2 id="comprobantes">Comprobantes (facturas, NC, ND)</h2>
+        <p>
+          Emisión y seguimiento de comprobantes de venta. Hay dos circuitos
+          paralelos según el canal seleccionado:
+        </p>
+        <ul>
+          <li><strong>Fiscal (AFIP):</strong> punto de venta 00003 (Jouve) o
+            00004 (DZ). Se guarda como <em>borrador</em>, se encola para AFIP
+            y, cuando vuelve el CAE, queda <em>emitida</em>.</li>
+          <li><strong>Interno:</strong> numeración local, sin AFIP, sin letra,
+            sin IVA. Útil para comprobantes internos entre divisiones.</li>
+        </ul>
+        <p><strong>Ubicación:</strong> sidebar &gt; Ventas &gt; <em>Comprobantes</em>.</p>
+
+        <h3>Listado</h3>
+        <div class="fields">
+          <div class="field-name">Canal</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Lista solo canales activos (fiscal + interno).</div>
+          <div class="field-name">Estado</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">draft · emitting · emitted · failed · cancelled.</div>
+          <div class="field-name">Buscar</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Numérico = match exacto al número; texto = razón social del cliente.</div>
+        </div>
+
+        <h3>Crear comprobante</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nuevo comprobante</strong>.</li>
+          <li>Elegí <strong>canal</strong>. Si es fiscal, el sistema sugiere
+            la <strong>letra</strong> (A/B/C) según la condición IVA del cliente.</li>
+          <li>Elegí <strong>cliente</strong>. Para clientes nuevos hay un
+            picker con búsqueda; si no existe, se puede crear en el momento.</li>
+          <li>Elegí el <strong>tipo</strong>: factura, NC o ND. Para NC/ND
+            necesitás elegir el comprobante de origen (sólo facturas fiscales
+            emitidas) y opcionalmente un motivo.</li>
+          <li>Definí <strong>punto de venta</strong>, <strong>fecha</strong>,
+            <strong>concepto</strong> (productos / servicios / ambos) y, si
+            son servicios, los rangos <em>fecha desde / hasta</em> y
+            <em>vencimiento de pago</em>.</li>
+          <li>Cargá <strong>ítems</strong>: descripción, cantidad, precio
+            unitario y alícuota IVA (0 / 2,5 / 5 / 10,5 / 21 / 27). Los
+            totales se calculan en tiempo real.</li>
+          <li><strong>Guardar.</strong> El comprobante queda en
+            <span class="badge">draft</span>. Si el canal es fiscal, se
+            dispara la emisión AFIP en segundo plano (Inngest).</li>
+        </ol>
+
+        <h3>Ciclo de emisión fiscal</h3>
+        <div class="diagram">
+          <div class="mermaid">
+flowchart LR
+    A([Borrador])
+    A -->|encolar| B([emitting])
+    B -->|WSAA + WSFEv1 OK| C([emitted<br/>CAE asignado])
+    B -->|error AFIP| D([failed<br/>ver observaciones])
+    C -->|usuario| E([Descargar PDF])
+    C -->|usuario| F([Enviar por email])
+    C -->|usuario| G([Emitir NC / ND])
+          </div>
+        </div>
+        <p>
+          Mientras está en <em>emitting</em>, el detalle del comprobante
+          consulta el estado cada 1,5 s. Si falla, las observaciones AFIP
+          quedan visibles en la tarjeta AFIP y se puede reintentar editando y
+          re‑emitiendo.
+        </p>
+
+        <h3>Enviar por email</h3>
+        <ol class="steps">
+          <li>Abrí el comprobante (debe estar <span class="badge">emitted</span>).</li>
+          <li>Click <strong>Enviar por email</strong>. El destinatario se
+            precarga con el email del cliente o el último usado.</li>
+          <li>Editá <strong>asunto</strong> (1‑200 chars) y opcionalmente
+            <strong>cuerpo</strong> (0‑4000). Adjunta el PDF en el envío.</li>
+          <li>Cada intento queda registrado en el log de envíos.</li>
+        </ol>
+
+        <h3>Emitir NC / ND</h3>
+        <p>
+          Las notas de crédito/débito sólo se emiten contra una factura
+          fiscal emitida. El sistema:
+        </p>
+        <ul>
+          <li>Copia los ítems de la factura origen (podés editarlos antes de emitir).</li>
+          <li>Conserva la letra (A/B/C) y la condición IVA del receptor.</li>
+          <li>Encola la emisión igual que una factura.</li>
+        </ul>
+        <div class="callout warn">
+          <strong>Cancelación.</strong> Las facturas fiscales no se "cancelan":
+          se emite una <strong>nota de crédito</strong> que las anula. Sólo
+          los comprobantes internos pueden pasar a <code>cancelled</code>.
+        </div>
+
+        <h3>Permisos</h3>
+        <p>
+          <span class="badge">invoices:read</span> ver,
+          <span class="badge">invoices:issue</span> crear y emitir,
+          <span class="badge">credit_debit_notes:issue</span> NC/ND,
+          <span class="badge">email:send</span> enviar por email.
+        </p>
+
+        <!-- ──────── RECIBOS ──────── -->
+        <h2 id="recibos">Recibos</h2>
+        <p>
+          Los recibos registran cobros a clientes. Cada recibo tiene una o
+          más <strong>líneas de pago</strong> (cuenta bancaria, efectivo o
+          cheque), opcionalmente <strong>retenciones</strong> y se imputan a
+          una o varias facturas pendientes. Si no imputás manualmente, el
+          sistema lo hace por FIFO.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Ventas &gt; <em>Recibos</em>.</p>
+
+        <h3>Crear recibo</h3>
+        <ol class="steps">
+          <li>Click en <strong>Nuevo recibo</strong>.</li>
+          <li>Elegí <strong>canal</strong> y <strong>cliente</strong>; el
+            sistema carga las facturas pendientes.</li>
+          <li>Definí <strong>fecha</strong>, <strong>moneda</strong>
+            (ARS / USD) y <strong>total</strong>.</li>
+          <li>Agregá <strong>líneas de pago</strong>. Por cada línea elegí la
+            cuenta (banco, caja, cartera de cheques o e-cheq) y el monto. Si
+            la cuenta es de cheques, completá los datos del cheque (número,
+            banco, librador, CUIT, fecha emisión, fecha vto).</li>
+          <li>Opcional: agregá <strong>retenciones/percepciones</strong>
+            (ganancias, IVA, IIBB, SUSS u otras), con jurisdicción, número
+            de certificado, fecha y monto.</li>
+          <li>Elegí cómo imputar:
+            <ul>
+              <li><strong>Manual:</strong> marcá una o más facturas y poné el
+                monto aplicado a cada una.</li>
+              <li><strong>FIFO automático:</strong> dejá las imputaciones
+                vacías; el sistema aplica de las más antiguas a las más
+                nuevas hasta agotar el total (menos retenciones).</li>
+            </ul>
+          </li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <div class="callout">
+          <strong>Reglas de saldo.</strong>
+          <code>Σ líneas de pago + Σ retenciones = total del recibo</code> y
+          <code>Σ imputaciones ≤ total</code>. Lo que sobre queda <em>a cuenta</em>.
+        </div>
+
+        <h3>Editar / cancelar / enviar por email</h3>
+        <ul>
+          <li><strong>Editar:</strong> mismo dialog. Atómico: rehace líneas,
+            imputaciones y retenciones.</li>
+          <li><strong>Cancelar:</strong> el recibo pasa a
+            <span class="badge warn">canceled</span> y deja de impactar en la
+            cuenta corriente, pero queda en el histórico.</li>
+          <li><strong>Enviar por email:</strong> idéntico a comprobantes;
+            adjunta el PDF del recibo.</li>
+        </ul>
+
+        <h3>Detalle del recibo</h3>
+        <p>
+          Muestra <em>medios de pago</em>, <em>totales</em> (pagado, retenido,
+          imputado, a cuenta), <em>retenciones</em>, <em>imputaciones</em>
+          (con número de factura y monto aplicado), notas y adjuntos.
+        </p>
+
+        <h3>Permisos</h3>
+        <p>
+          <span class="badge">receipts:read</span> ver,
+          <span class="badge">receipts:write</span> crear/editar/cancelar,
+          <span class="badge">email:send</span> enviar.
+        </p>
+
+        <!-- ──────── AGING ──────── -->
+        <h2 id="aging-clientes">Aging de clientes</h2>
+        <p>
+          Reporte de cuentas por cobrar por antigüedad. Muestra cada cliente
+          con su deuda total y la apertura por bucket: 0‑30, 30‑60, 60‑90 y
+          90+ días.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Ventas &gt; <em>Aging clientes</em>.</p>
+
+        <table>
+          <thead><tr><th>Columna</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td>Razón social / CUIT</td><td>Cliente.</td></tr>
+            <tr><td>0‑30 / 30‑60 / 60‑90 / 90+</td><td>Saldo por bucket de antigüedad.</td></tr>
+            <tr><td>Total abierto</td><td>Suma de todos los buckets. Es la columna por la que ordena.</td></tr>
+            <tr><td>Comprobantes</td><td>Cantidad de facturas/ND con saldo.</td></tr>
+            <tr><td>Antigüedad máx.</td><td>Días desde la factura más vieja sin saldar.</td></tr>
+          </tbody>
+        </table>
+        <p>
+          El cálculo es en vivo: parte de las facturas y notas de débito
+          emitidas (no canceladas) y resta las imputaciones de los recibos
+          emitidos + las imputaciones de saldo de apertura. Las facturas con
+          saldo &lt; $0,01 no aparecen.
+        </p>
+
+        <!-- ──────── FLUJO ──────── -->
+        <h2 id="flujo-cobranza">Flujo completo: factura → cobro → aging</h2>
+        <div class="diagram">
+          <div class="mermaid">
+flowchart TB
+    A[Alta cliente] --> B[Verificar AFIP<br/>opcional]
+    B --> C[Crear factura<br/>fiscal o interna]
+    C --> D{Fiscal?}
+    D -- Sí --> E[Emisión AFIP<br/>asíncrona]
+    D -- No --> F[Numerada al instante]
+    E --> G[CAE recibido<br/>status: emitted]
+    F --> G
+    G --> H[Cobrar: Recibo]
+    H --> I{Imputación}
+    I -- Manual --> J[Marcar facturas]
+    I -- FIFO --> K[Auto-asignar<br/>más antigua primero]
+    J --> L[Saldo de la factura cae]
+    K --> L
+    L --> M[Aging clientes<br/>actualizado en vivo]
+          </div>
+        </div>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="purchases.html">Compras →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>

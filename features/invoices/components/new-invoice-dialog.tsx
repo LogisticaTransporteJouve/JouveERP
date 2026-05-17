@@ -50,6 +50,7 @@ import {
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
 import { formatNumber2 } from "@/lib/format";
+import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type {
   InvoiceListItem,
@@ -62,8 +63,6 @@ import {
 } from "../hooks/use-invoices";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { OriginPicker } from "./origin-picker";
-
-const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 
 interface ChannelOption {
   id: string;

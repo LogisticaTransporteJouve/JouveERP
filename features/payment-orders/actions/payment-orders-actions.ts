@@ -2,6 +2,8 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -36,7 +38,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -452,7 +453,7 @@ export async function createPaymentOrderAction(
         if (applied <= 0.005) continue;
         auto.push({
           purchase_invoice_id: inv.id,
-          amount_applied: Math.round(applied * 100) / 100,
+          amount_applied: round2(applied),
         });
         remaining -= applied;
       }
@@ -478,7 +479,7 @@ export async function createPaymentOrderAction(
   });
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: `El número ${data.numero} ya existe para ese canal/POS.`,

@@ -3,9 +3,13 @@
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
+
+import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
 import {
   isReceiptCurrency,
@@ -34,7 +38,6 @@ type JsonValue =
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
 
-const UNIQUE_VIOLATION = "23505";
 
 async function logAudit(
   eventType: string,
@@ -133,8 +136,7 @@ export async function listReceiptsAction(input?: {
     .map((row) => {
       const narrowed = narrowReceipt(row);
       if (!narrowed) return null;
-      const clientRel = (row as { clients: { legal_name: string } | null })
-        .clients;
+      const clientRel = (row as ClientsListLegalJoin).clients;
       return {
         ...narrowed,
         client_legal_name: clientRel?.legal_name ?? "—",
@@ -546,7 +548,7 @@ export async function createReceiptAction(
         if (applied <= 0.005) continue;
         auto.push({
           invoice_id: inv.id,
-          amount_applied: Math.round(applied * 100) / 100,
+          amount_applied: round2(applied),
         });
         remaining -= applied;
       }
@@ -596,7 +598,7 @@ export async function createReceiptAction(
   });
 
   if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error: `El número ${data.numero} ya existe para ese canal/POS.`,

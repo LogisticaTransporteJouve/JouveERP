@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tesorería — Manual JouveERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div>
+      <header class="topbar">
+        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Tesorería</strong></div>
+        <div class="pill">Cuentas · Caja · Cheques</div>
+      </header>
+      <main>
+        <h1>Tesorería</h1>
+        <p class="lead">
+          Administración de cuentas bancarias y de caja, movimientos manuales
+          y transferencias, y el ciclo completo de cheques recibidos de
+          terceros y emitidos propios.
+        </p>
+
+        <div class="toc">
+          <h4>En esta página</h4>
+          <ul>
+            <li><a href="#cuentas">Cuentas</a></li>
+            <li><a href="#caja">Caja (transacciones)</a></li>
+            <li><a href="#cheques-recibidos">Cheques recibidos</a></li>
+            <li><a href="#cheques-propios">Cheques propios</a></li>
+            <li><a href="#flujo-cheques">Flujo: cobro con cheque → depósito → acreditación</a></li>
+          </ul>
+        </div>
+
+        <!-- ──────── CUENTAS ──────── -->
+        <h2 id="cuentas">Cuentas</h2>
+        <p>
+          Padrón centralizado de cuentas: bancos, billeteras digitales, cajas
+          físicas, inversiones y carteras de cheques. El <em>tipo</em> de la
+          cuenta define qué operaciones pueden tocarla.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Tesorería &gt; <em>Cuentas</em>.</p>
+
+        <h3>Tipos de cuenta</h3>
+        <table>
+          <thead><tr><th>Tipo</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><strong>bank</strong></td><td>Cuentas bancarias. Aceptan transferencias entrantes/salientes y depósito de cheques.</td></tr>
+            <tr><td><strong>cash</strong></td><td>Caja física (efectivo).</td></tr>
+            <tr><td><strong>wallet</strong></td><td>Billeteras digitales (MercadoPago, Cuenta DNI, etc.).</td></tr>
+            <tr><td><strong>investment</strong></td><td>Plazos fijos, FCI, USD inversión.</td></tr>
+            <tr><td><strong>checks</strong></td><td>Cartera de cheques físicos en cartera (en custodia).</td></tr>
+            <tr><td><strong>echeq</strong></td><td>Cartera de e‑cheques.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>Regla.</strong> Las cuentas <em>checks</em> y <em>echeq</em>
+          no aceptan transacciones manuales; se mueven sólo por el módulo
+          <a href="#cheques-recibidos">Cheques recibidos</a>.
+        </div>
+
+        <h3>Alta y edición</h3>
+        <div class="fields">
+          <div class="field-name">Nombre</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">2 a 120 caracteres. Único por (nombre, tipo, moneda).</div>
+          <div class="field-name">Tipo</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">No se puede cambiar después de crear.</div>
+          <div class="field-name">Moneda</div>
+          <div class="field-req">requerido</div>
+          <div class="field-desc">ARS o USD. Inmutable.</div>
+          <div class="field-name">Saldo de apertura</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Acepta notación argentina (1.000,50).</div>
+          <div class="field-name">Notas</div>
+          <div class="field-req">opcional</div>
+          <div class="field-desc">Libre.</div>
+        </div>
+
+        <h3>Saldo de apertura (solo owner)</h3>
+        <p>
+          Aplica un ajuste contra un canal (p. ej. Jouve Fiscal) con fecha y
+          notas; queda histórico. Existe la acción complementaria para
+          limpiarlo.
+        </p>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">accounts:read</span> ver,
+          <span class="badge">accounts:write</span> crear/editar,
+          <span class="badge solid">owner</span> para saldo de apertura.
+        </div>
+
+        <!-- ──────── CAJA / TRANSACCIONES ──────── -->
+        <h2 id="caja">Caja (transacciones)</h2>
+        <p>
+          Diario manual de ingresos, egresos y transferencias entre cuentas.
+          Toda transacción se etiqueta con <strong>canal</strong> (Jouve/DZ,
+          fiscal/interno) y, opcionalmente, mes de devengamiento, factura
+          relacionada y cliente contraparte.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Tesorería &gt; <em>Caja</em>.</p>
+
+        <h3>Listado y filtros</h3>
+        <div class="fields">
+          <div class="field-name">Canal · cuenta</div>
+          <div class="field-req">filtros</div>
+          <div class="field-desc">Combinables con el scope del topbar.</div>
+          <div class="field-name">Tipo</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Ingreso · Egreso · Transferencia (in / out).</div>
+          <div class="field-name">Rango de fechas</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Desde / hasta.</div>
+          <div class="field-name">Cliente contraparte</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Opcional.</div>
+        </div>
+        <p>El listado tiene scroll infinito (50 por página, hasta 200).</p>
+
+        <h3>Crear ingreso o egreso</h3>
+        <ol class="steps">
+          <li>Click <strong>Nueva transacción</strong> y elegí
+            <strong>Ingreso</strong> o <strong>Egreso</strong>.</li>
+          <li>Cuenta destino (no puede ser de tipo checks/echeq), canal,
+            monto, moneda.</li>
+          <li>Fecha del movimiento + mes de devengamiento (por defecto el
+            mismo mes; siempre día 01).</li>
+          <li>Opcional: descripción, factura asociada, cliente contraparte.</li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <h3>Crear transferencia</h3>
+        <ol class="steps">
+          <li>Elegí <strong>Transferencia</strong>.</li>
+          <li>Seleccioná <em>cuenta origen</em> y <em>cuenta destino</em>
+            (deben ser distintas).</li>
+          <li>Mismo canal, monto, moneda, fecha y devengamiento.</li>
+          <li><strong>Guardar.</strong> Se crean atómicamente dos filas
+            apareadas: <em>transfer_out</em> en la origen y
+            <em>transfer_in</em> en la destino. Si borrás una, se borra la
+            otra en cascada.</li>
+        </ol>
+
+        <h3>Editar / eliminar</h3>
+        <p>
+          Al editar sólo se pueden cambiar monto, fechas, descripción y
+          contraparte. Tipo, canal y cuenta son inmutables (preservan la
+          integridad de los pares de transferencia).
+        </p>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">transactions:read</span> ver,
+          <span class="badge">transactions:write</span> crear/editar/eliminar.
+        </div>
+
+        <!-- ──────── CHEQUES RECIBIDOS ──────── -->
+        <h2 id="cheques-recibidos">Cheques recibidos (de terceros)</h2>
+        <p>
+          Registro y ciclo de vida de cheques cobrados a clientes o
+          terceros. Físicos (<em>fisico</em>) o electrónicos (<em>echeq</em>).
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Tesorería &gt; <em>Cheques recibidos</em>.</p>
+
+        <h3>Estados</h3>
+        <div class="diagram">
+          <div class="mermaid">
+stateDiagram-v2
+    [*] --> en_cartera: registrar
+    en_cartera --> depositado: depositar
+    en_cartera --> endosado: endosar (vía OP)
+    en_cartera --> rechazado: rechazar
+    depositado --> acreditado: acreditar
+    depositado --> rechazado: rechazar
+    acreditado --> [*]
+    endosado --> [*]
+    rechazado --> [*]
+          </div>
+        </div>
+
+        <h3>Registrar (alta)</h3>
+        <ol class="steps">
+          <li>Click <strong>Nuevo cheque</strong>.</li>
+          <li>Tipo (físico o e‑cheq), número, banco, librador, CUIT del
+            librador (opcional, 11 dígitos).</li>
+          <li>Fecha de emisión, fecha de vencimiento, monto, moneda.</li>
+          <li>Cuenta cartera (debe ser tipo <code>checks</code> o
+            <code>echeq</code> según el tipo del cheque).</li>
+          <li>Origen: <em>manual</em> o <em>recibo</em> (si lo trae un
+            recibo de cobro queda linkeado).</li>
+          <li><strong>Guardar.</strong> Queda en <span class="badge">en cartera</span>.</li>
+        </ol>
+
+        <h3>Depositar</h3>
+        <ol class="steps">
+          <li>Desde la fila del cheque, abrí <em>Depositar</em>.</li>
+          <li>Elegí cuenta bancaria destino (mismo moneda), canal, fecha y
+            descripción.</li>
+          <li>Al confirmar: el cheque pasa a <span class="badge">depositado</span>
+            y se crea una transferencia entrante en la cuenta bancaria.</li>
+        </ol>
+
+        <h3>Acreditar / rechazar / endosar</h3>
+        <ul>
+          <li><strong>Acreditar:</strong> solo desde depositado; pasa a
+            <span class="badge">acreditado</span>.</li>
+          <li><strong>Rechazar:</strong> se elige cuenta a la que devolver
+            el monto; genera transacción reversa.</li>
+          <li><strong>Endosar:</strong> el endose se hace desde una
+            <a href="purchases.html#ordenes-de-pago">Orden de pago</a> usando
+            línea tipo "endose". El cheque pasa a <span class="badge">endosado</span>.</li>
+        </ul>
+
+        <h3>Detalle</h3>
+        <p>Expandiendo una fila se ve el timeline de movimientos del cheque:
+          recibido, depositado, acreditado, endosado, rechazado.</p>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">cheques:read</span> ver,
+          <span class="badge">cheques:write</span> registrar/depositar/acreditar/rechazar/endosar.
+        </div>
+
+        <!-- ──────── CHEQUES PROPIOS ──────── -->
+        <h2 id="cheques-propios">Cheques propios (emitidos)</h2>
+        <p>
+          Registro de cheques librados desde nuestras chequeras. Esta
+          pantalla es <em>informativa</em>: la salida de caja la maneja la
+          OP. Acá seguís el estado de cada cheque hasta que se acredita o se
+          rechaza.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Tesorería &gt; <em>Cheques propios</em>.</p>
+
+        <h3>Estados</h3>
+        <ul>
+          <li><span class="badge">emitido</span> — inicial.</li>
+          <li><span class="badge">cobrado</span> — el banco lo acreditó al beneficiario.</li>
+          <li><span class="badge warn">rechazado</span> — devuelto por el banco.</li>
+          <li><span class="badge warn">anulado</span> — revocado internamente; queda fecha y usuario que anuló.</li>
+        </ul>
+
+        <h3>Alta directa</h3>
+        <p>
+          Normalmente los cheques propios se crean desde una OP con línea
+          "Emitir". Para casos especiales (préstamo, garantía) se pueden
+          dar de alta directos desde esta pantalla.
+        </p>
+        <ol class="steps">
+          <li>Click <strong>Nuevo cheque propio</strong>.</li>
+          <li>Tipo, número, banco, beneficiario y CUIT (opcionales),
+            fechas, monto, moneda, cuenta bancaria de origen.</li>
+          <li>Si corresponde, asociá OP o proveedor.</li>
+          <li><strong>Guardar.</strong></li>
+        </ol>
+
+        <h3>Cambiar estado</h3>
+        <ol class="steps">
+          <li>Abrí el cheque y usá <em>Marcar como cobrado / rechazado / anulado</em>.</li>
+          <li>Elegí fecha del evento (por defecto hoy).</li>
+        </ol>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">issued_checks:read</span> ver,
+          <span class="badge">issued_checks:write</span> crear/editar/cambiar estado.
+        </div>
+
+        <!-- ──────── FLUJO ──────── -->
+        <h2 id="flujo-cheques">Flujo: cobro con cheque → depósito → acreditación</h2>
+        <div class="diagram">
+          <div class="mermaid">
+flowchart LR
+    A[Recibo de cobro<br/>línea de cheque] --> B[Alta de cheque<br/>en cartera]
+    B --> C{¿Qué hago?}
+    C -- Deposito --> D[Cuenta bancaria<br/>transfer_in]
+    D --> E[Acreditar]
+    C -- Endoso vía OP --> F[Pago a proveedor]
+    C -- Rechazo --> G[Reversa a cuenta origen]
+          </div>
+        </div>
+
+        <div class="footer-note">
+          ¿Seguimos? <a href="accounting.html">Contabilidad →</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="assets/manual.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</body>
+</html>
