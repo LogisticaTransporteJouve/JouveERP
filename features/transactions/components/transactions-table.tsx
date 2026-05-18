@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight } from "lucide-react";
+import Link from "next/link";
 import { Suspense, useDeferredValue, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -312,7 +313,15 @@ function TransactionsTableRows({
                 {TRANSACTION_KIND_LABEL[row.kind]}
               </Badge>
             </TableCell>
-            <TableCell className="text-sm">{row.account_name}</TableCell>
+            <TableCell className="text-sm">
+              <Link
+                href={`/transactions?account=${row.account_id}`}
+                className="hover:underline"
+                title="Filtrar por esta cuenta"
+              >
+                {row.account_name}
+              </Link>
+            </TableCell>
             <TableCell className="text-sm text-muted-foreground">
               {row.channel_name}
             </TableCell>

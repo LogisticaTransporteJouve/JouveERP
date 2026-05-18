@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -77,7 +79,13 @@ export function AccountsTable({
                   className={!account.is_active ? "opacity-60" : undefined}
                 >
                   <TableCell className="font-medium">
-                    {account.name}
+                    <Link
+                      href={`/transactions?account=${account.id}`}
+                      className="hover:underline"
+                      title="Ver movimientos y registrar nuevo"
+                    >
+                      {account.name}
+                    </Link>
                     {account.notes && (
                       <div className="text-xs text-muted-foreground">
                         {account.notes}
