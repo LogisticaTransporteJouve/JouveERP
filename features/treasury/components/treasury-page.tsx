@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -310,7 +311,15 @@ function AccountRow({ acc }: { acc: TreasuryAccountRow }) {
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{acc.name}</TableCell>
+      <TableCell className="font-medium">
+        <Link
+          href={`/transactions?account=${acc.id}`}
+          className="hover:underline"
+          title="Ver movimientos y registrar nuevo"
+        >
+          {acc.name}
+        </Link>
+      </TableCell>
       <TableCell>
         <Badge variant="outline" className="text-xs font-normal">
           {ACCOUNT_TYPE_LABEL[acc.type]}
