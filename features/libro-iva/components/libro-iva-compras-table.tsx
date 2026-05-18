@@ -23,13 +23,21 @@ export function LibroIvaComprasTable({
   period: string;
   channelId: string | null;
 }) {
-  const { data: rows } = useLibroIvaCompras(period, channelId);
+  const { data: rows, isLoading } = useLibroIvaCompras(period, channelId);
 
-  const grouped = useMemo(() => groupComprasByInvoice(rows), [rows]);
+  const grouped = useMemo(() => groupComprasByInvoice(rows ?? []), [rows]);
   const totals = useMemo(() => computeComprasTotals(grouped), [grouped]);
 
   const sinCae = grouped.filter((g) => !g.cae_proveedor).length;
   const sinItems = grouped.filter((g) => !g.has_items).length;
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Cargando…
+      </div>
+    );
+  }
 
   if (grouped.length === 0) {
     return (
