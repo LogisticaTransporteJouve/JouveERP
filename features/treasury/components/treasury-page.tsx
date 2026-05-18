@@ -203,7 +203,7 @@ export function TreasuryPage() {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Moneda</TableHead>
                 <TableHead className="text-right">Saldo actual</TableHead>
-                <TableHead className="text-right">Δ vs cierre mes ant.</TableHead>
+                <TableHead className="text-right">Cambio del mes</TableHead>
                 <TableHead>Último mov.</TableHead>
               </TableRow>
             </TableHeader>
