@@ -258,12 +258,19 @@ export async function getSupplierAccountAction(
 
   const appliedByInvoice = new Map<string, number>();
   if (piIds.length > 0) {
-    const { data: allocs, error: aErr } = await supabase
-      .from("payment_order_allocations")
-      .select(
-        "purchase_invoice_id, amount_applied, payment_orders!inner ( status, supplier_id )",
-      )
-      .eq("payment_orders.supplier_id", supplierId);
+    const [allocsRes, openingAllocsRes] = await Promise.all([
+      supabase
+        .from("payment_order_allocations")
+        .select(
+          "purchase_invoice_id, amount_applied, payment_orders!inner ( status, supplier_id )",
+        )
+        .eq("payment_orders.supplier_id", supplierId),
+      supabase
+        .from("supplier_opening_balance_allocations")
+        .select("purchase_invoice_id, amount_applied")
+        .eq("supplier_id", supplierId),
+    ]);
+    const { data: allocs, error: aErr } = allocsRes;
     if (aErr) {
       logger.error("suppliers.account.allocations_failed", {
         userId: ctx.userId,
@@ -282,10 +289,7 @@ export async function getSupplierAccountAction(
     }
     // Suma también las imputaciones del opening balance: una factura que
     // recibió plata del ajuste también descuenta para el aging/outstanding.
-    const { data: openingAllocs } = await supabase
-      .from("supplier_opening_balance_allocations")
-      .select("purchase_invoice_id, amount_applied")
-      .eq("supplier_id", supplierId);
+    const { data: openingAllocs } = openingAllocsRes;
     for (const a of openingAllocs ?? []) {
       const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
       appliedByInvoice.set(

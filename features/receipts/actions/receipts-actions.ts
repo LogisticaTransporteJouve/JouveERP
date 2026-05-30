@@ -377,12 +377,22 @@ export async function listPendingComprobantesForClientAction(
 
   // Receipt allocations: filtramos por receipts.client_id (no por
   // .in(invoice_id, miles…)) para no reventar la URL de PostgREST.
-  const { data: allocations, error: aErr } = await supabase
-    .from("receipt_allocations")
-    .select(
-      "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
-    )
-    .eq("receipts.client_id", clientId);
+  // Opening allocations: lo que el ajuste de saldo dejó saldado también
+  // debe descontarse del outstanding, sino el picker ofrece imputar de
+  // nuevo facturas ya cerradas. Ambas son independientes → en paralelo.
+  const [allocsRes, openingAllocsRes] = await Promise.all([
+    supabase
+      .from("receipt_allocations")
+      .select(
+        "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
+      )
+      .eq("receipts.client_id", clientId),
+    supabase
+      .from("client_opening_balance_allocations")
+      .select("invoice_id, amount_applied")
+      .eq("client_id", clientId),
+  ]);
+  const { data: allocations, error: aErr } = allocsRes;
   if (aErr) {
     logger.error("receipts.pending.list_allocations_failed", {
       userId: ctx.userId,
@@ -391,14 +401,7 @@ export async function listPendingComprobantesForClientAction(
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
-
-  // Opening allocations: lo que el ajuste de saldo dejó saldado también
-  // debe descontarse del outstanding, sino el picker ofrece imputar de
-  // nuevo facturas ya cerradas.
-  const { data: openingAllocs } = await supabase
-    .from("client_opening_balance_allocations")
-    .select("invoice_id, amount_applied")
-    .eq("client_id", clientId);
+  const { data: openingAllocs } = openingAllocsRes;
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {
