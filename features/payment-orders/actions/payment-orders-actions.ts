@@ -1,5 +1,6 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -7,7 +8,6 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import type {
   SupplierIdentityJoin,
@@ -26,36 +26,6 @@ import {
   type PaymentOrderPaymentLine,
   type PaymentOrderAllocationStatusRow,
 } from "../schema";
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error)
-    logger.error("audit.insert.failed", {
-      userId: actorId,
-      eventType,
-      targetResourceId,
-      error,
-    });
-}
 
 function narrowPaymentOrder(row: {
   status: string;
