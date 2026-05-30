@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -63,18 +65,22 @@ export function ChequesTable({
     },
   ]);
 
-  const totalsByStatus = items.reduce<Record<ChequeStatus, number>>(
-    (acc, c) => {
-      acc[c.status] = (acc[c.status] ?? 0) + Number(c.amount);
-      return acc;
-    },
-    {
-      en_cartera: 0,
-      depositado: 0,
-      acreditado: 0,
-      endosado: 0,
-      rechazado: 0,
-    },
+  const totalsByStatus = useMemo(
+    () =>
+      items.reduce<Record<ChequeStatus, number>>(
+        (acc, c) => {
+          acc[c.status] = (acc[c.status] ?? 0) + Number(c.amount);
+          return acc;
+        },
+        {
+          en_cartera: 0,
+          depositado: 0,
+          acreditado: 0,
+          endosado: 0,
+          rechazado: 0,
+        },
+      ),
+    [items],
   );
 
   return (
@@ -82,10 +88,7 @@ export function ChequesTable({
       {/* Summary cards by status */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {(Object.keys(STATUS_TONE) as ChequeStatus[]).map((status) => (
-          <div
-            key={status}
-            className="rounded-md border bg-card p-3 text-sm"
-          >
+          <div key={status} className="rounded-md border bg-card p-3 text-sm">
             <div className="text-xs text-muted-foreground">
               {CHECK_STATUS_LABEL[status]}
             </div>
@@ -152,25 +155,22 @@ export function ChequesTable({
                       {formatMoney(Number(c.amount), c.currency)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={STATUS_TONE[c.status]}>
+                      <Badge
+                        variant="secondary"
+                        className={STATUS_TONE[c.status]}
+                      >
                         {CHECK_STATUS_LABEL[c.status]}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {canWrite && c.status === "en_cartera" && (
-                          <DepositChequeDialog
-                            check={c}
-                            channels={channels}
-                          />
+                          <DepositChequeDialog check={c} channels={channels} />
                         )}
                         {canWrite && c.status === "depositado" && (
                           <>
                             <CreditChequeDialog check={c} />
-                            <RejectChequeDialog
-                              check={c}
-                              channels={channels}
-                            />
+                            <RejectChequeDialog check={c} channels={channels} />
                           </>
                         )}
                       </div>
