@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -27,14 +28,9 @@ import {
 
 import type { IvaCondition } from "@/features/clients/schema";
 
-type ComprobanteInsert =
-  Database["public"]["Tables"]["invoices"]["Insert"];
+type ComprobanteInsert = Database["public"]["Tables"]["invoices"]["Insert"];
 type ComprobanteItemInsert =
   Database["public"]["Tables"]["invoice_items"]["Insert"];
-
-export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 export interface IssueInvoiceResult {
   id: string;
@@ -145,8 +141,7 @@ export async function issueFiscalInvoiceAction(
   if (channel.is_fiscal && data.iva_condition_receptor === null) {
     return {
       ok: false,
-      error:
-        "Para emitir fiscal hace falta CondicionIVAReceptorId (RG 5616).",
+      error: "Para emitir fiscal hace falta CondicionIVAReceptorId (RG 5616).",
     };
   }
 
@@ -314,8 +309,7 @@ export async function getInvoiceStatusAction(
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
-  if (!data)
-    return { ok: false, error: `Comprobante ${id} no encontrado.` };
+  if (!data) return { ok: false, error: `Comprobante ${id} no encontrado.` };
 
   // Narrow only the status — the polling endpoint doesn't surface kind or
   // letter, and selecting them just to validate would inflate every
@@ -532,10 +526,7 @@ export interface ComprobanteDetail {
  *  porque Postgres NUMERIC se serializa como string en supabase-js. */
 type InvoiceItemJoinedRow = Pick<
   Database["public"]["Tables"]["invoice_items"]["Row"],
-  | "id"
-  | "description"
-  | "iva_rate_id"
-  | "sort_order"
+  "id" | "description" | "iva_rate_id" | "sort_order"
 > & {
   quantity: number | string;
   unit_price: number | string;
@@ -732,9 +723,8 @@ export async function regeneratePdfAction(
     return { ok: false, error: "No tenés permiso." };
   }
   try {
-    const { generateAndPersistInvoicePdfHash } = await import(
-      "@/lib/pdf/generate-and-hash"
-    );
+    const { generateAndPersistInvoicePdfHash } =
+      await import("@/lib/pdf/generate-and-hash");
     const result = await generateAndPersistInvoicePdfHash(id);
     return { ok: true, data: { pdf_hash: result.pdfHash } };
   } catch (err) {
@@ -744,4 +734,3 @@ export async function regeneratePdfAction(
     };
   }
 }
-

@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -16,10 +17,6 @@ import {
 } from "../schema";
 import { getServiceClient } from "@/lib/supabase/service";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 type JsonValue =
   | string
   | number
@@ -27,7 +24,6 @@ type JsonValue =
   | null
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
-
 
 async function logAudit(
   eventType: string,
@@ -363,11 +359,6 @@ export async function clearAccountOpeningBalanceAction(
     });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
-  await logAudit(
-    "account.opening_balance.cleared",
-    ctx.userId,
-    {},
-    accountId,
-  );
+  await logAudit("account.opening_balance.cleared", ctx.userId, {}, accountId);
   return { ok: true, data: undefined };
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -20,10 +21,6 @@ import {
   type IssuedCheck,
 } from "../schema";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 type JsonValue =
   | string
   | number
@@ -31,7 +28,6 @@ type JsonValue =
   | null
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
-
 
 async function logAudit(
   eventType: string,
@@ -46,7 +42,13 @@ async function logAudit(
     target_resource_id: targetResourceId ?? null,
     payload,
   });
-  if (error) logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
+  if (error)
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
 }
 
 function narrow(row: Record<string, unknown>): IssuedCheck | null {
@@ -104,7 +106,10 @@ export async function createIssuedCheckAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "issued_checks:write")) {
-    return { ok: false, error: "No tenés permiso para cargar cheques propios." };
+    return {
+      ok: false,
+      error: "No tenés permiso para cargar cheques propios.",
+    };
   }
 
   const parsed = IssuedCheckCreateSchema.safeParse(input);
@@ -182,7 +187,9 @@ export async function updateIssuedCheckAction(
     .from("issued_checks")
     .update({
       ...(rest.kind !== undefined && { kind: rest.kind }),
-      ...(rest.check_number !== undefined && { check_number: rest.check_number }),
+      ...(rest.check_number !== undefined && {
+        check_number: rest.check_number,
+      }),
       ...(rest.bank_name !== undefined && { bank_name: rest.bank_name }),
       ...(rest.beneficiary_name !== undefined && {
         beneficiary_name: rest.beneficiary_name ?? null,
@@ -248,8 +255,7 @@ export async function transitionIssuedCheckAction(
     rejected_at: parsed.data.to_status === "rejected" ? eventDate : null,
     cancelled_at:
       parsed.data.to_status === "cancelled" ? new Date().toISOString() : null,
-    cancelled_by:
-      parsed.data.to_status === "cancelled" ? ctx.userId : null,
+    cancelled_by: parsed.data.to_status === "cancelled" ? ctx.userId : null,
   };
 
   const { error } = await supabase
@@ -258,7 +264,10 @@ export async function transitionIssuedCheckAction(
     .eq("id", parsed.data.id);
 
   if (error) {
-    logger.error("issued_checks.transition.failed", { userId: ctx.userId, error });
+    logger.error("issued_checks.transition.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return {
       ok: false,
       error: error.message ?? "No se pudo cambiar el estado.",

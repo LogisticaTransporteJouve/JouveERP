@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -19,10 +20,6 @@ import {
   type CheckMovement,
 } from "../schema";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 type JsonValue =
   | string
   | number
@@ -30,7 +27,6 @@ type JsonValue =
   | null
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
-
 
 async function logAudit(
   eventType: string,

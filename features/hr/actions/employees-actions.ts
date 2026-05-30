@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -15,10 +16,6 @@ import {
   isPayFrequency,
   type Employee,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 type JsonValue =
   | string
@@ -69,9 +66,7 @@ const SELECT_COLS =
 
 // ─── List & search ───────────────────────────────────────────────────────────
 
-export async function listEmployeesAction(): Promise<
-  ActionResult<Employee[]>
-> {
+export async function listEmployeesAction(): Promise<ActionResult<Employee[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "hr:read")) {
     return { ok: false, error: "No tenés permiso para ver empleados." };
@@ -259,8 +254,7 @@ export async function updateEmployeeAction(
     });
   }
 
-  type EmployeeUpdate =
-    Database["public"]["Tables"]["employees"]["Update"];
+  type EmployeeUpdate = Database["public"]["Tables"]["employees"]["Update"];
   const patch: EmployeeUpdate = {};
   if (rest.legal_name !== undefined) patch.legal_name = rest.legal_name;
   if (rest.position !== undefined) patch.position = rest.position ?? null;
@@ -281,10 +275,7 @@ export async function updateEmployeeAction(
     return { ok: true, data: undefined };
   }
 
-  const { error } = await supabase
-    .from("employees")
-    .update(patch)
-    .eq("id", id);
+  const { error } = await supabase.from("employees").update(patch).eq("id", id);
 
   if (error) {
     logger.error("employees.update.failed", { userId: ctx.userId, id, error });

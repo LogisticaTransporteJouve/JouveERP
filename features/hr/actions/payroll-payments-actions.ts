@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -15,10 +16,6 @@ import {
   UpdatePayrollPaymentSchema,
   type PayrollPayment,
 } from "../payroll-schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 type JsonValue =
   | string
@@ -42,7 +39,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -96,7 +98,10 @@ export async function createPayrollPaymentAction(
   }
   const parsed = CreatePayrollPaymentSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -116,8 +121,14 @@ export async function createPayrollPaymentAction(
     .single();
 
   if (error || !data) {
-    logger.error("payroll_payments.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error?.message ?? "No se pudo registrar el pago." };
+    logger.error("payroll_payments.create.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return {
+      ok: false,
+      error: error?.message ?? "No se pudo registrar el pago.",
+    };
   }
   await logAudit(
     "payroll.payment_created",
@@ -142,7 +153,10 @@ export async function updatePayrollPaymentAction(
   }
   const parsed = UpdatePayrollPaymentSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 
@@ -219,17 +233,13 @@ export async function bulkCreatePayrollPaymentsAction(
       error: error.message ?? "No se pudo registrar el pago masivo.",
     };
   }
-  await logAudit(
-    "payroll.payment_bulk_created",
-    ctx.userId,
-    {
-      count: data?.length ?? 0,
-      amount_each: parsed.data.amount_each,
-      method: parsed.data.method,
-      account_id: parsed.data.account_id,
-      entry_ids: parsed.data.entry_ids,
-    },
-  );
+  await logAudit("payroll.payment_bulk_created", ctx.userId, {
+    count: data?.length ?? 0,
+    amount_each: parsed.data.amount_each,
+    method: parsed.data.method,
+    account_id: parsed.data.account_id,
+    entry_ids: parsed.data.entry_ids,
+  });
   return { ok: true, data: { inserted: data?.length ?? 0 } };
 }
 

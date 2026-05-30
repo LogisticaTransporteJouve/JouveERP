@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -26,10 +27,6 @@ import {
   type PaymentOrderAllocationStatusRow,
 } from "../schema";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 type JsonValue =
   | string
   | number
@@ -37,7 +34,6 @@ type JsonValue =
   | null
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
-
 
 async function logAudit(
   eventType: string,
@@ -410,12 +406,13 @@ async function loadChannelPos(
 
 export async function createPaymentOrderAction(
   input: unknown,
-): Promise<
-  ActionResult<{ id: string; numero: number; punto_venta: number }>
-> {
+): Promise<ActionResult<{ id: string; numero: number; punto_venta: number }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "payment_orders:write")) {
-    return { ok: false, error: "No tenés permiso para emitir órdenes de pago." };
+    return {
+      ok: false,
+      error: "No tenés permiso para emitir órdenes de pago.",
+    };
   }
 
   const parsed = PaymentOrderCreateSchema.safeParse(input);
@@ -524,7 +521,10 @@ export async function updatePaymentOrderAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "payment_orders:write")) {
-    return { ok: false, error: "No tenés permiso para editar órdenes de pago." };
+    return {
+      ok: false,
+      error: "No tenés permiso para editar órdenes de pago.",
+    };
   }
 
   const parsed = PaymentOrderUpdateSchema.safeParse(input);
@@ -575,7 +575,10 @@ export async function cancelPaymentOrderAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "payment_orders:write")) {
-    return { ok: false, error: "No tenés permiso para anular órdenes de pago." };
+    return {
+      ok: false,
+      error: "No tenés permiso para anular órdenes de pago.",
+    };
   }
 
   const parsed = PaymentOrderCancelSchema.safeParse(input);

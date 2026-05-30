@@ -1,6 +1,6 @@
 "use server";
 
-
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -26,10 +26,6 @@ import {
   type ReceiptAllocationStatusRow,
 } from "../schema";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 type JsonValue =
   | string
   | number
@@ -37,7 +33,6 @@ type JsonValue =
   | null
   | { [k: string]: JsonValue | undefined }
   | JsonValue[];
-
 
 async function logAudit(
   eventType: string,
@@ -145,9 +140,7 @@ export async function listReceiptsAction(input?: {
         client_legal_name: clientRel?.legal_name ?? "—",
       };
     })
-    .filter(
-      (r): r is Receipt & { client_legal_name: string } => r !== null,
-    );
+    .filter((r): r is Receipt & { client_legal_name: string } => r !== null);
 
   return {
     ok: true,
@@ -233,9 +226,7 @@ export async function getReceiptByIdAction(
       .order("created_at"),
     supabase
       .from("receipt_allocations")
-      .select(
-        "*, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
-      )
+      .select("*, invoice:invoices(letter, kind, punto_venta, numero, fecha)")
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
@@ -453,10 +444,7 @@ export async function listPendingComprobantesForClientAction(
   }
   for (const a of openingAllocs ?? []) {
     const prev = allocatedByComprobante.get(a.invoice_id) ?? 0;
-    allocatedByComprobante.set(
-      a.invoice_id,
-      prev + Number(a.amount_applied),
-    );
+    allocatedByComprobante.set(a.invoice_id, prev + Number(a.amount_applied));
   }
 
   const pending: PendingComprobante[] = comprobantes

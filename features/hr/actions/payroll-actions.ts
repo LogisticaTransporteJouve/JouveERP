@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -20,10 +21,6 @@ import {
   type PayrollEntryResolved,
   type PayrollPeriod,
 } from "../payroll-schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 type JsonValue =
   | string
@@ -47,7 +44,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -146,12 +148,20 @@ export async function getPayrollPeriodAction(
   const { data: employees, error: empErr } = await supabase
     .from("employees")
     .select("id, legal_name, pay_frequency, is_active")
-    .in("id", employeeIds.length > 0 ? employeeIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in(
+      "id",
+      employeeIds.length > 0
+        ? employeeIds
+        : ["00000000-0000-0000-0000-000000000000"],
+    );
 
   if (empErr) {
     return { ok: false, error: empErr.message };
   }
-  const empById = new Map<string, { legal_name: string; pay_frequency: string; is_active: boolean }>(
+  const empById = new Map<
+    string,
+    { legal_name: string; pay_frequency: string; is_active: boolean }
+  >(
     (employees ?? []).map((e) => [
       e.id,
       {
@@ -295,12 +305,14 @@ export async function updatePayrollEntryAction(
   }
   const parsed = UpdatePayrollEntrySchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 
-  type EntryUpdate =
-    Database["public"]["Tables"]["payroll_entries"]["Update"];
+  type EntryUpdate = Database["public"]["Tables"]["payroll_entries"]["Update"];
   const patch: EntryUpdate = {};
   if (rest.sueldo_neto !== undefined) patch.sueldo_neto = rest.sueldo_neto;
   if (rest.vacaciones_monto !== undefined)
@@ -343,7 +355,9 @@ export async function listPayrollEntryExtrasAction(
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("payroll_entry_extras")
-    .select("id, entry_id, amount, description, sort_order, created_by, created_at")
+    .select(
+      "id, entry_id, amount, description, sort_order, created_by, created_at",
+    )
     .eq("entry_id", entryId)
     .order("sort_order");
 
@@ -360,7 +374,10 @@ export async function addPayrollEntryExtraAction(
   }
   const parsed = AddPayrollEntryExtraSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -409,7 +426,10 @@ export async function updatePayrollEntryExtraAction(
   }
   const parsed = UpdatePayrollEntryExtraSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 
@@ -427,7 +447,12 @@ export async function updatePayrollEntryExtraAction(
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
-  await logAudit("payroll.extra_updated", ctx.userId, { fields: Object.keys(patch) }, id);
+  await logAudit(
+    "payroll.extra_updated",
+    ctx.userId,
+    { fields: Object.keys(patch) },
+    id,
+  );
   return { ok: true, data: undefined };
 }
 

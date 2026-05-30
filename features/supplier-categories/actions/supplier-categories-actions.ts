@@ -1,8 +1,12 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,11 +16,6 @@ import {
   SupplierCategoryUpdateSchema,
   type SupplierCategory,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 
 export async function listSupplierCategoriesAction(
   options: { onlyActive?: boolean } = {},
@@ -38,7 +37,10 @@ export async function listSupplierCategoriesAction(
 
   const { data, error } = await query;
   if (error) {
-    logger.error("supplier_categories.list.failed", { userId: ctx.userId, error });
+    logger.error("supplier_categories.list.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudieron leer las categorías." };
   }
 
@@ -79,7 +81,10 @@ export async function createSupplierCategoryAction(
         error: "Ya existe una categoría con ese nombre o slug.",
       };
     }
-    logger.error("supplier_categories.create.failed", { userId: ctx.userId, error });
+    logger.error("supplier_categories.create.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo crear la categoría." };
   }
 
@@ -120,7 +125,10 @@ export async function updateSupplierCategoryAction(
         error: "Ya existe una categoría con ese nombre o slug.",
       };
     }
-    logger.error("supplier_categories.update.failed", { userId: ctx.userId, error });
+    logger.error("supplier_categories.update.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo actualizar la categoría." };
   }
 
@@ -149,7 +157,10 @@ export async function deleteSupplierCategoryAction(
     .eq("category_id", parsed.data.id);
 
   if (countError) {
-    logger.error("supplier_categories.delete.precheck_failed", { userId: ctx.userId, error: countError });
+    logger.error("supplier_categories.delete.precheck_failed", {
+      userId: ctx.userId,
+      error: countError,
+    });
     return { ok: false, error: "No se pudo verificar uso de la categoría." };
   }
   if ((count ?? 0) > 0) {
@@ -166,9 +177,15 @@ export async function deleteSupplierCategoryAction(
 
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
-      return { ok: false, error: "La categoría está en uso, no se puede borrar." };
+      return {
+        ok: false,
+        error: "La categoría está en uso, no se puede borrar.",
+      };
     }
-    logger.error("supplier_categories.delete.failed", { userId: ctx.userId, error });
+    logger.error("supplier_categories.delete.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar la categoría." };
   }
 

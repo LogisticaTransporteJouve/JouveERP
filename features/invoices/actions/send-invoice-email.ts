@@ -18,7 +18,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 import type { ClientLegalJoin } from "@/features/clients/schema";
 
 import { formatInvoiceNumero } from "../schema";
-import type { ActionResult } from "./invoices-actions";
+import type { ActionResult } from "@/lib/query/run-action";
 
 /** Shape específico de `channel:invoicing_channels ( business_unit:business_units(name) )`
  *  que devuelve el SELECT de send-invoice-email para sacar el nombre del emisor. */
@@ -55,7 +55,10 @@ export async function sendInvoiceByEmailAction(
 
   const parsed = SendInvoiceEmailSchema.safeParse(rawInput);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const input = parsed.data;
 
@@ -135,9 +138,7 @@ export async function sendInvoiceByEmailAction(
 }
 
 // Suggested defaults para prefill del dialog.
-export async function getInvoiceEmailDefaultsAction(
-  invoiceId: string,
-): Promise<
+export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
   ActionResult<{
     recipient: string | null;
     subject: string;

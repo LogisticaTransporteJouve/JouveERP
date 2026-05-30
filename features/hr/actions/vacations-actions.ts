@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -18,10 +19,6 @@ import {
   type EmployeeLeave,
   type VacationBalance,
 } from "../vacation-schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 type JsonValue =
   | string
@@ -45,7 +42,12 @@ async function logAudit(
     payload,
   });
   if (error) {
-    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
+    logger.error("audit.insert.failed", {
+      userId: actorId,
+      eventType,
+      targetResourceId,
+      error,
+    });
   }
 }
 
@@ -98,7 +100,10 @@ export async function createLeaveAction(
   }
   const parsed = CreateLeaveSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -132,21 +137,21 @@ export async function createLeaveAction(
   return { ok: true, data: { id: data.id } };
 }
 
-export async function updateLeaveAction(
-  input: unknown,
-): Promise<ActionResult> {
+export async function updateLeaveAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = UpdateLeaveSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 
-  type LeaveUpdate =
-    Database["public"]["Tables"]["employee_leaves"]["Update"];
+  type LeaveUpdate = Database["public"]["Tables"]["employee_leaves"]["Update"];
   const patch: LeaveUpdate = {};
   if (rest.start_date !== undefined) patch.start_date = rest.start_date;
   if (rest.end_date !== undefined) patch.end_date = rest.end_date;
@@ -161,7 +166,12 @@ export async function updateLeaveAction(
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
-  await logAudit("leave.updated", ctx.userId, { fields: Object.keys(patch) }, id);
+  await logAudit(
+    "leave.updated",
+    ctx.userId,
+    { fields: Object.keys(patch) },
+    id,
+  );
   return { ok: true, data: undefined };
 }
 
@@ -219,7 +229,9 @@ export async function listVacationBalancesAction(
     ok: true,
     data: (data ?? [])
       .filter((row) => row.id && row.employee_id && row.period_year !== null)
-      .map((row) => narrowBalance(row as Record<string, unknown> & { status: string }))
+      .map((row) =>
+        narrowBalance(row as Record<string, unknown> & { status: string }),
+      )
       .filter((row): row is VacationBalance => row !== null),
   };
 }
@@ -234,7 +246,10 @@ export async function grantVacationBalancesAction(
   }
   const parsed = GrantVacationBalancesSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -245,15 +260,11 @@ export async function grantVacationBalancesAction(
 
   if (error) return { ok: false, error: error.message };
   const count = (data ?? []).length;
-  await logAudit(
-    "vacation.balances_granted",
-    ctx.userId,
-    {
-      target_year: parsed.data.target_year,
-      carryover: parsed.data.carryover,
-      count,
-    },
-  );
+  await logAudit("vacation.balances_granted", ctx.userId, {
+    target_year: parsed.data.target_year,
+    carryover: parsed.data.carryover,
+    count,
+  });
   return { ok: true, data: { count } };
 }
 
@@ -266,7 +277,10 @@ export async function adjustVacationBalanceAction(
   }
   const parsed = AdjustVacationBalanceSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 

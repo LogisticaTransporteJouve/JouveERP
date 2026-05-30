@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
@@ -9,10 +10,6 @@ import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import type { AccountBalanceRow } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 const GetAccountBalancesInput = z.object({
   periodEnd: PeriodSchema,
@@ -29,7 +26,10 @@ export async function getAccountBalancesAction(input: {
   }
   const parsed = GetAccountBalancesInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const supabase = await createClient();
