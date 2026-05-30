@@ -66,6 +66,7 @@ export function usePendingComprobantes(
           )
         : Promise.resolve([]),
     enabled: !!clientId,
+    staleTime: 5_000,
   });
 }
 
@@ -100,8 +101,7 @@ export function useNextReceiptNumero(channelId: string | null) {
 export function useCreateReceipt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) =>
-      runAction(() => createReceiptAction(input)),
+    mutationFn: (input: unknown) => runAction(() => createReceiptAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
@@ -114,8 +114,7 @@ export function useCreateReceipt() {
 export function useUpdateReceipt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) =>
-      runAction(() => updateReceiptAction(input)),
+    mutationFn: (input: unknown) => runAction(() => updateReceiptAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: receiptsKeys.all });
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
