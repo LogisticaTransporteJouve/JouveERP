@@ -34,8 +34,7 @@ export function useAccountsList() {
 export function useCreateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) =>
-      runAction(() => createAccountAction(input)),
+    mutationFn: (input: unknown) => runAction(() => createAccountAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountsKeys.all });
     },
@@ -45,8 +44,7 @@ export function useCreateAccount() {
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) =>
-      runAction(() => updateAccountAction(input)),
+    mutationFn: (input: unknown) => runAction(() => updateAccountAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountsKeys.all });
     },
@@ -68,6 +66,7 @@ export function useAccountOpeningBalance(id: string, enabled = true) {
   return useQuery({
     queryKey: accountsKeys.openingBalance(id),
     queryFn: () => runAction(() => getAccountOpeningBalanceAction(id)),
+    staleTime: 5 * 60_000,
     enabled,
   });
 }

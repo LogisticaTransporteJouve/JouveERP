@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -18,10 +19,6 @@ import {
 } from "@/lib/auth/users";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 const RoleEnum = z.enum(ROLES);
 
@@ -73,7 +70,9 @@ async function logAudit(
   }
 }
 
-export async function listUsersAction(): Promise<ActionResult<UserWithRoles[]>> {
+export async function listUsersAction(): Promise<
+  ActionResult<UserWithRoles[]>
+> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "users:read")) {
     return { ok: false, error: "No tenés permiso para ver usuarios." };
@@ -100,7 +99,12 @@ export async function bootstrapOwnerIfNeeded(): Promise<ActionResult<boolean>> {
     logger.error("bootstrap.owner.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo inicializar el owner." };
   }
-  await logAudit("user.role.granted", ctx.userId, { role: "owner", reason: "bootstrap" }, ctx.userId);
+  await logAudit(
+    "user.role.granted",
+    ctx.userId,
+    { role: "owner", reason: "bootstrap" },
+    ctx.userId,
+  );
   return { ok: true, data: true };
 }
 
@@ -140,7 +144,9 @@ export async function inviteUserAction(
     role_id: role,
     granted_by: ctx.userId,
   }));
-  const { error: rolesError } = await service.from("user_roles").insert(inserts);
+  const { error: rolesError } = await service
+    .from("user_roles")
+    .insert(inserts);
   if (rolesError) {
     logger.error("invite.roles.failed", {
       userId: ctx.userId,
@@ -160,9 +166,7 @@ export async function inviteUserAction(
   return { ok: true, data: { userId: data.user.id } };
 }
 
-export async function assignRoleAction(
-  raw: unknown,
-): Promise<ActionResult> {
+export async function assignRoleAction(raw: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "users:assign_role")) {
     return { ok: false, error: "No tenés permiso para asignar roles." };
@@ -172,20 +176,21 @@ export async function assignRoleAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   if (!canAssignRole(ctx.roles, parsed.data.roleId)) {
-    return { ok: false, error: `No podés asignar el rol ${parsed.data.roleId}.` };
+    return {
+      ok: false,
+      error: `No podés asignar el rol ${parsed.data.roleId}.`,
+    };
   }
 
   const service = getServiceClient();
-  const { error } = await service
-    .from("user_roles")
-    .upsert(
-      {
-        user_id: parsed.data.userId,
-        role_id: parsed.data.roleId,
-        granted_by: ctx.userId,
-      },
-      { onConflict: "user_id,role_id" },
-    );
+  const { error } = await service.from("user_roles").upsert(
+    {
+      user_id: parsed.data.userId,
+      role_id: parsed.data.roleId,
+      granted_by: ctx.userId,
+    },
+    { onConflict: "user_id,role_id" },
+  );
   if (error) {
     logger.error("role.assign.failed", {
       userId: ctx.userId,
@@ -206,9 +211,7 @@ export async function assignRoleAction(
   return { ok: true, data: undefined };
 }
 
-export async function revokeRoleAction(
-  raw: unknown,
-): Promise<ActionResult> {
+export async function revokeRoleAction(raw: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "users:assign_role")) {
     return { ok: false, error: "No tenés permiso para revocar roles." };
@@ -218,7 +221,10 @@ export async function revokeRoleAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   if (!canAssignRole(ctx.roles, parsed.data.roleId)) {
-    return { ok: false, error: `No podés revocar el rol ${parsed.data.roleId}.` };
+    return {
+      ok: false,
+      error: `No podés revocar el rol ${parsed.data.roleId}.`,
+    };
   }
 
   const service = getServiceClient();
@@ -257,9 +263,7 @@ export async function revokeRoleAction(
  * the actor cannot assign are silently kept as-is so the actor cannot
  * accidentally remove privileges they don't control.
  */
-export async function setUserRolesAction(
-  raw: unknown,
-): Promise<ActionResult> {
+export async function setUserRolesAction(raw: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "users:assign_role")) {
     return { ok: false, error: "No tenés permiso para modificar roles." };

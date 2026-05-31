@@ -1,15 +1,12 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type { BackupFile } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 const BUCKET = "backups-daily";
 
@@ -40,7 +37,9 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
     .map((f) => ({
       name: f.name,
       size: Number(
-        (f.metadata as Record<string, unknown> | null)?.size ?? f.metadata?.size ?? 0,
+        (f.metadata as Record<string, unknown> | null)?.size ??
+          f.metadata?.size ??
+          0,
       ),
       createdAt: f.created_at ?? "",
       sha256:

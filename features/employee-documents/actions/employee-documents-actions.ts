@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -13,10 +14,6 @@ import {
   type EmployeeDocument,
   type ExpiringDocumentRow,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 function narrowDocument(row: {
   kind: string;

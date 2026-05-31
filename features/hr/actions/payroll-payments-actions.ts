@@ -1,11 +1,12 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   BulkCreatePayrollPaymentsSchema,
@@ -15,36 +16,6 @@ import {
   UpdatePayrollPaymentSchema,
   type PayrollPayment,
 } from "../payroll-schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error) {
-    logger.error("audit.insert.failed", { userId: actorId, eventType, targetResourceId, error });
-  }
-}
 
 function narrowPayment(row: {
   method: string;
@@ -96,7 +67,10 @@ export async function createPayrollPaymentAction(
   }
   const parsed = CreatePayrollPaymentSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -116,8 +90,14 @@ export async function createPayrollPaymentAction(
     .single();
 
   if (error || !data) {
-    logger.error("payroll_payments.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error?.message ?? "No se pudo registrar el pago." };
+    logger.error("payroll_payments.create.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return {
+      ok: false,
+      error: error?.message ?? "No se pudo registrar el pago.",
+    };
   }
   await logAudit(
     "payroll.payment_created",
@@ -142,7 +122,10 @@ export async function updatePayrollPaymentAction(
   }
   const parsed = UpdatePayrollPaymentSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const { id, ...rest } = parsed.data;
 
@@ -219,17 +202,13 @@ export async function bulkCreatePayrollPaymentsAction(
       error: error.message ?? "No se pudo registrar el pago masivo.",
     };
   }
-  await logAudit(
-    "payroll.payment_bulk_created",
-    ctx.userId,
-    {
-      count: data?.length ?? 0,
-      amount_each: parsed.data.amount_each,
-      method: parsed.data.method,
-      account_id: parsed.data.account_id,
-      entry_ids: parsed.data.entry_ids,
-    },
-  );
+  await logAudit("payroll.payment_bulk_created", ctx.userId, {
+    count: data?.length ?? 0,
+    amount_each: parsed.data.amount_each,
+    method: parsed.data.method,
+    account_id: parsed.data.account_id,
+    entry_ids: parsed.data.entry_ids,
+  });
   return { ok: true, data: { inserted: data?.length ?? 0 } };
 }
 

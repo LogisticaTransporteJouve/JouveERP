@@ -1,8 +1,12 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,17 +19,15 @@ import {
   type ChartAccount,
 } from "../schema";
 
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-
 export async function listChartOfAccountsAction(
   options: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<ChartAccount[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounting:read")) {
-    return { ok: false, error: "No tenés permiso para ver el plan de cuentas." };
+    return {
+      ok: false,
+      error: "No tenés permiso para ver el plan de cuentas.",
+    };
   }
 
   const supabase = await createClient();
@@ -40,7 +42,10 @@ export async function listChartOfAccountsAction(
 
   const { data, error } = await query;
   if (error) {
-    logger.error("chart_of_accounts.list.failed", { userId: ctx.userId, error });
+    logger.error("chart_of_accounts.list.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo leer el plan de cuentas." };
   }
 
@@ -127,7 +132,10 @@ export async function createChartAccountAction(
       }
       return { ok: false, error: "Ya existe una cuenta con ese código." };
     }
-    logger.error("chart_of_accounts.create.failed", { userId: ctx.userId, error });
+    logger.error("chart_of_accounts.create.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo crear la cuenta." };
   }
 
@@ -156,7 +164,9 @@ export async function updateChartAccountAction(
   const update = {
     ...(rest.name !== undefined && { name: rest.name }),
     ...(rest.account_type !== undefined && { account_type: rest.account_type }),
-    ...(rest.eerr_category !== undefined && { eerr_category: rest.eerr_category }),
+    ...(rest.eerr_category !== undefined && {
+      eerr_category: rest.eerr_category,
+    }),
     ...(rest.system_role !== undefined && { system_role: rest.system_role }),
     ...(rest.is_active !== undefined && { is_active: rest.is_active }),
   };
@@ -180,7 +190,10 @@ export async function updateChartAccountAction(
       }
       return { ok: false, error: "Conflicto de unicidad al actualizar." };
     }
-    logger.error("chart_of_accounts.update.failed", { userId: ctx.userId, error });
+    logger.error("chart_of_accounts.update.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
   }
 
@@ -208,7 +221,10 @@ export async function deleteChartAccountAction(
     .eq("parent_id", parsed.data.id);
 
   if (countErr) {
-    logger.error("chart_of_accounts.delete.precheck_failed", { userId: ctx.userId, error: countErr });
+    logger.error("chart_of_accounts.delete.precheck_failed", {
+      userId: ctx.userId,
+      error: countErr,
+    });
     return { ok: false, error: "No se pudo verificar dependencias." };
   }
   if ((count ?? 0) > 0) {
@@ -230,7 +246,10 @@ export async function deleteChartAccountAction(
         error: "La cuenta tiene movimientos asociados, no se puede borrar.",
       };
     }
-    logger.error("chart_of_accounts.delete.failed", { userId: ctx.userId, error });
+    logger.error("chart_of_accounts.delete.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar la cuenta." };
   }
 

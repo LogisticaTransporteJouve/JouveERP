@@ -63,6 +63,7 @@ export function usePendingPurchaseInvoices(
           )
         : Promise.resolve([]),
     enabled: !!supplierId,
+    staleTime: 5_000,
   });
 }
 
@@ -124,7 +125,9 @@ export function useCancelPaymentOrder() {
       runAction(() => cancelPaymentOrderAction(input)),
     onSuccess: (_data, variables) => {
       invalidatePaymentOrderEffects(qc);
-      qc.invalidateQueries({ queryKey: paymentOrdersKeys.detail(variables.id) });
+      qc.invalidateQueries({
+        queryKey: paymentOrdersKeys.detail(variables.id),
+      });
     },
   });
 }

@@ -28,8 +28,14 @@ export function LibroIvaComprasTable({
   const grouped = useMemo(() => groupComprasByInvoice(rows ?? []), [rows]);
   const totals = useMemo(() => computeComprasTotals(grouped), [grouped]);
 
-  const sinCae = grouped.filter((g) => !g.cae_proveedor).length;
-  const sinItems = grouped.filter((g) => !g.has_items).length;
+  const sinCae = useMemo(
+    () => grouped.filter((g) => !g.cae_proveedor).length,
+    [grouped],
+  );
+  const sinItems = useMemo(
+    () => grouped.filter((g) => !g.has_items).length,
+    [grouped],
+  );
 
   if (isLoading) {
     return (
@@ -82,11 +88,17 @@ export function LibroIvaComprasTable({
               <th className="px-2 py-2 font-medium">Proveedor</th>
               <th className="px-2 py-2 font-medium">CUIT</th>
               {IVA_RATES.map((r) => (
-                <th key={r.id} colSpan={2} className="border-l px-2 py-2 text-center font-medium">
+                <th
+                  key={r.id}
+                  colSpan={2}
+                  className="border-l px-2 py-2 text-center font-medium"
+                >
                   {r.label}
                 </th>
               ))}
-              <th className="border-l px-2 py-2 text-right font-medium">Perc.</th>
+              <th className="border-l px-2 py-2 text-right font-medium">
+                Perc.
+              </th>
               <th className="px-2 py-2 text-right font-medium">Total</th>
               <th className="px-2 py-2 font-medium">CAE prov.</th>
             </tr>
@@ -101,9 +113,7 @@ export function LibroIvaComprasTable({
                   <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
                   </th>
-                  <th className="px-2 py-1 text-right font-normal">
-                    IVA
-                  </th>
+                  <th className="px-2 py-1 text-right font-normal">IVA</th>
                 </Fragment>
               ))}
               <th className="border-l" />
@@ -115,7 +125,10 @@ export function LibroIvaComprasTable({
             {grouped.map((row) => {
               const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
               return (
-                <tr key={row.purchase_invoice_id} className="border-b last:border-b-0 hover:bg-muted/20">
+                <tr
+                  key={row.purchase_invoice_id}
+                  className="border-b last:border-b-0 hover:bg-muted/20"
+                >
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {formatArgentineDate(row.fecha)}
                   </td>
@@ -125,11 +138,17 @@ export function LibroIvaComprasTable({
                     </Badge>
                   </td>
                   <td className="px-2 py-1 font-mono text-xs">
-                    <Link href={`/purchases/${row.purchase_invoice_id}`} className="hover:underline">
+                    <Link
+                      href={`/purchases/${row.purchase_invoice_id}`}
+                      className="hover:underline"
+                    >
                       {number}
                     </Link>
                   </td>
-                  <td className="px-2 py-1 max-w-[200px] truncate" title={row.supplier_legal_name}>
+                  <td
+                    className="px-2 py-1 max-w-[200px] truncate"
+                    title={row.supplier_legal_name}
+                  >
                     {row.supplier_legal_name}
                   </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -156,7 +175,13 @@ export function LibroIvaComprasTable({
                   </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.cae_proveedor ? (
-                      <span title={row.cae_vto_proveedor ? `Vto ${row.cae_vto_proveedor}` : ""}>
+                      <span
+                        title={
+                          row.cae_vto_proveedor
+                            ? `Vto ${row.cae_vto_proveedor}`
+                            : ""
+                        }
+                      >
                         {row.cae_proveedor}
                       </span>
                     ) : (
@@ -188,7 +213,9 @@ export function LibroIvaComprasTable({
               <td className="border-l px-2 py-2 text-right font-mono">
                 {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
               </td>
-              <td className="px-2 py-2 text-right font-mono">{money(totals.imp_total)}</td>
+              <td className="px-2 py-2 text-right font-mono">
+                {money(totals.imp_total)}
+              </td>
               <td />
             </tr>
           </tfoot>

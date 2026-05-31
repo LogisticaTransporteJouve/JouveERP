@@ -34,6 +34,7 @@ export function usePayrollPeriod(year: number, month: number) {
   return useSuspenseQuery({
     queryKey: payrollKeys.period(year, month),
     queryFn: () => runAction(() => getPayrollPeriodAction(year, month)),
+    staleTime: 10 * 60_000,
   });
 }
 
@@ -85,8 +86,11 @@ type UpdateEntryVars = {
 export function useUpdatePayrollEntry() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ period_year: _y, period_month: _m, ...rest }: UpdateEntryVars) =>
-      runAction(() => updatePayrollEntryAction(rest)),
+    mutationFn: ({
+      period_year: _y,
+      period_month: _m,
+      ...rest
+    }: UpdateEntryVars) => runAction(() => updatePayrollEntryAction(rest)),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
@@ -101,6 +105,7 @@ export function usePayrollEntryExtras(entryId: string) {
   return useQuery({
     queryKey: payrollKeys.extras(entryId),
     queryFn: () => runAction(() => listPayrollEntryExtrasAction(entryId)),
+    staleTime: 10 * 60_000,
   });
 }
 
@@ -115,8 +120,11 @@ type AddExtraVars = {
 export function useAddPayrollEntryExtra() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ period_year: _y, period_month: _m, ...rest }: AddExtraVars) =>
-      runAction(() => addPayrollEntryExtraAction(rest)),
+    mutationFn: ({
+      period_year: _y,
+      period_month: _m,
+      ...rest
+    }: AddExtraVars) => runAction(() => addPayrollEntryExtraAction(rest)),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: payrollKeys.extras(vars.entry_id) });
       qc.invalidateQueries({
@@ -143,8 +151,7 @@ export function useUpdatePayrollEntryExtra() {
       period_year: _y,
       period_month: _m,
       ...rest
-    }: UpdateExtraVars) =>
-      runAction(() => updatePayrollEntryExtraAction(rest)),
+    }: UpdateExtraVars) => runAction(() => updatePayrollEntryExtraAction(rest)),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: payrollKeys.extras(vars.entry_id) });
       qc.invalidateQueries({

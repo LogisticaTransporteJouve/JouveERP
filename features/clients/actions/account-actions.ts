@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
@@ -22,10 +23,6 @@ const SetOpeningInput = z.object({
   target_balance: NonNegativeAmountSchema,
   notes: NotesSchema,
 });
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 export type AccountMovementSourceType =
   | "invoice"
@@ -124,7 +121,11 @@ export async function getClientAccountAction(
       .order("created_at", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("clients.account.list_failed", { userId: ctx.userId, clientId, error });
+      logger.error("clients.account.list_failed", {
+        userId: ctx.userId,
+        clientId,
+        error,
+      });
       return { ok: false, error: "No se pudo cargar la cuenta corriente." };
     }
     const got = (chunk ?? []) as MovementRow[];
@@ -244,7 +245,11 @@ export async function getClientAccountAction(
     }
     running = round2(running + signed);
     let outstanding: number | null = null;
-    if (row.source_type === "invoice" && row.source_id && row.kind !== "credit_note") {
+    if (
+      row.source_type === "invoice" &&
+      row.source_id &&
+      row.kind !== "credit_note"
+    ) {
       const applied = appliedByInvoice.get(row.source_id) ?? 0;
       outstanding = Math.max(0, round2(gross - applied));
     } else if (row.source_type === "receipt" && row.source_id) {
@@ -309,7 +314,11 @@ export async function getClientOpeningBalanceAction(
     .eq("client_id", clientId)
     .maybeSingle();
   if (error) {
-    logger.error("clients.opening.read_failed", { userId: ctx.userId, clientId, error });
+    logger.error("clients.opening.read_failed", {
+      userId: ctx.userId,
+      clientId,
+      error,
+    });
     return { ok: false, error: "No se pudo cargar el saldo de apertura." };
   }
   if (!data) return { ok: true, data: null };
@@ -348,7 +357,10 @@ export async function setClientOpeningBalanceAction(input: {
   }
   const parsed = SetOpeningInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
 
@@ -367,8 +379,7 @@ export async function setClientOpeningBalanceAction(input: {
     });
     return {
       ok: false,
-      error:
-        error.message ?? "No se pudo aplicar el saldo de apertura.",
+      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
     };
   }
   return { ok: true, data: undefined };
@@ -394,7 +405,11 @@ export async function clearClientOpeningBalanceAction(
     p_client_id: clientId,
   });
   if (error) {
-    logger.error("clients.opening.clear_failed", { userId: ctx.userId, clientId, error });
+    logger.error("clients.opening.clear_failed", {
+      userId: ctx.userId,
+      clientId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
   return { ok: true, data: undefined };
