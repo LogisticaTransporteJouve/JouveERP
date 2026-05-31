@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
@@ -9,10 +10,6 @@ import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import type { LibroIvaComprasRow, LibroIvaVentasRow } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 const LibroIvaInput = z.object({
   period: PeriodSchema,
@@ -29,7 +26,10 @@ export async function listLibroIvaVentasAction(input: {
   }
   const parsed = LibroIvaInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
 
@@ -61,7 +61,10 @@ export async function listLibroIvaComprasAction(input: {
   }
   const parsed = LibroIvaInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
 

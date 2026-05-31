@@ -1,13 +1,13 @@
 "use server";
 
-
+import { logAudit } from "@/lib/actions/audit";
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
@@ -25,42 +25,6 @@ import {
   type ReceiptRetention,
   type ReceiptAllocationStatusRow,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error) {
-    logger.error("audit.insert.failed", {
-      userId: actorId,
-      eventType,
-      targetResourceId,
-      error,
-    });
-  }
-}
 
 function narrowReceipt(row: {
   status: string;
@@ -145,9 +109,7 @@ export async function listReceiptsAction(input?: {
         client_legal_name: clientRel?.legal_name ?? "—",
       };
     })
-    .filter(
-      (r): r is Receipt & { client_legal_name: string } => r !== null,
-    );
+    .filter((r): r is Receipt & { client_legal_name: string } => r !== null);
 
   return {
     ok: true,
@@ -233,9 +195,7 @@ export async function getReceiptByIdAction(
       .order("created_at"),
     supabase
       .from("receipt_allocations")
-      .select(
-        "*, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
-      )
+      .select("*, invoice:invoices(letter, kind, punto_venta, numero, fecha)")
       .eq("receipt_id", id)
       .order("created_at"),
     supabase
@@ -417,12 +377,22 @@ export async function listPendingComprobantesForClientAction(
 
   // Receipt allocations: filtramos por receipts.client_id (no por
   // .in(invoice_id, miles…)) para no reventar la URL de PostgREST.
-  const { data: allocations, error: aErr } = await supabase
-    .from("receipt_allocations")
-    .select(
-      "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
-    )
-    .eq("receipts.client_id", clientId);
+  // Opening allocations: lo que el ajuste de saldo dejó saldado también
+  // debe descontarse del outstanding, sino el picker ofrece imputar de
+  // nuevo facturas ya cerradas. Ambas son independientes → en paralelo.
+  const [allocsRes, openingAllocsRes] = await Promise.all([
+    supabase
+      .from("receipt_allocations")
+      .select(
+        "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
+      )
+      .eq("receipts.client_id", clientId),
+    supabase
+      .from("client_opening_balance_allocations")
+      .select("invoice_id, amount_applied")
+      .eq("client_id", clientId),
+  ]);
+  const { data: allocations, error: aErr } = allocsRes;
   if (aErr) {
     logger.error("receipts.pending.list_allocations_failed", {
       userId: ctx.userId,
@@ -431,14 +401,7 @@ export async function listPendingComprobantesForClientAction(
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
-
-  // Opening allocations: lo que el ajuste de saldo dejó saldado también
-  // debe descontarse del outstanding, sino el picker ofrece imputar de
-  // nuevo facturas ya cerradas.
-  const { data: openingAllocs } = await supabase
-    .from("client_opening_balance_allocations")
-    .select("invoice_id, amount_applied")
-    .eq("client_id", clientId);
+  const { data: openingAllocs } = openingAllocsRes;
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {
@@ -453,10 +416,7 @@ export async function listPendingComprobantesForClientAction(
   }
   for (const a of openingAllocs ?? []) {
     const prev = allocatedByComprobante.get(a.invoice_id) ?? 0;
-    allocatedByComprobante.set(
-      a.invoice_id,
-      prev + Number(a.amount_applied),
-    );
+    allocatedByComprobante.set(a.invoice_id, prev + Number(a.amount_applied));
   }
 
   const pending: PendingComprobante[] = comprobantes

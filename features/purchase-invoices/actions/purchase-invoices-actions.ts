@@ -1,11 +1,13 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
+import type { JsonValue } from "@/lib/actions/audit";
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
@@ -22,41 +24,6 @@ import {
   type PurchaseInvoiceLetter,
   type PurchaseIvaRateId,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error)
-    logger.error("audit.insert.failed", {
-      userId: actorId,
-      eventType,
-      targetResourceId,
-      error,
-    });
-}
 
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
   if (!isPurchaseInvoiceKind(row.kind)) return null;
@@ -91,7 +58,10 @@ export async function searchPurchaseInvoicesAction(
 ): Promise<ActionResult<SearchPurchaseInvoicesPage>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:read")) {
-    return { ok: false, error: "No tenés permiso para ver facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para ver facturas de compra.",
+    };
   }
 
   const offset = Math.max(0, input.offset ?? 0);
@@ -142,7 +112,10 @@ export async function getPurchaseInvoiceByIdAction(
 ): Promise<ActionResult<PurchaseInvoice | null>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:read")) {
-    return { ok: false, error: "No tenés permiso para ver facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para ver facturas de compra.",
+    };
   }
 
   const supabase = await createClient();
@@ -281,12 +254,18 @@ export async function createPurchaseInvoiceAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:write")) {
-    return { ok: false, error: "No tenés permiso para cargar facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para cargar facturas de compra.",
+    };
   }
 
   const parsed = PurchaseInvoiceCreateSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createClient();
@@ -345,7 +324,10 @@ export async function createPurchaseInvoiceAction(
         id: data.id,
         error: itemsError,
       });
-      return { ok: false, error: "Factura cargada pero no se pudieron guardar los ítems." };
+      return {
+        ok: false,
+        error: "Factura cargada pero no se pudieron guardar los ítems.",
+      };
     }
   }
 
@@ -390,12 +372,18 @@ export async function updatePurchaseInvoiceAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:write")) {
-    return { ok: false, error: "No tenés permiso para editar facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para editar facturas de compra.",
+    };
   }
 
   const parsed = PurchaseInvoiceUpdateSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const { id, ...rest } = parsed.data;
@@ -460,7 +448,10 @@ export async function updatePurchaseInvoiceAction(
         id,
         error: itemsError,
       });
-      return { ok: false, error: "Factura actualizada pero no se pudieron guardar los ítems." };
+      return {
+        ok: false,
+        error: "Factura actualizada pero no se pudieron guardar los ítems.",
+      };
     }
   }
 
@@ -478,7 +469,10 @@ export async function cancelPurchaseInvoiceAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:cancel")) {
-    return { ok: false, error: "No tenés permiso para anular facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para anular facturas de compra.",
+    };
   }
 
   const parsed = PurchaseInvoiceCancelSchema.safeParse(input);

@@ -19,7 +19,6 @@ const BUCKET = "invoices-pdf";
 const supabase = createClient(url, key);
 
 let total = 0;
-let cursor = null;
 
 while (true) {
   const { data, error } = await supabase.storage
@@ -45,7 +44,6 @@ while (true) {
   total += names.length;
   console.log(`Borrados ${names.length} (total ${total})`);
   if (data.length < 1000) break;
-  cursor = names[names.length - 1];
 }
 
 console.log(`\n✓ Bucket "${BUCKET}" vacío. Total borrados: ${total}`);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -56,11 +56,13 @@ type FormValues = {
 };
 
 function supplierToValues(
-  supplier: (Supplier & {
-    default_channel_id?: string | null;
-    default_payment_term_days?: number | null;
-    category_id?: string | null;
-  }) | undefined,
+  supplier:
+    | (Supplier & {
+        default_channel_id?: string | null;
+        default_payment_term_days?: number | null;
+        category_id?: string | null;
+      })
+    | undefined,
 ): FormValues {
   return {
     cuit: supplier?.cuit ?? "",
@@ -104,7 +106,10 @@ export function SupplierForm({
   });
 
   const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
+  const activeChannels = useMemo(
+    () => channels.filter((c) => c.is_active),
+    [channels],
+  );
   const categoriesQuery = useSupplierCategoriesList({ onlyActive: true });
   const categories = categoriesQuery.data ?? [];
 
@@ -481,9 +486,7 @@ export function SupplierForm({
           </Button>
           <Button
             type="submit"
-            disabled={
-              isSaving || (mode === "edit" && !form.formState.isDirty)
-            }
+            disabled={isSaving || (mode === "edit" && !form.formState.isDirty)}
           >
             {isSaving
               ? "Guardando…"

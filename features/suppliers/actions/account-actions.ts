@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
@@ -23,10 +24,6 @@ const SetSupplierOpeningInput = z.object({
   target_balance: NonNegativeAmountSchema,
   notes: NotesSchema,
 });
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 export interface SupplierOpeningBalance {
   supplier_id: string;
@@ -59,7 +56,11 @@ export async function getSupplierOpeningBalanceAction(
     .eq("supplier_id", supplierId)
     .maybeSingle();
   if (error) {
-    logger.error("suppliers.opening.read_failed", { userId: ctx.userId, supplierId, error });
+    logger.error("suppliers.opening.read_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error,
+    });
     return { ok: false, error: "No se pudo cargar el saldo de apertura." };
   }
   if (!data) return { ok: true, data: null };
@@ -92,7 +93,10 @@ export async function setSupplierOpeningBalanceAction(input: {
   }
   const parsed = SetSupplierOpeningInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
 
@@ -137,7 +141,11 @@ export async function clearSupplierOpeningBalanceAction(
     p_supplier_id: supplierId,
   });
   if (error) {
-    logger.error("suppliers.opening.clear_failed", { userId: ctx.userId, supplierId, error });
+    logger.error("suppliers.opening.clear_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
   return { ok: true, data: undefined };
@@ -227,7 +235,11 @@ export async function getSupplierAccountAction(
       .order("created_at", { ascending: true })
       .range(offset, offset + CHUNK - 1);
     if (error) {
-      logger.error("suppliers.account.list_failed", { userId: ctx.userId, supplierId, error });
+      logger.error("suppliers.account.list_failed", {
+        userId: ctx.userId,
+        supplierId,
+        error,
+      });
       return { ok: false, error: "No se pudo cargar la cuenta corriente." };
     }
     const got = (chunk ?? []) as Row[];
@@ -246,14 +258,24 @@ export async function getSupplierAccountAction(
 
   const appliedByInvoice = new Map<string, number>();
   if (piIds.length > 0) {
-    const { data: allocs, error: aErr } = await supabase
-      .from("payment_order_allocations")
-      .select(
-        "purchase_invoice_id, amount_applied, payment_orders!inner ( status, supplier_id )",
-      )
-      .eq("payment_orders.supplier_id", supplierId);
+    const [allocsRes, openingAllocsRes] = await Promise.all([
+      supabase
+        .from("payment_order_allocations")
+        .select(
+          "purchase_invoice_id, amount_applied, payment_orders!inner ( status, supplier_id )",
+        )
+        .eq("payment_orders.supplier_id", supplierId),
+      supabase
+        .from("supplier_opening_balance_allocations")
+        .select("purchase_invoice_id, amount_applied")
+        .eq("supplier_id", supplierId),
+    ]);
+    const { data: allocs, error: aErr } = allocsRes;
     if (aErr) {
-      logger.error("suppliers.account.allocations_failed", { userId: ctx.userId, error: aErr });
+      logger.error("suppliers.account.allocations_failed", {
+        userId: ctx.userId,
+        error: aErr,
+      });
     }
     for (const a of allocs ?? []) {
       const status = (a as unknown as PaymentOrderStatusJoin).payment_orders
@@ -267,10 +289,7 @@ export async function getSupplierAccountAction(
     }
     // Suma también las imputaciones del opening balance: una factura que
     // recibió plata del ajuste también descuenta para el aging/outstanding.
-    const { data: openingAllocs } = await supabase
-      .from("supplier_opening_balance_allocations")
-      .select("purchase_invoice_id, amount_applied")
-      .eq("supplier_id", supplierId);
+    const { data: openingAllocs } = openingAllocsRes;
     for (const a of openingAllocs ?? []) {
       const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
       appliedByInvoice.set(
@@ -287,7 +306,10 @@ export async function getSupplierAccountAction(
       .select("payment_order_id, amount_applied")
       .in("payment_order_id", opIds);
     if (oErr) {
-      logger.error("suppliers.account.op_allocations_failed", { userId: ctx.userId, error: oErr });
+      logger.error("suppliers.account.op_allocations_failed", {
+        userId: ctx.userId,
+        error: oErr,
+      });
     }
     for (const a of opAllocs ?? []) {
       const prev = appliedByOP.get(a.payment_order_id) ?? 0;
@@ -398,7 +420,9 @@ export async function getSupplierAgingAction(): Promise<
   }
 
   const summaries: SupplierAgingSummary[] = (agingRows ?? [])
-    .filter((r): r is typeof r & { supplier_id: string } => r.supplier_id !== null)
+    .filter(
+      (r): r is typeof r & { supplier_id: string } => r.supplier_id !== null,
+    )
     .map((r) => {
       const sup = (r as unknown as SupplierIdentityJoin).suppliers;
       return {

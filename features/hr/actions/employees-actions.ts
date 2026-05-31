@@ -1,11 +1,12 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   EmployeeCreateSchema,
@@ -15,41 +16,6 @@ import {
   isPayFrequency,
   type Employee,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error) {
-    logger.error("audit.insert.failed", {
-      userId: actorId,
-      eventType,
-      targetResourceId,
-      error,
-    });
-  }
-}
 
 function narrowEmployee(row: {
   pay_frequency: string;
@@ -69,9 +35,7 @@ const SELECT_COLS =
 
 // ─── List & search ───────────────────────────────────────────────────────────
 
-export async function listEmployeesAction(): Promise<
-  ActionResult<Employee[]>
-> {
+export async function listEmployeesAction(): Promise<ActionResult<Employee[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "hr:read")) {
     return { ok: false, error: "No tenés permiso para ver empleados." };
@@ -259,8 +223,7 @@ export async function updateEmployeeAction(
     });
   }
 
-  type EmployeeUpdate =
-    Database["public"]["Tables"]["employees"]["Update"];
+  type EmployeeUpdate = Database["public"]["Tables"]["employees"]["Update"];
   const patch: EmployeeUpdate = {};
   if (rest.legal_name !== undefined) patch.legal_name = rest.legal_name;
   if (rest.position !== undefined) patch.position = rest.position ?? null;
@@ -281,10 +244,7 @@ export async function updateEmployeeAction(
     return { ok: true, data: undefined };
   }
 
-  const { error } = await supabase
-    .from("employees")
-    .update(patch)
-    .eq("id", id);
+  const { error } = await supabase.from("employees").update(patch).eq("id", id);
 
   if (error) {
     logger.error("employees.update.failed", { userId: ctx.userId, id, error });

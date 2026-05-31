@@ -20,7 +20,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import type { ClientLegalJoin } from "@/features/clients/schema";
 
-import type { ActionResult } from "./receipts-actions";
+import type { ActionResult } from "@/lib/query/run-action";
 
 const SendReceiptEmailSchema = z.object({
   receipt_id: z.string().uuid(),
@@ -55,7 +55,10 @@ export async function sendReceiptByEmailAction(
 
   const parsed = SendReceiptEmailSchema.safeParse(rawInput);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
   const input = parsed.data;
 
@@ -124,9 +127,7 @@ export async function sendReceiptByEmailAction(
   return { ok: true, data: { log_id: result.data.log_id } };
 }
 
-export async function getReceiptEmailDefaultsAction(
-  receiptId: string,
-): Promise<
+export async function getReceiptEmailDefaultsAction(receiptId: string): Promise<
   ActionResult<{
     recipient: string | null;
     subject: string;

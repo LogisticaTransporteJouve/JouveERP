@@ -1,5 +1,8 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
+import type { JsonValue } from "@/lib/actions/audit";
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -14,43 +17,6 @@ import {
   isAccountType,
   type Account,
 } from "../schema";
-import { getServiceClient } from "@/lib/supabase/service";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { [k: string]: JsonValue | undefined }
-  | JsonValue[];
-
-
-async function logAudit(
-  eventType: string,
-  actorId: string,
-  payload: { [k: string]: JsonValue | undefined },
-  targetResourceId?: string,
-) {
-  const service = getServiceClient();
-  const { error } = await service.from("audit_events").insert({
-    actor_id: actorId,
-    event_type: eventType,
-    target_resource_id: targetResourceId ?? null,
-    payload,
-  });
-  if (error) {
-    logger.error("audit.insert.failed", {
-      userId: actorId,
-      eventType,
-      targetResourceId,
-      error,
-    });
-  }
-}
 
 function narrowAccount(row: {
   type: string;
@@ -363,11 +329,6 @@ export async function clearAccountOpeningBalanceAction(
     });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
-  await logAudit(
-    "account.opening_balance.cleared",
-    ctx.userId,
-    {},
-    accountId,
-  );
+  await logAudit("account.opening_balance.cleared", ctx.userId, {}, accountId);
   return { ok: true, data: undefined };
 }

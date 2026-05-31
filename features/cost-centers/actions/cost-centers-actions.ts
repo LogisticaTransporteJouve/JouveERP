@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -12,11 +13,6 @@ import {
   CostCenterUpdateSchema,
   type CostCenter,
 } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
-
 
 export async function listCostCentersAction(
   options: { onlyActive?: boolean } = {},
@@ -86,7 +82,10 @@ export async function updateCostCenterAction(
   };
   if (Object.keys(update).length === 0) return { ok: true, data: undefined };
   const supabase = await createClient();
-  const { error } = await supabase.from("cost_centers").update(update).eq("id", id);
+  const { error } = await supabase
+    .from("cost_centers")
+    .update(update)
+    .eq("id", id);
   if (error) {
     logger.error("cost_centers.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar." };
@@ -104,7 +103,10 @@ export async function deleteCostCenterAction(
   const parsed = CostCenterDeleteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Inválido." };
   const supabase = await createClient();
-  const { error } = await supabase.from("cost_centers").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("cost_centers")
+    .delete()
+    .eq("id", parsed.data.id);
   if (error) {
     logger.error("cost_centers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar (¿en uso?)." };

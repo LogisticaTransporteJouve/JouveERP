@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
@@ -7,10 +8,6 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 import type { SearchResult } from "../schema";
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
 
 const SearchGlobalInput = z.object({
   query: z.string().trim().max(200, "Búsqueda demasiado larga."),
@@ -24,7 +21,10 @@ export async function searchGlobalAction(input: {
   const ctx = await requireUserContext();
   const parsed = SearchGlobalInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const q = input.query.trim();
