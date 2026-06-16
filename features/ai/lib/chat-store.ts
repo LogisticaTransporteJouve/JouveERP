@@ -10,6 +10,13 @@ import { buildTitleModel } from "../model";
 
 const MAX_TITLE_LEN = 60;
 
+/** Daily token ceiling (prompt + completion, global) before chat is blocked. */
+export const AI_DAILY_TOKEN_CAP = 500_000;
+
+// Chat model price per 1M tokens (USD) — Sonnet 4.6 ($3 in / $15 out).
+const COST_PER_M_INPUT = 3;
+const COST_PER_M_OUTPUT = 15;
+
 /** Serialize a value (e.g. a UIMessage) to a jsonb-safe payload. */
 function toJson(value: unknown): Json {
   return JSON.parse(JSON.stringify(value));
@@ -134,4 +141,65 @@ export async function maybeTitleAiSession(
   }
 
   await service.from("ai_chat_sessions").update({ title }).eq("id", sessionId);
+}
+
+export type AiUsageRecord = {
+  sessionId: string;
+  userId: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  toolNames: string[];
+};
+
+/** Estimated USD cost of a turn at the chat model's per-token price. */
+export function estimateCostUsd(inputTokens: number, outputTokens: number): number {
+  const cost =
+    (inputTokens / 1_000_000) * COST_PER_M_INPUT +
+    (outputTokens / 1_000_000) * COST_PER_M_OUTPUT;
+  return Number(cost.toFixed(6));
+}
+
+/** Logs one turn's token usage + estimated cost. Best-effort, never throws. */
+export async function logAiUsage(record: AiUsageRecord): Promise<void> {
+  const service = getServiceClient();
+  const { error } = await service.from("ai_usage").insert({
+    session_id: record.sessionId,
+    user_id: record.userId,
+    model: record.model,
+    prompt_tokens: record.inputTokens,
+    completion_tokens: record.outputTokens,
+    cached_tokens: record.cachedTokens,
+    cost_usd: estimateCostUsd(record.inputTokens, record.outputTokens),
+    tool_names: record.toolNames.length ? record.toolNames : null,
+  });
+  if (error) {
+    logger.error("ai.usage.log.failed", {
+      sessionId: record.sessionId,
+      error,
+    });
+  }
+}
+
+export type AiUsageToday = { totalTokens: number; costUsd: number };
+
+/**
+ * Today's global token + cost total via the security-definer aggregate RPC.
+ * Throws on RPC error so the daily-cap check can fail CLOSED (the meter action
+ * catches it and degrades gracefully). An empty result means zero usage.
+ */
+export async function getAiUsageToday(): Promise<AiUsageToday> {
+  const service = getServiceClient();
+  const { data, error } = await service.rpc("ai_usage_today");
+  if (error) {
+    logger.error("ai.usage.today.failed", { error });
+    throw error;
+  }
+  const row = data?.[0];
+  if (!row) return { totalTokens: 0, costUsd: 0 };
+  return {
+    totalTokens: Number(row.total_tokens),
+    costUsd: Number(row.cost_usd),
+  };
 }

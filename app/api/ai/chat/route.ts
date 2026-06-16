@@ -3,12 +3,17 @@ import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
 import {
+  AI_DAILY_TOKEN_CAP,
   appendAiMessage,
   ensureAiSession,
+  getAiUsageToday,
   loadAiSessionMessages,
+  logAiUsage,
   maybeTitleAiSession,
   messageText,
+  type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
+import { AI_CHAT_MODEL } from "@/features/ai/model";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -56,6 +61,25 @@ export async function POST(req: Request) {
     throw err;
   }
 
+  // Daily token cap (global, fail-closed). Approximate: the current turn isn't
+  // counted yet, but maxSteps bounds the overshoot. If the usage RPC errors we
+  // block rather than let spend run unbounded.
+  let usageToday: AiUsageToday;
+  try {
+    usageToday = await getAiUsageToday();
+  } catch {
+    return NextResponse.json(
+      { error: "No se pudo verificar el límite de IA. Probá de nuevo." },
+      { status: 503 },
+    );
+  }
+  if (usageToday.totalTokens >= AI_DAILY_TOKEN_CAP) {
+    return NextResponse.json(
+      { error: "Se alcanzó el límite diario de IA. Probá de nuevo mañana." },
+      { status: 429 },
+    );
+  }
+
   const body: { sessionId?: string; message?: UIMessage } = await req.json();
   const { sessionId, message } = body;
   if (!sessionId || !UUID_RE.test(sessionId) || !message) {
@@ -84,7 +108,15 @@ export async function POST(req: Request) {
   await appendAiMessage(sessionId, message);
 
   const allMessages = [...prior, message];
-  const result = await streamChat(allMessages);
+  const result = await streamChat(allMessages, {
+    onUsage: (usage) =>
+      logAiUsage({
+        sessionId,
+        userId: ctx.userId,
+        model: AI_CHAT_MODEL,
+        ...usage,
+      }),
+  });
 
   return result.toUIMessageStreamResponse({
     originalMessages: allMessages,

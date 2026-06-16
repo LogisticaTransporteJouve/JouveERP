@@ -7,4 +7,5 @@ export const aiKeys = {
   sessions: () => [...aiKeys.all, "sessions"] as const,
   sessionMessages: (id: string) =>
     [...aiKeys.all, "sessionMessages", id] as const,
+  usageToday: () => [...aiKeys.all, "usageToday"] as const,
 };

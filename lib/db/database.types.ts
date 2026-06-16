@@ -186,6 +186,53 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage: {
+        Row: {
+          cached_tokens: number | null
+          completion_tokens: number | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          model: string | null
+          prompt_tokens: number | null
+          session_id: string | null
+          tool_names: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          cached_tokens?: number | null
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          session_id?: string | null
+          tool_names?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          cached_tokens?: number | null
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          session_id?: string | null
+          tool_names?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           created_at: string
@@ -3841,6 +3888,13 @@ export type Database = {
       add_chat_channel_members: {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
+      }
+      ai_usage_today: {
+        Args: never
+        Returns: {
+          cost_usd: number
+          total_tokens: number
+        }[]
       }
       apply_account_opening_balance: {
         Args: {
