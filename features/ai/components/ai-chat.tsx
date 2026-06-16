@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { Send, Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -16,10 +16,30 @@ const SUGGESTIONS = [
   "IVA ventas del mes",
 ];
 
-export function AiChat() {
+export function AiChat({
+  sessionId,
+  initialMessages,
+  onPersisted,
+}: {
+  sessionId: string;
+  initialMessages: UIMessage[];
+  onPersisted: (sessionId: string) => void;
+}) {
   const [input, setInput] = useState("");
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/ai/chat",
+        prepareSendMessagesRequest: ({ messages, id }) => ({
+          body: { sessionId: id, message: messages[messages.length - 1] },
+        }),
+      }),
+  );
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/ai/chat" }),
+    id: sessionId,
+    messages: initialMessages,
+    transport,
+    onFinish: () => onPersisted(sessionId),
   });
 
   const busy = status === "submitted" || status === "streaming";
@@ -32,12 +52,7 @@ export function AiChat() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col gap-4">
-      <header className="flex items-center gap-2">
-        <Sparkles className="size-5" />
-        <h1 className="text-2xl font-semibold">Asistente IA</h1>
-      </header>
-
+    <div className="flex h-full flex-col gap-4">
       <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-card p-4">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
@@ -85,7 +100,10 @@ export function AiChat() {
                       </p>
                     );
                   }
-                  if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
+                  if (
+                    part.type === "dynamic-tool" ||
+                    part.type.startsWith("tool-")
+                  ) {
                     return (
                       <p
                         key={i}

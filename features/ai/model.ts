@@ -20,3 +20,8 @@ export const AI_TITLE_MODEL = "claude-haiku-4-5";
 export function buildChatModel() {
   return anthropic(AI_CHAT_MODEL);
 }
+
+/** Cheap model for chat-title autogeneration (first turn). */
+export function buildTitleModel() {
+  return anthropic(AI_TITLE_MODEL);
+}
