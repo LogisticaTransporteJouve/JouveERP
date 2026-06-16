@@ -1,8 +1,8 @@
 # JouveERP — Patrones de diseño para IA
 
-> Catálogo de patrones extraídos de `sumary/` (AI CFO + Temporal agent) para
-> aplicar el día que JouveERP incorpore funcionalidad LLM. Cada sección lista
-> el patrón, dónde vive en sumary, y dónde correspondería en JouveERP.
+> Referencia de diseño de IA propia de JouveERP, para aplicar el día que
+> JouveERP incorpore funcionalidad LLM. Cada sección lista el patrón y dónde
+> correspondería en JouveERP.
 >
 > Estado: referencia. No hay código IA en JouveERP todavía. Cuando se inicie
 > Fase I (IA), este doc es el punto de partida.
@@ -17,7 +17,7 @@
 | Modelo primario | **Claude Sonnet 4.6** (o Opus 4.7 para razonamiento pesado) | Mejor tool-use + cost/performance |
 | Modelos fallback | Gemini Pro + GPT (reasoning) | Resiliencia a outages single-vendor |
 | Workflows IA | **Inngest** (no Temporal) | Ya está en JouveERP; alcanza para tool loops bounded |
-| Streaming | `createUIMessageStream` + AI SDK (sin Redis hace falta para single-app) | Sumary usa Redis pub/sub porque su agent corre en worker separado; JouveERP puede mantenerlo in-process |
+| Streaming | `createUIMessageStream` + AI SDK (sin Redis hace falta para single-app) | La implementación de referencia usa Redis pub/sub porque su agent corre en worker separado; JouveERP puede mantenerlo in-process |
 | Embeddings | **pgvector** en Supabase + `gemini-embedding-001` (768 dims) | Supabase ya está, no agregar infra |
 | Sandbox de código (opt) | **Modal** (`modal` JS SDK) sólo si hay tool de `bash`/`file_*` | Postergable hasta que aparezca necesidad concreta |
 | Persistencia chat | Tablas Supabase `chat_sessions` + `chat_messages` | Reusa RLS por rol/usuario |
@@ -81,7 +81,7 @@ la app. El registry decide qué tools se activan según `route`/`surface`.
 
 ## 3. Multi-provider fallback chain
 
-**Patrón sumary:** `temporal/typescript/src/ai-agent/agent.ts` → `buildDeepAnalysisModel()`.
+**Patrón de referencia:** factory central que arma el modelo con su cadena de fallback.
 
 ```ts
 // features/ai/lib/model-fallback.ts
@@ -126,7 +126,7 @@ export function buildJouveModel() {
 
 ## 4. Sistema de "skills" (inyección dinámica al system prompt)
 
-**Patrón sumary:** `temporal/typescript/src/ai-agent/skills/`.
+**Patrón de referencia:** directorio de skills con registry + keyword index.
 
 Una **skill** es un bloque de conocimiento de dominio inyectado al system
 prompt solo cuando es relevante a la pregunta del usuario, ahorrando tokens.
@@ -208,7 +208,7 @@ function buildInstructions({ skills, orgName, ... }: BuildOpts): string {
 
 ## 5. Definición del agent (Vercel AI SDK)
 
-**Patrón sumary:** `frontend/src/features/ai-cfo/agent.ts`.
+**Patrón de referencia:** definición del agent con `Experimental_Agent` y `prepareCall`.
 
 ```ts
 // features/ai/agent.ts
@@ -257,7 +257,7 @@ export const jouveAiAgent = new ToolLoopAgent({
 
 ## 6. Arquitectura de tools (3 capas)
 
-**Patrón sumary:** documentado en el system prompt del agent.
+**Patrón de referencia:** documentado en el system prompt del agent.
 
 ### Display tools (artifact tools)
 Renderizan UI rica en el frontend. Devuelven al modelo un resumen, pero el
@@ -290,7 +290,7 @@ Delegar sub-tareas a un agent focalizado. Útil cuando hay fan-out de búsquedas
 
 ## 7. Artifact pattern (streaming UI)
 
-**Patrón sumary:** `frontend/src/features/ai-cfo/artifacts/ARTIFACT_PATTERN.md`.
+**Patrón de referencia:** guía de artifacts con skeleton + streaming desde el tool call.
 
 Flujo:
 1. Tool call dispara → artifact canvas se abre del lado del cliente
@@ -350,7 +350,7 @@ export function FacturasArtifact({ artifactId }: { artifactId?: string }) {
 
 ## 8. Sandbox Modal (opcional, **postergar**)
 
-**Patrón sumary:** `temporal/typescript/src/ai-agent/sandbox/`.
+**Patrón de referencia:** módulo de sandbox con lifecycle por chat.
 
 Solo aplicable si decidimos que Claude pueda ejecutar `bash`, leer/escribir
 archivos, correr scripts ad-hoc. **No es necesario para un MVP.** Si llega ese
@@ -371,7 +371,7 @@ día:
 
 ## 9. Streaming + persistencia de conversación
 
-**Patrón sumary:** `app/api/ai-cfo/route.ts` + `persistence.ts`.
+**Patrón de referencia:** endpoint de streaming + helper de persistencia de turnos.
 
 ### Endpoint
 
@@ -447,8 +447,9 @@ create table public.ai_chat_messages (
 
 ## 10. Anthropic prompt caching
 
-**Patrón:** no implementado en sumary explícitamente pero crítico para ahorrar
-costo cuando hay system prompts grandes (skills + tools definitions).
+**Patrón:** no implementado explícitamente en la implementación de referencia
+pero crítico para ahorrar costo cuando hay system prompts grandes (skills +
+tools definitions).
 
 ```ts
 // Marca el bloque de skills como cacheable (Anthropic 5-min TTL)
@@ -475,7 +476,7 @@ en bloques cacheables. El contexto dinámico (fecha, org actual) va sin cache.
 
 ## 11. Embeddings + semántica (pgvector)
 
-**Patrón sumary:** `embeddings/` (servicio Node + Python con PGMQ).
+**Patrón de referencia:** servicio de embeddings (queue + worker con PGMQ).
 
 Para JouveERP:
 
@@ -523,7 +524,7 @@ $$;
 
 ## 12. Observability + cost tracking
 
-**Patrón sumary:** `temporal/typescript/src/ai-cost.ts`.
+**Patrón de referencia:** módulo de cálculo de costo por turno.
 
 Por cada turno log:
 ```ts
@@ -563,7 +564,7 @@ Sentry: capturar errores con `setContext("ai", { chatId, model, route })`.
 
 ## 13. UI components (componentes ai-elements)
 
-**Patrón sumary:** `frontend/src/components/ai-elements/`.
+**Patrón de referencia:** librería de componentes `ai-elements`.
 
 Componentes a portar (cuando se implementen):
 - `conversation.tsx` — render del array de mensajes con scroll virtual
@@ -588,8 +589,8 @@ export const JOUVE_TOOL_RENDERERS: ToolRendererConfig[] = [
 Cuando el modelo genera estructuras (charts, JSON específico), **validar
 siempre** antes de renderizar.
 
-**Ejemplo sumary:** `validators/vega-lite-validator.ts` valida specs Vega-Lite
-generados por el LLM contra el JSON schema oficial antes de renderizar.
+**Ejemplo de referencia:** un validador de specs Vega-Lite generados por el LLM
+los chequea contra el JSON schema oficial antes de renderizar.
 
 Para JouveERP:
 - Validar Zod schemas en tool outputs (AI SDK lo hace automático con `inputSchema`)
@@ -600,7 +601,7 @@ Para JouveERP:
 
 ## 15. Skills para Claude Code (developer-facing)
 
-**Patrón sumary:** `.claude/skills/{api-resource,api-infra,api-surface,create-e2e-test,new-ralph}/SKILL.md`.
+**Patrón de referencia:** carpetas `.claude/skills/<name>/SKILL.md`, cada una con frontmatter `name` + `description`.
 
 Estos NO son skills del agent IA del producto. Son skills de **Claude Code**
 (el CLI con el que estamos hablando ahora). Se invocan con `/skill-name`.
@@ -609,7 +610,7 @@ Cada uno es una carpeta con un `SKILL.md` que tiene frontmatter:
 ```markdown
 ---
 name: api-resource
-description: "Create or modify a Sumary API resource handler... Use this skill whenever..."
+description: "Create or modify an API resource handler... Use this skill whenever..."
 ---
 
 # Creating API Resource Handlers
@@ -630,8 +631,8 @@ cargan cuando el usuario las invoca durante desarrollo.
 
 ## 16. MCP server (postergar)
 
-**Patrón sumary:** `mcp/` expone el resource registry vía MCP, así Claude
-Desktop / Claude Code puede operar sobre los datos de sumary igual que el
+**Patrón de referencia:** un servidor MCP expone el resource registry vía MCP,
+así Claude Desktop / Claude Code puede operar sobre los datos igual que el
 agent runtime.
 
 Para JouveERP: posponer hasta que haya un caso concreto (ej. "quiero que mi
@@ -695,38 +696,12 @@ Claude Desktop me liste facturas pendientes"). Cuando llegue:
 
 ---
 
-## 19. Referencias sumary (paths reales)
-
-| Patrón | Path en sumary |
-|---|---|
-| Agent definition (frontend) | `frontend/src/features/ai-cfo/agent.ts` |
-| Agent definition (worker) | `temporal/typescript/src/ai-agent/agent.ts` |
-| Skill types + registry | `temporal/typescript/src/ai-agent/skills/{types,registry}.ts` |
-| Skills (ejemplos) | `temporal/typescript/src/ai-agent/skills/{cli,data-relationships,query-recipes,workflows}/*.ts` |
-| Multi-provider fallback | `temporal/typescript/src/ai-agent/fallback.ts` |
-| Tools factory | `temporal/typescript/src/ai-agent/tools/index.ts` |
-| Modal sandbox | `temporal/typescript/src/ai-agent/sandbox/` |
-| Streaming endpoint | `frontend/src/app/api/ai-cfo/route.ts` |
-| Persistence | `temporal/typescript/src/ai-agent/persistence.ts` |
-| Artifact pattern guide | `frontend/src/features/ai-cfo/artifacts/ARTIFACT_PATTERN.md` |
-| Tool renderers config | `frontend/src/features/ai-cfo/tools/tool-renderers.ts` |
-| AI elements UI | `frontend/src/components/ai-elements/{conversation,reasoning,response,shimmer,tool-parts}.tsx` |
-| Vega-Lite validator | `temporal/typescript/src/ai-agent/validators/vega-lite-validator.ts` |
-| LLM date parser | `temporal/typescript/src/ai-agent/helpers/llm-date-parser.ts` |
-| Embeddings service | `embeddings/` (queue + worker) |
-| Cost tracking | `temporal/typescript/src/ai-cost.ts` |
-| Claude Code skills | `.claude/skills/{api-resource,api-infra,api-surface,create-e2e-test,new-ralph}/SKILL.md` |
-| Agent skills (Supabase best practices) | `.agents/skills/supabase-postgres-best-practices/SKILL.md` |
-| MCP server | `mcp/src/` |
-
----
-
-## 20. Qué NO copiar de sumary
+## 20. Qué NO traer de implementaciones de referencia
 
 - **Temporal** — JouveERP usa Inngest. No mezclar.
 - **Redis pub/sub para streaming** — el agent vive en el mismo proceso Next.js, no hace falta cross-process bus.
 - **NestJS API separada** — JouveERP es single-app por decisión #8 del roadmap.
-- **Sumary CLI custom** — el agent puede operar via tools directos a Supabase; un CLI propio solo tiene sentido si se mete en un sandbox.
+- **CLI custom** — el agent puede operar via tools directos a Supabase; un CLI propio solo tiene sentido si se mete en un sandbox.
 - **Migraciones de partition-per-org** — JouveERP es 1 sola business unit; no hay multi-tenancy real.
 
 ---
@@ -1213,8 +1188,8 @@ Estados que el cliente debe manejar (cada uno con su UI):
 | `complete` | Mensaje finalizado, input enabled |
 | `error` | Toast + retry button |
 
-Sumary tiene `shimmer.tsx` para el indicador "Claude is thinking" antes de
-que llegue el primer chunk.
+La implementación de referencia usa un `shimmer.tsx` para el indicador "Claude
+is thinking" antes de que llegue el primer chunk.
 
 ---
 
@@ -1232,7 +1207,7 @@ que llegue el primer chunk.
 
 ## 29. LLM date parser
 
-Patrón sumary: `temporal/typescript/src/ai-agent/helpers/llm-date-parser.ts`.
+Patrón de referencia: un helper que parsea rangos de fecha en lenguaje natural.
 
 Cuando el modelo manda "May 2024" o "Q1 2026" en un parámetro `dateRange`, el
 backend lo parsea:
@@ -1621,6 +1596,6 @@ Antes de habilitar IA en producción para usuarios reales:
 
 - **Revisar cada 6 meses** o cuando salga un modelo nuevo de Anthropic.
 - **Actualizar costos** (§32) cuando Anthropic cambie pricing.
-- **Sumar patrones nuevos** que aparezcan en sumary y sean aplicables.
+- **Sumar patrones nuevos** que aparezcan en implementaciones de referencia y sean aplicables.
 - **No borrar secciones** que decidimos no implementar — son contexto valioso de qué consideramos y descartamos.
 - **Marcar "implementado"** en secciones que JouveERP ya tiene en código, con fecha + PR.
