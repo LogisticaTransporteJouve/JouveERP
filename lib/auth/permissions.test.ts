@@ -83,6 +83,23 @@ describe("userCan", () => {
     expect(userCan(["warehouse"], "audit:read")).toBe(false);
     expect(userCan(["driver"], "audit:read")).toBe(false);
   });
+
+  it("ai:chat and ai:read reach owner/admin/finance/operations, not warehouse/driver", () => {
+    for (const role of ["owner", "admin", "finance", "operations"] as const) {
+      expect(userCan([role], "ai:chat")).toBe(true);
+      expect(userCan([role], "ai:read")).toBe(true);
+    }
+    expect(userCan(["warehouse"], "ai:chat")).toBe(false);
+    expect(userCan(["warehouse"], "ai:read")).toBe(false);
+    expect(userCan(["driver"], "ai:read")).toBe(false);
+  });
+
+  it("ai:admin is restricted to owner and admin", () => {
+    expect(userCan(["owner"], "ai:admin")).toBe(true);
+    expect(userCan(["admin"], "ai:admin")).toBe(true);
+    expect(userCan(["finance"], "ai:admin")).toBe(false);
+    expect(userCan(["operations"], "ai:admin")).toBe(false);
+  });
 });
 
 describe("canAssignRole", () => {
