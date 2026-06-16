@@ -1,13 +1,20 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+  DefaultChatTransport,
+  getToolName,
+  isToolUIPart,
+  type UIMessage,
+} from "ai";
 import { Send, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+import { ToolArtifact, toolLabel } from "./tool-renderers";
 
 const SUGGESTIONS = [
   "¿Cómo viene la caja?",
@@ -100,16 +107,35 @@ export function AiChat({
                       </p>
                     );
                   }
-                  if (
-                    part.type === "dynamic-tool" ||
-                    part.type.startsWith("tool-")
-                  ) {
+                  if (isToolUIPart(part)) {
+                    const name = getToolName(part);
+                    if (part.state === "output-available") {
+                      return (
+                        <ToolArtifact
+                          key={i}
+                          toolName={name}
+                          output={part.output}
+                        />
+                      );
+                    }
+                    if (part.state === "output-error") {
+                      return (
+                        <p
+                          key={i}
+                          className="text-muted-foreground flex items-center gap-1 text-xs italic"
+                        >
+                          <Sparkles className="size-3" /> No se pudo consultar{" "}
+                          {toolLabel(name)}.
+                        </p>
+                      );
+                    }
                     return (
                       <p
                         key={i}
                         className="text-muted-foreground flex items-center gap-1 text-xs italic"
                       >
-                        <Sparkles className="size-3" /> consultando datos…
+                        <Sparkles className="size-3" /> consultando{" "}
+                        {toolLabel(name)}…
                       </p>
                     );
                   }
