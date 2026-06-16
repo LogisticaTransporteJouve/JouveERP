@@ -24,6 +24,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
   Tags,
   Target,
   TrendingUp,
@@ -81,6 +82,12 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/chat", label: "Chat", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Inteligencia",
+    items: [
+      { href: "/ai", label: "Asistente IA", icon: Sparkles, permission: "ai:chat" },
     ],
   },
   {
