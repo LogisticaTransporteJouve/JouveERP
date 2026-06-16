@@ -37,6 +37,40 @@ vi.mock("@/features/payment-orders/actions/payment-orders-actions", () => ({
 vi.mock("@/features/suppliers/actions/suppliers-actions", () => ({
   searchSuppliersAction: vi.fn(),
 }));
+vi.mock("@/features/accounts/actions/accounts-actions", () => ({
+  listAccountsAction: vi.fn(),
+}));
+vi.mock("@/features/transactions/actions/transactions-actions", () => ({
+  listTransactionsAction: vi.fn(),
+}));
+vi.mock("@/features/checks/actions/checks-actions", () => ({
+  listChecksAction: vi.fn(),
+}));
+vi.mock("@/features/issued-checks/actions/issued-checks-actions", () => ({
+  listIssuedChecksAction: vi.fn(),
+}));
+vi.mock("@/features/chart-of-accounts/actions/chart-of-accounts-actions", () => ({
+  listChartOfAccountsAction: vi.fn(),
+}));
+vi.mock("@/features/journal-entries/actions/journal-entries-actions", () => ({
+  listJournalEntriesAction: vi.fn(),
+}));
+vi.mock("@/features/cost-centers/actions/cost-centers-actions", () => ({
+  listCostCentersAction: vi.fn(),
+}));
+vi.mock("@/features/inflation/actions/inflation-actions", () => ({
+  listInflationAdjustmentsAction: vi.fn(),
+}));
+vi.mock("@/features/hr/actions/employees-actions", () => ({
+  listEmployeesAction: vi.fn(),
+  searchEmployeesAction: vi.fn(),
+}));
+vi.mock("@/features/hr/actions/attendance-actions", () => ({
+  getAttendanceMonthAction: vi.fn(),
+}));
+vi.mock("@/features/employee-documents/actions/employee-documents-actions", () => ({
+  listExpiringDocumentsAction: vi.fn(),
+}));
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
@@ -45,8 +79,12 @@ import { listLibroIvaVentasAction } from "@/features/libro-iva/actions/libro-iva
 import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
+import { listChecksAction } from "@/features/checks/actions/checks-actions";
+import { getAttendanceMonthAction } from "@/features/hr/actions/attendance-actions";
 
 import { runLedger, runLibroIvaVentas, runTrialBalance } from "./accounting";
+import { runChecks } from "./cash";
+import { runAttendance } from "./hr";
 import { getPurchaseInvoices, runPurchaseInvoices, runSupplierAging } from "./purchases";
 import { runClientAging } from "./receivables";
 import { getInvoices, runInvoices } from "./sales";
@@ -57,9 +95,9 @@ beforeEach(() => {
 });
 
 describe("ai tools registry", () => {
-  it("exposes 13 uniquely-named tools, each with a non-trivial description", () => {
-    expect(AI_TOOL_NAMES).toHaveLength(13);
-    expect(new Set(AI_TOOL_NAMES).size).toBe(13);
+  it("exposes 25 uniquely-named tools, each with a non-trivial description", () => {
+    expect(AI_TOOL_NAMES).toHaveLength(25);
+    expect(new Set(AI_TOOL_NAMES).size).toBe(25);
     for (const name of AI_TOOL_NAMES) {
       const desc = aiTools[name].description;
       expect(typeof desc).toBe("string");
@@ -236,5 +274,30 @@ describe("runPurchaseInvoices", () => {
     });
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("0 facturas de compra");
+  });
+});
+
+describe("runChecks", () => {
+  it("returns a summary over an empty portfolio without throwing", async () => {
+    vi.mocked(listChecksAction).mockResolvedValue({
+      ok: true,
+      data: { items: [] },
+    });
+    const r = await runChecks();
+    expect(r.ok).toBe(true);
+    expect(r.summary).toContain("0 cheques recibidos");
+  });
+});
+
+describe("runAttendance", () => {
+  it("calls the action with positional year/month", async () => {
+    vi.mocked(getAttendanceMonthAction).mockResolvedValue({
+      ok: true,
+      data: { year: 2026, month: 5, records: [], holidays: [] },
+    });
+    const r = await runAttendance({ year: 2026, month: 5 });
+    expect(getAttendanceMonthAction).toHaveBeenCalledWith(2026, 5);
+    expect(r.ok).toBe(true);
+    expect(r.summary).toContain("05/2026");
   });
 });

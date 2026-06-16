@@ -2,6 +2,10 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
+import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/chart-of-accounts-actions";
+import { listCostCentersAction } from "@/features/cost-centers/actions/cost-centers-actions";
+import { listInflationAdjustmentsAction } from "@/features/inflation/actions/inflation-actions";
+import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
 import {
   listLibroIvaComprasAction,
@@ -133,4 +137,100 @@ export const getLibroIvaCompras = tool({
       .describe("Canal fiscal opcional para filtrar."),
   }),
   execute: (input) => runLibroIvaCompras(input),
+});
+
+export async function runChartOfAccounts(input: {
+  onlyActive?: boolean | null;
+}): Promise<AiToolResult> {
+  const res = await listChartOfAccountsAction({
+    onlyActive: input.onlyActive ?? true,
+  });
+  if (!res.ok) return errResult(res.error);
+  return okResult(`${res.data.length} cuentas en el plan de cuentas.`, res.data);
+}
+
+export const getChartOfAccounts = tool({
+  description:
+    "Plan de cuentas contable: código, nombre, tipo (activo/pasivo/patrimonio/" +
+    "resultado) y rol de sistema de cada cuenta. Útil para encontrar el UUID de " +
+    "una cuenta (p. ej. para getLedger) o entender la estructura contable.",
+  inputSchema: z.object({
+    onlyActive: z
+      .boolean()
+      .nullish()
+      .describe("Solo cuentas activas (default true)."),
+  }),
+  execute: (input) => runChartOfAccounts(input),
+});
+
+export async function runJournalEntries(input: {
+  period?: string | null;
+  channelId?: string | null;
+  limit?: number | null;
+}): Promise<AiToolResult> {
+  const res = await listJournalEntriesAction({
+    period: input.period ?? null,
+    channelId: input.channelId ?? null,
+    limit: input.limit ?? 25,
+  });
+  if (!res.ok) return errResult(res.error);
+  return okResult(
+    `${res.data.items.length} asientos${
+      input.period ? ` de ${input.period}` : ""
+    }${res.data.nextOffset !== null ? " (hay más, acotá por período)" : ""}.`,
+    res.data,
+  );
+}
+
+export const getJournalEntries = tool({
+  description:
+    "Libro diario: asientos contables con fecha, período de devengamiento, " +
+    "descripción y sus líneas (debe/haber por cuenta). Filtrable por período " +
+    "YYYY-MM y canal. Solo canales fiscales (caja contable).",
+  inputSchema: z.object({
+    period: z.string().nullish().describe("Período YYYY-MM, opcional."),
+    channelId: z.string().nullish().describe("UUID del canal, opcional."),
+    limit: z.number().nullish().describe("Máximo de asientos (default 25)."),
+  }),
+  execute: (input) => runJournalEntries(input),
+});
+
+export async function runCostCenters(input: {
+  onlyActive?: boolean | null;
+}): Promise<AiToolResult> {
+  const res = await listCostCentersAction({
+    onlyActive: input.onlyActive ?? true,
+  });
+  if (!res.ok) return errResult(res.error);
+  return okResult(`${res.data.length} centros de costo.`, res.data);
+}
+
+export const getCostCenters = tool({
+  description:
+    "Centros de costo (dimensiones contables): código, nombre y estado. Sin " +
+    "parámetros obligatorios. Para analizar gastos/resultados por dimensión.",
+  inputSchema: z.object({
+    onlyActive: z
+      .boolean()
+      .nullish()
+      .describe("Solo activos (default true)."),
+  }),
+  execute: (input) => runCostCenters(input),
+});
+
+export async function runInflationAdjustments(): Promise<AiToolResult> {
+  const res = await listInflationAdjustmentsAction();
+  if (!res.ok) return errResult(res.error);
+  return okResult(
+    `${res.data.length} ajustes por inflación (RG 4667) registrados.`,
+    res.data,
+  );
+}
+
+export const getInflationAdjustments = tool({
+  description:
+    "Ajustes por inflación (RG 4667): período, coeficiente aplicado y si ya se " +
+    "asentó. Sin parámetros. Para el ajuste contable por inflación.",
+  inputSchema: z.object({}),
+  execute: () => runInflationAdjustments(),
 });
