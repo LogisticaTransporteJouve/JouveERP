@@ -27,10 +27,12 @@ export function AiChat({
   sessionId,
   initialMessages,
   onPersisted,
+  atCap = false,
 }: {
   sessionId: string;
   initialMessages: UIMessage[];
   onPersisted: (sessionId: string) => void;
+  atCap?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [transport] = useState(
@@ -53,7 +55,7 @@ export function AiChat({
 
   function submit(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || atCap) return;
     setInput("");
     void sendMessage({ text: trimmed });
   }
@@ -150,6 +152,12 @@ export function AiChat({
         )}
       </div>
 
+      {atCap && (
+        <p className="text-muted-foreground text-center text-xs">
+          Se alcanzó el límite diario de consultas de IA. Volvé mañana.
+        </p>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -160,11 +168,15 @@ export function AiChat({
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Escribí tu pregunta…"
-          disabled={busy}
+          placeholder={atCap ? "Límite diario alcanzado" : "Escribí tu pregunta…"}
+          disabled={busy || atCap}
           autoFocus
         />
-        <Button type="submit" size="icon" disabled={busy || !input.trim()}>
+        <Button
+          type="submit"
+          size="icon"
+          disabled={busy || atCap || !input.trim()}
+        >
           <Send className="size-4" />
           <span className="sr-only">Enviar</span>
         </Button>

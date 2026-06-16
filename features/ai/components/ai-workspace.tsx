@@ -9,11 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { AiChat } from "./ai-chat";
 import { AiHistory } from "./ai-history";
+import { AiUsageMeter } from "./ai-usage-meter";
 import {
   useAiSessions,
   useAiSessionMessages,
   useDeleteAiSession,
 } from "../hooks/use-ai-sessions";
+import { useAiUsageToday } from "../hooks/use-ai-usage";
 import { aiKeys } from "../lib/ai-keys";
 
 export function AiWorkspace() {
@@ -31,6 +33,10 @@ export function AiWorkspace() {
   }, []);
 
   const sessions = useAiSessions();
+  const usage = useAiUsageToday();
+  const atCap = usage.data
+    ? usage.data.totalTokens >= usage.data.cap
+    : false;
   const isLive = activeSessionId === liveNewId;
   const messages = useAiSessionMessages(
     activeSessionId,
@@ -61,6 +67,7 @@ export function AiWorkspace() {
   function handlePersisted(sessionId: string) {
     qc.invalidateQueries({ queryKey: aiKeys.sessions() });
     qc.invalidateQueries({ queryKey: aiKeys.sessionMessages(sessionId) });
+    qc.invalidateQueries({ queryKey: aiKeys.usageToday() });
   }
 
   const history = (
@@ -88,6 +95,14 @@ export function AiWorkspace() {
         </Button>
         <Sparkles className="size-5" />
         <h1 className="text-2xl font-semibold">Asistente IA</h1>
+        {usage.data && (
+          <div className="ml-auto">
+            <AiUsageMeter
+              totalTokens={usage.data.totalTokens}
+              cap={usage.data.cap}
+            />
+          </div>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -110,6 +125,7 @@ export function AiWorkspace() {
               sessionId={activeSessionId}
               initialMessages={isLive ? [] : messages.data ?? []}
               onPersisted={handlePersisted}
+              atCap={atCap}
             />
           )}
         </main>
