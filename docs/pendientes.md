@@ -8,22 +8,17 @@
 
 ---
 
-## 1. Roadmap desactualizado — corregir (alto valor, bajo riesgo)
+## 1. Roadmap desactualizado — corregir (alto valor, bajo riesgo) ✅ sincronizado 2026-06-16
 
-El doc maestro miente sobre el estado actual. Viola su propia regla §7.13
-("si se shippea una fase, el roadmap se actualiza en el mismo PR").
+`docs/roadmap.md` se sincronizó con el código: §3 (estado al 2026-06-16),
+§3.5 (Fase N), §5 (Fase I → `ai-overview.md`, nueva Fase R) y §6 (orden de
+ejecución) reflejan ahora la realidad.
 
-- [ ] **Fase K cerrada, marcada parcial.** K.7–K.11 están hechas y mergeadas;
-      el roadmap §3.2 las muestra ⏳/❌. PR #48 está mergeado, no draft.
-      Evidencia: migraciones `20260516102448`, `…120000`, `…140000`, `…1601xx`.
-- [ ] **Fase N (HR / Personal-Sueldos) construida y SIN documentar.** No está en
-      el orden de ejecución (§6), no tiene sección ni breakdown; única mención =
-      comentario en `lib/auth/permissions.ts`. Cubre: empleados, sueldos
-      (períodos + pagos + extras), asistencia, vacaciones/licencias, documentos
-      de empleado, + 2 crons Inngest. → Agregar sección de fase + estado.
-      Evidencia: migraciones `20260517100000`–`140000`, `20260518100000`;
-      `features/hr/`, `features/employee-documents/`.
-- [ ] **Treasury** sin sección propia en el roadmap (feature construido).
+- [x] **Fase K cerrada.** §3.2 lista K.1–K.11 ✅ (PR #48 mergeado).
+- [x] **Fase N (HR / Personal-Sueldos) documentada.** Nueva §3.5 con breakdown
+      N.1–N.5 + evidencia (migraciones `…517100000`–`140000`, `…518100000` +
+      crons `vacation-balances-grant`, `document-expiry-alerts`).
+- [x] **Treasury** con fila propia en §3.1.
 
 ## 2. Planeado, no construido (correcto — futuro)
 
@@ -42,27 +37,26 @@ El doc maestro miente sobre el estado actual. Viola su propia regla §7.13
 ## 3. Huecos reales (ni hecho ni planeado)
 
 - [ ] **Pagos recurrentes** — feature CRUD normal (`recurring_payments`),
-      insumo del cash-flow de la IA. No está en el roadmap. (ver
-      `docs/ai-overview.md` §5/§9.)
+      insumo del cash-flow de la IA. Ya está en el roadmap como **Fase R**.
+      **A construir.** (ver `docs/ai-overview.md` §5/§9.)
 - [ ] **Document Intelligence (escaneo + OCR + extracción + clasificación)** —
       adjuntar/escanear un archivo (factura, recibo, OP, remito, cheque, …), la
       IA detecta qué es, extrae todos los datos y, si es factura, genera los
-      ítems. Es roadmap **I.2** (cierra el POC `claude-proxy/`). Diseño en
-      `docs/ai-overview.md` (sección Document Intelligence). **A construir.**
+      ítems. Ya está en el roadmap como **AI.8** (Fase I, reemplaza al ex
+      `claude-proxy/`). Diseño en `docs/ai-overview.md` §5-bis. **A construir.**
 - [ ] **Specs de arquitectura faltantes** para los 2 subsistemas más grandes:
       `docs/accounting-patterns.md` (chart-of-accounts, journal-entries,
       libro-mayor, libro-iva, balance, transactions, cost-centers, inflation) y
       `docs/hr-patterns.md`. Hoy solo hay manual HTML para usuario final.
-- [ ] **`CLAUDE.md`** en root — guía para devs / Claude Code (existe `README.md`,
-      no `CLAUDE.md`).
+- [x] **`CLAUDE.md`** en root — guía para devs / Claude Code. Importado en PR #83.
 - [ ] **Tests faltantes** en features con `actions/` sin tests, varios sensibles:
       `admin-users` (RBAC), `afip-admin` (credenciales AFIP), `aging`, `backups`,
       `search`, `treasury`. (23/30 dominios sí tienen `schema.test.ts`.)
 - [ ] **Email del aging semanal sin proveedor.** `aging-weekly-summary` calcula
       el resumen pero el envío es TODO — falta elegir/configurar proveedor
       transaccional (Resend/SES). El cron corre y no manda nada.
-- [ ] **`claude-proxy/`** citado en el roadmap (Fase I) como POC untracked → no
-      existe en el repo. Resolver: crear o quitar la referencia.
+- [x] **`claude-proxy/`** — referencia muerta resuelta: quitada del roadmap
+      (§5 Fase I + §Operativo), su caso de uso queda como **AI.8**.
 
 ## 4. Staleness menor de docs
 
