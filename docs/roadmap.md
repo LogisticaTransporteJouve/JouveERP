@@ -266,11 +266,15 @@ Antes de inlinear state machines / effects / async flows en un componente,
 
 ---
 
-## 3. Estado al 2026-05-16
+## 3. Estado al 2026-06-16
 
-**~48 PRs mergeados desde repo vacío.** La pata administrativa
-(vender / cobrar / comprar / pagar) está end-to-end. La pata operativa
-(camión / depósito / IA) no empezó.
+**~80 PRs mergeados desde repo vacío.** La pata administrativa
+(vender / cobrar / comprar / pagar) está end-to-end y **cerrada** (Fase K
+completa). **Contabilidad (Fase L)** está casi entera (core + libros +
+balances + inflación + centros de costo; falta L.6/L.7). **RRHH/Sueldos
+(Fase N)** y **Treasury** se construyeron y shippearon. La pata operativa
+(camión / depósito) no empezó; la **IA (Fase I)** tiene diseño cerrado en
+`docs/ai-overview.md` (chat + insights + Document Intelligence), sin código aún.
 
 ### 3.1 Hecho — fases shippeadas
 
@@ -283,8 +287,11 @@ Antes de inlinear state machines / effects / async flows en un componente,
 | **E — AFIP Comprobantes** ✅ | Workflow Inngest `issueInvoice` idempotente + retries + recovery vía `FECompConsultar`. Una sola tabla `comprobantes`. PDF + QR con `@react-pdf/renderer`. NC/ND con `cbtesAsoc`. Modo rápido "Emitir y continuar". E2E AFIP gateado | Anexo §E |
 | **F — Cobranzas, recibos, cheques** ✅ | Recibos con numerador `R{POS}-{numero}` por canal. Payment lines con auto-creación de metadata de cheque. Allocations con sum-validation. RPCs lifecycle de cheques (deposit/credit/endorse/reject) con transactions linkeadas. Retenciones / percepciones. Cuenta corriente per cliente. Aging buckets + cron Inngest semanal | Anexo §F |
 | **Subsistema social** ✅ | Chat (self/DMs/grupos, edit, reactions, typing, @-mentions, FTS ⌘K, channel admin), notifications (bell + popover + push real con service worker + Inngest), perfil con avatares monocromos | PR #44 — specs en `docs/chat-patterns.md`, `docs/notifications-patterns.md`, `docs/user-avatars.md` |
+| **L — Contabilidad** ✅ (casi entera) | Plan de cuentas jerárquico, asientos automáticos (transactions/invoices/OPs/receipts), libro diario + mayor, libro IVA ventas/compras, balance de saldos + EERR + balance general, ajuste por inflación (RG 4667), centros de costo | L.1–L.5, L.8, L.9 ✅. Falta L.6 (CITI/SIAP) + L.7 (CAEA) |
+| **Treasury** ✅ | Dashboard transversal de caja: saldos por cuenta + cheques por vencer + alertas, sobre `accounts`/`transactions`/`checks` | `features/treasury/` |
+| **N — RRHH / Sueldos** ✅ | Empleados, períodos de sueldo + pagos + extras, asistencia mensual, vacaciones/licencias, documentos de empleado, + 2 crons Inngest | `features/hr/`, `features/employee-documents/` — detalle §3.5 |
 
-### 3.2 Fase K — Compras, Proveedores, Pagos — **parcial** ⏳
+### 3.2 Fase K — Compras, Proveedores, Pagos — **completa** ✅
 
 | Sub | Qué | Estado |
 |---|---|---|
@@ -293,15 +300,19 @@ Antes de inlinear state machines / effects / async flows en un componente,
 | K.3 | Payment orders con líneas de cuenta, endoso de cheque, emisión de cheque propio (físico/ECHEQ) | ✅ PR #47 |
 | K.5 | Vistas de aging proveedor | ✅ PR #47 |
 | K.6 | Issued checks (cheques propios) | ✅ PR #47 |
-| K.7 | OPs editables con cheques (RPC revierte endosos + borra issued_checks antes de reaplicar) | ⏳ PR #48 draft |
+| K.7 | OPs editables con cheques (RPC revierte endosos + borra issued_checks antes de reaplicar) | ✅ PR #48 (mergeado) |
+| K.8 | Items por línea en facturas de compra (`purchase_invoice_items`) | ✅ mig `…20260516140000` |
+| K.9 | PDF de OPs (`@react-pdf/renderer`, render on-demand) | ✅ |
+| K.10 | Subsistema files unificado (registry + attachments + bucket + RLS + dropzone + preview), cableado a purchases | ✅ migs `…160000/160200/160300` |
+| K.11 | NC compra imputable a factura origen + aging fix | ✅ |
 
-**Falta para cerrar K** — ver §4.1: K.8, K.9, K.10a/b/c, K.11. (K.4 descartado, decisión #18.)
+**Fase K cerrada.** (K.4 descartado, decisión #18.)
 
 ### 3.3 En vuelo
 
-| PR | Branch | Estado | Próximo paso |
-|---|---|---|---|
-| #48 | `feat/edit-op-with-checks` | Draft, 2 commits, +380 LOC | Smoke browser → marcar ready → squash merge |
+Nada en vuelo. Última tanda mergeada: hardening de seguridad — findings de
+Aikido + pin de actions de CI (#82), DRY de actions + borrado de dead code
+(#81), e importación del plan de IA + `CLAUDE.md` + skills de dev (#83).
 
 ### 3.4 Refactors transversales mergeados
 
@@ -318,6 +329,21 @@ Antes de inlinear state machines / effects / async flows en un componente,
   Compras / Cobranzas / Pagos / Caja / Admin.
 - **Realtime cross-feature (PR #36, 2026-05-10):** hook genérico
   `use-realtime-invalidate.ts` cableado en 6 tablas respetando RLS.
+
+### 3.5 Fase N — RRHH / Sueldos (construida, antes sin documentar)
+
+Fase entera que no figuraba en el roadmap. Cubre el ciclo de personal:
+
+| Sub | Qué | Evidencia |
+|---|---|---|
+| N.1 | Empleados (alta, legajo, datos laborales) | `features/hr/` · mig `…517100000_employees` |
+| N.2 | Sueldos: períodos + entries + pagos + extras | migs `…110000_payroll_periods`, `…120000_payroll_payments` |
+| N.3 | Asistencia mensual | mig `…140000_attendance` |
+| N.4 | Vacaciones / licencias + cron de devengado | mig `…130000_vacations` · cron `vacation-balances-grant` |
+| N.5 | Documentos de empleado + cron de vencimientos | `features/employee-documents/` · mig `…518100000_employee_documents` · cron `document-expiry-alerts` |
+
+(Treasury — dashboard transversal de caja — figura en §3.1; lee de
+`accounts`/`transactions`/`checks`, sin tabla propia.)
 
 ---
 
@@ -779,38 +805,67 @@ Referencia: roadmap viejo §17.
 - **H.4** PWA + scanner QR.
 - **H.5** `emitStorageInvoice` + reportes de ocupación.
 
-### Fase I — IA (3-4 semanas, ~7 PRs)
+### Fase I — IA (diseño cerrado, sin código)
 
-Plan completo en `docs/ai-patterns.md`. Integra el POC `claude-proxy/`
-que vive untracked en el repo hoy.
+> **Reescopeado 2026-06-16.** El plan de IA vigente vive en
+> `docs/ai-overview.md` (runbook en `docs/ai-build-plan.md`): un agente LLM
+> read-only expuesto como **chat** + **insights proactivos** + **Document
+> Intelligence** (escaneo/OCR/extracción), todo sobre la infra existente
+> (server actions + Inngest + Supabase, sin servicios nuevos). Modelos:
+> Sonnet 4.6 (chat + insights), Haiku 4.5 (clasificación de docs + títulos).
+> `docs/ai-patterns.md` es la referencia de patrones.
+>
+> El POC `claude-proxy/` que citaba este roadmap **nunca existió** en el repo
+> (referencia muerta, eliminada). Su caso de uso (OCR de facturas) se cubre
+> con **Document Intelligence (AI.8)**.
 
-- **I.1** Vercel AI SDK + Claude + prompt caching.
-- **I.2** OCR remitos / facturas de compra (cierra `claude-proxy/`).
-- **I.3** categorización automática de transactions.
-- **I.4** asistente conversacional con tool use.
-- **I.5** anomalías nightly (movimientos atípicos, precios fuera de rango).
-- **I.6** cobranzas auto (drafts de email/WhatsApp por bucket de aging).
-- **I.7** newsletter mensual generado.
+Plan de entrega (ver `docs/ai-overview.md` §9):
+
+- **AI.0** deps (`ai` + `@ai-sdk/*`) + permisos `ai:chat|read|admin` +
+  `audit_events.actor_type`.
+- **AI.1** capa de tools de lectura (envuelven los server actions existentes).
+- **AI.2** agente + route de chat con streaming + tope diario de tokens.
+- **AI.3** página de IA + historial (`ai_chat_sessions`/`ai_chat_messages`).
+- **AI.4** tools restantes + artifacts inline.
+- **AI.5** insight estrella: cash-flow proyectado + delta de cobranzas
+  (depende de **Pagos recurrentes**, ver Fase R).
+- **AI.6** costo / límites / medidor de tokens.
+- **AI.8** Document Intelligence: clasificar (Haiku) → extraer (Sonnet,
+  structured outputs) → revisar-y-crear. Cierra el caso del ex `claude-proxy/`.
+
+### Fase R — Pagos recurrentes (no-IA, insumo de AI.5)
+
+Feature CRUD normal (`recurring_payments`): alquiler, servicios, préstamos,
+impuestos y sueldos fijos (descripción, monto, moneda, frecuencia, próximo
+vencimiento, fin opcional, cuenta, canal, centro de costo, activo). **Es el
+insumo del cash-flow proyectado** (AI.5) — debe shippear antes. Fuera de
+`features/ai/`. Ver `docs/ai-overview.md` §5.
 
 ---
 
 ## 6. Orden de ejecución resumido
 
 ```
-HOY ────► PR #48 (cerrar K.7)
+HECHO ──► A–F · Subsistema social · K (completa) · L core+libros+balances+
+          inflación+centros (L.1–L.5, L.8, L.9) · M.0/M.1/M.3/M.4 ·
+          N (RRHH/Sueldos) · Treasury
           ↓
-          K.11 → K.8 → K.9 → K.10a → K.10b → K.10c  (cerrar K — 6 PRs, ~1820 LOC)
+PENDIENTE (orden sugerido):
+          Track 0  → sync de docs (este PR)
           ↓
-          L.1 → L.2 → L.3 → L.4 → L.5               (contabilidad core — 5 PRs)
+          L.6 (CITI/SIAP) → L.7 (CAEA)              (exports + contingencia AFIP)
           ↓
-          L.6 → L.7 → L.8 → L.9                     (exports + ajustes — 4 PRs)
+          M.2 (multimoneda) → M.5 (aprobaciones) → M.6 (portal cliente)
           ↓
-          M.0 → M.1 → M.2 → M.3 → M.4 → M.5 → M.6   (hardening — 7 PRs, paralelizables)
+          Fase R → AI.0 → AI.1 → AI.2 → AI.3 → AI.4 → AI.5 → AI.6   (IA chat + insights)
+          AI.8 (Document Intelligence) en paralelo — depende solo de AI.0
           ↓
-          G (7) → H (5) → I (7)
+          G (flota, 7) → H (pallets, 5)
 ```
 
-**Total restante: ~41 PRs.** (6 K + 9 L + 7 M + 7 G + 5 H + 7 I.)
+**Restante aprox.: ~26 PRs.** L.6/L.7 (2) + M.2/M.5/M.6 (3) + Fase R (1) +
+AI.0–AI.8 (8) + G (7) + H (5). **Migraciones / RBAC / dinero (AI.0, Fase R,
+M.5) piden review entre fases — no loop autónomo ahí** (ver `docs/ai-build-plan.md`).
 
 ---
 
@@ -906,7 +961,8 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y
 ## 11. Referencia rápida
 
 - **Patrones de Sumary** (frontend, tooling): `docs/sumary-frontend-patterns.md`.
-- **AI / Fase I**: `docs/ai-patterns.md`.
+- **AI / Fase I**: `docs/ai-overview.md` (diseño + plan AI.0–AI.8) +
+  `docs/ai-build-plan.md` (runbook) + `docs/ai-patterns.md` (patrones).
 - **Subsistema social**: `docs/chat-patterns.md`,
   `docs/notifications-patterns.md`, `docs/user-avatars.md`.
 - **Storage polimorfo**: `docs/files-patterns.md` (spec) +
@@ -1394,8 +1450,9 @@ Specs detalladas: `docs/chat-patterns.md`, `docs/notifications-patterns.md`,
    - `VAPID_SUBJECT=mailto:soporte@logisticajouve.com.ar`
    - `NEXT_PUBLIC_APP_URL=https://tu-dominio.com`
 
-3. **WIP fuera del repo:** carpeta untracked `claude-proxy/` con un Express
-   standalone + componente `ExtractorFactura.jsx` para OCR de facturas
-   vía Claude API. Es un POC. Debe integrarse a **Fase I.2 (OCR remitos)**
-   o moverse fuera del repo — viola la decisión #8 (todo en Next.js +
-   Inngest).
+3. **`claude-proxy/` — referencia muerta (resuelto 2026-06-16).** El roadmap
+   viejo citaba una carpeta untracked `claude-proxy/` (Express standalone +
+   `ExtractorFactura.jsx`, POC de OCR de facturas vía Claude API). **No existe
+   en el repo.** El caso de uso se reescopeó a **Document Intelligence (AI.8)**
+   dentro de Next.js + Inngest (decisión #8), descrito en `docs/ai-overview.md`
+   §5-bis. Sin acción pendiente.
