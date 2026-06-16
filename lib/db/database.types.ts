@@ -186,6 +186,56 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_document_extractions: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          created_entity: Json | null
+          detected_type: string | null
+          file_id: string
+          id: string
+          matches: Json
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          created_entity?: Json | null
+          detected_type?: string | null
+          file_id: string
+          id?: string
+          matches?: Json
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          created_entity?: Json | null
+          detected_type?: string | null
+          file_id?: string
+          id?: string
+          matches?: Json
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_document_extractions_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_usage: {
         Row: {
           cached_tokens: number | null
