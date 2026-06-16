@@ -30,7 +30,10 @@ Reglas:
  * gating and rate limiting live in the route handler (app/api/ai/chat).
  */
 export async function streamChat(messages: UIMessage[]) {
-  const modelMessages = await convertToModelMessages(messages);
+  const modelMessages = await convertToModelMessages(messages, {
+    tools: aiTools,
+    ignoreIncompleteToolCalls: true,
+  });
   return streamText({
     model: buildChatModel(),
     system: SYSTEM_PROMPT,

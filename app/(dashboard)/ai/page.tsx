@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { AiChat } from "@/features/ai/components/ai-chat";
+import { AiWorkspace } from "@/features/ai/components/ai-workspace";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 
@@ -11,5 +11,5 @@ export default async function AiRoute() {
   if (!userCan(ctx.roles, "ai:chat")) {
     redirect("/dashboard");
   }
-  return <AiChat />;
+  return <AiWorkspace />;
 }
