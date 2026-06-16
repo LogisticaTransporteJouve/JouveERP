@@ -103,6 +103,11 @@ export const PERMISSIONS = [
   "hr:write",
   "hr:admin",
 
+  // IA Intelligence (Phase I / AI.0)
+  "ai:chat",
+  "ai:read",
+  "ai:admin",
+
   // Pallets (Phase H)
   "warehouses:read",
   "warehouses:write",
@@ -171,6 +176,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "accounting:write",
     "hr:read",
     "hr:write",
+    "ai:chat",
+    "ai:read",
     "storage_billing:read",
     "storage_billing:issue",
   ],
@@ -193,6 +200,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "trip_documents:read",
     "trip_documents:write",
     "channels:read",
+    "ai:chat",
+    "ai:read",
   ],
 
   warehouse: [

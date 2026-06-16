@@ -177,6 +177,7 @@ export type Database = {
       audit_events: {
         Row: {
           actor_id: string | null
+          actor_type: string
           event_type: string
           id: string
           ip_address: unknown
@@ -188,6 +189,7 @@ export type Database = {
         }
         Insert: {
           actor_id?: string | null
+          actor_type?: string
           event_type: string
           id?: string
           ip_address?: unknown
@@ -199,6 +201,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string | null
+          actor_type?: string
           event_type?: string
           id?: string
           ip_address?: unknown
