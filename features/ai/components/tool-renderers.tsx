@@ -15,10 +15,22 @@ const TOOL_LABELS: Record<string, string> = {
   getPaymentOrders: "Órdenes de pago",
   searchSuppliers: "Proveedores",
   getTreasurySummary: "Tesorería",
+  getAccounts: "Cuentas",
+  getTransactions: "Movimientos de caja",
+  getChecks: "Cheques recibidos",
+  getIssuedChecks: "Cheques propios",
   getTrialBalance: "Balance de saldos",
   getLedger: "Libro mayor",
   getLibroIvaVentas: "IVA Ventas",
   getLibroIvaCompras: "IVA Compras",
+  getChartOfAccounts: "Plan de cuentas",
+  getJournalEntries: "Libro diario",
+  getCostCenters: "Centros de costo",
+  getInflationAdjustments: "Ajustes por inflación",
+  getEmployees: "Empleados",
+  searchEmployees: "Empleados",
+  getAttendance: "Asistencia",
+  getExpiringDocuments: "Vencimientos",
 };
 
 export function toolLabel(name: string): string {
@@ -83,6 +95,68 @@ const COLUMN_HINTS: Record<string, Col[]> = {
     { key: "cuit", label: "CUIT" },
     { key: "iva_condition", label: "IVA" },
   ],
+  getAccounts: [
+    { key: "name", label: "Cuenta" },
+    { key: "type", label: "Tipo" },
+    { key: "currency", label: "Moneda" },
+    { key: "opening_balance", label: "Saldo inicial" },
+  ],
+  getTransactions: [
+    { key: "transaction_date", label: "Fecha" },
+    { key: "account_name", label: "Cuenta" },
+    { key: "kind", label: "Tipo" },
+    { key: "amount", label: "Importe" },
+    { key: "description", label: "Detalle" },
+  ],
+  getChecks: [
+    { key: "check_number", label: "N°" },
+    { key: "bank_name", label: "Banco" },
+    { key: "due_date", label: "Vence" },
+    { key: "amount", label: "Importe" },
+    { key: "status", label: "Estado" },
+  ],
+  getIssuedChecks: [
+    { key: "check_number", label: "N°" },
+    { key: "beneficiary_name", label: "Beneficiario" },
+    { key: "due_date", label: "Vence" },
+    { key: "amount", label: "Importe" },
+    { key: "status", label: "Estado" },
+  ],
+  getChartOfAccounts: [
+    { key: "code", label: "Código" },
+    { key: "name", label: "Cuenta" },
+    { key: "account_type", label: "Tipo" },
+  ],
+  getJournalEntries: [
+    { key: "entry_date", label: "Fecha" },
+    { key: "accrual_period", label: "Período" },
+    { key: "description", label: "Detalle" },
+  ],
+  getCostCenters: [
+    { key: "code", label: "Código" },
+    { key: "name", label: "Centro" },
+  ],
+  getInflationAdjustments: [
+    { key: "period", label: "Período" },
+    { key: "coefficient", label: "Coef." },
+    { key: "applied_at", label: "Aplicado" },
+  ],
+  getEmployees: [
+    { key: "legal_name", label: "Empleado" },
+    { key: "position", label: "Puesto" },
+    { key: "cuil", label: "CUIL" },
+  ],
+  searchEmployees: [
+    { key: "legal_name", label: "Empleado" },
+    { key: "position", label: "Puesto" },
+    { key: "cuil", label: "CUIL" },
+  ],
+  getExpiringDocuments: [
+    { key: "employee_name", label: "Empleado" },
+    { key: "kind", label: "Documento" },
+    { key: "expires_at", label: "Vence" },
+    { key: "days_until_expiry", label: "Días" },
+  ],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,12 +201,28 @@ function deriveColumns(
     .map((k) => ({ key: k, label: prettifyKey(k) }));
 }
 
+function isNumericMoneyString(key: string, value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    MONEY_KEY.test(key) &&
+    /^-?\d+(\.\d+)?$/.test(value)
+  );
+}
+
+function isNumericCell(key: string, value: unknown): boolean {
+  return typeof value === "number" || isNumericMoneyString(key, value);
+}
+
 function formatCell(key: string, value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "number") {
     return MONEY_KEY.test(key)
       ? `$${Math.round(value).toLocaleString("es-AR")}`
       : value.toLocaleString("es-AR");
+  }
+  // Some money fields (e.g. received-check amounts) arrive as numeric strings.
+  if (isNumericMoneyString(key, value)) {
+    return `$${Math.round(Number(value)).toLocaleString("es-AR")}`;
   }
   if (typeof value === "boolean") return value ? "Sí" : "No";
   const s = String(value);
@@ -190,7 +280,7 @@ export function ToolArtifact({
             {shown.map((row, i) => (
               <tr key={i} className="border-b last:border-0">
                 {columns.map((c) => {
-                  const numeric = typeof row[c.key] === "number";
+                  const numeric = isNumericCell(c.key, row[c.key]);
                   return (
                     <td
                       key={c.key}

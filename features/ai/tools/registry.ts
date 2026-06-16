@@ -1,4 +1,16 @@
 import {
+  getAccounts,
+  getChecks,
+  getIssuedChecks,
+  getTransactions,
+} from "./cash";
+import {
+  getAttendance,
+  getEmployees,
+  getExpiringDocuments,
+  searchEmployees,
+} from "./hr";
+import {
   getPaymentOrders,
   getPurchaseInvoices,
   getSupplierAging,
@@ -8,6 +20,10 @@ import { getClientAging } from "./receivables";
 import { getInvoices, getReceipts, searchClients } from "./sales";
 import { getTreasurySummary } from "./treasury";
 import {
+  getChartOfAccounts,
+  getCostCenters,
+  getInflationAdjustments,
+  getJournalEntries,
   getLedger,
   getLibroIvaCompras,
   getLibroIvaVentas,
@@ -34,11 +50,24 @@ export const aiTools = {
   searchSuppliers,
   // Caja / tesorería
   getTreasurySummary,
+  getAccounts,
+  getTransactions,
+  getChecks,
+  getIssuedChecks,
   // Contabilidad
   getTrialBalance,
   getLedger,
   getLibroIvaVentas,
   getLibroIvaCompras,
+  getChartOfAccounts,
+  getJournalEntries,
+  getCostCenters,
+  getInflationAdjustments,
+  // RRHH
+  getEmployees,
+  searchEmployees,
+  getAttendance,
+  getExpiringDocuments,
 } as const;
 
 export type AiToolName = keyof typeof aiTools;
