@@ -55,21 +55,14 @@ Patrón estándar del repo: el server action gatea con
 `userCan(ctx.roles, "hr:<x>")`, y **RLS es defensa en profundidad** en cada
 tabla vía el helper `public.user_has_role(text[])`.
 
-> ⚠️ **Divergencia de permisos a resolver (RLS vs matriz).** En
-> **`employee_documents`** (y en el cron `document-expiry-alerts`) el array de
-> roles de RLS / destinatarios es **`['owner','admin','operations']`**, mientras
-> que la matriz `hr:read`/`hr:write` se otorga a **`owner/admin/finance`**.
-> Consecuencia:
-> - un usuario **`operations`** pasa RLS y recibe las notificaciones de
->   vencimiento, pero **falla el `userCan('hr:read')`** en los server actions y
->   en las páginas → lo redirige a `/dashboard`.
-> - un usuario **`finance`** pasa `userCan` pero **lo bloquea RLS**
->   (`user_has_role` no lo incluye).
->
-> Las demás tablas de RRHH usan `['owner','admin','finance']` en RLS,
-> consistente con la matriz. Hay que unificar `employee_documents` (decidir si
-> RRHH-documentos es de `finance` o de `operations`) — el resto del subsistema
-> asume `finance`.
+> ✅ **Permisos de documentos alineados a `finance` (resuelto 2026-06-16).** Antes
+> **`employee_documents`** (RLS + el cron `document-expiry-alerts`) usaba
+> **`['owner','admin','operations']`**, mientras que la matriz `hr:read`/`hr:write`
+> es **`owner/admin/finance`** — así `operations` pasaba RLS pero fallaba
+> `userCan` (lo redirigía) y `finance` al revés. Decisión del dueño: los
+> documentos los administra **`finance`**, consistente con el resto de RRHH. RLS y
+> destinatarios del cron migrados a `['owner','admin','finance']` (mig
+> `…20260616120000_employee_documents_finance_rls`).
 
 ---
 
@@ -359,8 +352,8 @@ verde/azul, seguro personal, ARN, otro). Migración `…518100000_employee_docum
   cada update** (para que el cron pueda re-alertar tras una renovación).
 - CHECK `issued_at IS NULL OR expires_at >= issued_at`.
 
-**RLS:** 4 policies, todas `user_has_role(['owner','admin','operations'])` — ver
-la **divergencia de permisos** de §1.
+**RLS:** 4 policies, todas `user_has_role(['owner','admin','finance'])` (alineado
+a la matriz `hr:*` desde la mig `…20260616120000`; antes usaba `operations`, §1).
 
 **`v_documents_expiring`** (VIEW, `security_invoker=on`) — docs de empleados
 **activos** que vencen en ≤30 días. La consume el cron y la página de
@@ -403,12 +396,11 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
 | Cron | Schedule | Qué hace |
 |---|---|---|
 | **`vacation-balances-grant`** | `0 0 1 10 *` (anual, 1-Oct 00:00 ART) | Un step que llama `grant_vacation_balances({ p_target_year: <año>, p_carryover: true })`. Loguea `hr.vacation_balances_granted {target_year, count}`. Fallback manual admin-only vía `grantVacationBalancesAction`. |
-| **`document-expiry-alerts`** | `0 8 * * *` (diario, 08:00 ART) | (1) lee `v_documents_expiring`; filtra por cooldown `NOTIFY_COOLDOWN_DAYS=7` (`notified_at` null o >7 días); (2) destinatarios = `user_roles.user_id` con `role_id ∈ ('owner','admin','operations')`; (3) inserta una notif `type='document_expiring'` por (doc × destinatario) con metadata; (4) marca `notified_at=now()`. Early-exit si no hay docs/destinatarios. |
+| **`document-expiry-alerts`** | `0 8 * * *` (diario, 08:00 ART) | (1) lee `v_documents_expiring`; filtra por cooldown `NOTIFY_COOLDOWN_DAYS=7` (`notified_at` null o >7 días); (2) destinatarios = `user_roles.user_id` con `role_id ∈ ('owner','admin','finance')`; (3) inserta una notif `type='document_expiring'` por (doc × destinatario) con metadata; (4) marca `notified_at=now()`. Early-exit si no hay docs/destinatarios. |
 
-> El recipient set de `document-expiry-alerts` (`owner/admin/operations`) está
-> **desacoplado** de la matriz `hr:*` (`owner/admin/finance`). Es la otra cara de
-> la divergencia de §1: `operations` recibe alertas pero no puede ver los docs en
-> la UI. Decidir el rol dueño y unificar.
+> El recipient set de `document-expiry-alerts` quedó **alineado** a la matriz
+> `hr:*` (`owner/admin/finance`) en la mig `…20260616120000` — antes apuntaba a
+> `operations` (ver §1).
 
 ---
 
@@ -434,10 +426,9 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
 
 ## 9. Gaps conocidos (candidatos a fix)
 
-1. **Divergencia de permisos en documentos de empleado** (§1, §6, §7): RLS +
-   destinatarios del cron usan `owner/admin/operations`; la matriz `hr:*` usa
-   `owner/admin/finance`. `operations` pasa RLS pero falla `userCan`; `finance`
-   al revés. **Real, bloquea uso. Unificar.**
+1. ~~**Divergencia de permisos en documentos de empleado**~~ — **resuelto
+   2026-06-16**: RLS de `employee_documents` + destinatarios del cron migrados a
+   `owner/admin/finance` (mig `…20260616120000`), alineados a la matriz `hr:*`. §1.
 2. **Trigger `holiday_sync` ausente** (§4): comentado en la migración, no
    implementado. Los feriados no auto-marcan asistencia.
 3. **Campo de adjunto no expuesto** (§6): `attachment_file_id` cableado pero el
