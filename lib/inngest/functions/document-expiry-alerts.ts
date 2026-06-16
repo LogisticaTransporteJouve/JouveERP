@@ -8,7 +8,8 @@ import { inngest } from "../client";
 //
 // Estrategia:
 //   - Lee `v_documents_expiring` (vista en migration 20260518100000).
-//   - Para cada doc, fan-out a TODOS los users con rol owner/admin/operations.
+//   - Para cada doc, fan-out a TODOS los users con rol owner/admin/finance
+//     (alineado con el permiso hr:* en lib/auth/permissions.ts).
 //   - Marca `notified_at = now()` para no spammear; el filtro re-incluye
 //     un doc si no se alertó en los últimos 7 días (renovaciones que
 //     vuelven a entrar en el window).
@@ -68,7 +69,7 @@ export const documentExpiryAlerts = inngest.createFunction(
       const { data, error } = await supabase
         .from("user_roles")
         .select("user_id")
-        .in("role_id", ["owner", "admin", "operations"]);
+        .in("role_id", ["owner", "admin", "finance"]);
       if (error) throw new Error(`load-recipients: ${error.message}`);
       const ids = new Set<string>();
       for (const r of data ?? []) ids.add(r.user_id);
