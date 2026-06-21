@@ -20,6 +20,7 @@ import {
   Receipt,
   ReceiptText,
   Scale,
+  ScanLine,
   ScrollText,
   Search,
   ShieldCheck,
@@ -88,6 +89,7 @@ const navSections: NavSection[] = [
     label: "Inteligencia",
     items: [
       { href: "/ai", label: "Asistente IA", icon: Sparkles, permission: "ai:chat" },
+      { href: "/documentos", label: "Documentos", icon: ScanLine, permission: "ai:read" },
     ],
   },
   {

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
+import { buildStorageKey } from "@/lib/files/storage-path";
 import { inngest } from "@/lib/inngest/client";
 import { DOCUMENT_EXTRACTION_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
@@ -14,10 +15,24 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { DOCUMENT_KINDS } from "./types";
 
+const BUCKET = "files";
+const MAX_BYTES = 10 * 1024 * 1024;
+const SCAN_ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
 const ExtractInputSchema = z.object({
   fileId: z.string().uuid(),
   declaredType: z.enum(DOCUMENT_KINDS).nullish(),
 });
+
+export type ExtractionFile = {
+  original_filename: string;
+  mime_type: string | null;
+} | null;
 
 export type PendingExtraction = {
   id: string;
@@ -27,12 +42,75 @@ export type PendingExtraction = {
   status: string;
   matches: Json;
   created_at: string;
+  file: ExtractionFile;
 };
 
 export type ExtractionDetail = PendingExtraction & { payload: Json };
 
 const LIST_COLUMNS =
-  "id, file_id, detected_type, confidence, status, matches, created_at";
+  "id, file_id, detected_type, confidence, status, matches, created_at, file:files(original_filename, mime_type)";
+
+/**
+ * Uploads a standalone document (not attached to any entity yet) and kicks off
+ * extraction — the entry point for the generic Documentos tray. The document
+ * type is inferred (classification); contextual flows pass a fileId straight to
+ * extractDocumentAction.
+ */
+export async function scanDocumentAction(
+  formData: FormData,
+): Promise<ActionResult<{ extractionId: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "files:write")) {
+    return { ok: false, error: "No tenés permiso para escanear documentos." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Archivo faltante." };
+  }
+  if (file.size > MAX_BYTES) {
+    return { ok: false, error: "El archivo supera 10 MB." };
+  }
+  if (!SCAN_ALLOWED_MIME.has(file.type)) {
+    return { ok: false, error: `Tipo no permitido (${file.type || "desconocido"}).` };
+  }
+
+  const supabase = await createSupabaseClient();
+  const fileId = crypto.randomUUID();
+  const bucketPath = buildStorageKey(fileId, file.name);
+
+  const { error: storageErr } = await supabase.storage
+    .from(BUCKET)
+    .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
+  if (storageErr) {
+    logger.warn("ai.document.upload.storage_failed", {
+      userId: ctx.userId,
+      error: storageErr.message,
+    });
+    return { ok: false, error: "No se pudo subir el archivo." };
+  }
+
+  const { error: registryErr } = await supabase.from("files").insert({
+    id: fileId,
+    uploaded_by: ctx.userId,
+    original_filename: file.name,
+    mime_type: file.type,
+    file_size: file.size,
+    bucket: BUCKET,
+    bucket_path: bucketPath,
+    source: "document_scan",
+  });
+  if (registryErr) {
+    await supabase.storage.from(BUCKET).remove([bucketPath]);
+    logger.warn("ai.document.upload.registry_failed", {
+      userId: ctx.userId,
+      error: registryErr.message,
+    });
+    return { ok: false, error: "No se pudo registrar el archivo." };
+  }
+
+  return extractDocumentAction({ fileId });
+}
 
 /**
  * Triggers Document Intelligence on an uploaded file: creates the draft row and
