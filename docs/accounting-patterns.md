@@ -41,16 +41,13 @@ la app — no hay actions de alta/edición. Los asientos los generan triggers
 `transactions:*`. Todas las páginas `/accounting/*` y `/transactions` gatean con
 `userCan(ctx.roles, …)` y redirigen a `/dashboard` si falta.
 
-> ⚠️ **Asimetría action vs RLS en DELETE (varias tablas).** Algunas acciones de
-> borrado chequean solo el permiso de escritura, pero la policy de DELETE de RLS
-> es más estricta — un `finance` pasa el `userCan` del action y después lo bloquea
-> RLS en la DB:
-> - `deleteChartAccountAction` → `accounting:write`; RLS DELETE de `chart_of_accounts`
->   = **owner/admin** only.
-> - `deleteTransactionAction` → `transactions:write`; RLS DELETE de `transactions`
->   = **owner** only.
+> ✅ **Asimetría action vs RLS en DELETE — corregido** (`deleteChartAccountAction`
+> y `deleteTransactionAction`). Antes chequeaban solo el permiso de escritura y la
+> policy de DELETE de RLS, más estricta, bloqueaba después en la DB:
+> - `deleteChartAccountAction` ahora exige **owner/admin** (= RLS de `chart_of_accounts`).
+> - `deleteTransactionAction` ahora exige **owner** (= RLS de `transactions`).
 > - RPCs de apertura: `apply_account_opening_balance` / `apply_supplier_opening_balance`
->   = **owner** only (los de cliente, owner/admin/finance).
+>   = **owner** only (los de cliente, owner/admin/finance) — sin cambios.
 >
 > No rompe seguridad (RLS es la última palabra), pero el usuario ve un error de DB
 > en vez de un gate limpio. Considerar alinear el gate del action a la RLS.
@@ -263,10 +260,10 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   `GET /api/accounting/libro-iva-{ventas,compras}/pdf`. **No hay Excel/CSV/SIAP** (RG
   1361 se nombra en el copy/footer pero no hay generador de archivo AFIP).
 
-> ⚠️ **Discrepancia de etiqueta de alícuota (SQL ↔ TS).** El CASE de los RPCs mapea
-> `8→5%`, `9→2.5%`; la constante TS `IVA_RATES` mapea `8→2.5%`, `9→5%` (swapeado).
-> Los montos caen bien porque el front une por `iva_rate_id`, pero el **% mostrado**
-> para los ids 8/9 puede no coincidir. Bug real, candidato a fix.
+> ✅ **Discrepancia de etiqueta de alícuota (SQL ↔ TS) — corregido.** La constante
+> TS `IVA_RATES` (features/libro-iva/schema.ts) ahora mapea `8→5%`, `9→2.5%`,
+> alineada con el CASE de los RPCs y con `lib/afip/codes.ts`. Test en
+> `schema.test.ts`. (Antes estaba swapeada: `8→2.5%`, `9→5%`.)
 >
 > ⚠️ **Export PDF bypassa RLS:** las rutas PDF usan `getServiceClient()` (service
 > role) — RLS no aplica en el export, solo el check `accounting:read` de la ruta.
@@ -358,11 +355,10 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 
 ## 11. Gaps conocidos (candidatos a fix)
 
-1. **Etiqueta de alícuota IVA swapeada (SQL ↔ TS)** (§6): CASE `8→5/9→2.5` vs
-   `IVA_RATES 8→2.5/9→5`. Montos OK, label puede disentir. Bug real aislado.
-2. **Asimetría action vs RLS en DELETE** (§1): `chart_of_accounts` (action write /
-   RLS owner-admin), `transactions` (action write / RLS owner). `finance` ve error de
-   DB en vez de gate limpio. Alinear gates.
+1. ✅ **Etiqueta de alícuota IVA swapeada (SQL ↔ TS)** (§6) — **corregido**:
+   `IVA_RATES` ahora `8→5/9→2.5` (= AFIP/RPCs), con test.
+2. ✅ **Asimetría action vs RLS en DELETE** (§1) — **corregido**:
+   `deleteChartAccountAction` exige owner/admin, `deleteTransactionAction` exige owner.
 3. **Centros de costo dormantes** (§8): FK en 6 tablas + RPCs sin consumir; EERR no
    filtra por centro. Falta la integración operativa.
 4. **Inflación apply/revert no implementado** (§9): solo CRUD de coeficientes;
