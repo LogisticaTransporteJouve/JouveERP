@@ -24,3 +24,18 @@ export const NotificationsDispatchSchema = z.object({
 });
 
 export type NotificationsDispatch = z.infer<typeof NotificationsDispatchSchema>;
+
+export const DOCUMENT_EXTRACTION_REQUESTED =
+  "document/extraction.requested" as const;
+
+export const DocumentExtractionRequestedSchema = z.object({
+  // The pending ai_document_extractions row this run fills in.
+  extraction_id: z.string().uuid(),
+  file_id: z.string().uuid(),
+  // Contextual mode (a): the kind is already known, skip classification.
+  declared_type: z.string().nullish(),
+});
+
+export type DocumentExtractionRequested = z.infer<
+  typeof DocumentExtractionRequestedSchema
+>;

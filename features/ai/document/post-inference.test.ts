@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyInvoicePostInference,
   completeAmounts,
   computeItemTotals,
   dueDateFromTerms,
   normalizeAlicuota,
 } from "./post-inference";
-import { EXTRACTION_SCHEMAS, isExtractableKind } from "./schemas";
+import {
+  EXTRACTION_SCHEMAS,
+  InvoiceExtractionSchema,
+  isExtractableKind,
+} from "./schemas";
 
 describe("completeAmounts (amount triangle)", () => {
   it("derives total from neto + iva", () => {
@@ -124,6 +129,45 @@ describe("dueDateFromTerms", () => {
   it("returns null for unparseable input", () => {
     expect(dueDateFromTerms("2026-03-12", "a convenir")).toBeNull();
     expect(dueDateFromTerms(null, "30 días")).toBeNull();
+  });
+});
+
+describe("applyInvoicePostInference", () => {
+  it("normalizes rates, completes line + header amounts, and derives due date", () => {
+    const inv = InvoiceExtractionSchema.parse({
+      fecha: "2026-03-12",
+      condicion_pago: "30 días",
+      importe_neto: 1000,
+      importe_iva: 210,
+      items: [
+        {
+          descripcion: "Servicio",
+          cantidad: 2,
+          precio_unitario: 500,
+          alicuota_iva: "21%",
+        },
+      ],
+    });
+    const out = applyInvoicePostInference(inv);
+    expect(out.importe_total).toBe(1210); // header triangle
+    expect(out.fch_vto_pago).toBe("2026-04-11"); // due date from terms
+    expect(out.items[0]).toMatchObject({
+      alicuota_iva: 21,
+      importe_neto: 1000,
+      importe_iva: 210,
+      importe_total: 1210,
+    });
+  });
+
+  it("keeps a provided due date and does not invent missing amounts", () => {
+    const inv = InvoiceExtractionSchema.parse({
+      fch_vto_pago: "2026-05-01",
+      importe_neto: 500,
+      items: [],
+    });
+    const out = applyInvoicePostInference(inv);
+    expect(out.fch_vto_pago).toBe("2026-05-01");
+    expect(out.importe_total).toBeNull();
   });
 });
 
