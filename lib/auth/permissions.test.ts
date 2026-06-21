@@ -75,6 +75,15 @@ describe("userCan", () => {
     expect(userCan(["finance"], "drivers:write")).toBe(false);
   });
 
+  it("recurring_payments is managed by owner/admin/finance only", () => {
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(userCan([role], "recurring_payments:read")).toBe(true);
+      expect(userCan([role], "recurring_payments:write")).toBe(true);
+    }
+    expect(userCan(["operations"], "recurring_payments:read")).toBe(false);
+    expect(userCan(["warehouse"], "recurring_payments:write")).toBe(false);
+  });
+
   it("audit:read is restricted to owner and admin", () => {
     expect(userCan(["owner"], "audit:read")).toBe(true);
     expect(userCan(["admin"], "audit:read")).toBe(true);
