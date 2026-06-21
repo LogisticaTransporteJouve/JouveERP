@@ -36,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
 
 import { ExtractionPayload } from "./extraction-payload";
+import { ReviewActions } from "./review-actions";
 import {
   useDiscardExtraction,
   useExtraction,
@@ -246,7 +247,13 @@ export function DocumentsTray() {
           {detail.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : detail.data ? (
-            <ExtractionPayload payload={detail.data.payload} />
+            <div className="space-y-4">
+              <ExtractionPayload payload={detail.data.payload} />
+              <ReviewActions
+                extraction={detail.data}
+                onCreated={() => setDetailId(null)}
+              />
+            </div>
           ) : (
             <p className="text-muted-foreground text-sm">
               No se pudo cargar la extracción.
