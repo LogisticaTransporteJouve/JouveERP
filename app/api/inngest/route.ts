@@ -2,6 +2,7 @@ import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
 import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary";
+import { aiAnalyst } from "@/lib/inngest/functions/ai-analyst";
 import { documentExpiryAlerts } from "@/lib/inngest/functions/document-expiry-alerts";
 import { documentExtraction } from "@/lib/inngest/functions/document-extraction";
 import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
@@ -31,5 +32,6 @@ export const { GET, POST, PUT } = serve({
     vacationBalancesGrant,
     documentExpiryAlerts,
     documentExtraction,
+    aiAnalyst,
   ],
 });

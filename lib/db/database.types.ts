@@ -236,6 +236,48 @@ export type Database = {
           },
         ]
       }
+      ai_insights: {
+        Row: {
+          created_at: string
+          finding: string
+          generated_at: string
+          id: string
+          kind: string
+          metrics: Json
+          period: string | null
+          severity: string
+          source_refs: Json
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          finding: string
+          generated_at?: string
+          id?: string
+          kind: string
+          metrics?: Json
+          period?: string | null
+          severity: string
+          source_refs?: Json
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          finding?: string
+          generated_at?: string
+          id?: string
+          kind?: string
+          metrics?: Json
+          period?: string | null
+          severity?: string
+          source_refs?: Json
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       ai_usage: {
         Row: {
           cached_tokens: number | null
