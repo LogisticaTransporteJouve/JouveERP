@@ -8,7 +8,7 @@ import {
   type UIMessage,
 } from "ai";
 import { Send, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +28,13 @@ export function AiChat({
   initialMessages,
   onPersisted,
   atCap = false,
+  seedPrompt,
 }: {
   sessionId: string;
   initialMessages: UIMessage[];
   onPersisted: (sessionId: string) => void;
   atCap?: boolean;
+  seedPrompt?: string;
 }) {
   const [input, setInput] = useState("");
   const [transport] = useState(
@@ -59,6 +61,16 @@ export function AiChat({
     setInput("");
     void sendMessage({ text: trimmed });
   }
+
+  // Auto-send a seeded prompt once (from an insight's "preguntar sobre esto").
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seedPrompt && !seeded.current && !atCap) {
+      seeded.current = true;
+      void sendMessage({ text: seedPrompt });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedPrompt]);
 
   return (
     <div className="flex h-full flex-col gap-4">

@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { InsightsPanel } from "@/features/ai/insights/components/insights-panel";
+
 import { AiChat } from "./ai-chat";
 import { AiHistory } from "./ai-history";
 import { AiUsageMeter } from "./ai-usage-meter";
@@ -18,13 +20,20 @@ import {
 import { useAiUsageToday } from "../hooks/use-ai-usage";
 import { aiKeys } from "../lib/ai-keys";
 
-export function AiWorkspace() {
+export function AiWorkspace({
+  canManageInsights = false,
+}: {
+  canManageInsights?: boolean;
+}) {
   const qc = useQueryClient();
   // Live (not-yet-loaded-from-history) chat id. Generated after mount to avoid
   // an SSR/client hydration mismatch.
   const [liveNewId, setLiveNewId] = useState("");
   const [activeSessionId, setActiveSessionId] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [seed, setSeed] = useState<{ sessionId: string; prompt: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     const id = crypto.randomUUID();
@@ -53,6 +62,15 @@ export function AiWorkspace() {
 
   function selectSession(id: string) {
     setActiveSessionId(id);
+    setHistoryOpen(false);
+  }
+
+  // "Preguntar sobre esto": start a fresh chat seeded with the insight question.
+  function askAboutInsight(question: string) {
+    const id = crypto.randomUUID();
+    setLiveNewId(id);
+    setActiveSessionId(id);
+    setSeed({ sessionId: id, prompt: question });
     setHistoryOpen(false);
   }
 
@@ -114,20 +132,31 @@ export function AiWorkspace() {
           </div>
         )}
 
-        <main className="min-w-0 flex-1">
-          {!activeSessionId || (!isLive && messages.isLoading) ? (
-            <div className="flex h-full flex-col gap-2">
-              <Skeleton className="h-full w-full" />
-            </div>
-          ) : (
-            <AiChat
-              key={activeSessionId}
-              sessionId={activeSessionId}
-              initialMessages={isLive ? [] : messages.data ?? []}
-              onPersisted={handlePersisted}
-              atCap={atCap}
+        <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+          <div className="max-h-72 shrink-0 overflow-y-auto">
+            <InsightsPanel
+              canManage={canManageInsights}
+              onAsk={askAboutInsight}
             />
-          )}
+          </div>
+          <div className="min-h-0 flex-1">
+            {!activeSessionId || (!isLive && messages.isLoading) ? (
+              <Skeleton className="h-full w-full" />
+            ) : (
+              <AiChat
+                key={activeSessionId}
+                sessionId={activeSessionId}
+                initialMessages={isLive ? [] : messages.data ?? []}
+                onPersisted={handlePersisted}
+                atCap={atCap}
+                seedPrompt={
+                  seed && seed.sessionId === activeSessionId
+                    ? seed.prompt
+                    : undefined
+                }
+              />
+            )}
+          </div>
         </main>
       </div>
     </div>

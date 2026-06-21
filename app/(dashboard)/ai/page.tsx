@@ -11,5 +11,5 @@ export default async function AiRoute() {
   if (!userCan(ctx.roles, "ai:chat")) {
     redirect("/dashboard");
   }
-  return <AiWorkspace />;
+  return <AiWorkspace canManageInsights={userCan(ctx.roles, "ai:admin")} />;
 }
