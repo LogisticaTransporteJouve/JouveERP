@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -13,7 +14,12 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { buildPurchaseInvoiceInput } from "./create-mapping";
 import { DOCUMENT_KINDS } from "./types";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 const BUCKET = "files";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -223,6 +229,82 @@ export async function getExtractionAction(
     return { ok: false, error: "No se pudo cargar el documento." };
   }
   return { ok: true, data: data ?? null };
+}
+
+const CreateFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  channelId: z.string().min(1),
+});
+
+/**
+ * Creates a purchase invoice from a reviewed `factura_compra` extraction,
+ * reusing the existing create action (which re-validates everything). Requires
+ * a matched supplier and a chosen channel. On success the draft is marked
+ * confirmed with a link to the created entity.
+ */
+export async function createPurchaseInvoiceFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.roles, "ai:read") ||
+    !userCan(ctx.roles, "purchase_invoices:write")
+  ) {
+    return { ok: false, error: "No tenés permiso para crear facturas de compra." };
+  }
+
+  const parsed = CreateFromExtractionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+
+  const supabase = await createSupabaseClient();
+  const { data: ext, error } = await supabase
+    .from("ai_document_extractions")
+    .select("detected_type, status, matches, payload")
+    .eq("id", parsed.data.extractionId)
+    .maybeSingle();
+  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (ext.status !== "pending_review") {
+    return { ok: false, error: "La extracción ya fue procesada." };
+  }
+  if (ext.detected_type !== "factura_compra") {
+    return { ok: false, error: "Solo se puede crear factura de compra desde acá." };
+  }
+
+  const supplierId =
+    isRecord(ext.matches) && typeof ext.matches.supplier_id === "string"
+      ? ext.matches.supplier_id
+      : null;
+  if (!supplierId) {
+    return { ok: false, error: "Asociá un proveedor antes de crear la factura." };
+  }
+
+  const built = buildPurchaseInvoiceInput(ext.payload, {
+    channelId: parsed.data.channelId,
+    supplierId,
+  });
+  if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
+
+  const created = await createPurchaseInvoiceAction(built);
+  if (!created.ok) return created;
+
+  await supabase
+    .from("ai_document_extractions")
+    .update({
+      status: "confirmed",
+      created_entity: { table: "purchase_invoices", id: created.data.id },
+    })
+    .eq("id", parsed.data.extractionId);
+
+  await logAudit(
+    "ai.document.confirmed",
+    ctx.userId,
+    {
+      extraction_id: parsed.data.extractionId,
+      purchase_invoice_id: created.data.id,
+    },
+    created.data.id,
+  );
+  return { ok: true, data: { id: created.data.id } };
 }
 
 /** Discards a draft without creating anything. */
