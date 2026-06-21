@@ -280,8 +280,9 @@ Feature `balance`, `/accounting/balance`, un solo RPC y 3 vistas en tabs.
 **`get_account_balances(period_end, period_start?)`** (`SECURITY INVOKER`): por
 cuenta activa, `total_debit/total_credit/balance` acumulados por `accrual_period <=
 period_end` (y `>= period_start` si se pasa). `HAVING` descarta cuentas sin
-movimiento. **El comparativo período-vs-período está cableado en el RPC/action/hook
-pero muerto** — la UI siempre llama con `period_start=null`.
+movimiento. ✅ **El filtro de rango (`period_start`) ya está activo en la UI** — la
+página de Balance tiene un control "Desde (opcional)" que acota a movimientos del
+rango `[desde, corte]` (antes la UI siempre pasaba `period_start=null`).
 
 Tres tabs (un solo fetch las alimenta):
 - **Balance de saldos:** `Σdebe = Σhaber` (banner verde/rojo, tolerancia 0.01).
@@ -366,8 +367,11 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 5. **`auto_journal_mapping` sin uso** (§3.1): tabla + RLS existen, ningún generador
    la lee (scaffolding a futuro para IIBB por jurisdicción).
 6. **`caja_apertura` system_role sin asignar** (§2): 18 de 19 roles seedeados.
-7. **Comparativo de balances muerto** (§7): `period_start` plumbed pero la UI siempre
-   pasa null.
+   Verificado: el valor del enum no lo consume **ningún** RPC ni cuenta (el RPC de
+   apertura materializa el ajuste como transacción normal) — es scaffolding sin
+   uso, no un bug. Asignarlo a una cuenta arbitraria no tendría efecto funcional.
+7. ✅ **Comparativo de balances** (§7) — **corregido**: la UI ahora expone "Desde
+   (opcional)" y pasa `period_start` al RPC ya cableado.
 8. **Export PDF de libro IVA bypassa RLS** (§6): usa service client; solo protege el
    `accounting:read` de la ruta. `purchase_invoices` además tiene SELECT RLS
    `USING(true)`.
