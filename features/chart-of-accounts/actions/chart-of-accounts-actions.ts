@@ -204,8 +204,10 @@ export async function deleteChartAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
-    return { ok: false, error: "No tenés permiso para borrar cuentas." };
+  // Alineado con la RLS DELETE de chart_of_accounts (owner/admin); finance
+  // tiene accounting:write pero la policy lo bloquea — gate limpio acá.
+  if (!ctx.roles.includes("owner") && !ctx.roles.includes("admin")) {
+    return { ok: false, error: "Solo owner o admin pueden borrar cuentas." };
   }
 
   const parsed = ChartAccountDeleteSchema.safeParse(input);

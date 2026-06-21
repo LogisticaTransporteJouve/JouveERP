@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  IVA_RATES,
   computeComprasTotals,
   computeTotals,
   groupByInvoice,
@@ -8,6 +9,18 @@ import {
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "./schema";
+
+describe("IVA_RATES (AFIP iva_rate_id → alícuota)", () => {
+  it("maps id 8 → 5% and id 9 → 2.5% (matching lib/afip/codes.ts, not swapped)", () => {
+    const byId = new Map(IVA_RATES.map((r) => [r.id, r.pct]));
+    expect(byId.get(8)).toBe(5);
+    expect(byId.get(9)).toBe(2.5);
+    expect(byId.get(4)).toBe(10.5);
+    expect(byId.get(5)).toBe(21);
+    expect(byId.get(6)).toBe(27);
+    expect(byId.get(3)).toBe(0);
+  });
+});
 
 const baseCompraRow = (
   over: Partial<LibroIvaComprasRow>,

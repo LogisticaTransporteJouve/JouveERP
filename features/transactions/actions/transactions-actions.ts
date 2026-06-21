@@ -368,8 +368,10 @@ export async function deleteTransactionAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:write")) {
-    return { ok: false, error: "No tenés permiso para borrar movimientos." };
+  // Alineado con la RLS DELETE de transactions (owner only); finance/operations
+  // tienen transactions:write pero la policy los bloquea — gate limpio acá.
+  if (!ctx.roles.includes("owner")) {
+    return { ok: false, error: "Solo owner puede borrar movimientos." };
   }
 
   const supabase = await createSupabaseClient();

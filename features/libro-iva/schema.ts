@@ -137,10 +137,12 @@ export type LibroIvaVentasRow = {
   has_items: boolean;
 };
 
+// AFIP iva_rate_id → alícuota. Mirror de lib/afip/codes.ts IVA_RATE_PERCENT
+// (id 8 = 5%, id 9 = 2.5%); antes estaban swapeados acá. Orden ascendente.
 export const IVA_RATES = [
   { id: 3, pct: 0, label: "0%" },
-  { id: 8, pct: 2.5, label: "2.5%" },
-  { id: 9, pct: 5, label: "5%" },
+  { id: 9, pct: 2.5, label: "2.5%" },
+  { id: 8, pct: 5, label: "5%" },
   { id: 4, pct: 10.5, label: "10.5%" },
   { id: 5, pct: 21, label: "21%" },
   { id: 6, pct: 27, label: "27%" },
