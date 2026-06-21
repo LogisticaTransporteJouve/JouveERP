@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Receipt,
   ReceiptText,
+  Repeat,
   Scale,
   ScanLine,
   ScrollText,
@@ -119,6 +120,7 @@ const navSections: NavSection[] = [
       { href: "/transactions", label: "Caja", icon: ArrowLeftRight, permission: "transactions:read" },
       { href: "/checks", label: "Cheques recibidos", icon: BookCheck, permission: "cheques:read" },
       { href: "/issued-checks", label: "Cheques propios", icon: BookCheck, permission: "issued_checks:read" },
+      { href: "/recurring-payments", label: "Pagos recurrentes", icon: Repeat, permission: "recurring_payments:read" },
     ],
   },
   {
