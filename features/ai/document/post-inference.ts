@@ -1,3 +1,4 @@
+import type { InvoiceExtraction } from "./schemas";
 import { VALID_ALICUOTAS, type Alicuota } from "./types";
 
 // Deterministic post-inference (no LLM): fill what the document didn't print,
@@ -140,4 +141,44 @@ export function dueDateFromTerms(
   if (Number.isNaN(date.getTime())) return null;
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Applies all deterministic fill-ins to an extracted invoice: per-line VAT-rate
+ * normalization + line totals, header amount triangle, and due-date from payment
+ * terms. Pure — never overwrites a value the document already provided.
+ */
+export function applyInvoicePostInference(
+  inv: InvoiceExtraction,
+): InvoiceExtraction {
+  const items = inv.items.map((item) => {
+    const alicuota = normalizeAlicuota(item.alicuota_iva);
+    const totals = computeItemTotals({
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      bonif_pct: item.bonif_pct,
+      alicuota,
+      importe_neto: item.importe_neto,
+      importe_iva: item.importe_iva,
+      importe_total: item.importe_total,
+    });
+    return { ...item, alicuota_iva: alicuota, ...totals };
+  });
+
+  const header = completeAmounts({
+    neto: inv.importe_neto,
+    iva: inv.importe_iva,
+    total: inv.importe_total,
+    trib: inv.importe_trib,
+  });
+
+  return {
+    ...inv,
+    importe_neto: header.neto,
+    importe_iva: header.iva,
+    importe_total: header.total,
+    fch_vto_pago:
+      inv.fch_vto_pago ?? dueDateFromTerms(inv.fecha, inv.condicion_pago),
+    items,
+  };
 }

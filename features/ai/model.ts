@@ -25,3 +25,16 @@ export function buildChatModel() {
 export function buildTitleModel() {
   return anthropic(AI_TITLE_MODEL);
 }
+
+/**
+ * Document Intelligence models (docs/ai-overview.md §5-bis): Haiku classifies
+ * (short factual task, ~10× cheaper), Sonnet extracts (amount/item precision
+ * matters). Both are vision/PDF-capable.
+ */
+export function buildClassifierModel() {
+  return anthropic(AI_TITLE_MODEL);
+}
+
+export function buildExtractionModel() {
+  return anthropic(AI_CHAT_MODEL);
+}

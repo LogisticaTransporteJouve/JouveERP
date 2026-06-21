@@ -3,6 +3,7 @@ import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary";
 import { documentExpiryAlerts } from "@/lib/inngest/functions/document-expiry-alerts";
+import { documentExtraction } from "@/lib/inngest/functions/document-extraction";
 import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
@@ -29,5 +30,6 @@ export const { GET, POST, PUT } = serve({
     ttlCleanup,
     vacationBalancesGrant,
     documentExpiryAlerts,
+    documentExtraction,
   ],
 });
