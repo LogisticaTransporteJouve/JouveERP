@@ -37,7 +37,7 @@
       `checks`, `issued_checks`); falta tabla `exchange_rates` + job de cotización
       + lógica de conversión. **En progreso** (modelo estándar: cotización oficial
       BCRA a fecha de operación).
-- [ ] **M.5** — aprobaciones de montos altos. *Necesita umbral + workflow.*
+- [x] ~~**M.5** — aprobaciones de montos altos~~ **descartado** (decisión #20, 2026-06-22): no hace falta.
 - [x] ~~**M.6** — portal cliente~~ **descartado** (decisión #19, 2026-06-22): no va.
 - [ ] **H.5 / emisión de factura de storage vía AFIP.** La facturación de storage
       existe pero la tarifa es un estimado documentado; falta confirmar tarifas
@@ -83,5 +83,5 @@
 ### Prioridad sugerida (lo que queda)
 1. **M.2 multimoneda** con modelo estándar (BCRA) — en progreso.
 2. Cablear proveedor de email (Resend) para el aging semanal.
-3. El resto (L.6/L.7, RG 4667, H.5 emisión, M.5) **espera specs/decisiones**.
-   (M.6 portal cliente: descartado, decisión #19.)
+3. El resto (L.6/L.7, RG 4667, H.5 emisión, envío de email) **espera
+   specs/decisiones**. (M.5 aprobaciones y M.6 portal: descartados, #20 / #19.)

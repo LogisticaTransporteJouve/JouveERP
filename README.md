@@ -33,6 +33,29 @@ de facturación (fiscal/interno × DZ/Jouve).
   [`docs/files-reference.md`](docs/files-reference.md) — spec de adjuntos
   polimórficos (entra en K.10 + M.4) y motor de OCR (Fase I.2).
 
+## Pendientes que necesitan una decisión
+
+El sistema ya hace el trabajo; lo que falta acá son **datos o reglas que solo el
+dueño o el contador conocen**. Cuando tengamos cada input, se construye. (Lista
+viva en [`docs/pendientes.md`](docs/pendientes.md).)
+
+1. **Envío de email** (resumen semanal de deudores + alertas de vencimientos).
+   Los crons ya calculan todo, pero no se manda nada. *Falta:* elegir proveedor
+   (recomendado **Resend**) y cargar su API key como secret — la carga el dueño,
+   no se commitea.
+2. **H.5 — facturar el depósito en AFIP.** Ya se calcula días-pallet × tarifa,
+   pero la tarifa es un estimado. *Falta:* las **tarifas reales** por cliente
+   (por pallet, por día/mes, mínimos) para cablear la emisión AFIP.
+3. **Ajuste por inflación (RG 4667).** La carga de coeficientes existe; falta el
+   asiento de reexpresión. *Falta:* el **método del contador** (qué cuentas son
+   no-monetarias y a qué cuenta va el RECPAM).
+4. **L.6 / L.7 — exports AFIP.** Régimen de información CITI/SIAP (archivo TXT
+   posicional mensual de ventas y compras) + CAEA (contingencia). *Falta:* el
+   **formato posicional exacto** de AFIP, o confirmar que no se necesitan aún.
+
+> Descartados por decisión del dueño: **M.5** (aprobaciones por monto) y **M.6**
+> (portal de cliente). Ver decisiones #19 / #20 en `docs/roadmap.md`.
+
 ## Desarrollo local
 
 Tres procesos en paralelo. Lo más cómodo es abrir tres terminales en VS Code
