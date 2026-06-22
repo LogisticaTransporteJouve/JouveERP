@@ -266,15 +266,19 @@ Antes de inlinear state machines / effects / async flows en un componente,
 
 ---
 
-## 3. Estado al 2026-06-16
+## 3. Estado al 2026-06-22
 
-**~80 PRs mergeados desde repo vacío.** La pata administrativa
+**~110 PRs mergeados desde repo vacío.** La pata administrativa
 (vender / cobrar / comprar / pagar) está end-to-end y **cerrada** (Fase K
 completa). **Contabilidad (Fase L)** está casi entera (core + libros +
 balances + inflación + centros de costo; falta L.6/L.7). **RRHH/Sueldos
-(Fase N)** y **Treasury** se construyeron y shippearon. La pata operativa
-(camión / depósito) no empezó; la **IA (Fase I)** tiene diseño cerrado en
-`docs/ai-overview.md` (chat + insights + Document Intelligence), sin código aún.
+(Fase N)** y **Treasury** shippeados. La pata operativa **ya se construyó**:
+**Fase G (Flota)** completa (G.1–G.7) y **Fase H (Pallets/Depósito)** con
+masters + tarifas + facturación de storage. La **IA (Fase I)** está shippeada
+end-to-end: **AI.0–AI.8** (chat + 25 tools + persistencia + artifacts +
+medidor/tope + Document Intelligence + insights proactivos), más **Fase R**
+(pagos recurrentes). Lo que queda (L.6/L.7, M.2/M.5/M.6, RG 4667, emisión de
+storage) está bloqueado en specs/decisiones — ver `docs/pendientes.md`.
 
 ### 3.1 Hecho — fases shippeadas
 
@@ -290,6 +294,10 @@ balances + inflación + centros de costo; falta L.6/L.7). **RRHH/Sueldos
 | **L — Contabilidad** ✅ (casi entera) | Plan de cuentas jerárquico, asientos automáticos (transactions/invoices/OPs/receipts), libro diario + mayor, libro IVA ventas/compras, balance de saldos + EERR + balance general, ajuste por inflación (RG 4667), centros de costo | L.1–L.5, L.8, L.9 ✅. Falta L.6 (CITI/SIAP) + L.7 (CAEA) |
 | **Treasury** ✅ | Dashboard transversal de caja: saldos por cuenta + cheques por vencer + alertas, sobre `accounts`/`transactions`/`checks` | `features/treasury/` |
 | **N — RRHH / Sueldos** ✅ | Empleados, períodos de sueldo + pagos + extras, asistencia mensual, vacaciones/licencias, documentos de empleado, + 2 crons Inngest | `features/hr/`, `features/employee-documents/` — detalle §3.5 |
+| **R — Pagos recurrentes** ✅ | `recurring_payments` CRUD + cron de generación; insumo del cash-flow de la IA | `features/recurring-payments/` |
+| **I — IA (AI.0–AI.8)** ✅ | Chat con 25 tools + persistencia + artifacts + medidor/tope de tokens, Document Intelligence (clasificar/OCR/extraer), insights proactivos (cash-flow + receivables) con cron | `features/ai/`, `features/chat/` — diseño en `docs/ai-overview.md`, `docs/ai-patterns.md` |
+| **G — Flota** ✅ | Choferes, vehículos, viajes, combustible, mantenimiento, documentos de flota, reportes, y acceso del chofer a sus propios viajes (`:own` vía RLS) | `features/{drivers,vehicles,trips,fuel,maintenance,fleet-documents,fleet-reports}/` (G.1–G.7) |
+| **H — Pallets / Depósito** ✅ | Depósitos, productos, pallets, tarifas de storage y facturación de storage | `features/{warehouses,products,pallets,storage-tariffs,storage-billing}/` (falta H.5 emisión AFIP) |
 
 ### 3.2 Fase K — Compras, Proveedores, Pagos — **completa** ✅
 
