@@ -2386,6 +2386,76 @@ export type Database = {
         }
         Relationships: []
       }
+      pallets: {
+        Row: {
+          client_id: string
+          code: string
+          created_at: string
+          created_by: string | null
+          entry_date: string
+          exit_date: string | null
+          id: string
+          notes: string | null
+          product_id: string | null
+          quantity: number | null
+          status: string
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          client_id: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          entry_date: string
+          exit_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          status?: string
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          client_id?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string
+          exit_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          status?: string
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pallets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pallets_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_order_allocations: {
         Row: {
           amount_applied: number
@@ -2824,6 +2894,53 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      products: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          sku: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          sku?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          sku?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_invoice_items: {
         Row: {
@@ -3976,6 +4093,42 @@ export type Database = {
           updated_at?: string
           vehicle_type?: string
           year?: number | null
+        }
+        Relationships: []
+      }
+      warehouses: {
+        Row: {
+          address: string | null
+          capacity_pallets: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          capacity_pallets?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          capacity_pallets?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

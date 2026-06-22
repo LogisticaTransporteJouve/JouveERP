@@ -5,10 +5,12 @@ import {
   ArrowLeftRight,
   BookCheck,
   BookOpen,
+  Boxes,
   CalendarDays,
   CalendarClock,
   CarFront,
   ChevronRight,
+  Container,
   CreditCard,
   DatabaseBackup,
   FileText,
@@ -36,6 +38,7 @@ import {
   Truck,
   Users,
   Wallet,
+  Warehouse,
   Wrench,
 } from "lucide-react";
 import Image from "next/image";
@@ -150,6 +153,14 @@ const navSections: NavSection[] = [
       { href: "/maintenance", label: "Mantenimiento", icon: Wrench, permission: "maintenance:read" },
       { href: "/fleet-documents", label: "Vencimientos", icon: CalendarClock, permission: "fleet_documents:read" },
       { href: "/fleet-reports", label: "Rentabilidad", icon: TrendingUp, permission: "trips:read" },
+    ],
+  },
+  {
+    label: "Depósito",
+    items: [
+      { href: "/warehouses", label: "Depósitos", icon: Warehouse, permission: "warehouses:read" },
+      { href: "/products", label: "Productos", icon: Boxes, permission: "products:read" },
+      { href: "/pallets", label: "Pallets", icon: Container, permission: "pallets:read" },
     ],
   },
   {
