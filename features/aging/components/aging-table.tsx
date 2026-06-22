@@ -51,8 +51,8 @@ export function AgingTable() {
 
   // Aging is derived from comprobantes (numerador / saldo) and receipts
   // (allocations). Subscribe to both so finance sees the bucket totals
-  // adjust as soon as another user emits a comprobante or registers un
-  // recibo con imputación.
+  // adjust as soon as another user emits a comprobante or registers a
+  // receipt with an allocation.
   useRealtimeInvalidate([
     { table: "invoices", queryKeys: [agingKeys.all] },
     { table: "receipts", queryKeys: [agingKeys.all] },

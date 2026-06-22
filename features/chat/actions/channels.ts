@@ -71,15 +71,15 @@ export async function getChannelHeaderAction(
   if (memErr) return { ok: false, error: memErr.message };
 
   const memberIds = (membersRows ?? []).map((m) => m.user_id);
-  // user_profiles select está abierto a authenticated por RLS.
+  // user_profiles select is open to authenticated via RLS.
   const { data: profiles } = await supabase
     .from("user_profiles")
     .select("user_id, first_name, last_name, avatar_path, avatar_color")
     .in("user_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  // Email solo lo podemos sacar de auth.users vía un RPC; reusamos
-  // list_chat_assignable_users para los demás miembros + mi propio email
-  // del contexto.
+  // Email can only be pulled from auth.users via an RPC; we reuse
+  // list_chat_assignable_users for the other members + my own email
+  // from the context.
   const profileMap = new Map(
     (profiles ?? []).map((p) => [p.user_id, p] as const),
   );

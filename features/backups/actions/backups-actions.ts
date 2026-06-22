@@ -12,8 +12,8 @@ const BUCKET = "backups-daily";
 
 export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
   const ctx = await requireUserContext();
-  // audit:read porque los backups exponen metadata sensible: solo
-  // owner/admin con auditoría. accounting:read NO alcanza.
+  // audit:read because backups expose sensitive metadata: only
+  // owner/admin with auditing. accounting:read is NOT enough.
   if (!userCan(ctx.roles, "audit:read")) {
     return { ok: false, error: "Solo owner/admin pueden ver backups." };
   }
@@ -25,7 +25,7 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
 
   if (error) {
     if (error.message?.toLowerCase().includes("not found")) {
-      // Bucket aún no creado en este entorno.
+      // Bucket not yet created in this environment.
       return { ok: true, data: [] };
     }
     logger.error("backups.list.failed", { userId: ctx.userId, error });
@@ -59,14 +59,14 @@ export async function getBackupSignedUrlAction(
     return { ok: false, error: "Solo owner/admin pueden descargar backups." };
   }
 
-  // Allow-list estricta: el input viene de la lista que devolvió
-  // listBackupsAction (no es arbitrario) pero lo validamos como adversarial.
+  // Strict allow-list: the input comes from the list returned by
+  // listBackupsAction (it's not arbitrary) but we validate it as adversarial.
   if (!isValidBackupFileName(fileName)) {
     return { ok: false, error: "Nombre de archivo inválido." };
   }
 
   const supabase = getServiceClient();
-  // 5 minutos de validez — suficiente para descargar manualmente.
+  // 5 minutes of validity — enough to download manually.
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(fileName, 60 * 5);

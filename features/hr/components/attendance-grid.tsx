@@ -26,7 +26,7 @@ import { MONTH_LABELS } from "../payroll-schema";
 import { AttendanceCellDialog } from "./attendance-cell-dialog";
 
 function daysInMonth(year: number, month: number): number {
-  // month es 1-12
+  // month is 1-12
   return new Date(year, month, 0).getDate();
 }
 
@@ -39,7 +39,7 @@ function dateStr(year: number, month: number, day: number): string {
 }
 
 function isWeekend(year: number, month: number, day: number): boolean {
-  const dow = new Date(year, month - 1, day).getDay(); // 0=domingo, 6=sábado
+  const dow = new Date(year, month - 1, day).getDay(); // 0=Sunday, 6=Saturday
   return dow === 0 || dow === 6;
 }
 
@@ -90,9 +90,9 @@ export function AttendanceGrid({
     if (!canWrite) return;
     const date = dateStr(year, month, day);
     const existing = recordsByEmpDate.get(`${employeeId}|${date}`) ?? null;
-    // Si el día es feriado y no hay manual, sugerimos crear (kind=holiday no
-    // está en manuals, así que el dialog igualmente arranca con
-    // absent_justified como default — admin puede cambiarlo).
+    // If the day is a holiday and there's no manual record, we suggest creating
+    // one (kind=holiday isn't in manuals, so the dialog still starts with
+    // absent_justified as the default — admin can change it).
     setSelectedCell({
       employeeId,
       employeeName,

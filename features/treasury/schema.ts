@@ -14,9 +14,9 @@ export type TreasuryAccountRow = {
 };
 
 export type TreasuryCurrencyTotals = {
-  /** Bancos + efectivo + billeteras + inversión: lo realmente disponible. */
+  /** Banks + cash + wallets + investment: what's actually available. */
   liquid: number;
-  /** Cheques físicos + e-cheq en cartera: no es liquidez hasta acreditarse. */
+  /** Physical checks + e-cheq in portfolio: not liquidity until credited. */
   checks: number;
 };
 
@@ -26,17 +26,17 @@ export type TreasurySummary = {
   accounts: TreasuryAccountRow[];
   totals_now: Record<TreasuryCurrency, TreasuryCurrencyTotals>;
   totals_prev_eom: Record<TreasuryCurrency, TreasuryCurrencyTotals>;
-  /** Cheques en cartera con vencimiento dentro de los próximos 7 días — los
-   *  que están a punto de convertirse en liquidez (depósito/acreditación). */
+  /** Checks in portfolio due within the next 7 days — the ones about to
+   *  turn into liquidity (deposit/crediting). */
   checks_due_soon: Record<TreasuryCurrency, { count: number; amount: number }>;
-  /** Última cotización USD→ARS disponible (la más reciente cargada), para
-   *  mostrar el equivalente en ARS de los saldos en dólares. null si no hay
-   *  ninguna cargada todavía. */
+  /** Latest available USD→ARS exchange rate (the most recently loaded one), to
+   *  show the ARS equivalent of dollar balances. null if none has been loaded
+   *  yet. */
   usd_rate: { rate: number; rate_date: string } | null;
 };
 
-/** Tipos considerados "líquidos" para el total de moneda. Los tipos de
- *  cheques en cartera (checks, echeq) se suman aparte. */
+/** Types considered "liquid" for the currency total. The check-in-portfolio
+ *  types (checks, echeq) are summed separately. */
 export function isLiquidAccountType(type: AccountType): boolean {
   return type === "bank" || type === "cash" || type === "wallet" || type === "investment";
 }

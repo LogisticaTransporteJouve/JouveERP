@@ -44,15 +44,15 @@ describe("formatRelativeShort", () => {
 
 describe("isSameDay", () => {
   it("returns true for same calendar day (local)", () => {
-    // 12:00 y 18:00 del mismo día son el mismo día en cualquier zona
-    // horaria razonable (no salta de día entre esos puntos).
+    // 12:00 and 18:00 on the same day are the same day in any reasonable
+    // time zone (the day doesn't roll over between those points).
     expect(
       isSameDay("2026-05-14T12:00:00Z", "2026-05-14T18:00:00Z"),
     ).toBe(true);
   });
 
   it("returns false for clearly different days", () => {
-    // 48h de diferencia: distinto día en cualquier TZ.
+    // 48h apart: a different day in any TZ.
     expect(
       isSameDay("2026-05-14T12:00:00Z", "2026-05-16T12:00:00Z"),
     ).toBe(false);

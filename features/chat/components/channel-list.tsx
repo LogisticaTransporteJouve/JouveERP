@@ -28,8 +28,8 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // ⌘K (Ctrl+K en Windows) abre la búsqueda. Solo cuando estamos en
-  // /chat — el listener vive en el component, que se monta con el shell.
+  // ⌘K (Ctrl+K on Windows) opens search. Only when we're in
+  // /chat — the listener lives in the component, which mounts with the shell.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {

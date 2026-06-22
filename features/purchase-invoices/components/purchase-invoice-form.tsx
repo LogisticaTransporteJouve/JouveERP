@@ -97,8 +97,8 @@ function invoiceToValues(
           legal_name: inv.supplier_legal_name,
           display_name: null,
           cuit: inv.supplier_cuit,
-          // iva_condition no la trae el listado, pero el picker la usa solo
-          // para el chip. Default seguro:
+          // iva_condition isn't included in the listing, but the picker uses it
+          // only for the chip. Safe default:
           iva_condition: "responsable_inscripto",
         }
       : null,
@@ -168,9 +168,9 @@ export function PurchaseInvoiceForm({
   const itemsQuery = usePurchaseInvoiceItems(invoice?.id ?? null);
   const itemsData = itemsQuery.data ?? null;
 
-  // En edit, si la factura ya tiene items en DB → activar el modo "con detalle"
-  // y poblar el editor. Una sola vez por carga (no re-aplicar después del primer
-  // hidrato para no pisar ediciones del user).
+  // In edit mode, if the invoice already has items in the DB → enable "with detail"
+  // mode and populate the editor. Only once per load (don't re-apply after the first
+  // hydration so we don't overwrite the user's edits).
   useEffect(() => {
     if (!itemsData || itemsData.length === 0) return;
     if (form.getValues("with_items")) return;
@@ -187,9 +187,9 @@ export function PurchaseInvoiceForm({
     form.setValue("with_items", true, { shouldDirty: false });
   }, [itemsData, form]);
 
-  // Totales derivados: si hay items, recalcular neto/iva/total desde el editor;
-  // sino, sumar neto + iva + trib en imp_total. Centralizado en un useMemo
-  // para evitar re-fires por cada keystroke en cada effect separado.
+  // Derived totals: if there are items, recompute neto/iva/total from the editor;
+  // otherwise, sum neto + iva + trib into imp_total. Centralized in a useMemo
+  // to avoid re-fires on every keystroke across each separate effect.
   const derivedTotals = useMemo(() => {
     const trib = Number(watchedTrib || 0);
     if (watchedWithItems) {
@@ -226,8 +226,8 @@ export function PurchaseInvoiceForm({
       });
       return;
     }
-    // Header mode: solo overwrite si el total no fue tocado manualmente, o
-    // coincide con el cálculo previo (heurística ±0.01).
+    // Header mode: only overwrite if the total wasn't touched manually, or
+    // it matches the previous calculation (±0.01 heuristic).
     const currentTotal = Number(form.getValues("imp_total") || 0);
     if (
       currentTotal === 0 ||
@@ -262,7 +262,7 @@ export function PurchaseInvoiceForm({
     );
   }, [originInvoiceData, watchedOriginId, form]);
 
-  // Si cambia el proveedor o el tipo deja de ser NC/ND, soltar el origen.
+  // If the supplier changes or the kind is no longer NC/ND, drop the origin.
   useEffect(() => {
     const current = form.getValues("origin_invoice");
     if (!current) return;
@@ -279,8 +279,8 @@ export function PurchaseInvoiceForm({
     }
   }, [watchedSupplierId, form]);
 
-  // K.12 Part A — Pre-fill desde defaults del supplier (solo create + campos
-  // vacíos). En edit no tocamos nada para no machear data ya cargada.
+  // K.12 Part A — Pre-fill from the supplier's defaults (create only + empty
+  // fields). In edit mode we touch nothing so we don't clobber already-loaded data.
   const supplierDetailQuery = useSupplierByIdOptional(
     mode === "create" ? watchedSupplierId : null,
   );
@@ -288,8 +288,8 @@ export function PurchaseInvoiceForm({
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
-    // Canal: pre-fill solo si el form todavía tiene el canal default-from-scope
-    // y el supplier tiene uno guardado.
+    // Channel: pre-fill only if the form still has the default-from-scope channel
+    // and the supplier has one saved.
     if (
       supplierDetail.default_channel_id &&
       form.getValues("channel_id") === defaultChannelId &&
@@ -299,8 +299,8 @@ export function PurchaseInvoiceForm({
         shouldDirty: false,
       });
     }
-    // fch_vto_pago: pre-fill solo si está vacío y hay fecha y supplier tiene
-    // días default.
+    // fch_vto_pago: pre-fill only if it's empty and there's a date and the supplier
+    // has default days.
     const fchVtoPago = form.getValues("fch_vto_pago");
     const fecha = form.getValues("fecha");
     if (
@@ -317,9 +317,9 @@ export function PurchaseInvoiceForm({
     }
   }, [mode, supplierDetail, defaultChannelId, form]);
 
-  // K.12 Part C — Internal expense auto-numero. Cuando el canal es interno
-  // y el supplier está pickeado, traer el próximo numero para ese par. Solo
-  // en mode=create y solo si el campo numero está vacío.
+  // K.12 Part C — Internal expense auto-numero. When the channel is internal
+  // and the supplier is picked, fetch the next numero for that pair. Only
+  // in mode=create and only if the numero field is empty.
   const watchedChannelId = form.watch("channel_id");
   const watchedChannelIsFiscal =
     activeChannels.find((c) => c.id === watchedChannelId)?.is_fiscal ?? true;
@@ -329,7 +329,7 @@ export function PurchaseInvoiceForm({
     if (mode !== "create") return;
     if (!isInternalChannel) return;
     if (!watchedSupplierId || !watchedChannelId) return;
-    if (form.getValues("numero")) return; // ya tipeó algo
+    if (form.getValues("numero")) return; // already typed something
 
     let cancelled = false;
     (async () => {
@@ -368,9 +368,9 @@ export function PurchaseInvoiceForm({
       return;
     }
 
-    // Items: si el toggle "Con detalle" está prendido, mando los items
-    // computados. En update, mando array vacío si pasó de con-items a
-    // sin-items (limpia la tabla). En create sin items, mando undefined.
+    // Items: if the "With detail" toggle is on, send the computed
+    // items. On update, send an empty array if it went from with-items to
+    // without-items (clears the table). On create without items, send undefined.
     const itemsPayload = values.with_items
       ? values.items
           .filter((it) => it.description.trim().length > 0)
@@ -391,8 +391,8 @@ export function PurchaseInvoiceForm({
         ? []
         : undefined;
 
-    // Si el canal es interno, forzamos letter/CAE a null incluso si el form
-    // quedó con valores (ej: cambiaste canal después de tipear).
+    // If the channel is internal, we force letter/CAE to null even if the form
+    // was left with values (e.g. you changed channel after typing).
     const isInternal = !activeChannels.find((c) => c.id === values.channel_id)
       ?.is_fiscal;
 

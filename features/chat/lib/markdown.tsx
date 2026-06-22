@@ -1,25 +1,25 @@
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 
-// Render de markdown chat-style: bold, italic, code inline, code blocks,
-// listas, blockquote, links. Sin headings, sin tablas, sin HTML raw —
-// el composer es texto plano, no nos interesa que un usuario meta
-// `<script>` aunque vaya a fallar el sanitizer.
+// Chat-style markdown rendering: bold, italic, inline code, code blocks,
+// lists, blockquote, links. No headings, no tables, no raw HTML —
+// the composer is plain text, we don't want a user to inject
+// `<script>` even though the sanitizer would reject it anyway.
 //
-// El parser corre con `gfm: true` para que `**text**`, `_text_` y
-// triple backtick funcionen como esperás. DOMPurify le pasa por encima
-// para sacar lo que marked no esperaba.
+// The parser runs with `gfm: true` so that `**text**`, `_text_` and
+// triple backticks work as you'd expect. DOMPurify runs on top of it
+// to strip out anything marked didn't anticipate.
 
 const renderer = new marked.Renderer();
 
-renderer.heading = ({ text }) => `<p>${text}</p>`; // headings → párrafo plain
-renderer.image = () => "";                          // no imágenes inline
-// HTML raw lo dejamos pasar y DOMPurify lo limpia abajo. Si lo
-// stripeamos acá perdemos el text content alrededor.
+renderer.heading = ({ text }) => `<p>${text}</p>`; // headings → plain paragraph
+renderer.image = () => "";                          // no inline images
+// We let raw HTML through and DOMPurify cleans it up below. If we
+// strip it here we lose the surrounding text content.
 
 marked.setOptions({
   gfm: true,
-  breaks: true,                                     // un salto de línea = <br>
+  breaks: true,                                     // a single line break = <br>
   renderer,
 });
 
@@ -39,9 +39,9 @@ export function renderMarkdown(body: string): string {
 }
 
 export function MarkdownBody({ body }: { body: string }) {
-  // dangerouslySetInnerHTML es OK porque ya sanitizamos. Tailwind v4
-  // styling no incluye `prose` por default — usamos clases directas
-  // en los selectores debajo.
+  // dangerouslySetInnerHTML is OK because we already sanitized. Tailwind v4
+  // styling does not include `prose` by default — we use direct classes
+  // in the selectors below.
   return (
     <div
       className="prose-chat text-sm leading-relaxed"

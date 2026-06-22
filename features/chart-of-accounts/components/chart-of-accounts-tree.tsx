@@ -52,7 +52,7 @@ export function ChartOfAccountsTree() {
   const tree = useMemo(() => buildAccountTree(accounts), [accounts]);
 
   const [expanded, setExpanded] = useState<Set<string>>(
-    // Por default expandimos los capítulos (level 1) para que se vea el plan.
+    // By default we expand the chapters (level 1) so the chart is visible.
     () => new Set(accounts.filter((a) => a.level === 1).map((a) => a.id)),
   );
   const [dialogState, setDialogState] = useState<DialogState>(null);

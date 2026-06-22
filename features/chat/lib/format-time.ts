@@ -1,6 +1,6 @@
-// Helpers de formato de fecha para el sidebar y los message bubbles.
-// No usamos date-fns para mantener el bundle chico — son cuatro líneas
-// de lógica que no pasa nada con tener inline.
+// Date formatting helpers for the sidebar and the message bubbles.
+// We don't use date-fns to keep the bundle small — it's four lines
+// of logic that are fine to have inline.
 
 const DAY_MS = 86_400_000;
 

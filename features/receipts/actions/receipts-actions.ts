@@ -74,15 +74,15 @@ export async function listReceiptsAction(input?: {
     .select(`${RECEIPT_COLUMNS}, clients ( legal_name )`)
     .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false })
-    // Tie-breaker: numero es unique per channel. Sin channel filter, dos
-    // canales pueden compartir (receipt_date, numero) → paginación no-det.
+    // Tie-breaker: numero is unique per channel. Without a channel filter, two
+    // channels can share (receipt_date, numero) → non-deterministic pagination.
     .order("id", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (input?.status) query = query.eq("status", input.status);
   if (input?.channelId) query = query.eq("channel_id", input.channelId);
   if (input?.query?.trim()) {
-    // Búsqueda por numero exact (no fulltext acá; el ⌘K global cubre eso).
+    // Exact numero search (no fulltext here; the global ⌘K covers that).
     const n = Number(input.query.trim());
     if (Number.isFinite(n)) {
       query = query.eq("numero", n);
@@ -335,8 +335,8 @@ export async function listPendingComprobantesForClientAction(
   const supabase = await createSupabaseClient();
 
   // PostgREST caps individual responses at 1000 rows (db.max_rows).
-  // Chunkeamos para clientes con muchas facturas migradas. Cap defensivo
-  // de 50000.
+  // We chunk for clients with many migrated invoices. Defensive cap
+  // of 50000.
   type InvoiceRow = {
     id: string;
     numero: number | null;
@@ -375,11 +375,11 @@ export async function listPendingComprobantesForClientAction(
 
   if (comprobantes.length === 0) return { ok: true, data: [] };
 
-  // Receipt allocations: filtramos por receipts.client_id (no por
-  // .in(invoice_id, miles…)) para no reventar la URL de PostgREST.
-  // Opening allocations: lo que el ajuste de saldo dejó saldado también
-  // debe descontarse del outstanding, sino el picker ofrece imputar de
-  // nuevo facturas ya cerradas. Ambas son independientes → en paralelo.
+  // Receipt allocations: we filter by receipts.client_id (not by
+  // .in(invoice_id, thousands…)) so we don't blow up the PostgREST URL.
+  // Opening allocations: whatever the balance adjustment already settled
+  // must also be subtracted from outstanding, otherwise the picker offers to
+  // re-apply against already-closed invoices. Both are independent → in parallel.
   const [allocsRes, openingAllocsRes] = await Promise.all([
     supabase
       .from("receipt_allocations")
@@ -488,8 +488,8 @@ export async function createReceiptAction(
 
   // FIFO auto-allocation: when the user submits without manually picking
   // invoices, distribute the receipt total across pending invoices from
-  // the oldest forward until the receipt is consumed. Retenciones reduce
-  // what gets distributed because they're credit fiscal, not real cash.
+  // the oldest forward until the receipt is consumed. Retentions reduce
+  // what gets distributed because they're a tax credit, not real cash.
   let allocations = data.allocations ?? [];
   if (allocations.length === 0) {
     const pendingRes = await listPendingComprobantesForClientAction(

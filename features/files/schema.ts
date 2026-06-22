@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// Atachable entity types. K.10 shipped con purchase_invoice; M.4
-// extendió a 8 más.
+// Attachable entity types. K.10 shipped with purchase_invoice; M.4
+// extended it to 8 more.
 export const ATTACHMENT_TARGET_TYPES = [
   "purchase_invoice",
   "invoice",
@@ -15,8 +15,8 @@ export const ATTACHMENT_TARGET_TYPES = [
 ] as const;
 export type AttachmentTargetType = (typeof ATTACHMENT_TARGET_TYPES)[number];
 
-// Per-target whitelist de `kind`. Enforced en server action; DB solo
-// chequea length (free text).
+// Per-target whitelist of `kind`. Enforced in the server action; the DB
+// only checks length (free text).
 export const ATTACHMENT_KIND_BY_TARGET: Record<
   AttachmentTargetType,
   readonly string[]

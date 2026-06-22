@@ -22,7 +22,7 @@ export const PURCHASE_INVOICE_STATUS_LABEL: Record<PurchaseInvoiceStatus, string
 
 export const PURCHASE_INVOICES_PATH = "/purchases";
 
-// AFIP alícuota IDs — mirror del catálogo usado en `invoice_items` (ventas).
+// AFIP rate IDs — mirror of the catalog used in `invoice_items` (sales).
 export const PURCHASE_IVA_RATE_IDS = [3, 4, 5, 6, 8, 9] as const;
 export type PurchaseIvaRateId = (typeof PURCHASE_IVA_RATE_IDS)[number];
 
@@ -93,11 +93,11 @@ const letterNullable = z
   .nullable()
   .optional();
 
-// Items son OPCIONALES. Cuando hay items, los totales del header (`imp_neto`,
-// `imp_iva`, `imp_total`) se recalculan server-side desde la suma de items
-// vía RPC `replace_purchase_invoice_items`. Cuando no hay items (caso típico:
-// las 1313 facturas importadas de AFIP en K.2), el header queda con los
-// totales que se cargaron a mano.
+// Items are OPTIONAL. When there are items, the header totals (`imp_neto`,
+// `imp_iva`, `imp_total`) are recomputed server-side from the sum of items
+// via the RPC `replace_purchase_invoice_items`. When there are no items (typical
+// case: the 1313 invoices imported from AFIP in K.2), the header keeps the
+// totals that were entered by hand.
 export const PurchaseInvoiceItemSchema = z.object({
   description: z.string().trim().min(1, "Descripción requerida.").max(500),
   quantity: amount.refine((v) => v > 0, { message: "Cantidad > 0." }),

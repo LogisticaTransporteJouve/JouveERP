@@ -1,12 +1,12 @@
 import type { ChannelMember } from "../types";
 
-// Util para detectar dónde va el cursor respecto al último "@" del
-// body, y si corresponde abrir/cerrar el popover de mention picker.
+// Utility to detect where the cursor is relative to the last "@" in the
+// body, and whether the mention picker popover should open/close.
 
 export type MentionCursor = {
-  // posición del "@" en el body (inclusive).
+  // position of the "@" in the body (inclusive).
   triggerStart: number;
-  // texto del query entre el "@" y el cursor.
+  // query text between the "@" and the cursor.
   query: string;
 };
 
@@ -15,9 +15,9 @@ export function findMentionAtCursor(
   cursorPos: number,
 ): MentionCursor | null {
   if (cursorPos <= 0 || cursorPos > body.length) return null;
-  // Buscamos atrás desde el cursor: el último "@" precedido por
-  // whitespace o inicio de string, sin espacios entre el "@" y el
-  // cursor (mientras escribís un nombre).
+  // Scan backwards from the cursor: the last "@" preceded by
+  // whitespace or the start of the string, with no spaces between the "@"
+  // and the cursor (while you're typing a name).
   let i = cursorPos - 1;
   while (i >= 0) {
     const ch = body[i];
@@ -45,8 +45,8 @@ export function applyMention(
     || (member.email?.split("@")[0] ?? "user");
   const before = body.slice(0, cursor.triggerStart);
   const after = body.slice(cursor.triggerStart + 1 + cursor.query.length);
-  // Solo agregamos espacio si lo que sigue no es ya whitespace — evita
-  // dobles espacios cuando picás un mention en medio del texto.
+  // Only add a space if what follows isn't already whitespace — avoids
+  // double spaces when you pick a mention in the middle of the text.
   const needsSpace = after.length === 0 || !/^\s/.test(after);
   const token = needsSpace ? `@${display} ` : `@${display}`;
   const next = `${before}${token}${after}`;

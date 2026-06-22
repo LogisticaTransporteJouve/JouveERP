@@ -42,8 +42,8 @@ export interface AccountMovement {
   punto_venta: number | null;
   /** null for opening_balance — no correlativo associated. */
   numero: number | null;
-  /** Positive = el cliente debe (factura, ND, opening_balance).
-   *  Negative = pago / NC. */
+  /** Positive = the client owes (invoice, ND, opening_balance).
+   *  Negative = payment / NC. */
   signed_amount: number;
   /** Absolute value, useful when rendering "Debe" / "Haber" columns. */
   gross_amount: number;
@@ -64,7 +64,7 @@ export interface AccountMovement {
 
 export interface ClientAccountResult {
   movements: AccountMovement[];
-  /** Final running balance — last row's `balance`. Positive = cliente debe. */
+  /** Final running balance — last row's `balance`. Positive = client owes. */
   balance: number;
 }
 
@@ -88,9 +88,9 @@ export async function getClientAccountAction(
 
   const supabase = await createSupabaseClient();
 
-  // PostgREST tiene un cap de `db.max_rows` (default 1000) que aplica
-  // aunque pidas más con `.range()`. Chunkeamos en pedidos de 1000 hasta
-  // vaciar el set. Cap defensivo de 50000 movimientos por cliente.
+  // PostgREST has a `db.max_rows` cap (default 1000) that applies
+  // even if you request more with `.range()`. We chunk in batches of 1000 until
+  // the set is exhausted. Defensive cap of 50000 movements per client.
   const CHUNK = 1000;
   const HARD_CAP = 50000;
   type MovementRow = {
@@ -133,11 +133,11 @@ export async function getClientAccountAction(
     if (got.length < CHUNK) break;
   }
 
-  // Opening balance se comporta como una transaction de ajuste: en su fecha
-  // el saldo "salta" al target_balance. signed_amount efectivo = target -
-  // saldo_calculado_justo_antes. Para que el orden quede claro, en empate
-  // de fecha la opening row va al final (después de las facturas/recibos
-  // de ese mismo día) — así el ajuste reconcilia el día completo.
+  // Opening balance behaves like an adjustment transaction: on its date
+  // the balance "jumps" to target_balance. Effective signed_amount = target -
+  // balance_computed_just_before. To keep the ordering clear, on a date tie
+  // the opening row goes last (after the invoices/receipts of that same
+  // day) — so the adjustment reconciles the full day.
   const rows = (data ?? []).slice().sort((a, b) => {
     const dateA = a.movement_date ?? "";
     const dateB = b.movement_date ?? "";
@@ -161,9 +161,9 @@ export async function getClientAccountAction(
   const appliedByInvoice = new Map<string, number>();
   const appliedByReceipt = new Map<string, number>();
   if (invoiceIds.length > 0 || receiptIds.length > 0) {
-    // Filtramos por client_id del receipt (no por .in(invoice_id, …))
-    // para evitar el cap de URL length de PostgREST cuando hay miles de
-    // invoices migrados. !inner asegura que el filtro narrow al parent.
+    // We filter by the receipt's client_id (not by .in(invoice_id, …))
+    // to avoid PostgREST's URL length cap when there are thousands of
+    // migrated invoices. !inner ensures the filter narrows to the parent.
     const { data: allocs } = await supabase
       .from("receipt_allocations")
       .select(
@@ -183,11 +183,11 @@ export async function getClientAccountAction(
       }
     }
 
-    // También sumar lo imputado por el ajuste de saldo, así las facturas
-    // que el opening marcó como saldadas muestran el badge "Pagada" o
-    // "Parcial". Consultamos por client_id (más eficiente y sin límite
-    // de longitud de URL que sí afecta a `.in("invoice_id", [...])` con
-    // miles de IDs).
+    // Also add what the balance adjustment applied, so invoices
+    // that the opening marked as settled show the "Pagada" or
+    // "Parcial" badge. We query by client_id (more efficient and without the
+    // URL length limit that does affect `.in("invoice_id", [...])` with
+    // thousands of IDs).
     const { data: openingAllocs } = await supabase
       .from("client_opening_balance_allocations")
       .select("invoice_id, amount_applied")
@@ -238,8 +238,8 @@ export async function getClientAccountAction(
     let signed = Number(row.signed_amount);
     let gross = Number(row.gross_amount);
     if (row.source_type === "opening_balance") {
-      // El saldo "salta" al target. signed efectivo = target - running.
-      const target = Number(row.signed_amount); // la vista deja target_balance acá
+      // The balance "jumps" to the target. Effective signed = target - running.
+      const target = Number(row.signed_amount); // the view leaves target_balance here
       signed = round2(target - running);
       gross = Math.abs(signed);
     }
@@ -280,7 +280,7 @@ export async function getClientAccountAction(
 }
 
 // ---------------------------------------------------------------------------
-// Opening balance (saldo de apertura)
+// Opening balance
 // ---------------------------------------------------------------------------
 
 export interface ClientOpeningBalance {
@@ -337,9 +337,9 @@ export async function getClientOpeningBalanceAction(
 }
 
 /**
- * Fija (o sobrescribe) el saldo de apertura del cliente. Atómico: el RPC
- * borra el opening anterior + sus allocations y recrea desde cero
- * imputando FIFO desde la factura más vieja.
+ * Sets (or overwrites) the client's opening balance. Atomic: the RPC
+ * deletes the previous opening + its allocations and recreates from scratch,
+ * applying FIFO from the oldest invoice.
  */
 export async function setClientOpeningBalanceAction(input: {
   client_id: string;
@@ -348,7 +348,7 @@ export async function setClientOpeningBalanceAction(input: {
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  // El ajuste de saldo reescribe el aging del cliente — solo owner.
+  // The balance adjustment rewrites the client's aging — owner only.
   if (!ctx.roles.includes("owner")) {
     return {
       ok: false,

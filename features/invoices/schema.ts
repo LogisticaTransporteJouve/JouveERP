@@ -270,8 +270,8 @@ export function computeTotals(
   };
 }
 
-/** Join row shape para `channel ( name, division, business_unit_id )` usado
- *  por los renders de PDF (receipt y payment-order). */
+/** Join row shape for `channel ( name, division, business_unit_id )` used
+ *  by the PDF renders (receipt and payment-order). */
 export type ChannelDivisionJoin = {
   channel: {
     name: string;
@@ -280,8 +280,8 @@ export type ChannelDivisionJoin = {
   } | null;
 };
 
-/** Embedded `invoice ( letter, kind, punto_venta, numero, fecha )` shape para
- *  filas de allocations (receipts + payment-orders detail/PDF). */
+/** Embedded `invoice ( letter, kind, punto_venta, numero, fecha )` shape for
+ *  allocation rows (receipts + payment-orders detail/PDF). */
 export type InvoiceRefJoin = {
   invoice: {
     letter: string | null;
@@ -292,8 +292,8 @@ export type InvoiceRefJoin = {
   } | null;
 };
 
-/** Variante de InvoiceRefJoin que además incluye `invoice.channel.is_fiscal`,
- *  necesaria para el PDF de orden de pago (distingue facturas internas). */
+/** Variant of InvoiceRefJoin that also includes `invoice.channel.is_fiscal`,
+ *  needed for the payment-order PDF (distinguishes internal invoices). */
 export type InvoiceWithChannelRefJoin = {
   invoice: {
     letter: string | null;
@@ -305,14 +305,14 @@ export type InvoiceWithChannelRefJoin = {
   } | null;
 };
 
-/** Formatea el número fiscal de un comprobante según convención AR:
- *  - factura: `A00003-00000001` (letra + POS 5d + dash + número 8d)
- *  - NC/ND: `NC00003-00000001` / `ND00003-00000001` (sin letra)
- *  - `numero == null` (borrador / AFIP procesando): el segmento del número se
- *    reemplaza por `opts.whenNullNumero` (default `"—"`; la detail page usa
- *    `"pendiente"`). El prefijo + POS se preserva → `"A00003-pendiente"`.
- *  Consolida 4 dupes que vivían en invoices-table, origin-picker,
- *  send-invoice-email y la detail page `app/(dashboard)/invoices/[id]/page.tsx`. */
+/** Formats the fiscal number of a voucher following the AR convention:
+ *  - factura: `A00003-00000001` (letter + POS 5d + dash + number 8d)
+ *  - NC/ND: `NC00003-00000001` / `ND00003-00000001` (no letter)
+ *  - `numero == null` (draft / AFIP processing): the number segment is
+ *    replaced by `opts.whenNullNumero` (default `"—"`; the detail page uses
+ *    `"pendiente"`). The prefix + POS is preserved → `"A00003-pendiente"`.
+ *  Consolidates 4 dupes that lived in invoices-table, origin-picker,
+ *  send-invoice-email and the detail page `app/(dashboard)/invoices/[id]/page.tsx`. */
 export function formatInvoiceNumero(
   kind: string,
   letter: string | null,

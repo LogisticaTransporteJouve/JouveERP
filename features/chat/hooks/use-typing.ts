@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
-// Typing indicators usando Supabase Realtime broadcast — efímero, sin
-// persistencia en BD. Cada cliente publica eventos "typing" con su
-// user_id + display_name; los demás guardan ese estado por ~3s y lo
-// renderizan abajo del thread.
+// Typing indicators using Supabase Realtime broadcast — ephemeral, with no
+// DB persistence. Each client publishes "typing" events with its
+// user_id + display_name; the others hold that state for ~3s and
+// render it below the thread.
 
 const TYPING_TIMEOUT_MS = 3000;
 const TYPING_THROTTLE_MS = 1500;
@@ -88,9 +88,9 @@ export function useTypingListener(
 
     channel.subscribe();
 
-    // Sweep periodico: limpia entries vencidas para que la UI no quede
-    // mostrando "X está escribiendo" eternamente si el otro cierra el
-    // tab sin mandar nada.
+    // Periodic sweep: clears expired entries so the UI doesn't keep
+    // showing "X está escribiendo" forever if the other party closes the
+    // tab without sending anything.
     const sweep = setInterval(() => {
       setTyping((prev) => {
         const now = Date.now();

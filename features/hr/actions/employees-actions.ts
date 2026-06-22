@@ -208,7 +208,7 @@ export async function updateEmployeeAction(
 
   const { id, ...rest } = parsed.data;
 
-  // Audit: para detectar cambio sensible de sueldo, leemos el viejo primero.
+  // Audit: to detect a sensitive salary change, we read the old value first.
   const supabase = await createSupabaseClient();
   const { data: previous, error: prevErr } = await supabase
     .from("employees")
@@ -251,7 +251,7 @@ export async function updateEmployeeAction(
     return { ok: false, error: "No se pudo actualizar el empleado." };
   }
 
-  // Audit granular: sueldo es el campo más sensible.
+  // Granular audit: salary is the most sensitive field.
   if (
     previous &&
     rest.base_salary !== undefined &&
@@ -299,9 +299,9 @@ export async function terminateEmployeeAction(
     .update({
       termination_date: parsed.data.termination_date,
       is_active: false,
-      // Notes acumulables: si el caller mandó algo, lo concatena; si no, deja
-      // las viejas. La concatenación se hace en el cliente para no perder
-      // historial silenciosamente.
+      // Cumulative notes: if the caller sent something, it gets concatenated;
+      // otherwise the old ones are kept. The concatenation happens on the client
+      // so history isn't silently lost.
       ...(parsed.data.notes ? { notes: parsed.data.notes } : {}),
     })
     .eq("id", parsed.data.id);

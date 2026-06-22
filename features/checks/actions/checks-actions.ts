@@ -44,8 +44,8 @@ function narrowCheck(row: {
 const CHECK_COLUMNS =
   "id, kind, check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, amount, currency, source_kind, source_receipt_id, source_payment_line_id, source_client_id, cartera_account_id, status, notes, created_by, created_at, updated_at";
 
-/** Embedded joins en select queries de cheques: cartera_account siempre,
- *  source_client opcional según si el cheque venía de un recibo. */
+/** Embedded joins in check select queries: cartera_account always,
+ *  source_client optional depending on whether the check came from a receipt. */
 type CarteraAccountJoin = { cartera_account: { name: string } | null };
 type SourceClientLegalJoin = {
   source_client: { legal_name: string } | null;

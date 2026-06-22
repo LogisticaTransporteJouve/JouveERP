@@ -141,9 +141,9 @@ export async function uploadFileAction(
     created_by: ctx.userId,
   } as const;
 
-  // Polimorfismo: una sola insert con el FK column dinámico, indexada
-  // por TARGET_FK_COLUMN. La typing de supabase-js no permite la columna
-  // dinámica directo, así que casteamos el payload.
+  // Polymorphism: a single insert with the dynamic FK column, indexed
+  // by TARGET_FK_COLUMN. supabase-js typing doesn't allow the dynamic
+  // column directly, so we cast the payload.
   const fkColumn = TARGET_FK_COLUMN[targetType];
   const insertResult = await supabase
     .from("file_attachments")

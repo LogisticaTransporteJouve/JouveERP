@@ -145,9 +145,9 @@ export function useEnabledPos(
 }
 
 /**
- * Búsqueda de facturas elegibles como origen de NC/ND: solo `emitted`,
- * canal fiscal y `kind === "factura"`. La page del listado de invoices
- * consume esto desde el dialog NC/ND.
+ * Search for invoices eligible as the origin of an NC/ND: only `emitted`,
+ * fiscal channel and `kind === "factura"`. The invoices list page consumes
+ * this from the NC/ND dialog.
  */
 export function useOriginSearch(query: string, enabled = true) {
   return useQuery({
@@ -170,9 +170,9 @@ export function useOriginSearch(query: string, enabled = true) {
 }
 
 /**
- * On-demand fetch del detalle. Sin `useSuspenseQuery` porque el caller
- * (NewNcNdDialog) controla loading state inline mientras espera el detalle
- * de la factura recién elegida.
+ * On-demand fetch of the detail. No `useSuspenseQuery` because the caller
+ * (NewNcNdDialog) controls the loading state inline while it waits for the
+ * detail of the just-picked invoice.
  */
 export function useInvoiceDetailOnDemand(id: string | null) {
   return useQuery({

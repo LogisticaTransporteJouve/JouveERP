@@ -64,7 +64,7 @@ export async function listMessagesAction(input: {
   const hasMore = messageRows.length > limit;
   const trimmed = hasMore ? messageRows.slice(0, limit) : messageRows;
 
-  // Cargar profiles de senders.
+  // Load sender profiles.
   const senderIds = Array.from(new Set(trimmed.map((m) => m.sender_id)));
   const replyIds = Array.from(
     new Set(
@@ -106,9 +106,9 @@ export async function listMessagesAction(input: {
   );
   const emailMap = new Map<string, string>();
   for (const u of emailsRes.data ?? []) emailMap.set(u.user_id, u.email);
-  // El RPC `list_chat_assignable_users` excluye al actor, así que su email
-  // no entra al map. Sin esto, cualquier mensaje propio cae al fallback
-  // "Usuario" en `getDisplayName`.
+  // The `list_chat_assignable_users` RPC excludes the actor, so their email
+  // doesn't make it into the map. Without this, any of the user's own
+  // messages falls back to "Usuario" in `getDisplayName`.
   if (!emailMap.has(ctx.userId) && ctx.email) {
     emailMap.set(ctx.userId, ctx.email);
   }
@@ -144,8 +144,8 @@ export async function listMessagesAction(input: {
     };
   });
 
-  // Devolvemos en orden cronológico ascendente para que la UI pinte de
-  // viejo a nuevo. La pagination paramétrica sigue siendo "más viejo que
+  // We return in ascending chronological order so the UI renders from
+  // old to new. The cursor-based pagination is still "older than
   // X".
   messages.reverse();
 
@@ -182,8 +182,8 @@ export async function sendMessageAction(
     .single();
   if (error || !data) return { ok: false, error: error?.message ?? "Error" };
 
-  // Insert mentions (best-effort). Si falla, el mensaje ya está en BD —
-  // no abortar la operación; el usuario lo va a ver igual.
+  // Insert mentions (best-effort). If it fails, the message is already in
+  // the DB — don't abort the operation; the user will see it anyway.
   const mentions = (parsed.data.mentionUserIds ?? []).filter(
     (id) => id !== ctx.userId,
   );
@@ -193,19 +193,19 @@ export async function sendMessageAction(
     );
   }
 
-  // Disparar push dispatch vía Inngest. Idempotente por message_id —
-  // si el action se retry-ea, Inngest dedupea. Fire-and-forget: el
-  // mensaje ya está persistido, los push no son críticos para el
-  // response. La función carga las notifs (creadas por trigger) y
-  // las distribuye a los devices suscriptos.
+  // Fire push dispatch via Inngest. Idempotent by message_id —
+  // if the action is retried, Inngest dedupes. Fire-and-forget: the
+  // message is already persisted, pushes aren't critical for the
+  // response. The function loads the notifs (created by trigger) and
+  // distributes them to the subscribed devices.
   try {
     await inngest.send({
       name: NOTIFICATIONS_DISPATCH,
       data: { message_id: data.id },
     });
   } catch {
-    // Log silencioso: el bell del header sigue funcionando por
-    // realtime aunque el push falle.
+    // Silent log: the header bell keeps working via
+    // realtime even if the push fails.
   }
 
   const profile = ctx.profile;
@@ -274,14 +274,14 @@ export async function listReactionsAction(
   await requireUserContext();
   const supabase = await createClient();
 
-  // Para evitar un join pesado, buscamos primero los ids de mensajes del
-  // canal y después sus reactions. La RLS ya nos filtra automáticamente
-  // los que no podemos ver.
+  // To avoid a heavy join, we first look up the message ids in the
+  // channel and then their reactions. RLS already filters out
+  // the ones we can't see automatically.
   const { data: messages, error: msgErr } = await supabase
     .from("chat_messages")
     .select("id")
     .eq("channel_id", channelId)
-    .limit(500); // cap suficiente para chat activo
+    .limit(500); // cap sufficient for an active chat
   if (msgErr) return { ok: false, error: msgErr.message };
 
   const ids = (messages ?? []).map((m) => m.id);

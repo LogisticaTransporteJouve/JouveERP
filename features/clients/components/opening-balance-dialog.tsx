@@ -28,12 +28,12 @@ import { todayIsoLocal as todayIso } from "@/lib/date-range";
 import { formatNumber2, parseArAmount } from "@/lib/format";
 
 /**
- * Dialog para fijar/editar/borrar el saldo de apertura del cliente.
+ * Dialog to set/edit/delete the client's opening balance.
  *
- * Caso de uso: después de migrar facturas históricas que quedan todas
- * pendientes, el usuario fija el saldo real al corte. El sistema imputa
- * FIFO desde la factura más vieja hasta la más nueva con fecha ≤ corte
- * hasta que el remanente coincida con `target_balance`.
+ * Use case: after migrating historical invoices that all end up
+ * outstanding, the user sets the real balance at the cutoff. The system
+ * applies FIFO from the oldest invoice to the newest one dated ≤ cutoff
+ * until the remainder matches `target_balance`.
  */
 export function OpeningBalanceDialog({
   clientId,
@@ -41,11 +41,11 @@ export function OpeningBalanceDialog({
   trigger,
 }: {
   clientId: string;
-  /** Si true, al abrir prellena con los valores del ajuste existente
-   *  (modo "editar el monto"). Default = false (nuevo ajuste, form
-   *  vacío). */
+  /** If true, opening prefills with the values of the existing
+   *  adjustment ("edit the amount" mode). Default = false (new
+   *  adjustment, empty form). */
   prefill?: boolean;
-  /** Reemplaza el trigger default (botón "Ajustar saldo"). */
+  /** Replaces the default trigger (the "Ajustar saldo" button). */
   trigger?: React.ReactNode;
 }) {
   const { data: existing } = useClientOpeningBalance(clientId);
@@ -58,9 +58,9 @@ export function OpeningBalanceDialog({
   const [targetRaw, setTargetRaw] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Al abrir el dialog: si prefill=true y existe un ajuste, prellenamos
-  // con sus valores (modo editar monto). Sino arranca vacío — cada
-  // apertura es una nueva reconciliación, no un edit del valor anterior.
+  // When opening the dialog: if prefill=true and an adjustment exists, we
+  // prefill with its values (edit-amount mode). Otherwise it starts empty
+  // — each opening is a new reconciliation, not an edit of the prior value.
   useEffect(() => {
     if (!open) return;
     if (prefill && existing) {

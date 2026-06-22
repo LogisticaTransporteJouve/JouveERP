@@ -208,7 +208,7 @@ export async function setAccountActiveAction(
 }
 
 // ---------------------------------------------------------------------------
-// Opening balance (ajuste de saldo de cuenta)
+// Opening balance (account balance adjustment)
 // ---------------------------------------------------------------------------
 
 export interface AccountOpeningBalance {
@@ -267,8 +267,8 @@ export async function setAccountOpeningBalanceAction(input: {
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  // El ajuste reescribe el saldo histórico — solo owner, igual que el
-  // ajuste del cliente.
+  // The adjustment rewrites the historical balance — owner only, same as the
+  // client adjustment.
   if (!ctx.roles.includes("owner")) {
     return {
       ok: false,

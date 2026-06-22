@@ -82,11 +82,11 @@ export function groupByType(rows: readonly AccountBalanceRow[]): GroupedByType {
 }
 
 /**
- * EERR: agrupa resultados positivos (ingresos) y negativos (gastos) por
- * eerr_category. Devuelve utilidad neta = ingresos - gastos. Convención:
- * los resultado_positivo tienen balance negativo (Σdebit-Σcredit; con
- * mayor crédito → balance negativo). Los invertimos para mostrar
- * positivamente.
+ * EERR: groups positive results (income) and negative results (expenses) by
+ * eerr_category. Returns net profit = income - expenses. Convention:
+ * resultado_positivo accounts have a negative balance (Σdebit-Σcredit; with
+ * more credit → negative balance). We flip the sign to display them
+ * positively.
  */
 export type EERRSection = {
   title: string;
@@ -131,7 +131,7 @@ export function computeEERR(rows: readonly AccountBalanceRow[]): {
     return { title, categories, total };
   };
 
-  const ingresos = buildSection("Ingresos", posByCat, -1); // crédito → positivo
+  const ingresos = buildSection("Ingresos", posByCat, -1); // credit → positive
   const gastos = buildSection("Gastos", negByCat, 1);
 
   return {

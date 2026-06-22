@@ -313,9 +313,9 @@ export async function createPurchaseInvoiceAction(
     return { ok: false, error: "No se pudo cargar la factura." };
   }
 
-  // Si la factura trae items, los inserto + recalculo header totales vía
-  // RPC. Si la RPC falla, dejamos el header sin items (mejor que orphan):
-  // los totales del header ya son válidos porque vinieron del input.
+  // If the invoice carries items, insert them + recompute header totals via
+  // RPC. If the RPC fails, we leave the header without items (better than an
+  // orphan): the header totals are already valid because they came from the input.
   if (parsed.data.items && parsed.data.items.length > 0) {
     const itemsError = await applyItems(supabase, data.id, parsed.data.items);
     if (itemsError) {
@@ -438,8 +438,8 @@ export async function updatePurchaseInvoiceAction(
     return { ok: false, error: "No se pudo actualizar la factura." };
   }
 
-  // Items son opcionales en update. Si el caller pasa un array (incluso
-  // vacío), reemplazamos. Si pasa undefined, no tocamos los items.
+  // Items are optional on update. If the caller passes an array (even an
+  // empty one), we replace them. If it passes undefined, we don't touch the items.
   if (rest.items !== undefined) {
     const itemsError = await applyItems(supabase, id, rest.items);
     if (itemsError) {

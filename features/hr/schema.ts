@@ -34,7 +34,7 @@ const shortTextNullable = z
   .nullable()
   .optional();
 
-// CUIL: 11 digits, opcional. Acepta input con guiones/espacios y los strippea.
+// CUIL: 11 digits, optional. Accepts input with dashes/spaces and strips them.
 const cuilNullable = z.preprocess(
   (value) => {
     if (typeof value !== "string") return value;
@@ -48,8 +48,8 @@ const cuilNullable = z.preprocess(
     .optional(),
 );
 
-// CBU: 22 dígitos exactos, opcional. La validación de dígitos verificadores
-// va en otra capa cuando aparezca el caso (hoy alcanza con shape correcto).
+// CBU: exactly 22 digits, optional. Check-digit validation goes in
+// another layer when the case comes up (for now the correct shape is enough).
 const cbuNullable = z.preprocess(
   (value) => {
     if (typeof value !== "string") return value;

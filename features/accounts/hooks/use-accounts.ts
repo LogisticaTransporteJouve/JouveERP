@@ -86,7 +86,7 @@ export function useSetAccountOpeningBalance() {
         queryKey: accountsKeys.openingBalance(variables.account_id),
       });
       qc.invalidateQueries({ queryKey: accountsKeys.all });
-      // Las transactions list también cambian (se agrega la fila de ajuste).
+      // The transactions list also changes (the adjustment row is added).
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
     },
   });
