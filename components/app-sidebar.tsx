@@ -7,6 +7,7 @@ import {
   BookOpen,
   CalendarDays,
   CalendarClock,
+  CarFront,
   ChevronRight,
   CreditCard,
   DatabaseBackup,
@@ -20,6 +21,7 @@ import {
   Receipt,
   ReceiptText,
   Repeat,
+  Route,
   Scale,
   ScanLine,
   ScrollText,
@@ -134,6 +136,14 @@ const navSections: NavSection[] = [
       { href: "/accounting/balance", label: "Balance / EERR", icon: Scale, permission: "accounting:read" },
       { href: "/accounting/cost-centers", label: "Centros de costo", icon: Target, permission: "accounting:read" },
       { href: "/accounting/inflation", label: "Ajuste inflación", icon: TrendingUp, permission: "accounting:read" },
+    ],
+  },
+  {
+    label: "Flota",
+    items: [
+      { href: "/drivers", label: "Choferes", icon: CarFront, permission: "drivers:read" },
+      { href: "/vehicles", label: "Vehículos", icon: Truck, permission: "vehicles:read" },
+      { href: "/trips", label: "Viajes", icon: Route, permission: "trips:read" },
     ],
   },
   {

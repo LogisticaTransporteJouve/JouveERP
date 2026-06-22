@@ -1062,6 +1062,59 @@ export type Database = {
         }
         Relationships: []
       }
+      drivers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cuit: string | null
+          employee_id: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          license_category: string | null
+          license_number: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cuit?: string | null
+          employee_id?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          license_category?: string | null
+          license_number?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cuit?: string | null
+          employee_id?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          license_category?: string | null
+          license_number?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drivers_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           body: string | null
@@ -3555,6 +3608,85 @@ export type Database = {
           },
         ]
       }
+      trips: {
+        Row: {
+          cargo_description: string | null
+          channel_id: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          destination: string | null
+          driver_id: string | null
+          id: string
+          km: number | null
+          notes: string | null
+          origin: string | null
+          revenue: number | null
+          status: string
+          trip_date: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          cargo_description?: string | null
+          channel_id?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          driver_id?: string | null
+          id?: string
+          km?: number | null
+          notes?: string | null
+          origin?: string | null
+          revenue?: number | null
+          status?: string
+          trip_date: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          cargo_description?: string | null
+          channel_id?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          driver_id?: string | null
+          id?: string
+          km?: number | null
+          notes?: string | null
+          origin?: string | null
+          revenue?: number | null
+          status?: string
+          trip_date?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trips_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           avatar_color: string
@@ -3613,6 +3745,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vehicles: {
+        Row: {
+          alias: string | null
+          brand: string | null
+          capacity_kg: number | null
+          created_at: string
+          created_by: string | null
+          fleet: string | null
+          id: string
+          is_active: boolean
+          model: string | null
+          notes: string | null
+          patente: string
+          updated_at: string
+          vehicle_type: string
+          year: number | null
+        }
+        Insert: {
+          alias?: string | null
+          brand?: string | null
+          capacity_kg?: number | null
+          created_at?: string
+          created_by?: string | null
+          fleet?: string | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          notes?: string | null
+          patente: string
+          updated_at?: string
+          vehicle_type: string
+          year?: number | null
+        }
+        Update: {
+          alias?: string | null
+          brand?: string | null
+          capacity_kg?: number | null
+          created_at?: string
+          created_by?: string | null
+          fleet?: string | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          notes?: string | null
+          patente?: string
+          updated_at?: string
+          vehicle_type?: string
+          year?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
