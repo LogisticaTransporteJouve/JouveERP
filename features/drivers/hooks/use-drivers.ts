@@ -11,6 +11,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   createDriverAction,
   deleteDriverAction,
+  linkDriverUserAction,
   listDriversAction,
   setDriverActiveAction,
   updateDriverAction,
@@ -58,6 +59,15 @@ export function useDeleteDriver() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runAction(() => deleteDriverAction({ id })),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useLinkDriverUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { driverId: string; userId: string | null }) =>
+      runAction(() => linkDriverUserAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

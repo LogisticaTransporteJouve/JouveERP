@@ -8,15 +8,18 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+
 import {
   DriverCreateSchema,
+  DriverLinkUserSchema,
   DriverToggleSchema,
   DriverUpdateSchema,
   type Driver,
 } from "../schema";
 
 const SELECT_COLUMNS =
-  "id, employee_id, full_name, cuit, license_number, license_category, phone, is_active, notes, created_at, updated_at";
+  "id, employee_id, user_id, full_name, cuit, license_number, license_category, phone, is_active, notes, created_at, updated_at";
 
 export async function listDriversAction(
   input: { onlyActive?: boolean } = {},
@@ -176,5 +179,49 @@ export async function deleteDriverAction(
     return { ok: false, error: "No se pudo borrar el chofer." };
   }
   await logAudit("driver.deleted", ctx.userId, {}, input.id);
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Links (or unlinks, userId=null) a driver to an app user so RLS can scope that
+ * user to their own trips (Fase G.3). Granting a login is a security action →
+ * gated on users:assign_role (admins), not the operations drivers:write.
+ */
+export async function linkDriverUserAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "users:assign_role")) {
+    return { ok: false, error: "No tenés permiso para vincular usuarios." };
+  }
+  const parsed = DriverLinkUserSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase
+    .from("drivers")
+    .update({ user_id: parsed.data.userId })
+    .eq("id", parsed.data.driverId);
+  if (error) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      return {
+        ok: false,
+        error: "Ese usuario ya está vinculado a otro chofer.",
+      };
+    }
+    logger.error("drivers.link_user.failed", {
+      userId: ctx.userId,
+      driverId: parsed.data.driverId,
+      error,
+    });
+    return { ok: false, error: "No se pudo vincular el usuario." };
+  }
+
+  await logAudit(
+    parsed.data.userId ? "driver.user_linked" : "driver.user_unlinked",
+    ctx.userId,
+    { linked_user_id: parsed.data.userId },
+    parsed.data.driverId,
+  );
   return { ok: true, data: undefined };
 }
