@@ -149,6 +149,7 @@ const navSections: NavSection[] = [
       { href: "/fuel", label: "Combustible", icon: Fuel, permission: "fuel:read" },
       { href: "/maintenance", label: "Mantenimiento", icon: Wrench, permission: "maintenance:read" },
       { href: "/fleet-documents", label: "Vencimientos", icon: CalendarClock, permission: "fleet_documents:read" },
+      { href: "/fleet-reports", label: "Rentabilidad", icon: TrendingUp, permission: "trips:read" },
     ],
   },
   {
