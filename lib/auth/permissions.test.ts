@@ -75,6 +75,15 @@ describe("userCan", () => {
     expect(userCan(["finance"], "drivers:write")).toBe(false);
   });
 
+  it("fleet (incl. fleet_documents) is managed by owner/admin/operations", () => {
+    for (const role of ["owner", "admin", "operations"] as const) {
+      expect(userCan([role], "fleet_documents:read")).toBe(true);
+      expect(userCan([role], "fleet_documents:write")).toBe(true);
+    }
+    expect(userCan(["finance"], "fleet_documents:write")).toBe(false);
+    expect(userCan(["driver"], "fleet_documents:read")).toBe(false);
+  });
+
   it("recurring_payments is managed by owner/admin/finance only", () => {
     for (const role of ["owner", "admin", "finance"] as const) {
       expect(userCan([role], "recurring_payments:read")).toBe(true);

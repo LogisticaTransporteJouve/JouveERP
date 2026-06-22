@@ -5,6 +5,7 @@ import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary
 import { aiAnalyst } from "@/lib/inngest/functions/ai-analyst";
 import { documentExpiryAlerts } from "@/lib/inngest/functions/document-expiry-alerts";
 import { documentExtraction } from "@/lib/inngest/functions/document-extraction";
+import { fleetDocumentExpiryAlerts } from "@/lib/inngest/functions/fleet-document-expiry-alerts";
 import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
@@ -33,5 +34,6 @@ export const { GET, POST, PUT } = serve({
     documentExpiryAlerts,
     documentExtraction,
     aiAnalyst,
+    fleetDocumentExpiryAlerts,
   ],
 });
