@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Link2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -30,8 +30,13 @@ import {
 import type { Driver } from "../schema";
 
 import { DriverDialog } from "./driver-dialog";
+import { DriverLinkDialog, type LinkableUser } from "./driver-link-dialog";
 
-export function DriversTable() {
+export function DriversTable({
+  linkableUsers,
+}: {
+  linkableUsers?: LinkableUser[];
+}) {
   const { data: items } = useDrivers();
   const deleteMut = useDeleteDriver();
   const toggleMut = useSetDriverActive();
@@ -39,6 +44,8 @@ export function DriversTable() {
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; driver: Driver } | null
   >(null);
+  const [linkDriver, setLinkDriver] = useState<Driver | null>(null);
+  const canLink = linkableUsers !== undefined;
 
   async function handleDelete(d: Driver) {
     const ok = await confirm({
@@ -129,6 +136,12 @@ export function DriversTable() {
                           <Pencil className="size-4" />
                           Editar
                         </DropdownMenuItem>
+                        {canLink && (
+                          <DropdownMenuItem onClick={() => setLinkDriver(d)}>
+                            <Link2 className="size-4" />
+                            {d.user_id ? "Cambiar usuario" : "Vincular usuario"}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleDelete(d)}
@@ -153,6 +166,17 @@ export function DriversTable() {
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);
+          }}
+        />
+      )}
+
+      {linkDriver && linkableUsers && (
+        <DriverLinkDialog
+          driver={linkDriver}
+          users={linkableUsers}
+          open={linkDriver !== null}
+          onOpenChange={(o) => {
+            if (!o) setLinkDriver(null);
           }}
         />
       )}

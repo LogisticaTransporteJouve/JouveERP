@@ -3,6 +3,7 @@ import { z } from "zod";
 export interface Driver {
   id: string;
   employee_id: string | null;
+  user_id: string | null;
   full_name: string;
   cuit: string | null;
   license_number: string | null;
@@ -13,6 +14,11 @@ export interface Driver {
   created_at: string;
   updated_at: string;
 }
+
+export const DriverLinkUserSchema = z.object({
+  driverId: z.string().uuid(),
+  userId: z.string().uuid().nullable(),
+});
 
 const optionalUuid = z
   .union([z.literal(""), z.string().uuid()])
@@ -41,6 +47,9 @@ export const DriverCreateSchema = z.object({
 
 export type DriverCreateInput = z.infer<typeof DriverCreateSchema>;
 
+// NOTE: user_id is intentionally NOT here. Linking a driver to an app login is
+// a security action gated on users:assign_role via linkDriverUserAction — never
+// settable through the operations-facing updateDriverAction (drivers:write).
 export const DriverUpdateSchema = z.object({
   id: z.string().uuid(),
   full_name: z.string().trim().min(1).max(120).optional(),
