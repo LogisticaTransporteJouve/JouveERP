@@ -91,7 +91,3 @@ export class AfipServiceError extends AfipError {
     this.errors = errors;
   }
 }
-
-export function isRetryableAfipError(err: unknown): boolean {
-  return err instanceof AfipTransportError;
-}
