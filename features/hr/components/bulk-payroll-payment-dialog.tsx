@@ -112,7 +112,7 @@ export function BulkPayrollPaymentDialog({
       setSelected(new Set());
       return;
     }
-    // Pre-seleccionar todos los que tienen saldo > 0.
+    // Pre-select everyone with a balance > 0.
     setSelected(
       new Set(employees.filter((e) => e.saldo > 0).map((e) => e.entry_id)),
     );
@@ -201,7 +201,7 @@ export function BulkPayrollPaymentDialog({
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
-            {/* Selector de empleados */}
+            {/* Employee selector */}
             <div className="rounded-md border">
               <div className="flex items-center justify-between border-b px-3 py-2">
                 <Label className="flex items-center gap-2 text-sm font-medium">
