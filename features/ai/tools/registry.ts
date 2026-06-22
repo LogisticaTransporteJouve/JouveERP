@@ -38,23 +38,23 @@ import {
  * catalogue.
  */
 export const aiTools = {
-  // Ventas / cuentas por cobrar
+  // Sales / accounts receivable
   getClientAging,
   getInvoices,
   getReceipts,
   searchClients,
-  // Compras / cuentas por pagar
+  // Purchases / accounts payable
   getSupplierAging,
   getPurchaseInvoices,
   getPaymentOrders,
   searchSuppliers,
-  // Caja / tesorería
+  // Cash / treasury
   getTreasurySummary,
   getAccounts,
   getTransactions,
   getChecks,
   getIssuedChecks,
-  // Contabilidad
+  // Accounting
   getTrialBalance,
   getLedger,
   getLibroIvaVentas,
@@ -63,7 +63,7 @@ export const aiTools = {
   getJournalEntries,
   getCostCenters,
   getInflationAdjustments,
-  // RRHH
+  // HR
   getEmployees,
   searchEmployees,
   getAttendance,

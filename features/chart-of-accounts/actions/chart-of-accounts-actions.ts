@@ -73,9 +73,9 @@ export async function createChartAccountAction(
   const expectedLevel = levelFromCode(code);
   const expectedParentCode = parentCodeFromCode(code);
 
-  // Validar coherencia parent_id ↔ code: si el code es raíz (1, 2, …) no
-  // debe tener parent_id. Si tiene padre, el code del padre debe ser
-  // prefix del code del hijo. Esto evita inconsistencias silenciosas.
+  // Validate parent_id ↔ code consistency: if the code is a root (1, 2, …) it
+  // must not have a parent_id. If it has a parent, the parent's code must be a
+  // prefix of the child's code. This prevents silent inconsistencies.
   if (expectedParentCode === null) {
     if (parsed.data.parent_id) {
       return {
@@ -204,8 +204,8 @@ export async function deleteChartAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Alineado con la RLS DELETE de chart_of_accounts (owner/admin); finance
-  // tiene accounting:write pero la policy lo bloquea — gate limpio acá.
+  // Aligned with the chart_of_accounts DELETE RLS (owner/admin); finance
+  // has accounting:write but the policy blocks it — clean gate here.
   if (!ctx.roles.includes("owner") && !ctx.roles.includes("admin")) {
     return { ok: false, error: "Solo owner o admin pueden borrar cuentas." };
   }
@@ -215,8 +215,8 @@ export async function deleteChartAccountAction(
 
   const supabase = await createClient();
 
-  // Pre-check: si tiene hijos, no se puede borrar (FK restrict). Damos
-  // mensaje claro en vez de dejar que la BD devuelva error críptico.
+  // Pre-check: if it has children, it can't be deleted (FK restrict). We give
+  // a clear message instead of letting the DB return a cryptic error.
   const { count, error: countErr } = await supabase
     .from("chart_of_accounts")
     .select("id", { count: "exact", head: true })

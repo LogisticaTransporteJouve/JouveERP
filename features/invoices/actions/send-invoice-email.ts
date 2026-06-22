@@ -20,8 +20,8 @@ import type { ClientLegalJoin } from "@/features/clients/schema";
 import { formatInvoiceNumero } from "../schema";
 import type { ActionResult } from "@/lib/query/run-action";
 
-/** Shape específico de `channel:invoicing_channels ( business_unit:business_units(name) )`
- *  que devuelve el SELECT de send-invoice-email para sacar el nombre del emisor. */
+/** Specific shape of `channel:invoicing_channels ( business_unit:business_units(name) )`
+ *  returned by the send-invoice-email SELECT to get the issuer's name. */
 type ChannelBusinessUnitJoin = {
   channel: { business_unit: { name: string } | null } | null;
 };
@@ -137,7 +137,7 @@ export async function sendInvoiceByEmailAction(
   return { ok: true, data: { log_id: result.data.log_id } };
 }
 
-// Suggested defaults para prefill del dialog.
+// Suggested defaults to prefill the dialog.
 export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
   ActionResult<{
     recipient: string | null;
@@ -172,8 +172,8 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
     invoice.numero,
   );
 
-  // Buscar último envío exitoso para sugerir destinatario si el cliente no
-  // tiene email cargado.
+  // Look up the last successful send to suggest a recipient if the client
+  // has no email on file.
   let lastRecipient: string | null = null;
   if (!client?.email) {
     const { data: lastLog } = await supabase

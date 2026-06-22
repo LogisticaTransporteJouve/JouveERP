@@ -69,7 +69,7 @@ export function TreasuryPage() {
         </p>
       </div>
 
-      {/* Cards de resumen */}
+      {/* Summary cards */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           label="Total ARS líquido"
@@ -117,7 +117,7 @@ export function TreasuryPage() {
         />
       </div>
 
-      {/* Próximos a acreditarse — solo si hay */}
+      {/* Soon to be credited — only if any */}
       {query.data &&
         (query.data.checks_due_soon.ARS.count > 0 ||
           query.data.checks_due_soon.USD.count > 0) && (
@@ -147,7 +147,7 @@ export function TreasuryPage() {
           </div>
         )}
 
-      {/* Filtros + tabla */}
+      {/* Filters + table */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Buscar cuenta…"
@@ -243,7 +243,7 @@ function SummaryCard({
 }) {
   const delta = now != null && prev != null ? now - prev : null;
   const pct = delta != null && prev ? (delta / prev) * 100 : null;
-  // Equivalente en ARS solo para tarjetas USD, si hay cotización cargada.
+  // ARS equivalent only for USD cards, if an exchange rate is loaded.
   const arsEquivalent =
     currency === "USD" && usdRate && now != null ? now * usdRate.rate : null;
 

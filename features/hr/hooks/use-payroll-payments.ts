@@ -116,8 +116,8 @@ export function useBulkCreatePayrollPayments() {
     }: BulkVars) =>
       runAction(() => bulkCreatePayrollPaymentsAction(rest)),
     onSuccess: (_data, vars) => {
-      // Invalidate todos los entries del período: la grilla recalcula
-      // saldos para cada uno.
+      // Invalidate all the period's entries: the grid recomputes
+      // balances for each one.
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
       });

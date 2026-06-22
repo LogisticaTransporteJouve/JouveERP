@@ -294,7 +294,7 @@ function NewInvoiceForm({
       form.setValue("items", defaultItems());
       form.setValue("client", initialClient);
     } else {
-      // Until origen is picked, the form sits in an inert state.
+      // Until an origin is picked, the form sits in an inert state.
       form.setValue("items", []);
       form.setValue("client", null);
       form.setValue("channelId", "");
@@ -423,8 +423,8 @@ function NewInvoiceForm({
     }
 
     // AFIP requires fch_serv_* + fch_vto_pago when concepto is Servicios (2)
-    // or Productos+Servicios (3). For Jouve's typical flow — flete del día —
-    // los tres se setean al mismo día de emisión.
+    // or Productos+Servicios (3). For Jouve's typical flow — same-day
+    // freight — all three are set to the issue date.
     const fchServ = isServiciosConcepto ? fecha : null;
 
     issueMut.mutate(
@@ -484,7 +484,7 @@ function NewInvoiceForm({
     }
   }
 
-  const channelLocked = isNote; // NC/ND inherits canal from origen.
+  const channelLocked = isNote; // NC/ND inherits the channel from the origin.
   const showSeguro = !isNote;
 
   return (
@@ -630,10 +630,10 @@ function NewInvoiceForm({
           </>
         )}
 
-        {/* Cliente. Para factura va el ClientPicker. Para NC/ND, el cliente
-            se hereda de origen: mostramos un summary read-only para que el
-            usuario lo vea y no haya forma de cambiarlo (AFIP requiere mismo
-            receptor). */}
+        {/* Client. For a factura we use the ClientPicker. For NC/ND the client
+            is inherited from the origin: we show a read-only summary so the
+            user can see it and there's no way to change it (AFIP requires the
+            same receiver). */}
         {!isNote && (
           <FormField
             control={form.control}
@@ -666,8 +666,8 @@ function NewInvoiceForm({
           </div>
         )}
 
-        {/* Items — habilitados sólo cuando hay un canal/origen elegido. Para
-            factura, la fila Seguro queda fija al final. */}
+        {/* Items — enabled only once a channel/origin is picked. For a
+            factura, the Seguro row stays pinned at the bottom. */}
         {(!isNote || originDetail) && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -802,7 +802,7 @@ function NewInvoiceForm({
           </div>
         )}
 
-        {/* Notas internas — para factura. Para NC/ND el motivo ya está arriba. */}
+        {/* Internal notes — for factura. For NC/ND the reason is already above. */}
         {!isNote && (
           <FormField
             control={form.control}
@@ -828,8 +828,8 @@ function NewInvoiceForm({
           >
             Cancelar
           </Button>
-          {/* "Emitir y continuar" sólo aplica a facturas — para NC/ND el flow
-              es one-shot por origen. */}
+          {/* "Emitir y continuar" only applies to facturas — for NC/ND the flow
+              is one-shot per origin. */}
           {!isNote && (
             <Button
               type="button"

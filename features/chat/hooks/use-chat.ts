@@ -48,15 +48,15 @@ export function useChannels() {
   });
 }
 
-// Variante "lite" para mostrar un badge global desde fuera de /chat
-// (ej: sidebar). No suspende. Calcula el total de mensajes no leídos.
+// "Lite" variant for showing a global badge from outside /chat
+// (e.g. sidebar). Does not suspend. Computes the total unread message count.
 //
-// Estrategia de freshness en 3 capas:
-//   1. Realtime: invalida al recibir INSERT/UPDATE en chat_messages.
-//   2. refetchInterval: fallback de 15s por si el WS realtime se cae o
-//      el evento no llega (suele pasar cuando el browser duerme la tab).
-//   3. refetchOnWindowFocus (default de TanStack Query): al volver a la
-//      tab se recheckea inmediato.
+// 3-layer freshness strategy:
+//   1. Realtime: invalidates on INSERT/UPDATE in chat_messages.
+//   2. refetchInterval: 15s fallback in case the realtime WS drops or
+//      the event never arrives (common when the browser sleeps the tab).
+//   3. refetchOnWindowFocus (TanStack Query default): rechecks immediately
+//      when returning to the tab.
 export function useChatUnreadCountLite() {
   const q = useQuery({
     queryKey: chatKeys.channels(),
@@ -83,8 +83,8 @@ export function useChannelsRealtime() {
       queryKeys: [chatKeys.channels()],
     },
     {
-      // mute toggle + last_read_at sync entre devices, y entrar/salir
-      // de grupos refresca el sidebar al instante.
+      // mute toggle + last_read_at sync across devices, and joining/leaving
+      // groups refreshes the sidebar instantly.
       table: "chat_channel_members",
       queryKeys: [chatKeys.channels()],
     },
@@ -100,7 +100,7 @@ export function useChannelHeader(channelId: string) {
   });
 }
 
-// Assignable users (para new chat dialog) -------------------------------
+// Assignable users (for new chat dialog) --------------------------------
 
 export function useAssignableUsers(options: { enabled?: boolean } = {}) {
   return useQuery({
@@ -127,15 +127,15 @@ export function useChannelMessages(channelId: string) {
     getNextPageParam: (lastPage: MessagesPage) => lastPage.nextCursor,
   });
 
-  // Pages cargan más viejas hacia atrás; reverso para que el render top→bottom
-  // muestre viejos arriba y nuevos abajo. Dedupe por id por si llega un
-  // dupe del realtime invalidation antes del fetch terminar.
+  // Pages load older ones going backward; reverse so the top→bottom render
+  // shows old at the top and new at the bottom. Dedupe by id in case a
+  // dupe arrives from the realtime invalidation before the fetch finishes.
   const messages = useMemo<Message[]>(() => {
     const seen = new Set<string>();
     const out: Message[] = [];
-    // Recorrer pages de más vieja a más nueva: la API ya devuelve cada
-    // page en orden ascendente, y las pages vienen de la más nueva
-    // primero — la más vieja es la última.
+    // Walk pages from oldest to newest: the API already returns each
+    // page in ascending order, and pages arrive newest first — the
+    // oldest is the last one.
     for (let i = query.data.pages.length - 1; i >= 0; i--) {
       for (const msg of query.data.pages[i]!.messages) {
         if (seen.has(msg.id)) continue;

@@ -156,9 +156,9 @@ export async function updatePayrollPaymentAction(
   return { ok: true, data: undefined };
 }
 
-// Pago masivo: 1 batch insert de N payroll_payments → trigger crea N
-// transactions en la cuenta elegida. Si alguna falla (ej. entry_id que
-// no existe), la transacción del batch entero hace rollback.
+// Bulk payment: 1 batch insert of N payroll_payments → trigger creates N
+// transactions in the chosen account. If any one fails (e.g. an entry_id
+// that doesn't exist), the whole batch transaction rolls back.
 export async function bulkCreatePayrollPaymentsAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number }>> {

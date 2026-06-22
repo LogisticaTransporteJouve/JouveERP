@@ -4,15 +4,15 @@ import { useEffect, useRef } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
-// Cuando llega un INSERT en notifications via realtime, dispara una
-// Notification nativa del browser SI:
-//   - el user habilitó permisos
-//   - el tab no está en foco (visibilityState !== 'visible')
+// When an INSERT arrives on notifications via realtime, fire a native
+// browser Notification IF:
+//   - the user enabled permissions
+//   - the tab isn't focused (visibilityState !== 'visible')
 //
-// No pide permiso automáticamente — eso lo gatilla el NotificationBell
-// la primera vez que se abre. Sin service worker (no push, no
-// background): solo aparece mientras la app está abierta en alguna
-// pestaña.
+// It doesn't request permission automatically — the NotificationBell
+// triggers that the first time it's opened. Without a service worker (no
+// push, no background): it only appears while the app is open in some
+// tab.
 
 type Payload = {
   id: string;
@@ -78,8 +78,8 @@ export function BrowserNotifier({ currentUserId }: Props) {
             notif.close();
           };
         } catch {
-          // Algunos browsers móviles tiran si llamás new Notification()
-          // sin service worker. Lo silenciamos — el bell in-app cubre.
+          // Some mobile browsers throw if you call new Notification()
+          // without a service worker. We swallow it — the in-app bell covers.
         }
       },
     );

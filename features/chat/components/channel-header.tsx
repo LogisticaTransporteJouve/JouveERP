@@ -39,8 +39,8 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
 
-  // `is_muted` vive en chat_channel_members; lo leemos del list que ya
-  // está en cache (evita un fetch extra).
+  // `is_muted` lives in chat_channel_members; we read it from the list
+  // that's already cached (avoids an extra fetch).
   const isMuted = useMemo(
     () => channels.find((c) => c.id === channelId)?.is_muted ?? false,
     [channels, channelId],

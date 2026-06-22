@@ -21,8 +21,8 @@ type ActionResult<T> =
 
 function lastDayOfPrevMonth(iso: string): string {
   const [y, m] = iso.split("-").map(Number);
-  // Día 0 del mes "actual" = último día del mes anterior. Pasamos al primer
-  // día del mes actual y restamos 1 día.
+  // Day 0 of the "current" month = last day of the previous month. We move to the
+  // first day of the current month and subtract 1 day.
   const d = new Date(Date.UTC(y!, m! - 1, 1));
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
@@ -39,7 +39,7 @@ export async function getTreasurySummaryAction(): Promise<
   ActionResult<TreasurySummary>
 > {
   const ctx = await requireUserContext();
-  // accounting:read es el permiso "ver finanzas". Tesorería entra ahí.
+  // accounting:read is the "view finances" permission. Treasury falls under it.
   if (!userCan(ctx.roles, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver tesorería." };
   }
@@ -49,7 +49,7 @@ export async function getTreasurySummaryAction(): Promise<
   const prevEom = lastDayOfPrevMonth(today);
   const sevenDays = addDaysIso(today, 7);
 
-  // 1. Todas las cuentas activas (las inactivas no aparecen).
+  // 1. All active accounts (inactive ones don't show up).
   const { data: accountsRaw, error: accErr } = await supabase
     .from("accounts")
     .select("id, name, type, currency, is_active, opening_balance")
@@ -78,10 +78,10 @@ export async function getTreasurySummaryAction(): Promise<
       : [],
   );
 
-  // 2. Sum signed transactions hasta hoy y hasta fin de mes anterior, por
-  // cuenta. PostgREST no soporta sum agregado en select ergonomicamente, así
-  // que traemos las rows mínimas y agregamos en JS. Para una flota chica con
-  // miles (no millones) de transactions esto es < 100ms.
+  // 2. Sum signed transactions up to today and up to the end of the previous
+  // month, per account. PostgREST doesn't support aggregate sum in select
+  // ergonomically, so we fetch the minimal rows and aggregate in JS. For a small
+  // fleet with thousands (not millions) of transactions this is < 100ms.
   const { data: txsRaw, error: txErr } = await supabase
     .from("transactions")
     .select("account_id, kind, amount, transaction_date")
@@ -133,7 +133,7 @@ export async function getTreasurySummaryAction(): Promise<
     };
   });
 
-  // 3. Totales por moneda (líquido vs cheques en cartera).
+  // 3. Totals per currency (liquid vs. checks in portfolio).
   const totals_now: Record<TreasuryCurrency, { liquid: number; checks: number }> = {
     ARS: { liquid: 0, checks: 0 },
     USD: { liquid: 0, checks: 0 },
@@ -148,12 +148,12 @@ export async function getTreasurySummaryAction(): Promise<
       totals_now[a.currency].liquid += a.balance_now;
       totals_prev_eom[a.currency].liquid += a.balance_prev_eom;
     } else if (isCheckAccountType(a.type)) {
-      // checks/echeq cuentas son tipos de "caja virtual" de cheques.
+      // checks/echeq accounts are "virtual cash box" types for checks.
       totals_now[a.currency].checks += a.balance_now;
       totals_prev_eom[a.currency].checks += a.balance_prev_eom;
     }
   }
-  // Redondear totales para evitar drift de float después de la suma.
+  // Round totals to avoid float drift after summing.
   for (const cur of ["ARS", "USD"] as const) {
     totals_now[cur].liquid = round2(totals_now[cur].liquid);
     totals_now[cur].checks = round2(totals_now[cur].checks);
@@ -161,7 +161,7 @@ export async function getTreasurySummaryAction(): Promise<
     totals_prev_eom[cur].checks = round2(totals_prev_eom[cur].checks);
   }
 
-  // 4. Cheques en cartera que vencen ≤ 7 días: cuántos hay y por cuánto.
+  // 4. Checks in portfolio due in ≤ 7 days: how many there are and for how much.
   const { data: chequesRaw, error: chErr } = await supabase
     .from("checks")
     .select("amount, currency")
@@ -189,8 +189,8 @@ export async function getTreasurySummaryAction(): Promise<
   checks_due_soon.ARS.amount = round2(checks_due_soon.ARS.amount);
   checks_due_soon.USD.amount = round2(checks_due_soon.USD.amount);
 
-  // 5. Última cotización USD→ARS para mostrar el equivalente en ARS de los
-  // saldos en dólares (M.2). "Valor actual" → la cotización más reciente.
+  // 5. Latest USD→ARS exchange rate to show the ARS equivalent of dollar
+  // balances (M.2). "Current value" → the most recent exchange rate.
   const { data: rateRow } = await supabase
     .from("exchange_rates")
     .select("rate, rate_date")

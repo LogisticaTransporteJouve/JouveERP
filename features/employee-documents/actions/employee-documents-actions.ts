@@ -160,7 +160,7 @@ export async function updateEmployeeDocumentAction(
   }
   const { id, ...rest } = parsed.data;
 
-  // Solo seteamos las keys que vienen — undefined = no tocar.
+  // We only set the keys that come in — undefined = leave untouched.
   type DocUpdate = Database["public"]["Tables"]["employee_documents"]["Update"];
   const patch: DocUpdate = {};
   if (rest.kind !== undefined) patch.kind = rest.kind;
@@ -172,8 +172,8 @@ export async function updateEmployeeDocumentAction(
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
   if (rest.attachment_file_id !== undefined)
     patch.attachment_file_id = rest.attachment_file_id ?? null;
-  // Reset notified_at en cualquier update — si renovás la fecha, el cron
-  // tiene que poder volver a alertar.
+  // Reset notified_at on any update — if you renew the date, the cron
+  // has to be able to alert again.
   patch.notified_at = null;
   if (Object.keys(patch).length === 1) return { ok: true, data: undefined };
 

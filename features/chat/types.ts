@@ -65,7 +65,7 @@ export type Message = {
 
 export type MessagesPage = {
   messages: Message[];
-  nextCursor: string | null; // ISO timestamp del mensaje más viejo de esta página
+  nextCursor: string | null; // ISO timestamp of the oldest message in this page
 };
 
 export type Reaction = {

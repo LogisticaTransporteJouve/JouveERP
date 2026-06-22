@@ -247,8 +247,8 @@ export async function getSupplierAccountAction(
     if (got.length < CHUNK) break;
   }
 
-  // Per-document outstanding: factura/ND muestra imp_total − Σ allocations
-  // de OPs issued. OP muestra "a cuenta" (total − Σ allocations propias).
+  // Per-document outstanding: factura/ND shows imp_total − Σ allocations
+  // from issued OPs. An OP shows its "a cuenta" (total − Σ its own allocations).
   const piIds = data
     .filter((r) => r.source_type === "purchase_invoice" && r.source_id)
     .map((r) => r.source_id as string);
@@ -287,8 +287,8 @@ export async function getSupplierAccountAction(
         prev + Number(a.amount_applied),
       );
     }
-    // Suma también las imputaciones del opening balance: una factura que
-    // recibió plata del ajuste también descuenta para el aging/outstanding.
+    // Also add the opening balance allocations: an invoice that
+    // received money from the adjustment also reduces the aging/outstanding.
     const { data: openingAllocs } = openingAllocsRes;
     for (const a of openingAllocs ?? []) {
       const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
@@ -406,8 +406,8 @@ export async function getSupplierAgingAction(): Promise<
 
   const supabase = await createSupabaseClient();
 
-  // El view de aging trae solo numéricos por proveedor — joineamos con
-  // suppliers para nombre/CUIT.
+  // The aging view returns only numerics per supplier — we join with
+  // suppliers for name/CUIT.
   const { data: agingRows, error } = await supabase
     .from("v_supplier_aging")
     .select(

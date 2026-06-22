@@ -206,8 +206,8 @@ export function PaymentOrderForm({
   );
   const isFirst = nextNumero.isFirst;
 
-  // En edit traemos también los cheques de cartera por si el usuario quiere
-  // endosar uno nuevo además de los que ya tenía la OP.
+  // In edit mode we also fetch the on-hand checks in case the user wants to
+  // endorse a new one on top of the ones the OP already had.
   const carteraChecksQuery = useQuery({
     queryKey: checksKeys.enCartera(currency),
     queryFn: () => runAction(() => listEnCarteraChecksAction({ currency })),

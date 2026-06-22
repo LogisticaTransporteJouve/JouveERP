@@ -239,7 +239,7 @@ export async function reopenPayrollPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Re-abrir requiere hr:admin (más estricto que close).
+  // Reopening requires hr:admin (stricter than close).
   if (!userCan(ctx.roles, "hr:admin")) {
     return { ok: false, error: "Sin permiso para reabrir períodos." };
   }
@@ -350,7 +350,7 @@ export async function addPayrollEntryExtraAction(
   }
 
   const supabase = await createSupabaseClient();
-  // Calcular sort_order siguiente.
+  // Compute the next sort_order.
   const { data: existing } = await supabase
     .from("payroll_entry_extras")
     .select("sort_order")

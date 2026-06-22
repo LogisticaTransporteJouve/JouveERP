@@ -65,9 +65,9 @@ export function PayrollPeriodGrid({
   const entries = data.entries;
   const isClosed = period?.status === "closed";
   const canEdit = canWrite && !!period && !isClosed;
-  // Los pagos pueden registrarse incluso con el período cerrado (esa es
-  // la idea: cerrás los valores y después vas pagando en tramos). Sólo
-  // requiere hr:write.
+  // Payments can be recorded even when the period is closed (that's the
+  // idea: you lock the amounts and then pay in installments). It only
+  // requires hr:write.
   const canManagePayments = canWrite && !!period;
 
   const activeChannels = useMemo(

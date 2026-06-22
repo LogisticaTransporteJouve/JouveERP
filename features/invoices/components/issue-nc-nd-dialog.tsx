@@ -89,9 +89,9 @@ const KIND_BLURB: Record<Kind, string> = {
 };
 
 /**
- * NcNdForm — body del dialog. Sin Dialog ni Trigger. Se reusa desde
- * IssueNcNdDialog (page /invoices/[id]) y desde NewNcNdDialog (page
- * /invoices, después de elegir origen).
+ * NcNdForm — the dialog body. No Dialog or Trigger of its own. Reused from
+ * IssueNcNdDialog (page /invoices/[id]) and from NewNcNdDialog (page
+ * /invoices, after picking an origin).
  */
 export function NcNdForm({
   origin,
@@ -374,10 +374,10 @@ export function NcNdForm({
 export { KIND_BLURB };
 
 /**
- * IssueNcNdDialog — variante "origen ya conocido". Se usa desde el detalle
- * de un comprobante (`/invoices/[id]`) donde la factura origen es la página
- * misma. Para emitir NC/ND sin pasar por el detalle, ver NewNcNdDialog en
- * `/invoices`.
+ * IssueNcNdDialog — the "origin already known" variant. Used from a
+ * voucher's detail page (`/invoices/[id]`) where the origin invoice is the
+ * page itself. To issue an NC/ND without going through the detail page, see
+ * NewNcNdDialog at `/invoices`.
  */
 export function IssueNcNdDialog({
   origin,

@@ -67,7 +67,7 @@ export function MessageComposer({
     setBody(nextBody);
     setMentionedIds((prev) => new Set(prev).add(member.user_id));
     setMentionCursor(null);
-    // Mover el caret donde quedó después del mention.
+    // Move the caret to where it landed after the mention.
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (el) {
@@ -80,8 +80,8 @@ export function MessageComposer({
   const submit = async () => {
     const trimmed = body.trim();
     if (!trimmed) return;
-    // Solo mandar IDs que sigan apareciendo en el body (el user pudo
-    // haber borrado el @Mention manualmente).
+    // Only send IDs that still appear in the body (the user may have
+    // deleted the @Mention manually).
     const finalMentions = Array.from(mentionedIds).filter((id) => {
       const m = members.find((x) => x.user_id === id);
       if (!m) return false;

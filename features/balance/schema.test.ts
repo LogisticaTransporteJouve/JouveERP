@@ -48,12 +48,12 @@ describe("computeEERR", () => {
       row({
         account_type: "resultado_positivo",
         eerr_category: "ventas",
-        balance: -10000, // crédito → ingreso de 10000
+        balance: -10000, // credit → income of 10000
       }),
       row({
         account_type: "resultado_negativo",
         eerr_category: "gastos_op",
-        balance: 3000, // débito → gasto de 3000
+        balance: 3000, // debit → expense of 3000
       }),
     ]);
     expect(eerr.ingresos.total).toBe(10000);

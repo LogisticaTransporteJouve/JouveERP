@@ -86,10 +86,10 @@ export async function listTransactionsAction(
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
-    // Tie-breaker: transfer_in + transfer_out comparten transaction_date y
-    // created_at (insertados atomicamente en el mismo tx, now() devuelve igual).
-    // Sin orden por id la paginación es no-determinística y el mismo row puede
-    // aparecer en dos páginas → React duplicate key error.
+    // Tie-breaker: transfer_in + transfer_out share transaction_date and
+    // created_at (inserted atomically in the same tx, now() returns the same).
+    // Without ordering by id, pagination is non-deterministic and the same row can
+    // appear on two pages → React duplicate key error.
     .order("id", { ascending: false });
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
@@ -109,8 +109,8 @@ export async function listTransactionsAction(
     return { ok: false, error: "No se pudieron listar los movimientos." };
   }
 
-  /** Columnas extra del view `v_transactions_tagged` + join `counterparty_client`
-   *  que no están en el typing generado de Supabase (las views no se generan). */
+  /** Extra columns from the `v_transactions_tagged` view + the `counterparty_client`
+   *  join that aren't in Supabase's generated typing (views aren't generated). */
   type TaggedTransactionRow = {
     channel_name: string;
     channel_division: string;
@@ -191,10 +191,10 @@ export async function createTransactionAction(
 
   const supabase = await createSupabaseClient();
 
-  // Las cuentas tipo checks/echeq se manejan exclusivamente desde
-  // /checks (carga manual, depósito, endoso, acreditación). Bloqueamos
-  // ingresos/egresos manuales contra esos accounts para evitar drift
-  // entre la cartera de cheques y la caja.
+  // Accounts of type checks/echeq are handled exclusively from
+  // /checks (manual entry, deposit, endorsement, crediting). We block
+  // manual ins/outs against those accounts to avoid drift
+  // between the check portfolio and the cash register.
   const { data: acc } = await supabase
     .from("accounts")
     .select("type")
@@ -368,8 +368,8 @@ export async function deleteTransactionAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Alineado con la RLS DELETE de transactions (owner only); finance/operations
-  // tienen transactions:write pero la policy los bloquea — gate limpio acá.
+  // Aligned with the transactions DELETE RLS (owner only); finance/operations
+  // have transactions:write but the policy blocks them — clean gate here.
   if (!ctx.roles.includes("owner")) {
     return { ok: false, error: "Solo owner puede borrar movimientos." };
   }

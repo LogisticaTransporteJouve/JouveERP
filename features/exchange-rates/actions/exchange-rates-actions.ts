@@ -35,9 +35,9 @@ export async function listExchangeRatesAction(): Promise<
   return { ok: true, data: (data ?? []) as ExchangeRate[] };
 }
 
-// Carga manual (finance). Hace upsert: una cotización manual sobreescribe la
-// del BCRA para esa fecha (override deliberado). El cron, en cambio, no pisa
-// una fila existente.
+// Manual entry (finance). Does an upsert: a manual rate overrides the BCRA
+// one for that date (deliberate override). The cron, on the other hand,
+// does not overwrite an existing row.
 export async function createExchangeRateAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -59,8 +59,8 @@ export async function createExchangeRateAction(
         rate: parsed.data.rate,
         source: "manual",
         notes: parsed.data.notes ?? null,
-        // Override deliberado: la fila lleva su propio timestamp de creación
-        // (si pisa una de bcra, no hereda el created_at viejo).
+        // Deliberate override: the row carries its own creation timestamp
+        // (if it overwrites a bcra one, it doesn't inherit the old created_at).
         created_at: new Date().toISOString(),
         created_by: ctx.userId,
       },
@@ -111,8 +111,9 @@ export async function deleteExchangeRateAction(
   return { ok: true, data: undefined };
 }
 
-// Entrada de "lógica de conversión": la cotización USD→ARS aplicable a una
-// fecha (la de ese día o la anterior más cercana), o null si no hay ninguna.
+// Entry point for "conversion logic": the USD→ARS rate applicable to a
+// date (the one for that day or the nearest earlier one), or null if there
+// is none.
 export async function getUsdRateForDateAction(
   date: string,
 ): Promise<ActionResult<{ rate: number | null }>> {

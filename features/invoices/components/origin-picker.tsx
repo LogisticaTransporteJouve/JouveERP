@@ -21,10 +21,10 @@ import { formatInvoiceNumero } from "../schema";
 const formatARS = formatNumber2;
 
 /**
- * OriginPicker — combobox-style picker para facturas fiscales emitidas que
- * sirven de origen a una NC o ND. Cuando hay value, muestra una pill
- * compacta con los datos clave y un botón "Cambiar". Sin value, muestra
- * un search input que abre un popover con resultados.
+ * OriginPicker — combobox-style picker for issued fiscal invoices that
+ * serve as the origin of an NC or ND. When a value is set, it shows a
+ * compact pill with the key data and a "Cambiar" button. With no value, it
+ * shows a search input that opens a popover with results.
  */
 export function OriginPicker({
   value,

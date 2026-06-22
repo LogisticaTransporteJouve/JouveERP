@@ -137,8 +137,8 @@ export type LibroIvaVentasRow = {
   has_items: boolean;
 };
 
-// AFIP iva_rate_id → alícuota. Mirror de lib/afip/codes.ts IVA_RATE_PERCENT
-// (id 8 = 5%, id 9 = 2.5%); antes estaban swapeados acá. Orden ascendente.
+// AFIP iva_rate_id → rate. Mirror of lib/afip/codes.ts IVA_RATE_PERCENT
+// (id 8 = 5%, id 9 = 2.5%); they used to be swapped here. Ascending order.
 export const IVA_RATES = [
   { id: 3, pct: 0, label: "0%" },
   { id: 9, pct: 2.5, label: "2.5%" },
@@ -155,9 +155,8 @@ export const KIND_LABEL: Record<string, string> = {
 };
 
 /**
- * Agrupa las filas devueltas por la RPC en una vista "por comprobante" para
- * armar el formato libro IVA tradicional: una fila por comprobante con
- * cells por alícuota.
+ * Groups the rows returned by the RPC into a "per voucher" view to build the
+ * traditional IVA ledger format: one row per voucher with cells per rate.
  */
 export type LibroIvaVentasGroupedRow = {
   invoice_id: string;
@@ -179,7 +178,7 @@ export type LibroIvaVentasGroupedRow = {
   channel_name: string;
   channel_id: string;
   has_items: boolean;
-  /** Neto + IVA por iva_rate_id (key). iva_rate_id = -1 representa "sin desglose" */
+  /** Neto + IVA per iva_rate_id (key). iva_rate_id = -1 represents "no breakdown" */
   per_rate: Record<number, { neto: number; iva: number }>;
 };
 

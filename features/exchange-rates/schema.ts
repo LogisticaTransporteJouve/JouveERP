@@ -31,16 +31,16 @@ export const ExchangeRateDeleteSchema = z.object({
 });
 
 /**
- * Cotización aplicable a una fecha: la del día, o la anterior más cercana
- * (`rate_date <= date`). Devuelve null si no hay ninguna cotización en o antes
- * de esa fecha — el llamador decide qué hacer (no asumimos una cotización).
+ * Rate applicable to a date: the one for that day, or the nearest earlier
+ * one (`rate_date <= date`). Returns null if there is no rate on or before
+ * that date — the caller decides what to do (we don't assume a rate).
  */
 export function findRateForDate(
   rates: Pick<ExchangeRate, "rate_date" | "rate">[],
   date: string,
 ): number | null {
-  // El UNIQUE (currency, rate_date) en DB garantiza que no haya dos filas con
-  // la misma fecha, así que el desempate de `>` no se ejerce en la práctica.
+  // The UNIQUE (currency, rate_date) in DB guarantees there are no two rows
+  // with the same date, so the `>` tie-break isn't exercised in practice.
   let best: { rate_date: string; rate: number } | null = null;
   for (const r of rates) {
     if (r.rate_date > date) continue;
@@ -49,7 +49,7 @@ export function findRateForDate(
   return best ? Number(best.rate) : null;
 }
 
-/** Convierte un monto en USD a ARS con la cotización dada (ARS por 1 USD). */
+/** Converts a USD amount to ARS with the given rate (ARS per 1 USD). */
 export function convertUsdToArs(amountUsd: number, rate: number): number {
   return round2(amountUsd * rate);
 }

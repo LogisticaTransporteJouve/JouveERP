@@ -36,9 +36,9 @@ export function AccountsTable({
 }) {
   const { data: accounts } = useAccountsList();
   const canWrite = userCan(actorRoles, "accounts:write");
-  // El ajuste de saldo solo lo puede tocar el owner (matching el flow
-  // del cliente). Para finance/admin queda invisible en la UI; el RPC
-  // también lo bloquea por las dudas.
+  // Only the owner can touch the balance adjustment (matching the client
+  // flow). It stays invisible in the UI for finance/admin; the RPC
+  // also blocks it just in case.
   const canAdjust = actorRoles.includes("owner");
 
   return (

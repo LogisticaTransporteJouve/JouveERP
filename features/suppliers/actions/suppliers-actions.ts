@@ -294,8 +294,8 @@ export type SupplierReferences = {
   details: Record<string, number>;
 };
 
-// Igual que en clients: cuando lleguen purchase_invoices / payment_orders
-// se agregan al array y la dialog ya enruta por acá.
+// Same as in clients: once purchase_invoices / payment_orders arrive
+// they get added to the array and the dialog already routes through here.
 export async function getSupplierReferencesAction(
   id: string,
 ): Promise<ActionResult<SupplierReferences>> {
@@ -353,7 +353,7 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
     };
   }
 
-  // RLS bloquea DELETE; usamos service-role tras validar permisos y refs.
+  // RLS blocks DELETE; we use service-role after validating permissions and refs.
   const service = getServiceClient();
   const { error } = await service.from("suppliers").delete().eq("id", id);
 

@@ -1,7 +1,7 @@
-// Cliente del subsystem de Web Push. Registra el service worker,
-// suscribe al user al endpoint del browser, y manda la subscription
-// al server para que la guarde. Si las VAPID keys públicas no están
-// disponibles, todo el flujo es un no-op.
+// Client for the Web Push subsystem. Registers the service worker,
+// subscribes the user to the browser endpoint, and sends the subscription
+// to the server to be stored. If the public VAPID keys aren't
+// available, the whole flow is a no-op.
 
 import {
   subscribePushAction,
@@ -54,8 +54,8 @@ export async function enablePushNotifications(): Promise<
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
-    // applicationServerKey acepta BufferSource; el cast es por TS strict
-    // sobre el Uint8Array<ArrayBufferLike> que devuelve atob().
+    // applicationServerKey accepts BufferSource; the cast is for TS strict
+    // over the Uint8Array<ArrayBufferLike> that atob() returns.
     const keyBytes = urlBase64ToUint8Array(vapidKey);
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,

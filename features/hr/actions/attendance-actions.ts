@@ -151,8 +151,8 @@ export async function deleteAttendanceRecordAction(
   if (!parsed.success) return { ok: false, error: "ID inválido." };
 
   const supabase = await createSupabaseClient();
-  // Sólo borramos rows manuales — leave_sync y holiday_sync se gestionan
-  // desde sus tablas de origen.
+  // We only delete manual rows — leave_sync and holiday_sync are managed
+  // from their source tables.
   const { error } = await supabase
     .from("attendance_records")
     .delete()
@@ -164,7 +164,7 @@ export async function deleteAttendanceRecordAction(
   return { ok: true, data: undefined };
 }
 
-// Lista de employees activos al inicio del mes (para los headers del grid).
+// List of active employees at the start of the month (for the grid headers).
 export type AttendanceEmployee = {
   id: string;
   legal_name: string;

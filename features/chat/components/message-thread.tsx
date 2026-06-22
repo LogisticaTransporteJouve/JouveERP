@@ -101,8 +101,8 @@ export function MessageThread({
     getItemKey: (i) => rows[i]?.key ?? i,
   });
 
-  // Scroll behavior: nuevo mensaje al final → bajar si estabas cerca del
-  // bottom. Si estás scrolleando arriba, no interrumpir.
+  // Scroll behavior: new message at the end → scroll down if you were near
+  // the bottom. If you're scrolling up, don't interrupt.
   const lastMessageIdRef = useRef<string | null>(null);
   useEffect(() => {
     const el = scrollRef.current;
@@ -117,7 +117,7 @@ export function MessageThread({
     }
   }, [messages, rows.length, virtualizer]);
 
-  // Mark-as-read debounce mientras el thread esté visible.
+  // Mark-as-read debounce while the thread is visible.
   const markRead = useMarkChannelRead();
   useEffect(() => {
     if (typeof document === "undefined") return;

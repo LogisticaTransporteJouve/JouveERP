@@ -125,14 +125,14 @@ export type SupplierIdentityJoin = {
   suppliers: { legal_name: string; cuit: string };
 };
 
-/** Variante mínima para list queries que solo necesitan el nombre del
- *  proveedor (sin CUIT). Embebido en otra fila vía join plural. */
+/** Minimal variant for list queries that only need the supplier's
+ *  name (without CUIT). Embedded in another row via a plural join. */
 export type SupplierListLegalJoin = {
   suppliers: { legal_name: string } | null;
 };
 
-/** Variante singular para joins `supplier ( legal_name, cuit, iva_condition )`
- *  embebidos en otro objeto (ej. payment_orders, PDF render). */
+/** Singular variant for `supplier ( legal_name, cuit, iva_condition )` joins
+ *  embedded in another object (e.g. payment_orders, PDF render). */
 export type SupplierFullJoin = {
   supplier: {
     legal_name: string;

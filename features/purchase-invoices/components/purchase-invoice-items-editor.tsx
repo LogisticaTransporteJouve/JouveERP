@@ -90,7 +90,7 @@ export function PurchaseInvoiceItemsEditor({
   items: PurchaseInvoiceItemDraft[];
   onChange: (items: PurchaseInvoiceItemDraft[]) => void;
 }) {
-  // Si está vacío, sembrar con una fila para invitar al usuario.
+  // If empty, seed with a row to prompt the user.
   useEffect(() => {
     if (items.length === 0) onChange([emptyItem()]);
   }, [items.length, onChange]);

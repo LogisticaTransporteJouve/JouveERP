@@ -63,9 +63,9 @@ interface InvoiceChannelOption {
 }
 
 
-// es-AR currency style inserts a space between $ and the number; queremos
-// el `$` pegado al número en esta tabla, así que armamos un formatter
-// custom con el helper.
+// es-AR currency style inserts a space between $ and the number; we want
+// the `$` flush against the number in this table, so we build a custom
+// formatter with the helper.
 import { formatNumber2 } from "@/lib/format";
 const formatter = { format: (n: number) => `$${formatNumber2(n)}` };
 
@@ -114,16 +114,16 @@ export function ClientAccountTab({
   const balance = data.balance;
   const canIssueInvoice = userCan(actorRoles, "invoices:issue");
   const canWriteReceipt = userCan(actorRoles, "receipts:write");
-  // El ajuste de saldo solo lo puede tocar el owner (acciones backend
-  // chequean lo mismo). Para los demás roles mostramos los botones
-  // deshabilitados con un tooltip que explica la restricción.
+  // Only the owner can touch the balance adjustment (the backend actions
+  // check the same thing). For the other roles we show the buttons
+  // disabled with a tooltip that explains the restriction.
   const isOwner = actorRoles.includes("owner");
   const clearOpeningMut = useClearClientOpeningBalance();
 
-  // Filtro global de fechas (topbar). Lo aplicamos sobre los movimientos
-  // ya con running balance computado, así el saldo de cada fila refleja
-  // el acumulado real y no se reinicia por el filtro. Si el rango es
-  // null (preset "Todo") mostramos todo.
+  // Global date filter (topbar). We apply it over the movements that
+  // already have the running balance computed, so each row's balance
+  // reflects the real running total and isn't reset by the filter. If the
+  // range is null (the "All" preset) we show everything.
   const { range } = useDateRange();
   const filteredMovements = useMemo(() => {
     if (!range) return movements;
@@ -132,14 +132,14 @@ export function ClientAccountTab({
     );
   }, [movements, range]);
 
-  // Virtualización client-side: la action devuelve hasta 50k movimientos
-  // en chunks de 1000, pero renderizar miles de filas DOM al toque hace
-  // que el primer paint sea pesado. Mostramos de a 100 y cargamos más al
-  // scrollear (mismo patrón que /invoices vía useIntersectionObserver).
+  // Client-side virtualization: the action returns up to 50k movements
+  // in chunks of 1000, but rendering thousands of DOM rows at once makes
+  // the first paint heavy. We show 100 at a time and load more on scroll
+  // (same pattern as /invoices via useIntersectionObserver).
   const PAGE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE);
   useEffect(() => {
-    // Si el set cambió (re-fetch o filtro), reseteamos al primer page.
+    // If the set changed (re-fetch or filter), we reset to the first page.
     setVisibleCount(PAGE);
   }, [filteredMovements.length]);
   const visibleMovements = useMemo(
@@ -497,10 +497,10 @@ export function ClientAccountTab({
 }
 
 /**
- * Envuelve el children en un Tooltip cuando `disabled=true`. El children
- * (típicamente un Button) recibe sus props normales — el tooltip solo
- * adjunta la explicación. Usado para los controles de ajuste de saldo
- * que solo el owner puede usar.
+ * Wraps the children in a Tooltip when `disabled=true`. The children
+ * (typically a Button) receive their normal props — the tooltip only
+ * attaches the explanation. Used for the balance adjustment controls
+ * that only the owner can use.
  */
 function OwnerOnly({
   children,

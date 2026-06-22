@@ -59,15 +59,15 @@ export function NotificationBell({ currentUserId }: Props) {
     }
   };
 
-  // La primera vez que el user abre el bell, pedimos permiso para
-  // browser notifications (Notification API). Hace nada si ya fue
-  // accept/deny — el SO recuerda la elección.
+  // The first time the user opens the bell, we request permission for
+  // browser notifications (Notification API). Does nothing if it was already
+  // accepted/denied — the OS remembers the choice.
   const requestBrowserPermission = () => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
       Notification.requestPermission().catch(() => {
-        // El user puede cerrar el prompt; nada que hacer.
+        // The user may dismiss the prompt; nothing to do.
       });
     }
   };

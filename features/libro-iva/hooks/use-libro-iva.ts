@@ -10,11 +10,11 @@ import {
 } from "../actions/libro-iva-actions";
 import { libroIvaKeys } from "../lib/libro-iva-keys";
 
-// useQuery (no useSuspenseQuery): el período y channel se eligen en el cliente,
-// no podemos prefetchear desde el server. Next 16 prohíbe llamar server actions
-// durante el initial render que es lo que useSuspenseQuery dispara cuando no
-// hay data cacheada (waterfall warning). Con useQuery la action corre después
-// del mount y la tabla muestra skeleton mientras carga.
+// useQuery (not useSuspenseQuery): the period and channel are chosen on the
+// client, so we can't prefetch from the server. Next 16 forbids calling server
+// actions during the initial render, which is what useSuspenseQuery triggers
+// when there's no cached data (waterfall warning). With useQuery the action
+// runs after mount and the table shows a skeleton while loading.
 
 export function useLibroIvaVentas(period: string, channelId: string | null) {
   return useQuery({

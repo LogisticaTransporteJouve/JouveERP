@@ -1,11 +1,11 @@
 import { Fragment } from "react";
 
-// Detecta URLs http/https en texto plano y las convierte en <a>. No
-// procesa Markdown ni emoji — solo URLs simples. Lo usamos en lectura,
-// nunca al guardar.
+// Detects http/https URLs in plain text and turns them into <a>. Does not
+// process Markdown or emoji — only plain URLs. We use it on read,
+// never on save.
 //
-// Conservador: el regex es greedy con un set de chars permitidos +
-// trims trailing punctuation común para no enganchar ")" al final.
+// Conservative: the regex is greedy with an allowed char set +
+// trims common trailing punctuation so it doesn't grab a ")" at the end.
 
 const URL_RE = /\bhttps?:\/\/[^\s<>()]+/g;
 

@@ -52,9 +52,9 @@ const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD).");
 
-// CUIT puede venir con guiones; lo normalizamos a 11 dígitos. Es opcional
-// para drawer / endorsed_to porque a veces el cliente solo nos dice el
-// nombre (ej. check que un tercero le pasó).
+// CUIT may come with hyphens; we normalize it to 11 digits. It's optional
+// for drawer / endorsed_to because sometimes the client only gives us the
+// name (e.g. a check a third party handed them).
 const optionalCuit = z
   .string()
   .trim()

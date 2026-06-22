@@ -410,8 +410,8 @@ export async function listInvoicesAction(
     )
     .order("fecha", { ascending: false })
     .order("numero", { ascending: false })
-    // Tie-breaker: sin channel_id filter dos canales pueden compartir
-    // (fecha, numero) → paginación no-determinística + duplicate React keys.
+    // Tie-breaker: without a channel_id filter, two channels can share
+    // (fecha, numero) → non-deterministic pagination + duplicate React keys.
     .order("id", { ascending: false })
     .range(offset, offset + limit); // limit + 1 trick
 
@@ -534,9 +534,9 @@ export interface ComprobanteDetail {
   }>;
 }
 
-/** Raw row shape devuelto por `select("*, channel(...), client(...), items(...)")`
- *  para getInvoiceDetailAction. Los campos numéricos llegan como `number | string`
- *  porque Postgres NUMERIC se serializa como string en supabase-js. */
+/** Raw row shape returned by `select("*, channel(...), client(...), items(...)")`
+ *  for getInvoiceDetailAction. Numeric fields arrive as `number | string`
+ *  because Postgres NUMERIC is serialized as a string in supabase-js. */
 type InvoiceItemJoinedRow = Pick<
   Database["public"]["Tables"]["invoice_items"]["Row"],
   "id" | "description" | "iva_rate_id" | "sort_order"
@@ -724,8 +724,8 @@ export async function listEnabledPosAction(
 }
 
 // ---------------------------------------------------------------------------
-// M.0 — Forzar recálculo del pdf_hash (recovery si el step post-CAE falló).
-// El PDF en sí se regenera siempre en /api/invoices/[id]/pdf.
+// M.0 — Force recomputation of the pdf_hash (recovery if the post-CAE step failed).
+// The PDF itself is always regenerated at /api/invoices/[id]/pdf.
 // ---------------------------------------------------------------------------
 
 export async function regeneratePdfAction(

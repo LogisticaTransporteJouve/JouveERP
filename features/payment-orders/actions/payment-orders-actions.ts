@@ -332,9 +332,9 @@ export async function listPendingInvoicesForSupplierAction(
 
   const pending: PendingPurchaseInvoice[] = invoices
     .map((c) => {
-      // NCs descuentan: monto neto = factura/ND positivo, NC negativo. Acá
-      // tratamos solo facturas y ND (positivos); NCs se manejan por
-      // separado en una iteración futura.
+      // NCs are deductions: net amount = invoice/ND positive, NC negative. Here
+      // we only handle invoices and NDs (positive); NCs are handled
+      // separately in a future iteration.
       if (c.kind === "nc") return null;
       const already = allocatedByInvoice.get(c.id) ?? 0;
       const total = Number(c.imp_total ?? 0);
@@ -402,7 +402,7 @@ export async function createPaymentOrderAction(
     };
   }
 
-  // FIFO auto-allocation cuando el usuario no eligió imputaciones manuales.
+  // FIFO auto-allocation when the user did not choose manual allocations.
   let allocations = data.allocations ?? [];
   if (allocations.length === 0) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
