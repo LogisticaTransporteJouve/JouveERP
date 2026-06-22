@@ -16,7 +16,7 @@
 ```json
 {
   "private": true,
-  "packageManager": "pnpm@10.28.2",
+  "packageManager": "pnpm@10.30.2",
   "engines": { "node": ">=20" },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"],

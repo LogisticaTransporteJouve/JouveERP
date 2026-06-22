@@ -52,6 +52,10 @@ Invocalas al agregar dominios, migraciones o jobs.
   Intelligence (escaneo/OCR/extracción) + UI + tablas + plan AI.0–AI.8.
 - `docs/ai-build-plan.md` — **runbook de ejecución** (orden, prompts por fase).
 - `docs/ai-patterns.md` — patrones de diseño IA (referencia).
+- `docs/accounting-patterns.md` — arquitectura contable (Fase L+D): plan de
+  cuentas, asientos auto, libros IVA/mayor, balances, centros de costo.
+- `docs/hr-patterns.md` — arquitectura RRHH (Fase N): empleados, sueldos,
+  asistencia, vacaciones (LCT), documentos + crons.
 - `docs/{chat,files,notifications}-patterns.md`, `files-reference.md`,
   `sumary-frontend-patterns.md`, `user-avatars.md` — specs por subsistema.
 - `docs/manual/` — manual HTML para usuario final.
