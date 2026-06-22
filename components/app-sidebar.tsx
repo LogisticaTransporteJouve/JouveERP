@@ -13,6 +13,7 @@ import {
   Container,
   CreditCard,
   DatabaseBackup,
+  DollarSign,
   FileText,
   Fuel,
   IdCard,
@@ -141,6 +142,7 @@ const navSections: NavSection[] = [
       { href: "/accounting/balance", label: "Balance / EERR", icon: Scale, permission: "accounting:read" },
       { href: "/accounting/cost-centers", label: "Centros de costo", icon: Target, permission: "accounting:read" },
       { href: "/accounting/inflation", label: "Ajuste inflación", icon: TrendingUp, permission: "accounting:read" },
+      { href: "/accounting/exchange-rates", label: "Cotización USD", icon: DollarSign, permission: "accounting:read" },
     ],
   },
   {
