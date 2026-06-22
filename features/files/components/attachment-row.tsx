@@ -40,9 +40,9 @@ type Props = {
   canDelete: boolean;
 };
 
-// Local component instead of `const Icon = iconForMimeType(...)` para no
-// disparar el lint react-hooks/incompatible-library "Cannot create components
-// during render" del React Compiler.
+// Local component instead of `const Icon = iconForMimeType(...)` to avoid
+// triggering the react-hooks/incompatible-library lint "Cannot create components
+// during render" from the React Compiler.
 function MimeIcon({
   mimeType,
   className,

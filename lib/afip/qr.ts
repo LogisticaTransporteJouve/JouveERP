@@ -20,29 +20,29 @@ const VER = 1;
 export type AuthCodeType = "E" | "A";
 
 export interface InvoiceQRPayload {
-  /** Fecha de emisión `YYYY-MM-DD`. */
+  /** Issue date `YYYY-MM-DD`. */
   fecha: string;
-  /** CUIT del emisor (11 dígitos). */
+  /** Issuer's CUIT (11 digits). */
   cuit: string;
-  /** Punto de venta. */
+  /** Point of sale. */
   ptoVta: number;
-  /** CbteTipo numérico AFIP (1 Factura A, 6 Factura B, etc). */
+  /** AFIP numeric CbteTipo (1 Factura A, 6 Factura B, etc). */
   tipoCmp: number;
-  /** Número de comprobante. */
+  /** Comprobante number. */
   nroCmp: number;
-  /** Importe total con 2 decimales. */
+  /** Total amount with 2 decimals. */
   importe: number;
-  /** Código moneda (PES, DOL, ...). */
+  /** Currency code (PES, DOL, ...). */
   moneda: string;
-  /** Cotización en pesos (1 para PES). */
+  /** Exchange rate in pesos (1 for PES). */
   ctz: number;
-  /** Tipo doc del receptor (80 CUIT, 96 DNI, 99 CF). */
+  /** Receiver's doc type (80 CUIT, 96 DNI, 99 CF). */
   tipoDocRec: number;
-  /** Número de doc del receptor (0 para CF). */
+  /** Receiver's doc number (0 for CF). */
   nroDocRec: number;
-  /** Tipo código autorización: 'E' CAE, 'A' CAEA. */
+  /** Authorization code type: 'E' CAE, 'A' CAEA. */
   tipoCodAut: AuthCodeType;
-  /** El CAE/CAEA propiamente dicho. */
+  /** The CAE/CAEA itself. */
   codAut: string;
 }
 

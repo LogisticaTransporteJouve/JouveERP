@@ -97,13 +97,13 @@ export type Account = Omit<AccountRow, "type" | "currency"> & {
   currency: AccountCurrency;
 };
 
-/** Join row shape para `account ( name, type )` embebido en payment lines. */
+/** Join row shape for `account ( name, type )` embedded in payment lines. */
 export type AccountNameJoin = {
   account: { name: string; type: string } | null;
 };
 
-/** Variante plural para list queries que devuelven `accounts ( name )`
- *  como join embebido en la fila padre. */
+/** Plural variant for list queries that return `accounts ( name )`
+ *  as a join embedded in the parent row. */
 export type AccountsListNameJoin = {
   accounts: { name: string } | null;
 };

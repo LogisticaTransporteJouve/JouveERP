@@ -30,8 +30,8 @@ export function useSupplierCategories(
 }
 
 /**
- * Non-suspense variant para usar dentro de dialogs / pickers sin obligar
- * un Suspense boundary upstream. Devuelve [] mientras carga.
+ * Non-suspense variant for use inside dialogs / pickers without forcing
+ * a Suspense boundary upstream. Returns [] while loading.
  */
 export function useSupplierCategoriesList(
   options: { onlyActive?: boolean; enabled?: boolean } = {},
