@@ -65,8 +65,8 @@ describe("findRateForDate", () => {
   });
 
   it("coacciona rate string a number (numeric de Postgres)", () => {
-    // Postgres numeric puede llegar como string; el JSON.parse simula esa fila
-    // sin romper la regla de tipos (sin `as`).
+    // Postgres numeric may arrive as a string; the JSON.parse simulates that row
+    // without breaking the typing rule (no `as`).
     const stringRates: { rate_date: string; rate: number }[] = JSON.parse(
       '[{"rate_date":"2026-06-20","rate":"1170.500000"}]',
     );

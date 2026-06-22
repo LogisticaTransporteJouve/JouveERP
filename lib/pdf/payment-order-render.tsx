@@ -56,7 +56,7 @@ export async function buildPaymentOrderTemplateData(
   const supplier = (op as unknown as SupplierFullJoin).supplier;
   if (!supplier) throw new Error("payment-order-pdf: supplier missing");
 
-  // Emisor desde business_unit del canal.
+  // Issuer from the channel's business_unit.
   const buId = channel?.business_unit_id;
   let emisorLegalName = "DZ & Sons S.A.";
   let emisorCuit = "";
@@ -74,7 +74,7 @@ export async function buildPaymentOrderTemplateData(
     }
   }
 
-  // Children: payment_lines + allocations. Sin retenciones (K.4 descartado).
+  // Children: payment_lines + allocations. No withholdings (K.4 dropped).
   const [linesRes, allocsRes] = await Promise.all([
     supabase
       .from("payment_order_payment_lines")

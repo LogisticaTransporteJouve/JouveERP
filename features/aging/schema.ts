@@ -27,7 +27,7 @@ export interface AgingSummaryResult {
   };
 }
 
-/** Fila cruda del view `v_client_aging` con el join embebido a `clients`. */
+/** Raw row from the `v_client_aging` view with the embedded join to `clients`. */
 export interface AgingViewRow {
   client_id: string | null;
   bucket_0_30: number | null;
@@ -45,9 +45,9 @@ export interface AgingViewRow {
 }
 
 /**
- * Agrega las filas del view de aging en filas tipadas + totales. Descarta las
- * filas sin `client_id`/`clients` (defensivo). Los buckets se redondean a 2
- * decimales: el view devuelve numeric(18,2) pero la suma en JS float drift-ea.
+ * Aggregates the aging view rows into typed rows + totals. Discards rows
+ * without `client_id`/`clients` (defensive). Buckets are rounded to 2
+ * decimals: the view returns numeric(18,2) but summing in JS floats drifts.
  */
 export function aggregateClientAging(rows: AgingViewRow[]): AgingSummaryResult {
   const clients: ClientAgingRow[] = [];

@@ -1,9 +1,9 @@
 import type { Database } from "@/lib/db/database.types";
 
-/** ID del canal por defecto pre-seleccionado en forms (recibos, cheques,
- *  transacciones, OPs, comprobantes). Coincide con el canal fiscal de Jouve
- *  (`00003 Jouve fiscal`). Si el canal no existe en el listado disponible,
- *  los forms caen al primer canal activo. */
+/** ID of the default channel pre-selected in forms (receipts, checks,
+ *  transactions, payment orders, comprobantes). Matches Jouve's fiscal channel
+ *  (`00003 Jouve fiscal`). If the channel does not exist in the available list,
+ *  forms fall back to the first active channel. */
 export const DEFAULT_CHANNEL_ID = "jouve_fiscal";
 
 export type Division = "dz" | "jouve";

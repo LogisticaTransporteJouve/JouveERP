@@ -70,7 +70,7 @@ export function SupplierCategoryDialog({
     },
   });
 
-  // Reset cuando se cambia entre crear/editar.
+  // Reset when switching between create/edit.
   useEffect(() => {
     if (!open) return;
     form.reset({
@@ -83,7 +83,7 @@ export function SupplierCategoryDialog({
   const watchedName = form.watch("name");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
-  // Auto-slug desde nombre en modo create, hasta que el user lo toque.
+  // Auto-slug from the name in create mode, until the user edits it.
   useEffect(() => {
     if (mode !== "create") return;
     if (slugManuallyEdited) return;

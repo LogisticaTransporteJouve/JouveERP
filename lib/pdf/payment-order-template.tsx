@@ -6,10 +6,10 @@ import {
   View,
 } from "@react-pdf/renderer";
 
-// Payment Order PDF template. Mirror visual del recibo pero out-flow:
-// "Pagamos a" en lugar de "Recibimos de", "ORDEN DE PAGO" en lugar de
-// "RECIBO", payment_lines = de qué cuenta sale la plata, allocations =
-// a qué purchase invoices se imputa, no hay retenciones (K.4 descartado).
+// Payment Order PDF template. Visual mirror of the receipt but out-flow:
+// "Pagamos a" instead of "Recibimos de", "ORDEN DE PAGO" instead of
+// "RECIBO", payment_lines = which account the money comes out of, allocations =
+// which purchase invoices it is applied to, no withholdings (K.4 dropped).
 
 export interface PaymentOrderTemplatePaymentLine {
   account_name: string;

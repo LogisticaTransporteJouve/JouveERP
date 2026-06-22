@@ -48,7 +48,7 @@ type FormValues = {
   notes: string;
 };
 
-// Manual kinds — los sync (leave / holiday) no se pueden setear desde el UI.
+// Manual kinds — the sync ones (leave / holiday) can't be set from the UI.
 const MANUAL_KINDS: AttendanceKind[] = [
   "absent_justified",
   "absent_unjustified",

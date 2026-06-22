@@ -48,12 +48,12 @@ export function isEmployeeDocumentKind(
 }
 
 // --------------------------------------------------------------------------
-// Status helpers (derivado de expires_at vs hoy)
+// Status helpers (derived from expires_at vs today)
 // --------------------------------------------------------------------------
 
 export type DocumentStatus = "valid" | "expiring_soon" | "expired";
 
-/** Días para considerar "por vencer". Coincide con el window del cron. */
+/** Number of days to consider a document "expiring soon". Matches the cron window. */
 export const DOCUMENT_EXPIRING_DAYS = 30;
 
 export function getDocumentStatus(expiresAt: string): DocumentStatus {
@@ -132,7 +132,7 @@ export type EmployeeDocumentUpdateInput = z.infer<
 >;
 
 // --------------------------------------------------------------------------
-// Row types (typed para narrowear vs Database)
+// Row types (typed to narrow against Database)
 // --------------------------------------------------------------------------
 
 type EmployeeDocumentRow =
@@ -142,7 +142,7 @@ export type EmployeeDocument = Omit<EmployeeDocumentRow, "kind"> & {
   kind: EmployeeDocumentKind;
 };
 
-/** Forma de fila de la view v_documents_expiring (no generada en types). */
+/** Row shape of the v_documents_expiring view (not generated in types). */
 export type ExpiringDocumentRow = {
   id: string;
   employee_id: string;

@@ -224,8 +224,8 @@ export type PaymentOrderStatusJoin = {
   payment_orders: { status: string } | null;
 };
 
-/** Forma del row al traer `payment_order_id, payment_orders!inner ( status )`
- *  para calcular saldos imputados (combina StatusJoin + FK del padre). */
+/** Row shape when selecting `payment_order_id, payment_orders!inner ( status )`
+ *  to compute allocated balances (combines StatusJoin + the parent FK). */
 export type PaymentOrderAllocationStatusRow = {
   payment_order_id: string;
   payment_orders: { status: string } | null;

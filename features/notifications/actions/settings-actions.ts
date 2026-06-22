@@ -12,8 +12,8 @@ export type NotificationSetting = {
 };
 
 const UpsertSettingInput = z.object({
-  // type es libre porque las notification_types son extensibles desde DB.
-  // Cap defensivo de 64 chars + caracteres seguros para keys.
+  // type is free-form because notification_types are extensible from the DB.
+  // Defensive cap of 64 chars + safe characters for keys.
   type: z
     .string()
     .trim()

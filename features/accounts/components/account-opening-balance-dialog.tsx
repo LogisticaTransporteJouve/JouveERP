@@ -40,11 +40,11 @@ interface ChannelOption {
 }
 
 /**
- * Dialog para ajustar el saldo de una cuenta (caja, banco, wallet, etc.).
+ * Dialog to adjust an account's balance (cash, bank, wallet, etc.).
  *
- * Inserta una transaction de ajuste por la diferencia entre el saldo
- * calculado del sistema y el saldo real ingresado por el usuario.
- * Editable: re-correr borra la transaction anterior y recrea.
+ * Inserts an adjustment transaction for the difference between the
+ * system-calculated balance and the real balance entered by the user.
+ * Editable: re-running deletes the previous transaction and recreates it.
  */
 export function AccountOpeningBalanceDialog({
   accountId,

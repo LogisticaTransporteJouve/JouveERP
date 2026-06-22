@@ -27,9 +27,9 @@ export async function subscribePushAction(input: {
   input = parsed.data;
   const supabase = await createClient();
 
-  // upsert por endpoint (unique). Si el browser regenera la subscription
-  // con un endpoint nuevo se inserta otra fila — el cleanup de la vieja
-  // pasa cuando el server intenta enviar y recibe 410.
+  // upsert by endpoint (unique). If the browser regenerates the subscription
+  // with a new endpoint, another row is inserted — the cleanup of the old one
+  // happens when the server attempts to send and receives a 410.
   const { error } = await supabase
     .from("push_subscriptions")
     .upsert(

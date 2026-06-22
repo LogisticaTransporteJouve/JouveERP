@@ -22,13 +22,13 @@ export interface SendComprobanteByEmailInput {
   recipient: string;
   subject: string;
   body: string | null;
-  // Datos para el template (header/preview/detalle).
+  // Data for the template (header/preview/detail).
   emisor_name: string;
   client_legal_name: string;
   numero_label: string;
   fecha: string;
   total_label: string;
-  // PDF que se adjunta.
+  // PDF to attach.
   pdf_buffer: Buffer;
   pdf_filename: string;
   sent_by: string | null;
@@ -39,8 +39,8 @@ export interface SendComprobanteByEmailResult {
   provider_message_id: string | null;
 }
 
-// Resend + log + (success only) bump del notified_at de la entity. Devuelve
-// error string si falla — el caller decide cómo mostrarlo.
+// Resend + log + (success only) bump the entity's notified_at. Returns an
+// error string if it fails — the caller decides how to show it.
 export async function sendComprobanteByEmail(
   input: SendComprobanteByEmailInput,
 ): Promise<{ ok: true; data: SendComprobanteByEmailResult } | { ok: false; error: string }> {
@@ -137,7 +137,7 @@ export async function sendComprobanteByEmail(
     return { ok: false, error: sendError };
   }
 
-  // Bump notified_at solo si el envío fue exitoso.
+  // Bump notified_at only if the send succeeded.
   if (input.entity_type === "invoice") {
     await supabase
       .from("invoices")
