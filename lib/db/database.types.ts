@@ -1568,6 +1568,69 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_loads: {
+        Row: {
+          amount: number
+          card: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          liters: number
+          load_date: string
+          notes: string | null
+          odometer_km: number | null
+          station: string | null
+          trip_id: string | null
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          amount: number
+          card?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          liters: number
+          load_date: string
+          notes?: string | null
+          odometer_km?: number | null
+          station?: string | null
+          trip_id?: string | null
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          amount?: number
+          card?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          liters?: number
+          load_date?: string
+          notes?: string | null
+          odometer_km?: number | null
+          station?: string | null
+          trip_id?: string | null
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_loads_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           created_at: string
@@ -2131,6 +2194,65 @@ export type Database = {
             columns: ["journal_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_records: {
+        Row: {
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          kind: string
+          next_service_date: string | null
+          next_service_km: number | null
+          notes: string | null
+          odometer_km: number | null
+          provider: string | null
+          service_date: string
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          kind: string
+          next_service_date?: string | null
+          next_service_km?: number | null
+          notes?: string | null
+          odometer_km?: number | null
+          provider?: string | null
+          service_date: string
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          kind?: string
+          next_service_date?: string | null
+          next_service_km?: number | null
+          notes?: string | null
+          odometer_km?: number | null
+          provider?: string | null
+          service_date?: string
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_records_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
