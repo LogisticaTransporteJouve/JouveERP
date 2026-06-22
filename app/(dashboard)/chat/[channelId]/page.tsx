@@ -24,8 +24,8 @@ export default async function ChannelPage({
   const ctx = await requireUserContext();
   const { channelId } = await params;
 
-  // Pre-check membership: si el RPC del header falla, devolvemos 404.
-  // Esto evita gastar Suspense en algo que va a romper.
+  // Pre-check membership: if the header RPC fails, we return 404.
+  // This avoids spending Suspense on something that's going to break.
   const header = await getChannelHeaderAction(channelId);
   if (!header.ok) notFound();
 

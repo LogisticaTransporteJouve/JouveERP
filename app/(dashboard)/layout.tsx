@@ -58,8 +58,8 @@ export default async function DashboardLayout({
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
   const defaultOpen = sidebarCookie === "true";
 
-  // Leer scope desde cookie para evitar el flash de "todos los canales"
-  // durante el primer render del cliente.
+  // Read scope from the cookie to avoid the "all channels" flash
+  // during the client's first render.
   const scopeCookie = cookieStore.get("jouve_scope")?.value;
   let initialScope: Scope | undefined;
   if (scopeCookie) {

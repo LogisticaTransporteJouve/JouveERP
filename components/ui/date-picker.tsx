@@ -23,13 +23,13 @@ function formatDisplay(iso: string): string {
 }
 
 /**
- * DatePicker uniforme: trigger compacto con la fecha en formato AR
- * (dd/mm/yyyy) que abre un Calendar de shadcn en un Popover. Reemplaza
- * los `<input type="date">` nativos para que la experiencia sea consistente
- * y soporte navegación rápida por año/mes vía dropdowns.
+ * Uniform DatePicker: a compact trigger showing the date in AR format
+ * (dd/mm/yyyy) that opens a shadcn Calendar inside a Popover. It replaces
+ * the native `<input type="date">` so the experience is consistent and
+ * supports quick year/month navigation via dropdowns.
  *
- * Value e onChange usan strings ISO (`YYYY-MM-DD`) para compatibilidad
- * con los forms existentes.
+ * Value and onChange use ISO strings (`YYYY-MM-DD`) for compatibility
+ * with the existing forms.
  */
 export function DatePicker({
   value,

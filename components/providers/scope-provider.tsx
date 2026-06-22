@@ -56,13 +56,13 @@ export function ScopeProvider({
   initialScope?: Scope;
   children: React.ReactNode;
 }) {
-  // Server pasa initialScope leído de cookie en el layout, evitando el
-  // flash de "todos los canales" durante el primer render.
+  // The server passes initialScope read from the cookie in the layout,
+  // avoiding the "all channels" flash during the first render.
   const [scope, setScope] = useState<Scope>(initialScope ?? DEFAULT_SCOPE);
 
-  // Solo hidratamos desde localStorage si server no nos pasó initialScope
-  // (caso pre-cookie en sesiones viejas). Drop persisted division que ya
-  // no mapea a un canal activo.
+  // We only hydrate from localStorage if the server didn't pass us initialScope
+  // (the pre-cookie case in old sessions). Drop a persisted division that no
+  // longer maps to an active channel.
   useEffect(() => {
     if (initialScope) return;
     const stored = readFromStorage();
@@ -79,7 +79,7 @@ export function ScopeProvider({
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scope));
-    // Persistimos también en cookie para SSR del próximo navegación.
+    // We also persist to a cookie for SSR on the next navigation.
     document.cookie = `${COOKIE_KEY}=${encodeURIComponent(JSON.stringify(scope))}; path=/; max-age=31536000; SameSite=Lax`;
   }, [scope]);
 

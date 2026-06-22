@@ -4,13 +4,13 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 
-// M.0 — Siempre regenera el PDF on-demand. El hash (`pdf_hash` en la fila
-// de la invoice) se calcula en la emisión y se persiste para tener
-// prueba criptográfica de integridad: regenerar con los mismos datos
-// debe dar bit-a-bit el mismo PDF y por ende el mismo hash.
+// M.0 — Always regenerate the PDF on-demand. The hash (`pdf_hash` on the
+// invoice row) is computed at issuance and persisted to provide
+// cryptographic proof of integrity: regenerating with the same data
+// must yield a bit-for-bit identical PDF and therefore the same hash.
 //
-// `?preview=1` queda para retrocompatibilidad con /admin/afip/preview-pdf
-// pero su comportamiento es idéntico al modo normal.
+// `?preview=1` is kept for backward compatibility with /admin/afip/preview-pdf
+// but its behavior is identical to the normal mode.
 
 export async function GET(
   _req: Request,
