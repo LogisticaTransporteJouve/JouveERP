@@ -15,8 +15,8 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { formatMoney } from "@/lib/format";
 
 import { useAgingSummary } from "../hooks/use-aging";
-import type { ClientAgingRow } from "../actions/aging-actions";
 import { agingKeys } from "../lib/aging-keys";
+import type { ClientAgingRow } from "../schema";
 
 const fmtMoney = { format: (n: number) => formatMoney(n, "ARS") };
 

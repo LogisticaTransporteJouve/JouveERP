@@ -1,25 +1,19 @@
 "use server";
 
 import type { ActionResult } from "@/lib/query/run-action";
-import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
-import type { SearchResult } from "../schema";
-
-const SearchGlobalInput = z.object({
-  query: z.string().trim().max(200, "Búsqueda demasiado larga."),
-  limit: z.number().int().min(1).max(50).optional(),
-});
+import { SearchGlobalInputSchema, type SearchResult } from "../schema";
 
 export async function searchGlobalAction(input: {
   query: string;
   limit?: number;
 }): Promise<ActionResult<SearchResult[]>> {
   const ctx = await requireUserContext();
-  const parsed = SearchGlobalInput.safeParse(input);
+  const parsed = SearchGlobalInputSchema.safeParse(input);
   if (!parsed.success) {
     return {
       ok: false,

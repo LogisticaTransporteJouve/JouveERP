@@ -1,7 +1,5 @@
 "use server";
 
-import { z } from "zod";
-
 import { getAfipCuit } from "@/lib/afip/env";
 import { AfipError } from "@/lib/afip/errors";
 import {
@@ -15,6 +13,8 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type { Database } from "@/lib/db/database.types";
+
+import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
@@ -163,15 +163,6 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
     },
   };
 }
-
-const ConfigurePosSchema = z.object({
-  numero: z.number().int().min(1).max(99999),
-  channel_id: z.string().min(1).nullable(),
-  nickname: z.string().trim().min(1).max(120).nullable(),
-  is_enabled: z.boolean(),
-});
-
-export type ConfigurePosInput = z.input<typeof ConfigurePosSchema>;
 
 export async function configurePosAction(
   input: ConfigurePosInput,

@@ -2,11 +2,9 @@
 
 import type { ActionResult } from "@/lib/query/run-action";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import {
-  ROLES,
   canAssignRole,
   isRole,
   userCan,
@@ -20,22 +18,7 @@ import {
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-const RoleEnum = z.enum(ROLES);
-
-const InviteSchema = z.object({
-  email: z.string().email(),
-  roles: z.array(RoleEnum).min(1),
-});
-
-const AssignSchema = z.object({
-  userId: z.string().uuid(),
-  roleId: RoleEnum,
-});
-
-const SetRolesSchema = z.object({
-  userId: z.string().uuid(),
-  roles: z.array(RoleEnum),
-});
+import { AssignSchema, InviteSchema, SetRolesSchema } from "../schema";
 
 const ADMIN_USERS_PATH = "/admin/users";
 
