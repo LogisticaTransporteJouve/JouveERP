@@ -95,8 +95,6 @@ export const PERMISSIONS = [
   "fuel:write",
   "maintenance:read",
   "maintenance:write",
-  "trip_documents:read",
-  "trip_documents:write",
   "fleet_documents:read",
   "fleet_documents:write",
 
@@ -205,8 +203,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "fuel:write",
     "maintenance:read",
     "maintenance:write",
-    "trip_documents:read",
-    "trip_documents:write",
     "fleet_documents:read",
     "fleet_documents:write",
     "channels:read",
