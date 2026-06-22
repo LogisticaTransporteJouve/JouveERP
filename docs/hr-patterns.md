@@ -433,7 +433,9 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
    implementado. Los feriados no auto-marcan asistencia.
 3. **Campo de adjunto no expuesto** (§6): `attachment_file_id` cableado pero el
    form no lo ofrece.
-4. **`hours_lost` desalineado** (§4): max Zod 24 vs DB `numeric(5,2)` (999.99).
+4. ✅ **`hours_lost` desalineado** (§4) — **corregido**: check constraint
+   `attendance_records_hours_lost_max` (`<= 24`) agregado (mig `…20260616190000`),
+   alineado al tope Zod del action (una fila = un día).
 5. **Sobreuso de vacaciones** (§5): `apply_vacation_delta` apila el exceso como
    `remaining_days` negativo; no hay alerta — lo resuelve un admin a mano.
 6. **Tests:** `features/hr` y `features/employee-documents` tienen
