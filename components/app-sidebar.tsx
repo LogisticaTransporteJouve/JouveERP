@@ -12,6 +12,7 @@ import {
   CreditCard,
   DatabaseBackup,
   FileText,
+  Fuel,
   IdCard,
   LayoutDashboard,
   LineChart,
@@ -35,6 +36,7 @@ import {
   Truck,
   Users,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -144,6 +146,8 @@ const navSections: NavSection[] = [
       { href: "/drivers", label: "Choferes", icon: CarFront, permission: "drivers:read" },
       { href: "/vehicles", label: "Vehículos", icon: Truck, permission: "vehicles:read" },
       { href: "/trips", label: "Viajes", icon: Route, permission: "trips:read" },
+      { href: "/fuel", label: "Combustible", icon: Fuel, permission: "fuel:read" },
+      { href: "/maintenance", label: "Mantenimiento", icon: Wrench, permission: "maintenance:read" },
     ],
   },
   {
