@@ -12,8 +12,6 @@ import {
   type AgingViewRow,
 } from "../schema";
 
-export type { AgingSummaryResult, ClientAgingRow } from "../schema";
-
 // Sorted by total_open desc so finance sees biggest debtors first.
 // Aggregates across all channels (fiscal + interno).
 export async function getAgingSummaryAction(): Promise<

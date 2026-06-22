@@ -16,8 +16,6 @@ import type { Database } from "@/lib/db/database.types";
 
 import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
 
-export type { ConfigurePosInput };
-
 export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string };
