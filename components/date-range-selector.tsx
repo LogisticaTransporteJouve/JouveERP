@@ -21,15 +21,15 @@ import {
 } from "@/lib/date-range";
 
 /**
- * Selector global de rango de fechas. Trigger compacto en el toolbar de
- * cada tabla; al abrir muestra los 4 presets como botones en fila +
- * calendar de rango cuando elegís "Personalizado".
+ * Global date-range selector. A compact trigger in each table's toolbar;
+ * when opened it shows the 4 presets as buttons in a row + a range
+ * calendar when you pick "Custom".
  *
- * Mantiene state local de UI (`draftPreset`, `draftRange`) que solo
- * commitea al context global cuando hay un rango efectivo (preset
- * fijo → al instante; custom → cuando el calendar tiene from + to).
- * Esto evita el flicker "muestra todo" cuando el usuario abre custom
- * pero todavía no terminó de seleccionar fechas.
+ * It keeps local UI state (`draftPreset`, `draftRange`) that is only
+ * committed to the global context when there's an effective range (fixed
+ * preset → immediately; custom → when the calendar has both from + to).
+ * This avoids the "show everything" flicker when the user opens custom
+ * but hasn't finished selecting the dates yet.
  */
 export function DateRangeSelector() {
   const { preset, customFrom, customTo, setPreset, setCustom } = useDateRange();
@@ -53,7 +53,7 @@ export function DateRangeSelector() {
 
   function maybeApply(from: Date | undefined, to: Date | undefined) {
     if (!from || !to) return;
-    // Si el usuario eligió "to" antes que "from" (cosa rara), normalizamos.
+    // If the user picked "to" before "from" (an odd case), we normalize.
     const [a, b] = from <= to ? [from, to] : [to, from];
     setCustom(dateToIso(a), dateToIso(b));
     setOpen(false);
@@ -71,7 +71,7 @@ export function DateRangeSelector() {
       setPreset(next);
       setOpen(false);
     }
-    // Custom: el popover sigue abierto, mostramos los 2 calendars.
+    // Custom: the popover stays open, we show the 2 calendars.
   }
 
   return (
@@ -130,7 +130,7 @@ export function DateRangeSelector() {
                   selected={draftTo}
                   onSelect={(d) => {
                     setDraftTo(d);
-                    // Solo cerramos+aplicamos cuando ambos están elegidos.
+                    // Only close+apply once both are selected.
                     if (d && draftFrom) maybeApply(draftFrom, d);
                   }}
                   captionLayout="dropdown"

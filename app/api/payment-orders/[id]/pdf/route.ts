@@ -7,8 +7,8 @@ import {
   renderPaymentOrderPdf,
 } from "@/lib/pdf/payment-order-render";
 
-// Payment orders son internas (no AFIP) — render on-the-fly cada request.
-// Inline cache 60s para refresh / re-prints rápidos. Mismo patrón que
+// Payment orders are internal (not AFIP) — rendered on-the-fly on every request.
+// Inline cache 60s for quick refresh / re-prints. Same pattern as
 // /api/receipts/[id]/pdf.
 export async function GET(
   _req: Request,
