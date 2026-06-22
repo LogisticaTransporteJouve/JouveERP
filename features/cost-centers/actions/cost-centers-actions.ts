@@ -1,6 +1,7 @@
 "use server";
 
 import type { ActionResult } from "@/lib/query/run-action";
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -60,6 +61,12 @@ export async function createCostCenterAction(
     logger.error("cost_centers.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear." };
   }
+  await logAudit(
+    "cost_center.created",
+    ctx.userId,
+    { code: parsed.data.code, name: parsed.data.name },
+    data.id,
+  );
   return { ok: true, data: { id: data.id } };
 }
 
@@ -90,6 +97,7 @@ export async function updateCostCenterAction(
     logger.error("cost_centers.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar." };
   }
+  await logAudit("cost_center.updated", ctx.userId, update, id);
   return { ok: true, data: undefined };
 }
 
@@ -111,5 +119,6 @@ export async function deleteCostCenterAction(
     logger.error("cost_centers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar (¿en uso?)." };
   }
+  await logAudit("cost_center.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }

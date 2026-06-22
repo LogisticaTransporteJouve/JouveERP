@@ -1,5 +1,6 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -134,6 +135,12 @@ export async function createEmployeeDocumentAction(
       error: error?.message ?? "No se pudo crear el documento.",
     };
   }
+  await logAudit(
+    "employee_document.created",
+    ctx.userId,
+    { employee_id: parsed.data.employee_id, kind: parsed.data.kind },
+    data.id,
+  );
   return { ok: true, data: { id: data.id } };
 }
 
@@ -184,6 +191,7 @@ export async function updateEmployeeDocumentAction(
     });
     return { ok: false, error: "No se pudo actualizar el documento." };
   }
+  await logAudit("employee_document.updated", ctx.userId, patch, id);
   return { ok: true, data: undefined };
 }
 
@@ -209,5 +217,6 @@ export async function deleteEmployeeDocumentAction(
     });
     return { ok: false, error: "No se pudo borrar el documento." };
   }
+  await logAudit("employee_document.deleted", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }

@@ -7,6 +7,7 @@ import {
   type AfipDiagnostics,
 } from "@/lib/afip/diagnostics";
 import { getSalesPoints, type SalesPoint } from "@/lib/afip/wsfev1";
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -152,6 +153,8 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
     return { ok: false, error: upsertRes.error.message };
   }
 
+  await logAudit("afip.pos_synced", ctx.userId, { total: raw.length });
+
   return {
     ok: true,
     data: {
@@ -204,6 +207,12 @@ export async function configurePosAction(
       error: `El POS ${numero} no existe en DB. Sincronizá con AFIP primero.`,
     };
   }
+  await logAudit(
+    "afip.pos_configured",
+    ctx.userId,
+    { numero, channel_id, is_enabled },
+    String(numero),
+  );
   return { ok: true, data: rowToSalesPoint(update.data) };
 }
 
