@@ -3,6 +3,7 @@
 import type { ActionResult } from "@/lib/query/run-action";
 import { randomUUID } from "node:crypto";
 
+import { logAudit } from "@/lib/actions/audit";
 import {
   cbteTipoFor,
   letterFor,
@@ -269,6 +270,18 @@ export async function issueFiscalInvoiceAction(
         : `No se pudo despachar el evento a Inngest: ${message}`,
     };
   }
+
+  await logAudit(
+    "invoice.issue_requested",
+    ctx.userId,
+    {
+      channel_id: data.channel_id,
+      client_id: data.client_id,
+      kind: data.kind,
+      imp_total: totals.imp_total,
+    },
+    invoice_id,
+  );
 
   return {
     ok: true,
