@@ -189,6 +189,19 @@ export async function getTreasurySummaryAction(): Promise<
   checks_due_soon.ARS.amount = round2(checks_due_soon.ARS.amount);
   checks_due_soon.USD.amount = round2(checks_due_soon.USD.amount);
 
+  // 5. Última cotización USD→ARS para mostrar el equivalente en ARS de los
+  // saldos en dólares (M.2). "Valor actual" → la cotización más reciente.
+  const { data: rateRow } = await supabase
+    .from("exchange_rates")
+    .select("rate, rate_date")
+    .eq("currency", "USD")
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const usd_rate = rateRow
+    ? { rate: Number(rateRow.rate), rate_date: rateRow.rate_date }
+    : null;
+
   const summary: TreasurySummary = {
     as_of: today,
     prev_eom: prevEom,
@@ -196,6 +209,7 @@ export async function getTreasurySummaryAction(): Promise<
     totals_now,
     totals_prev_eom,
     checks_due_soon,
+    usd_rate,
   };
 
   return { ok: true, data: summary };

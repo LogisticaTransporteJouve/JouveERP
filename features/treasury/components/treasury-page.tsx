@@ -86,6 +86,7 @@ export function TreasuryPage() {
           prev={query.data?.totals_prev_eom.USD.liquid}
           currency="USD"
           loading={query.isLoading}
+          usdRate={query.data?.usd_rate ?? null}
         />
         <SummaryCard
           label="Cheques en cartera ARS"
@@ -112,6 +113,7 @@ export function TreasuryPage() {
           currency="USD"
           loading={query.isLoading}
           tone="muted"
+          usdRate={query.data?.usd_rate ?? null}
         />
       </div>
 
@@ -228,6 +230,7 @@ function SummaryCard({
   currency,
   loading,
   tone,
+  usdRate,
 }: {
   label: string;
   subtitle: string;
@@ -236,9 +239,13 @@ function SummaryCard({
   currency: TreasuryCurrency;
   loading: boolean;
   tone?: "muted";
+  usdRate?: { rate: number; rate_date: string } | null;
 }) {
   const delta = now != null && prev != null ? now - prev : null;
   const pct = delta != null && prev ? (delta / prev) * 100 : null;
+  // Equivalente en ARS solo para tarjetas USD, si hay cotización cargada.
+  const arsEquivalent =
+    currency === "USD" && usdRate && now != null ? now * usdRate.rate : null;
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -252,6 +259,15 @@ function SummaryCard({
           }`}
         >
           {formatMoneyWithCode(now ?? 0, currency)}
+        </p>
+      )}
+      {!loading && arsEquivalent != null && usdRate && (
+        <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+          ≈ {formatMoneyWithCode(arsEquivalent, "ARS")}
+          <span className="ml-1 font-sans">
+            · dólar {formatMoney(usdRate.rate)} (
+            {formatArgentineDate(usdRate.rate_date)})
+          </span>
         </p>
       )}
       <div className="mt-1 flex items-center justify-between text-xs">

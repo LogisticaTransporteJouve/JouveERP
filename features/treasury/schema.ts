@@ -29,6 +29,10 @@ export type TreasurySummary = {
   /** Cheques en cartera con vencimiento dentro de los próximos 7 días — los
    *  que están a punto de convertirse en liquidez (depósito/acreditación). */
   checks_due_soon: Record<TreasuryCurrency, { count: number; amount: number }>;
+  /** Última cotización USD→ARS disponible (la más reciente cargada), para
+   *  mostrar el equivalente en ARS de los saldos en dólares. null si no hay
+   *  ninguna cargada todavía. */
+  usd_rate: { rate: number; rate_date: string } | null;
 };
 
 /** Tipos considerados "líquidos" para el total de moneda. Los tipos de
