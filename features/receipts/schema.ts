@@ -255,8 +255,8 @@ export function isRetentionTaxType(value: unknown): value is RetentionTaxType {
 /** Join row shape for `receipts ( status )` selected from another table. */
 export type ReceiptStatusJoin = { receipts: { status: string } | null };
 
-/** Forma del row al traer `receipt_id, receipts!inner ( status )` para
- *  calcular saldos imputados (combina ReceiptStatusJoin + FK del padre). */
+/** Shape of the row when fetching `receipt_id, receipts!inner ( status )` to
+ *  compute allocated balances (combines ReceiptStatusJoin + the parent FK). */
 export type ReceiptAllocationStatusRow = {
   receipt_id: string;
   receipts: { status: string } | null;

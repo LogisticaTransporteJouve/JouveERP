@@ -164,11 +164,11 @@ export interface SupplierAccountMovement {
   /** 'factura' | 'nc' | 'nd' | 'payment_order' | 'opening_balance' */
   kind: string;
   letter: string | null;
-  /** 0 cuando es opening_balance (no aplica). */
+  /** 0 when it's an opening_balance (not applicable). */
   punto_venta: number;
   numero: number;
-  /** Positive = nosotros debemos (factura, ND, opening).
-   *  Negative = pago nuestro o NC del proveedor. */
+  /** Positive = we owe (factura, ND, opening).
+   *  Negative = our payment or a supplier NC. */
   signed_amount: number;
   gross_amount: number;
   channel_id: string;
