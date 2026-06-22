@@ -29,6 +29,7 @@ const signed = (n: number) => (n >= 0 ? money(n) : `-${money(n)}`);
 
 export function BalancePage() {
   const [periodEnd, setPeriodEnd] = useState(currentMonth());
+  const [periodStart, setPeriodStart] = useState("");
 
   return (
     <div className="space-y-6">
@@ -49,17 +50,52 @@ export function BalancePage() {
             className="w-[180px]"
           />
         </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">
+            Desde (opcional)
+          </label>
+          <Input
+            type="month"
+            value={periodStart}
+            max={periodEnd}
+            onChange={(e) => setPeriodStart(e.target.value)}
+            className="w-[180px]"
+          />
+        </div>
+        {periodStart && (
+          <button
+            type="button"
+            onClick={() => setPeriodStart("")}
+            className="text-muted-foreground hover:text-foreground pb-2 text-xs underline"
+          >
+            Limpiar rango
+          </button>
+        )}
+        <p className="text-muted-foreground w-full text-xs">
+          {periodStart
+            ? `Mostrando movimientos del rango ${periodStart} a ${periodEnd}.`
+            : "Sin 'desde': saldos acumulados hasta el corte."}
+        </p>
       </div>
 
       <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-        <BalanceTabs periodEnd={periodEnd} />
+        <BalanceTabs
+          periodEnd={periodEnd}
+          periodStart={periodStart || null}
+        />
       </Suspense>
     </div>
   );
 }
 
-function BalanceTabs({ periodEnd }: { periodEnd: string }) {
-  const { data: rows } = useAccountBalances(periodEnd, null);
+function BalanceTabs({
+  periodEnd,
+  periodStart,
+}: {
+  periodEnd: string;
+  periodStart: string | null;
+}) {
+  const { data: rows } = useAccountBalances(periodEnd, periodStart);
 
   return (
     <Tabs defaultValue="saldos">
