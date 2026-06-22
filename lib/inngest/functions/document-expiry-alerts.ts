@@ -3,21 +3,21 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Cron diario que inserta notificaciones in-app cuando documentos de
-// empleados (carnet, libreta, cursos, etc.) están por vencer (≤ 30 días).
+// Daily cron that inserts in-app notifications when employee documents
+// (carnet, libreta, courses, etc.) are about to expire (≤ 30 days).
 //
-// Estrategia:
-//   - Lee `v_documents_expiring` (vista en migration 20260518100000).
-//   - Para cada doc, fan-out a TODOS los users con rol owner/admin/finance
-//     (alineado con el permiso hr:* en lib/auth/permissions.ts).
-//   - Marca `notified_at = now()` para no spammear; el filtro re-incluye
-//     un doc si no se alertó en los últimos 7 días (renovaciones que
-//     vuelven a entrar en el window).
+// Strategy:
+//   - Reads `v_documents_expiring` (view in migration 20260518100000).
+//   - For each doc, fans out to ALL users with role owner/admin/finance
+//     (aligned with the hr:* permission in lib/auth/permissions.ts).
+//   - Sets `notified_at = now()` to avoid spamming; the filter re-includes
+//     a doc if it wasn't alerted in the last 7 days (renewals that
+//     re-enter the window).
 //
-// Tipo de notif: 'document_expiring' (incluido en notifications_type_known
-// por la misma migration). Metadata trae employee_id + document_id + kind
-// + expires_at + days_until_expiry para que la UI linkée a
-// /employees/{id} y dé contexto.
+// Notif type: 'document_expiring' (included in notifications_type_known
+// by the same migration). Metadata carries employee_id + document_id + kind
+// + expires_at + days_until_expiry so the UI can link to
+// /employees/{id} and provide context.
 
 type ExpiringDocRow = {
   id: string;
@@ -37,7 +37,7 @@ export const documentExpiryAlerts = inngest.createFunction(
     id: "document-expiry-alerts",
     name: "HR — alerta vencimiento documentos",
     retries: 2,
-    // Diario 08:00 Buenos Aires.
+    // Daily at 08:00 Buenos Aires.
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 8 * * *" }],
   },
   async ({ step }) => {

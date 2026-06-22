@@ -46,10 +46,10 @@ export const getCurrentUserContext = cache(
       .map((row) => row.role_id)
       .filter(isRole);
 
-    // El trigger handle_new_user_profile crea la fila al insertar en
-    // auth.users. Para users existentes anteriores a la migración hay
-    // backfill en el SQL. Si por algo no existe, devolvemos defaults
-    // seguros para no romper la UI.
+    // The handle_new_user_profile trigger creates the row on insert into
+    // auth.users. For existing users predating the migration, the SQL
+    // includes a backfill. If for some reason it doesn't exist, we return
+    // safe defaults so the UI doesn't break.
     const profile: UserProfile = profileResult.data
       ? {
           firstName: profileResult.data.first_name,

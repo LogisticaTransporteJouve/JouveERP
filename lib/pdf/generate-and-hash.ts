@@ -1,15 +1,15 @@
 import "server-only";
 
-// M.0 — reemplazo de generate-and-store.ts (que subía a Storage).
+// M.0 — replacement for generate-and-store.ts (which uploaded to Storage).
 //
-// Ahora el PDF se regenera on-demand en cada request. En la emisión solo
-// calculamos el SHA256 del buffer y lo persistimos en `invoices.pdf_hash`
-// para tener prueba criptográfica de integridad. Si en el futuro alguien
-// duda de un PDF entregado, se regenera y se compara hash.
+// Now the PDF is regenerated on-demand on each request. At issuance we only
+// compute the SHA256 of the buffer and persist it in `invoices.pdf_hash`
+// to have cryptographic proof of integrity. If in the future someone
+// disputes a delivered PDF, it's regenerated and the hash is compared.
 //
-// El QR AFIP es función pura de los datos (cae + receptor + importes) y
-// siempre da el mismo URL escaneable, así que no perdemos validez fiscal
-// al no guardar bytes.
+// The AFIP QR is a pure function of the data (cae + receptor + amounts) and
+// always yields the same scannable URL, so we don't lose fiscal validity
+// by not storing the bytes.
 
 import { createHash } from "node:crypto";
 
@@ -36,10 +36,10 @@ export async function generateInvoicePdfBuffer(
 }
 
 /**
- * Genera el PDF, calcula su hash y lo persiste en `invoices.pdf_hash`.
- * Usado en el step Inngest post-emisión. Idempotente: si ya hay un hash,
- * lo sobreescribe (regenerar una factura sin cambios debe dar el mismo
- * hash; si dio distinto, es bug del template y conviene saberlo).
+ * Generates the PDF, computes its hash and persists it in `invoices.pdf_hash`.
+ * Used in the post-issuance Inngest step. Idempotent: if a hash already
+ * exists, it's overwritten (regenerating an unchanged invoice should yield
+ * the same hash; if it differed, it's a template bug worth knowing about).
  */
 export async function generateAndPersistInvoicePdfHash(
   invoiceId: string,

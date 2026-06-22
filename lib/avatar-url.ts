@@ -2,13 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database";
 
-// Resuelve un avatar_path (key dentro del bucket "avatars") a la URL
-// pública. El bucket está marcado público en la migración — los
-// publicURLs no expiran y tienen cache CDN agresivo.
+// Resolves an avatar_path (key within the "avatars" bucket) to the public
+// URL. The bucket is marked public in the migration — the publicURLs
+// don't expire and have aggressive CDN caching.
 //
-// Devolvemos string | null para que el caller pase el null a `<img src>`
-// sin un wrapper. Si nunca subiste foto, `avatarPath` es null y los
-// componentes de avatar caen al fallback de iniciales.
+// We return string | null so the caller can pass the null straight to
+// `<img src>` without a wrapper. If you never uploaded a photo, `avatarPath`
+// is null and the avatar components fall back to initials.
 export function resolveAvatarUrl(
   supabase: SupabaseClient<Database>,
   avatarPath: string | null,

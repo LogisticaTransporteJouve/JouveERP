@@ -5,9 +5,9 @@ import webpush, { type PushSubscription } from "web-push";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-// Server-side helpers de Web Push. Si las VAPID keys no están en env, el
-// send es no-op (logged como skipped). Esto deja que dev/local funcione
-// sin la setup completa y que prod la prenda cuando esté listo.
+// Server-side Web Push helpers. If the VAPID keys aren't set in env, the
+// send is a no-op (logged as skipped). This lets dev/local work
+// without the full setup, and lets prod turn it on once it's ready.
 
 let configured = false;
 
@@ -66,8 +66,8 @@ export async function sendPushToUser(
           && "statusCode" in err
             ? (err as { statusCode: number }).statusCode
             : null;
-        // 404 / 410 = endpoint expired or unsubscribed. Limpiamos la fila
-        // para no seguir intentando.
+        // 404 / 410 = endpoint expired or unsubscribed. Clean up the row
+        // so we stop retrying it.
         if (status === 404 || status === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           return;

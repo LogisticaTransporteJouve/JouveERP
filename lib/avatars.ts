@@ -1,7 +1,7 @@
-// Helpers para el subsistema de avatares. Compartidos entre componente,
-// server actions y RPCs (`pick_default_avatar_color` en SQL espeja la
-// misma lógica que `pickDefaultColor` en TS — si una cambia, cambiar la
-// otra). Cobertura en `lib/avatars.test.ts`.
+// Helpers for the avatar subsystem. Shared across the component,
+// server actions and RPCs (`pick_default_avatar_color` in SQL mirrors the
+// same logic as `pickDefaultColor` in TS — if one changes, change the
+// other). Coverage in `lib/avatars.test.ts`.
 
 export const AVATAR_COLORS = [
   "gray",
@@ -34,7 +34,7 @@ export function getInitials(
   const l = last?.trim().charAt(0) ?? "";
   const combined = (f + l).toUpperCase();
   if (combined) return combined;
-  // Fallback al email si no hay nombre todavía.
+  // Fall back to the email when there's no name yet.
   if (fallback) {
     const c = fallback.trim().charAt(0).toUpperCase();
     if (c) return c;
@@ -49,10 +49,10 @@ export function isAvatarColor(value: unknown): value is AvatarColor {
   );
 }
 
-// Espejo del RPC `pick_default_avatar_color`. Si las dos divergen, los
-// nuevos users tendrían un color distinto en BD que el que la UI
-// asumiría — los tests verifican que ambas implementaciones produzcan
-// el mismo resultado contra una muestra fija.
+// Mirror of the `pick_default_avatar_color` RPC. If the two diverge, new
+// users would get a different color in the DB than the one the UI
+// would assume — the tests verify that both implementations produce
+// the same result against a fixed sample.
 export function pickDefaultColor(userId: string): AvatarColor {
   let h = 0;
   for (let i = 0; i < userId.length; i++) {

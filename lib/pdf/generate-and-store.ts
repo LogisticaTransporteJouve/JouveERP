@@ -1,9 +1,9 @@
 import "server-only";
 
 // M.0 — Builds InvoiceTemplateData (joining comprobante + items + client +
-// channel + business_unit). El render PDF y la persistencia del hash
-// viven en generate-and-hash.ts. Este archivo dejó de subir a Storage
-// — los PDFs se regeneran on-demand en /api/invoices/[id]/pdf.
+// channel + business_unit). PDF rendering and hash persistence
+// live in generate-and-hash.ts. This file no longer uploads to Storage
+// — PDFs are regenerated on-demand in /api/invoices/[id]/pdf.
 
 import {
   buildInvoiceQRUrl,

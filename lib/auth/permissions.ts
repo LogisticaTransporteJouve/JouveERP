@@ -43,11 +43,11 @@ export const PERMISSIONS = [
   "payment_orders:read",
   "payment_orders:write",
 
-  // Issued checks (K.6 — cheques propios emitidos)
+  // Issued checks (K.6 — own checks issued)
   "issued_checks:read",
   "issued_checks:write",
 
-  // Files (K.10 — adjuntos a entidades)
+  // Files (K.10 — attachments on entities)
   "files:read",
   "files:write",
   "files:admin",
@@ -56,16 +56,16 @@ export const PERMISSIONS = [
   "padron:lookup",
   "afip:admin",
 
-  // Envío por email de comprobantes (facturas / recibos)
+  // Emailing vouchers (invoices / receipts)
   "email:send",
 
-  // Caja: accounts and transactions
+  // Cash register: accounts and transactions
   "accounts:read",
   "accounts:write",
   "transactions:read",
   "transactions:write",
 
-  // Pagos recurrentes (Fase R) — insumo del cash-flow de la IA
+  // Recurring payments (Phase R) — input for the AI cash-flow
   "recurring_payments:read",
   "recurring_payments:write",
 
@@ -74,7 +74,7 @@ export const PERMISSIONS = [
   "invoices:issue",
   "invoices:cancel",
 
-  // Cobranzas, recibos, cheques, retenciones, NC/ND (Phase F)
+  // Collections, receipts, checks, retentions, NC/ND (Phase F)
   "receipts:read",
   "receipts:write",
   "cheques:read",
@@ -84,7 +84,7 @@ export const PERMISSIONS = [
   "credit_debit_notes:read",
   "credit_debit_notes:issue",
 
-  // Flota y viajes (Phase G)
+  // Fleet and trips (Phase G)
   "drivers:read",
   "drivers:write",
   "vehicles:read",
@@ -98,11 +98,11 @@ export const PERMISSIONS = [
   "fleet_documents:read",
   "fleet_documents:write",
 
-  // Contabilidad (Phase L)
+  // Accounting (Phase L)
   "accounting:read",
   "accounting:write",
 
-  // Personal / Sueldos (Phase N)
+  // Personnel / Payroll (Phase N)
   "hr:read",
   "hr:write",
   "hr:admin",

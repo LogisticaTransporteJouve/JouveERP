@@ -8,15 +8,15 @@ import {
   NotificationsDispatchSchema,
 } from "../events";
 
-// Toma una notif recién creada por los triggers del chat y la
-// distribuye a los canales externos (push). Los inserts en
-// notifications se hacen primero — esto es solo el "lado caller" para
-// despertar los devices que tengan permitido push.
+// Takes a notif just created by the chat triggers and distributes
+// it to the external channels (push). The inserts into notifications
+// happen first — this is only the "caller side" that wakes up the
+// devices allowed to receive push.
 //
-// idempotency: event.data.message_id evita que dos invocaciones para
-// el mismo mensaje pisoteen pushes. Si la primera falló a mitad, los
-// retries internos de web-push + el cleanup por status 410 del helper
-// terminan limpiando todo.
+// idempotency: event.data.message_id prevents two invocations for the
+// same message from clobbering each other's pushes. If the first failed
+// halfway, web-push's internal retries + the helper's cleanup on status
+// 410 end up cleaning everything up.
 
 const TITLE_BY_TYPE: Record<string, string> = {
   chat_message: "Mensaje nuevo",
@@ -59,7 +59,7 @@ export const notificationsDispatch = inngest.createFunction(
 
     if (recipients.length === 0) return { sent: 0 };
 
-    // Resolver display name del sender (uno solo, comparten todos).
+    // Resolve the sender's display name (just one, shared by all).
     const senderId = recipients[0]!.sender_id;
     const senderName = await step.run("load-sender", async () => {
       if (!senderId) return "Alguien";

@@ -11,7 +11,7 @@
 import type { IvaCondition } from "@/features/clients/schema";
 
 // --------------------------------------------------------------------------
-// CbteTipo — type of comprobante.
+// CbteTipo — type of voucher.
 // --------------------------------------------------------------------------
 export const CBTE_TIPO = {
   FACTURA_A: 1,
@@ -47,7 +47,7 @@ export function cbteTipoFor(
 }
 
 // --------------------------------------------------------------------------
-// Concepto — what the comprobante invoices.
+// Concepto — what the voucher invoices.
 // --------------------------------------------------------------------------
 export const CONCEPTO = {
   PRODUCTOS: 1,
@@ -62,7 +62,7 @@ export function isServiciosConcepto(c: number): boolean {
 }
 
 // --------------------------------------------------------------------------
-// DocTipo — receptor's document type.
+// DocTipo — recipient's document type.
 // --------------------------------------------------------------------------
 export const DOC_TIPO = {
   CUIT: 80,
@@ -109,12 +109,12 @@ export function condicionIvaReceptorFor(
 }
 
 // --------------------------------------------------------------------------
-// Letter resolution — given emisor + receptor IVA conditions, what letter?
+// Letter resolution — given issuer + recipient IVA conditions, what letter?
 //
-// Rules (single-CUIT, emisor = Responsable Inscripto):
-//   - Receptor RI → letter A (discrimina IVA)
-//   - Receptor Monotributo / Exento / Consumidor Final / No categorizado → B
-//   - If emisor were monotributo, all letters would be C — not our case today.
+// Rules (single-CUIT, issuer = Responsable Inscripto):
+//   - Recipient RI → letter A (IVA itemized)
+//   - Recipient Monotributo / Exento / Consumidor Final / No categorizado → B
+//   - If the issuer were monotributo, all letters would be C — not our case today.
 // --------------------------------------------------------------------------
 export function letterFor(receptorIva: IvaCondition): InvoiceLetter {
   if (receptorIva === "responsable_inscripto") return "A";
@@ -122,7 +122,7 @@ export function letterFor(receptorIva: IvaCondition): InvoiceLetter {
 }
 
 // --------------------------------------------------------------------------
-// Iva — alícuota IDs and percentages.
+// Iva — rate IDs and percentages.
 // --------------------------------------------------------------------------
 export const IVA_RATE = {
   ZERO: 3, // 0%
@@ -149,7 +149,7 @@ export function ivaRatePercent(id: IvaRateId): number {
 }
 
 // --------------------------------------------------------------------------
-// Moneda — currency codes.
+// Currency codes.
 // --------------------------------------------------------------------------
 export const MONEDA = {
   PESOS: "PES",
