@@ -1568,6 +1568,66 @@ export type Database = {
         }
         Relationships: []
       }
+      fleet_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string | null
+          expires_at: string
+          id: string
+          issued_at: string | null
+          kind: string
+          notes: string | null
+          notified_at: string | null
+          number: string | null
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          expires_at: string
+          id?: string
+          issued_at?: string | null
+          kind: string
+          notes?: string | null
+          notified_at?: string | null
+          number?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          expires_at?: string
+          id?: string
+          issued_at?: string | null
+          kind?: string
+          notes?: string | null
+          notified_at?: string | null
+          number?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_documents_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_loads: {
         Row: {
           amount: number

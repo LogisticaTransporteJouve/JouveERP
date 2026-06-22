@@ -20,6 +20,8 @@ export function getNotificationTitle(notif: Notification): string {
       return "respondió a tu mensaje";
     case "chat_mention":
       return "te mencionó";
+    case "document_expiring":
+      return "documento por vencer";
     case "chat_message":
     default:
       return "te mandó un mensaje";
