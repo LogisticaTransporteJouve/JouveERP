@@ -1386,6 +1386,42 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          rate: number
+          rate_date: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          rate: number
+          rate_date: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          rate?: number
+          rate_date?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       file_attachments: {
         Row: {
           check_id: string | null
