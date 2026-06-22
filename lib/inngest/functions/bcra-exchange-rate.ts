@@ -3,13 +3,13 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// M.2 — Cron diario de cotización USD del BCRA.
+// M.2 — Daily cron for the BCRA USD exchange rate.
 //
-// Trae la última cotización oficial USD→ARS de la API pública de Estadísticas
-// Cambiarias del BCRA y la guarda con source='bcra'. Resiliente: si el BCRA
-// está caído o cambia el formato, loguea y no hace nada — la carga manual de
-// finance (source='manual') es el fallback. No pisa una fila ya cargada para
-// esa fecha (manual gana; la primera del día gana). `rate` = ARS por 1 USD.
+// Fetches the latest official USD→ARS rate from the BCRA public Estadísticas
+// Cambiarias API and stores it with source='bcra'. Resilient: if the BCRA is
+// down or changes the format, it logs and does nothing — the manual finance
+// entry (source='manual') is the fallback. It does not overwrite a row already
+// stored for that date (manual wins; the first of the day wins). `rate` = ARS per 1 USD.
 const BCRA_URL =
   "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Cotizaciones";
 
@@ -28,7 +28,7 @@ export const bcraExchangeRate = inngest.createFunction(
     id: "bcra-exchange-rate",
     name: "M.2 — fetch BCRA USD exchange rate",
     retries: 2,
-    // Días hábiles 11:00 ART (el BCRA publica al mediodía).
+    // Business days at 11:00 ART (the BCRA publishes around noon).
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 11 * * 1-5" }],
   },
   async ({ step }) => {
@@ -65,8 +65,8 @@ export const bcraExchangeRate = inngest.createFunction(
     const inserted = await step.run("upsert-rate", async () => {
       const supabase = getServiceClient();
       // ignoreDuplicates → INSERT ... ON CONFLICT DO NOTHING. maybeSingle()
-      // devuelve la fila si insertó, o null si ya había una (manual o bcra
-      // anterior): así el log refleja lo que pasó de verdad.
+      // returns the row if it inserted, or null if one already existed (manual or
+      // a prior bcra): that way the log reflects what actually happened.
       const { data, error } = await supabase
         .from("exchange_rates")
         .upsert(

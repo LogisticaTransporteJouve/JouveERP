@@ -14,7 +14,7 @@ import {
 
 describe("formatArgentineDate", () => {
   it("convierte ISO yyyy-mm-dd a 'd mmm yyyy' en es (shift AR)", () => {
-    // "yyyy-mm-dd" → 00:00 UTC → 21:00 ART día anterior.
+    // "yyyy-mm-dd" → 00:00 UTC → 21:00 ART on the previous day.
     expect(formatArgentineDate("2026-05-17")).toBe("16 may 2026");
     expect(formatArgentineDate("2026-01-01")).toBe("31 dic 2025");
   });
@@ -194,7 +194,7 @@ describe("todayInAR", () => {
 
   it("aplica shift UTC-3 (formato y rango plausible)", () => {
     const today = todayInAR();
-    // Re-compute para comparar y asegurar que no usa el UTC puro
+    // Re-compute to compare and ensure it doesn't use pure UTC
     const ar = new Date(Date.now() - 3 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);

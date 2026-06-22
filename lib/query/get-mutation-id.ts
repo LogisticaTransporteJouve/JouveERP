@@ -1,14 +1,14 @@
 /**
- * Extrae `id` (si existe y es string) del payload de variables que recibe
- * el `onSuccess` de una mutation de TanStack Query. La firma de variables
- * es loose por feature (cada mutation tiene su input shape), así que en
- * vez de tipar genérico repetimos un cast estructural defensivo.
+ * Extracts `id` (if present and a string) from the variables payload that
+ * the `onSuccess` of a TanStack Query mutation receives. The variables
+ * signature is loose per feature (each mutation has its own input shape), so
+ * instead of typing it generically we use a defensive structural cast.
  *
- * Consolida el patrón `(variables as { id?: string }).id` que vivía en 7
+ * Consolidates the `(variables as { id?: string }).id` pattern that lived in 7
  * hooks (use-clients, use-suppliers, use-receipts, use-payment-orders,
  * use-purchase-invoices, use-transactions, use-employees).
  *
- * Uso:
+ * Usage:
  *   onSuccess: (_data, variables) => {
  *     const id = getMutationId(variables);
  *     if (id) qc.invalidateQueries({ queryKey: detail(id) });

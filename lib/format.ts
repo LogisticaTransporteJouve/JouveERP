@@ -63,8 +63,8 @@ export function formatAmountInput(raw: string): string {
   return decPart === null ? grouped : `${grouped},${decPart}`;
 }
 
-// Money formatters centralizados (replicados en 23 archivos antes de esto).
-// Usar siempre estos helpers en lugar de armar `Intl.NumberFormat` inline.
+// Centralized money formatters (previously replicated across 23 files).
+// Always use these helpers instead of building `Intl.NumberFormat` inline.
 
 const moneyFmt2 = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
@@ -76,21 +76,21 @@ const moneyFmt0 = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
-/** "3.865,59" — sin símbolo de moneda. */
+/** "3.865,59" — without currency symbol. */
 export function formatNumber2(value: number | string | null | undefined): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n)) return "0,00";
   return moneyFmt2.format(n);
 }
 
-/** "3.866" — entero, sin decimales. */
+/** "3.866" — integer, no decimals. */
 export function formatInteger(value: number | string | null | undefined): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n)) return "0";
   return moneyFmt0.format(Math.round(n));
 }
 
-/** "$ 3.865,59" — peso por default; "US$ 3.865,59" si currency === "USD". */
+/** "$ 3.865,59" — peso by default; "US$ 3.865,59" if currency === "USD". */
 export function formatMoney(
   value: number | string | null | undefined,
   currency: "ARS" | "USD" | string = "ARS",
@@ -99,7 +99,7 @@ export function formatMoney(
   return `${sign} ${formatNumber2(value)}`;
 }
 
-/** "-$ 3.865,59" — formatMoney con signo respetando negativos. */
+/** "-$ 3.865,59" — formatMoney with sign, honoring negatives. */
 export function formatMoneySigned(
   value: number | string | null | undefined,
   currency: "ARS" | "USD" | string = "ARS",
@@ -109,10 +109,10 @@ export function formatMoneySigned(
   return formatMoney(n, currency);
 }
 
-/** "ARS 3.865,59" — usa el código literal en lugar del símbolo. Pensado para
- *  detail pages donde queremos mostrar el código formal de moneda en vez del
- *  símbolo (`formatMoney` devuelve `$`/`US$`). Consolida los `money(n, code)`
- *  definidos localmente en receipts/[id], purchases/[id], payment-orders/[id]. */
+/** "ARS 3.865,59" — uses the literal code instead of the symbol. Intended for
+ *  detail pages where we want to show the formal currency code rather than the
+ *  symbol (`formatMoney` returns `$`/`US$`). Consolidates the `money(n, code)`
+ *  helpers defined locally in receipts/[id], purchases/[id], payment-orders/[id]. */
 export function formatMoneyWithCode(
   value: number | string | null | undefined,
   currencyCode: string,
@@ -135,9 +135,9 @@ export function formatArgentineDateTime(
   return `${day} ${month} ${year}, ${hh}:${mm}`;
 }
 
-/** "17/5/2026" — date corto es-AR vía `toLocaleDateString`. Usado por
- *  emails y attachments donde el formato compacto es preferido al "17 may 2026"
- *  de `formatArgentineDate`. Acepta ISO string o Date; inválidos → "—". */
+/** "17/5/2026" — short es-AR date via `toLocaleDateString`. Used by
+ *  emails and attachments where the compact format is preferred over the "17 may 2026"
+ *  of `formatArgentineDate`. Accepts an ISO string or Date; invalid → "—". */
 export function formatArDateShort(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -145,22 +145,22 @@ export function formatArDateShort(value: string | Date | null | undefined): stri
   return d.toLocaleDateString("es-AR");
 }
 
-/** "YYYY-MM-DD" del día actual en hora Argentina (UTC-3). Usado como default
- *  para los date inputs de los forms (recibos, cheques, transacciones, OPs). */
+/** "YYYY-MM-DD" of the current day in Argentine time (UTC-3). Used as the default
+ *  for the date inputs of the forms (receipts, checks, transactions, OPs). */
 export function todayInAR(): string {
   const ar = new Date(Date.now() - AR_OFFSET_MS);
   return ar.toISOString().slice(0, 10);
 }
 
-/** Redondeo a 2 decimales — usado en cálculos monetarios (IVA, totales,
- *  cotizaciones). Centralizado para evitar las 4+ copias verbatim que
- *  vivían en schemas, actions, inngest y renders. */
+/** Round to 2 decimals — used in monetary calculations (IVA, totals,
+ *  exchange rates). Centralized to avoid the 4+ verbatim copies that
+ *  lived in schemas, actions, inngest, and renders. */
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Parsea un monto en formato es-AR ("1.234,56" → 1234.56). Devuelve null
- *  si la cadena no representa un número finito. Es el inverso semántico de
+/** Parses an amount in es-AR format ("1.234,56" → 1234.56). Returns null
+ *  if the string does not represent a finite number. It is the semantic inverse of
  *  `formatAmountInput` / `amountToInput`. */
 export function parseArAmount(raw: string): number | null {
   const cleaned = raw
@@ -172,9 +172,9 @@ export function parseArAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Suma montos es-AR (string `"1.234,56"`) de una colección, extrayendo el
- *  string con un picker. Inválidos / vacíos contribuyen 0. Consolida la
- *  lógica de `sumDraftAllocations` que estaba duplicada en receipt-form y
+/** Sums es-AR amounts (string `"1.234,56"`) from a collection, extracting the
+ *  string with a picker. Invalid / empty values contribute 0. Consolidates the
+ *  `sumDraftAllocations` logic that was duplicated in receipt-form and
  *  payment-order-form. */
 export function sumArAmountsBy<T>(
   items: readonly T[],
@@ -183,14 +183,14 @@ export function sumArAmountsBy<T>(
   return items.reduce((acc, item) => acc + (parseArAmount(pick(item)) ?? 0), 0);
 }
 
-/** Sanitiza un fragmento de string para usarlo en un nombre de archivo de
- *  download (PDF de comprobante, recibo, etc.):
- *  - normaliza Unicode (NFKD) para evitar combinaciones raras
- *  - quita reservados del sistema de archivos (< > : " / \ | ? * y control chars)
- *  - quita comas/punto-y-coma (rompen filenames en algunos clientes de mail)
- *  - colapsa whitespace en un único espacio
- *  Consolidado de 3 dupes verbatim que vivían en send-receipt-email,
- *  send-invoice-email e invoices-table. */
+/** Sanitizes a string fragment to use it in a download filename
+ *  (invoice PDF, receipt, etc.):
+ *  - normalizes Unicode (NFKD) to avoid odd combinations
+ *  - strips filesystem-reserved chars (< > : " / \ | ? * and control chars)
+ *  - strips commas/semicolons (they break filenames in some mail clients)
+ *  - collapses whitespace into a single space
+ *  Consolidated from 3 verbatim dupes that lived in send-receipt-email,
+ *  send-invoice-email, and invoices-table. */
 export function safeFilenamePart(value: string): string {
   return value
     .normalize("NFKD")
@@ -200,10 +200,10 @@ export function safeFilenamePart(value: string): string {
     .trim();
 }
 
-/** Construye el nombre de archivo PDF para un comprobante / recibo:
- *  `<numero> - <name>.pdf`, con `name` sanitizado vía safeFilenamePart.
- *  Consolida el patrón duplicado en send-receipt-email, send-invoice-email
- *  e invoices-table. */
+/** Builds the PDF filename for an invoice / receipt:
+ *  `<numero> - <name>.pdf`, with `name` sanitized via safeFilenamePart.
+ *  Consolidates the pattern duplicated in send-receipt-email, send-invoice-email,
+ *  and invoices-table. */
 export function buildPdfFilename(numero: string, name: string): string {
   return `${numero} - ${safeFilenamePart(name)}.pdf`;
 }

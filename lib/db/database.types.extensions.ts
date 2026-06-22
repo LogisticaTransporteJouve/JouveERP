@@ -1,15 +1,15 @@
-// Extensiones manuales de los tipos generados de Supabase.
+// Manual extensions to the generated Supabase types.
 //
-// Las tablas / RPCs declaradas acá viven en el schema real pero todavía
-// no se reflejaron en `database.types.ts`. Para regenerar:
+// The tables / RPCs declared here exist in the real schema but are not yet
+// reflected in `database.types.ts`. To regenerate:
 //
 //   pnpm dlx supabase start
 //   pnpm db:types:generate
 //
-// Después de regenerar, **borrar este archivo** y revertir la mezcla en
-// `lib/db/database.ts` para volver a usar el `Database` puro generado.
+// After regenerating, **delete this file** and revert the merge in
+// `lib/db/database.ts` to go back to the pure generated `Database`.
 //
-// El merge se hace en `lib/db/database.ts` con un intersection type:
+// The merge happens in `lib/db/database.ts` via an intersection type:
 //
 //   type Database = Omit<Generated, "public"> & {
 //     public: Generated["public"] & DatabaseExtensions["public"];
@@ -454,6 +454,6 @@ export type DatabaseExtensions = {
   };
 };
 
-// Re-export Json para que los consumidores de extensions tengan acceso al
-// mismo alias sin tener que importar de los tipos generados directamente.
+// Re-export Json so consumers of the extensions have access to the same
+// alias without needing to import from the generated types directly.
 export type { Json };

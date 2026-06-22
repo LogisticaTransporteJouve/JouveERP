@@ -78,9 +78,9 @@ describe("pickDefaultColor", () => {
 
   it("distributes across all colors over a sample", () => {
     const seen = new Set<string>();
-    // Pequeña muestra de UUIDs random: si el hash no rompe, debería
-    // tocar al menos 3 de los 5 colores. Asegurar que el helper no se
-    // colapsa en un solo color.
+    // Small sample of random UUIDs: if the hash isn't broken, it should
+    // hit at least 3 of the 5 colors. This ensures the helper doesn't
+    // collapse onto a single color.
     const sample = [
       "11111111-1111-1111-1111-111111111111",
       "22222222-2222-2222-2222-222222222222",

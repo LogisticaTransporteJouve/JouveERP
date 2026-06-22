@@ -1,10 +1,10 @@
 /**
- * Postgres error codes (SQLSTATE) that la app verifica explícitamente al
- * recibir errores de Supabase. Centralizado para evitar las 12+ copias
- * verbatim de `const UNIQUE_VIOLATION = "23505"` que vivían en cada
- * archivo de actions.
+ * Postgres error codes (SQLSTATE) that the app checks explicitly when
+ * handling errors from Supabase. Centralized to avoid the 12+ verbatim
+ * copies of `const UNIQUE_VIOLATION = "23505"` that used to live in every
+ * actions file.
  *
- * Lista completa: https://www.postgresql.org/docs/current/errcodes-appendix.html
+ * Full list: https://www.postgresql.org/docs/current/errcodes-appendix.html
  */
 export const PG_UNIQUE_VIOLATION = "23505";
 export const PG_FOREIGN_KEY_VIOLATION = "23503";

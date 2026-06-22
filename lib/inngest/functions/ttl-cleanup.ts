@@ -4,13 +4,13 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Daily cleanup de tablas con TTL semántico que no se borran solas:
-//   - rate_limit_buckets: 1 row por (user, bucket, window). Windows
-//     horarias → sin cleanup crece sin límite. Borra > 7 días.
-//   - padron_cache: 1 row por CUIT, TTL 24h. Sin cleanup acumula. Borra
-//     > 30 días.
-//   - afip_ta_cache: NO se limpia — PK es service text y cada llamada
-//     upserts la misma row (1-3 rows totales).
+// Daily cleanup of tables with semantic TTL that don't delete themselves:
+//   - rate_limit_buckets: 1 row per (user, bucket, window). Hourly
+//     windows → without cleanup it grows unbounded. Deletes > 7 days.
+//   - padron_cache: 1 row per CUIT, TTL 24h. Without cleanup it accumulates.
+//     Deletes > 30 days.
+//   - afip_ta_cache: NOT cleaned — PK is service text and every call
+//     upserts the same row (1-3 rows total).
 
 export const ttlCleanup = inngest.createFunction(
   {

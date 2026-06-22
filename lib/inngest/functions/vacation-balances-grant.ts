@@ -3,24 +3,24 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// N.4 — Cron anual de balances de vacaciones.
+// N.4 — Annual cron for vacation balances.
 //
-// 1° de octubre 00:00 ART. Llama al RPC grant_vacation_balances(year, true)
-// para cada empleado activo:
-//   - Calcula entitled_days según antigüedad al 31-dic del año
-//   - Aplica prorating Art. 153 si tiene <6 meses
-//   - Arrastra remaining_days del año anterior si la política está activa
-//   - Marca expired las balances con expires_at < hoy
+// October 1st 00:00 ART. Calls the RPC grant_vacation_balances(year, true)
+// for each active employee:
+//   - Computes entitled_days based on tenure as of Dec 31 of the year
+//   - Applies Art. 153 prorating if tenure is under 6 months
+//   - Carries over remaining_days from the previous year if the policy is active
+//   - Marks balances with expires_at < today as expired
 //
-// Idempotente: si la balance del (employee, year) ya existe, se saltea.
-// Manual trigger disponible via grantVacationBalancesAction (admin only).
+// Idempotent: if the (employee, year) balance already exists, it's skipped.
+// Manual trigger available via grantVacationBalancesAction (admin only).
 
 export const vacationBalancesGrant = inngest.createFunction(
   {
     id: "vacation-balances-grant",
     name: "HR — grant annual vacation balances",
     retries: 2,
-    // Anual: 1 de octubre 00:00 Buenos Aires.
+    // Annual: October 1st 00:00 Buenos Aires.
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 0 1 10 *" }],
   },
   async ({ step }) => {

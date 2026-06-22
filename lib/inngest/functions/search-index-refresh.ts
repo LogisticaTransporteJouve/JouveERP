@@ -4,10 +4,10 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Refresca el FTS materialized view si está dirty. Reemplaza el refresh
-// sincronico que disparaba en cada DML de 7 source tables y agregaba
-// 200-500ms a cada write. Ahora corre cada 1 min y solo refresca si la
-// flag dirty está activa (set por triggers via pg_notify).
+// Refreshes the FTS materialized view if it's dirty. Replaces the
+// synchronous refresh that fired on every DML across 7 source tables and
+// added 200-500ms to each write. Now it runs every 1 min and only refreshes
+// if the dirty flag is set (set by triggers via pg_notify).
 
 export const searchIndexRefresh = inngest.createFunction(
   {

@@ -1,23 +1,23 @@
-// Schemas reutilizables para validar inputs de server actions en boundary.
-// Centraliza los building blocks comunes (UUID, period YYYY-MM, ISO date,
-// notes con cap) para no repetir regex inline en cada action.
+// Reusable schemas for validating server action inputs at the boundary.
+// Centralizes the common building blocks (UUID, period YYYY-MM, ISO date,
+// capped notes) to avoid repeating inline regexes in every action.
 
 import { z } from "zod";
 
-/** UUID v4 estándar (lo que devuelve gen_random_uuid en Postgres). */
+/** Standard UUID v4 (what gen_random_uuid returns in Postgres). */
 export const UuidSchema = z.string().uuid("ID inválido.");
 
-/** "YYYY-MM" (período contable). Mes 01-12. */
+/** "YYYY-MM" (accounting period). Month 01-12. */
 export const PeriodSchema = z
   .string()
   .regex(/^[0-9]{4}-(0[1-9]|1[0-2])$/, "Período inválido (YYYY-MM).");
 
-/** "YYYY-MM-DD" (fecha calendario simple, sin TZ). */
+/** "YYYY-MM-DD" (plain calendar date, no TZ). */
 export const IsoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD).");
 
-/** Notes/texto libre nullable; cap defensivo + trim. */
+/** Nullable free-text notes; defensive cap + trim. */
 export const NotesSchema = z
   .string()
   .trim()
@@ -25,16 +25,16 @@ export const NotesSchema = z
   .nullable()
   .optional();
 
-/** Monto no-negativo (saldos de apertura, totales). */
+/** Non-negative amount (opening balances, totals). */
 export const NonNegativeAmountSchema = z
   .number()
   .finite()
   .min(0, "El monto no puede ser negativo.");
 
 /**
- * Preprocess zod para montos en formato es-AR ("1.234,56" → 1234.56) que
- * además acepta `number` directo. Empty/whitespace string → `undefined` (lo
- * que falla con `.number()`). Consolida 4 copias verbatim que vivían en
+ * Zod preprocess for amounts in es-AR format ("1.234,56" → 1234.56) that
+ * also accepts a direct `number`. Empty/whitespace string → `undefined` (which
+ * fails on `.number()`). Consolidates 4 verbatim copies that lived in the
  * receipts/checks/transactions/payment-orders schemas. */
 export const moneyAmountPreprocess = (value: unknown) => {
   if (typeof value === "string") {
@@ -46,8 +46,8 @@ export const moneyAmountPreprocess = (value: unknown) => {
   return value;
 };
 
-/** Variante de moneyAmountPreprocess para el saldo de apertura de cuentas:
- *  empty string → 0 (vacío significa "sin saldo inicial", no "inválido"). */
+/** Variant of moneyAmountPreprocess for the opening balance of accounts:
+ *  empty string → 0 (empty means "no initial balance", not "invalid"). */
 export const openingBalancePreprocess = (value: unknown) => {
   if (typeof value === "string") {
     const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
@@ -58,9 +58,9 @@ export const openingBalancePreprocess = (value: unknown) => {
   return value;
 };
 
-/** Variante con pre-strip de caracteres no-numéricos (mantiene `0-9 , . -`).
- *  Más defensivo para inputs typed donde el user puede pegar "$ 1.234,56"
- *  o "ARS 1.234,56". Usado por purchase-invoices y issued-checks schemas. */
+/** Variant that pre-strips non-numeric characters (keeps `0-9 , . -`).
+ *  More defensive for typed inputs where the user may paste "$ 1.234,56"
+ *  or "ARS 1.234,56". Used by the purchase-invoices and issued-checks schemas. */
 export const moneyAmountWithStripPreprocess = (value: unknown) => {
   if (typeof value === "string") {
     const cleaned = value

@@ -1,12 +1,12 @@
-// Merge del schema generado (`database.types.ts`) con las extensiones
-// manuales (`database.types.extensions.ts`). Los clientes de Supabase
-// importan `Database` desde acá; las features pueden seguir importando
-// row types directo de `database.types` para tablas que ya existen, o
-// de acá si dependen de las extensiones.
+// Merge of the generated schema (`database.types.ts`) with the manual
+// extensions (`database.types.extensions.ts`). Supabase clients
+// import `Database` from here; features can still import row types
+// directly from `database.types` for tables that already exist, or
+// from here if they depend on the extensions.
 //
-// Cuando se regeneren los tipos con `pnpm db:types:generate` y las
-// nuevas tablas vivan en `database.types.ts`, este archivo + el de
-// extensions se pueden borrar y revertir los imports al original.
+// Once the types are regenerated with `pnpm db:types:generate` and the
+// new tables live in `database.types.ts`, this file plus the extensions
+// one can be deleted and the imports reverted to the original.
 
 import type { Database as Generated } from "./database.types";
 import type { DatabaseExtensions } from "./database.types.extensions";

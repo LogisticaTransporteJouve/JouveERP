@@ -3,11 +3,11 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Cron diario que alerta los vencimientos de documentación de flota (VTV,
-// seguro, licencia, ART, etc.) ≤ 30 días, igual que el de HR pero leyendo
-// `fleet_documents` (vehículo XOR chofer). Reusa el tipo de notif
-// `document_expiring`; la metadata trae owner_type + owner_label + ids para
-// que la UI dé contexto. Fan-out a owner/admin/operations (perm de flota).
+// Daily cron that alerts on fleet documentation expirations (VTV,
+// insurance, license, ART, etc.) ≤ 30 days, just like the HR one but reading
+// `fleet_documents` (vehicle XOR driver). Reuses the `document_expiring`
+// notif type; the metadata carries owner_type + owner_label + ids so
+// the UI can provide context. Fans out to owner/admin/operations (fleet perm).
 
 type FleetDocRow = {
   id: string;

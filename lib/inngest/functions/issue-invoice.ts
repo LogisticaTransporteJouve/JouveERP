@@ -92,8 +92,8 @@ type OriginRow = {
   numero: number;
 };
 
-/** Shape de la join `channel:invoicing_channels(id, is_fiscal, name)` embebida
- *  en el draft cuando se lee con select expandido en issue-invoice. */
+/** Shape of the `channel:invoicing_channels(id, is_fiscal, name)` join embedded
+ *  in the draft when read with an expanded select in issue-invoice. */
 type DraftChannelJoin = {
   channel: { id: string; is_fiscal: boolean; name: string } | null;
 };
@@ -261,9 +261,9 @@ export const issueInvoice = inngest.createFunction(
       const reservedNumero: number = await step.run(
         "reserve-and-persist-numero-internal",
         async () => {
-          // B2: usa RPC atomic con advisory lock por (channel, pos, kind).
-          // Reemplaza el patrón MAX(numero)+1 que tenía race condition
-          // bajo emisión concurrente del mismo POS.
+          // B2: uses an atomic RPC with an advisory lock per (channel, pos, kind).
+          // Replaces the MAX(numero)+1 pattern that had a race condition
+          // under concurrent issuance from the same POS.
           const supabase = getServiceClient();
           const { data, error } = await supabase.rpc(
             "next_internal_invoice_numero_atomic",
@@ -393,11 +393,11 @@ export const issueInvoice = inngest.createFunction(
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
 
-    // M.0: PDF hash runs after persist-cae and is best-effort. El PDF
-    // se regenera on-demand desde /api/invoices/[id]/pdf; acá solo
-    // calculamos y persistimos el SHA256 para tener prueba criptográfica
-    // de integridad. Si falla, el comprobante sigue válido — el hash es
-    // opcional.
+    // M.0: PDF hash runs after persist-cae and is best-effort. The PDF
+    // is regenerated on-demand from /api/invoices/[id]/pdf; here we only
+    // compute and persist the SHA256 to have cryptographic proof of
+    // integrity. If it fails, the comprobante stays valid — the hash is
+    // optional.
     await step.run("hash-pdf", async () => {
       try {
         const { generateAndPersistInvoicePdfHash } = await import(

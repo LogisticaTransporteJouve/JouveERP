@@ -2,9 +2,9 @@ import "server-only";
 
 import { Resend } from "resend";
 
-// Singleton Resend client. Devuelve null si RESEND_API_KEY no está seteada
-// (dev sin email configurado) — el caller debe distinguir entre "feature
-// deshabilitada" y "error de envío".
+// Singleton Resend client. Returns null if RESEND_API_KEY is not set
+// (dev without email configured) — the caller must distinguish between
+// "feature disabled" and "send error".
 let cached: Resend | null | undefined;
 
 export function getResendClient(): Resend | null {
