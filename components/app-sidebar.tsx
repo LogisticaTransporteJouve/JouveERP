@@ -161,6 +161,8 @@ const navSections: NavSection[] = [
       { href: "/warehouses", label: "Depósitos", icon: Warehouse, permission: "warehouses:read" },
       { href: "/products", label: "Productos", icon: Boxes, permission: "products:read" },
       { href: "/pallets", label: "Pallets", icon: Container, permission: "pallets:read" },
+      { href: "/storage-tariffs", label: "Tarifas", icon: Tags, permission: "storage_billing:read" },
+      { href: "/storage-billing", label: "Facturación", icon: LineChart, permission: "storage_billing:read" },
     ],
   },
   {
