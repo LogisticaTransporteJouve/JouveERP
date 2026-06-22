@@ -47,6 +47,7 @@ con su canal para sostener trazabilidad ante una inspección de AFIP.
 | 17 | **Fase J → Fase M** (renombrada) con scope concreto: backups, multimoneda, FTS, adjuntos, aprobaciones, portal cliente | "Hardening" en el plan viejo era difuso; M lo descompone en 6 sub-PRs |
 | 18 | **K.4 descartado (2026-05-16): Jouve no es agente de retención ni de percepción.** | Sin caso real: proveedores mayormente monotributistas o montos chicos, no llega el mínimo de RG 830. Si aparece, se reabre. Aplica al concepto entero — `payment_order_retentions` no se crea |
 | 19 | **M.6 (portal cliente) descartado (2026-06-22).** | El owner confirmó que no va un portal de cliente. Los clientes grandes siguen recibiendo estados por email. Si aparece la necesidad, se reabre |
+| 20 | **M.5 (aprobaciones de montos altos) descartado (2026-06-22).** | El owner confirmó que no hace falta el control de aprobación por monto. Si aparece la necesidad, se reabre |
 
 **Stack confirmado:**
 
@@ -278,9 +279,10 @@ balances + inflación + centros de costo; falta L.6/L.7). **RRHH/Sueldos
 masters + tarifas + facturación de storage. La **IA (Fase I)** está shippeada
 end-to-end: **AI.0–AI.8** (chat + 25 tools + persistencia + artifacts +
 medidor/tope + Document Intelligence + insights proactivos), más **Fase R**
-(pagos recurrentes). Lo que queda (L.6/L.7, M.2/M.5, RG 4667, emisión de
-storage) está bloqueado en specs/decisiones — ver `docs/pendientes.md`.
-(M.6 portal cliente: descartado, decisión #19.)
+(pagos recurrentes) y M.2 (multimoneda). Lo que queda (L.6/L.7, RG 4667,
+emisión de storage H.5, envío de email) está bloqueado en specs/decisiones —
+ver `docs/pendientes.md`. (M.5 aprobaciones y M.6 portal cliente: descartados,
+decisiones #20 / #19.)
 
 ### 3.1 Hecho — fases shippeadas
 
@@ -768,22 +770,17 @@ Heredado de la vieja Fase J:
 - Sumar cada FK al check del polimorfismo y al RLS storage.
 - OCR sigue diferido a Fase I.2.
 
-#### M.5 — `feat: aprobaciones de montos altos`
+#### M.5 — ~~aprobaciones de montos altos~~ **descartado (decisión #20, 2026-06-22)**
 
-- Tabla `approval_thresholds(entity_type, action, amount_ars,
-  requires_role)`.
-- Trigger: si una OP / transferencia / pago supera el threshold y el
-  actor no tiene el rol, queda en `pending_approval`.
-- Sidebar entry "Pendientes" gateada en `admin|owner` con queue +
-  botones aprobar/rechazar.
-- Audit log de quién aprobó qué en `audit_events`.
+No va. El owner confirmó que no hace falta el control de aprobación por monto.
+Si aparece la necesidad, se reabre.
 
 #### M.6 — ~~portal cliente (read-only)~~ **descartado (decisión #19, 2026-06-22)**
 
 No va. El owner confirmó que no se construye un portal de cliente; los clientes
 grandes siguen recibiendo estados por email. Si aparece la necesidad, se reabre.
 
-**PRs Fase M: 6** (M.0 + M.1–M.5; M.6 descartado).
+**PRs Fase M: 5** (M.0 + M.1–M.4; M.5 y M.6 descartados).
 
 ---
 
@@ -861,7 +858,7 @@ PENDIENTE (orden sugerido):
           ↓
           L.6 (CITI/SIAP) → L.7 (CAEA)              (exports + contingencia AFIP)
           ↓
-          M.2 (multimoneda) → M.5 (aprobaciones)        (M.6 portal cliente descartado, decisión #19)
+          M.2 (multimoneda) ✓                           (M.5 aprobaciones y M.6 portal: descartados, #20 / #19)
           ↓
           Fase R → AI.0 → AI.1 → AI.2 → AI.3 → AI.4 → AI.5 → AI.6   (IA chat + insights)
           AI.8 (Document Intelligence) en paralelo — depende solo de AI.0
@@ -869,7 +866,7 @@ PENDIENTE (orden sugerido):
           G (flota, 7) → H (pallets, 5)
 ```
 
-**Restante aprox.: ~25 PRs.** L.6/L.7 (2) + M.2/M.5 (2, M.6 descartado) + Fase R (1) +
+**Restante aprox.: ~24 PRs.** L.6/L.7 (2) + M.2 ✓ (M.5/M.6 descartados) + Fase R (1) +
 AI.0–AI.8 (8) + G (7) + H (5). **Migraciones / RBAC / dinero (AI.0, Fase R,
 M.5) piden review entre fases — no loop autónomo ahí** (ver `docs/ai-build-plan.md`).
 
