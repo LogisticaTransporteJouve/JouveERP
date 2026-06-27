@@ -8,7 +8,7 @@ import {
   createPurchaseInvoiceFromExtractionAction,
   discardExtractionAction,
   getExtractionAction,
-  listPendingExtractionsAction,
+  listExtractionsAction,
   scanDocumentAction,
   type PendingExtraction,
 } from "../actions";
@@ -19,11 +19,11 @@ function anyProcessing(rows: PendingExtraction[]): boolean {
   return rows.some((r) => r.detected_type === null && r.status === "pending_review");
 }
 
-export function usePendingExtractions() {
+/** Extractions for a status tab. Polls while the pending tab still has work. */
+export function useExtractions(status: string) {
   return useQuery({
-    queryKey: documentKeys.pending(),
-    queryFn: () => runAction(() => listPendingExtractionsAction()),
-    // Poll while the background pipeline is still classifying/extracting.
+    queryKey: documentKeys.list(status),
+    queryFn: () => runAction(() => listExtractionsAction(status)),
     refetchInterval: (query) => {
       const rows = query.state.data;
       return rows && anyProcessing(rows) ? 4000 : false;
@@ -48,7 +48,7 @@ export function useScanDocument() {
       return runAction(() => scanDocumentAction(fd));
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: documentKeys.pending() });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
@@ -59,7 +59,7 @@ export function useCreatePurchaseInvoice() {
     mutationFn: (input: { extractionId: string; channelId: string }) =>
       runAction(() => createPurchaseInvoiceFromExtractionAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: documentKeys.pending() });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
@@ -70,7 +70,7 @@ export function useDiscardExtraction() {
     mutationFn: (id: string) =>
       runAction(() => discardExtractionAction(id)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: documentKeys.pending() });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }

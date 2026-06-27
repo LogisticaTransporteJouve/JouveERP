@@ -1,85 +1,37 @@
 "use client";
 
-import {
-  AlertTriangle,
-  CheckCircle2,
-  FileText,
-  Loader2,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-import { useState } from "react";
+import { FileText } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
-import { FilePreviewDialog } from "@/components/file-preview/file-preview-dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
+import { DataTable } from "@/components/ui/data-table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { ExtractionPayload } from "./extraction-payload";
-import { ReviewActions } from "./review-actions";
 import {
   useDiscardExtraction,
-  useExtraction,
-  usePendingExtractions,
+  useExtractions,
   useScanDocument,
 } from "../hooks/use-documents";
 
-const TYPE_LABELS: Record<string, string> = {
-  factura_compra: "Factura de compra",
-  factura_venta: "Factura de venta",
-  recibo: "Recibo",
-  orden_pago: "Orden de pago",
-  remito: "Remito",
-  cheque: "Cheque",
-  extracto: "Extracto",
-  nc_nd: "NC / ND",
-  otro: "Otro",
-};
+import { buildDocumentColumns } from "./columns";
+import { ReviewSheet } from "./review-sheet";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
-  if (!isRecord(matches)) return { duplicate: false };
-  const name =
-    typeof matches.supplier_name === "string"
-      ? matches.supplier_name
-      : typeof matches.client_name === "string"
-        ? matches.client_name
-        : undefined;
-  return { name, duplicate: typeof matches.duplicate_of === "string" };
-}
-
-type PreviewState = { url: string | null; filename: string; mimeType: string | null };
+const STATUS_TABS = [
+  { value: "pending_review", label: "Pendientes" },
+  { value: "confirmed", label: "Confirmados" },
+  { value: "discarded", label: "Descartados" },
+  { value: "failed", label: "Fallidos" },
+];
 
 export function DocumentsTray() {
-  const { data: rows = [], isLoading } = usePendingExtractions();
+  const [status, setStatus] = useState("pending_review");
+  const { data: rows = [], isLoading } = useExtractions(status);
   const scan = useScanDocument();
   const discard = useDiscardExtraction();
-  const [preview, setPreview] = useState<PreviewState | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const detail = useExtraction(detailId);
+  const confirm = useConfirm();
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   function handleFile(file: File) {
     scan.mutate(file, {
@@ -89,19 +41,32 @@ export function DocumentsTray() {
     });
   }
 
-  async function openPreview(fileId: string, filename: string, mimeType: string | null) {
-    setPreview({ url: null, filename, mimeType });
-    try {
-      const signed = await fetchSignedUrl(fileId);
-      setPreview({ url: signed.url, filename: signed.filename, mimeType: signed.mimeType });
-    } catch {
-      toast.error("No se pudo abrir el archivo.");
-      setPreview(null);
-    }
-  }
+  const columns = useMemo(
+    () =>
+      buildDocumentColumns({
+        onReview: (id) => setReviewId(id),
+        onDiscard: async (id) => {
+          const ok = await confirm({
+            title: "Descartar documento",
+            description:
+              "Se descarta la extracción. El archivo queda subido pero no se crea ninguna entidad.",
+            confirmLabel: "Descartar",
+            tone: "destructive",
+          });
+          if (!ok) return;
+          discard.mutate(id, {
+            onError: (err) =>
+              toast.error(
+                err instanceof Error ? err.message : "No se pudo descartar.",
+              ),
+          });
+        },
+      }),
+    [confirm, discard],
+  );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <header className="flex items-center gap-2">
         <FileText className="size-5" />
         <h1 className="text-2xl font-semibold">Documentos</h1>
@@ -115,152 +80,33 @@ export function DocumentsTray() {
         description="La IA detecta el tipo y extrae los datos para revisar."
       />
 
-      <section className="space-y-2">
-        <h2 className="text-muted-foreground text-sm font-medium">
-          Pendientes de revisar
-        </h2>
+      <Tabs value={status} onValueChange={setStatus}>
+        <TabsList>
+          {STATUS_TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value}>
+              {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        ) : rows.length === 0 ? (
-          <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
-            No hay documentos pendientes. Subí uno para empezar.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {rows.map((row) => {
-              const processing = row.detected_type === null;
-              const filename = row.file?.original_filename ?? "documento";
-              const info = matchInfo(row.matches);
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-center gap-3 rounded-lg border p-3"
-                >
-                  <FileText className="text-muted-foreground size-5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{filename}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {processing ? (
-                        <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                          <Loader2 className="size-3 animate-spin" /> Leyendo
-                          documento…
-                        </span>
-                      ) : (
-                        <>
-                          <Badge variant="outline" className="gap-1">
-                            <Sparkles className="size-3" />
-                            {TYPE_LABELS[row.detected_type ?? "otro"] ??
-                              row.detected_type}
-                            {row.confidence !== null
-                              ? ` · ${Math.round(row.confidence * 100)}%`
-                              : ""}
-                          </Badge>
-                          {info.name && (
-                            <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                              <CheckCircle2 className="size-3" /> {info.name}
-                            </span>
-                          )}
-                          {info.duplicate && (
-                            <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                              <AlertTriangle className="size-3" /> Posible
-                              duplicado
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        openPreview(row.file_id, filename, row.file?.mime_type ?? null)
-                      }
-                    >
-                      Archivo
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={processing}
-                      onClick={() => setDetailId(row.id)}
-                    >
-                      Datos
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <Trash2 className="size-4" />
-                          <span className="sr-only">Descartar</span>
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Descartar documento</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Se descarta la extracción. El archivo queda subido pero
-                            no se crea ninguna entidad.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => discard.mutate(row.id)}>
-                            Descartar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <FilePreviewDialog
-        open={preview !== null}
-        onOpenChange={(open) => {
-          if (!open) setPreview(null);
-        }}
-        url={preview?.url ?? null}
-        filename={preview?.filename ?? ""}
-        mimeType={preview?.mimeType ?? null}
+      <DataTable
+        columns={columns}
+        data={rows}
+        getRowId={(r) => r.id}
+        isLoading={isLoading}
+        emptyMessage="No hay documentos en este estado."
+        enablePagination
+        initialPageSize={20}
+        defaultSorting={[{ id: "created_at", desc: true }]}
       />
 
-      <Dialog
-        open={detailId !== null}
+      <ReviewSheet
+        extractionId={reviewId}
         onOpenChange={(open) => {
-          if (!open) setDetailId(null);
+          if (!open) setReviewId(null);
         }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Datos extraídos</DialogTitle>
-          </DialogHeader>
-          {detail.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : detail.data ? (
-            <div className="space-y-4">
-              <ExtractionPayload payload={detail.data.payload} />
-              <ReviewActions
-                extraction={detail.data}
-                onCreated={() => setDetailId(null)}
-              />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No se pudo cargar la extracción.
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 }
