@@ -183,13 +183,15 @@ export function AiChat({
           placeholder={atCap ? "Límite diario alcanzado" : "Escribí tu pregunta…"}
           disabled={busy || atCap}
           autoFocus
+          className="h-12 rounded-lg px-4 text-base shadow-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
         />
         <Button
           type="submit"
           size="icon"
           disabled={busy || atCap || !input.trim()}
+          className="size-12 shrink-0 rounded-lg"
         >
-          <Send className="size-4" />
+          <Send className="size-5" />
           <span className="sr-only">Enviar</span>
         </Button>
       </form>
