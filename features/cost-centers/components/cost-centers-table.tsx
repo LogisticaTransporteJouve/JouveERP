@@ -7,20 +7,13 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useCostCenters,
@@ -52,6 +45,68 @@ export function CostCentersTable() {
     });
   }
 
+  const columns: DataTableColumn<CostCenter>[] = [
+    {
+      id: "code",
+      header: "Código",
+      headerClassName: "w-32",
+      className: "font-mono text-xs",
+      cell: (cc) => cc.code,
+    },
+    {
+      id: "name",
+      header: "Nombre",
+      className: "font-medium",
+      cell: (cc) => cc.name,
+    },
+    {
+      id: "description",
+      header: "Descripción",
+      className: "max-w-md truncate text-sm text-muted-foreground",
+      cell: (cc) => cc.description ?? "—",
+    },
+    {
+      id: "status",
+      header: "Estado",
+      headerClassName: "w-24",
+      cell: (cc) =>
+        cc.is_active ? (
+          <Badge variant="outline">Activo</Badge>
+        ) : (
+          <Badge variant="secondary">Inactivo</Badge>
+        ),
+    },
+    {
+      id: "actions",
+      header: "",
+      headerClassName: "w-12",
+      cell: (cc) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => setDialog({ mode: "edit", costCenter: cc })}
+            >
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => handleDelete(cc)}
+            >
+              <Trash2 className="size-4" />
+              Borrar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -70,69 +125,12 @@ export function CostCentersTable() {
         </Button>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead className="w-24">Estado</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                  Sin centros de costo.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((cc) => (
-                <TableRow key={cc.id}>
-                  <TableCell className="font-mono text-xs">{cc.code}</TableCell>
-                  <TableCell className="font-medium">{cc.name}</TableCell>
-                  <TableCell className="max-w-md truncate text-sm text-muted-foreground">
-                    {cc.description ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {cc.is_active ? (
-                      <Badge variant="outline">Activo</Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactivo</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => setDialog({ mode: "edit", costCenter: cc })}
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(cc)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowKey={(cc) => cc.id}
+        emptyMessage="Sin centros de costo."
+      />
 
       {dialog && (
         <CostCenterDialog
