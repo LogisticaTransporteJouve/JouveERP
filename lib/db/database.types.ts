@@ -3609,6 +3609,123 @@ export type Database = {
         }
         Relationships: []
       }
+      shipment_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          comment: string | null
+          id: string
+          new_status: string
+          old_status: string | null
+          shipment_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          comment?: string | null
+          id?: string
+          new_status: string
+          old_status?: string | null
+          shipment_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          comment?: string | null
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_status_history_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          channel_id: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          delivery_date: string | null
+          description: string | null
+          destination: string | null
+          failure_reason: string | null
+          freight_amount: number | null
+          id: string
+          notes: string | null
+          origin: string | null
+          scheduled_date: string | null
+          status: string
+          trip_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          destination?: string | null
+          failure_reason?: string | null
+          freight_amount?: number | null
+          id?: string
+          notes?: string | null
+          origin?: string | null
+          scheduled_date?: string | null
+          status?: string
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          destination?: string | null
+          failure_reason?: string | null
+          freight_amount?: number | null
+          id?: string
+          notes?: string | null
+          origin?: string | null
+          scheduled_date?: string | null
+          status?: string
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storage_tariffs: {
         Row: {
           client_id: string | null
