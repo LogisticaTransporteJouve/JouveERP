@@ -111,7 +111,10 @@ export function ReviewSheet({
       {/* Floating document sidecar, to the left of the 600px Sheet (desktop).
           The document floats directly on the dimmed backdrop — no card frame. */}
       {open && (
-        <div className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-8 lg:flex">
+        <div
+          data-doc-sidecar
+          className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-8 lg:flex"
+        >
           <FilePreviewSurface
             url={preview?.url ?? null}
             filename={preview?.filename ?? "documento"}
@@ -125,6 +128,14 @@ export function ReviewSheet({
       <SheetContent
         side="right"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-[600px]"
+        onInteractOutside={(e) => {
+          // The document sidecar floats outside the sheet content; clicks on its
+          // toolbar must not be treated as "click outside" (which would close it).
+          const target = e.detail.originalEvent.target;
+          if (target instanceof Element && target.closest("[data-doc-sidecar]")) {
+            e.preventDefault();
+          }
+        }}
       >
         <SheetHeader className="space-y-1 border-b px-4 py-3 text-left">
           <SheetTitle className="truncate text-base">
