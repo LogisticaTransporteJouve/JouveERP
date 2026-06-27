@@ -2,13 +2,24 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
+import {
+  CONCEPTO,
+  DOC_TIPO,
+  IVA_RATE,
+  MONEDA,
+  condicionIvaReceptorFor,
+} from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { isIvaCondition } from "@/features/clients/schema";
+import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
+
 import {
+  FreightInvoiceSchema,
   ShipmentCreateSchema,
   ShipmentStatusChangeSchema,
   ShipmentUpdateSchema,
@@ -19,7 +30,7 @@ import {
 } from "../schema";
 
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, notes, created_at, updated_at, client:clients(legal_name), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name), trip:trips(trip_date)";
 
 function narrow(row: {
   status: string;
@@ -300,4 +311,121 @@ export async function deleteShipmentAction(input: {
   }
   await logAudit("shipment.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };
+}
+
+/** Lists the cargas assigned to a trip (for the trip detail view). */
+export async function listShipmentsByTripAction(
+  tripId: string,
+): Promise<ActionResult<Shipment[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "shipments:read")) {
+    return { ok: false, error: "No tenés permiso para ver cargas." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("shipments")
+    .select(SELECT_COLUMNS)
+    .eq("trip_id", tripId)
+    .order("scheduled_date", { ascending: true, nullsFirst: false });
+  if (error) {
+    logger.error("shipments.by_trip.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
+  }
+  const rows = (data ?? [])
+    .map((row) => narrow(row))
+    .filter((row): row is Shipment => row !== null);
+  return { ok: true, data: rows };
+}
+
+/**
+ * "Facturar flete": issues a sales invoice for a shipment's freight, reusing the
+ * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
+ * A single "Flete" service line at 21% IVA, billed to the shipment's client.
+ * Links shipment.invoice_id on success so it can't be billed twice.
+ */
+export async function invoiceFreightAction(
+  input: unknown,
+): Promise<ActionResult<{ invoiceId: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.roles, "shipments:write") ||
+    !userCan(ctx.roles, "invoices:issue")
+  ) {
+    return { ok: false, error: "No tenés permiso para facturar el flete." };
+  }
+  const parsed = FreightInvoiceSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: shipment, error: readErr } = await supabase
+    .from("shipments")
+    .select(
+      "id, client_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition)",
+    )
+    .eq("id", parsed.data.shipmentId)
+    .maybeSingle();
+  if (readErr || !shipment) {
+    return { ok: false, error: "No se encontró la carga." };
+  }
+  if (shipment.invoice_id) {
+    return { ok: false, error: "La carga ya tiene una factura." };
+  }
+  const client = shipment.client;
+  if (!shipment.client_id || !client?.cuit) {
+    return { ok: false, error: "La carga necesita un cliente con CUIT." };
+  }
+  if (!shipment.freight_amount || Number(shipment.freight_amount) <= 0) {
+    return { ok: false, error: "Cargá un monto de flete primero." };
+  }
+  if (!isIvaCondition(client.iva_condition)) {
+    return { ok: false, error: "La condición de IVA del cliente es inválida." };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const serviceDate = shipment.delivery_date ?? shipment.scheduled_date ?? today;
+  const ruta = [shipment.origin, shipment.destination].filter(Boolean).join(" → ");
+
+  const result = await issueFiscalInvoiceAction({
+    channel_id: parsed.data.channel_id,
+    client_id: shipment.client_id,
+    kind: "factura",
+    letter: null,
+    punto_venta: parsed.data.punto_venta,
+    fecha: today,
+    fch_serv_desde: serviceDate,
+    fch_serv_hasta: serviceDate,
+    fch_vto_pago: serviceDate,
+    concepto: CONCEPTO.SERVICIOS,
+    doc_tipo: DOC_TIPO.CUIT,
+    doc_nro: client.cuit,
+    iva_condition_receptor: condicionIvaReceptorFor(client.iva_condition),
+    moneda: MONEDA.PESOS,
+    cotizacion: 1,
+    items: [
+      {
+        description: ruta ? `Flete ${ruta}` : "Flete",
+        quantity: 1,
+        unit_price: Number(shipment.freight_amount),
+        iva_rate_id: IVA_RATE.TWENTY_ONE,
+      },
+    ],
+  });
+  if (!result.ok) return result;
+
+  await supabase
+    .from("shipments")
+    .update({ invoice_id: result.data.id })
+    .eq("id", parsed.data.shipmentId);
+  await logAudit(
+    "shipment.freight_invoiced",
+    ctx.userId,
+    { invoice_id: result.data.id },
+    parsed.data.shipmentId,
+  );
+  return { ok: true, data: { invoiceId: result.data.id } };
 }

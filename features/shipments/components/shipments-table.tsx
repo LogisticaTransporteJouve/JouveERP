@@ -8,6 +8,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Receipt,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import {
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
+import { FreightInvoiceDialog } from "./freight-invoice-dialog";
 import { ShipmentDialog } from "./shipment-dialog";
 import { ShipmentHistoryDialog } from "./shipment-history-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
@@ -93,6 +95,7 @@ export function ShipmentsTable() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [statusDialog, setStatusDialog] = useState<StatusState>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
+  const [freightShipment, setFreightShipment] = useState<Shipment | null>(null);
 
   const columns = useMemo<ColumnDef<Shipment>[]>(() => {
     async function handleDelete(s: Shipment) {
@@ -161,11 +164,19 @@ export function ShipmentsTable() {
         accessorKey: "freight_amount",
         header: "Flete",
         cell: ({ row }) => (
-          <span className="text-sm">
-            {formatMoney(row.original.freight_amount)}
-          </span>
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm">
+              {formatMoney(row.original.freight_amount)}
+            </span>
+            {row.original.invoice_id && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <CheckCircle2 className="size-3.5" />
+                Facturado
+              </span>
+            )}
+          </div>
         ),
-        meta: { align: "right", headerClassName: "w-28" },
+        meta: { align: "right", headerClassName: "w-40" },
       },
       {
         id: "actions",
@@ -175,6 +186,11 @@ export function ShipmentsTable() {
         cell: ({ row }) => {
           const shipment = row.original;
           const statusActions = STATUS_ACTIONS[shipment.status];
+          const canInvoiceFreight = Boolean(
+            shipment.freight_amount &&
+              shipment.client_id &&
+              !shipment.invoice_id,
+          );
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -203,6 +219,17 @@ export function ShipmentsTable() {
                     </DropdownMenuItem>
                   );
                 })}
+                {canInvoiceFreight && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setFreightShipment(shipment)}
+                    >
+                      <Receipt className="size-4" />
+                      Facturar flete
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setHistoryId(shipment.id)}>
                   <History className="size-4" />
@@ -265,6 +292,11 @@ export function ShipmentsTable() {
       <ShipmentHistoryDialog
         shipmentId={historyId}
         onClose={() => setHistoryId(null)}
+      />
+
+      <FreightInvoiceDialog
+        shipment={freightShipment}
+        onClose={() => setFreightShipment(null)}
       />
     </>
   );
