@@ -68,6 +68,9 @@ export type DataTableProps<T> = {
   /** Initial sort, e.g. [{ id: "date", desc: true }]. */
   defaultSorting?: SortingState;
   onRowClick?: (row: T) => void;
+  /** Rendered below the table body, inside the card (e.g. an infinite-scroll
+   *  "load more" sentinel for tables that page their own data). */
+  footer?: React.ReactNode;
   /** Wrapper override. `null` renders the bare table (no card border). */
   wrapperClassName?: string | null;
 };
@@ -88,6 +91,7 @@ export function DataTable<T>({
   initialPageSize = 20,
   defaultSorting,
   onRowClick,
+  footer,
   wrapperClassName,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = React.useState<SortingState>(
@@ -250,6 +254,7 @@ export function DataTable<T>({
     return (
       <>
         {tableEl}
+        {footer}
         {pagination}
       </>
     );
@@ -257,6 +262,7 @@ export function DataTable<T>({
   return (
     <div className={cn("rounded-lg border bg-card", wrapperClassName)}>
       {tableEl}
+      {footer}
       {pagination}
     </div>
   );

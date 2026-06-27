@@ -5,40 +5,28 @@ import {
   Suspense,
   useDeferredValue,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import { useEmployeesSearchInfinite } from "../hooks/use-employees";
 import {
   PAY_FREQUENCIES,
   PAY_FREQUENCY_LABEL,
+  type Employee,
   type PayFrequency,
 } from "../schema";
 import { EditEmployeeDialog } from "./edit-employee-dialog";
@@ -112,28 +100,14 @@ export function EmployeesTable({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Apellido y nombre</TableHead>
-              <TableHead>Posición</TableHead>
-              <TableHead>Frecuencia</TableHead>
-              <TableHead className="text-right">Sueldo base</TableHead>
-              <TableHead className="text-right">Viático</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Ingreso</TableHead>
-              <TableHead className="w-24 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <Suspense fallback={<EmployeesTableSkeletonRows />}>
-            <EmployeesTableRows
-              query={deferredQuery}
-              onlyActive={deferredOnlyActive}
-              canWrite={canWrite}
-            />
-          </Suspense>
-        </Table>
+      <div className="mt-4">
+        <Suspense fallback={<DataTable columns={[]} data={[]} isLoading />}>
+          <EmployeesTableRows
+            query={deferredQuery}
+            onlyActive={deferredOnlyActive}
+            canWrite={canWrite}
+          />
+        </Suspense>
       </div>
     </>
   );
@@ -155,116 +129,150 @@ function EmployeesTableRows({
     isFetchingNextPage,
   } = useEmployeesSearchInfinite({ query, onlyActive });
 
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  if (employees.length === 0) {
-    return (
-      <TableBody>
-        <TableRow>
-          <TableCell
-            colSpan={8}
-            className="py-10 text-center text-sm text-muted-foreground"
+  const columns = useMemo<ColumnDef<Employee>[]>(
+    () => [
+      {
+        id: "legal_name",
+        header: "Apellido y nombre",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const employee = row.original;
+          return (
+            <div className={employee.is_active ? undefined : "opacity-60"}>
+              <Link
+                href={`/employees/${employee.id}`}
+                className="font-medium hover:underline"
+              >
+                {employee.legal_name}
+              </Link>
+              {employee.is_monotributo && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  Monotributo
+                </Badge>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "position",
+        header: "Posición",
+        enableSorting: false,
+        meta: { cellClassName: "text-sm text-muted-foreground" },
+        cell: ({ row }) => (
+          <span className={row.original.is_active ? undefined : "opacity-60"}>
+            {row.original.position ?? "—"}
+          </span>
+        ),
+      },
+      {
+        id: "pay_frequency",
+        header: "Frecuencia",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Badge
+            variant="secondary"
+            className={cn(
+              FREQUENCY_BADGE_TONE[row.original.pay_frequency],
+              !row.original.is_active && "opacity-60",
+            )}
           >
-            No hay empleados que coincidan.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    );
-  }
+            {PAY_FREQUENCY_LABEL[row.original.pay_frequency]}
+          </Badge>
+        ),
+      },
+      {
+        id: "base_salary",
+        header: "Sueldo base",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => (
+          <span className={row.original.is_active ? undefined : "opacity-60"}>
+            {formatMoney(row.original.base_salary)}
+          </span>
+        ),
+      },
+      {
+        id: "viatico_monthly",
+        header: "Viático",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => (
+          <span className={row.original.is_active ? undefined : "opacity-60"}>
+            {formatMoney(row.original.viatico_monthly)}
+          </span>
+        ),
+      },
+      {
+        id: "is_active",
+        header: "Estado",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const employee = row.original;
+          return employee.is_active ? (
+            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+              Activo
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground opacity-60">
+              Inactivo
+              {employee.termination_date
+                ? ` (${formatArgentineDate(employee.termination_date)})`
+                : ""}
+            </span>
+          );
+        },
+      },
+      {
+        id: "hire_date",
+        header: "Ingreso",
+        enableSorting: false,
+        meta: { cellClassName: "text-sm text-muted-foreground" },
+        cell: ({ row }) => (
+          <span className={row.original.is_active ? undefined : "opacity-60"}>
+            {formatArgentineDate(row.original.hire_date)}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { align: "right", headerClassName: "w-24" },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            {canWrite && <EditEmployeeDialog employee={row.original} />}
+          </div>
+        ),
+      },
+    ],
+    [canWrite],
+  );
 
   return (
-    <TableBody>
-      {employees.map((employee) => (
-        <TableRow
-          key={employee.id}
-          className={!employee.is_active ? "opacity-60" : undefined}
-        >
-          <TableCell>
-            <Link
-              href={`/employees/${employee.id}`}
-              className="font-medium hover:underline"
-            >
-              {employee.legal_name}
-            </Link>
-            {employee.is_monotributo && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                Monotributo
-              </Badge>
-            )}
-          </TableCell>
-          <TableCell className="text-sm text-muted-foreground">
-            {employee.position ?? "—"}
-          </TableCell>
-          <TableCell>
-            <Badge
-              variant="secondary"
-              className={FREQUENCY_BADGE_TONE[employee.pay_frequency]}
-            >
-              {PAY_FREQUENCY_LABEL[employee.pay_frequency]}
-            </Badge>
-          </TableCell>
-          <TableCell className="text-right font-mono text-sm">
-            {formatMoney(employee.base_salary)}
-          </TableCell>
-          <TableCell className="text-right font-mono text-sm">
-            {formatMoney(employee.viatico_monthly)}
-          </TableCell>
-          <TableCell>
-            {employee.is_active ? (
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                Activo
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">
-                Inactivo
-                {employee.termination_date
-                  ? ` (${formatArgentineDate(employee.termination_date)})`
-                  : ""}
-              </span>
-            )}
-          </TableCell>
-          <TableCell className="text-sm text-muted-foreground">
-            {formatArgentineDate(employee.hire_date)}
-          </TableCell>
-          <TableCell>
-            <div className="flex items-center justify-end gap-1">
-              {canWrite && <EditEmployeeDialog employee={employee} />}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-      {hasNextPage && (
-        <TableRow ref={sentinelRef}>
-          <TableCell
-            colSpan={8}
-            className="py-3 text-center text-xs text-muted-foreground"
+    <DataTable
+      columns={columns}
+      data={employees}
+      getRowId={(employee) => employee.id}
+      emptyMessage="No hay empleados que coincidan."
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
           >
             {isFetchingNextPage ? "Cargando más…" : ""}
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
-  );
-}
-
-function EmployeesTableSkeletonRows() {
-  return (
-    <TableBody>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 8 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </TableBody>
+          </div>
+        ) : null
+      }
+    />
   );
 }
 

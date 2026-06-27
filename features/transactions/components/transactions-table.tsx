@@ -2,9 +2,19 @@
 
 import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useDeferredValue, useEffect, useState } from "react";
+import {
+  Suspense,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  DataTable,
+  type ColumnDef,
+} from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -13,15 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import type { TransactionListItem } from "@/features/transactions/actions/transactions-actions";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -59,6 +61,109 @@ const KIND_ICON: Record<TransactionKind, typeof ArrowUpCircle> = {
   transfer_in: ArrowLeftRight,
   transfer_out: ArrowLeftRight,
 };
+
+function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
+  return useMemo(
+    () => [
+      {
+        id: "transaction_date",
+        header: "Fecha",
+        enableSorting: false,
+        meta: { headerClassName: "w-32" },
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {formatArgentineDate(row.original.transaction_date)}
+          </span>
+        ),
+      },
+      {
+        id: "kind",
+        header: "Tipo",
+        enableSorting: false,
+        meta: { headerClassName: "w-36" },
+        cell: ({ row }) => {
+          const Icon = KIND_ICON[row.original.kind];
+          return (
+            <Badge
+              variant="secondary"
+              className={`gap-1 ${KIND_TONE[row.original.kind]}`}
+            >
+              <Icon className="size-3" />
+              {TRANSACTION_KIND_LABEL[row.original.kind]}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "account_name",
+        header: "Cuenta",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Link
+            href={`/transactions?account=${row.original.account_id}`}
+            className="text-sm hover:underline"
+            title="Filtrar por esta cuenta"
+          >
+            {row.original.account_name}
+          </Link>
+        ),
+      },
+      {
+        id: "channel_name",
+        header: "Canal",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.channel_name}
+          </span>
+        ),
+      },
+      {
+        id: "description",
+        header: "Descripción",
+        enableSorting: false,
+        meta: { cellClassName: "max-w-[260px] truncate text-sm" },
+        cell: ({ row }) => (
+          <>
+            {row.original.description ?? (
+              <span className="text-muted-foreground">—</span>
+            )}
+            {row.original.counterparty_legal_name && (
+              <span className="block text-xs text-muted-foreground">
+                {row.original.counterparty_legal_name}
+              </span>
+            )}
+          </>
+        ),
+      },
+      {
+        id: "amount",
+        header: "Monto",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => {
+          const isOutflow =
+            row.original.kind === "expense" ||
+            row.original.kind === "transfer_out";
+          const sign = isOutflow ? -1 : 1;
+          return (
+            <span
+              className={
+                isOutflow
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+              }
+            >
+              {sign < 0 ? "-" : "+"}
+              {formatMoney(Number(row.original.amount), row.original.currency)}
+            </span>
+          );
+        },
+      },
+    ],
+    [],
+  );
+}
 
 export function TransactionsTable({
   channels,
@@ -101,6 +206,8 @@ export function TransactionsTable({
   const deferredDateTo = useDeferredValue(dateTo);
 
   const canWrite = userCan(actorRoles, "transactions:write");
+
+  const columns = useTransactionColumns();
 
   // Realtime: any transaction insert/update/delete invalidates every
   // filter combo so saldos and movements stay in sync across tabs.
@@ -170,28 +277,19 @@ export function TransactionsTable({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Fecha</TableHead>
-              <TableHead className="w-36">Tipo</TableHead>
-              <TableHead>Cuenta</TableHead>
-              <TableHead>Canal</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-            </TableRow>
-          </TableHeader>
-          <Suspense fallback={<TransactionsTableSkeletonRows />}>
-            <TransactionsTableRows
-              channelId={deferredChannel}
-              accountId={deferredAccount}
-              kind={deferredKind}
-              dateFrom={deferredDateFrom || null}
-              dateTo={deferredDateTo || null}
-            />
-          </Suspense>
-        </Table>
+      <div className="mt-4">
+        <Suspense
+          fallback={<DataTable columns={columns} data={[]} isLoading />}
+        >
+          <TransactionsTableRows
+            columns={columns}
+            channelId={deferredChannel}
+            accountId={deferredAccount}
+            kind={deferredKind}
+            dateFrom={deferredDateFrom || null}
+            dateTo={deferredDateTo || null}
+          />
+        </Suspense>
       </div>
     </>
   );
@@ -253,12 +351,14 @@ function DateRange({
 }
 
 function TransactionsTableRows({
+  columns,
   channelId,
   accountId,
   kind,
   dateFrom,
   dateTo,
 }: {
+  columns: ColumnDef<TransactionListItem>[];
   channelId: string | null;
   accountId: string | null;
   kind: TransactionKind | null;
@@ -274,108 +374,29 @@ function TransactionsTableRows({
       date_to: dateTo,
     });
 
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  if (items.length === 0) {
-    return (
-      <TableBody>
-        <TableRow>
-          <TableCell
-            colSpan={6}
-            className="py-10 text-center text-sm text-muted-foreground"
-          >
-            No hay movimientos que coincidan.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    );
-  }
-
   return (
-    <TableBody>
-      {items.map((row) => {
-        const Icon = KIND_ICON[row.kind];
-        const isOutflow = row.kind === "expense" || row.kind === "transfer_out";
-        const sign = isOutflow ? -1 : 1;
-        return (
-          <TableRow key={row.id}>
-            <TableCell className="text-sm text-muted-foreground">
-              {formatArgentineDate(row.transaction_date)}
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary" className={`gap-1 ${KIND_TONE[row.kind]}`}>
-                <Icon className="size-3" />
-                {TRANSACTION_KIND_LABEL[row.kind]}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-sm">
-              <Link
-                href={`/transactions?account=${row.account_id}`}
-                className="hover:underline"
-                title="Filtrar por esta cuenta"
-              >
-                {row.account_name}
-              </Link>
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
-              {row.channel_name}
-            </TableCell>
-            <TableCell className="max-w-[260px] truncate text-sm">
-              {row.description ?? (
-                <span className="text-muted-foreground">—</span>
-              )}
-              {row.counterparty_legal_name && (
-                <span className="block text-xs text-muted-foreground">
-                  {row.counterparty_legal_name}
-                </span>
-              )}
-            </TableCell>
-            <TableCell className="text-right font-mono text-sm">
-              <span
-                className={
-                  isOutflow
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-emerald-600 dark:text-emerald-400"
-                }
-              >
-                {sign < 0 ? "-" : "+"}
-                {formatMoney(Number(row.amount), row.currency)}
-              </span>
-            </TableCell>
-          </TableRow>
-        );
-      })}
-      {hasNextPage && (
-        <TableRow ref={sentinelRef}>
-          <TableCell
-            colSpan={6}
-            className="py-3 text-center text-xs text-muted-foreground"
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(row) => row.id}
+      emptyMessage="No hay movimientos que coincidan."
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
           >
             {isFetchingNextPage ? "Cargando más…" : ""}
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
-  );
-}
-
-function TransactionsTableSkeletonRows() {
-  return (
-    <TableBody>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </TableBody>
+          </div>
+        ) : null
+      }
+    />
   );
 }
