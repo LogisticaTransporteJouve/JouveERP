@@ -4,6 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,10 +120,13 @@ export function CostCentersTable() {
             flota / proyecto / obra.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nuevo centro
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="cost-centers" label="Exportar PDF" />
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nuevo centro
+          </Button>
+        </div>
       </div>
 
       <DataTable

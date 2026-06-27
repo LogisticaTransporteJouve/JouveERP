@@ -4,6 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,10 +67,13 @@ export function PalletsTable({
             Unidades físicas almacenadas por depósito y cliente.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nuevo pallet
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="pallets" label="Exportar PDF" />
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nuevo pallet
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">

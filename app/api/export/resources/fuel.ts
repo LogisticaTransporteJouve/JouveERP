@@ -1,0 +1,62 @@
+import "server-only";
+
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { createClient } from "@/lib/supabase/server";
+
+import { money, type Exporter } from "../shared";
+
+// Portrait A4 ≈ 547pt of usable width.
+const COLUMNS: TableReportColumn[] = [
+  { header: "Fecha", width: 70, mono: true },
+  { header: "Vehículo", width: 80, mono: true },
+  { header: "Litros", width: 70, align: "right", mono: true },
+  { header: "Importe", width: 95, align: "right", mono: true },
+  { header: "Odómetro", width: 80, align: "right", mono: true },
+  { header: "Estación", width: 152 },
+];
+
+type VehicleJoin = { patente: string };
+
+export const fuel: Exporter = {
+  permission: "fuel:read",
+  load: async (_params, range) => {
+    const supabase = await createClient();
+
+    let query = supabase
+      .from("fuel_loads")
+      .select(
+        "load_date, liters, amount, odometer_km, station, vehicles!inner(patente)",
+      )
+      .order("load_date", { ascending: true });
+
+    if (range.from) query = query.gte("load_date", range.from);
+    if (range.to) query = query.lte("load_date", range.to);
+
+    const { data, error } = await query;
+    if (error) throw new Error("No se pudieron cargar las cargas de combustible.");
+
+    let total = 0;
+    const rows = (data ?? []).map((row) => {
+      const vehicle: VehicleJoin = row.vehicles;
+      const amount = Number(row.amount);
+      total += amount;
+      return [
+        formatArgentineDate(row.load_date),
+        vehicle.patente,
+        formatNumber2(Number(row.liters)),
+        money(amount),
+        row.odometer_km === null ? "—" : formatNumber2(Number(row.odometer_km)),
+        row.station ?? "—",
+      ];
+    });
+
+    return {
+      title: "Cargas de combustible",
+      columns: COLUMNS,
+      rows,
+      totalsRow: ["", "", "", money(total), "", ""],
+      fileName: "cargas-combustible",
+    };
+  },
+};

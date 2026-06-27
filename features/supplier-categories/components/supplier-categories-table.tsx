@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,10 +77,13 @@ export function SupplierCategoriesTable() {
             Clasificá los proveedores para filtrar y agrupar gastos.
           </p>
         </div>
-        <Button onClick={() => setDialogState({ mode: "create" })}>
-          <Plus />
-          Nueva categoría
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="supplier-categories" label="Exportar PDF" />
+          <Button onClick={() => setDialogState({ mode: "create" })}>
+            <Plus />
+            Nueva categoría
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">

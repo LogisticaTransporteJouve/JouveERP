@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,10 +83,13 @@ export function ExchangeRatesPage() {
             BCRA; podés cargar una manual como override.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus />
-          Cargar cotización
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="exchange-rates" label="Exportar PDF" />
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus />
+            Cargar cotización
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border bg-card">
