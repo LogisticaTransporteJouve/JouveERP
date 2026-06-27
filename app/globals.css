@@ -157,3 +157,78 @@
     @apply underline underline-offset-2 hover:no-underline;
   }
 }
+
+/* Markdown rendering for AI assistant replies. Richer than .prose-chat:
+ * headings and tables are allowed because the AI leans on them. Monocromo. */
+@layer components {
+  .prose-ai p {
+    @apply m-0;
+  }
+  .prose-ai p + p,
+  .prose-ai p + ul,
+  .prose-ai p + ol,
+  .prose-ai p + table {
+    @apply mt-2;
+  }
+  .prose-ai h1,
+  .prose-ai h2,
+  .prose-ai h3,
+  .prose-ai h4 {
+    @apply mt-3 mb-1 font-semibold first:mt-0;
+  }
+  .prose-ai h1 {
+    @apply text-base;
+  }
+  .prose-ai h2,
+  .prose-ai h3,
+  .prose-ai h4 {
+    @apply text-sm;
+  }
+  .prose-ai strong {
+    @apply font-semibold;
+  }
+  .prose-ai em {
+    @apply italic;
+  }
+  .prose-ai code:not(pre code) {
+    @apply rounded bg-background px-1 py-0.5 font-mono text-[12px];
+  }
+  .prose-ai pre {
+    @apply my-2 overflow-x-auto rounded-md bg-background p-2 font-mono text-[12px];
+  }
+  .prose-ai pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-ai ul,
+  .prose-ai ol {
+    @apply my-1 ml-5 list-outside;
+  }
+  .prose-ai ul {
+    @apply list-disc;
+  }
+  .prose-ai ol {
+    @apply list-decimal;
+  }
+  .prose-ai li {
+    @apply my-0.5;
+  }
+  .prose-ai blockquote {
+    @apply my-2 border-l-2 border-muted-foreground/30 pl-3 text-muted-foreground;
+  }
+  .prose-ai a {
+    @apply underline underline-offset-2 hover:no-underline;
+  }
+  .prose-ai hr {
+    @apply my-3 border-border;
+  }
+  .prose-ai table {
+    @apply my-2 block w-full border-collapse overflow-x-auto text-[12px];
+  }
+  .prose-ai th,
+  .prose-ai td {
+    @apply border border-border px-2 py-1 text-left align-top;
+  }
+  .prose-ai th {
+    @apply bg-background font-semibold;
+  }
+}

@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { AiMarkdown } from "../lib/markdown";
+
 import { ToolArtifact, toolLabel } from "./tool-renderers";
 
 const SUGGESTIONS = [
@@ -115,7 +117,11 @@ export function AiChat({
               >
                 {m.parts.map((part, i) => {
                   if (part.type === "text") {
-                    return (
+                    // User input stays plain text; assistant replies are
+                    // trusted markdown (headings, tables, lists).
+                    return m.role === "assistant" ? (
+                      <AiMarkdown key={i} body={part.text} />
+                    ) : (
                       <p key={i} className="whitespace-pre-wrap">
                         {part.text}
                       </p>
