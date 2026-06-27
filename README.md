@@ -58,8 +58,18 @@ viva en [`docs/pendientes.md`](docs/pendientes.md).)
 
 ## Desarrollo local
 
-Tres procesos en paralelo. Lo más cómodo es abrir tres terminales en VS Code
-(cada uno con `cwd` en la raíz del repo):
+Un solo comando levanta todo (Supabase + Next.js + Inngest dev runtime):
+
+```bash
+pnpm dev:up
+```
+
+Arranca Supabase, y luego corre Next y el runtime de Inngest en paralelo
+(salida con prefijos `next`/`inngest`; `Ctrl-C` baja ambos). Requiere el CLI
+de Supabase instalado y Docker corriendo.
+
+<details>
+<summary>O los tres procesos por separado (tres terminales)</summary>
 
 ```bash
 # Terminal 1 — Supabase (Postgres + Auth + Storage)
@@ -71,6 +81,8 @@ pnpm dev
 # Terminal 3 — Inngest dev runtime (descubre funciones en /api/inngest)
 pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 ```
+
+</details>
 
 La UI de Inngest queda en <http://localhost:8288>. Si no tocás workflows
 en una sesión, podés saltearte el terminal 3 — los endpoints siguen

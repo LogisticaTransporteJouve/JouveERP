@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:up": "supabase start && concurrently -k -n next,inngest -c cyan,magenta \"pnpm dev\" \"pnpm dev:inngest\"",
+    "dev:inngest": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -91,6 +93,7 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^10.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "husky": "^9.1.7",
