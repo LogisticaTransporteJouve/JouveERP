@@ -248,13 +248,15 @@ export function ClientAccountTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.length === 0 ? (
+            {filteredMovements.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
-                  Este cliente todavía no tiene movimientos.
+                  {movements.length === 0
+                    ? "Este cliente todavía no tiene movimientos."
+                    : "No hay movimientos en el período seleccionado."}
                 </TableCell>
               </TableRow>
             ) : (

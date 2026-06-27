@@ -247,13 +247,15 @@ export function SupplierAccountTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.length === 0 ? (
+            {filteredMovements.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={8}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
-                  Sin movimientos todavía.
+                  {movements.length === 0
+                    ? "Sin movimientos todavía."
+                    : "No hay movimientos en el período seleccionado."}
                 </TableCell>
               </TableRow>
             ) : (
