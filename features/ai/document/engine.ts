@@ -20,6 +20,14 @@ const INVOICE_KINDS = new Set<ExtractableKind>([
   "nc_nd",
 ]);
 
+// Force the json-tool path instead of Anthropic's constrained-decoding
+// structured outputs. Extraction schemas have many optional/nullable fields,
+// which make the grammar compilation blow up ("too many union types" /
+// "grammar compilation timed out"). The tool path is still validated by Zod.
+const ANTHROPIC_OBJECT_OPTIONS = {
+  anthropic: { structuredOutputMode: "jsonTool" },
+};
+
 export type DocumentBytes = { bytes: Uint8Array; mediaType: string };
 
 /** Build the model content part for a document (image vs PDF/other). */
@@ -61,6 +69,7 @@ export async function classifyDocument(
     system: CLASSIFY_SYSTEM,
     maxRetries: 2,
     messages: [{ role: "user", content }],
+    providerOptions: ANTHROPIC_OBJECT_OPTIONS,
   });
   return object;
 }
@@ -86,6 +95,7 @@ export async function extractDocument(
         system: EXTRACT_SYSTEM,
         maxRetries: 2,
         messages: [{ role: "user", content }],
+        providerOptions: ANTHROPIC_OBJECT_OPTIONS,
       }),
       generateObject({
         model: buildExtractionModel(),
@@ -94,6 +104,7 @@ export async function extractDocument(
         system: EXTRACT_SYSTEM,
         maxRetries: 2,
         messages: [{ role: "user", content }],
+        providerOptions: ANTHROPIC_OBJECT_OPTIONS,
       }),
     ]);
     return { ...header.object, items: lines.object.items };
@@ -106,6 +117,7 @@ export async function extractDocument(
     system: EXTRACT_SYSTEM,
     maxRetries: 2,
     messages: [{ role: "user", content }],
+    providerOptions: ANTHROPIC_OBJECT_OPTIONS,
   });
   return object;
 }
