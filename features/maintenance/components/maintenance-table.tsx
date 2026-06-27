@@ -1,27 +1,20 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import { useDeleteMaintenance, useMaintenance } from "../hooks/use-maintenance";
 import { MAINTENANCE_KIND_LABELS, type MaintenanceRecord } from "../schema";
@@ -47,19 +40,103 @@ export function MaintenanceTable({
     | null
   >(null);
 
-  async function handleDelete(r: MaintenanceRecord) {
-    const ok = await confirm({
-      title: `Borrar mantenimiento del ${r.service_date}`,
-      description: "Esta acción no se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(r.id, {
-      onSuccess: () => toast.success("Mantenimiento borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<MaintenanceRecord>[]>(() => {
+    async function handleDelete(r: MaintenanceRecord) {
+      const ok = await confirm({
+        title: `Borrar mantenimiento del ${r.service_date}`,
+        description: "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(r.id, {
+        onSuccess: () => toast.success("Mantenimiento borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "service_date",
+        header: "Fecha",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.service_date}</span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        id: "vehicle",
+        header: "Vehículo",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.vehicle?.patente ?? "—"}
+          </span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "kind",
+        header: "Tipo",
+        cell: ({ row }) => (
+          <Badge variant="secondary">
+            {MAINTENANCE_KIND_LABELS[row.original.kind]}
+          </Badge>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "description",
+        header: "Descripción",
+        cell: ({ row }) => row.original.description,
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "cost",
+        header: "Costo",
+        cell: ({ row }) => formatMoney(row.original.cost),
+        meta: { headerClassName: "w-32", cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "next_service_date",
+        header: "Próx. service",
+        cell: ({ row }) => row.original.next_service_date ?? "—",
+        meta: { headerClassName: "w-32", cellClassName: "text-sm" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", record: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <>
@@ -82,82 +159,12 @@ export function MaintenanceTable({
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Fecha</TableHead>
-              <TableHead className="w-32">Vehículo</TableHead>
-              <TableHead className="w-32">Tipo</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead className="w-32">Costo</TableHead>
-              <TableHead className="w-32">Próx. service</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin mantenimientos. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">
-                    {r.service_date}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {r.vehicle?.patente ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {MAINTENANCE_KIND_LABELS[r.kind]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{r.description}</TableCell>
-                  <TableCell className="text-sm">
-                    {formatMoney(r.cost)}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {r.next_service_date ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialog({ mode: "edit", record: r })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(r)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(r) => r.id}
+        emptyMessage="Sin mantenimientos. Agregá el primero."
+      />
 
       {dialog && (
         <MaintenanceDialog

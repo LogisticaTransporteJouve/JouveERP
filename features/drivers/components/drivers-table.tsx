@@ -1,12 +1,13 @@
 "use client";
 
 import { Link2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,14 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useDeleteDriver,
@@ -48,19 +41,113 @@ export function DriversTable({
   const [linkDriver, setLinkDriver] = useState<Driver | null>(null);
   const canLink = linkableUsers !== undefined;
 
-  async function handleDelete(d: Driver) {
-    const ok = await confirm({
-      title: `Borrar ${d.full_name}`,
-      description: "Si tiene viajes, quedan sin chofer asignado.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(d.id, {
-      onSuccess: () => toast.success("Chofer borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<Driver>[]>(() => {
+    async function handleDelete(d: Driver) {
+      const ok = await confirm({
+        title: `Borrar ${d.full_name}`,
+        description: "Si tiene viajes, quedan sin chofer asignado.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(d.id, {
+        onSuccess: () => toast.success("Chofer borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "full_name",
+        header: "Nombre",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.full_name}</span>
+        ),
+      },
+      {
+        accessorKey: "cuit",
+        header: "CUIT",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
+        ),
+        meta: { headerClassName: "w-40" },
+      },
+      {
+        accessorKey: "license_number",
+        header: "Licencia",
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {row.original.license_number ?? "—"}
+            {row.original.license_category
+              ? ` (${row.original.license_category})`
+              : ""}
+          </span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "phone",
+        header: "Teléfono",
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.phone ?? "—"}</span>
+        ),
+        meta: { headerClassName: "w-36" },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Activo",
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.is_active}
+            onCheckedChange={(v) =>
+              toggleMut.mutate(
+                { id: row.original.id, is_active: v },
+                { onError: (err) => toast.error(err.message) },
+              )
+            }
+            aria-label="Activo"
+          />
+        ),
+        meta: { headerClassName: "w-20" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => setDialog({ mode: "edit", driver: row.original })}
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              {canLink && (
+                <DropdownMenuItem onClick={() => setLinkDriver(row.original)}>
+                  <Link2 className="size-4" />
+                  {row.original.user_id ? "Cambiar usuario" : "Vincular usuario"}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut, toggleMut, canLink]);
 
   return (
     <>
@@ -80,88 +167,12 @@ export function DriversTable({
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead className="w-40">CUIT</TableHead>
-              <TableHead className="w-32">Licencia</TableHead>
-              <TableHead className="w-36">Teléfono</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin choferes. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.full_name}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {d.cuit ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {d.license_number ?? "—"}
-                    {d.license_category ? ` (${d.license_category})` : ""}
-                  </TableCell>
-                  <TableCell className="text-sm">{d.phone ?? "—"}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={d.is_active}
-                      onCheckedChange={(v) =>
-                        toggleMut.mutate(
-                          { id: d.id, is_active: v },
-                          { onError: (err) => toast.error(err.message) },
-                        )
-                      }
-                      aria-label="Activo"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => setDialog({ mode: "edit", driver: d })}
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        {canLink && (
-                          <DropdownMenuItem onClick={() => setLinkDriver(d)}>
-                            <Link2 className="size-4" />
-                            {d.user_id ? "Cambiar usuario" : "Vincular usuario"}
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(d)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(d) => d.id}
+        emptyMessage="Sin choferes. Agregá el primero."
+      />
 
       {dialog && (
         <DriverDialog
