@@ -12,7 +12,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
-import { FilePreviewDialog } from "@/components/file-preview/file-preview-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,35 +25,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
 
-import { ExtractionPayload } from "./extraction-payload";
-import { ReviewActions } from "./review-actions";
 import {
   useDiscardExtraction,
-  useExtraction,
   usePendingExtractions,
   useScanDocument,
 } from "../hooks/use-documents";
+import { documentTypeLabel } from "../lib/document-config";
 
-const TYPE_LABELS: Record<string, string> = {
-  factura_compra: "Factura de compra",
-  factura_venta: "Factura de venta",
-  recibo: "Recibo",
-  orden_pago: "Orden de pago",
-  remito: "Remito",
-  cheque: "Cheque",
-  extracto: "Extracto",
-  nc_nd: "NC / ND",
-  otro: "Otro",
-};
+import { ReviewSheet } from "./review-sheet";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -71,15 +51,11 @@ function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
   return { name, duplicate: typeof matches.duplicate_of === "string" };
 }
 
-type PreviewState = { url: string | null; filename: string; mimeType: string | null };
-
 export function DocumentsTray() {
   const { data: rows = [], isLoading } = usePendingExtractions();
   const scan = useScanDocument();
   const discard = useDiscardExtraction();
-  const [preview, setPreview] = useState<PreviewState | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const detail = useExtraction(detailId);
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   function handleFile(file: File) {
     scan.mutate(file, {
@@ -87,17 +63,6 @@ export function DocumentsTray() {
       onError: (err) =>
         toast.error(err instanceof Error ? err.message : "No se pudo escanear."),
     });
-  }
-
-  async function openPreview(fileId: string, filename: string, mimeType: string | null) {
-    setPreview({ url: null, filename, mimeType });
-    try {
-      const signed = await fetchSignedUrl(fileId);
-      setPreview({ url: signed.url, filename: signed.filename, mimeType: signed.mimeType });
-    } catch {
-      toast.error("No se pudo abrir el archivo.");
-      setPreview(null);
-    }
   }
 
   return (
@@ -153,8 +118,7 @@ export function DocumentsTray() {
                         <>
                           <Badge variant="outline" className="gap-1">
                             <Sparkles className="size-3" />
-                            {TYPE_LABELS[row.detected_type ?? "otro"] ??
-                              row.detected_type}
+                            {documentTypeLabel(row.detected_type)}
                             {row.confidence !== null
                               ? ` · ${Math.round(row.confidence * 100)}%`
                               : ""}
@@ -177,21 +141,12 @@ export function DocumentsTray() {
 
                   <div className="flex shrink-0 items-center gap-1">
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        openPreview(row.file_id, filename, row.file?.mime_type ?? null)
-                      }
-                    >
-                      Archivo
-                    </Button>
-                    <Button
                       variant="outline"
                       size="sm"
                       disabled={processing}
-                      onClick={() => setDetailId(row.id)}
+                      onClick={() => setReviewId(row.id)}
                     >
-                      Datos
+                      Revisar
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -224,43 +179,12 @@ export function DocumentsTray() {
         )}
       </section>
 
-      <FilePreviewDialog
-        open={preview !== null}
+      <ReviewSheet
+        extractionId={reviewId}
         onOpenChange={(open) => {
-          if (!open) setPreview(null);
+          if (!open) setReviewId(null);
         }}
-        url={preview?.url ?? null}
-        filename={preview?.filename ?? ""}
-        mimeType={preview?.mimeType ?? null}
       />
-
-      <Dialog
-        open={detailId !== null}
-        onOpenChange={(open) => {
-          if (!open) setDetailId(null);
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Datos extraídos</DialogTitle>
-          </DialogHeader>
-          {detail.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : detail.data ? (
-            <div className="space-y-4">
-              <ExtractionPayload payload={detail.data.payload} />
-              <ReviewActions
-                extraction={detail.data}
-                onCreated={() => setDetailId(null)}
-              />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No se pudo cargar la extracción.
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
