@@ -108,18 +108,17 @@ export function ReviewSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* Floating document sidecar, to the left of the 600px Sheet (desktop). */}
+      {/* Floating document sidecar, to the left of the 600px Sheet (desktop).
+          The document floats directly on the dimmed backdrop — no card frame. */}
       {open && (
-        <div className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-6 lg:flex">
-          <div className="pointer-events-auto relative h-full w-full max-w-3xl overflow-hidden rounded-lg border bg-card shadow-xl">
-            <FilePreviewSurface
-              url={preview?.url ?? null}
-              filename={preview?.filename ?? "documento"}
-              mimeType={preview?.mimeType ?? null}
-              isLoading={preview?.loading ?? true}
-              className="h-full"
-            />
-          </div>
+        <div className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-8 lg:flex">
+          <FilePreviewSurface
+            url={preview?.url ?? null}
+            filename={preview?.filename ?? "documento"}
+            mimeType={preview?.mimeType ?? null}
+            isLoading={preview?.loading ?? true}
+            className="pointer-events-auto h-full w-full max-w-3xl"
+          />
         </div>
       )}
 
