@@ -1,12 +1,13 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,14 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useDeleteProduct,
@@ -45,19 +38,104 @@ export function ProductsTable({
     { mode: "create" } | { mode: "edit"; product: Product } | null
   >(null);
 
-  async function handleDelete(p: Product) {
-    const ok = await confirm({
-      title: `Borrar ${p.name}`,
-      description: "Esta acción no se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(p.id, {
-      onSuccess: () => toast.success("Producto borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<Product>[]>(() => {
+    async function handleDelete(p: Product) {
+      const ok = await confirm({
+        title: `Borrar ${p.name}`,
+        description: "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(p.id, {
+        onSuccess: () => toast.success("Producto borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "name",
+        header: "Producto",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.name}</span>
+        ),
+      },
+      {
+        id: "client",
+        header: "Cliente",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.client?.legal_name ?? "—"}</span>
+        ),
+      },
+      {
+        accessorKey: "sku",
+        header: "SKU",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.sku ?? "—"}</span>
+        ),
+        meta: { headerClassName: "w-40" },
+      },
+      {
+        accessorKey: "unit",
+        header: "Unidad",
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.unit ?? "—"}</span>
+        ),
+        meta: { headerClassName: "w-28" },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Activo",
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.is_active}
+            onCheckedChange={(v) =>
+              toggleMut.mutate(
+                { id: row.original.id, is_active: v },
+                { onError: (err) => toast.error(err.message) },
+              )
+            }
+            aria-label="Activo"
+          />
+        ),
+        meta: { headerClassName: "w-20" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", product: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -77,83 +155,12 @@ export function ProductsTable({
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Producto</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="w-40">SKU</TableHead>
-              <TableHead className="w-28">Unidad</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin productos. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="text-sm">
-                    {p.client?.legal_name ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {p.sku ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">{p.unit ?? "—"}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={p.is_active}
-                      onCheckedChange={(v) =>
-                        toggleMut.mutate(
-                          { id: p.id, is_active: v },
-                          { onError: (err) => toast.error(err.message) },
-                        )
-                      }
-                      aria-label="Activo"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialog({ mode: "edit", product: p })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(p)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(p) => p.id}
+        emptyMessage="Sin productos. Agregá el primero."
+      />
 
       {dialog && (
         <ProductDialog

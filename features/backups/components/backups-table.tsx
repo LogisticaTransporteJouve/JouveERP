@@ -1,19 +1,12 @@
 "use client";
 
 import { Download, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { formatArgentineDate } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
 
@@ -31,7 +24,7 @@ function formatSize(bytes: number): string {
 export function BackupsTable({ items }: { items: BackupFile[] }) {
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  async function handleDownload(name: string) {
+  const handleDownload = useCallback(async (name: string) => {
     setDownloading(name);
     try {
       const res = await runAction(() => getBackupSignedUrlAction(name));
@@ -42,7 +35,76 @@ export function BackupsTable({ items }: { items: BackupFile[] }) {
     } finally {
       setDownloading(null);
     }
-  }
+  }, []);
+
+  const columns = useMemo<ColumnDef<BackupFile>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Archivo",
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">
+            {row.original.name}
+            {row.index === 0 && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                último
+              </Badge>
+            )}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "size",
+        header: "Tamaño",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {formatSize(row.original.size)}
+          </span>
+        ),
+        meta: { headerClassName: "w-28", align: "right" },
+      },
+      {
+        accessorKey: "sha256",
+        header: "SHA256",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.sha256 ? row.original.sha256.slice(0, 16) + "…" : "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Subido",
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {row.original.createdAt
+              ? formatArgentineDate(row.original.createdAt)
+              : "—"}
+          </span>
+        ),
+        meta: { headerClassName: "w-40" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-32" },
+        cell: ({ row }) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownload(row.original.name)}
+            disabled={downloading === row.original.name}
+          >
+            <Download className="size-3" />
+            {downloading === row.original.name ? "..." : "Descargar"}
+          </Button>
+        ),
+      },
+    ],
+    [downloading, handleDownload],
+  );
 
   if (items.length === 0) {
     return (
@@ -56,53 +118,11 @@ export function BackupsTable({ items }: { items: BackupFile[] }) {
   }
 
   return (
-    <div className="rounded-lg border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Archivo</TableHead>
-            <TableHead className="w-28 text-right">Tamaño</TableHead>
-            <TableHead>SHA256</TableHead>
-            <TableHead className="w-40">Subido</TableHead>
-            <TableHead className="w-32" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((b, i) => (
-            <TableRow key={b.name}>
-              <TableCell className="font-mono text-sm">
-                {b.name}
-                {i === 0 && (
-                  <Badge variant="outline" className="ml-2 text-xs">
-                    último
-                  </Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right font-mono text-xs">
-                {formatSize(b.size)}
-              </TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {b.sha256 ? b.sha256.slice(0, 16) + "…" : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {b.createdAt ? formatArgentineDate(b.createdAt) : "—"}
-              </TableCell>
-              <TableCell>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownload(b.name)}
-                  disabled={downloading === b.name}
-                >
-                  <Download className="size-3" />
-                  {downloading === b.name ? "..." : "Descargar"}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(b) => b.name}
+      emptyMessage="No hay backups todavía."
+    />
   );
 }

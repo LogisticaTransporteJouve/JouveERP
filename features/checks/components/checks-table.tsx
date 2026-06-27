@@ -3,19 +3,13 @@
 import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Role } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
+import type { CheckListItem } from "../actions/checks-actions";
 import { useChecksList } from "../hooks/use-checks";
 import { checksKeys } from "../lib/checks-keys";
 import {
@@ -83,6 +77,97 @@ export function ChequesTable({
     [items],
   );
 
+  const columns = useMemo<ColumnDef<CheckListItem>[]>(
+    () => [
+      {
+        accessorKey: "kind",
+        header: "Tipo",
+        cell: ({ row }) => (
+          <span className="text-sm">{CHECK_KIND_LABEL[row.original.kind]}</span>
+        ),
+      },
+      {
+        accessorKey: "check_number",
+        header: "Número",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.check_number}</span>
+        ),
+      },
+      {
+        accessorKey: "bank_name",
+        header: "Banco",
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.bank_name}</span>
+        ),
+      },
+      {
+        accessorKey: "drawer_name",
+        header: "Firmante",
+        cell: ({ row }) => (
+          <div className="text-sm">
+            {row.original.drawer_name}
+            {row.original.source_client_legal_name && (
+              <div className="text-xs text-muted-foreground">
+                via {row.original.source_client_legal_name}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "due_date",
+        header: "Vencimiento",
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {formatArgentineDate(row.original.due_date)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "amount",
+        header: "Monto",
+        meta: { align: "right" },
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">
+            {formatMoney(Number(row.original.amount), row.original.currency)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Estado",
+        cell: ({ row }) => (
+          <Badge variant="secondary" className={STATUS_TONE[row.original.status]}>
+            {CHECK_STATUS_LABEL[row.original.status]}
+          </Badge>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { align: "right", headerClassName: "w-[280px]" },
+        cell: ({ row }) => {
+          const c = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {canWrite && c.status === "en_cartera" && (
+                <DepositChequeDialog check={c} channels={channels} />
+              )}
+              {canWrite && c.status === "depositado" && (
+                <>
+                  <CreditChequeDialog check={c} />
+                  <RejectChequeDialog check={c} channels={channels} />
+                </>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [canWrite, channels],
+  );
+
   return (
     <>
       {/* Summary cards by status */}
@@ -105,83 +190,13 @@ export function ChequesTable({
         </div>
       )}
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Número</TableHead>
-              <TableHead>Banco</TableHead>
-              <TableHead>Firmante</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="w-[280px] text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Todavía no hay cheques.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((c) => {
-                return (
-                  <TableRow key={c.id}>
-                    <TableCell className="text-sm">
-                      {CHECK_KIND_LABEL[c.kind]}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {c.check_number}
-                    </TableCell>
-                    <TableCell className="text-sm">{c.bank_name}</TableCell>
-                    <TableCell className="text-sm">
-                      {c.drawer_name}
-                      {c.source_client_legal_name && (
-                        <div className="text-xs text-muted-foreground">
-                          via {c.source_client_legal_name}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(c.due_date)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {formatMoney(Number(c.amount), c.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={STATUS_TONE[c.status]}
-                      >
-                        {CHECK_STATUS_LABEL[c.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {canWrite && c.status === "en_cartera" && (
-                          <DepositChequeDialog check={c} channels={channels} />
-                        )}
-                        {canWrite && c.status === "depositado" && (
-                          <>
-                            <CreditChequeDialog check={c} />
-                            <RejectChequeDialog check={c} channels={channels} />
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(c) => c.id}
+        emptyMessage="Todavía no hay cheques."
+        wrapperClassName="mt-4"
+      />
     </>
   );
 }

@@ -1,27 +1,20 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 import {
@@ -53,19 +46,101 @@ export function FleetDocumentsTable({
     { mode: "create" } | { mode: "edit"; doc: FleetDocument } | null
   >(null);
 
-  async function handleDelete(d: FleetDocument) {
-    const ok = await confirm({
-      title: `Borrar documento ${FLEET_DOC_KIND_LABELS[d.kind]}`,
-      description: "Esta acción no se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(d.id, {
-      onSuccess: () => toast.success("Documento borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<FleetDocument>[]>(() => {
+    async function handleDelete(d: FleetDocument) {
+      const ok = await confirm({
+        title: `Borrar documento ${FLEET_DOC_KIND_LABELS[d.kind]}`,
+        description: "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(d.id, {
+        onSuccess: () => toast.success("Documento borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        id: "owner",
+        header: "Dueño",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              {row.original.driver ? "Chofer" : "Vehículo"}
+            </Badge>
+            <span className="font-medium">
+              {row.original.vehicle?.patente ??
+                row.original.driver?.full_name ??
+                "—"}
+            </span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "kind",
+        header: "Tipo",
+        cell: ({ row }) => (
+          <Badge variant="secondary">
+            {FLEET_DOC_KIND_LABELS[row.original.kind]}
+          </Badge>
+        ),
+        meta: { headerClassName: "w-40" },
+      },
+      {
+        accessorKey: "number",
+        header: "N°",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.number ?? "—"}</span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "expires_at",
+        header: "Vence",
+        cell: ({ row }) => (
+          <span className={cn("text-sm", expiryClass(row.original.expires_at))}>
+            {row.original.expires_at}
+          </span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", doc: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <>
@@ -88,83 +163,12 @@ export function FleetDocumentsTable({
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Dueño</TableHead>
-              <TableHead className="w-40">Tipo</TableHead>
-              <TableHead className="w-32">N°</TableHead>
-              <TableHead className="w-32">Vence</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin documentación. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        {d.driver ? "Chofer" : "Vehículo"}
-                      </Badge>
-                      <span className="font-medium">
-                        {d.vehicle?.patente ?? d.driver?.full_name ?? "—"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {FLEET_DOC_KIND_LABELS[d.kind]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {d.number ?? "—"}
-                  </TableCell>
-                  <TableCell
-                    className={cn("text-sm", expiryClass(d.expires_at))}
-                  >
-                    {d.expires_at}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => setDialog({ mode: "edit", doc: d })}
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(d)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(d) => d.id}
+        emptyMessage="Sin documentación. Agregá el primero."
+      />
 
       {dialog && (
         <FleetDocumentDialog

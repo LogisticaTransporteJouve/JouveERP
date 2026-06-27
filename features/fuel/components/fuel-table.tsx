@@ -1,26 +1,19 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import { useDeleteFuelLoad, useFuelLoads } from "../hooks/use-fuel";
 import type { FuelLoad } from "../schema";
@@ -50,19 +43,100 @@ export function FuelTable({
     { mode: "create" } | { mode: "edit"; fuelLoad: FuelLoad } | null
   >(null);
 
-  async function handleDelete(f: FuelLoad) {
-    const ok = await confirm({
-      title: `Borrar carga del ${f.load_date}`,
-      description: "Esta acción no se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(f.id, {
-      onSuccess: () => toast.success("Carga borrada."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<FuelLoad>[]>(() => {
+    async function handleDelete(f: FuelLoad) {
+      const ok = await confirm({
+        title: `Borrar carga del ${f.load_date}`,
+        description: "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(f.id, {
+        onSuccess: () => toast.success("Carga borrada."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "load_date",
+        header: "Fecha",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.load_date}</span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        id: "vehicle",
+        header: "Vehículo",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.vehicle?.patente ?? "—"}
+          </span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "liters",
+        header: "Litros",
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {row.original.liters.toLocaleString("es-AR")}
+          </span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "amount",
+        header: "Importe",
+        cell: ({ row }) => (
+          <span className="text-sm">{formatMoney(row.original.amount)}</span>
+        ),
+        meta: { headerClassName: "w-36" },
+      },
+      {
+        accessorKey: "station",
+        header: "Estación",
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.station ?? "—"}</span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", fuelLoad: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <>
@@ -84,74 +158,12 @@ export function FuelTable({
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Fecha</TableHead>
-              <TableHead className="w-32">Vehículo</TableHead>
-              <TableHead className="w-32">Litros</TableHead>
-              <TableHead className="w-36">Importe</TableHead>
-              <TableHead>Estación</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin cargas. Agregá la primera.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((f) => (
-                <TableRow key={f.id}>
-                  <TableCell className="font-medium">{f.load_date}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {f.vehicle?.patente ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {f.liters.toLocaleString("es-AR")}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {formatMoney(f.amount)}
-                  </TableCell>
-                  <TableCell className="text-sm">{f.station ?? "—"}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialog({ mode: "edit", fuelLoad: f })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(f)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(f) => f.id}
+        emptyMessage="Sin cargas. Agregá la primera."
+      />
 
       {dialog && (
         <FuelDialog
