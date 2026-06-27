@@ -2,13 +2,13 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DataTable, type DataTableColumn } from "./data-table";
+import { DataTable, type ColumnDef } from "./data-table";
 
 type Row = { id: string; name: string };
 
-const columns: DataTableColumn<Row>[] = [
-  { id: "name", header: "Nombre", cell: (r) => r.name },
-  { id: "actions", header: "", cell: () => "•", align: "right" },
+const columns: ColumnDef<Row>[] = [
+  { accessorKey: "name", header: "Nombre", cell: ({ row }) => row.original.name },
+  { id: "actions", header: "", enableSorting: false, cell: () => "•" },
 ];
 
 afterEach(cleanup);
@@ -22,29 +22,23 @@ describe("DataTable", () => {
           { id: "1", name: "Alpha" },
           { id: "2", name: "Beta" },
         ]}
-        getRowKey={(r) => r.id}
+        getRowId={(r) => r.id}
       />,
     );
     expect(screen.getByText("Alpha")).toBeDefined();
     expect(screen.getByText("Beta")).toBeDefined();
   });
 
-  it("shows the empty message (spanning all columns) when there is no data", () => {
+  it("shows the empty message spanning all columns when there is no data", () => {
     render(
-      <DataTable
-        columns={columns}
-        data={[]}
-        getRowKey={(r) => r.id}
-        emptyMessage="Sin registros."
-      />,
+      <DataTable columns={columns} data={[]} emptyMessage="Sin registros." />,
     );
     const cell = screen.getByText("Sin registros.");
-    expect(cell).toBeDefined();
     expect(cell.getAttribute("colspan")).toBe(String(columns.length));
   });
 
   it("uses the default empty message when none is provided", () => {
-    render(<DataTable columns={columns} data={[]} getRowKey={(r) => r.id} />);
+    render(<DataTable columns={columns} data={[]} />);
     expect(screen.getByText("No hay datos.")).toBeDefined();
   });
 
@@ -53,14 +47,25 @@ describe("DataTable", () => {
       <DataTable
         columns={columns}
         data={[]}
-        getRowKey={(r) => r.id}
         isLoading
         skeletonRows={3}
         emptyMessage="Sin registros."
       />,
     );
     expect(screen.queryByText("Sin registros.")).toBeNull();
-    // 3 skeleton rows in the body (header row is in <thead>).
     expect(container.querySelectorAll("tbody tr").length).toBe(3);
+  });
+
+  it("renders a sort toggle for sortable columns", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[{ id: "1", name: "Alpha" }]}
+        getRowId={(r) => r.id}
+      />,
+    );
+    // The sortable "Nombre" header renders a clickable button; the actions
+    // column (enableSorting: false) does not.
+    expect(screen.getByRole("button", { name: /Nombre/ })).toBeDefined();
   });
 });
