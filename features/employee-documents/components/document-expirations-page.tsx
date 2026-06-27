@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,22 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useExpiringDocuments } from "../hooks/use-employee-documents";
 import {
   EMPLOYEE_DOCUMENT_KINDS,
   EMPLOYEE_DOCUMENT_KIND_LABEL,
-  type EmployeeDocumentKind,
+  type ExpiringDocumentRow,
 } from "../schema";
 
 const ANY_KIND = "__any__";
@@ -48,6 +40,81 @@ export function DocumentExpirationsPage() {
       return true;
     });
   }, [query.data, search, kindFilter]);
+
+  const columns = useMemo<ColumnDef<ExpiringDocumentRow>[]>(
+    () => [
+      {
+        accessorKey: "employee_name",
+        header: "Empleado",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.employee_name}</span>
+        ),
+      },
+      {
+        accessorKey: "kind",
+        header: "Documento",
+        cell: ({ row }) =>
+          EMPLOYEE_DOCUMENT_KIND_LABEL[row.original.kind] ?? row.original.kind,
+      },
+      {
+        accessorKey: "number",
+        header: "Número",
+        cell: ({ row }) => row.original.number ?? "—",
+        meta: { cellClassName: "font-mono text-xs text-muted-foreground" },
+      },
+      {
+        accessorKey: "expires_at",
+        header: "Vencimiento",
+        cell: ({ row }) => formatArgentineDate(row.original.expires_at),
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "days_until_expiry",
+        header: "Días restantes",
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const days = row.original.days_until_expiry;
+          const isExpired = days < 0;
+          const isCritical = !isExpired && days <= 7;
+          return (
+            <Badge
+              variant="secondary"
+              className={
+                isExpired
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  : isCritical
+                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              }
+            >
+              {isExpired
+                ? `Vencido hace ${-days}d`
+                : days === 0
+                  ? "Vence hoy"
+                  : `${days}d`}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
+            <Link
+              href={`/employees/${row.original.employee_id}`}
+              title="Ver empleado"
+            >
+              <ExternalLink className="size-4" />
+            </Link>
+          </Button>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-4">
@@ -89,91 +156,17 @@ export function DocumentExpirationsPage() {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card">
-        {query.isLoading ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            {(query.data?.length ?? 0) === 0
-              ? "Ningún documento por vencer en los próximos 30 días. 🎉"
-              : "Sin resultados para el filtro actual."}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Empleado</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Vencimiento</TableHead>
-                <TableHead className="text-right">Días restantes</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((d) => {
-                const isExpired = d.days_until_expiry < 0;
-                const isCritical = !isExpired && d.days_until_expiry <= 7;
-                return (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">
-                      {d.employee_name}
-                    </TableCell>
-                    <TableCell>
-                      {EMPLOYEE_DOCUMENT_KIND_LABEL[
-                        d.kind as EmployeeDocumentKind
-                      ] ?? d.kind}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {d.number ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {formatArgentineDate(d.expires_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant="secondary"
-                        className={
-                          isExpired
-                            ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                            : isCritical
-                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                              : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        }
-                      >
-                        {isExpired
-                          ? `Vencido hace ${-d.days_until_expiry}d`
-                          : d.days_until_expiry === 0
-                            ? "Vence hoy"
-                            : `${d.days_until_expiry}d`}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        asChild
-                      >
-                        <Link
-                          href={`/employees/${d.employee_id}`}
-                          title="Ver empleado"
-                        >
-                          <ExternalLink className="size-4" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        getRowId={(d) => d.id}
+        isLoading={query.isLoading}
+        emptyMessage={
+          (query.data?.length ?? 0) === 0
+            ? "Ningún documento por vencer en los próximos 30 días. 🎉"
+            : "Sin resultados para el filtro actual."
+        }
+      />
     </div>
   );
 }
