@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
 import { FilePreviewSurface } from "@/components/file-preview/file-preview-surface";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
 
@@ -50,10 +50,10 @@ type PreviewState = {
 };
 
 /**
- * Side-by-side review surface: the source document on the left, the full
- * extracted detail + create actions on the right (the JouveERP analogue of
- * Sumary's AnomaliesRowSheet). A wide centered Dialog keeps the project's
- * Dialog-over-Sheet convention while delivering the two-pane layout.
+ * Document review surface (Sumary's AnomaliesRowSheet layout): the extracted
+ * data lives in a right-side Sheet (~600px); the source document floats in a
+ * sidecar to its left (desktop), with its own zoom/download toolbar at the
+ * bottom. On smaller screens only the data Sheet shows.
  */
 export function ReviewSheet({
   extractionId,
@@ -99,6 +99,7 @@ export function ReviewSheet({
     };
   }, [fileId, data?.file?.original_filename, data?.file?.mime_type]);
 
+  const open = extractionId !== null;
   const kind = data?.detected_type ?? null;
   const band = confidenceBand(data?.confidence ?? null);
   const status = statusConfig(data?.status ?? "pending_review");
@@ -106,18 +107,33 @@ export function ReviewSheet({
   const match = matchInfo(data?.matches);
 
   return (
-    <Dialog open={extractionId !== null} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex h-[85vh] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
-        showCloseButton
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {/* Floating document sidecar, to the left of the 600px Sheet (desktop). */}
+      {open && (
+        <div className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-6 lg:flex">
+          <div className="pointer-events-auto relative h-full w-full max-w-3xl overflow-hidden rounded-lg border bg-card shadow-xl">
+            <FilePreviewSurface
+              url={preview?.url ?? null}
+              filename={preview?.filename ?? "documento"}
+              mimeType={preview?.mimeType ?? null}
+              isLoading={preview?.loading ?? true}
+              className="h-full"
+            />
+          </div>
+        </div>
+      )}
+
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-[600px]"
       >
-        <DialogHeader className="space-y-1 border-b px-4 py-3 text-left">
-          <DialogTitle className="truncate text-base">
+        <SheetHeader className="space-y-1 border-b px-4 py-3 text-left">
+          <SheetTitle className="truncate text-base">
             {data?.file?.original_filename ?? "Documento"}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
+          </SheetTitle>
+          <SheetDescription className="sr-only">
             Revisión del documento escaneado y sus datos extraídos.
-          </DialogDescription>
+          </SheetDescription>
           <div className="flex flex-wrap items-center gap-2">
             {kind && (
               <Badge
@@ -160,37 +176,26 @@ export function ReviewSheet({
               </span>
             )}
           </div>
-        </DialogHeader>
+        </SheetHeader>
 
         {detail.isLoading ? (
           <div className="flex-1 p-4">
             <Skeleton className="h-full w-full" />
           </div>
         ) : data ? (
-          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
-            <div className="hidden min-h-0 border-r md:block">
-              <FilePreviewSurface
-                url={preview?.url ?? null}
-                filename={preview?.filename ?? "documento"}
-                mimeType={preview?.mimeType ?? null}
-                isLoading={preview?.loading ?? true}
-                className="h-full"
-              />
-            </div>
-            <div className="min-h-0 space-y-4 overflow-y-auto p-4">
-              <DocumentDetail payload={data.payload} kind={kind} />
-              <ReviewActions
-                extraction={data}
-                onCreated={() => onOpenChange(false)}
-              />
-            </div>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            <DocumentDetail payload={data.payload} kind={kind} />
+            <ReviewActions
+              extraction={data}
+              onCreated={() => onOpenChange(false)}
+            />
           </div>
         ) : (
           <p className="text-muted-foreground flex-1 p-4 text-sm">
             No se pudo cargar la extracción.
           </p>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

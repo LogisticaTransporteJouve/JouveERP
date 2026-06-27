@@ -116,9 +116,12 @@ export type PaymentOrderExtraction = z.infer<
 /** One remito line — goods moved, no amounts. */
 export const RemitoItemSchema = z.object({
   descripcion: z.string(),
+  codigo: z.string().nullish(),
+  cod_afip: z.string().nullish(),
   cantidad: z.number().nullish(),
   unidad: z.string().nullish(),
-  codigo: z.string().nullish(),
+  unidades: z.number().nullish(),
+  tipo_embalaje: z.string().nullish(),
 });
 export type RemitoItem = z.infer<typeof RemitoItemSchema>;
 
@@ -132,7 +135,11 @@ export const RemitoExtractionSchema = z.object({
   fecha_entrega: z.string().nullish(),
   destino: z.string().nullish(),
   transportista: z.string().nullish(),
+  conductor: z.string().nullish(),
   dominio_vehiculo: z.string().nullish(),
+  total_kilos: z.number().nullish(),
+  cre: z.string().nullish(),
+  observaciones: z.string().nullish(),
   items: z.array(RemitoItemSchema).default([]),
 });
 export type RemitoExtraction = z.infer<typeof RemitoExtractionSchema>;

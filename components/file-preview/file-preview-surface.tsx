@@ -177,7 +177,7 @@ export function FilePreviewSurface({
 
 function Toolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-background/90 absolute top-2 right-2 z-10 flex items-center gap-0.5 rounded-md border p-0.5 shadow-sm backdrop-blur">
+    <div className="bg-background/90 pointer-events-auto absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-md border p-0.5 shadow-sm backdrop-blur">
       {children}
     </div>
   );

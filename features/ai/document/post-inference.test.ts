@@ -174,7 +174,10 @@ describe("applyInvoicePostInference", () => {
 describe("extraction schemas", () => {
   it("maps extractable kinds and validates a lenient invoice payload", () => {
     expect(isExtractableKind("factura_compra")).toBe(true);
-    expect(isExtractableKind("remito")).toBe(false);
+    expect(isExtractableKind("remito")).toBe(true);
+    expect(isExtractableKind("cheque")).toBe(true);
+    expect(isExtractableKind("extracto")).toBe(true);
+    expect(isExtractableKind("otro")).toBe(false);
     const parsed = EXTRACTION_SCHEMAS.factura_compra.safeParse({
       contraparte_nombre: "Acme SA",
       numero: 12345,

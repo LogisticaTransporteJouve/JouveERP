@@ -21,7 +21,14 @@ import {
   RemitoExtractionSchema,
 } from "../../schemas";
 
-import { DetailTable, Field, Section, fmtMoney, fmtText } from "./primitives";
+import {
+  DetailTable,
+  Field,
+  Section,
+  fmtMoney,
+  fmtNumber,
+  fmtText,
+} from "./primitives";
 
 /**
  * Renders the full extracted detail for a document, dispatching to a per-kind
@@ -213,18 +220,41 @@ function RemitoDetail({ payload }: { payload: unknown }) {
         <Field label="Fecha de entrega" value={fmtText(r.fecha_entrega)} />
         <Field label="Destino" value={fmtText(r.destino)} />
         <Field label="Transportista" value={fmtText(r.transportista)} />
+        <Field label="Conductor" value={fmtText(r.conductor)} />
         <Field label="Dominio" value={fmtText(r.dominio_vehiculo)} />
+        <Field label="Total kilos" value={fmtNumber(r.total_kilos)} />
+        <Field label="CRE" value={fmtText(r.cre)} />
+        <Field label="Observaciones" value={fmtText(r.observaciones)} />
       </Section>
       {r.items.length > 0 && (
         <Section icon={List} title={`Ítems (${r.items.length})`}>
           <DetailTable
-            headers={["Descripción", "Cant.", "U.", "Código"]}
-            aligns={["left", "right", "left", "left"]}
+            headers={[
+              "Descripción",
+              "Código",
+              "Cod AFIP",
+              "Cant.",
+              "U.",
+              "Unid.",
+              "Embalaje",
+            ]}
+            aligns={[
+              "left",
+              "left",
+              "left",
+              "right",
+              "left",
+              "right",
+              "left",
+            ]}
             rows={r.items.map((it) => [
               it.descripcion,
+              fmtText(it.codigo),
+              fmtText(it.cod_afip),
               fmtText(it.cantidad),
               fmtText(it.unidad),
-              fmtText(it.codigo),
+              fmtText(it.unidades),
+              fmtText(it.tipo_embalaje),
             ])}
           />
         </Section>
