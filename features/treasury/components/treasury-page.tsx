@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,14 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   ACCOUNT_TYPE_LABEL,
   type AccountType,
@@ -58,6 +51,100 @@ export function TreasuryPage() {
       return true;
     });
   }, [query.data, search, currencyFilter, typeFilter]);
+
+  const columns = useMemo<ColumnDef<TreasuryAccountRow>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Cuenta",
+        cell: ({ row }) => (
+          <Link
+            href={`/transactions?account=${row.original.id}`}
+            className="font-medium hover:underline"
+            title="Ver movimientos y registrar nuevo"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "type",
+        header: "Tipo",
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-xs font-normal">
+            {ACCOUNT_TYPE_LABEL[row.original.type]}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "currency",
+        header: "Moneda",
+        cell: ({ row }) => (
+          <span className="text-xs">{row.original.currency}</span>
+        ),
+      },
+      {
+        accessorKey: "balance_now",
+        header: "Saldo actual",
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const acc = row.original;
+          const isLiquid = isLiquidAccountType(acc.type);
+          const isCheck = isCheckAccountType(acc.type);
+          return (
+            <span
+              className={`font-mono ${isCheck ? "text-muted-foreground" : ""} ${
+                !isLiquid && !isCheck ? "text-muted-foreground" : ""
+              }`}
+            >
+              {formatMoneyWithCode(acc.balance_now, acc.currency)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "delta",
+        header: "Cambio del mes",
+        enableSorting: false,
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const acc = row.original;
+          const delta = acc.balance_now - acc.balance_prev_eom;
+          if (Math.abs(delta) < 0.01) {
+            return <span className="text-xs text-muted-foreground">—</span>;
+          }
+          return (
+            <Badge
+              variant="secondary"
+              className={`gap-1 font-mono text-[10px] ${
+                delta > 0
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+              }`}
+            >
+              {delta > 0 ? (
+                <ArrowUpRight className="size-3" />
+              ) : (
+                <ArrowDownRight className="size-3" />
+              )}
+              {delta > 0 ? "+" : ""}
+              {formatMoney(delta, acc.currency)}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "last_movement_date",
+        header: "Último mov.",
+        meta: { cellClassName: "text-xs text-muted-foreground" },
+        cell: ({ row }) =>
+          row.original.last_movement_date
+            ? formatArgentineDate(row.original.last_movement_date)
+            : "—",
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-6">
@@ -158,37 +245,14 @@ export function TreasuryPage() {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card">
-        {query.isLoading ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            Sin cuentas para el filtro actual.
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cuenta</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Moneda</TableHead>
-                <TableHead className="text-right">Saldo actual</TableHead>
-                <TableHead className="text-right">Cambio del mes</TableHead>
-                <TableHead>Último mov.</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((acc) => (
-                <AccountRow key={acc.id} acc={acc} />
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        getRowId={(acc) => acc.id}
+        isLoading={query.isLoading}
+        skeletonRows={3}
+        emptyMessage="Sin cuentas para el filtro actual."
+      />
     </div>
   );
 }
@@ -288,65 +352,5 @@ function DeltaBadge({
         </span>
       )}
     </Badge>
-  );
-}
-
-function AccountRow({ acc }: { acc: TreasuryAccountRow }) {
-  const delta = acc.balance_now - acc.balance_prev_eom;
-  const isLiquid = isLiquidAccountType(acc.type);
-  const isCheck = isCheckAccountType(acc.type);
-
-  return (
-    <TableRow>
-      <TableCell className="font-medium">
-        <Link
-          href={`/transactions?account=${acc.id}`}
-          className="hover:underline"
-          title="Ver movimientos y registrar nuevo"
-        >
-          {acc.name}
-        </Link>
-      </TableCell>
-      <TableCell>
-        <Badge variant="outline" className="text-xs font-normal">
-          {ACCOUNT_TYPE_LABEL[acc.type]}
-        </Badge>
-      </TableCell>
-      <TableCell className="text-xs">{acc.currency}</TableCell>
-      <TableCell
-        className={`text-right font-mono ${
-          isCheck ? "text-muted-foreground" : ""
-        } ${!isLiquid && !isCheck ? "text-muted-foreground" : ""}`}
-      >
-        {formatMoneyWithCode(acc.balance_now, acc.currency)}
-      </TableCell>
-      <TableCell className="text-right">
-        {Math.abs(delta) < 0.01 ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <Badge
-            variant="secondary"
-            className={`gap-1 font-mono text-[10px] ${
-              delta > 0
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
-            }`}
-          >
-            {delta > 0 ? (
-              <ArrowUpRight className="size-3" />
-            ) : (
-              <ArrowDownRight className="size-3" />
-            )}
-            {delta > 0 ? "+" : ""}
-            {formatMoney(delta, acc.currency)}
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {acc.last_movement_date
-          ? formatArgentineDate(acc.last_movement_date)
-          : "—"}
-      </TableCell>
-    </TableRow>
   );
 }

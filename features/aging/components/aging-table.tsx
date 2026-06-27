@@ -1,16 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { formatMoney } from "@/lib/format";
 
@@ -58,86 +52,97 @@ export function AgingTable() {
     { table: "receipts", queryKeys: [agingKeys.all] },
   ]);
 
+  const columns = useMemo<ColumnDef<ClientAgingRow>[]>(
+    () => [
+      {
+        accessorKey: "legal_name",
+        header: "Cliente",
+        cell: ({ row }) => (
+          <>
+            <Link
+              href={`/clients/${row.original.client_id}`}
+              className="font-medium hover:underline"
+            >
+              {row.original.legal_name}
+            </Link>
+            <p className="text-xs text-muted-foreground font-mono">
+              CUIT {row.original.cuit}
+            </p>
+          </>
+        ),
+      },
+      {
+        accessorKey: "bucket_0_30",
+        header: "0–30 días",
+        cell: ({ row }) => <MoneyCell amount={row.original.bucket_0_30} />,
+        meta: { align: "right" },
+      },
+      {
+        accessorKey: "bucket_30_60",
+        header: "30–60",
+        cell: ({ row }) => <MoneyCell amount={row.original.bucket_30_60} />,
+        meta: { align: "right" },
+      },
+      {
+        accessorKey: "bucket_60_90",
+        header: "60–90",
+        cell: ({ row }) => (
+          <MoneyCell amount={row.original.bucket_60_90} highlight />
+        ),
+        meta: { align: "right" },
+      },
+      {
+        accessorKey: "bucket_90_plus",
+        header: "90+",
+        cell: ({ row }) => (
+          <MoneyCell amount={row.original.bucket_90_plus} highlight />
+        ),
+        meta: { align: "right" },
+      },
+      {
+        accessorKey: "total_open",
+        header: "Total",
+        cell: ({ row }) => {
+          const isOld =
+            row.original.bucket_60_90 > 0 || row.original.bucket_90_plus > 0;
+          return (
+            <span
+              className={
+                isOld
+                  ? "font-mono text-sm font-semibold text-destructive"
+                  : "font-mono text-sm font-medium"
+              }
+            >
+              {fmtMoney.format(row.original.total_open)}
+            </span>
+          );
+        },
+        meta: { align: "right" },
+      },
+      {
+        accessorKey: "document_count",
+        header: "Documentos",
+        cell: ({ row }) => (
+          <Badge variant="secondary" className="font-mono">
+            {row.original.document_count}
+          </Badge>
+        ),
+        meta: { align: "right", headerClassName: "w-24" },
+      },
+    ],
+    [],
+  );
+
   return (
     <div className="space-y-4">
       <BucketSummary totals={totals} />
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="text-right">0–30 días</TableHead>
-              <TableHead className="text-right">30–60</TableHead>
-              <TableHead className="text-right">60–90</TableHead>
-              <TableHead className="text-right">90+</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right w-24">Documentos</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {clients.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  No hay clientes con saldo deudor.
-                </TableCell>
-              </TableRow>
-            ) : (
-              clients.map((c) => <AgingRow key={c.client_id} row={c} />)
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={clients}
+        getRowId={(c) => c.client_id}
+        emptyMessage="No hay clientes con saldo deudor."
+      />
     </div>
-  );
-}
-
-function AgingRow({ row }: { row: ClientAgingRow }) {
-  const isOld = row.bucket_60_90 > 0 || row.bucket_90_plus > 0;
-  return (
-    <TableRow>
-      <TableCell>
-        <Link
-          href={`/clients/${row.client_id}`}
-          className="font-medium hover:underline"
-        >
-          {row.legal_name}
-        </Link>
-        <p className="text-xs text-muted-foreground font-mono">
-          CUIT {row.cuit}
-        </p>
-      </TableCell>
-      <TableCell className="text-right">
-        <MoneyCell amount={row.bucket_0_30} />
-      </TableCell>
-      <TableCell className="text-right">
-        <MoneyCell amount={row.bucket_30_60} />
-      </TableCell>
-      <TableCell className="text-right">
-        <MoneyCell amount={row.bucket_60_90} highlight />
-      </TableCell>
-      <TableCell className="text-right">
-        <MoneyCell amount={row.bucket_90_plus} highlight />
-      </TableCell>
-      <TableCell className="text-right">
-        <span
-          className={
-            isOld
-              ? "font-mono text-sm font-semibold text-destructive"
-              : "font-mono text-sm font-medium"
-          }
-        >
-          {fmtMoney.format(row.total_open)}
-        </span>
-      </TableCell>
-      <TableCell className="text-right">
-        <Badge variant="secondary" className="font-mono">
-          {row.document_count}
-        </Badge>
-      </TableCell>
-    </TableRow>
   );
 }
 

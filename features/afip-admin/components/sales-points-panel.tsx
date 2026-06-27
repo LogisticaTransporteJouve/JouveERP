@@ -7,19 +7,13 @@ import {
   ShieldAlert,
   Triangle,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AfipDiagnostics, DiagnosticEntry } from "@/lib/afip/diagnostics";
 
@@ -169,6 +163,98 @@ function SalesPointsSection({
   onChannelLabels: (labels: ChannelLabels) => void;
   onPosUpdated: (row: SalesPointRow) => void;
 }) {
+  const columns = useMemo<ColumnDef<SalesPointRow>[]>(
+    () => [
+      {
+        accessorKey: "numero",
+        header: "Número",
+        cell: ({ row }) => (
+          <span className={cn(!row.original.is_enabled && "opacity-60")}>
+            {String(row.original.numero).padStart(5, "0")}
+          </span>
+        ),
+        meta: { headerClassName: "w-24", cellClassName: "font-mono" },
+      },
+      {
+        accessorKey: "nickname",
+        header: "Alias",
+        cell: ({ row }) => (
+          <span className={cn(!row.original.is_enabled && "opacity-60")}>
+            {row.original.nickname ?? (
+              <span className="text-muted-foreground">Sin asignar</span>
+            )}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "channel_id",
+        header: "Canal",
+        cell: ({ row }) => {
+          const channelLabel = row.original.channel_id
+            ? (channelLabels[row.original.channel_id] ?? row.original.channel_id)
+            : null;
+          return (
+            <span className={cn(!row.original.is_enabled && "opacity-60")}>
+              {channelLabel ?? <span className="text-muted-foreground">—</span>}
+            </span>
+          );
+        },
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "is_enabled",
+        header: "Habilitado",
+        cell: ({ row }) => (
+          <span className={cn(!row.original.is_enabled && "opacity-60")}>
+            {row.original.is_enabled ? (
+              <Badge
+                variant="secondary"
+                className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+              >
+                Sí
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="bg-muted text-muted-foreground"
+              >
+                No
+              </Badge>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: "afip",
+        header: "AFIP",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className={cn(!row.original.is_enabled && "opacity-60")}>
+            {row.original.last_known_blocked ? "Bloqueado" : "Activo"}
+            {row.original.last_known_emission_type
+              ? ` · ${row.original.last_known_emission_type}`
+              : ""}
+          </span>
+        ),
+        meta: { cellClassName: "text-xs text-muted-foreground" },
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { headerClassName: "w-32", align: "right" },
+        cell: ({ row }) => (
+          <ConfigurePosDialog
+            point={row.original}
+            onChannelLabels={onChannelLabels}
+            onUpdated={onPosUpdated}
+          />
+        ),
+      },
+    ],
+    [channelLabels, onChannelLabels, onPosUpdated],
+  );
+
   return (
     <div className="rounded-lg border bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
@@ -191,97 +277,13 @@ function SalesPointsSection({
           Comprobantes en Línea, WSMTXCA o WSFEX no aparecen.
         </p>
       </div>
-      {salesPoints.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-          Todavía no sincronizamos con AFIP. Tocá &ldquo;Sincronizar con
-          AFIP&rdquo; para descubrir los puntos disponibles.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-24">Número</TableHead>
-              <TableHead>Alias</TableHead>
-              <TableHead>Canal</TableHead>
-              <TableHead>Habilitado</TableHead>
-              <TableHead>AFIP</TableHead>
-              <TableHead className="w-32 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {salesPoints.map((p) => (
-              <SalesPointRow
-                key={p.numero}
-                point={p}
-                channelLabels={channelLabels}
-                onChannelLabels={onChannelLabels}
-                onUpdated={onPosUpdated}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <DataTable
+        columns={columns}
+        data={salesPoints}
+        getRowId={(p) => String(p.numero)}
+        wrapperClassName={null}
+        emptyMessage="Todavía no sincronizamos con AFIP. Tocá “Sincronizar con AFIP” para descubrir los puntos disponibles."
+      />
     </div>
-  );
-}
-
-function SalesPointRow({
-  point,
-  channelLabels,
-  onChannelLabels,
-  onUpdated,
-}: {
-  point: SalesPointRow;
-  channelLabels: ChannelLabels;
-  onChannelLabels: (labels: ChannelLabels) => void;
-  onUpdated: (row: SalesPointRow) => void;
-}) {
-  const channelLabel = point.channel_id
-    ? (channelLabels[point.channel_id] ?? point.channel_id)
-    : null;
-
-  return (
-    <TableRow className={!point.is_enabled ? "opacity-60" : undefined}>
-      <TableCell className="font-mono">
-        {String(point.numero).padStart(5, "0")}
-      </TableCell>
-      <TableCell>
-        {point.nickname ?? (
-          <span className="text-muted-foreground">Sin asignar</span>
-        )}
-      </TableCell>
-      <TableCell className="text-sm">
-        {channelLabel ?? (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {point.is_enabled ? (
-          <Badge
-            variant="secondary"
-            className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-          >
-            Sí
-          </Badge>
-        ) : (
-          <Badge variant="secondary" className="bg-muted text-muted-foreground">
-            No
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {point.last_known_blocked ? "Bloqueado" : "Activo"}
-        {point.last_known_emission_type
-          ? ` · ${point.last_known_emission_type}`
-          : ""}
-      </TableCell>
-      <TableCell className="text-right">
-        <ConfigurePosDialog
-          point={point}
-          onChannelLabels={onChannelLabels}
-          onUpdated={onUpdated}
-        />
-      </TableCell>
-    </TableRow>
   );
 }
