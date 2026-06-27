@@ -5,22 +5,15 @@ import {
   Suspense,
   useDeferredValue,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -31,6 +24,7 @@ import { formatArgentineDate } from "@/lib/format";
 import { useClientsSearchInfinite } from "../hooks/use-clients";
 import {
   IVA_CONDITION_LABEL,
+  type Client,
   type IvaCondition,
 } from "../schema";
 import { DeleteClientDialog } from "./delete-client-dialog";
@@ -44,6 +38,89 @@ const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   consumidor_final: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
   no_categorizado: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
 };
+
+// Server-ordered + partially loaded (infinite scroll), so client sorting is
+// disabled on every column.
+function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
+  return useMemo<ColumnDef<Client>[]>(
+    () => [
+      {
+        accessorKey: "legal_name",
+        header: "Razón social",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <>
+            <Link
+              href={`/clients/${row.original.id}`}
+              className="font-medium hover:underline"
+            >
+              {row.original.legal_name}
+            </Link>
+            {row.original.display_name && (
+              <div className="text-xs text-muted-foreground">
+                {row.original.display_name}
+              </div>
+            )}
+          </>
+        ),
+      },
+      {
+        accessorKey: "cuit",
+        header: "CUIT",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.cuit}</span>
+        ),
+      },
+      {
+        accessorKey: "iva_condition",
+        header: "Condición IVA",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Badge
+            variant="secondary"
+            className={IVA_BADGE_TONE[row.original.iva_condition]}
+          >
+            {IVA_CONDITION_LABEL[row.original.iva_condition]}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "is_active",
+        header: "Estado",
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.is_active ? (
+            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+              Activo
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">Inactivo</span>
+          ),
+      },
+      {
+        accessorKey: "updated_at",
+        header: "Actualizado",
+        enableSorting: false,
+        cell: ({ row }) => formatArgentineDate(row.original.updated_at),
+        meta: { cellClassName: "text-sm text-muted-foreground" },
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { headerClassName: "w-24 text-right", align: "right" },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            {canWrite && <EditClientDialog client={row.original} />}
+            {canWrite && <DeleteClientDialog client={row.original} />}
+          </div>
+        ),
+      },
+    ],
+    [canWrite],
+  );
+}
 
 export function ClientsTable({
   actorRoles,
@@ -101,26 +178,14 @@ export function ClientsTable({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Razón social</TableHead>
-              <TableHead>CUIT</TableHead>
-              <TableHead>Condición IVA</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Actualizado</TableHead>
-              <TableHead className="w-24 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <Suspense fallback={<ClientsTableSkeletonRows />}>
-            <ClientsTableRows
-              query={deferredQuery}
-              onlyActive={deferredOnlyActive}
-              canWrite={canWrite}
-            />
-          </Suspense>
-        </Table>
+      <div className="mt-4">
+        <Suspense fallback={<ClientsTableSkeleton canWrite={canWrite} />}>
+          <ClientsTableRows
+            query={deferredQuery}
+            onlyActive={deferredOnlyActive}
+            canWrite={canWrite}
+          />
+        </Suspense>
       </div>
     </>
   );
@@ -142,103 +207,36 @@ function ClientsTableRows({
     isFetchingNextPage,
   } = useClientsSearchInfinite({ query, onlyActive });
 
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const columns = useClientColumns(canWrite);
+
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  if (clients.length === 0) {
-    return (
-      <TableBody>
-        <TableRow>
-          <TableCell
-            colSpan={6}
-            className="py-10 text-center text-sm text-muted-foreground"
-          >
-            No hay clientes que coincidan.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    );
-  }
-
   return (
-    <TableBody>
-      {clients.map((client) => (
-        <TableRow
-          key={client.id}
-          className={!client.is_active ? "opacity-60" : undefined}
-        >
-          <TableCell>
-            <Link
-              href={`/clients/${client.id}`}
-              className="font-medium hover:underline"
-            >
-              {client.legal_name}
-            </Link>
-            {client.display_name && (
-              <div className="text-xs text-muted-foreground">
-                {client.display_name}
-              </div>
-            )}
-          </TableCell>
-          <TableCell className="font-mono text-xs">{client.cuit}</TableCell>
-          <TableCell>
-            <Badge
-              variant="secondary"
-              className={IVA_BADGE_TONE[client.iva_condition]}
-            >
-              {IVA_CONDITION_LABEL[client.iva_condition]}
-            </Badge>
-          </TableCell>
-          <TableCell>
-            {client.is_active ? (
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                Activo
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">Inactivo</span>
-            )}
-          </TableCell>
-          <TableCell className="text-sm text-muted-foreground">
-            {formatArgentineDate(client.updated_at)}
-          </TableCell>
-          <TableCell>
-            <div className="flex items-center justify-end gap-1">
-              {canWrite && <EditClientDialog client={client} />}
-              {canWrite && <DeleteClientDialog client={client} />}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-      {hasNextPage && (
-        <TableRow ref={sentinelRef}>
-          <TableCell
-            colSpan={6}
-            className="py-3 text-center text-xs text-muted-foreground"
+    <DataTable
+      columns={columns}
+      data={clients}
+      getRowId={(client) => client.id}
+      emptyMessage="No hay clientes que coincidan."
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
           >
             {isFetchingNextPage ? "Cargando más…" : ""}
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
+          </div>
+        ) : null
+      }
+    />
   );
 }
 
-function ClientsTableSkeletonRows() {
-  return (
-    <TableBody>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </TableBody>
-  );
+function ClientsTableSkeleton({ canWrite }: { canWrite: boolean }) {
+  const columns = useClientColumns(canWrite);
+  return <DataTable columns={columns} data={[]} isLoading skeletonRows={6} />;
 }

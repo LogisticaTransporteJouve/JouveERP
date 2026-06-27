@@ -5,12 +5,14 @@ import {
   Suspense,
   useDeferredValue,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,15 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -37,7 +30,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useSuppliersSearchInfinite } from "../hooks/use-suppliers";
-import { IVA_CONDITION_LABEL, type IvaCondition } from "../schema";
+import { IVA_CONDITION_LABEL, type IvaCondition, type Supplier } from "../schema";
 import { DeleteSupplierDialog } from "./delete-supplier-dialog";
 import { EditSupplierDialog } from "./edit-supplier-dialog";
 import { NewSupplierDialog } from "./new-supplier-dialog";
@@ -126,31 +119,18 @@ export function SuppliersTable({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Razón social</TableHead>
-              <TableHead>CUIT</TableHead>
-              <TableHead>Condición IVA</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Actualizado</TableHead>
-              <TableHead className="w-24 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <Suspense fallback={<SuppliersTableSkeletonRows />}>
-            <SuppliersTableRows
-              query={deferredQuery}
-              onlyActive={deferredOnlyActive}
-              categoryId={deferredCategoryId}
-              categoriesById={Object.fromEntries(
-                categories.map((c) => [c.id, c.name]),
-              )}
-              canWrite={canWrite}
-            />
-          </Suspense>
-        </Table>
+      <div className="mt-4">
+        <Suspense fallback={<SuppliersTableSkeleton canWrite={canWrite} />}>
+          <SuppliersTableRows
+            query={deferredQuery}
+            onlyActive={deferredOnlyActive}
+            categoryId={deferredCategoryId}
+            categoriesById={Object.fromEntries(
+              categories.map((c) => [c.id, c.name]),
+            )}
+            canWrite={canWrite}
+          />
+        </Suspense>
       </div>
     </>
   );
@@ -176,36 +156,54 @@ function SuppliersTableRows({
     isFetchingNextPage,
   } = useSuppliersSearchInfinite({ query, onlyActive, categoryId });
 
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  if (suppliers.length === 0) {
-    return (
-      <TableBody>
-        <TableRow>
-          <TableCell
-            colSpan={7}
-            className="py-10 text-center text-sm text-muted-foreground"
-          >
-            No hay proveedores que coincidan.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    );
-  }
+  const columns = useMemo<ColumnDef<Supplier>[]>(
+    () => buildColumns({ categoriesById, canWrite }),
+    [categoriesById, canWrite],
+  );
 
   return (
-    <TableBody>
-      {suppliers.map((supplier) => (
-        <TableRow
-          key={supplier.id}
-          className={!supplier.is_active ? "opacity-60" : undefined}
-        >
-          <TableCell>
+    <DataTable
+      columns={columns}
+      data={suppliers}
+      getRowId={(supplier) => supplier.id}
+      emptyMessage="No hay proveedores que coincidan."
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
+          >
+            {isFetchingNextPage ? "Cargando más…" : ""}
+          </div>
+        ) : null
+      }
+    />
+  );
+}
+
+function buildColumns({
+  categoriesById,
+  canWrite,
+}: {
+  categoriesById: Record<string, string>;
+  canWrite: boolean;
+}): ColumnDef<Supplier>[] {
+  return [
+    {
+      accessorKey: "legal_name",
+      header: "Razón social",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const supplier = row.original;
+        return (
+          <div className={!supplier.is_active ? "opacity-60" : undefined}>
             <Link
               href={`/suppliers/${supplier.id}`}
               className="font-medium hover:underline"
@@ -217,71 +215,88 @@ function SuppliersTableRows({
                 {supplier.display_name}
               </div>
             )}
-          </TableCell>
-          <TableCell className="font-mono text-xs">{supplier.cuit}</TableCell>
-          <TableCell>
-            <Badge
-              variant="secondary"
-              className={IVA_BADGE_TONE[supplier.iva_condition]}
-            >
-              {IVA_CONDITION_LABEL[supplier.iva_condition]}
-            </Badge>
-          </TableCell>
-          <TableCell>
-            {supplier.category_id && categoriesById[supplier.category_id] ? (
-              <Badge variant="outline" className="text-xs">
-                {categoriesById[supplier.category_id]}
-              </Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground">—</span>
-            )}
-          </TableCell>
-          <TableCell>
-            {supplier.is_active ? (
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                Activo
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">Inactivo</span>
-            )}
-          </TableCell>
-          <TableCell className="text-sm text-muted-foreground">
-            {formatArgentineDate(supplier.updated_at)}
-          </TableCell>
-          <TableCell>
-            <div className="flex items-center justify-end gap-1">
-              {canWrite && <EditSupplierDialog supplier={supplier} />}
-              {canWrite && <DeleteSupplierDialog supplier={supplier} />}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-      {hasNextPage && (
-        <TableRow ref={sentinelRef}>
-          <TableCell
-            colSpan={7}
-            className="py-3 text-center text-xs text-muted-foreground"
-          >
-            {isFetchingNextPage ? "Cargando más…" : ""}
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
-  );
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "cuit",
+      header: "CUIT",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.cuit}</span>
+      ),
+    },
+    {
+      accessorKey: "iva_condition",
+      header: "Condición IVA",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge
+          variant="secondary"
+          className={IVA_BADGE_TONE[row.original.iva_condition]}
+        >
+          {IVA_CONDITION_LABEL[row.original.iva_condition]}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "category_id",
+      header: "Categoría",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const categoryId = row.original.category_id;
+        return categoryId && categoriesById[categoryId] ? (
+          <Badge variant="outline" className="text-xs">
+            {categoriesById[categoryId]}
+          </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
+      accessorKey: "is_active",
+      header: "Estado",
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.is_active ? (
+          <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            Activo
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">Inactivo</span>
+        ),
+    },
+    {
+      accessorKey: "updated_at",
+      header: "Actualizado",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatArgentineDate(row.original.updated_at)}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Acciones",
+      enableSorting: false,
+      meta: { headerClassName: "w-24", align: "right" },
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1">
+          {canWrite && <EditSupplierDialog supplier={row.original} />}
+          {canWrite && <DeleteSupplierDialog supplier={row.original} />}
+        </div>
+      ),
+    },
+  ];
 }
 
-function SuppliersTableSkeletonRows() {
-  return (
-    <TableBody>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 7 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </TableBody>
+function SuppliersTableSkeleton({ canWrite }: { canWrite: boolean }) {
+  const columns = useMemo<ColumnDef<Supplier>[]>(
+    () => buildColumns({ categoriesById: {}, canWrite }),
+    [canWrite],
   );
+  return <DataTable columns={columns} data={[]} isLoading skeletonRows={6} />;
 }

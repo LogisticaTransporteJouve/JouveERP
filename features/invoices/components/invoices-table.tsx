@@ -9,12 +9,14 @@ import {
   Suspense,
   useDeferredValue,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,15 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -84,6 +77,110 @@ interface ChannelOption {
   name: string;
   division: string;
   is_fiscal: boolean;
+}
+
+function buildInvoiceColumns(
+  canSendEmail: boolean,
+): ColumnDef<InvoiceListItem>[] {
+  return [
+    {
+      id: "numero",
+      header: "Factura",
+      enableSorting: false,
+      meta: { cellClassName: "font-mono text-xs" },
+      cell: ({ row }) =>
+        formatInvoiceNumero(
+          row.original.kind,
+          row.original.letter,
+          row.original.punto_venta,
+          row.original.numero,
+        ),
+    },
+    {
+      id: "cliente",
+      header: "Cliente",
+      enableSorting: false,
+      meta: { cellClassName: "font-medium" },
+      cell: ({ row }) => (
+        <Link
+          href={`/clients/${row.original.client_id}`}
+          className="hover:underline"
+        >
+          {row.original.client_legal_name}
+        </Link>
+      ),
+    },
+    {
+      id: "fecha",
+      header: "Fecha",
+      enableSorting: false,
+      meta: { cellClassName: "text-sm text-muted-foreground" },
+      cell: ({ row }) => formatArgentineDate(row.original.fecha),
+    },
+    {
+      id: "total",
+      header: "Total",
+      enableSorting: false,
+      meta: { align: "right", cellClassName: "font-mono" },
+      cell: ({ row }) => `$${formatNumber2(row.original.imp_total)}`,
+    },
+    {
+      id: "estado",
+      header: "Estado",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge variant="secondary" className={STATUS_TONE[row.original.status]}>
+          {INVOICE_STATUS_LABEL[row.original.status]}
+        </Badge>
+      ),
+    },
+    {
+      id: "acciones",
+      header: "Acciones",
+      enableSorting: false,
+      meta: { align: "right", headerClassName: "w-32" },
+      cell: ({ row }) => {
+        const invoice = row.original;
+        const hasPdf = invoice.status === "emitted";
+        const numero = formatInvoiceNumero(
+          invoice.kind,
+          invoice.letter,
+          invoice.punto_venta,
+          invoice.numero,
+        );
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button asChild variant="ghost" size="icon" aria-label="Ver detalle">
+              <Link href={`/invoices/${invoice.id}`}>
+                <Eye className="size-4" />
+              </Link>
+            </Button>
+            {hasPdf && (
+              <>
+                <PdfViewerDialog id={invoice.id} label={numero} />
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Descargar PDF"
+                >
+                  <a
+                    href={`/api/invoices/${invoice.id}/pdf`}
+                    download={formatPdfFilename(invoice)}
+                  >
+                    <Download className="size-4" />
+                  </a>
+                </Button>
+                {canSendEmail && (
+                  <SendByEmailDialog kind="invoice" id={invoice.id} />
+                )}
+              </>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
 }
 
 export function ComprobantesTable({
@@ -186,27 +283,15 @@ export function ComprobantesTable({
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Factura</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="w-32 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <Suspense fallback={<ComprobantesTableSkeletonRows />}>
-            <ComprobantesTableRows
-              channel={deferredChannel}
-              status={deferredStatus}
-              query={deferredQuery}
-              canSendEmail={canSendEmail}
-            />
-          </Suspense>
-        </Table>
+      <div className="mt-4">
+        <Suspense fallback={<ComprobantesTableSkeleton />}>
+          <ComprobantesTableRows
+            channel={deferredChannel}
+            status={deferredStatus}
+            query={deferredQuery}
+            canSendEmail={canSendEmail}
+          />
+        </Suspense>
       </div>
     </>
   );
@@ -226,123 +311,44 @@ function ComprobantesTableRows({
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInvoicesSearchInfinite({ channel, status, query });
 
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  if (items.length === 0) {
-    return (
-      <TableBody>
-        <TableRow>
-          <TableCell
-            colSpan={6}
-            className="py-10 text-center text-sm text-muted-foreground"
-          >
-            No hay comprobantes que coincidan.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    );
-  }
+  const columns = useMemo(() => buildInvoiceColumns(canSendEmail), [
+    canSendEmail,
+  ]);
 
   return (
-    <TableBody>
-      {items.map((row) => {
-        const hasPdf = row.status === "emitted";
-        return (
-          <TableRow key={row.id}>
-            <TableCell className="font-mono text-xs">
-              {formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero)}
-            </TableCell>
-            <TableCell className="font-medium">
-              <Link
-                href={`/clients/${row.client_id}`}
-                className="hover:underline"
-              >
-                {row.client_legal_name}
-              </Link>
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
-              {formatArgentineDate(row.fecha)}
-            </TableCell>
-            <TableCell className="text-right font-mono">
-              ${formatNumber2(row.imp_total)}
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant="secondary"
-                className={STATUS_TONE[row.status]}
-              >
-                {INVOICE_STATUS_LABEL[row.status]}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center justify-end gap-1">
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Ver detalle"
-                >
-                  <Link href={`/invoices/${row.id}`}>
-                    <Eye className="size-4" />
-                  </Link>
-                </Button>
-                {hasPdf && (
-                  <>
-                    <PdfViewerDialog id={row.id} label={formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero)} />
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Descargar PDF"
-                    >
-                      <a
-                        href={`/api/invoices/${row.id}/pdf`}
-                        download={formatPdfFilename(row)}
-                      >
-                        <Download className="size-4" />
-                      </a>
-                    </Button>
-                    {canSendEmail && (
-                      <SendByEmailDialog kind="invoice" id={row.id} />
-                    )}
-                  </>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        );
-      })}
-      {hasNextPage && (
-        <TableRow ref={sentinelRef}>
-          <TableCell
-            colSpan={6}
-            className="py-3 text-center text-xs text-muted-foreground"
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(row) => row.id}
+      emptyMessage="No hay comprobantes que coincidan."
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
           >
-            {isFetchingNextPage ? "Cargando más…" : ""}
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
+            Cargando más…
+          </div>
+        ) : null
+      }
+    />
   );
 }
 
-function ComprobantesTableSkeletonRows() {
+function ComprobantesTableSkeleton() {
   return (
-    <TableBody>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </TableBody>
+    <DataTable
+      columns={buildInvoiceColumns(false)}
+      data={[]}
+      isLoading
+      skeletonRows={6}
+    />
   );
 }
