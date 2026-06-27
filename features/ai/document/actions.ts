@@ -182,27 +182,48 @@ export async function extractDocumentAction(
   return { ok: true, data: { extractionId: data.id } };
 }
 
-/** Lists the caller's drafts still awaiting review (RLS scoped; ai:admin sees all). */
-export async function listPendingExtractionsAction(): Promise<
-  ActionResult<PendingExtraction[]>
-> {
+const LIST_STATUSES = [
+  "pending_review",
+  "confirmed",
+  "discarded",
+  "failed",
+  "all",
+] as const;
+
+/** Lists the caller's extractions for a status tab (RLS scoped; ai:admin sees all). */
+export async function listExtractionsAction(
+  status: string,
+): Promise<ActionResult<PendingExtraction[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
+  const valid = (LIST_STATUSES as readonly string[]).includes(status)
+    ? status
+    : "pending_review";
+
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("ai_document_extractions")
     .select(LIST_COLUMNS)
-    .eq("status", "pending_review")
     .order("created_at", { ascending: false })
     .limit(100);
+  if (valid !== "all") query = query.eq("status", valid);
+
+  const { data, error } = await query;
   if (error) {
     logger.error("ai.document.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar los documentos." };
   }
   return { ok: true, data: data ?? [] };
+}
+
+/** Lists the caller's drafts still awaiting review (RLS scoped; ai:admin sees all). */
+export async function listPendingExtractionsAction(): Promise<
+  ActionResult<PendingExtraction[]>
+> {
+  return listExtractionsAction("pending_review");
 }
 
 /** Full draft (with extracted payload) for the review screen. */
