@@ -2,7 +2,7 @@
 
 import { Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DateRangeSelector } from "@/components/date-range-selector";
@@ -21,14 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Tooltip,
   TooltipContent,
@@ -147,7 +140,7 @@ export function SupplierAccountTab({
     [filteredMovements, visibleCount],
   );
   const hasMore = visibleCount < filteredMovements.length;
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasMore)
         setVisibleCount((prev) =>
@@ -157,12 +150,12 @@ export function SupplierAccountTab({
     { rootMargin: "200px", enabled: hasMore },
   );
 
-  function handleClearOpening() {
+  const handleClearOpening = useCallback(() => {
     clearOpeningMut.mutate(supplierId, {
       onSuccess: () => toast.success("Ajuste de saldo eliminado."),
       onError: (err) => toast.error(err.message),
     });
-  }
+  }, [clearOpeningMut, supplierId]);
 
   useRealtimeInvalidate([
     {
@@ -176,6 +169,247 @@ export function SupplierAccountTab({
       queryKeys: [suppliersKeys.account(supplierId)],
     },
   ]);
+
+  const columns = useMemo<ColumnDef<SupplierAccountMovement>[]>(
+    () => [
+      {
+        id: "movement_date",
+        header: "Fecha",
+        enableSorting: false,
+        meta: { headerClassName: "w-32" },
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {formatArgentineDate(row.original.movement_date)}
+          </span>
+        ),
+      },
+      {
+        id: "kind",
+        header: "Tipo",
+        enableSorting: false,
+        meta: { headerClassName: "w-40" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isOpening = m.source_type === "opening_balance";
+          return (
+            <Badge
+              variant="secondary"
+              className={
+                isOpening
+                  ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
+                  : m.source_type === "payment_order"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    : m.kind === "nc"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              }
+            >
+              {KIND_LABEL[m.kind] ?? m.kind}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "document",
+        header: "Documento",
+        enableSorting: false,
+        meta: { headerClassName: "w-44" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isFactura =
+            m.source_type === "purchase_invoice" && m.kind === "factura";
+          const isND =
+            m.source_type === "purchase_invoice" && m.kind === "nd";
+          const showOutstandingBadge =
+            (isFactura || isND) &&
+            m.outstanding != null &&
+            m.gross_amount > 0;
+          const href = movementHref(m);
+          return (
+            <span className="inline-flex items-center gap-2 font-mono text-xs">
+              {href ? (
+                <Link href={href} className="hover:underline">
+                  {formatDocumentNumber(m)}
+                </Link>
+              ) : (
+                formatDocumentNumber(m)
+              )}
+              {showOutstandingBadge &&
+                (m.outstanding === 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                  >
+                    Pagada
+                  </Badge>
+                ) : m.outstanding! < m.gross_amount ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                  >
+                    Parcial
+                  </Badge>
+                ) : null)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "channel",
+        header: "Canal",
+        enableSorting: false,
+        meta: { cellClassName: "text-xs text-muted-foreground" },
+        cell: ({ row }) => row.original.channel_name ?? "",
+      },
+      {
+        id: "debe",
+        header: "Debe",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const debe = m.signed_amount > 0 ? m.signed_amount : 0;
+          const isFactura =
+            m.source_type === "purchase_invoice" && m.kind === "factura";
+          const isND =
+            m.source_type === "purchase_invoice" && m.kind === "nd";
+          const showOutstandingBadge =
+            (isFactura || isND) &&
+            m.outstanding != null &&
+            m.gross_amount > 0;
+          if (debe <= 0) return "—";
+          return (
+            <span className="inline-flex flex-col items-end">
+              <span>${amountToInput(debe)}</span>
+              {showOutstandingBadge &&
+                m.outstanding != null &&
+                m.outstanding > 0 &&
+                m.outstanding < m.gross_amount && (
+                  <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                    Pendiente: ${amountToInput(m.outstanding)}
+                  </span>
+                )}
+            </span>
+          );
+        },
+      },
+      {
+        id: "haber",
+        header: "Haber",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const haber = m.signed_amount < 0 ? -m.signed_amount : 0;
+          return haber > 0 ? `$${amountToInput(haber)}` : "—";
+        },
+      },
+      {
+        id: "balance",
+        header: "Saldo",
+        enableSorting: false,
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const m = row.original;
+          return (
+            <span
+              className={`font-mono text-sm font-medium ${
+                m.balance > 0
+                  ? "text-amber-600 dark:text-amber-400"
+                  : m.balance < 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-muted-foreground"
+              }`}
+            >
+              ${amountToInput(m.balance)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { align: "right", headerClassName: "w-20" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isOpening = m.source_type === "opening_balance";
+          const href = movementHref(m);
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {isOpening ? (
+                <OwnerOnly disabled={!isOwner}>
+                  <div className="flex items-center gap-1">
+                    <SupplierOpeningBalanceDialog
+                      supplierId={supplierId}
+                      prefill
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Editar ajuste de saldo"
+                          disabled={!isOwner}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Borrar ajuste de saldo"
+                          disabled={!isOwner || clearOpeningMut.isPending}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            ¿Borrar el ajuste de saldo?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Las imputaciones a facturas anteriores se revierten.
+                            El saldo de la cuenta corriente vuelve al calculado
+                            del sistema.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearOpening}>
+                            Borrar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </OwnerOnly>
+              ) : href ? (
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Ver detalle"
+                >
+                  <Link href={href}>
+                    <Eye className="size-4" />
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [isOwner, supplierId, clearOpeningMut.isPending, handleClearOpening],
+  );
+
+  const emptyMessage =
+    movements.length === 0
+      ? "Sin movimientos todavía."
+      : "No hay movimientos en el período seleccionado.";
 
   return (
     <div className="space-y-4">
@@ -241,222 +475,26 @@ export function SupplierAccountTab({
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Fecha</TableHead>
-              <TableHead className="w-40">Tipo</TableHead>
-              <TableHead className="w-44">Documento</TableHead>
-              <TableHead>Canal</TableHead>
-              <TableHead className="text-right">Debe</TableHead>
-              <TableHead className="text-right">Haber</TableHead>
-              <TableHead className="text-right">Saldo</TableHead>
-              <TableHead className="w-20 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredMovements.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  {movements.length === 0
-                    ? "Sin movimientos todavía."
-                    : "No hay movimientos en el período seleccionado."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleMovements.map((m) => {
-                const debe = m.signed_amount > 0 ? m.signed_amount : 0;
-                const haber = m.signed_amount < 0 ? -m.signed_amount : 0;
-                const isOpening = m.source_type === "opening_balance";
-                const isFactura =
-                  m.source_type === "purchase_invoice" && m.kind === "factura";
-                const isND =
-                  m.source_type === "purchase_invoice" && m.kind === "nd";
-                const showOutstandingBadge =
-                  (isFactura || isND) &&
-                  m.outstanding != null &&
-                  m.gross_amount > 0;
-                const href = movementHref(m);
-                return (
-                  <TableRow
-                    key={
-                      isOpening
-                        ? `opening-${m.movement_date}`
-                        : `${m.source_type}-${m.source_id}`
-                    }
-                  >
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(m.movement_date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          isOpening
-                            ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
-                            : m.source_type === "payment_order"
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                              : m.kind === "nc"
-                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        }
-                      >
-                        {KIND_LABEL[m.kind] ?? m.kind}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <span className="inline-flex items-center gap-2">
-                        {href ? (
-                          <Link href={href} className="hover:underline">
-                            {formatDocumentNumber(m)}
-                          </Link>
-                        ) : (
-                          formatDocumentNumber(m)
-                        )}
-                        {showOutstandingBadge &&
-                          (m.outstanding === 0 ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
-                            >
-                              Pagada
-                            </Badge>
-                          ) : m.outstanding! < m.gross_amount ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
-                            >
-                              Parcial
-                            </Badge>
-                          ) : null)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {m.channel_name ?? ""}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {debe > 0 ? (
-                        <span className="inline-flex flex-col items-end">
-                          <span>${amountToInput(debe)}</span>
-                          {showOutstandingBadge &&
-                            m.outstanding != null &&
-                            m.outstanding > 0 &&
-                            m.outstanding < m.gross_amount && (
-                              <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
-                                Pendiente: ${amountToInput(m.outstanding)}
-                              </span>
-                            )}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {haber > 0 ? `$${amountToInput(haber)}` : "—"}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right font-mono text-sm font-medium ${
-                        m.balance > 0
-                          ? "text-amber-600 dark:text-amber-400"
-                          : m.balance < 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      ${amountToInput(m.balance)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {isOpening ? (
-                          <OwnerOnly disabled={!isOwner}>
-                            <div className="flex items-center gap-1">
-                              <SupplierOpeningBalanceDialog
-                                supplierId={supplierId}
-                                prefill
-                                trigger={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Editar ajuste de saldo"
-                                    disabled={!isOwner}
-                                  >
-                                    <Pencil className="size-4" />
-                                  </Button>
-                                }
-                              />
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Borrar ajuste de saldo"
-                                    disabled={
-                                      !isOwner || clearOpeningMut.isPending
-                                    }
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      ¿Borrar el ajuste de saldo?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Las imputaciones a facturas anteriores se
-                                      revierten. El saldo de la cuenta corriente
-                                      vuelve al calculado del sistema.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancelar
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={handleClearOpening}
-                                    >
-                                      Borrar
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </OwnerOnly>
-                        ) : href ? (
-                          <Button
-                            asChild
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Ver detalle"
-                          >
-                            <Link href={href}>
-                              <Eye className="size-4" />
-                            </Link>
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-            {hasMore && (
-              <TableRow ref={sentinelRef}>
-                <TableCell
-                  colSpan={8}
-                  className="py-4 text-center text-xs text-muted-foreground"
-                >
-                  Cargando más movimientos…
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={visibleMovements}
+        getRowId={(m) =>
+          m.source_type === "opening_balance"
+            ? `opening-${m.movement_date}`
+            : `${m.source_type}-${m.source_id}`
+        }
+        emptyMessage={emptyMessage}
+        footer={
+          hasMore ? (
+            <div
+              ref={sentinelRef}
+              className="py-4 text-center text-xs text-muted-foreground"
+            >
+              Cargando más movimientos…
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }

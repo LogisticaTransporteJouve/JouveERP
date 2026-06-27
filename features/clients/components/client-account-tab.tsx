@@ -2,7 +2,7 @@
 
 import { Download, Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   AlertDialog,
@@ -17,20 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { DateRangeSelector } from "@/components/date-range-selector";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useDateRange } from "@/components/providers/date-range-provider";
@@ -148,7 +141,7 @@ export function ClientAccountTab({
     [filteredMovements, visibleCount],
   );
   const hasMore = visibleCount < filteredMovements.length;
-  const sentinelRef = useIntersectionObserver<HTMLTableRowElement>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
       if (hasMore)
         setVisibleCount((prev) =>
@@ -158,12 +151,286 @@ export function ClientAccountTab({
     { rootMargin: "200px", enabled: hasMore },
   );
 
-  function handleClearOpening() {
+  const handleClearOpening = useCallback(() => {
     clearOpeningMut.mutate(clientId, {
       onSuccess: () => toast.success("Ajuste de saldo eliminado."),
       onError: (err) => toast.error(err.message),
     });
-  }
+  }, [clearOpeningMut, clientId]);
+
+  // Ledger columns. Rows carry a per-row running balance (Saldo) and are in
+  // chronological order, so sorting would corrupt their meaning →
+  // enableSorting:false on every column.
+  const columns = useMemo<ColumnDef<AccountMovement>[]>(
+    () => [
+      {
+        id: "date",
+        header: "Fecha",
+        enableSorting: false,
+        meta: { headerClassName: "w-32" },
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {formatArgentineDate(row.original.movement_date)}
+          </span>
+        ),
+      },
+      {
+        id: "type",
+        header: "Tipo",
+        enableSorting: false,
+        meta: { headerClassName: "w-40" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isOpening = m.source_type === "opening_balance";
+          return (
+            <Badge
+              variant="secondary"
+              className={
+                isOpening
+                  ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
+                  : m.source_type === "receipt"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    : m.kind === "nc"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              }
+            >
+              {movementTypeLabel(m)}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "document",
+        header: "Documento",
+        enableSorting: false,
+        meta: { headerClassName: "w-44", cellClassName: "font-mono text-xs" },
+        cell: ({ row }) => {
+          const m = row.original;
+          return (
+            <span className="inline-flex items-center gap-2">
+              {m.source_type === "invoice" && m.source_id ? (
+                <Link href={movementHref(m)} className="hover:underline">
+                  {formatMovementNumber(m)}
+                </Link>
+              ) : (
+                formatMovementNumber(m)
+              )}
+              {m.source_type === "invoice" &&
+                m.kind !== "credit_note" &&
+                m.outstanding != null &&
+                (m.outstanding === 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                  >
+                    Pagada
+                  </Badge>
+                ) : m.outstanding < m.gross_amount ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                  >
+                    Parcial
+                  </Badge>
+                ) : null)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "debit",
+        header: "Debe",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isDebit = m.signed_amount > 0;
+          if (!isDebit) return "";
+          return (
+            <span className="inline-flex flex-col items-end">
+              <span>{formatter.format(m.gross_amount)}</span>
+              {m.source_type === "invoice" &&
+                m.kind !== "credit_note" &&
+                m.outstanding != null &&
+                m.outstanding > 0 &&
+                m.outstanding < m.gross_amount && (
+                  <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                    Pendiente: {formatter.format(m.outstanding)}
+                  </span>
+                )}
+            </span>
+          );
+        },
+      },
+      {
+        id: "credit",
+        header: "Haber",
+        enableSorting: false,
+        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isDebit = m.signed_amount > 0;
+          return !isDebit ? formatter.format(m.gross_amount) : "";
+        },
+      },
+      {
+        id: "balance",
+        header: "Saldo",
+        enableSorting: false,
+        meta: {
+          align: "right",
+          cellClassName: "font-mono text-sm font-medium",
+        },
+        cell: ({ row }) => {
+          const m = row.original;
+          return (
+            <span
+              className={
+                m.balance > 0
+                  ? "text-amber-600 dark:text-amber-400"
+                  : m.balance < 0
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-muted-foreground"
+              }
+            >
+              {formatter.format(m.balance)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        enableSorting: false,
+        meta: { align: "right", headerClassName: "w-32" },
+        cell: ({ row }) => {
+          const m = row.original;
+          const isOpening = m.source_type === "opening_balance";
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {isOpening ? (
+                <OwnerOnly disabled={!isOwner}>
+                  <div className="flex items-center gap-1">
+                    <OpeningBalanceDialog
+                      clientId={clientId}
+                      prefill
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Editar ajuste de saldo"
+                          disabled={!isOwner}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Borrar ajuste de saldo"
+                          disabled={!isOwner || clearOpeningMut.isPending}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            ¿Borrar el ajuste de saldo?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Las imputaciones a facturas anteriores se revierten.
+                            El saldo de la cuenta corriente vuelve al calculado
+                            del sistema.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearOpening}>
+                            Borrar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </OwnerOnly>
+              ) : m.source_type === "invoice" && m.source_id ? (
+                <>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Ver comprobante"
+                  >
+                    <Link
+                      href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
+                    >
+                      <Eye className="size-4" />
+                    </Link>
+                  </Button>
+                  <PdfViewerDialog
+                    id={m.source_id}
+                    label={formatMovementNumber(m)}
+                  />
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Descargar PDF"
+                  >
+                    <Link href={`/api/invoices/${m.source_id}/pdf`}>
+                      <Download className="size-4" />
+                    </Link>
+                  </Button>
+                </>
+              ) : m.source_id ? (
+                <>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Ver recibo"
+                  >
+                    <Link
+                      href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
+                    >
+                      <Eye className="size-4" />
+                    </Link>
+                  </Button>
+                  <PdfViewerDialog
+                    id={m.source_id}
+                    label={formatMovementNumber(m)}
+                    kind="receipt"
+                  />
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Descargar PDF"
+                  >
+                    <Link href={`/api/receipts/${m.source_id}/pdf`}>
+                      <Download className="size-4" />
+                    </Link>
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [clientId, isOwner, clearOpeningMut.isPending, handleClearOpening],
+  );
+
+  // Empty state: distinguish "no movements at all" from "filtered to empty".
+  const emptyMessage =
+    movements.length === 0
+      ? "Este cliente todavía no tiene movimientos."
+      : "No hay movimientos en el período seleccionado.";
 
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
@@ -243,266 +510,26 @@ export function ClientAccountTab({
         )}
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Fecha</TableHead>
-              <TableHead className="w-40">Tipo</TableHead>
-              <TableHead className="w-44">Documento</TableHead>
-              <TableHead className="text-right">Debe</TableHead>
-              <TableHead className="text-right">Haber</TableHead>
-              <TableHead className="text-right">Saldo</TableHead>
-              <TableHead className="w-32 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredMovements.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  {movements.length === 0
-                    ? "Este cliente todavía no tiene movimientos."
-                    : "No hay movimientos en el período seleccionado."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleMovements.map((m) => {
-                const isDebit = m.signed_amount > 0;
-                const isOpening = m.source_type === "opening_balance";
-                return (
-                  <TableRow
-                    key={
-                      isOpening
-                        ? `opening-${m.movement_date}`
-                        : `${m.source_type}-${m.source_id}`
-                    }
-                  >
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatArgentineDate(m.movement_date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          isOpening
-                            ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
-                            : m.source_type === "receipt"
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                              : m.kind === "nc"
-                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        }
-                      >
-                        {movementTypeLabel(m)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <span className="inline-flex items-center gap-2">
-                        {m.source_type === "invoice" && m.source_id ? (
-                          <Link
-                            href={movementHref(m)}
-                            className="hover:underline"
-                          >
-                            {formatMovementNumber(m)}
-                          </Link>
-                        ) : (
-                          formatMovementNumber(m)
-                        )}
-                        {m.source_type === "invoice" &&
-                          m.kind !== "credit_note" &&
-                          m.outstanding != null &&
-                          (m.outstanding === 0 ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
-                            >
-                              Pagada
-                            </Badge>
-                          ) : m.outstanding < m.gross_amount ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
-                            >
-                              Parcial
-                            </Badge>
-                          ) : null)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {isDebit ? (
-                        <span className="inline-flex flex-col items-end">
-                          <span>{formatter.format(m.gross_amount)}</span>
-                          {m.source_type === "invoice" &&
-                            m.kind !== "credit_note" &&
-                            m.outstanding != null &&
-                            m.outstanding > 0 &&
-                            m.outstanding < m.gross_amount && (
-                              <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
-                                Pendiente: {formatter.format(m.outstanding)}
-                              </span>
-                            )}
-                        </span>
-                      ) : (
-                        ""
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {!isDebit ? formatter.format(m.gross_amount) : ""}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm font-medium">
-                      <span
-                        className={
-                          m.balance > 0
-                            ? "text-amber-600 dark:text-amber-400"
-                            : m.balance < 0
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-muted-foreground"
-                        }
-                      >
-                        {formatter.format(m.balance)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {isOpening ? (
-                          <OwnerOnly disabled={!isOwner}>
-                            <div className="flex items-center gap-1">
-                              <OpeningBalanceDialog
-                                clientId={clientId}
-                                prefill
-                                trigger={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Editar ajuste de saldo"
-                                    disabled={!isOwner}
-                                  >
-                                    <Pencil className="size-4" />
-                                  </Button>
-                                }
-                              />
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Borrar ajuste de saldo"
-                                    disabled={
-                                      !isOwner || clearOpeningMut.isPending
-                                    }
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      ¿Borrar el ajuste de saldo?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Las imputaciones a facturas anteriores
-                                      se revierten. El saldo de la cuenta
-                                      corriente vuelve al calculado del
-                                      sistema.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancelar
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={handleClearOpening}
-                                    >
-                                      Borrar
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </OwnerOnly>
-                        ) : m.source_type === "invoice" &&
-                          m.source_id ? (
-                          <>
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Ver comprobante"
-                            >
-                              <Link
-                                href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
-                              >
-                                <Eye className="size-4" />
-                              </Link>
-                            </Button>
-                            <PdfViewerDialog
-                              id={m.source_id}
-                              label={formatMovementNumber(m)}
-                            />
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Descargar PDF"
-                            >
-                              <Link href={`/api/invoices/${m.source_id}/pdf`}>
-                                <Download className="size-4" />
-                              </Link>
-                            </Button>
-                          </>
-                        ) : m.source_id ? (
-                          <>
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Ver recibo"
-                            >
-                              <Link
-                                href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
-                              >
-                                <Eye className="size-4" />
-                              </Link>
-                            </Button>
-                            <PdfViewerDialog
-                              id={m.source_id}
-                              label={formatMovementNumber(m)}
-                              kind="receipt"
-                            />
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Descargar PDF"
-                            >
-                              <Link href={`/api/receipts/${m.source_id}/pdf`}>
-                                <Download className="size-4" />
-                              </Link>
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-            {hasMore && (
-              <TableRow ref={sentinelRef}>
-                <TableCell
-                  colSpan={7}
-                  className="py-4 text-center text-xs text-muted-foreground"
-                >
-                  Cargando más movimientos…
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={visibleMovements}
+        getRowId={(m) =>
+          m.source_type === "opening_balance"
+            ? `opening-${m.movement_date}`
+            : `${m.source_type}-${m.source_id}`
+        }
+        emptyMessage={emptyMessage}
+        footer={
+          hasMore ? (
+            <div
+              ref={sentinelRef}
+              className="py-4 text-center text-xs text-muted-foreground"
+            >
+              Cargando más movimientos…
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }
