@@ -133,39 +133,37 @@ export async function getTreasurySummaryAction(): Promise<
     };
   });
 
-  // 3. Totals per currency (liquid vs. checks in portfolio).
-  const totals_now: Record<TreasuryCurrency, { liquid: number; checks: number }> = {
-    ARS: { liquid: 0, checks: 0 },
-    USD: { liquid: 0, checks: 0 },
-  };
-  const totals_prev_eom: Record<TreasuryCurrency, { liquid: number; checks: number }> = {
-    ARS: { liquid: 0, checks: 0 },
-    USD: { liquid: 0, checks: 0 },
-  };
+  // 3. Liquid totals per currency + ARS checks in portfolio. Checks only exist
+  // in ARS in this business, so they are not tracked per currency.
+  const liquid_now: Record<TreasuryCurrency, number> = { ARS: 0, USD: 0 };
+  const liquid_prev_eom: Record<TreasuryCurrency, number> = { ARS: 0, USD: 0 };
+  let checks_now = 0;
+  let checks_prev_eom = 0;
 
   for (const a of accounts) {
     if (isLiquidAccountType(a.type)) {
-      totals_now[a.currency].liquid += a.balance_now;
-      totals_prev_eom[a.currency].liquid += a.balance_prev_eom;
-    } else if (isCheckAccountType(a.type)) {
-      // checks/echeq accounts are "virtual cash box" types for checks.
-      totals_now[a.currency].checks += a.balance_now;
-      totals_prev_eom[a.currency].checks += a.balance_prev_eom;
+      liquid_now[a.currency] += a.balance_now;
+      liquid_prev_eom[a.currency] += a.balance_prev_eom;
+    } else if (isCheckAccountType(a.type) && a.currency === "ARS") {
+      // checks/echeq accounts are "virtual cash box" types for checks (ARS only).
+      checks_now += a.balance_now;
+      checks_prev_eom += a.balance_prev_eom;
     }
   }
   // Round totals to avoid float drift after summing.
   for (const cur of ["ARS", "USD"] as const) {
-    totals_now[cur].liquid = round2(totals_now[cur].liquid);
-    totals_now[cur].checks = round2(totals_now[cur].checks);
-    totals_prev_eom[cur].liquid = round2(totals_prev_eom[cur].liquid);
-    totals_prev_eom[cur].checks = round2(totals_prev_eom[cur].checks);
+    liquid_now[cur] = round2(liquid_now[cur]);
+    liquid_prev_eom[cur] = round2(liquid_prev_eom[cur]);
   }
+  checks_now = round2(checks_now);
+  checks_prev_eom = round2(checks_prev_eom);
 
-  // 4. Checks in portfolio due in ≤ 7 days: how many there are and for how much.
+  // 4. ARS checks in portfolio due in ≤ 7 days: how many and for how much.
   const { data: chequesRaw, error: chErr } = await supabase
     .from("checks")
-    .select("amount, currency")
+    .select("amount")
     .eq("status", "en_cartera")
+    .eq("currency", "ARS")
     .gte("due_date", today)
     .lte("due_date", sevenDays);
 
@@ -176,18 +174,12 @@ export async function getTreasurySummaryAction(): Promise<
     });
   }
 
-  const checks_due_soon: Record<TreasuryCurrency, { count: number; amount: number }> = {
-    ARS: { count: 0, amount: 0 },
-    USD: { count: 0, amount: 0 },
-  };
+  const checks_due_soon = { count: 0, amount: 0 };
   for (const c of chequesRaw ?? []) {
-    const cur = c.currency as TreasuryCurrency;
-    if (cur !== "ARS" && cur !== "USD") continue;
-    checks_due_soon[cur].count += 1;
-    checks_due_soon[cur].amount += Number(c.amount);
+    checks_due_soon.count += 1;
+    checks_due_soon.amount += Number(c.amount);
   }
-  checks_due_soon.ARS.amount = round2(checks_due_soon.ARS.amount);
-  checks_due_soon.USD.amount = round2(checks_due_soon.USD.amount);
+  checks_due_soon.amount = round2(checks_due_soon.amount);
 
   // 5. Latest USD→ARS exchange rate to show the ARS equivalent of dollar
   // balances (M.2). "Current value" → the most recent exchange rate.
@@ -206,8 +198,10 @@ export async function getTreasurySummaryAction(): Promise<
     as_of: today,
     prev_eom: prevEom,
     accounts,
-    totals_now,
-    totals_prev_eom,
+    liquid_now,
+    liquid_prev_eom,
+    checks_now,
+    checks_prev_eom,
     checks_due_soon,
     usd_rate,
   };
