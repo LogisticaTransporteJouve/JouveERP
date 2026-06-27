@@ -27,9 +27,31 @@ function isEmptyDisplay(value: ReactNode): boolean {
   return value === null || value === undefined || value === "" || value === "—";
 }
 
-/** A single label/value row. Renders nothing when the value is empty/em-dash. */
-export function Field({ label, value }: { label: string; value: ReactNode }) {
+/**
+ * A single label/value row. Renders nothing when the value is empty/em-dash.
+ * `multiline` stacks the value below the label and wraps it (for long free text
+ * like observations) instead of truncating to one line.
+ */
+export function Field({
+  label,
+  value,
+  multiline,
+}: {
+  label: string;
+  value: ReactNode;
+  multiline?: boolean;
+}) {
   if (isEmptyDisplay(value)) return null;
+  if (multiline) {
+    return (
+      <div className="py-0.5">
+        <span className="text-muted-foreground text-xs">{label}</span>
+        <p className="font-mono text-xs break-words whitespace-pre-wrap">
+          {value}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
       <span className="text-muted-foreground shrink-0 text-xs">{label}</span>

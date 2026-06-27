@@ -218,13 +218,13 @@ function RemitoDetail({ payload }: { payload: unknown }) {
         <Field label="Número" value={fmtText(r.numero)} />
         <Field label="Fecha" value={fmtText(r.fecha)} />
         <Field label="Fecha de entrega" value={fmtText(r.fecha_entrega)} />
-        <Field label="Destino" value={fmtText(r.destino)} />
+        <Field label="Destino" value={fmtText(r.destino)} multiline />
         <Field label="Transportista" value={fmtText(r.transportista)} />
         <Field label="Conductor" value={fmtText(r.conductor)} />
         <Field label="Dominio" value={fmtText(r.dominio_vehiculo)} />
         <Field label="Total kilos" value={fmtNumber(r.total_kilos)} />
         <Field label="CRE" value={fmtText(r.cre)} />
-        <Field label="Observaciones" value={fmtText(r.observaciones)} />
+        <Field label="Observaciones" value={fmtText(r.observaciones)} multiline />
       </Section>
       {r.items.length > 0 && (
         <Section icon={List} title={`Ítems (${r.items.length})`}>
