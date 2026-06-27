@@ -70,20 +70,20 @@ export function TreasuryPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryCard
           label="Total ARS líquido"
           subtitle="bancos + efectivo + billeteras"
-          now={query.data?.totals_now.ARS.liquid}
-          prev={query.data?.totals_prev_eom.ARS.liquid}
+          now={query.data?.liquid_now.ARS}
+          prev={query.data?.liquid_prev_eom.ARS}
           currency="ARS"
           loading={query.isLoading}
         />
         <SummaryCard
           label="Total USD líquido"
           subtitle="bancos + efectivo + billeteras"
-          now={query.data?.totals_now.USD.liquid}
-          prev={query.data?.totals_prev_eom.USD.liquid}
+          now={query.data?.liquid_now.USD}
+          prev={query.data?.liquid_prev_eom.USD}
           currency="USD"
           loading={query.isLoading}
           usdRate={query.data?.usd_rate ?? null}
@@ -92,60 +92,31 @@ export function TreasuryPage() {
           label="Cheques en cartera ARS"
           subtitle={
             query.data
-              ? `${query.data.checks_due_soon.ARS.count} acreditan ≤ 7 días`
+              ? `${query.data.checks_due_soon.count} acreditan ≤ 7 días`
               : "—"
           }
-          now={query.data?.totals_now.ARS.checks}
-          prev={query.data?.totals_prev_eom.ARS.checks}
+          now={query.data?.checks_now}
+          prev={query.data?.checks_prev_eom}
           currency="ARS"
           loading={query.isLoading}
           tone="muted"
         />
-        <SummaryCard
-          label="Cheques en cartera USD"
-          subtitle={
-            query.data
-              ? `${query.data.checks_due_soon.USD.count} acreditan ≤ 7 días`
-              : "—"
-          }
-          now={query.data?.totals_now.USD.checks}
-          prev={query.data?.totals_prev_eom.USD.checks}
-          currency="USD"
-          loading={query.isLoading}
-          tone="muted"
-          usdRate={query.data?.usd_rate ?? null}
-        />
       </div>
 
       {/* Soon to be credited — only if any */}
-      {query.data &&
-        (query.data.checks_due_soon.ARS.count > 0 ||
-          query.data.checks_due_soon.USD.count > 0) && (
-          <div className="rounded-lg border bg-amber-500/5 p-4 text-sm">
-            <p className="font-medium text-amber-700 dark:text-amber-400">
-              Próximos a acreditarse (≤ 7 días)
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {query.data.checks_due_soon.ARS.count > 0 && (
-                <>
-                  {query.data.checks_due_soon.ARS.count} cheques ARS por{" "}
-                  <span className="font-mono">
-                    {formatMoney(query.data.checks_due_soon.ARS.amount)}
-                  </span>
-                  {query.data.checks_due_soon.USD.count > 0 ? " · " : ""}
-                </>
-              )}
-              {query.data.checks_due_soon.USD.count > 0 && (
-                <>
-                  {query.data.checks_due_soon.USD.count} cheques USD por{" "}
-                  <span className="font-mono">
-                    {formatMoney(query.data.checks_due_soon.USD.amount, "USD")}
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
-        )}
+      {query.data && query.data.checks_due_soon.count > 0 && (
+        <div className="rounded-lg border bg-amber-500/5 p-4 text-sm">
+          <p className="font-medium text-amber-700 dark:text-amber-400">
+            Próximos a acreditarse (≤ 7 días)
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {query.data.checks_due_soon.count} cheques por{" "}
+            <span className="font-mono">
+              {formatMoney(query.data.checks_due_soon.amount)}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Filters + table */}
       <div className="flex flex-wrap items-center gap-2">

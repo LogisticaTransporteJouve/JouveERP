@@ -9,11 +9,9 @@ export async function runTreasurySummary(): Promise<AiToolResult> {
   const res = await getTreasurySummaryAction();
   if (!res.ok) return errResult(res.error);
   const d = res.data;
-  const dueArs = d.checks_due_soon.ARS.count;
-  const dueUsd = d.checks_due_soon.USD.count;
   return okResult(
-    `${d.accounts.length} cuentas activas · cheques por vencer (7 días): ` +
-      `${dueArs} ARS, ${dueUsd} USD.`,
+    `${d.accounts.length} cuentas activas · ${d.checks_due_soon.count} cheques ` +
+      `por vencer (7 días).`,
     d,
   );
 }
