@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DateRangeSelector } from "@/components/date-range-selector";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import {
   AlertDialog,
@@ -193,6 +194,14 @@ export function SupplierAccountTab({
 
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeSelector />
+        <ExportPdfButton
+          resource="supplier-account"
+          params={{
+            supplierId,
+            name: `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`,
+          }}
+          label="Resumen PDF"
+        />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <OwnerOnly disabled={!isOwner}>
             <SupplierOpeningBalanceDialog

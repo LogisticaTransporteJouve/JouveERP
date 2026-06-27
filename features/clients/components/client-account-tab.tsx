@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DateRangeSelector } from "@/components/date-range-selector";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -186,6 +187,14 @@ export function ClientAccountTab({
 
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeSelector />
+        <ExportPdfButton
+          resource="client-account"
+          params={{
+            clientId,
+            name: `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`,
+          }}
+          label="Resumen PDF"
+        />
         {(canIssueInvoice || canWriteReceipt) && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canIssueInvoice && (
