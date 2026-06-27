@@ -17,6 +17,11 @@ import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DataTable,
+  type ColumnDef,
+  type ExpandedState,
+} from "@/components/ui/data-table";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -51,41 +56,151 @@ export function ChartOfAccountsTree() {
 
   const tree = useMemo(() => buildAccountTree(accounts), [accounts]);
 
-  const [expanded, setExpanded] = useState<Set<string>>(
-    // By default we expand the chapters (level 1) so the chart is visible.
-    () => new Set(accounts.filter((a) => a.level === 1).map((a) => a.id)),
-  );
+  // Expand the chapters (level 1) by default so the chart is visible.
+  const [expanded, setExpanded] = useState<ExpandedState>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const a of accounts) if (a.level === 1) initial[a.id] = true;
+    return initial;
+  });
   const [dialogState, setDialogState] = useState<DialogState>(null);
 
-  function toggle(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  const columns = useMemo<ColumnDef<ChartAccountWithChildren>[]>(() => {
+    async function handleDelete(account: ChartAccount) {
+      const ok = await confirm({
+        title: `Borrar cuenta ${account.code}`,
+        description: `${account.name}. Esta acción no se puede deshacer.`,
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(account.id, {
+        onSuccess: () => toast.success("Cuenta borrada."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
 
-  function expandAll() {
-    setExpanded(new Set(accounts.map((a) => a.id)));
-  }
-  function collapseAll() {
-    setExpanded(new Set());
-  }
+    return [
+      {
+        id: "account",
+        header: "Cuenta",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const node = row.original;
+          const canExpand = row.getCanExpand();
+          return (
+            <div
+              className={cn(
+                "flex items-center gap-2",
+                !node.is_active && "opacity-50",
+              )}
+              style={{ paddingLeft: `${row.depth * 20}px` }}
+            >
+              <button
+                type="button"
+                onClick={
+                  canExpand ? row.getToggleExpandedHandler() : undefined
+                }
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground",
+                  canExpand ? "hover:bg-muted" : "invisible",
+                )}
+                aria-label={row.getIsExpanded() ? "Colapsar" : "Expandir"}
+              >
+                {row.getIsExpanded() ? (
+                  <ChevronDown className="size-4" />
+                ) : (
+                  <ChevronRight className="size-4" />
+                )}
+              </button>
 
-  async function handleDelete(account: ChartAccount) {
-    const ok = await confirm({
-      title: `Borrar cuenta ${account.code}`,
-      description: `${account.name}. Esta acción no se puede deshacer.`,
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(account.id, {
-      onSuccess: () => toast.success("Cuenta borrada."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+              {canExpand ? (
+                <Folder className="size-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <FileText className="size-4 shrink-0 text-muted-foreground" />
+              )}
+
+              <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">
+                {node.code}
+              </span>
+              <span className="flex-1 truncate text-sm font-medium">
+                {node.name}
+              </span>
+
+              <Badge
+                variant="outline"
+                className="hidden text-xs font-normal md:inline-flex"
+              >
+                {COA_ACCOUNT_TYPE_LABEL[node.account_type]}
+              </Badge>
+              {node.system_role && (
+                <Badge variant="secondary" className="text-xs">
+                  {COA_SYSTEM_ROLE_LABEL[node.system_role]}
+                </Badge>
+              )}
+              {!node.is_active && (
+                <Badge variant="outline" className="text-xs">
+                  Inactiva
+                </Badge>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => {
+          const node = row.original;
+          const canAddChild = node.level < 8;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  aria-label="Acciones"
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setDialogState({ mode: "edit", account: node })}
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                {canAddChild && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setDialogState({
+                        mode: "create",
+                        parentSuggestion: node,
+                      })
+                    }
+                  >
+                    <Plus className="size-4" />
+                    Agregar hija
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(node)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <>
@@ -100,10 +215,10 @@ export function ChartOfAccountsTree() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={expandAll}>
+          <Button variant="outline" size="sm" onClick={() => setExpanded(true)}>
             Expandir todo
           </Button>
-          <Button variant="outline" size="sm" onClick={collapseAll}>
+          <Button variant="outline" size="sm" onClick={() => setExpanded({})}>
             Colapsar todo
           </Button>
           <Button onClick={() => setDialogState({ mode: "create" })}>
@@ -113,37 +228,24 @@ export function ChartOfAccountsTree() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        {tree.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-            Sin cuentas. Creá la primera para empezar.
-          </div>
-        ) : (
-          <ul className="divide-y">
-            {tree.map((node) => (
-              <TreeRow
-                key={node.id}
-                node={node}
-                depth={0}
-                expanded={expanded}
-                onToggle={toggle}
-                onCreateChild={(parent) =>
-                  setDialogState({ mode: "create", parentSuggestion: parent })
-                }
-                onEdit={(account) => setDialogState({ mode: "edit", account })}
-                onDelete={handleDelete}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={tree}
+        getRowId={(a) => a.id}
+        getSubRows={(a) => (a.children.length > 0 ? a.children : undefined)}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        emptyMessage="Sin cuentas. Creá la primera para empezar."
+      />
 
       {dialogState && (
         <ChartAccountDialog
           mode={dialogState.mode}
           account={dialogState.mode === "edit" ? dialogState.account : undefined}
           parentSuggestion={
-            dialogState.mode === "create" ? dialogState.parentSuggestion : undefined
+            dialogState.mode === "create"
+              ? dialogState.parentSuggestion
+              : undefined
           }
           allAccounts={accounts}
           open={dialogState !== null}
@@ -153,134 +255,5 @@ export function ChartOfAccountsTree() {
         />
       )}
     </>
-  );
-}
-
-function TreeRow({
-  node,
-  depth,
-  expanded,
-  onToggle,
-  onCreateChild,
-  onEdit,
-  onDelete,
-}: {
-  node: ChartAccountWithChildren;
-  depth: number;
-  expanded: Set<string>;
-  onToggle: (id: string) => void;
-  onCreateChild: (parent: ChartAccount) => void;
-  onEdit: (account: ChartAccount) => void;
-  onDelete: (account: ChartAccount) => void;
-}) {
-  const hasChildren = node.children.length > 0;
-  const isOpen = expanded.has(node.id);
-  const isLeaf = !hasChildren;
-  const canAddChild = node.level < 8;
-
-  return (
-    <li>
-      <div
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 hover:bg-muted/40",
-          !node.is_active && "opacity-50",
-        )}
-        style={{ paddingLeft: `${depth * 20 + 12}px` }}
-      >
-        <button
-          type="button"
-          onClick={() => hasChildren && onToggle(node.id)}
-          className={cn(
-            "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground",
-            hasChildren ? "hover:bg-muted" : "invisible",
-          )}
-          aria-label={isOpen ? "Colapsar" : "Expandir"}
-        >
-          {isOpen ? (
-            <ChevronDown className="size-4" />
-          ) : (
-            <ChevronRight className="size-4" />
-          )}
-        </button>
-
-        {isLeaf ? (
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <Folder className="size-4 shrink-0 text-muted-foreground" />
-        )}
-
-        <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">
-          {node.code}
-        </span>
-
-        <span className="flex-1 truncate text-sm font-medium">{node.name}</span>
-
-        <Badge variant="outline" className="hidden text-xs font-normal md:inline-flex">
-          {COA_ACCOUNT_TYPE_LABEL[node.account_type]}
-        </Badge>
-
-        {node.system_role && (
-          <Badge variant="secondary" className="text-xs">
-            {COA_SYSTEM_ROLE_LABEL[node.system_role]}
-          </Badge>
-        )}
-
-        {!node.is_active && (
-          <Badge variant="outline" className="text-xs">
-            Inactiva
-          </Badge>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 shrink-0"
-              aria-label="Acciones"
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(node)}>
-              <Pencil className="size-4" />
-              Editar
-            </DropdownMenuItem>
-            {canAddChild && (
-              <DropdownMenuItem onClick={() => onCreateChild(node)}>
-                <Plus className="size-4" />
-                Agregar hija
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => onDelete(node)}
-            >
-              <Trash2 className="size-4" />
-              Borrar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {isOpen && hasChildren && (
-        <ul>
-          {node.children.map((child) => (
-            <TreeRow
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              expanded={expanded}
-              onToggle={onToggle}
-              onCreateChild={onCreateChild}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
   );
 }

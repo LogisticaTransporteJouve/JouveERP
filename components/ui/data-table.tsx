@@ -10,10 +10,13 @@ import {
 import * as React from "react";
 import {
   type ColumnDef,
+  type ExpandedState,
+  type OnChangeFn,
   type RowData,
   type SortingState,
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -44,7 +47,7 @@ declare module "@tanstack/react-table" {
   }
 }
 
-export type { ColumnDef } from "@tanstack/react-table";
+export type { ColumnDef, ExpandedState } from "@tanstack/react-table";
 
 const ALIGN: Record<"left" | "center" | "right", string> = {
   left: "",
@@ -68,6 +71,13 @@ export type DataTableProps<T> = {
   /** Initial sort, e.g. [{ id: "date", desc: true }]. */
   defaultSorting?: SortingState;
   onRowClick?: (row: T) => void;
+  /** Sub-rows accessor — enables hierarchical (tree) rendering. Cells can use
+   *  row.depth / row.getCanExpand() / row.getToggleExpandedHandler() to draw
+   *  the indentation + expander. */
+  getSubRows?: (row: T) => T[] | undefined;
+  /** Controlled expansion state (use with getSubRows). */
+  expanded?: ExpandedState;
+  onExpandedChange?: OnChangeFn<ExpandedState>;
   /** Rendered below the table body, inside the card (e.g. an infinite-scroll
    *  "load more" sentinel for tables that page their own data). */
   footer?: React.ReactNode;
@@ -91,6 +101,9 @@ export function DataTable<T>({
   initialPageSize = 20,
   defaultSorting,
   onRowClick,
+  getSubRows,
+  expanded,
+  onExpandedChange,
   footer,
   wrapperClassName,
 }: DataTableProps<T>) {
@@ -101,11 +114,14 @@ export function DataTable<T>({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, ...(expanded !== undefined ? { expanded } : {}) },
     onSortingChange: setSorting,
+    onExpandedChange,
     getRowId,
+    getSubRows,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getSubRows ? getExpandedRowModel() : undefined,
     getPaginationRowModel: enablePagination
       ? getPaginationRowModel()
       : undefined,
