@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
@@ -48,12 +49,15 @@ export default async function RecibosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Recibos</h1>
-        <p className="text-sm text-muted-foreground">
-          Cobros de clientes con imputación a comprobantes. Numerador
-          independiente por canal: <span className="font-mono">R0003-…</span>.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Recibos</h1>
+          <p className="text-sm text-muted-foreground">
+            Cobros de clientes con imputación a comprobantes. Numerador
+            independiente por canal: <span className="font-mono">R0003-…</span>.
+          </p>
+        </div>
+        <ExportPdfButton resource="receipts" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

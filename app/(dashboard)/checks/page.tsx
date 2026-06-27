@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
@@ -48,12 +49,15 @@ export default async function ChequesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Cheques</h1>
-        <p className="text-sm text-muted-foreground">
-          Cartera de cheques físicos y e-cheq. Lifecycle: en cartera →
-          depositar / endosar / rechazar → acreditar.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Cheques</h1>
+          <p className="text-sm text-muted-foreground">
+            Cartera de cheques físicos y e-cheq. Lifecycle: en cartera →
+            depositar / endosar / rechazar → acreditar.
+          </p>
+        </div>
+        <ExportPdfButton resource="checks" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

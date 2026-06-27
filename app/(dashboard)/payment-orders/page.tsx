@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listPaymentOrdersAction } from "@/features/payment-orders/actions/payment-orders-actions";
@@ -48,14 +49,17 @@ export default async function PaymentOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Órdenes de pago
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Pagos a proveedores con imputación a facturas de compra. Numerador
-          independiente por canal: <span className="font-mono">OP0003-…</span>.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Órdenes de pago
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Pagos a proveedores con imputación a facturas de compra. Numerador
+            independiente por canal: <span className="font-mono">OP0003-…</span>.
+          </p>
+        </div>
+        <ExportPdfButton resource="payment-orders" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

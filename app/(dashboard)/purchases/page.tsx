@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
 import {
@@ -70,14 +71,17 @@ export default async function PurchasesPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Facturas de compra
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Facturas, notas de crédito y débito recibidas de proveedores +
-          gastos internos sin factura formal.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Facturas de compra
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Facturas, notas de crédito y débito recibidas de proveedores +
+            gastos internos sin factura formal.
+          </p>
+        </div>
+        <ExportPdfButton resource="purchase-invoices" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <PurchaseInvoicesTable

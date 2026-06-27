@@ -5,6 +5,7 @@ import { listAccountsAction } from "@/features/accounts/actions/accounts-actions
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 import { TransactionsTable } from "@/features/transactions/components/transactions-table";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { TRANSACTIONS_PAGE_SIZE } from "@/features/transactions/hooks/use-transactions";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import {
@@ -93,12 +94,15 @@ export default async function CajaPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
-        <p className="text-sm text-muted-foreground">
-          Ingresos, egresos y transferencias entre cuentas. Cada movimiento
-          se imputa a un canal (Jouve o DZ) para reportes por división.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
+          <p className="text-sm text-muted-foreground">
+            Ingresos, egresos y transferencias entre cuentas. Cada movimiento
+            se imputa a un canal (Jouve o DZ) para reportes por división.
+          </p>
+        </div>
+        <ExportPdfButton resource="transactions" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
