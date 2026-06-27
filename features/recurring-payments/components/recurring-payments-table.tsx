@@ -1,13 +1,14 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,14 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useDeleteRecurringPayment,
@@ -53,26 +46,120 @@ export function RecurringPaymentsTable() {
     { mode: "create" } | { mode: "edit"; payment: RecurringPayment } | null
   >(null);
 
-  async function handleDelete(p: RecurringPayment) {
-    const ok = await confirm({
-      title: `Borrar "${p.description}"`,
-      description: "Se elimina el pago recurrente. No se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(p.id, {
-      onSuccess: () => toast.success("Pago borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<RecurringPayment>[]>(() => {
+    async function handleDelete(p: RecurringPayment) {
+      const ok = await confirm({
+        title: `Borrar "${p.description}"`,
+        description: "Se elimina el pago recurrente. No se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(p.id, {
+        onSuccess: () => toast.success("Pago borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
 
-  function handleToggle(p: RecurringPayment) {
-    toggleMut.mutate(
-      { id: p.id, is_active: !p.is_active },
-      { onError: (err) => toast.error(err.message) },
-    );
-  }
+    function handleToggle(p: RecurringPayment) {
+      toggleMut.mutate(
+        { id: p.id, is_active: !p.is_active },
+        { onError: (err) => toast.error(err.message) },
+      );
+    }
+
+    return [
+      {
+        accessorKey: "description",
+        header: "Descripción",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.description}</span>
+        ),
+      },
+      {
+        accessorKey: "category",
+        header: "Categoría",
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {RECURRING_CATEGORY_LABELS[row.original.category]}
+          </Badge>
+        ),
+        meta: { headerClassName: "w-28" },
+      },
+      {
+        accessorKey: "amount",
+        header: "Monto",
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {money(row.original.amount, row.original.currency)}
+          </span>
+        ),
+        meta: { headerClassName: "w-36", align: "right" },
+      },
+      {
+        accessorKey: "frequency",
+        header: "Frecuencia",
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {RECURRING_FREQUENCY_LABELS[row.original.frequency]}
+          </span>
+        ),
+        meta: { headerClassName: "w-24" },
+      },
+      {
+        accessorKey: "next_due_date",
+        header: "Próx. venc.",
+        cell: ({ row }) => (
+          <span className="tabular-nums">{row.original.next_due_date}</span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Activo",
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.is_active}
+            onCheckedChange={() => handleToggle(row.original)}
+            aria-label="Activo"
+          />
+        ),
+        meta: { headerClassName: "w-20" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", payment: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -95,84 +182,12 @@ export function RecurringPaymentsTable() {
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Descripción</TableHead>
-              <TableHead className="w-28">Categoría</TableHead>
-              <TableHead className="w-36 text-right">Monto</TableHead>
-              <TableHead className="w-24">Frecuencia</TableHead>
-              <TableHead className="w-32">Próx. venc.</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin pagos recurrentes. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.description}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {RECURRING_CATEGORY_LABELS[p.category]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {money(p.amount, p.currency)}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {RECURRING_FREQUENCY_LABELS[p.frequency]}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {p.next_due_date}
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={p.is_active}
-                      onCheckedChange={() => handleToggle(p)}
-                      aria-label="Activo"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => setDialog({ mode: "edit", payment: p })}
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(p)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(p) => p.id}
+        emptyMessage="Sin pagos recurrentes. Agregá el primero."
+      />
 
       {dialog && (
         <RecurringPaymentDialog

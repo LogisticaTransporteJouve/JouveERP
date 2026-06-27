@@ -1,12 +1,13 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,14 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useDeleteWarehouse,
@@ -41,19 +34,93 @@ export function WarehousesTable() {
     { mode: "create" } | { mode: "edit"; warehouse: Warehouse } | null
   >(null);
 
-  async function handleDelete(w: Warehouse) {
-    const ok = await confirm({
-      title: `Borrar ${w.name}`,
-      description: "Esta acción no se puede deshacer.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(w.id, {
-      onSuccess: () => toast.success("Depósito borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<Warehouse>[]>(() => {
+    async function handleDelete(w: Warehouse) {
+      const ok = await confirm({
+        title: `Borrar ${w.name}`,
+        description: "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(w.id, {
+        onSuccess: () => toast.success("Depósito borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "name",
+        header: "Nombre",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.name}</span>
+        ),
+      },
+      {
+        accessorKey: "address",
+        header: "Dirección",
+        cell: ({ row }) => row.original.address ?? "—",
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "capacity_pallets",
+        header: "Capacidad (pallets)",
+        cell: ({ row }) => row.original.capacity_pallets ?? "—",
+        meta: { headerClassName: "w-40", cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Activo",
+        enableSorting: false,
+        meta: { headerClassName: "w-20" },
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.is_active}
+            onCheckedChange={(v) =>
+              toggleMut.mutate(
+                { id: row.original.id, is_active: v },
+                { onError: (err) => toast.error(err.message) },
+              )
+            }
+            aria-label="Activo"
+          />
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({ mode: "edit", warehouse: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDelete(row.original)}
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -73,79 +140,12 @@ export function WarehousesTable() {
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Dirección</TableHead>
-              <TableHead className="w-40">Capacidad (pallets)</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  Sin depósitos. Agregá el primero.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((w) => (
-                <TableRow key={w.id}>
-                  <TableCell className="font-medium">{w.name}</TableCell>
-                  <TableCell className="text-sm">{w.address ?? "—"}</TableCell>
-                  <TableCell className="text-sm">
-                    {w.capacity_pallets ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={w.is_active}
-                      onCheckedChange={(v) =>
-                        toggleMut.mutate(
-                          { id: w.id, is_active: v },
-                          { onError: (err) => toast.error(err.message) },
-                        )
-                      }
-                      aria-label="Activo"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialog({ mode: "edit", warehouse: w })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(w)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(w) => w.id}
+        emptyMessage="Sin depósitos. Agregá el primero."
+      />
 
       {dialog && (
         <WarehouseDialog

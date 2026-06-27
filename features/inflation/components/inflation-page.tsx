@@ -1,12 +1,13 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -25,14 +26,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatArgentineDate } from "@/lib/format";
 
@@ -54,20 +47,90 @@ export function InflationPage() {
   const confirm = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  async function handleDelete(adj: InflationAdjustment) {
-    const ok = await confirm({
-      title: `Borrar coeficiente ${adj.period}`,
-      description:
-        "Si ya hay asiento aplicado, va a quedar huérfano. Considerá revertir primero.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(adj.id, {
-      onSuccess: () => toast.success("Coeficiente borrado."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<InflationAdjustment>[]>(() => {
+    async function handleDelete(adj: InflationAdjustment) {
+      const ok = await confirm({
+        title: `Borrar coeficiente ${adj.period}`,
+        description:
+          "Si ya hay asiento aplicado, va a quedar huérfano. Considerá revertir primero.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(adj.id, {
+        onSuccess: () => toast.success("Coeficiente borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "period",
+        header: "Período",
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.period}</span>
+        ),
+        meta: { headerClassName: "w-32" },
+      },
+      {
+        accessorKey: "coefficient",
+        header: "Coeficiente",
+        cell: ({ row }) => (
+          <span className="font-mono">
+            {numFmt.format(Number(row.original.coefficient))}
+          </span>
+        ),
+        meta: { headerClassName: "w-32", align: "right" },
+      },
+      {
+        id: "source",
+        header: "Fuente / Notas",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <>
+            {row.original.index_source && (
+              <span className="font-medium">{row.original.index_source}</span>
+            )}
+            {row.original.notes && (
+              <p className="text-xs text-muted-foreground">
+                {row.original.notes}
+              </p>
+            )}
+          </>
+        ),
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        id: "status",
+        header: "Estado",
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.applied_at
+            ? `Aplicado ${formatArgentineDate(row.original.applied_at)}`
+            : "Sin aplicar",
+        meta: {
+          headerClassName: "w-40",
+          cellClassName: "text-xs text-muted-foreground",
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDelete(row.original)}
+            aria-label="Borrar"
+          >
+            <Trash2 className="size-4 text-destructive" />
+          </Button>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <div className="space-y-6">
@@ -87,62 +150,12 @@ export function InflationPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Período</TableHead>
-              <TableHead className="w-32 text-right">Coeficiente</TableHead>
-              <TableHead>Fuente / Notas</TableHead>
-              <TableHead className="w-40">Estado</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                  No hay coeficientes cargados.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((adj) => (
-                <TableRow key={adj.id}>
-                  <TableCell className="font-mono">{adj.period}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {numFmt.format(Number(adj.coefficient))}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {adj.index_source && (
-                      <span className="font-medium">{adj.index_source}</span>
-                    )}
-                    {adj.notes && (
-                      <p className="text-xs text-muted-foreground">
-                        {adj.notes}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {adj.applied_at
-                      ? `Aplicado ${formatArgentineDate(adj.applied_at)}`
-                      : "Sin aplicar"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(adj)}
-                      aria-label="Borrar"
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(adj) => adj.id}
+        emptyMessage="No hay coeficientes cargados."
+      />
 
       <InflationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

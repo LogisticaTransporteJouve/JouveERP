@@ -1,7 +1,7 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -17,20 +17,13 @@ import {
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import {
   useDeleteSupplierCategory,
@@ -66,6 +59,73 @@ export function SupplierCategoriesTable() {
     });
   }
 
+  const columns = useMemo<ColumnDef<SupplierCategory>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Nombre",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.name}</span>
+        ),
+      },
+      {
+        accessorKey: "slug",
+        header: "Slug",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.slug}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "is_active",
+        header: "Estado",
+        cell: ({ row }) =>
+          row.original.is_active ? (
+            <Badge variant="secondary">Activa</Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Inactiva
+            </Badge>
+          ),
+        meta: { headerClassName: "w-24" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Acciones">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialogState({ mode: "edit", category: row.original })
+                }
+              >
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setConfirmDelete(row.original)}
+                variant="destructive"
+              >
+                <Trash2 className="size-4" />
+                Borrar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -86,72 +146,12 @@ export function SupplierCategoriesTable() {
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead className="w-24">Estado</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                  Sin categorías. Creá la primera para empezar a clasificar
-                  proveedores.
-                </TableCell>
-              </TableRow>
-            ) : (
-              categories.map((cat) => (
-                <TableRow key={cat.id}>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {cat.slug}
-                  </TableCell>
-                  <TableCell>
-                    {cat.is_active ? (
-                      <Badge variant="secondary">Activa</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Inactiva
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Acciones">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialogState({ mode: "edit", category: cat })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setConfirmDelete(cat)}
-                          variant="destructive"
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={categories}
+        getRowId={(cat) => cat.id}
+        emptyMessage="Sin categorías. Creá la primera para empezar a clasificar proveedores."
+      />
 
       <SupplierCategoryDialog
         mode={dialogState?.mode ?? "create"}
