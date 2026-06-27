@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { searchClientsAction } from "@/features/clients/actions/clients-actions";
 import { ClientsTable } from "@/features/clients/components/clients-table";
 import {
@@ -47,12 +48,15 @@ export default async function ClientesPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
-        <p className="text-sm text-muted-foreground">
-          Catálogo único por CUIT, compartido entre Logística Jouve y DZ
-          Instalaciones.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
+          <p className="text-sm text-muted-foreground">
+            Catálogo único por CUIT, compartido entre Logística Jouve y DZ
+            Instalaciones.
+          </p>
+        </div>
+        <ExportPdfButton resource="clients" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <ClientsTable

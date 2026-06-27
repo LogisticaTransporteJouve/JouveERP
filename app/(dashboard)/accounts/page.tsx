@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { AccountsTable } from "@/features/accounts/components/accounts-table";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
@@ -38,12 +39,15 @@ export default async function CuentasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
-        <p className="text-sm text-muted-foreground">
-          Caja, bancos, billeteras, inversiones y cheques en cartera. Los
-          movimientos y saldos en vivo se agregan en una fase posterior.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
+          <p className="text-sm text-muted-foreground">
+            Caja, bancos, billeteras, inversiones y cheques en cartera. Los
+            movimientos y saldos en vivo se agregan en una fase posterior.
+          </p>
+        </div>
+        <ExportPdfButton resource="accounts" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

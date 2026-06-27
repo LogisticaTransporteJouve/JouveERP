@@ -4,6 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,10 +75,13 @@ export function FuelTable({
             Cargas de combustible de la flota por vehículo.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nueva carga
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="fuel" label="Exportar PDF" />
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nueva carga
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">

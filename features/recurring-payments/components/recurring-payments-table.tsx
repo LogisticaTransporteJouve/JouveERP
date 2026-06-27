@@ -4,6 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,10 +86,13 @@ export function RecurringPaymentsTable() {
             impuestos, sueldos). Insumo del cash-flow proyectado.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nuevo pago
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPdfButton resource="recurring-payments" label="Exportar PDF" />
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nuevo pago
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">

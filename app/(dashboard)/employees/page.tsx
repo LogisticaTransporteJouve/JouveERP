@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { searchEmployeesAction } from "@/features/hr/actions/employees-actions";
 import { EmployeesTable } from "@/features/hr/components/employees-table";
 import {
@@ -50,12 +51,15 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Empleados</h1>
-        <p className="text-sm text-muted-foreground">
-          Personal de Jouve. La liquidación detallada va por el liquidador
-          externo; acá manejamos identidad, sueldos cargados a mano y pagos.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Empleados</h1>
+          <p className="text-sm text-muted-foreground">
+            Personal de Jouve. La liquidación detallada va por el liquidador
+            externo; acá manejamos identidad, sueldos cargados a mano y pagos.
+          </p>
+        </div>
+        <ExportPdfButton resource="employees" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
         <EmployeesTable
