@@ -134,13 +134,16 @@ export function FilePreviewSurface({
           </Button>
           {fileActions}
         </Toolbar>
-        <div className="flex h-full items-start justify-center overflow-auto bg-muted p-2">
+        <div className="flex h-full items-center justify-center overflow-auto p-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
             alt={filename}
-            style={{ transform: `scale(${scale})`, transformOrigin: "center top" }}
-            className="max-h-full max-w-full object-contain transition-transform"
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: "center center",
+            }}
+            className="max-h-full max-w-full rounded object-contain shadow-md transition-transform"
           />
         </div>
       </div>
