@@ -3,6 +3,7 @@
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
 
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import {
   Suspense,
@@ -179,11 +180,10 @@ export function ComprobantesTable({
           className="max-w-md flex-1"
         />
 
-        {canIssue && (
-          <div className="ml-auto">
-            <NewInvoiceDialog channels={channels} />
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          <ExportPdfButton resource="invoices" label="Exportar PDF" />
+          {canIssue && <NewInvoiceDialog channels={channels} />}
+        </div>
       </div>
 
       <div className="mt-4 rounded-lg border bg-card">
