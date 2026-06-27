@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Download,
-  ExternalLink,
-  Loader2,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { Download, Loader2, ZoomIn, ZoomOut } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,10 +21,10 @@ type FilePreviewSurfaceProps = {
 };
 
 /**
- * Inline document preview that fills its container, with a floating toolbar
- * (open / download always; zoom for images). PDFs use the browser's native
- * viewer (its own zoom/print/download). Used as the left pane of the document
- * review sheet — file on the left, data on the right.
+ * Inline document preview that fills its container, with a floating bottom
+ * toolbar (zoom for images + a labelled download). PDFs use the browser's
+ * native viewer (its own zoom/print). Used as the floating left pane of the
+ * document review sheet — document on the left, data on the right.
  */
 export function FilePreviewSurface({
   url,
@@ -56,44 +49,24 @@ export function FilePreviewSurface({
     );
   }
 
-  const fileActions = (
-    <>
-      <Button
-        asChild
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title="Abrir en otra pestaña"
-      >
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="size-4" />
-          <span className="sr-only">Abrir</span>
-        </a>
-      </Button>
-      <Button
-        asChild
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title="Descargar"
-      >
-        <a href={url} download={filename}>
-          <Download className="size-4" />
-          <span className="sr-only">Descargar</span>
-        </a>
-      </Button>
-    </>
+  const downloadButton = (
+    <Button asChild variant="secondary" size="sm" className="h-8 gap-1.5">
+      <a href={url} download={filename}>
+        <Download className="size-4" />
+        Descargar
+      </a>
+    </Button>
   );
 
   if (isPdf(mimeType)) {
     return (
       <div className={cn("relative h-full", className)}>
-        <Toolbar>{fileActions}</Toolbar>
         <iframe
           src={url}
           title={filename}
-          className="h-full w-full border-0 bg-muted"
+          className="h-full w-full border-0"
         />
+        <Toolbar>{downloadButton}</Toolbar>
       </div>
     );
   }
@@ -101,11 +74,23 @@ export function FilePreviewSurface({
   if (isImage(mimeType)) {
     return (
       <div className={cn("relative h-full", className)}>
+        <div className="flex h-full items-center justify-center overflow-auto">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={filename}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: "center center",
+            }}
+            className="max-h-full max-w-full object-contain shadow-2xl transition-transform"
+          />
+        </div>
         <Toolbar>
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
+            className="size-8"
             title="Alejar"
             disabled={scale <= MIN_SCALE}
             onClick={() => setScale((s) => Math.max(MIN_SCALE, s - STEP))}
@@ -115,37 +100,15 @@ export function FilePreviewSurface({
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
-            title="Restablecer zoom"
-            disabled={scale === 1}
-            onClick={() => setScale(1)}
-          >
-            <RotateCcw className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
+            className="size-8"
             title="Acercar"
             disabled={scale >= MAX_SCALE}
             onClick={() => setScale((s) => Math.min(MAX_SCALE, s + STEP))}
           >
             <ZoomIn className="size-4" />
           </Button>
-          {fileActions}
+          {downloadButton}
         </Toolbar>
-        <div className="flex h-full items-center justify-center overflow-auto p-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={filename}
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "center center",
-            }}
-            className="max-h-full max-w-full rounded object-contain shadow-md transition-transform"
-          />
-        </div>
       </div>
     );
   }
@@ -160,27 +123,14 @@ export function FilePreviewSurface({
       <p className="text-muted-foreground">
         Vista previa no disponible para este tipo de archivo.
       </p>
-      <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline">
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="size-4" />
-            Abrir
-          </a>
-        </Button>
-        <Button asChild size="sm">
-          <a href={url} download={filename}>
-            <Download className="size-4" />
-            Descargar
-          </a>
-        </Button>
-      </div>
+      {downloadButton}
     </div>
   );
 }
 
 function Toolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-background/90 pointer-events-auto absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-md border p-0.5 shadow-sm backdrop-blur">
+    <div className="bg-background/95 pointer-events-auto absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-lg border p-1 shadow-md backdrop-blur">
       {children}
     </div>
   );
