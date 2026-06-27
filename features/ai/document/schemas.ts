@@ -30,8 +30,14 @@ export const ExtractedItemSchema = z.object({
 });
 export type ExtractedItem = z.infer<typeof ExtractedItemSchema>;
 
-/** factura_compra / factura_venta / nc_nd. */
-export const InvoiceExtractionSchema = z.object({
+/**
+ * factura_compra / factura_venta / nc_nd. Header and items are split into two
+ * schemas so each generateObject call stays under Anthropic's limit of 16
+ * union-typed parameters — the combined invoice has 21 nullable/union fields
+ * (13 header + 8 per-item), which the API rejects. The engine extracts header
+ * and items in two calls and merges them (see engine.ts).
+ */
+export const InvoiceHeaderSchema = z.object({
   contraparte_nombre: z.string().nullish(),
   contraparte_cuit: z.string().nullish(),
   punto_venta: z.number().nullish(),
@@ -45,6 +51,13 @@ export const InvoiceExtractionSchema = z.object({
   importe_iva: z.number().nullish(),
   importe_trib: z.number().nullish(),
   importe_total: z.number().nullish(),
+});
+
+export const InvoiceItemsSchema = z.object({
+  items: z.array(ExtractedItemSchema).default([]),
+});
+
+export const InvoiceExtractionSchema = InvoiceHeaderSchema.extend({
   items: z.array(ExtractedItemSchema).default([]),
 });
 export type InvoiceExtraction = z.infer<typeof InvoiceExtractionSchema>;

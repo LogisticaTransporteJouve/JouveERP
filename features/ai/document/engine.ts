@@ -6,9 +6,19 @@ import { buildClassifierModel, buildExtractionModel } from "../model";
 import {
   ClassificationSchema,
   EXTRACTION_SCHEMAS,
+  InvoiceHeaderSchema,
+  InvoiceItemsSchema,
   type Classification,
   type ExtractableKind,
 } from "./schemas";
+
+// Invoice schemas exceed Anthropic's 16 union-typed-parameter limit when
+// combined, so they're extracted as header + items in two calls.
+const INVOICE_KINDS = new Set<ExtractableKind>([
+  "factura_compra",
+  "factura_venta",
+  "nc_nd",
+]);
 
 export type DocumentBytes = { bytes: Uint8Array; mediaType: string };
 
@@ -64,6 +74,31 @@ export async function extractDocument(
     { type: "text", text: `Extraé los datos de este documento (tipo: ${kind}).` },
     documentPart(doc),
   ];
+
+  // Invoices: extract header and line items separately so neither schema
+  // exceeds Anthropic's 16 union-typed-parameter limit, then merge.
+  if (INVOICE_KINDS.has(kind)) {
+    const [header, lines] = await Promise.all([
+      generateObject({
+        model: buildExtractionModel(),
+        schema: InvoiceHeaderSchema,
+        schemaName: "ExtraccionFacturaCabecera",
+        system: EXTRACT_SYSTEM,
+        maxRetries: 2,
+        messages: [{ role: "user", content }],
+      }),
+      generateObject({
+        model: buildExtractionModel(),
+        schema: InvoiceItemsSchema,
+        schemaName: "ExtraccionFacturaItems",
+        system: EXTRACT_SYSTEM,
+        maxRetries: 2,
+        messages: [{ role: "user", content }],
+      }),
+    ]);
+    return { ...header.object, items: lines.object.items };
+  }
+
   const { object } = await generateObject({
     model: buildExtractionModel(),
     schema: EXTRACTION_SCHEMAS[kind],
