@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -9,6 +9,7 @@ import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -27,14 +28,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatArgentineDate } from "@/lib/format";
 
@@ -56,20 +49,76 @@ export function ExchangeRatesPage() {
   const confirm = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  async function handleDelete(r: ExchangeRate) {
-    const ok = await confirm({
-      title: `Borrar cotización ${r.rate_date}`,
-      description:
-        "Las conversiones que usaban esta fecha van a tomar la cotización anterior más cercana.",
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(r.id, {
-      onSuccess: () => toast.success("Cotización borrada."),
-      onError: (err) => toast.error(err.message),
-    });
-  }
+  const columns = useMemo<ColumnDef<ExchangeRate>[]>(() => {
+    async function handleDelete(r: ExchangeRate) {
+      const ok = await confirm({
+        title: `Borrar cotización ${r.rate_date}`,
+        description:
+          "Las conversiones que usaban esta fecha van a tomar la cotización anterior más cercana.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(r.id, {
+        onSuccess: () => toast.success("Cotización borrada."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    return [
+      {
+        accessorKey: "rate_date",
+        header: "Fecha",
+        cell: ({ row }) => (
+          <span className="font-mono">
+            {formatArgentineDate(row.original.rate_date)}
+          </span>
+        ),
+        meta: { headerClassName: "w-40" },
+      },
+      {
+        accessorKey: "rate",
+        header: "ARS por USD",
+        cell: ({ row }) => (
+          <span className="font-mono">{rateFmt.format(Number(row.original.rate))}</span>
+        ),
+        meta: { headerClassName: "w-40", align: "right" },
+      },
+      {
+        accessorKey: "source",
+        header: "Fuente",
+        cell: ({ row }) => (
+          <Badge variant={row.original.source === "manual" ? "default" : "secondary"}>
+            {row.original.source === "manual" ? "Manual" : "BCRA"}
+          </Badge>
+        ),
+        meta: { headerClassName: "w-28" },
+      },
+      {
+        accessorKey: "notes",
+        header: "Notas",
+        enableSorting: false,
+        cell: ({ row }) => row.original.notes ?? "—",
+        meta: { cellClassName: "text-xs text-muted-foreground" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12" },
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDelete(row.original)}
+            aria-label="Borrar"
+          >
+            <Trash2 className="size-4 text-destructive" />
+          </Button>
+        ),
+      },
+    ];
+  }, [confirm, deleteMut]);
 
   return (
     <div className="space-y-6">
@@ -92,60 +141,12 @@ export function ExchangeRatesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-40">Fecha</TableHead>
-              <TableHead className="w-40 text-right">ARS por USD</TableHead>
-              <TableHead className="w-28">Fuente</TableHead>
-              <TableHead>Notas</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="py-12 text-center text-sm text-muted-foreground"
-                >
-                  No hay cotizaciones cargadas.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono">
-                    {formatArgentineDate(r.rate_date)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {rateFmt.format(Number(r.rate))}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={r.source === "manual" ? "default" : "secondary"}>
-                      {r.source === "manual" ? "Manual" : "BCRA"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {r.notes ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(r)}
-                      aria-label="Borrar"
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(r) => r.id}
+        emptyMessage="No hay cotizaciones cargadas."
+      />
 
       <ExchangeRateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

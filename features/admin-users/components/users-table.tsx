@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,14 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { highestRole, type Role } from "@/lib/auth/permissions";
 import type { UserWithRoles } from "@/lib/auth/users";
 
@@ -57,6 +50,89 @@ export function UsersTable({
     return users.filter((user) => user.email.toLowerCase().includes(query));
   }, [users, search]);
 
+  const columns = useMemo<ColumnDef<UserWithRoles>[]>(
+    () => [
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{row.original.email}</span>
+            {row.original.id === currentUserId ? (
+              <Badge
+                variant="secondary"
+                className="text-[10px] uppercase tracking-wide"
+              >
+                Vos
+              </Badge>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: "roles",
+        header: "Roles",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const top = highestRole(row.original.roles);
+          return (
+            <div className="flex flex-wrap gap-1">
+              {row.original.roles.length === 0 ? (
+                <span className="text-xs text-muted-foreground">Sin roles</span>
+              ) : (
+                row.original.roles.map((role) => (
+                  <Badge
+                    key={role}
+                    variant={role === top ? "default" : "secondary"}
+                    className="gap-1"
+                  >
+                    {role === "owner" ? (
+                      <ShieldCheck className="size-3" />
+                    ) : null}
+                    {ROLE_LABEL[role]}
+                  </Badge>
+                ))
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "lastSignInAt",
+        header: "Último acceso",
+        cell: ({ row }) => formatDate(row.original.lastSignInAt),
+        meta: { cellClassName: "text-sm text-muted-foreground" },
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Creado",
+        cell: ({ row }) => formatDate(row.original.createdAt),
+        meta: { cellClassName: "text-sm text-muted-foreground" },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-10", align: "right" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Acciones">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditing(row.original)}>
+                Editar roles
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ],
+    [currentUserId],
+  );
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
@@ -71,98 +147,13 @@ export function UsersTable({
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Roles</TableHead>
-              <TableHead>Último acceso</TableHead>
-              <TableHead>Creado</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  No hay usuarios que coincidan.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((user) => {
-                const top = highestRole(user.roles);
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{user.email}</span>
-                        {user.id === currentUserId ? (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] uppercase tracking-wide"
-                          >
-                            Vos
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {user.roles.length === 0 ? (
-                          <span className="text-xs text-muted-foreground">
-                            Sin roles
-                          </span>
-                        ) : (
-                          user.roles.map((role) => (
-                            <Badge
-                              key={role}
-                              variant={role === top ? "default" : "secondary"}
-                              className="gap-1"
-                            >
-                              {role === "owner" ? (
-                                <ShieldCheck className="size-3" />
-                              ) : null}
-                              {ROLE_LABEL[role]}
-                            </Badge>
-                          ))
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(user.lastSignInAt)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(user.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Acciones"
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditing(user)}>
-                            Editar roles
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        getRowId={(user) => user.id}
+        emptyMessage="No hay usuarios que coincidan."
+        wrapperClassName="mt-4"
+      />
 
       {editing ? (
         <AssignRolesDialog
