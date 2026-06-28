@@ -83,6 +83,26 @@ export function StorageTariffsTable({
           `${rate(row.original.rate_per_pallet)}/pallet ${TARIFF_PERIOD_LABELS[row.original.period]}`,
       },
       {
+        id: "handling_in",
+        header: "Carga",
+        enableSorting: false,
+        meta: {
+          headerClassName: "w-24 text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+        cell: ({ row }) => rate(row.original.handling_in),
+      },
+      {
+        id: "handling_out",
+        header: "Descarga",
+        enableSorting: false,
+        meta: {
+          headerClassName: "w-24 text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+        cell: ({ row }) => rate(row.original.handling_out),
+      },
+      {
         id: "validity",
         header: "Vigencia",
         enableSorting: false,

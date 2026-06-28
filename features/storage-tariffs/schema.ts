@@ -16,6 +16,8 @@ export interface StorageTariff {
   id: string;
   client_id: string | null;
   rate_per_pallet: number;
+  handling_in: number;
+  handling_out: number;
   period: TariffPeriod;
   valid_from: string;
   valid_to: string | null;
@@ -55,6 +57,14 @@ export const StorageTariffCreateSchema = z
     rate_per_pallet: z.coerce
       .number()
       .positive("La tarifa debe ser mayor a 0."),
+    handling_in: z.coerce
+      .number()
+      .min(0, "No puede ser negativo.")
+      .default(0),
+    handling_out: z.coerce
+      .number()
+      .min(0, "No puede ser negativo.")
+      .default(0),
     period: z.enum(TARIFF_PERIODS).default("monthly"),
     valid_from: dateStr,
     valid_to: optionalDate,
@@ -71,6 +81,8 @@ export const StorageTariffUpdateSchema = z.object({
   id: z.string().uuid(),
   client_id: optionalUuid,
   rate_per_pallet: z.coerce.number().positive().optional(),
+  handling_in: z.coerce.number().min(0).optional(),
+  handling_out: z.coerce.number().min(0).optional(),
   period: z.enum(TARIFF_PERIODS).optional(),
   valid_from: dateStr.optional(),
   valid_to: optionalDate,

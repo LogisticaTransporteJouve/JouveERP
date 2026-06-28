@@ -11,6 +11,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
+  PalletBulkCreateSchema,
   PalletCreateSchema,
   PalletUpdateSchema,
   isPalletStatus,
@@ -115,6 +116,59 @@ export async function createPalletAction(
 
   await logAudit("pallet.created", ctx.userId, { code: parsed.data.code }, data.id);
   return { ok: true, data: { id: data.id } };
+}
+
+/** Creates many pallets at once (shared fields + one per code). */
+export async function createPalletsBulkAction(
+  input: unknown,
+): Promise<ActionResult<{ created: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "pallets:write")) {
+    return { ok: false, error: "No tenés permiso para crear pallets." };
+  }
+  const parsed = PalletBulkCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const codes = [
+    ...new Set(parsed.data.codes.map((c) => c.trim()).filter(Boolean)),
+  ];
+  if (codes.length === 0) {
+    return { ok: false, error: "Agregá al menos un código." };
+  }
+  const rows = codes.map((code) => ({
+    warehouse_id: parsed.data.warehouse_id,
+    client_id: parsed.data.client_id,
+    product_id: parsed.data.product_id ?? null,
+    code,
+    quantity: parsed.data.quantity ?? null,
+    status: "en_deposito",
+    entry_date: parsed.data.entry_date,
+    notes: parsed.data.notes ?? null,
+    created_by: ctx.userId,
+  }));
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("pallets")
+    .insert(rows)
+    .select("id");
+  if (error) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      return {
+        ok: false,
+        error: "Algún código ya existe. Revisá los códigos repetidos.",
+      };
+    }
+    logger.error("pallets.bulk_create.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron crear los pallets." };
+  }
+  const created = data?.length ?? codes.length;
+  await logAudit("pallet.bulk_created", ctx.userId, { count: created });
+  return { ok: true, data: { created } };
 }
 
 export async function updatePalletAction(

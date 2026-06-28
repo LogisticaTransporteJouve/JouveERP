@@ -43,7 +43,9 @@ export async function getStorageBillingAction(
       .or(`exit_date.is.null,exit_date.gte.${input.periodStart}`),
     supabase
       .from("storage_tariffs")
-      .select("client_id, rate_per_pallet, period, valid_from, valid_to, is_active")
+      .select(
+        "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
+      )
       .eq("is_active", true),
     supabase.from("clients").select("id, legal_name"),
   ]);
@@ -69,6 +71,8 @@ export async function getStorageBillingAction(
     client_id: t.client_id,
     rate_per_pallet: Number(t.rate_per_pallet),
     period: t.period,
+    handling_in: Number(t.handling_in),
+    handling_out: Number(t.handling_out),
     valid_from: t.valid_from,
     valid_to: t.valid_to,
     is_active: t.is_active,
