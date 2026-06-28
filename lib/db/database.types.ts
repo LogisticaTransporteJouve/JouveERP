@@ -3659,6 +3659,7 @@ export type Database = {
           failure_reason: string | null
           freight_amount: number | null
           id: string
+          invoice_id: string | null
           notes: string | null
           origin: string | null
           scheduled_date: string | null
@@ -3677,6 +3678,7 @@ export type Database = {
           failure_reason?: string | null
           freight_amount?: number | null
           id?: string
+          invoice_id?: string | null
           notes?: string | null
           origin?: string | null
           scheduled_date?: string | null
@@ -3695,6 +3697,7 @@ export type Database = {
           failure_reason?: string | null
           freight_amount?: number | null
           id?: string
+          invoice_id?: string | null
           notes?: string | null
           origin?: string | null
           scheduled_date?: string | null
@@ -3716,6 +3719,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "shipments_trip_id_fkey"

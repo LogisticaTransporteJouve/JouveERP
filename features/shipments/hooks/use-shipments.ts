@@ -13,9 +13,11 @@ import {
   changeShipmentStatusAction,
   createShipmentAction,
   deleteShipmentAction,
+  invoiceFreightAction,
   listShipmentHistoryAction,
   listShipmentOptionsAction,
   listShipmentsAction,
+  listShipmentsByTripAction,
   updateShipmentAction,
 } from "../actions/shipments-actions";
 import { shipmentsKeys } from "../lib/shipments-keys";
@@ -24,6 +26,14 @@ export function useShipments() {
   return useSuspenseQuery({
     queryKey: shipmentsKeys.list(),
     queryFn: () => runAction(() => listShipmentsAction()),
+  });
+}
+
+export function useShipmentsByTrip(tripId: string | null) {
+  return useQuery({
+    queryKey: shipmentsKeys.byTrip(tripId ?? "none"),
+    queryFn: () => runAction(() => listShipmentsByTripAction(tripId ?? "")),
+    enabled: tripId !== null,
   });
 }
 
@@ -76,6 +86,14 @@ export function useDeleteShipment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runAction(() => deleteShipmentAction({ id })),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useInvoiceFreight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) => runAction(() => invoiceFreightAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

@@ -58,6 +58,26 @@ export async function listTripsAction(): Promise<ActionResult<Trip[]>> {
   return { ok: true, data: rows };
 }
 
+export async function getTripAction(
+  id: string,
+): Promise<ActionResult<Trip | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "trips:read")) {
+    return { ok: false, error: "No tenés permiso para ver viajes." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("trips")
+    .select(SELECT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logger.error("trips.get.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo cargar el viaje." };
+  }
+  return { ok: true, data: data ? narrow(data) : null };
+}
+
 export async function createTripAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {

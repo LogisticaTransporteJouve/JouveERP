@@ -37,6 +37,7 @@ export interface Shipment {
   delivery_date: string | null;
   failure_reason: string | null;
   freight_amount: number | null;
+  invoice_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -127,3 +128,11 @@ export const ShipmentStatusChangeSchema = z.object({
 export type ShipmentStatusChangeInput = z.infer<
   typeof ShipmentStatusChangeSchema
 >;
+
+/** Input for "facturar flete": which shipment, on which channel + POS. */
+export const FreightInvoiceSchema = z.object({
+  shipmentId: z.string().uuid(),
+  channel_id: z.string().min(1),
+  punto_venta: z.coerce.number().int().min(1).max(99999),
+});
+export type FreightInvoiceInput = z.infer<typeof FreightInvoiceSchema>;

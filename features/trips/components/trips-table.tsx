@@ -1,6 +1,7 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -121,6 +122,12 @@ export function TripsTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/trips/${row.original.id}`}>
+                  <Package className="size-4" />
+                  Ver cargas
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
                   setDialog({ mode: "edit", trip: row.original })
