@@ -24,6 +24,8 @@ describe("computeStorageBilling", () => {
           client_id: "c1",
           rate_per_pallet: 3000, // monthly → 100/day
           period: "monthly",
+          handling_in: 0,
+          handling_out: 0,
           valid_from: "2026-01-01",
           valid_to: null,
           is_active: true,
@@ -55,6 +57,8 @@ describe("computeStorageBilling", () => {
           client_id: null,
           rate_per_pallet: 31, // daily
           period: "daily",
+          handling_in: 0,
+          handling_out: 0,
           valid_from: "2026-01-01",
           valid_to: null,
           is_active: true,
@@ -84,6 +88,8 @@ describe("computeStorageBilling", () => {
           client_id: null,
           rate_per_pallet: 50,
           period: "daily",
+          handling_in: 0,
+          handling_out: 0,
           valid_from: "2026-01-01",
           valid_to: null,
           is_active: true,
@@ -92,6 +98,8 @@ describe("computeStorageBilling", () => {
           client_id: "c1",
           rate_per_pallet: 10,
           period: "daily",
+          handling_in: 0,
+          handling_out: 0,
           valid_from: "2026-01-01",
           valid_to: null,
           is_active: true,
@@ -123,5 +131,71 @@ describe("computeStorageBilling", () => {
     expect(r.pallets_without_tariff).toBe(1);
     expect(r.lines[0]?.charge).toBe(0);
     expect(r.lines[0]?.has_tariff).toBe(false);
+  });
+
+  it("adds carga on entry and descarga on exit within the period", () => {
+    const r = computeStorageBilling({
+      pallets: [
+        {
+          id: "p1",
+          client_id: "c1",
+          code: "P-1",
+          entry_date: "2026-07-05",
+          exit_date: "2026-07-09", // 5 inclusive days
+        },
+      ],
+      tariffs: [
+        {
+          client_id: "c1",
+          rate_per_pallet: 100,
+          period: "daily",
+          handling_in: 500,
+          handling_out: 300,
+          valid_from: "2026-01-01",
+          valid_to: null,
+          is_active: true,
+        },
+      ],
+      clientNames: names,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    });
+    expect(r.lines[0]?.storage_charge).toBe(500); // 5 × 100
+    expect(r.lines[0]?.handling_in_charge).toBe(500);
+    expect(r.lines[0]?.handling_out_charge).toBe(300);
+    expect(r.lines[0]?.charge).toBe(1300);
+    expect(r.handling_total).toBe(800);
+    expect(r.total).toBe(1300);
+  });
+
+  it("skips carga when the pallet entered before the period", () => {
+    const r = computeStorageBilling({
+      pallets: [
+        {
+          id: "p1",
+          client_id: "c1",
+          code: "P-1",
+          entry_date: "2026-06-20", // before period
+          exit_date: "2026-07-10", // exits within period
+        },
+      ],
+      tariffs: [
+        {
+          client_id: "c1",
+          rate_per_pallet: 10,
+          period: "daily",
+          handling_in: 500,
+          handling_out: 300,
+          valid_from: "2026-01-01",
+          valid_to: null,
+          is_active: true,
+        },
+      ],
+      clientNames: names,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    });
+    expect(r.lines[0]?.handling_in_charge).toBe(0); // entered before period → no carga
+    expect(r.lines[0]?.handling_out_charge).toBe(300); // exited within → descarga
   });
 });

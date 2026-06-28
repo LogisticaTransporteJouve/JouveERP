@@ -76,6 +76,21 @@ export const PalletCreateSchema = z.object({
 
 export type PalletCreateInput = z.infer<typeof PalletCreateSchema>;
 
+/** Bulk pallet entry: shared fields + one row per code (fast "todo de una"). */
+export const PalletBulkCreateSchema = z.object({
+  warehouse_id: z.string().uuid("Depósito requerido."),
+  client_id: z.string().uuid("Cliente requerido."),
+  product_id: optionalUuid,
+  quantity: optionalAmount,
+  entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+  notes: optionalText(2000),
+  codes: z
+    .array(z.string().trim().min(1).max(60))
+    .min(1, "Agregá al menos un código.")
+    .max(500, "Máximo 500 pallets por carga."),
+});
+export type PalletBulkCreateInput = z.infer<typeof PalletBulkCreateSchema>;
+
 export const PalletUpdateSchema = z.object({
   id: z.string().uuid(),
   warehouse_id: z.string().uuid("Depósito requerido.").optional(),

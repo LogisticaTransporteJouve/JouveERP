@@ -3748,6 +3748,8 @@ export type Database = {
           client_id: string | null
           created_at: string
           created_by: string | null
+          handling_in: number
+          handling_out: number
           id: string
           is_active: boolean
           notes: string | null
@@ -3761,6 +3763,8 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           created_by?: string | null
+          handling_in?: number
+          handling_out?: number
           id?: string
           is_active?: boolean
           notes?: string | null
@@ -3774,6 +3778,8 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           created_by?: string | null
+          handling_in?: number
+          handling_out?: number
           id?: string
           is_active?: boolean
           notes?: string | null

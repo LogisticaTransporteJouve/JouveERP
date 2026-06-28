@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Layers, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ import {
 import { useDeletePallet, usePallets } from "../hooks/use-pallets";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
+import { BulkPalletDialog } from "./bulk-pallet-dialog";
 import { PalletDialog } from "./pallet-dialog";
 
 export function PalletsTable({
@@ -36,6 +37,7 @@ export function PalletsTable({
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; pallet: Pallet } | null
   >(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const columns = useMemo<ColumnDef<Pallet>[]>(() => {
     async function handleDelete(p: Pallet) {
@@ -149,6 +151,10 @@ export function PalletsTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportPdfButton resource="pallets" label="Exportar PDF" />
+          <Button variant="outline" onClick={() => setBulkOpen(true)}>
+            <Layers />
+            Cargar varios
+          </Button>
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo pallet
@@ -176,6 +182,14 @@ export function PalletsTable({
           }}
         />
       )}
+
+      <BulkPalletDialog
+        warehouseOptions={warehouseOptions}
+        clientOptions={clientOptions}
+        productOptions={productOptions}
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+      />
     </>
   );
 }

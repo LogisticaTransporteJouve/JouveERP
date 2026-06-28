@@ -22,6 +22,8 @@ type StorageTariffSelectRow = Pick<
   | "id"
   | "client_id"
   | "rate_per_pallet"
+  | "handling_in"
+  | "handling_out"
   | "period"
   | "valid_from"
   | "valid_to"
@@ -39,11 +41,13 @@ function narrow(row: StorageTariffSelectRow): StorageTariff | null {
     ...row,
     period: row.period,
     rate_per_pallet: Number(row.rate_per_pallet),
+    handling_in: Number(row.handling_in),
+    handling_out: Number(row.handling_out),
   };
 }
 
 const SELECT_COLUMNS =
-  "id, client_id, rate_per_pallet, period, valid_from, valid_to, is_active, notes, created_at, client:clients(legal_name)";
+  "id, client_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, notes, created_at, client:clients(legal_name)";
 
 export async function listStorageTariffsAction(): Promise<
   ActionResult<StorageTariff[]>
@@ -89,6 +93,8 @@ export async function createStorageTariffAction(
     .insert({
       client_id: parsed.data.client_id ?? null,
       rate_per_pallet: parsed.data.rate_per_pallet,
+      handling_in: parsed.data.handling_in,
+      handling_out: parsed.data.handling_out,
       period: parsed.data.period,
       valid_from: parsed.data.valid_from,
       valid_to: parsed.data.valid_to ?? null,
@@ -138,6 +144,10 @@ export async function updateStorageTariffAction(
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
       ...(rest.rate_per_pallet !== undefined && {
         rate_per_pallet: rest.rate_per_pallet,
+      }),
+      ...(rest.handling_in !== undefined && { handling_in: rest.handling_in }),
+      ...(rest.handling_out !== undefined && {
+        handling_out: rest.handling_out,
       }),
       ...(rest.period !== undefined && { period: rest.period }),
       ...(rest.valid_from !== undefined && { valid_from: rest.valid_from }),

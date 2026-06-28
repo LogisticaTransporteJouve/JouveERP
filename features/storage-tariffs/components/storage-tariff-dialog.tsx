@@ -50,6 +50,12 @@ const FormSchema = z.object({
   rate_per_pallet: z
     .string()
     .refine((v) => Number(v) > 0, "La tarifa debe ser mayor a 0."),
+  handling_in: z
+    .string()
+    .refine((v) => v === "" || Number(v) >= 0, "No puede ser negativo."),
+  handling_out: z
+    .string()
+    .refine((v) => v === "" || Number(v) >= 0, "No puede ser negativo."),
   period: z.enum(TARIFF_PERIODS),
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   valid_to: z.string(),
@@ -62,6 +68,8 @@ function toDefaults(tariff?: StorageTariff): FormValues {
   return {
     client_id: tariff?.client_id ?? "",
     rate_per_pallet: tariff ? String(tariff.rate_per_pallet) : "",
+    handling_in: tariff ? String(tariff.handling_in) : "0",
+    handling_out: tariff ? String(tariff.handling_out) : "0",
     period: tariff?.period ?? "monthly",
     valid_from: tariff?.valid_from ?? "",
     valid_to: tariff?.valid_to ?? "",
@@ -100,6 +108,9 @@ export function StorageTariffDialog({
     const payload = {
       client_id: values.client_id,
       rate_per_pallet: Number(values.rate_per_pallet),
+      handling_in: values.handling_in === "" ? 0 : Number(values.handling_in),
+      handling_out:
+        values.handling_out === "" ? 0 : Number(values.handling_out),
       period: values.period,
       valid_from: values.valid_from,
       valid_to: values.valid_to,
@@ -209,6 +220,46 @@ export function StorageTariffDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="handling_in"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Carga (por pallet)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        placeholder="0"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="handling_out"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descarga (por pallet)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        placeholder="0"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

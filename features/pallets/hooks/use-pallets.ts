@@ -10,6 +10,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   createPalletAction,
+  createPalletsBulkAction,
   deletePalletAction,
   listPalletsAction,
   updatePalletAction,
@@ -31,6 +32,15 @@ export function useCreatePallet() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: unknown) => runAction(() => createPalletAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useCreatePalletsBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => createPalletsBulkAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

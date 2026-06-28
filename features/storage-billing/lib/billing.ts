@@ -1,8 +1,9 @@
-// Pure storage-billing computation (no DB). Standard 3PL model (documented
-// assumption, adjustable): each pallet is charged for the days it was stored
-// within the billing period × the applicable tariff's per-pallet rate (monthly
-// rates are prorated /30 to a daily rate). The client-specific tariff wins over
-// the general (client_id = null) one. docs/roadmap.md Fase H.3.
+// Pure storage-billing computation (no DB). 3PL model: each pallet is charged
+// for the days it was stored within the billing period × the tariff's per-pallet
+// rate (monthly rates prorated /30), PLUS a one-off carga (handling_in) when the
+// pallet enters within the period and a one-off descarga (handling_out) when it
+// leaves within the period. The client-specific tariff wins over the general
+// (client_id = null) one. docs/roadmap.md Fase H.3.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -18,6 +19,8 @@ export type TariffInput = {
   client_id: string | null;
   rate_per_pallet: number;
   period: string; // 'daily' | 'monthly'
+  handling_in: number;
+  handling_out: number;
   valid_from: string;
   valid_to: string | null;
   is_active: boolean;
@@ -30,6 +33,9 @@ export type BillingLine = {
   client_name: string;
   days: number;
   daily_rate: number;
+  storage_charge: number;
+  handling_in_charge: number;
+  handling_out_charge: number;
   charge: number;
   has_tariff: boolean;
 };
@@ -44,6 +50,8 @@ export type ClientBilling = {
 export type StorageBilling = {
   lines: BillingLine[];
   byClient: ClientBilling[];
+  storage_total: number;
+  handling_total: number;
   total: number;
   pallets_without_tariff: number;
 };
@@ -117,6 +125,16 @@ export function computeStorageBilling(input: {
         : tariff.rate_per_pallet
       : 0;
     if (!tariff) withoutTariff += 1;
+
+    const entry = dayNum(pallet.entry_date);
+    const exit = pallet.exit_date ? dayNum(pallet.exit_date) : null;
+    const enteredInPeriod = entry >= pStart && entry <= pEnd;
+    const exitedInPeriod = exit !== null && exit >= pStart && exit <= pEnd;
+
+    const storageCharge = round2(days * dailyRate);
+    const handlingIn = tariff && enteredInPeriod ? tariff.handling_in : 0;
+    const handlingOut = tariff && exitedInPeriod ? tariff.handling_out : 0;
+
     lines.push({
       pallet_id: pallet.id,
       code: pallet.code,
@@ -124,7 +142,10 @@ export function computeStorageBilling(input: {
       client_name: input.clientNames.get(pallet.client_id) ?? "—",
       days,
       daily_rate: round2(dailyRate),
-      charge: round2(days * dailyRate),
+      storage_charge: storageCharge,
+      handling_in_charge: round2(handlingIn),
+      handling_out_charge: round2(handlingOut),
+      charge: round2(storageCharge + handlingIn + handlingOut),
       has_tariff: tariff !== null,
     });
   }
@@ -146,7 +167,18 @@ export function computeStorageBilling(input: {
   }
 
   const byClient = [...byClientMap.values()].sort((a, b) => b.charge - a.charge);
-  const total = round2(byClient.reduce((s, c) => s + c.charge, 0));
+  const storage_total = round2(lines.reduce((s, l) => s + l.storage_charge, 0));
+  const handling_total = round2(
+    lines.reduce((s, l) => s + l.handling_in_charge + l.handling_out_charge, 0),
+  );
+  const total = round2(storage_total + handling_total);
 
-  return { lines, byClient, total, pallets_without_tariff: withoutTariff };
+  return {
+    lines,
+    byClient,
+    storage_total,
+    handling_total,
+    total,
+    pallets_without_tariff: withoutTariff,
+  };
 }

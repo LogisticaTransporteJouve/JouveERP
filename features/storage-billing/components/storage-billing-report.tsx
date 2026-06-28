@@ -72,11 +72,25 @@ export function StorageBillingReport() {
           />
         </div>
         {data && (
-          <div className="text-muted-foreground ml-auto text-sm">
-            Total a facturar:{" "}
-            <span className="text-foreground font-mono font-semibold">
-              {money(data.total)}
-            </span>
+          <div className="ml-auto flex flex-wrap items-end gap-6 text-sm">
+            <div className="text-muted-foreground">
+              Almacenaje:{" "}
+              <span className="text-foreground font-mono">
+                {money(data.storage_total)}
+              </span>
+            </div>
+            <div className="text-muted-foreground">
+              Carga + descarga:{" "}
+              <span className="text-foreground font-mono">
+                {money(data.handling_total)}
+              </span>
+            </div>
+            <div className="text-muted-foreground">
+              Total:{" "}
+              <span className="text-foreground font-mono font-semibold">
+                {money(data.total)}
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -144,6 +158,8 @@ export function StorageBillingReport() {
                     <TableHead>Cliente</TableHead>
                     <TableHead className="w-20 text-right">Días</TableHead>
                     <TableHead className="text-right">Tarifa/día</TableHead>
+                    <TableHead className="text-right">Carga</TableHead>
+                    <TableHead className="text-right">Descarga</TableHead>
                     <TableHead className="text-right">Cargo</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -159,6 +175,12 @@ export function StorageBillingReport() {
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
                         {l.has_tariff ? money(l.daily_rate) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {l.has_tariff ? money(l.handling_in_charge) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {l.has_tariff ? money(l.handling_out_charge) : "—"}
                       </TableCell>
                       <TableCell
                         className={cn(
