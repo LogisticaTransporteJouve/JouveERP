@@ -133,12 +133,34 @@ export async function createPalletsBulkAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const codes = [
-    ...new Set(parsed.data.codes.map((c) => c.trim()).filter(Boolean)),
-  ];
-  if (codes.length === 0) {
-    return { ok: false, error: "Agregá al menos un código." };
+  const { count, code_prefix } = parsed.data;
+  const supabase = await createSupabaseClient();
+
+  // Continue the numeric sequence for this prefix so codes are unique + ordered.
+  const { data: existing, error: seqError } = await supabase
+    .from("pallets")
+    .select("code")
+    .like("code", `${code_prefix}-%`);
+  if (seqError) {
+    logger.error("pallets.bulk_create.seq_failed", {
+      userId: ctx.userId,
+      error: seqError,
+    });
+    return { ok: false, error: "No se pudieron generar los códigos." };
   }
+  const seqRe = new RegExp(`^${code_prefix}-(\\d+)$`);
+  let maxSeq = 0;
+  for (const row of existing ?? []) {
+    const match = seqRe.exec(row.code);
+    if (match) maxSeq = Math.max(maxSeq, Number(match[1]));
+  }
+  const start = maxSeq + 1;
+  const pad = Math.max(4, String(start + count - 1).length);
+  const codes = Array.from(
+    { length: count },
+    (_, i) => `${code_prefix}-${String(start + i).padStart(pad, "0")}`,
+  );
+
   const rows = codes.map((code) => ({
     warehouse_id: parsed.data.warehouse_id,
     client_id: parsed.data.client_id,
@@ -151,7 +173,6 @@ export async function createPalletsBulkAction(
     created_by: ctx.userId,
   }));
 
-  const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("pallets")
     .insert(rows)
@@ -160,7 +181,7 @@ export async function createPalletsBulkAction(
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
-        error: "Algún código ya existe. Revisá los códigos repetidos.",
+        error: "Se generó un código repetido, volvé a intentar.",
       };
     }
     logger.error("pallets.bulk_create.failed", { userId: ctx.userId, error });

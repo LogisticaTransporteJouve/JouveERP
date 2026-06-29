@@ -18,7 +18,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -45,7 +44,16 @@ const FormSchema = z.object({
   quantity: z.string(),
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   notes: z.string().trim().max(2000),
-  codes: z.string().trim().min(1, "Agregá al menos un código."),
+  count: z
+    .string()
+    .regex(/^\d+$/, "Ingresá una cantidad.")
+    .refine((v) => Number(v) >= 1 && Number(v) <= 500, "Entre 1 y 500."),
+  code_prefix: z
+    .string()
+    .trim()
+    .min(1, "Prefijo requerido.")
+    .max(40, "Prefijo demasiado largo.")
+    .regex(/^[A-Za-z0-9-]+$/, "Solo letras, números o guion."),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -57,15 +65,9 @@ const DEFAULTS: FormValues = {
   quantity: "",
   entry_date: "",
   notes: "",
-  codes: "",
+  count: "",
+  code_prefix: "PAL",
 };
-
-function parseCodes(raw: string): string[] {
-  return raw
-    .split("\n")
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0);
-}
 
 export function BulkPalletDialog({
   warehouseOptions,
@@ -92,15 +94,11 @@ export function BulkPalletDialog({
     if (open) form.reset(DEFAULTS);
   }, [open, form]);
 
-  const codesRaw = form.watch("codes");
-  const codeCount = parseCodes(codesRaw).length;
+  const count = form.watch("count");
+  const prefix = form.watch("code_prefix");
+  const previewCount = /^\d+$/.test(count) ? Number(count) : 0;
 
   function onSubmit(values: FormValues) {
-    const codes = parseCodes(values.codes);
-    if (codes.length === 0) {
-      form.setError("codes", { message: "Agregá al menos un código." });
-      return;
-    }
     createMut.mutate(
       {
         warehouse_id: values.warehouse_id,
@@ -109,7 +107,8 @@ export function BulkPalletDialog({
         quantity: values.quantity,
         entry_date: values.entry_date,
         notes: values.notes,
-        codes,
+        count: values.count,
+        code_prefix: values.code_prefix,
       },
       {
         onSuccess: (data) => {
@@ -127,8 +126,8 @@ export function BulkPalletDialog({
         <DialogHeader>
           <DialogTitle>Cargar varios pallets</DialogTitle>
           <DialogDescription>
-            Datos compartidos una vez + un código por línea. Crea un pallet por
-            código.
+            Datos compartidos una vez + la cantidad. Los códigos se generan
+            automáticamente.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -242,20 +241,49 @@ export function BulkPalletDialog({
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="codes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Códigos (uno por línea)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={6} placeholder="P-001&#10;P-002&#10;P-003" />
-                  </FormControl>
-                  <FormDescription>{codeCount} pallets</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="count"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cantidad de pallets</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={500}
+                        placeholder="10"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="code_prefix"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prefijo de código</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="PAL" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {previewCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Se generarán {previewCount} código
+                {previewCount === 1 ? "" : "s"} automáticos (ej.{" "}
+                {prefix || "PAL"}-0001, {prefix || "PAL"}-0002 …) continuando la
+                secuencia.
+              </p>
+            )}
             <FormField
               control={form.control}
               name="notes"
