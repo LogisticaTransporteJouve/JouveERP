@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Receipt } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -15,9 +16,19 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-import { useStorageBilling } from "../hooks/use-storage-billing";
+import {
+  useStorageBilling,
+  useStorageBillingRuns,
+} from "../hooks/use-storage-billing";
+import { lastBilledEnd } from "../lib/continuity";
+
+import { StorageInvoiceDialog } from "./storage-invoice-dialog";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("es-AR")}`;
+const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
 
 function monthStart(): string {
   const d = new Date();
@@ -37,6 +48,11 @@ export function StorageBillingReport() {
   }, []);
 
   const { data, isLoading } = useStorageBilling(start, end);
+  const { data: runs } = useStorageBillingRuns();
+  const [invoiceClient, setInvoiceClient] = useState<{
+    client_id: string;
+    client_name: string;
+  } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -116,32 +132,57 @@ export function StorageBillingReport() {
                     <TableHead>Cliente</TableHead>
                     <TableHead className="w-24 text-right">Pallets</TableHead>
                     <TableHead className="text-right">A facturar</TableHead>
+                    <TableHead className="w-36">Facturado hasta</TableHead>
+                    <TableHead className="w-28" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.byClient.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={5}
                         className="text-muted-foreground py-8 text-center text-sm"
                       >
                         Sin pallets almacenados en el rango.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    data.byClient.map((c) => (
-                      <TableRow key={c.client_id}>
-                        <TableCell className="font-medium">
-                          {c.client_name}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {c.pallets}
-                        </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">
-                          {money(c.charge)}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    data.byClient.map((c) => {
+                      const lastEnd = lastBilledEnd(
+                        (runs ?? []).filter((r) => r.client_id === c.client_id),
+                      );
+                      return (
+                        <TableRow key={c.client_id}>
+                          <TableCell className="font-medium">
+                            {c.client_name}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {c.pallets}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {money(c.charge)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {lastEnd ? fmtDate(lastEnd) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setInvoiceClient({
+                                  client_id: c.client_id,
+                                  client_name: c.client_name,
+                                })
+                              }
+                            >
+                              <Receipt className="size-4" />
+                              Facturar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -198,6 +239,14 @@ export function StorageBillingReport() {
           </section>
         </>
       )}
+
+      <StorageInvoiceDialog
+        client={invoiceClient}
+        reportStart={start}
+        reportEnd={end}
+        runs={runs ?? []}
+        onClose={() => setInvoiceClient(null)}
+      />
     </div>
   );
 }

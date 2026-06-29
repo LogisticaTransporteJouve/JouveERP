@@ -692,6 +692,32 @@ export async function listFiscalChannelsAction(): Promise<
   };
 }
 
+/** All active channels (fiscal + internal), so a caller can let the user pick
+ *  either kind. `is_fiscal` tells the issue path which branch will run. */
+export async function listInvoicingChannelsAction(): Promise<
+  ActionResult<FiscalChannelOption[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_fiscal, is_active")
+    .eq("is_active", true)
+    .order("name");
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      is_fiscal: c.is_fiscal,
+    })),
+  };
+}
+
 export interface PosOption {
   numero: number;
   channel_id: string;

@@ -3743,6 +3743,70 @@ export type Database = {
           },
         ]
       }
+      storage_billing_runs: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          handling_in_total: number
+          handling_out_total: number
+          id: string
+          invoice_id: string | null
+          period_end: string
+          period_start: string
+          storage_total: number
+          total: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          handling_in_total?: number
+          handling_out_total?: number
+          id?: string
+          invoice_id?: string | null
+          period_end: string
+          period_start: string
+          storage_total?: number
+          total?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          handling_in_total?: number
+          handling_out_total?: number
+          id?: string
+          invoice_id?: string | null
+          period_end?: string
+          period_start?: string
+          storage_total?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_billing_runs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_billing_runs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_billing_runs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_aging_documents"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
       storage_tariffs: {
         Row: {
           client_id: string | null
