@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PalletBulkCreateSchema,
+  PalletBulkDispatchSchema,
   PalletCreateSchema,
   isPalletStatus,
 } from "./schema";
@@ -79,6 +80,32 @@ describe("PalletBulkCreateSchema", () => {
         count: 5,
         code_prefix: "PAL 01",
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe("PalletBulkDispatchSchema", () => {
+  const PALLET_ID = "33333333-3333-4333-8333-333333333333";
+
+  it("accepts pallet ids + an exit date", () => {
+    const r = PalletBulkDispatchSchema.safeParse({
+      ids: [PALLET_ID],
+      exit_date: "2026-07-20",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects an empty selection", () => {
+    expect(
+      PalletBulkDispatchSchema.safeParse({ ids: [], exit_date: "2026-07-20" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects a malformed exit date", () => {
+    expect(
+      PalletBulkDispatchSchema.safeParse({ ids: [PALLET_ID], exit_date: "20/07" })
+        .success,
     ).toBe(false);
   });
 });

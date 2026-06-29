@@ -12,6 +12,7 @@ import {
   createPalletAction,
   createPalletsBulkAction,
   deletePalletAction,
+  dispatchPalletsBulkAction,
   listPalletsAction,
   updatePalletAction,
 } from "../actions/pallets-actions";
@@ -41,6 +42,15 @@ export function useCreatePalletsBulk() {
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => createPalletsBulkAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useDispatchPalletsBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => dispatchPalletsBulkAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

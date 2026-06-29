@@ -12,6 +12,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
   PalletBulkCreateSchema,
+  PalletBulkDispatchSchema,
   PalletCreateSchema,
   PalletUpdateSchema,
   isPalletStatus,
@@ -190,6 +191,44 @@ export async function createPalletsBulkAction(
   const created = data?.length ?? codes.length;
   await logAudit("pallet.bulk_created", ctx.userId, { count: created });
   return { ok: true, data: { created } };
+}
+
+/**
+ * Bulk OUT: mark the selected pallets as despachado with an exit date. Only
+ * pallets still en_deposito are dispatched (idempotent re-runs are no-ops). The
+ * exit date drives storage-billing: it caps the stored days and triggers the
+ * descarga (handling_out) charge for the period it falls in.
+ */
+export async function dispatchPalletsBulkAction(
+  input: unknown,
+): Promise<ActionResult<{ dispatched: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "pallets:write")) {
+    return { ok: false, error: "No tenés permiso para despachar pallets." };
+  }
+  const parsed = PalletBulkDispatchSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { ids, exit_date } = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("pallets")
+    .update({ status: "despachado", exit_date })
+    .in("id", ids)
+    .eq("status", "en_deposito")
+    .select("id");
+  if (error) {
+    logger.error("pallets.bulk_dispatch.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron despachar los pallets." };
+  }
+  const dispatched = data?.length ?? 0;
+  await logAudit("pallet.bulk_dispatched", ctx.userId, { count: dispatched });
+  return { ok: true, data: { dispatched } };
 }
 
 export async function updatePalletAction(

@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Layers, MoreHorizontal, Pencil, Plus, Trash2, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,6 +8,8 @@ import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Combobox } from "@/components/ui/combobox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -20,6 +22,7 @@ import { useDeletePallet, usePallets } from "../hooks/use-pallets";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
 import { BulkPalletDialog } from "./bulk-pallet-dialog";
+import { DispatchPalletsDialog } from "./dispatch-pallets-dialog";
 import { PalletDialog } from "./pallet-dialog";
 
 export function PalletsTable({
@@ -38,8 +41,46 @@ export function PalletsTable({
     { mode: "create" } | { mode: "edit"; pallet: Pallet } | null
   >(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [clientFilter, setClientFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const filtered = useMemo(
+    () =>
+      clientFilter
+        ? items.filter((p) => p.client_id === clientFilter)
+        : items,
+    [items, clientFilter],
+  );
+
+  // Only pallets still in deposit can be dispatched (selected).
+  const selectableIds = useMemo(
+    () =>
+      filtered
+        .filter((p) => p.status === "en_deposito")
+        .map((p) => p.id),
+    [filtered],
+  );
+
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const someSelected = selectableIds.some((id) => selected.has(id));
+  const headerChecked = allSelected
+    ? true
+    : someSelected
+      ? "indeterminate"
+      : false;
 
   const columns = useMemo<ColumnDef<Pallet>[]>(() => {
+    function toggleOne(id: string) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    }
+
     async function handleDelete(p: Pallet) {
       const ok = await confirm({
         title: `Borrar pallet ${p.code}`,
@@ -55,6 +96,34 @@ export function PalletsTable({
     }
 
     return [
+      {
+        id: "select",
+        header: () => (
+          <Checkbox
+            checked={headerChecked}
+            onCheckedChange={(v) =>
+              setSelected((prev) => {
+                const next = new Set(prev);
+                if (v) selectableIds.forEach((id) => next.add(id));
+                else selectableIds.forEach((id) => next.delete(id));
+                return next;
+              })
+            }
+            aria-label="Seleccionar todos"
+            disabled={selectableIds.length === 0}
+          />
+        ),
+        enableSorting: false,
+        meta: { headerClassName: "w-10" },
+        cell: ({ row }) =>
+          row.original.status === "en_deposito" ? (
+            <Checkbox
+              checked={selected.has(row.original.id)}
+              onCheckedChange={() => toggleOne(row.original.id)}
+              aria-label={`Seleccionar ${row.original.code}`}
+            />
+          ) : null,
+      },
       {
         accessorKey: "code",
         header: "Código",
@@ -108,6 +177,12 @@ export function PalletsTable({
         meta: { headerClassName: "w-32", cellClassName: "text-sm" },
       },
       {
+        accessorKey: "exit_date",
+        header: "Salida",
+        cell: ({ row }) => row.original.exit_date ?? "—",
+        meta: { headerClassName: "w-32", cellClassName: "text-sm" },
+      },
+      {
         id: "actions",
         header: "",
         enableSorting: false,
@@ -138,7 +213,9 @@ export function PalletsTable({
         ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [confirm, deleteMut, selected, selectableIds, headerChecked]);
+
+  const selectedCount = selected.size;
 
   return (
     <>
@@ -150,6 +227,12 @@ export function PalletsTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {selectedCount > 0 && (
+            <Button onClick={() => setDispatchOpen(true)}>
+              <Truck />
+              Despachar ({selectedCount})
+            </Button>
+          )}
           <ExportPdfButton resource="pallets" label="Exportar PDF" />
           <Button variant="outline" onClick={() => setBulkOpen(true)}>
             <Layers />
@@ -162,9 +245,33 @@ export function PalletsTable({
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        <Combobox
+          options={clientOptions.map((c) => ({
+            value: c.id,
+            label: c.legal_name,
+          }))}
+          value={clientFilter}
+          onChange={setClientFilter}
+          placeholder="Todos los clientes"
+          searchPlaceholder="Buscar cliente…"
+          emptyText="Sin clientes."
+          className="w-72"
+        />
+        {clientFilter && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setClientFilter("")}
+          >
+            Limpiar
+          </Button>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
-        data={items}
+        data={filtered}
         getRowId={(p) => p.id}
         emptyMessage="Sin pallets. Agregá el primero."
       />
@@ -189,6 +296,13 @@ export function PalletsTable({
         productOptions={productOptions}
         open={bulkOpen}
         onOpenChange={setBulkOpen}
+      />
+
+      <DispatchPalletsDialog
+        palletIds={[...selected]}
+        open={dispatchOpen}
+        onOpenChange={setDispatchOpen}
+        onDispatched={() => setSelected(new Set())}
       />
     </>
   );
