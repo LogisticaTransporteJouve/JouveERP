@@ -167,9 +167,9 @@ export function CashFlowPage() {
 
           <p className="text-muted-foreground text-xs">
             F = facturado (canal fiscal) · I = interno · O = otros (cheques en
-            cartera). Cobranzas y pagos pendientes se ubican en el primer mes
-            proyectado ({monthLabel(data.pendingMonth)}); los pagos recurrentes
-            van en su mes real. Solo ARS.
+            cartera). Cobranzas, pagos a proveedores y cuotas de préstamos se
+            proyectan por su fecha de vencimiento; lo ya vencido se ubica en{" "}
+            {monthLabel(data.pendingMonth)}. Solo ARS.
           </p>
         </>
       )}

@@ -4575,6 +4575,7 @@ export type Database = {
           channel_name: string | null
           client_id: string | null
           days_overdue: number | null
+          fch_vto_pago: string | null
           fecha: string | null
           imp_total: number | null
           invoice_id: string | null
@@ -4889,6 +4890,7 @@ export type Database = {
           channel_is_fiscal: boolean | null
           channel_name: string | null
           days_overdue: number | null
+          fch_vto_pago: string | null
           fecha: string | null
           imp_total: number | null
           kind: string | null

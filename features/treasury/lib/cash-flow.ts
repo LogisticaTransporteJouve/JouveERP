@@ -41,6 +41,23 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Month (YYYY-MM) to place an open document in the projection: the month of its
+ * payment due date (or invoice date if there's no due date), clamped forward to
+ * the first projected month when it's already overdue. Null inputs fall back to
+ * the first projected month.
+ */
+export function placementMonth(
+  dueDate: string | null,
+  invoiceDate: string | null,
+  firstProjectedMonth: string,
+): string {
+  const ref = dueDate ?? invoiceDate;
+  if (!ref) return firstProjectedMonth;
+  const m = ref.slice(0, 7);
+  return m < firstProjectedMonth ? firstProjectedMonth : m;
+}
+
 export function buildCashFlow(params: {
   months: { month: string; realized: boolean }[];
   events: CashFlowEvent[];
