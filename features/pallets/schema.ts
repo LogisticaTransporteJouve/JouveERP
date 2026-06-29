@@ -76,7 +76,10 @@ export const PalletCreateSchema = z.object({
 
 export type PalletCreateInput = z.infer<typeof PalletCreateSchema>;
 
-/** Bulk pallet entry: shared fields + one row per code (fast "todo de una"). */
+/**
+ * Bulk pallet entry: shared fields + a count. Codes are generated server-side
+ * as `<prefix>-<seq>` continuing the existing sequence (fast "todo de una").
+ */
 export const PalletBulkCreateSchema = z.object({
   warehouse_id: z.string().uuid("Depósito requerido."),
   client_id: z.string().uuid("Cliente requerido."),
@@ -84,10 +87,18 @@ export const PalletBulkCreateSchema = z.object({
   quantity: optionalAmount,
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   notes: optionalText(2000),
-  codes: z
-    .array(z.string().trim().min(1).max(60))
-    .min(1, "Agregá al menos un código.")
+  count: z.coerce
+    .number()
+    .int("Ingresá una cantidad entera.")
+    .min(1, "Cantidad mínima 1.")
     .max(500, "Máximo 500 pallets por carga."),
+  code_prefix: z
+    .string()
+    .trim()
+    .min(1, "Prefijo requerido.")
+    .max(40, "Prefijo demasiado largo.")
+    .regex(/^[A-Za-z0-9-]+$/, "Prefijo solo con letras, números o guion.")
+    .default("PAL"),
 });
 export type PalletBulkCreateInput = z.infer<typeof PalletBulkCreateSchema>;
 
