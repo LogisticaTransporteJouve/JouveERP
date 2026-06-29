@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   buildCashFlow,
+  placementMonth,
   type CashFlow,
   type CashFlowEvent,
   type CashScope,
@@ -169,15 +170,18 @@ export async function getCashFlowAction(input: {
     }
   }
 
-  // Open client receivables → expected collection (first projected month).
+  // Open client receivables → expected collection in the month of their due
+  // date (overdue ones clamp to the first projected month), channel-split.
   const { data: recv } = await supabase
     .from("v_aging_documents")
-    .select("open_amount, channel_is_fiscal");
+    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha");
   for (const r of recv ?? []) {
     const amt = Number(r.open_amount);
-    if (amt > 0.005) {
+    if (amt <= 0.005) continue;
+    const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
+    if (monthSet.has(m)) {
       events.push({
-        month: firstFwd,
+        month: m,
         direction: "in",
         amount: amt,
         scope: r.channel_is_fiscal ? "facturado" : "interno",
@@ -185,15 +189,18 @@ export async function getCashFlowAction(input: {
     }
   }
 
-  // Open supplier payables → expected payment (first projected month).
+  // Open supplier payables → expected payment in the month of their due date
+  // (overdue ones clamp to the first projected month), channel-split.
   const { data: pay } = await supabase
     .from("v_supplier_aging_documents")
-    .select("open_amount, channel_is_fiscal");
+    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha");
   for (const p of pay ?? []) {
     const amt = Number(p.open_amount);
-    if (amt > 0.005) {
+    if (amt <= 0.005) continue;
+    const m = placementMonth(p.fch_vto_pago, p.fecha, firstFwd);
+    if (monthSet.has(m)) {
       events.push({
-        month: firstFwd,
+        month: m,
         direction: "out",
         amount: amt,
         scope: p.channel_is_fiscal ? "facturado" : "interno",

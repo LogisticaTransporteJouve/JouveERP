@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCashFlow, type CashFlowEvent } from "./cash-flow";
+import { buildCashFlow, placementMonth, type CashFlowEvent } from "./cash-flow";
 
 const months = [
   { month: "2026-05", realized: true },
@@ -40,6 +40,21 @@ describe("buildCashFlow", () => {
     expect(ago.closing).toBe(5500); // 6500 - 1000
     expect(r.lowestClosing).toBe(5500);
     expect(r.deficitMonth).toBeNull();
+  });
+
+  it("placementMonth uses the due month, clamps overdue forward", () => {
+    // future due date → its own month
+    expect(placementMonth("2026-09-15", "2026-08-01", "2026-07")).toBe(
+      "2026-09",
+    );
+    // overdue (due before first projected) → first projected month
+    expect(placementMonth("2026-05-20", "2026-04-01", "2026-07")).toBe(
+      "2026-07",
+    );
+    // no due date → falls back to the invoice month
+    expect(placementMonth(null, "2026-08-10", "2026-07")).toBe("2026-08");
+    // nothing → first projected month
+    expect(placementMonth(null, null, "2026-07")).toBe("2026-07");
   });
 
   it("flags the first projected month the balance goes negative", () => {
