@@ -126,6 +126,7 @@ const navSections: NavSection[] = [
     label: "Tesorería",
     items: [
       { href: "/treasury", label: "Resumen", icon: LineChart, permission: "accounting:read" },
+      { href: "/treasury/cash-flow", label: "Flujo de caja", icon: TrendingUp, permission: "accounting:read" },
       { href: "/accounts", label: "Cuentas", icon: Wallet, permission: "accounts:read" },
       { href: "/transactions", label: "Caja", icon: ArrowLeftRight, permission: "transactions:read" },
       { href: "/checks", label: "Cheques recibidos", icon: BookCheck, permission: "cheques:read" },
