@@ -102,6 +102,18 @@ export const PalletBulkCreateSchema = z.object({
 });
 export type PalletBulkCreateInput = z.infer<typeof PalletBulkCreateSchema>;
 
+/** Bulk OUT (despacho): mark the selected pallets as despachado on a date. */
+export const PalletBulkDispatchSchema = z.object({
+  ids: z
+    .array(z.string().uuid())
+    .min(1, "Seleccioná al menos un pallet.")
+    .max(500, "Máximo 500 pallets por despacho."),
+  exit_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de salida requerida."),
+});
+export type PalletBulkDispatchInput = z.infer<typeof PalletBulkDispatchSchema>;
+
 export const PalletUpdateSchema = z.object({
   id: z.string().uuid(),
   warehouse_id: z.string().uuid("Depósito requerido.").optional(),

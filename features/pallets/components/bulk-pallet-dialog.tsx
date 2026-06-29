@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -162,20 +163,19 @@ export function BulkPalletDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegí un cliente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clientOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.legal_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Combobox
+                      options={clientOptions.map((c) => ({
+                        value: c.id,
+                        label: c.legal_name,
+                      }))}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Elegí un cliente"
+                      searchPlaceholder="Buscar cliente…"
+                      emptyText="Sin clientes."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
