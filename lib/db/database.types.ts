@@ -2297,6 +2297,132 @@ export type Database = {
           },
         ]
       }
+      loan_installments: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          loan_id: string
+          notes: string | null
+          number: number
+          paid_amount: number | null
+          paid_date: string | null
+          status: Database["public"]["Enums"]["loan_installment_status"]
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          id?: string
+          loan_id: string
+          notes?: string | null
+          number: number
+          paid_amount?: number | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["loan_installment_status"]
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          loan_id?: string
+          notes?: string | null
+          number?: number
+          paid_amount?: number | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["loan_installment_status"]
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_installments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_installments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_installments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          channel_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string
+          first_due_date: string
+          id: string
+          installments_count: number
+          kind: Database["public"]["Enums"]["loan_kind"]
+          lender: string | null
+          notes: string | null
+          principal: number
+          status: Database["public"]["Enums"]["loan_status"]
+          updated_at: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description: string
+          first_due_date: string
+          id?: string
+          installments_count: number
+          kind?: Database["public"]["Enums"]["loan_kind"]
+          lender?: string | null
+          notes?: string | null
+          principal: number
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string
+          first_due_date?: string
+          id?: string
+          installments_count?: number
+          kind?: Database["public"]["Enums"]["loan_kind"]
+          lender?: string | null
+          notes?: string | null
+          principal?: number
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_records: {
         Row: {
           cost: number | null
@@ -5536,6 +5662,9 @@ export type Database = {
         | "maternidad"
         | "paternidad"
         | "otro"
+      loan_installment_status: "pendiente" | "pagada"
+      loan_kind: "prestamo" | "leasing"
+      loan_status: "active" | "paid" | "cancelled"
       payroll_payment_method: "transferencia" | "efectivo"
     }
     CompositeTypes: {
@@ -5725,6 +5854,9 @@ export const Constants = {
         "paternidad",
         "otro",
       ],
+      loan_installment_status: ["pendiente", "pagada"],
+      loan_kind: ["prestamo", "leasing"],
+      loan_status: ["active", "paid", "cancelled"],
       payroll_payment_method: ["transferencia", "efectivo"],
     },
   },

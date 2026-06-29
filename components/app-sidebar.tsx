@@ -132,6 +132,7 @@ const navSections: NavSection[] = [
       { href: "/checks", label: "Cheques recibidos", icon: BookCheck, permission: "cheques:read" },
       { href: "/issued-checks", label: "Cheques propios", icon: BookCheck, permission: "issued_checks:read" },
       { href: "/recurring-payments", label: "Pagos recurrentes", icon: Repeat, permission: "recurring_payments:read" },
+      { href: "/loans", label: "Préstamos", icon: CreditCard, permission: "accounting:read" },
     ],
   },
   {

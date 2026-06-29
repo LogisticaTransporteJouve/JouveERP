@@ -220,6 +220,36 @@ export async function getCashFlowAction(input: {
     }
   }
 
+  // Pending loan / leasing installments → projected outflows by due month,
+  // classified by the loan's channel (blanco / negro).
+  const { data: activeLoans } = await supabase
+    .from("loans")
+    .select("id, channel:invoicing_channels(is_fiscal)")
+    .eq("status", "active");
+  const loanScope = new Map<string, CashScope>();
+  for (const l of activeLoans ?? []) loanScope.set(l.id, readFiscal(l.channel));
+  if (loanScope.size > 0) {
+    const { data: loanInst } = await supabase
+      .from("loan_installments")
+      .select("loan_id, due_date, amount")
+      .eq("status", "pendiente")
+      .gte("due_date", `${firstFwd}-01`)
+      .lte("due_date", rangeEndDate);
+    for (const li of loanInst ?? []) {
+      const scope = loanScope.get(li.loan_id);
+      if (!scope) continue;
+      const m = monthKey(li.due_date);
+      if (monthSet.has(m)) {
+        events.push({
+          month: m,
+          direction: "out",
+          amount: Math.abs(Number(li.amount)),
+          scope,
+        });
+      }
+    }
+  }
+
   const flow = buildCashFlow({ months, events, cashToday });
   return {
     ok: true,
