@@ -117,6 +117,20 @@ export function computeItemTotals(item: {
 }
 
 /**
+ * If every line that declares a VAT rate shares the same one, return it (so
+ * lines that didn't print a rate can inherit it). Returns null when rates are
+ * mixed or none are present.
+ */
+export function inferUniformAlicuota(
+  rates: (Alicuota | null)[],
+): Alicuota | null {
+  const present = rates.filter((r): r is Alicuota => r !== null);
+  if (present.length === 0) return null;
+  const first = present[0]!;
+  return present.every((r) => r === first) ? first : null;
+}
+
+/**
  * Derive a due date from an invoice date + payment terms. Handles "contado"/
  * "efectivo" (same day) and "N días" patterns. Returns YYYY-MM-DD or null.
  */
@@ -172,6 +186,29 @@ export function applyInvoicePostInference(
     trib: inv.importe_trib,
   });
 
+  // Resolve a rate for lines that didn't print one: the uniform line rate if
+  // there is one, else 0 when the header shows no IVA (exento / no gravado).
+  const uniform = inferUniformAlicuota(items.map((i) => i.alicuota_iva ?? null));
+  const zeroFromHeader = header.iva === 0 ? 0 : null;
+  const resolvedRate = uniform ?? zeroFromHeader;
+
+  const filledItems =
+    resolvedRate === null
+      ? items
+      : items.map((item) => {
+          if (item.alicuota_iva != null) return item;
+          const totals = computeItemTotals({
+            cantidad: item.cantidad,
+            precio_unitario: item.precio_unitario,
+            bonif_pct: item.bonif_pct,
+            alicuota: resolvedRate,
+            importe_neto: item.importe_neto,
+            importe_iva: item.importe_iva,
+            importe_total: item.importe_total,
+          });
+          return { ...item, alicuota_iva: resolvedRate, ...totals };
+        });
+
   return {
     ...inv,
     importe_neto: header.neto,
@@ -179,6 +216,6 @@ export function applyInvoicePostInference(
     importe_total: header.total,
     fch_vto_pago:
       inv.fch_vto_pago ?? dueDateFromTerms(inv.fecha, inv.condicion_pago),
-    items,
+    items: filledItems,
   };
 }

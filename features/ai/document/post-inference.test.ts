@@ -5,6 +5,7 @@ import {
   completeAmounts,
   computeItemTotals,
   dueDateFromTerms,
+  inferUniformAlicuota,
   normalizeAlicuota,
 } from "./post-inference";
 import {
@@ -12,6 +13,40 @@ import {
   InvoiceExtractionSchema,
   isExtractableKind,
 } from "./schemas";
+
+describe("inferUniformAlicuota", () => {
+  it("returns the shared rate, null when mixed or empty", () => {
+    expect(inferUniformAlicuota([21, 21, null])).toBe(21);
+    expect(inferUniformAlicuota([21, 10.5])).toBeNull();
+    expect(inferUniformAlicuota([null, null])).toBeNull();
+  });
+});
+
+describe("applyInvoicePostInference — rate fill-in", () => {
+  it("propagates a uniform line rate to a line missing it", () => {
+    const inv = InvoiceExtractionSchema.parse({
+      items: [
+        { descripcion: "A", importe_neto: 100, alicuota_iva: 21 },
+        { descripcion: "B", importe_neto: 200 },
+      ],
+    });
+    const out = applyInvoicePostInference(inv);
+    expect(out.items[1]?.alicuota_iva).toBe(21);
+    expect(out.items[1]?.importe_iva).toBe(42);
+  });
+
+  it("zero-rates lines when the header shows no IVA", () => {
+    const inv = InvoiceExtractionSchema.parse({
+      importe_neto: 300,
+      importe_iva: 0,
+      importe_total: 300,
+      items: [{ descripcion: "Exento", importe_neto: 300 }],
+    });
+    const out = applyInvoicePostInference(inv);
+    expect(out.items[0]?.alicuota_iva).toBe(0);
+    expect(out.items[0]?.importe_iva).toBe(0);
+  });
+});
 
 describe("completeAmounts (amount triangle)", () => {
   it("derives total from neto + iva", () => {
