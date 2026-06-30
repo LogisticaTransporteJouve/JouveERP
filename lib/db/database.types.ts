@@ -453,6 +453,13 @@ export type Database = {
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "auto_journal_mapping_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       business_units: {
@@ -543,6 +550,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -2289,6 +2303,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "journal_entry_lines_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
             columns: ["journal_entry_id"]
             isOneToOne: false
@@ -3166,6 +3187,7 @@ export type Database = {
       }
       purchase_invoices: {
         Row: {
+          account_id: string | null
           cae_proveedor: string | null
           cae_vto_proveedor: string | null
           cancelled_at: string | null
@@ -3195,6 +3217,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           cae_proveedor?: string | null
           cae_vto_proveedor?: string | null
           cancelled_at?: string | null
@@ -3224,6 +3247,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           cae_proveedor?: string | null
           cae_vto_proveedor?: string | null
           cancelled_at?: string | null
@@ -3253,6 +3277,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_invoices_channel_id_fkey"
             columns: ["channel_id"]
@@ -4553,6 +4591,27 @@ export type Database = {
       }
     }
     Views: {
+      expense_leaf_accounts: {
+        Row: {
+          code: string | null
+          id: string | null
+          level: number | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          id?: string | null
+          level?: number | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          id?: string | null
+          level?: number | null
+          name?: string | null
+        }
+        Relationships: []
+      }
       search_index: {
         Row: {
           body: string | null

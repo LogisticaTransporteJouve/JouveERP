@@ -42,6 +42,22 @@ function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
   return { name, duplicate: typeof matches.duplicate_of === "string" };
 }
 
+function expenseInfo(
+  matches: unknown,
+): { account: string; costCenter?: string; confidence?: number } | null {
+  if (!isRecord(matches) || !isRecord(matches.expense)) return null;
+  const e = matches.expense;
+  const code = typeof e.accountCode === "string" ? e.accountCode : null;
+  if (!code || code === "UNMAPPED") return null;
+  const name = typeof e.accountName === "string" ? e.accountName : null;
+  const ccName = typeof e.costCenterName === "string" ? e.costCenterName : null;
+  return {
+    account: name ? `${code} — ${name}` : code,
+    costCenter: ccName ?? undefined,
+    confidence: typeof e.confidence === "number" ? e.confidence : undefined,
+  };
+}
+
 type PreviewState = {
   url: string | null;
   filename: string;
@@ -105,6 +121,7 @@ export function ReviewSheet({
   const status = statusConfig(data?.status ?? "pending_review");
   const StatusIcon = status.icon;
   const match = matchInfo(data?.matches);
+  const expense = expenseInfo(data?.matches);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -183,6 +200,16 @@ export function ReviewSheet({
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
                 <AlertTriangle className="size-3" />
                 Posible duplicado
+              </span>
+            )}
+            {expense && (
+              <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <Sparkles className="size-3" />
+                Cuenta: {expense.account}
+                {expense.confidence != null
+                  ? ` · ${Math.round(expense.confidence * 100)}%`
+                  : ""}
+                {expense.costCenter ? ` · CC ${expense.costCenter}` : ""}
               </span>
             )}
           </div>

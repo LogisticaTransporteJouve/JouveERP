@@ -4,6 +4,7 @@ import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import type { ExpenseClassifyResult } from "./classify-expense";
 import type { DocumentBytes } from "./engine";
 import type { ExtractionStatus } from "./types";
 
@@ -58,6 +59,8 @@ export type ExtractionMatches = {
   client_id?: string;
   client_name?: string;
   duplicate_of?: string;
+  /** Expense classification suggestion (factura_compra). Human-confirmed. */
+  expense?: ExpenseClassifyResult;
 };
 
 /**

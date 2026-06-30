@@ -1,3 +1,4 @@
+import { classifyExpense } from "@/features/ai/document/classify-expense";
 import {
   classifyDocument,
   extractDocument,
@@ -14,6 +15,7 @@ import {
   saveExtractionResult,
 } from "@/features/ai/document/store";
 import { inngest } from "@/lib/inngest/client";
+import { getServiceClient } from "@/lib/supabase/service";
 import {
   DOCUMENT_EXTRACTION_REQUESTED,
   DocumentExtractionRequestedSchema,
@@ -97,12 +99,58 @@ export const documentExtraction = inngest.createFunction(
       matchForKind(extracted.kind, extracted.payload),
     );
 
+    // Suggest the expense account (+ confirm cost center) for purchase invoices.
+    // Suggestion-only: it rides on `matches.expense` for human review; nothing
+    // posts differently until the account is confirmed.
+    const expense =
+      extracted.kind === "factura_compra"
+        ? await step.run("classify-expense", async () => {
+            const svc = getServiceClient();
+            const [{ data: leaves }, { data: ccs }] = await Promise.all([
+              svc.from("expense_leaf_accounts").select("code, name"),
+              svc
+                .from("cost_centers")
+                .select("code, name")
+                .eq("is_active", true),
+            ]);
+
+            let supplierCategory: string | null = null;
+            if (matches.supplier_id) {
+              const { data: sup } = await svc
+                .from("suppliers")
+                .select("category:supplier_categories(name)")
+                .eq("id", matches.supplier_id)
+                .maybeSingle();
+              const cat = Array.isArray(sup?.category)
+                ? sup?.category[0]
+                : sup?.category;
+              supplierCategory = cat?.name ?? null;
+            }
+
+            const inv = InvoiceExtractionSchema.safeParse(extracted.payload);
+            return classifyExpense({
+              supplierName: matches.supplier_name ?? null,
+              supplierCategory,
+              invoiceNeto: inv.success ? (inv.data.importe_neto ?? null) : null,
+              lineDescriptions: inv.success
+                ? inv.data.items.map((it) => it.descripcion).filter(Boolean)
+                : [],
+              leafAccounts: (leaves ?? []).flatMap((l) =>
+                l.code !== null && l.name !== null
+                  ? [{ code: l.code, name: l.name }]
+                  : [],
+              ),
+              costCenters: ccs ?? [],
+            });
+          })
+        : null;
+
     await step.run("save", async () => {
       await saveExtractionResult(extraction_id, {
         detectedType: extracted.kind,
         confidence: extracted.confidence,
         payload: extracted.payload,
-        matches,
+        matches: expense ? { ...matches, expense } : matches,
         status: "pending_review",
       });
     });
