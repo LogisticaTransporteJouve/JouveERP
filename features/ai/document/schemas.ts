@@ -147,15 +147,25 @@ export type RemitoExtraction = z.infer<typeof RemitoExtractionSchema>;
 /** cheque. */
 export const ChequeExtractionSchema = z.object({
   banco: z.string().nullish(),
+  serie: z.string().nullish(),
   numero: z.string().nullish(),
-  fecha: z.string().nullish(),
-  fecha_pago: z.string().nullish(),
+  fecha: z.string().nullish(), // emisión
+  fecha_pago: z.string().nullish(), // pago / vencimiento (diferido / CPD)
   importe: z.number().nullish(),
   beneficiario: z.string().nullish(),
+  librador: z.string().nullish(), // titular de la cuenta que libra el cheque
+  librador_cuit: z.string().nullish(),
+  cuenta: z.string().nullish(), // nº de cuenta
   moneda: z.enum(["ARS", "USD"]).nullish(),
   tipo: z.enum(["propio", "tercero", "diferido"]).nullish(),
 });
 export type ChequeExtraction = z.infer<typeof ChequeExtractionSchema>;
+
+/** A photo may contain one or several checks — extract them all. */
+export const ChequeBatchExtractionSchema = z.object({
+  cheques: z.array(ChequeExtractionSchema).default([]),
+});
+export type ChequeBatchExtraction = z.infer<typeof ChequeBatchExtractionSchema>;
 
 /** One bank-statement movement. */
 export const ExtractoMovimientoSchema = z.object({
@@ -193,7 +203,7 @@ export const EXTRACTION_SCHEMAS = {
   recibo: ReceiptExtractionSchema,
   orden_pago: PaymentOrderExtractionSchema,
   remito: RemitoExtractionSchema,
-  cheque: ChequeExtractionSchema,
+  cheque: ChequeBatchExtractionSchema,
   extracto: ExtractoBancarioExtractionSchema,
 } as const;
 

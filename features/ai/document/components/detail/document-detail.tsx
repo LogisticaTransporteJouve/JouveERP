@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 
 import {
+  ChequeBatchExtractionSchema,
   ChequeExtractionSchema,
+  type ChequeExtraction,
   ExtractoBancarioExtractionSchema,
   InvoiceExtractionSchema,
   PaymentOrderExtractionSchema,
@@ -263,21 +265,58 @@ function RemitoDetail({ payload }: { payload: unknown }) {
   );
 }
 
-function ChequeDetail({ payload }: { payload: unknown }) {
-  const parsed = ChequeExtractionSchema.safeParse(payload);
-  if (!parsed.success) return <GenericDetail payload={payload} />;
-  const c = parsed.data;
+function ChequeCard({
+  c,
+  index,
+  total,
+}: {
+  c: ChequeExtraction;
+  index: number;
+  total: number;
+}) {
   return (
-    <Section icon={Banknote} title="Cheque">
+    <Section
+      icon={Banknote}
+      title={total > 1 ? `Cheque ${index + 1} de ${total}` : "Cheque"}
+    >
       <Field label="Banco" value={fmtText(c.banco)} />
+      <Field label="Serie" value={fmtText(c.serie)} />
       <Field label="Número" value={fmtText(c.numero)} />
       <Field label="Tipo" value={fmtText(c.tipo)} />
-      <Field label="Beneficiario" value={fmtText(c.beneficiario)} />
-      <Field label="Fecha" value={fmtText(c.fecha)} />
-      <Field label="Fecha de pago" value={fmtText(c.fecha_pago)} />
-      <Field label="Moneda" value={fmtText(c.moneda)} />
       <Field label="Importe" value={fmtMoney(c.importe, c.moneda)} />
+      <Field label="Beneficiario" value={fmtText(c.beneficiario)} />
+      <Field label="Librador" value={fmtText(c.librador)} />
+      <Field label="CUIT librador" value={fmtText(c.librador_cuit)} />
+      <Field label="Cuenta" value={fmtText(c.cuenta)} />
+      <Field label="Emisión" value={fmtText(c.fecha)} />
+      <Field label="Pago / vto" value={fmtText(c.fecha_pago)} />
+      <Field label="Moneda" value={fmtText(c.moneda)} />
     </Section>
+  );
+}
+
+function ChequeDetail({ payload }: { payload: unknown }) {
+  // Batch (1..N checks); fall back to a legacy single payload, then generic.
+  const batch = ChequeBatchExtractionSchema.safeParse(payload);
+  let cheques: ChequeExtraction[] = [];
+  if (batch.success && batch.data.cheques.length > 0) {
+    cheques = batch.data.cheques;
+  } else {
+    const single = ChequeExtractionSchema.safeParse(payload);
+    if (
+      single.success &&
+      (single.data.banco || single.data.numero || single.data.importe != null)
+    ) {
+      cheques = [single.data];
+    }
+  }
+  if (cheques.length === 0) return <GenericDetail payload={payload} />;
+  return (
+    <div className="space-y-3">
+      {cheques.map((c, i) => (
+        <ChequeCard key={i} c={c} index={i} total={cheques.length} />
+      ))}
+    </div>
   );
 }
 

@@ -42,7 +42,7 @@ const KIND_HINT: Record<ExtractableKind, string> = {
   remito:
     "Es un remito: extraé productos y cantidades por renglón, SIN importes (los remitos no llevan precios).",
   cheque:
-    "Es un cheque: banco, número, importe, beneficiario, fecha, tipo (propio/tercero/diferido) y fecha de pago si es diferido.",
+    "Puede haber UNO o VARIOS cheques en la misma imagen (a veces 4 o más). Extraé TODOS, un objeto por cheque en 'cheques'. Por cada uno: banco, serie, número, importe, beneficiario, librador (titular de la cuenta) y su CUIT, número de cuenta, fecha de emisión, y fecha de pago/vencimiento si es diferido (CPD). tipo: propio/tercero/diferido.",
   extracto:
     "Es un extracto bancario: una fila por movimiento (fecha, concepto, débito, crédito, saldo) más saldo inicial y final.",
 };
