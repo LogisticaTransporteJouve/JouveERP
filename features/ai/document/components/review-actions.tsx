@@ -15,9 +15,17 @@ import {
 
 import type { ExtractionDetail } from "../actions";
 import { useCreatePurchaseInvoice } from "../hooks/use-documents";
+import { ChequeBatchExtractionSchema } from "../schemas";
+
+import { CreateChequesDialog } from "./create-cheques-dialog";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function chequeCount(payload: unknown): number {
+  const p = ChequeBatchExtractionSchema.safeParse(payload);
+  return p.success ? p.data.cheques.length : 0;
 }
 
 /**
@@ -34,7 +42,33 @@ export function ReviewActions({
   const { channels } = useScope();
   const activeChannels = channels.filter((c) => c.is_active);
   const [channelId, setChannelId] = useState(activeChannels[0]?.id ?? "");
+  const [chequesOpen, setChequesOpen] = useState(false);
   const create = useCreatePurchaseInvoice();
+
+  if (extraction.detected_type === "cheque") {
+    const count = chequeCount(extraction.payload);
+    return (
+      <div className="flex items-center gap-2 border-t pt-3">
+        <Button
+          className="ml-auto"
+          disabled={count === 0}
+          onClick={() => setChequesOpen(true)}
+        >
+          Crear cheques en cartera{count > 0 ? ` (${count})` : ""}
+        </Button>
+        <CreateChequesDialog
+          extractionId={extraction.id}
+          payload={extraction.payload}
+          open={chequesOpen}
+          onOpenChange={setChequesOpen}
+          onCreated={() => {
+            setChequesOpen(false);
+            onCreated();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (extraction.detected_type !== "factura_compra") return null;
 

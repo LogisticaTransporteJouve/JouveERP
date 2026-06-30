@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { ChequeCreateSchema } from "@/features/checks/schema";
 import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -353,4 +354,125 @@ export async function discardExtractionAction(
 
   await logAudit("ai.document.discarded", ctx.userId, {}, extractionId);
   return { ok: true, data: undefined };
+}
+
+const ChequeRowSchema = z.object({
+  banco: z.string().nullish(),
+  serie: z.string().nullish(),
+  numero: z.string().nullish(),
+  librador: z.string().nullish(),
+  librador_cuit: z.string().nullish(),
+  importe: z.number().nullish(),
+  fecha: z.string().nullish(),
+  fecha_pago: z.string().nullish(),
+  moneda: z.string().nullish(),
+});
+
+const CreateChecksFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
+  kind: z.enum(["fisico", "echeq"]),
+  cheques: z.array(ChequeRowSchema).min(1).max(100),
+});
+
+/**
+ * Create one or several checks (en cartera) from a cheque extraction. Each row
+ * (already human-edited in the review) is mapped to the manual-check schema and
+ * inserted independently, so a bad row reports its error without dropping the
+ * rest. Marks the extraction confirmed when at least one check is created.
+ */
+export async function createChecksFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ created: number; errors: { index: number; error: string }[] }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "cheques:write")) {
+    return { ok: false, error: "No tenés permiso para crear cheques." };
+  }
+  const parsed = CreateChecksFromExtractionSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { extractionId, cartera_account_id, kind, cheques } = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { data: ext, error } = await supabase
+    .from("ai_document_extractions")
+    .select("detected_type, status")
+    .eq("id", extractionId)
+    .maybeSingle();
+  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (ext.status !== "pending_review") {
+    return { ok: false, error: "La extracción ya fue procesada." };
+  }
+  if (ext.detected_type !== "cheque") {
+    return { ok: false, error: "Solo se pueden crear cheques desde acá." };
+  }
+
+  const errors: { index: number; error: string }[] = [];
+  let created = 0;
+
+  for (const [i, row] of cheques.entries()) {
+    const candidate = {
+      kind,
+      check_number: row.numero ?? "",
+      bank_name: row.banco ?? "",
+      drawer_name: row.librador ?? "",
+      drawer_cuit: row.librador_cuit ?? "",
+      issue_date: row.fecha ?? "",
+      due_date: row.fecha_pago ?? row.fecha ?? "",
+      amount: row.importe ?? 0,
+      currency: row.moneda === "USD" ? "USD" : "ARS",
+      cartera_account_id,
+      source_kind: "manual",
+      notes: row.serie ? `Serie ${row.serie}` : null,
+    };
+    const v = ChequeCreateSchema.safeParse(candidate);
+    if (!v.success) {
+      errors.push({
+        index: i,
+        error: v.error.issues[0]?.message ?? "Datos inválidos.",
+      });
+      continue;
+    }
+    const { error: insErr } = await supabase.from("checks").insert({
+      kind: v.data.kind,
+      check_number: v.data.check_number,
+      bank_name: v.data.bank_name,
+      drawer_name: v.data.drawer_name,
+      drawer_cuit: v.data.drawer_cuit ?? null,
+      issue_date: v.data.issue_date,
+      due_date: v.data.due_date,
+      amount: v.data.amount,
+      currency: v.data.currency,
+      cartera_account_id: v.data.cartera_account_id,
+      status: "en_cartera",
+      source_kind: v.data.source_kind,
+      notes: v.data.notes ?? null,
+      created_by: ctx.userId,
+    });
+    if (insErr) {
+      errors.push({ index: i, error: "No se pudo guardar (¿número repetido?)." });
+      continue;
+    }
+    created += 1;
+  }
+
+  if (created > 0) {
+    const createdEntity: Json = { table: "checks", count: created };
+    await supabase
+      .from("ai_document_extractions")
+      .update({ status: "confirmed", created_entity: createdEntity })
+      .eq("id", extractionId);
+    await logAudit(
+      "ai.document.confirmed",
+      ctx.userId,
+      { extraction_id: extractionId, checks_created: created },
+      extractionId,
+    );
+  }
+
+  return { ok: true, data: { created, errors } };
 }
