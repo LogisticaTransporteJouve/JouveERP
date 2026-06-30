@@ -300,9 +300,43 @@ export async function createPurchaseInvoiceFromExtractionAction(
     return { ok: false, error: "Asociá un proveedor antes de crear la factura." };
   }
 
+  // Resolve the confirmed expense suggestion (codes) → ids so the invoice posts
+  // to the suggested account/cost center. Only confident suggestions carry an
+  // account (else UNMAPPED → no account → posting falls back to the compras role).
+  let accountId: string | null = null;
+  let costCenterId: string | null = null;
+  const expense =
+    isRecord(ext.matches) && isRecord(ext.matches.expense)
+      ? ext.matches.expense
+      : null;
+  if (expense) {
+    const accCode =
+      typeof expense.accountCode === "string" ? expense.accountCode : null;
+    const ccCode =
+      typeof expense.costCenterCode === "string" ? expense.costCenterCode : null;
+    if (accCode && accCode !== "UNMAPPED") {
+      const { data: acc } = await supabase
+        .from("chart_of_accounts")
+        .select("id")
+        .eq("code", accCode)
+        .maybeSingle();
+      accountId = acc?.id ?? null;
+    }
+    if (ccCode) {
+      const { data: cc } = await supabase
+        .from("cost_centers")
+        .select("id")
+        .eq("code", ccCode)
+        .maybeSingle();
+      costCenterId = cc?.id ?? null;
+    }
+  }
+
   const built = buildPurchaseInvoiceInput(ext.payload, {
     channelId: parsed.data.channelId,
     supplierId,
+    accountId,
+    costCenterId,
   });
   if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
 

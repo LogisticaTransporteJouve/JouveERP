@@ -25,6 +25,8 @@ function alicuotaToRateId(value: unknown): number | null {
 export type PurchaseInvoiceFromExtraction = {
   channel_id: string;
   supplier_id: string;
+  account_id: string | null;
+  cost_center_id: string | null;
   kind: "factura";
   letter: string | null;
   punto_venta: number;
@@ -46,7 +48,12 @@ export type PurchaseInvoiceFromExtraction = {
  */
 export function buildPurchaseInvoiceInput(
   payload: unknown,
-  opts: { channelId: string; supplierId: string },
+  opts: {
+    channelId: string;
+    supplierId: string;
+    accountId?: string | null;
+    costCenterId?: string | null;
+  },
 ): PurchaseInvoiceFromExtraction | null {
   const parsed = InvoiceExtractionSchema.safeParse(payload);
   if (!parsed.success) return null;
@@ -84,6 +91,8 @@ export function buildPurchaseInvoiceInput(
   return {
     channel_id: opts.channelId,
     supplier_id: opts.supplierId,
+    account_id: opts.accountId ?? null,
+    cost_center_id: opts.costCenterId ?? null,
     kind: "factura",
     letter: inv.letra ?? null,
     punto_venta: inv.punto_venta ?? 0,

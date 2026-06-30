@@ -122,8 +122,16 @@ export type PurchaseInvoiceItemInput = z.infer<typeof PurchaseInvoiceItemSchema>
 
 const itemsArray = z.array(PurchaseInvoiceItemSchema).default([]);
 
+const optionalUuid = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
 const baseFields = {
   channel_id: z.string().min(1, "Canal requerido."),
+  account_id: optionalUuid,
+  cost_center_id: optionalUuid,
   supplier_id: z.string().uuid("Proveedor requerido."),
   kind: z.enum(PURCHASE_INVOICE_KINDS),
   letter: letterNullable,
