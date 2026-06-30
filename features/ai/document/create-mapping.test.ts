@@ -10,6 +10,20 @@ const OPTS = {
 };
 
 describe("buildPurchaseInvoiceInput", () => {
+  it("threads account_id / cost_center_id from opts (null by default)", () => {
+    const payload = { numero: 1, fecha: "2026-03-12", importe_total: 100 };
+    const base = buildPurchaseInvoiceInput(payload, OPTS);
+    expect(base?.account_id).toBeNull();
+    expect(base?.cost_center_id).toBeNull();
+    const withIds = buildPurchaseInvoiceInput(payload, {
+      ...OPTS,
+      accountId: "22222222-2222-4222-8222-222222222222",
+      costCenterId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(withIds?.account_id).toBe("22222222-2222-4222-8222-222222222222");
+    expect(withIds?.cost_center_id).toBe("33333333-3333-4333-8333-333333333333");
+  });
+
   it("maps a complete invoice with items that pass the create schema", () => {
     const payload = {
       contraparte_cuit: "30-12345678-9",

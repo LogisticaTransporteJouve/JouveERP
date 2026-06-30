@@ -273,6 +273,8 @@ export async function createPurchaseInvoiceAction(
     .from("purchase_invoices")
     .insert({
       channel_id: parsed.data.channel_id,
+      account_id: parsed.data.account_id ?? null,
+      cost_center_id: parsed.data.cost_center_id ?? null,
       supplier_id: parsed.data.supplier_id,
       kind: parsed.data.kind,
       letter: parsed.data.letter ?? null,
