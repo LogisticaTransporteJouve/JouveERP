@@ -4,6 +4,11 @@ import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import {
+  reconcileExtracto,
+  type ReconciliationSummary,
+} from "@/features/ai/reconciliation/gather";
+
 import type { ExpenseClassifyResult } from "./classify-expense";
 import type { DocumentBytes } from "./engine";
 import type { ExtractionStatus } from "./types";
@@ -61,6 +66,8 @@ export type ExtractionMatches = {
   duplicate_of?: string;
   /** Expense classification suggestion (factura_compra). Human-confirmed. */
   expense?: ExpenseClassifyResult;
+  /** Bank-statement reconciliation summary (extracto). */
+  reconciliation?: ReconciliationSummary;
 };
 
 /**
@@ -166,6 +173,10 @@ export async function matchForKind(
   }
   if (kind === "orden_pago") return matchDocument({ table: "suppliers", cuit });
   if (kind === "recibo") return matchDocument({ table: "clients", cuit });
+  if (kind === "extracto") {
+    const reconciliation = await reconcileExtracto(payload);
+    return reconciliation ? { reconciliation } : {};
+  }
   return {};
 }
 

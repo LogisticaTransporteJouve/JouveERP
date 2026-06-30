@@ -42,6 +42,17 @@ function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
   return { name, duplicate: typeof matches.duplicate_of === "string" };
 }
 
+function reconInfo(
+  matches: unknown,
+): { matched: number; total: number } | null {
+  if (!isRecord(matches) || !isRecord(matches.reconciliation)) return null;
+  const r = matches.reconciliation;
+  const matched = typeof r.matched === "number" ? r.matched : 0;
+  const total = typeof r.statement_total === "number" ? r.statement_total : 0;
+  if (total === 0) return null;
+  return { matched, total };
+}
+
 function expenseInfo(
   matches: unknown,
 ): { account: string; costCenter?: string; confidence?: number } | null {
@@ -122,6 +133,7 @@ export function ReviewSheet({
   const StatusIcon = status.icon;
   const match = matchInfo(data?.matches);
   const expense = expenseInfo(data?.matches);
+  const recon = reconInfo(data?.matches);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -210,6 +222,12 @@ export function ReviewSheet({
                   ? ` · ${Math.round(expense.confidence * 100)}%`
                   : ""}
                 {expense.costCenter ? ` · CC ${expense.costCenter}` : ""}
+              </span>
+            )}
+            {recon && (
+              <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <CheckCircle2 className="size-3" />
+                Conciliación: {recon.matched}/{recon.total} conciliados
               </span>
             )}
           </div>
