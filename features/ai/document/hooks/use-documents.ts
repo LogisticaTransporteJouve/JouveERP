@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  createChecksFromExtractionAction,
   createPurchaseInvoiceFromExtractionAction,
   discardExtractionAction,
   getExtractionAction,
@@ -58,6 +59,17 @@ export function useCreatePurchaseInvoice() {
   return useMutation({
     mutationFn: (input: { extractionId: string; channelId: string }) =>
       runAction(() => createPurchaseInvoiceFromExtractionAction(input)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: documentKeys.all });
+    },
+  });
+}
+
+export function useCreateChecksFromExtraction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => createChecksFromExtractionAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: documentKeys.all });
     },
