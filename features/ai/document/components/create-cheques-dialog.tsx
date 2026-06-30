@@ -134,7 +134,10 @@ export function CreateChequesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+      <DialogContent
+        className="z-[70] flex max-h-[85vh] flex-col sm:max-w-2xl"
+        overlayClassName="z-[70]"
+      >
         <DialogHeader>
           <DialogTitle>Crear cheques en cartera</DialogTitle>
           <DialogDescription>
