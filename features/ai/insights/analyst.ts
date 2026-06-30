@@ -4,6 +4,7 @@ import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
 import {
   gatherCashFlow,
@@ -14,7 +15,12 @@ import {
 const HORIZON_WEEKS = 8;
 
 /** kinds this analyst owns — regenerated each run (open rows replaced). */
-export const ANALYST_KINDS = ["cashflow", "receivables_risk"] as const;
+export const ANALYST_KINDS = [
+  "cashflow",
+  "receivables_risk",
+  "dup_invoice",
+  "unusual_amount",
+] as const;
 
 export type InsightRow = {
   kind: string;
@@ -112,6 +118,18 @@ export async function buildInsights(today: string): Promise<InsightRow[]> {
 
   const risk = await gatherReceivablesRisk();
   if (risk.clientCount > 0) rows.push(receivablesInsight(risk));
+
+  const anomalies = await gatherAnomalies(today);
+  for (const a of anomalies) {
+    rows.push({
+      kind: a.kind,
+      severity: a.severity,
+      title: a.title,
+      finding: a.finding,
+      metrics: toJson(a.metrics),
+      source_refs: toJson(a.source_refs),
+    });
+  }
 
   return rows;
 }
