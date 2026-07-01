@@ -6,6 +6,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
+import { gatherFleetInsights } from "./fleet/gather";
 import {
   gatherCashFlow,
   gatherReceivablesRisk,
@@ -20,6 +21,8 @@ export const ANALYST_KINDS = [
   "receivables_risk",
   "dup_invoice",
   "unusual_amount",
+  "fleet_doc_expiry",
+  "trip_margin",
 ] as const;
 
 export type InsightRow = {
@@ -128,6 +131,18 @@ export async function buildInsights(today: string): Promise<InsightRow[]> {
       finding: a.finding,
       metrics: toJson(a.metrics),
       source_refs: toJson(a.source_refs),
+    });
+  }
+
+  const fleet = await gatherFleetInsights(today);
+  for (const f of fleet) {
+    rows.push({
+      kind: f.kind,
+      severity: f.severity,
+      title: f.title,
+      finding: f.finding,
+      metrics: toJson(f.metrics),
+      source_refs: toJson(f.source_refs),
     });
   }
 
