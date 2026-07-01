@@ -35,15 +35,23 @@ function chequeCount(payload: unknown): number {
 export function ReviewActions({
   extraction,
   onCreated,
+  onNestedOpenChange,
 }: {
   extraction: ExtractionDetail;
   onCreated: () => void;
+  /** Signals when a nested action dialog opens/closes (to hide the sidecar). */
+  onNestedOpenChange?: (open: boolean) => void;
 }) {
   const { channels } = useScope();
   const activeChannels = channels.filter((c) => c.is_active);
   const [channelId, setChannelId] = useState(activeChannels[0]?.id ?? "");
   const [chequesOpen, setChequesOpen] = useState(false);
   const create = useCreatePurchaseInvoice();
+
+  function setCheques(nextOpen: boolean) {
+    setChequesOpen(nextOpen);
+    onNestedOpenChange?.(nextOpen);
+  }
 
   if (extraction.detected_type === "check") {
     const count = chequeCount(extraction.payload);
@@ -52,7 +60,7 @@ export function ReviewActions({
         <Button
           className="ml-auto"
           disabled={count === 0}
-          onClick={() => setChequesOpen(true)}
+          onClick={() => setCheques(true)}
         >
           Crear cheques en cartera{count > 0 ? ` (${count})` : ""}
         </Button>
@@ -60,9 +68,9 @@ export function ReviewActions({
           extractionId={extraction.id}
           payload={extraction.payload}
           open={chequesOpen}
-          onOpenChange={setChequesOpen}
+          onOpenChange={setCheques}
           onCreated={() => {
-            setChequesOpen(false);
+            setCheques(false);
             onCreated();
           }}
         />
