@@ -14,9 +14,9 @@ import {
 
 // Invoice-style kinds are extracted as header + items in two focused calls.
 const INVOICE_KINDS = new Set<ExtractableKind>([
-  "factura_compra",
-  "factura_venta",
-  "nc_nd",
+  "purchase_invoice",
+  "sales_invoice",
+  "credit_debit_note",
 ]);
 
 // Force the json-tool path instead of Anthropic's constrained-decoding
@@ -31,19 +31,19 @@ const ANTHROPIC_OBJECT_OPTIONS = {
 // Per-kind focus line appended to the extraction prompt (Sumary's document_focus
 // idea), so the model knows what matters for each document type.
 const KIND_HINT: Record<ExtractableKind, string> = {
-  factura_compra:
+  purchase_invoice:
     "This is a purchase invoice: DZ & Sons is the buyer; the counterparty is the supplier/seller.",
-  factura_venta:
+  sales_invoice:
     "This is a sales invoice: DZ & Sons is the seller; the counterparty is the customer/buyer.",
-  nc_nd: "This is a credit or debit note: treat it as an invoice (header + items).",
-  recibo: "This is a receipt: extract the counterparty, number, date and total amount.",
-  orden_pago:
+  credit_debit_note: "This is a credit or debit note: treat it as an invoice (header + items).",
+  receipt: "This is a receipt: extract the counterparty, number, date and total amount.",
+  payment_order:
     "This is a payment order: extract the counterparty, number, date and total amount.",
-  remito:
+  delivery_note:
     "This is a delivery note: extract products and quantities per line, WITHOUT amounts (delivery notes carry no prices).",
-  cheque:
-    "There may be ONE or SEVERAL checks in the same image (sometimes 4 or more). Extract ALL of them, one object per check in 'cheques'. For each one: bank, series, number, amount, payee, drawer (account holder) and their CUIT, account number, issue date, and payment/due date if it is post-dated (CPD). type: propio/tercero/diferido.",
-  extracto:
+  check:
+    "There may be ONE or SEVERAL checks in the same image (sometimes 4 or more). Extract ALL of them, one object per check in 'cheques'. For each one: bank, series, number, amount, payee, drawer (account holder) and their CUIT, account number, issue date, and payment/due date if it is post-dated (CPD). type: own/third_party/deferred.",
+  bank_statement:
     "This is a bank statement: one row per transaction (date, description, debit, credit, balance) plus opening and closing balance.",
 };
 

@@ -208,12 +208,12 @@ describe("applyInvoicePostInference", () => {
 
 describe("extraction schemas", () => {
   it("maps extractable kinds and validates a lenient invoice payload", () => {
-    expect(isExtractableKind("factura_compra")).toBe(true);
-    expect(isExtractableKind("remito")).toBe(true);
-    expect(isExtractableKind("cheque")).toBe(true);
-    expect(isExtractableKind("extracto")).toBe(true);
-    expect(isExtractableKind("otro")).toBe(false);
-    const parsed = EXTRACTION_SCHEMAS.factura_compra.safeParse({
+    expect(isExtractableKind("purchase_invoice")).toBe(true);
+    expect(isExtractableKind("delivery_note")).toBe(true);
+    expect(isExtractableKind("check")).toBe(true);
+    expect(isExtractableKind("bank_statement")).toBe(true);
+    expect(isExtractableKind("other")).toBe(false);
+    const parsed = EXTRACTION_SCHEMAS.purchase_invoice.safeParse({
       counterparty_name: "Acme SA",
       number: 12345,
       items: [{ description: "Servicio", iva_rate: "21%" }],

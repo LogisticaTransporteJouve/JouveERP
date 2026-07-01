@@ -22,7 +22,7 @@ import {
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 
-const INVOICE_KINDS = ["factura_compra", "factura_venta", "nc_nd"];
+const INVOICE_KINDS = ["purchase_invoice", "sales_invoice", "credit_debit_note"];
 
 /**
  * Document Intelligence pipeline (docs/ai-overview.md §5-bis): classify (Haiku,
@@ -103,7 +103,7 @@ export const documentExtraction = inngest.createFunction(
     // Suggestion-only: it rides on `matches.expense` for human review; nothing
     // posts differently until the account is confirmed.
     const expense =
-      extracted.kind === "factura_compra"
+      extracted.kind === "purchase_invoice"
         ? await step.run("classify-expense", async () => {
             const svc = getServiceClient();
             const [{ data: leaves }, { data: ccs }] = await Promise.all([

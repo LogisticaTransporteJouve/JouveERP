@@ -64,7 +64,7 @@ export type ExtractionMatches = {
   client_id?: string;
   client_name?: string;
   duplicate_of?: string;
-  /** Expense classification suggestion (factura_compra). Human-confirmed. */
+  /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
   expense?: ExpenseClassifyResult;
   /** Bank-statement reconciliation summary (extracto). */
   reconciliation?: ReconciliationSummary;
@@ -153,7 +153,7 @@ export async function matchForKind(
   const puntoVenta =
     typeof payload.sales_point === "number" ? payload.sales_point : null;
 
-  if (kind === "factura_compra" || kind === "nc_nd") {
+  if (kind === "purchase_invoice" || kind === "credit_debit_note") {
     return matchDocument({
       table: "suppliers",
       cuit,
@@ -162,7 +162,7 @@ export async function matchForKind(
       invoiceTable: "purchase_invoices",
     });
   }
-  if (kind === "factura_venta") {
+  if (kind === "sales_invoice") {
     return matchDocument({
       table: "clients",
       cuit,
@@ -171,9 +171,9 @@ export async function matchForKind(
       invoiceTable: "invoices",
     });
   }
-  if (kind === "orden_pago") return matchDocument({ table: "suppliers", cuit });
-  if (kind === "recibo") return matchDocument({ table: "clients", cuit });
-  if (kind === "extracto") {
+  if (kind === "payment_order") return matchDocument({ table: "suppliers", cuit });
+  if (kind === "receipt") return matchDocument({ table: "clients", cuit });
+  if (kind === "bank_statement") {
     const reconciliation = await reconcileExtracto(payload);
     return reconciliation ? { reconciliation } : {};
   }
