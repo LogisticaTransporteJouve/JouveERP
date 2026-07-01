@@ -5265,7 +5265,11 @@ export type Database = {
         }[]
       }
       get_account_balances: {
-        Args: { p_period_end: string; p_period_start?: string }
+        Args: {
+          p_cost_center_id?: string
+          p_period_end: string
+          p_period_start?: string
+        }
         Returns: {
           account_code: string
           account_id: string

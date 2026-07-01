@@ -14,11 +14,13 @@ import type { AccountBalanceRow } from "../schema";
 const GetAccountBalancesInput = z.object({
   periodEnd: PeriodSchema,
   periodStart: PeriodSchema.nullable().optional(),
+  costCenterId: z.string().uuid().nullable().optional(),
 });
 
 export async function getAccountBalancesAction(input: {
   periodEnd: string;
   periodStart?: string | null;
+  costCenterId?: string | null;
 }): Promise<ActionResult<AccountBalanceRow[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounting:read")) {
@@ -36,6 +38,7 @@ export async function getAccountBalancesAction(input: {
   const { data, error } = await supabase.rpc("get_account_balances", {
     p_period_end: input.periodEnd,
     p_period_start: input.periodStart ?? undefined,
+    p_cost_center_id: input.costCenterId ?? undefined,
   });
   if (error) {
     logger.error("get_account_balances.failed", { userId: ctx.userId, error });
