@@ -95,9 +95,9 @@ beforeEach(() => {
 });
 
 describe("ai tools registry", () => {
-  it("exposes 25 uniquely-named tools, each with a non-trivial description", () => {
-    expect(AI_TOOL_NAMES).toHaveLength(25);
-    expect(new Set(AI_TOOL_NAMES).size).toBe(25);
+  it("exposes 31 uniquely-named tools, each with a non-trivial description", () => {
+    expect(AI_TOOL_NAMES).toHaveLength(31);
+    expect(new Set(AI_TOOL_NAMES).size).toBe(31);
     for (const name of AI_TOOL_NAMES) {
       const desc = aiTools[name].description;
       expect(typeof desc).toBe("string");
