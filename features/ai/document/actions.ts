@@ -450,7 +450,7 @@ export async function createChecksFromExtractionAction(
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
-  if (ext.detected_type !== "cheque") {
+  if (ext.detected_type !== "check") {
     return { ok: false, error: "Solo se pueden crear cheques desde acá." };
   }
 
