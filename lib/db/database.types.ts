@@ -5281,6 +5281,10 @@ export type Database = {
           total_debit: number
         }[]
       }
+      get_exchange_rate: {
+        Args: { p_currency: string; p_date: string }
+        Returns: number
+      }
       get_ledger: {
         Args: { p_account_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {

@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { ChequeCreateSchema } from "@/features/checks/schema";
+import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -339,6 +340,14 @@ export async function createPurchaseInvoiceFromExtractionAction(
     costCenterId,
   });
   if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
+
+  // USD invoice: pre-fill the exchange rate for the invoice date so the ledger
+  // posts ARS (the emitter converts by cotizacion). Left at 1 if no rate is
+  // configured — the human confirms before creating.
+  if (built.moneda === "DOL" && built.fecha) {
+    const rate = await getUsdRateForDateAction(built.fecha);
+    if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
+  }
 
   const created = await createPurchaseInvoiceAction(built);
   if (!created.ok) return created;
