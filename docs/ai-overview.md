@@ -1,9 +1,13 @@
 # JouveERP — IA Intelligence: resumen de diseño (Fase 0)
 
-> **Estado:** propuesta, pendiente de aprobación. Todavía no existe código en
-> `features/ai/`. Este documento es el plan de la feature de IA Intelligence: un
-> agente LLM con acceso de lectura a todo el negocio, expuesto tanto como chat
-> on-demand como insights proactivos que se surfacean automáticamente.
+> **Estado:** **IMPLEMENTADO (AI.0–AI.8).** El código vive en `features/ai/`
+> (60+ archivos: `agent.ts`, 25 tools de lectura, chat + historial, insights
+> proactivos, Document Intelligence, reconciliación bancaria, skills). Este
+> documento fue el plan de Fase 0 y se conserva como diseño de referencia; el
+> estado real y lo pendiente están en `docs/pendientes.md`. Este es el plan de
+> la feature de IA Intelligence: un agente LLM con acceso de lectura a todo el
+> negocio, expuesto tanto como chat on-demand como insights proactivos que se
+> surfacean automáticamente.
 >
 > Se apoya estrictamente en patrones que ya están en el repo (server actions +
 > `ActionResult`, `userCan`/RLS, Inngest, TanStack Query, shadcn, Zod) y en la

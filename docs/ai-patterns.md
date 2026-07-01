@@ -4,8 +4,11 @@
 > JouveERP incorpore funcionalidad LLM. Cada sección lista el patrón y dónde
 > correspondería en JouveERP.
 >
-> Estado: referencia. No hay código IA en JouveERP todavía. Cuando se inicie
-> Fase I (IA), este doc es el punto de partida.
+> Estado: referencia. **IMPLEMENTADO** — la IA (AI.0–AI.8) ya está en
+> `features/ai/` (chat, tools, insights, Document Intelligence, reconciliación).
+> Este doc queda como referencia de patrones; el estado real vive en
+> `docs/pendientes.md`. Aún NO construido: prompt caching (recién cableado en
+> el chat), fallback multi-proveedor (Gemini/GPT instalados, sin cablear).
 
 ---
 

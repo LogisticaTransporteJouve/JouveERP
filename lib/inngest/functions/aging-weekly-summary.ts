@@ -1,10 +1,23 @@
+import {
+  getEmailFrom,
+  getEmailReplyTo,
+  getResendClient,
+  isEmailConfigured,
+} from "@/lib/email/client";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
 
-// Weekly aging summary cron. Logs a structured payload finance can grep;
-// wiring email (Resend / SES) is a TODO once a provider is picked.
+// Weekly aging summary cron. Logs a structured payload finance can grep, and
+// emails it to FINANCE_EMAIL via Resend when email is configured (dev without
+// RESEND_API_KEY/EMAIL_FROM/FINANCE_EMAIL just logs and skips the send).
+
+const ARS = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
 
 type AgingRow = {
   client_id: string | null;
@@ -17,6 +30,68 @@ type AgingRow = {
   oldest_days: number | null;
   clients: { legal_name: string; cuit: string } | null;
 };
+
+type AgingSummary = {
+  totals: {
+    bucket_0_30: number;
+    bucket_30_60: number;
+    bucket_60_90: number;
+    bucket_90_plus: number;
+    total_open: number;
+    client_count: number;
+    document_count: number;
+  };
+  top: Array<{
+    legal_name: string;
+    cuit: string;
+    total_open: number;
+    bucket_60_90: number;
+    bucket_90_plus: number;
+    oldest_days: number;
+  }>;
+};
+
+function renderAgingEmail(
+  summary: AgingSummary,
+  generatedAt: string,
+): { subject: string; html: string } {
+  const { totals, top } = summary;
+  const date = generatedAt.slice(0, 10);
+  const rows = top
+    .map(
+      (c) => `<tr>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee">${c.legal_name}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${ARS.format(c.total_open)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${ARS.format(c.bucket_90_plus)}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${c.oldest_days} d</td>
+      </tr>`,
+    )
+    .join("");
+  return {
+    subject: `Aging semanal — ${date} · ${ARS.format(totals.total_open)} abierto`,
+    html: `<div style="font-family:system-ui,sans-serif;max-width:640px">
+      <h2>Aging semanal — ${date}</h2>
+      <p>${totals.client_count} clientes con deuda · ${totals.document_count} comprobantes abiertos.</p>
+      <ul>
+        <li>0–30: ${ARS.format(totals.bucket_0_30)}</li>
+        <li>30–60: ${ARS.format(totals.bucket_30_60)}</li>
+        <li>60–90: ${ARS.format(totals.bucket_60_90)}</li>
+        <li>+90: ${ARS.format(totals.bucket_90_plus)}</li>
+        <li><strong>Total abierto: ${ARS.format(totals.total_open)}</strong></li>
+      </ul>
+      <h3>Top deudores</h3>
+      <table style="border-collapse:collapse;width:100%">
+        <thead><tr>
+          <th style="padding:4px 8px;text-align:left">Cliente</th>
+          <th style="padding:4px 8px;text-align:right">Total</th>
+          <th style="padding:4px 8px;text-align:right">+90</th>
+          <th style="padding:4px 8px;text-align:right">Más viejo</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`,
+  };
+}
 
 export const agingWeeklySummary = inngest.createFunction(
   {
@@ -83,14 +158,37 @@ export const agingWeeklySummary = inngest.createFunction(
       };
     });
 
+    const generatedAt = new Date().toISOString();
+
     await step.run("publish-summary", async () => {
       logger.info("aging.weekly_summary", {
-        generated_at: new Date().toISOString(),
+        generated_at: generatedAt,
         ...summary,
       });
-      // TODO: when a transactional email provider is configured (Resend
-      // or similar), send `summary` to FINANCE_EMAIL here. The shape
-      // logged above is what the email body should render.
+    });
+
+    await step.run("email-summary", async () => {
+      const to = process.env.FINANCE_EMAIL;
+      const resend = getResendClient();
+      if (!isEmailConfigured() || !resend || !to) {
+        logger.info("aging.weekly_summary.email_skipped", {
+          reason: !to ? "no_finance_email" : "email_not_configured",
+        });
+        return { sent: false };
+      }
+      const { subject, html } = renderAgingEmail(summary, generatedAt);
+      const { data, error } = await resend.emails.send({
+        from: getEmailFrom(),
+        replyTo: getEmailReplyTo(),
+        to,
+        subject,
+        html,
+      });
+      if (error) {
+        throw new Error(`email-summary: ${error.message}`);
+      }
+      logger.info("aging.weekly_summary.email_sent", { to, id: data?.id });
+      return { sent: true };
     });
 
     return summary;
