@@ -44,7 +44,7 @@ export const receipts: Exporter = {
     const { data, error } = await query;
     if (error) {
       logger.error("export.receipts.failed", { error });
-      throw new Error("No se pudieron cargar los recibos.");
+      throw new Error("Could not load receipts.");
     }
 
     let total = 0;

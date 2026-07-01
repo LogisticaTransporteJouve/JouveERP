@@ -209,7 +209,7 @@ export async function grantVacationBalancesAction(
   input: unknown,
 ): Promise<ActionResult<{ count: number }>> {
   const ctx = await requireUserContext();
-  // Otorgar balances es admin-level — afecta a todos los empleados.
+  // Granting balances is admin-level — it affects all employees.
   if (!userCan(ctx.roles, "hr:admin")) {
     return { ok: false, error: "Sin permiso." };
   }

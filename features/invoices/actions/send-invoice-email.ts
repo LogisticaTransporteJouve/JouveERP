@@ -87,7 +87,7 @@ export async function sendInvoiceByEmailAction(
     (invoice as unknown as ChannelBusinessUnitJoin).channel?.business_unit
       ?.name ?? "DZ & Sons";
 
-  const numeroLabel = formatInvoiceNumero(
+  const numberLabel = formatInvoiceNumero(
     invoice.kind,
     invoice.letter,
     invoice.punto_venta,
@@ -106,10 +106,10 @@ export async function sendInvoiceByEmailAction(
     return { ok: false, error: "No se pudo generar el PDF." };
   }
 
-  const fechaLabel = formatArDateShort(invoice.fecha);
+  const dateLabel = formatArDateShort(invoice.fecha);
   const totalLabel = `$${formatNumber2(Number(invoice.imp_total))}`;
   const pdfFilename = buildPdfFilename(
-    numeroLabel,
+    numberLabel,
     client?.legal_name ?? "Cliente",
   );
 
@@ -121,8 +121,8 @@ export async function sendInvoiceByEmailAction(
     body: input.body,
     emisor_name: emisorName,
     client_legal_name: client?.legal_name ?? "Cliente",
-    numero_label: numeroLabel,
-    fecha: fechaLabel,
+    numero_label: numberLabel,
+    fecha: dateLabel,
     total_label: totalLabel,
     pdf_buffer: pdf.pdfBuffer,
     pdf_filename: pdfFilename,
@@ -165,7 +165,7 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
 
   const client = (invoice as unknown as ClientLegalJoin).client;
 
-  const numeroLabel = formatInvoiceNumero(
+  const numberLabel = formatInvoiceNumero(
     invoice.kind,
     invoice.letter,
     invoice.punto_venta,
@@ -192,8 +192,8 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
     ok: true,
     data: {
       recipient: client?.email ?? lastRecipient,
-      subject: `Comprobante ${numeroLabel}`,
-      numero_label: numeroLabel,
+      subject: `Comprobante ${numberLabel}`,
+      numero_label: numberLabel,
       client_legal_name: client?.legal_name ?? "Cliente",
       last_sent_at: invoice.notified_at,
     },

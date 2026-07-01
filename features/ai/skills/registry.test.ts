@@ -24,7 +24,7 @@ describe("selectSkills", () => {
 describe("buildSkillsBlock", () => {
   it("renders the matched skill title, empty when none", () => {
     expect(buildSkillsBlock("conciliación bancaria del extracto")).toContain(
-      "Conciliación bancaria",
+      "Bank reconciliation",
     );
     expect(buildSkillsBlock("gracias")).toBe("");
   });

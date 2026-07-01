@@ -14,7 +14,7 @@ export type SkillDefinition = {
 export const SKILLS: SkillDefinition[] = [
   {
     id: "libro-iva",
-    title: "Libros IVA",
+    title: "VAT Books",
     keywords: [
       "iva",
       "libro iva",
@@ -30,11 +30,11 @@ export const SKILLS: SkillDefinition[] = [
       "percepción",
     ],
     content:
-      "El libro IVA Ventas suma el débito fiscal (IVA de comprobantes emitidos); el libro IVA Compras suma el crédito fiscal (IVA de facturas de compra). El saldo técnico de IVA del período = débito − crédito (a pagar si es positivo). Las percepciones sufridas/practicadas van aparte del IVA. Alícuotas habituales: 21%, 10,5%, 27%, 0% (exento/no gravado). Para el resumen de un período usá las tools de libros IVA y mostrá débito, crédito y saldo.",
+      "The VAT Sales book totals the output VAT (débito fiscal, VAT on issued vouchers); the VAT Purchases book totals the input VAT (crédito fiscal, VAT on purchase invoices). The period's technical VAT balance = output − input (payable if positive). Perceptions suffered/applied are kept separate from VAT. Common rates: 21%, 10.5%, 27%, 0% (exempt/not taxed). For a period summary use the VAT book tools and show output VAT, input VAT and balance.",
   },
   {
     id: "conciliacion",
-    title: "Conciliación bancaria",
+    title: "Bank reconciliation",
     keywords: [
       "conciliación",
       "conciliacion",
@@ -45,11 +45,11 @@ export const SKILLS: SkillDefinition[] = [
       "diferencia de saldo",
     ],
     content:
-      "Conciliar = cruzar los movimientos del extracto bancario contra los movimientos de caja registrados en la cuenta. Diferencias típicas: cheques emitidos no debitados aún, depósitos en tránsito, comisiones/impuestos bancarios no cargados, e intereses. El saldo conciliado = saldo del extracto ± partidas pendientes. Señalá las partidas sin contraparte como pendientes de registrar.",
+      "Reconciling = matching the bank statement movements against the cash movements recorded in the account. Typical differences: issued checks not yet debited, deposits in transit, bank fees/taxes not yet posted, and interest. The reconciled balance = statement balance ± outstanding items. Flag items with no counterpart as pending to record.",
   },
   {
     id: "aging-cobranzas",
-    title: "Aging y cobranzas",
+    title: "Aging and collections",
     keywords: [
       "aging",
       "cobranza",
@@ -64,11 +64,11 @@ export const SKILLS: SkillDefinition[] = [
       "90 dias",
     ],
     content:
-      "El aging clasifica el saldo deudor por antigüedad desde la fecha del comprobante: 0-30, 30-60, 60-90 y +90 días. +90 días es el tramo de riesgo (priorizá gestión de cobro). Solo facturas y ND entran al aging; las NC son crédito al cliente. Para proveedores aplica igual pero como deuda a pagar.",
+      "Aging classifies the receivable balance by age since the voucher date: 0-30, 30-60, 60-90 and +90 days. +90 days is the risk bucket (prioritize collection efforts). Only invoices and debit notes (ND) enter the aging; credit notes (NC) are a credit to the customer. For suppliers it works the same but as payable debt.",
   },
   {
     id: "comprobantes-afip",
-    title: "Comprobantes y letras AFIP",
+    title: "AFIP vouchers and letters",
     keywords: [
       "factura a",
       "factura b",
@@ -84,11 +84,11 @@ export const SKILLS: SkillDefinition[] = [
       "responsable inscripto",
     ],
     content:
-      "La letra del comprobante depende de la condición IVA emisor/receptor: A entre responsables inscriptos (discrimina IVA), B a consumidor final/monotributo/exento, C si el emisor es monotributo. Las NC/ND siguen la letra de la factura que ajustan. El número es punto de venta (5 díg) + número (8 díg). Fiscal lleva CAE de AFIP; los comprobantes internos no.",
+      "The voucher letter depends on the VAT status of the issuer/receiver: A between registered taxpayers (responsables inscriptos, VAT itemized), B to final consumer/monotributo/exempt, C when the issuer is monotributo. Credit/debit notes (NC/ND) follow the letter of the invoice they adjust. The number is point of sale (5 digits) + number (8 digits). Fiscal vouchers carry the AFIP CAE; internal vouchers do not.",
   },
   {
     id: "centros-costo",
-    title: "Centros de costo y divisiones",
+    title: "Cost centers and divisions",
     keywords: [
       "centro de costo",
       "centros de costo",
@@ -101,7 +101,7 @@ export const SKILLS: SkillDefinition[] = [
       "logistica jouve",
     ],
     content:
-      "DZ & Sons opera dos divisiones (DZ Instalaciones, Logística Jouve) × canales fiscal/interno. Los centros de costo permiten imputar gastos e ingresos por área para ver rentabilidad por división. Al analizar gastos, agrupá por centro de costo cuando el usuario pida rentabilidad o resultados por área.",
+      "DZ & Sons operates two divisions (DZ Instalaciones, Logística Jouve) × fiscal/internal channels. Cost centers let you allocate expenses and income by area to see profitability per division. When analyzing expenses, group by cost center whenever the user asks for profitability or results by area.",
   },
 ];
 
@@ -143,7 +143,7 @@ export function buildSkillsBlock(message: string): string {
   if (skills.length === 0) return "";
   return [
     "",
-    "## Conocimiento aplicable a esta consulta",
+    "## Knowledge applicable to this query",
     ...skills.map((s) => `### ${s.title}\n${s.content}`),
   ].join("\n\n");
 }

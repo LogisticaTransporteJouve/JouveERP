@@ -20,7 +20,7 @@ export function getResendClient(): Resend | null {
 
 export function getEmailFrom(): string {
   const from = process.env.EMAIL_FROM;
-  if (!from) throw new Error("EMAIL_FROM no está configurado.");
+  if (!from) throw new Error("EMAIL_FROM is not configured.");
   return from;
 }
 

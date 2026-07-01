@@ -28,8 +28,8 @@ export async function runInvoices(input: {
   if (!res.ok) return errResult(res.error);
   const total = res.data.items.reduce((s, i) => s + i.imp_total, 0);
   return okResult(
-    `${res.data.items.length} comprobantes${
-      res.data.nextOffset !== null ? " (hay más, acotá el filtro)" : ""
+    `${res.data.items.length} invoices${
+      res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
     } · total ${money(total)}.`,
     res.data,
   );
@@ -37,19 +37,19 @@ export async function runInvoices(input: {
 
 export const getInvoices = tool({
   description:
-    "Comprobantes de venta emitidos (facturas, NC, ND): listado filtrable por " +
-    "cliente/número (query), canal, y rango de fechas (YYYY-MM-DD). Devuelve " +
-    "número, cliente, fecha, total y estado. Para ventas, facturación o buscar " +
-    "un comprobante puntual.",
+    "Issued sales documents (invoices, credit notes, debit notes): list " +
+    "filterable by client/number (query), channel, and date range (YYYY-MM-DD). " +
+    "Returns number, client, date, total and status. For sales, billing or " +
+    "finding a specific document.",
   inputSchema: z.object({
     query: z
       .string()
       .nullish()
-      .describe("Texto a buscar: número exacto o nombre del cliente."),
-    channelId: z.string().nullish().describe("UUID del canal, opcional."),
-    fechaDesde: z.string().nullish().describe("Fecha desde YYYY-MM-DD."),
-    fechaHasta: z.string().nullish().describe("Fecha hasta YYYY-MM-DD."),
-    limit: z.number().nullish().describe("Máximo de filas (default 25, máx 200)."),
+      .describe("Text to search: exact number or client name."),
+    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    fechaDesde: z.string().nullish().describe("Date from YYYY-MM-DD."),
+    fechaHasta: z.string().nullish().describe("Date to YYYY-MM-DD."),
+    limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   execute: (input) => runInvoices(input),
 });
@@ -67,25 +67,25 @@ export async function runReceipts(input: {
   if (!res.ok) return errResult(res.error);
   const total = res.data.items.reduce((s, r) => s + r.total_amount, 0);
   return okResult(
-    `${res.data.items.length} recibos${
-      res.data.nextOffset !== null ? " (hay más)" : ""
-    } · total cobrado ${money(total)}.`,
+    `${res.data.items.length} receipts${
+      res.data.nextOffset !== null ? " (more available)" : ""
+    } · total collected ${money(total)}.`,
     res.data,
   );
 }
 
 export const getReceipts = tool({
   description:
-    "Recibos de cobranza: listado filtrable por número/cliente (query) y canal. " +
-    "Devuelve número, cliente, fecha, importe y moneda. Para cobranzas o buscar " +
-    "un recibo puntual.",
+    "Collection receipts: list filterable by number/client (query) and channel. " +
+    "Returns number, client, date, amount and currency. For collections or " +
+    "finding a specific receipt.",
   inputSchema: z.object({
     query: z
       .string()
       .nullish()
-      .describe("Número exacto del recibo a buscar."),
-    channelId: z.string().nullish().describe("UUID del canal, opcional."),
-    limit: z.number().nullish().describe("Máximo de filas (default 25, máx 200)."),
+      .describe("Exact receipt number to search."),
+    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   execute: (input) => runReceipts(input),
 });
@@ -102,8 +102,8 @@ export async function runSearchClients(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.clients.length} clientes${
-      res.data.nextOffset !== null ? " (hay más, afiná la búsqueda)" : ""
+    `${res.data.clients.length} clients${
+      res.data.nextOffset !== null ? " (more available, refine the search)" : ""
     }.`,
     res.data,
   );
@@ -111,16 +111,16 @@ export async function runSearchClients(input: {
 
 export const searchClients = tool({
   description:
-    "Busca clientes por nombre o CUIT (full-text). Devuelve datos de cada cliente " +
-    "(razón social, CUIT, condición IVA, contacto). Útil para encontrar el " +
-    "client_id que piden otras tools o resolver a quién se refiere el usuario.",
+    "Search clients by name or CUIT (full-text). Returns each client's data " +
+    "(legal name, CUIT, VAT condition, contact). Useful to find the client_id " +
+    "other tools require or to resolve who the user is referring to.",
   inputSchema: z.object({
-    query: z.string().nullish().describe("Texto a buscar: nombre o CUIT."),
+    query: z.string().nullish().describe("Text to search: name or CUIT."),
     onlyActive: z
       .boolean()
       .nullish()
-      .describe("Solo activos (default true)."),
-    limit: z.number().nullish().describe("Máximo de filas (default 25, máx 200)."),
+      .describe("Active only (default true)."),
+    limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   execute: (input) => runSearchClients(input),
 });

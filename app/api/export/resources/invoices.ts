@@ -39,7 +39,7 @@ export const invoices: Exporter = {
     if (range.to) query = query.lte("fecha", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los comprobantes.");
+    if (error) throw new Error("Could not load invoices.");
 
     let total = 0;
     const rows = (data ?? []).map((row) => {

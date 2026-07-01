@@ -50,7 +50,7 @@ export const purchaseInvoices: Exporter = {
     if (range.to) query = query.lte("fecha", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las facturas de compra.");
+    if (error) throw new Error("Could not load purchase invoices.");
 
     let total = 0;
     const rows = (data ?? []).map((row) => {

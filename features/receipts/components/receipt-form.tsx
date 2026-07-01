@@ -84,7 +84,7 @@ function sumDraftRetentions(rets: RetentionDraft[]): number {
 const FormSchema = z.object({
   channelId: z.string().min(1, "Canal requerido."),
   numero: z.string().regex(/^\d+$/, "Número inválido."),
-  reciboDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   currency: z.enum(RECEIPT_CURRENCIES),
   client: z.custom<PickedClient>().nullable(),
   notes: z.string().trim().max(500),
@@ -166,7 +166,7 @@ export function ReceiptForm({
     defaultValues: {
       channelId: initialChannel,
       numero: receipt ? String(receipt.receipt.numero) : "",
-      reciboDate: receipt?.receipt.receipt_date ?? todayInAR(),
+      receiptDate: receipt?.receipt.receipt_date ?? todayInAR(),
       currency:
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
       client: initialClient ?? null,
@@ -178,7 +178,7 @@ export function ReceiptForm({
   });
 
   const channelId = form.watch("channelId");
-  const reciboDate = form.watch("reciboDate");
+  const receiptDate = form.watch("receiptDate");
   const currency = form.watch("currency");
   const client = form.watch("client");
   const paymentLines = form.watch("paymentLines");
@@ -263,7 +263,7 @@ export function ReceiptForm({
             bank_name: l.check.bank_name.trim(),
             drawer_name: l.check.drawer_name.trim(),
             drawer_cuit: l.check.drawer_cuit.trim(),
-            issue_date: l.check.issue_date || values.reciboDate,
+            issue_date: l.check.issue_date || values.receiptDate,
             due_date: l.check.due_date,
           }
         : undefined,
@@ -311,7 +311,7 @@ export function ReceiptForm({
           channel_id: values.channelId,
           numero: numeroParsed,
           client_id: values.client.id,
-          receipt_date: values.reciboDate,
+          receipt_date: values.receiptDate,
           total_amount: totalAmount,
           currency: values.currency,
           notes: values.notes,
@@ -333,7 +333,7 @@ export function ReceiptForm({
       updateMut.mutate(
         {
           id: receipt.receipt.id,
-          receipt_date: values.reciboDate,
+          receipt_date: values.receiptDate,
           total_amount: totalAmount,
           notes: values.notes,
           payment_lines: lines,
@@ -405,7 +405,7 @@ export function ReceiptForm({
           />
           <FormField
             control={form.control}
-            name="reciboDate"
+            name="receiptDate"
             render={({ field }) => (
               <FormItem className="space-y-1">
                 <FormLabel className="text-xs">Fecha</FormLabel>
@@ -477,14 +477,14 @@ export function ReceiptForm({
           accounts={accounts.filter((a) => a.is_active)}
           lines={paymentLines}
           onChange={(lines) => form.setValue("paymentLines", lines)}
-          defaultDate={reciboDate}
+          defaultDate={receiptDate}
         />
 
         {/* Retentions / Percepciones */}
         <RetentionsEditor
           retentions={retentions}
           onChange={(rets) => form.setValue("retentions", rets)}
-          defaultDate={reciboDate}
+          defaultDate={receiptDate}
         />
 
         {/* Allocations */}

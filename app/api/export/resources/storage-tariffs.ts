@@ -39,7 +39,7 @@ export const storageTariffs: Exporter = {
     if (range.to) query = query.lte("valid_from", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las tarifas.");
+    if (error) throw new Error("Could not load tariffs.");
 
     const rows = (data ?? []).map((row) => {
       const client: ClientJoin | null = row.client;

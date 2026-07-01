@@ -35,7 +35,7 @@ export const accounts: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las cuentas.");
+    if (error) throw new Error("Could not load accounts.");
 
     const rows = (data ?? []).map((row) => [
       row.name,

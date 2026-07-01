@@ -42,7 +42,7 @@ export const supplierAccount: Exporter = {
   permission: "suppliers:read",
   load: async (params, range) => {
     const supplierId = params.get("supplierId");
-    if (!supplierId) throw new Error("Falta el proveedor.");
+    if (!supplierId) throw new Error("Missing supplier.");
     const res = await getSupplierAccountAction(supplierId);
     if (!res.ok) throw new Error(res.error);
     const movements = res.data.movements.filter((m) =>

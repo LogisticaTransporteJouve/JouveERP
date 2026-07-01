@@ -58,7 +58,7 @@ export const paymentOrders: Exporter = {
     if (range.to) query = query.lte("payment_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las órdenes de pago.");
+    if (error) throw new Error("Could not load payment orders.");
 
     const orders = (data ?? []) as unknown as Row[];
 

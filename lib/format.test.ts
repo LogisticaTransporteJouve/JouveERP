@@ -76,8 +76,8 @@ describe("formatAmountInput", () => {
   });
 
   it("elimina caracteres no permitidos", () => {
-    // El '.' no está en el set permitido [\d,] → se elimina, queda 123456,
-    // luego se formatean miles → "123.456".
+    // The '.' is not in the allowed set [\d,] → it's removed, leaving 123456,
+    // then thousands are formatted → "123.456".
     expect(formatAmountInput("$1.234,56")).toBe("1.234,56");
     expect(formatAmountInput("abc123")).toBe("123");
   });

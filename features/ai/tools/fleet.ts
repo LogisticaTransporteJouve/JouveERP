@@ -22,15 +22,15 @@ export async function runVehicles(input: {
   const res = await listVehiclesAction({ onlyActive: input.onlyActive ?? false });
   if (!res.ok) return errResult(res.error);
   const active = res.data.filter((v) => v.is_active).length;
-  return okResult(`${res.data.length} vehículos (${active} activos).`, res.data);
+  return okResult(`${res.data.length} vehicles (${active} active).`, res.data);
 }
 
 export const getVehicles = tool({
   description:
-    "Flota de vehículos: patente, marca/modelo, tipo y estado (activo/baja). " +
-    "Para consultas sobre camiones/vehículos.",
+    "Vehicle fleet: license plate, make/model, type and status " +
+    "(active/inactive). For queries about trucks/vehicles.",
   inputSchema: z.object({
-    onlyActive: z.boolean().nullish().describe("Solo activos (default false)."),
+    onlyActive: z.boolean().nullish().describe("Active only (default false)."),
   }),
   execute: (input) => runVehicles(input),
 });
@@ -40,7 +40,7 @@ export async function runTrips(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const withRevenue = res.data.reduce((s, t) => s + Number(t.revenue ?? 0), 0);
   return okResult(
-    `${res.data.length} viajes · facturación total $${withRevenue.toLocaleString(
+    `${res.data.length} trips · total revenue $${withRevenue.toLocaleString(
       "es-AR",
     )}.`,
     res.data,
@@ -49,8 +49,8 @@ export async function runTrips(): Promise<AiToolResult> {
 
 export const getTrips = tool({
   description:
-    "Viajes: fecha, origen/destino, vehículo, chofer, estado, facturación y " +
-    "costo. Para consultas sobre viajes o transporte.",
+    "Trips: date, origin/destination, vehicle, driver, status, revenue and " +
+    "cost. For queries about trips or transport.",
   inputSchema: z.object({}),
   execute: () => runTrips(),
 });
@@ -61,7 +61,7 @@ export async function runFuelLoads(): Promise<AiToolResult> {
   const liters = res.data.reduce((s, f) => s + Number(f.liters ?? 0), 0);
   const amount = res.data.reduce((s, f) => s + Number(f.amount ?? 0), 0);
   return okResult(
-    `${res.data.length} cargas de combustible · ${liters.toLocaleString(
+    `${res.data.length} fuel loads · ${liters.toLocaleString(
       "es-AR",
     )} L · $${amount.toLocaleString("es-AR")}.`,
     res.data,
@@ -70,8 +70,8 @@ export async function runFuelLoads(): Promise<AiToolResult> {
 
 export const getFuelLoads = tool({
   description:
-    "Cargas de combustible: fecha, vehículo, viaje, litros e importe. Para " +
-    "consumo o gasto de combustible de la flota.",
+    "Fuel loads: date, vehicle, trip, liters and amount. For fleet fuel " +
+    "consumption or expense.",
   inputSchema: z.object({}),
   execute: () => runFuelLoads(),
 });
@@ -81,7 +81,7 @@ export async function runMaintenance(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const cost = res.data.reduce((s, m) => s + Number(m.cost ?? 0), 0);
   return okResult(
-    `${res.data.length} registros de mantenimiento · $${cost.toLocaleString(
+    `${res.data.length} maintenance records · $${cost.toLocaleString(
       "es-AR",
     )}.`,
     res.data,
@@ -90,8 +90,8 @@ export async function runMaintenance(): Promise<AiToolResult> {
 
 export const getMaintenance = tool({
   description:
-    "Mantenimiento de vehículos: fecha de servicio, vehículo, descripción, " +
-    "costo y próximo servicio. Para reparaciones o service de la flota.",
+    "Vehicle maintenance: service date, vehicle, description, cost and next " +
+    "service. For fleet repairs or servicing.",
   inputSchema: z.object({}),
   execute: () => runMaintenance(),
 });
@@ -102,17 +102,17 @@ export async function runFleetDocuments(): Promise<AiToolResult> {
   const today = new Date().toISOString().slice(0, 10);
   const expired = res.data.filter((d) => d.expires_at < today).length;
   return okResult(
-    `${res.data.length} documentos de flota (VTV, seguro, licencias, etc.)` +
-      `${expired > 0 ? ` · ${expired} vencidos` : ""}, ordenados por vencimiento.`,
+    `${res.data.length} fleet documents (VTV, insurance, licenses, etc.)` +
+      `${expired > 0 ? ` · ${expired} expired` : ""}, sorted by expiration.`,
     res.data,
   );
 }
 
 export const getFleetDocuments = tool({
   description:
-    "Documentación de la flota (VTV, seguro, licencia de conducir, RTO, etc.) " +
-    "con su fecha de vencimiento, del más próximo a vencer al último. Para " +
-    "vencimientos de papeles de vehículos/choferes.",
+    "Fleet documentation (VTV, insurance, driver's license, RTO, etc.) with " +
+    "their expiration date, from the soonest to expire to the last. For " +
+    "expirations of vehicle/driver paperwork.",
   inputSchema: z.object({}),
   execute: () => runFleetDocuments(),
 });
@@ -122,16 +122,16 @@ export async function runFleetProfitability(input: {
   periodEnd: string;
 }): Promise<AiToolResult> {
   if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {
-    return errResult("Rango de fechas inválido (usá AAAA-MM-DD).");
+    return errResult("Invalid date range (use YYYY-MM-DD).");
   }
   const res = await getFleetProfitabilityAction(input);
   if (!res.ok) return errResult(res.error);
   const { totals, trips, vehicles } = res.data;
   return okResult(
-    `Rentabilidad de flota ${input.periodStart}→${input.periodEnd}: ` +
-      `${trips.length} viajes, ${vehicles.length} vehículos · ` +
-      `neto $${totals.net.toLocaleString("es-AR")} ` +
-      `(facturación $${totals.revenue.toLocaleString("es-AR")} − costo $${totals.cost.toLocaleString(
+    `Fleet profitability ${input.periodStart}→${input.periodEnd}: ` +
+      `${trips.length} trips, ${vehicles.length} vehicles · ` +
+      `net $${totals.net.toLocaleString("es-AR")} ` +
+      `(revenue $${totals.revenue.toLocaleString("es-AR")} − cost $${totals.cost.toLocaleString(
         "es-AR",
       )}).`,
     res.data,
@@ -140,13 +140,12 @@ export async function runFleetProfitability(input: {
 
 export const getFleetProfitability = tool({
   description:
-    "Rentabilidad de la flota en un rango de fechas: neto por viaje " +
-    "(facturación − costo − combustible) y por vehículo (incluye mantenimiento). " +
-    "Requiere fecha desde y hasta (AAAA-MM-DD). Para rentabilidad de viajes o " +
-    "camiones.",
+    "Fleet profitability over a date range: net per trip " +
+    "(revenue − cost − fuel) and per vehicle (includes maintenance). " +
+    "Requires date from and to (YYYY-MM-DD). For trip or truck profitability.",
   inputSchema: z.object({
-    periodStart: z.string().describe("Fecha desde, formato AAAA-MM-DD."),
-    periodEnd: z.string().describe("Fecha hasta, formato AAAA-MM-DD."),
+    periodStart: z.string().describe("Date from, format YYYY-MM-DD."),
+    periodEnd: z.string().describe("Date to, format YYYY-MM-DD."),
   }),
   execute: (input) => runFleetProfitability(input),
 });

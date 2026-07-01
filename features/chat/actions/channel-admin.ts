@@ -61,7 +61,7 @@ export async function removeChannelMemberAction(input: {
 }): Promise<ActionResult<{ removed: true }>> {
   await requireUserContext();
   const supabase = await createClient();
-  // RLS members_delete_self_or_admin se encarga de validar.
+  // RLS members_delete_self_or_admin handles validation.
   const { error } = await supabase
     .from("chat_channel_members")
     .delete()

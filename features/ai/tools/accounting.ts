@@ -27,22 +27,22 @@ export async function runTrialBalance(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} cuentas con movimiento acumulado hasta ${input.periodEnd}.`,
+    `${res.data.length} accounts with accumulated movement up to ${input.periodEnd}.`,
     res.data,
   );
 }
 
 export const getTrialBalance = tool({
   description:
-    "Balance de saldos (sumas y saldos): por cuenta contable, debe/haber/saldo " +
-    "acumulado hasta un período YYYY-MM. Base del Estado de Resultados y Balance " +
-    "General. Solo refleja canales fiscales (caja contable).",
+    "Trial balance (sums and balances): per ledger account, debit/credit/" +
+    "accumulated balance up to a YYYY-MM period. Basis of the Income Statement " +
+    "and Balance Sheet. Only reflects fiscal channels (accounting books).",
   inputSchema: z.object({
-    periodEnd: z.string().describe("Período de corte YYYY-MM, ej. '2026-05'."),
+    periodEnd: z.string().describe("Cutoff period YYYY-MM, e.g. '2026-05'."),
     periodStart: z
       .string()
       .nullish()
-      .describe("Período inicial YYYY-MM opcional para acotar el rango."),
+      .describe("Optional start period YYYY-MM to narrow the range."),
   }),
   execute: (input) => runTrialBalance(input),
 });
@@ -59,24 +59,24 @@ export async function runLedger(input: {
   });
   if (!res.ok) return errResult(res.error);
   const last = res.data.rows.at(-1);
-  const saldo = last ? Number(last.running) : 0;
+  const balance = last ? Number(last.running) : 0;
   return okResult(
-    `${res.data.rows.length} movimientos${
-      res.data.truncated ? " (truncado a 1000 — acotá por fecha)" : ""
-    } · saldo final ${money(saldo)}.`,
+    `${res.data.rows.length} movements${
+      res.data.truncated ? " (truncated to 1000 — narrow by date)" : ""
+    } · closing balance ${money(balance)}.`,
     res.data,
   );
 }
 
 export const getLedger = tool({
   description:
-    "Libro mayor de UNA cuenta contable: movimientos con saldo corriente entre " +
-    "fechas. Requiere el UUID de la cuenta (obtenible del plan de cuentas / " +
-    "getTrialBalance).",
+    "General ledger of ONE ledger account: movements with running balance " +
+    "between dates. Requires the account UUID (obtainable from the chart of " +
+    "accounts / getTrialBalance).",
   inputSchema: z.object({
-    accountId: z.string().describe("UUID de la cuenta del plan de cuentas."),
-    from: z.string().nullish().describe("Fecha desde YYYY-MM-DD, opcional."),
-    to: z.string().nullish().describe("Fecha hasta YYYY-MM-DD, opcional."),
+    accountId: z.string().describe("UUID of the chart of accounts account."),
+    from: z.string().nullish().describe("Date from YYYY-MM-DD, optional."),
+    to: z.string().nullish().describe("Date to YYYY-MM-DD, optional."),
   }),
   execute: (input) => runLedger(input),
 });
@@ -91,21 +91,21 @@ export async function runLibroIvaVentas(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} filas de IVA Ventas para ${input.period} (una por comprobante × alícuota).`,
+    `${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
     res.data,
   );
 }
 
 export const getLibroIvaVentas = tool({
   description:
-    "Libro IVA Ventas (RG 1361) de un período YYYY-MM: una fila por comprobante " +
-    "× alícuota (neto/IVA por tasa), solo canales fiscales. IVA débito del período.",
+    "VAT Sales book (RG 1361) for a YYYY-MM period: one row per document × rate " +
+    "(net/VAT per rate), fiscal channels only. Output VAT for the period.",
   inputSchema: z.object({
-    period: z.string().describe("Período YYYY-MM, ej. '2026-05'."),
+    period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z
       .string()
       .nullish()
-      .describe("Canal fiscal opcional para filtrar."),
+      .describe("Optional fiscal channel to filter."),
   }),
   execute: (input) => runLibroIvaVentas(input),
 });
@@ -120,21 +120,21 @@ export async function runLibroIvaCompras(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} filas de IVA Compras para ${input.period} (una por comprobante × alícuota).`,
+    `${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
     res.data,
   );
 }
 
 export const getLibroIvaCompras = tool({
   description:
-    "Libro IVA Compras (RG 1361) de un período YYYY-MM: una fila por factura de " +
-    "compra × alícuota, solo canales fiscales. IVA crédito del período.",
+    "VAT Purchases book (RG 1361) for a YYYY-MM period: one row per purchase " +
+    "invoice × rate, fiscal channels only. Input VAT for the period.",
   inputSchema: z.object({
-    period: z.string().describe("Período YYYY-MM, ej. '2026-05'."),
+    period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z
       .string()
       .nullish()
-      .describe("Canal fiscal opcional para filtrar."),
+      .describe("Optional fiscal channel to filter."),
   }),
   execute: (input) => runLibroIvaCompras(input),
 });
@@ -146,19 +146,19 @@ export async function runChartOfAccounts(input: {
     onlyActive: input.onlyActive ?? true,
   });
   if (!res.ok) return errResult(res.error);
-  return okResult(`${res.data.length} cuentas en el plan de cuentas.`, res.data);
+  return okResult(`${res.data.length} accounts in the chart of accounts.`, res.data);
 }
 
 export const getChartOfAccounts = tool({
   description:
-    "Plan de cuentas contable: código, nombre, tipo (activo/pasivo/patrimonio/" +
-    "resultado) y rol de sistema de cada cuenta. Útil para encontrar el UUID de " +
-    "una cuenta (p. ej. para getLedger) o entender la estructura contable.",
+    "Chart of accounts: code, name, type (asset/liability/equity/result) and " +
+    "system role of each account. Useful to find an account's UUID (e.g. for " +
+    "getLedger) or to understand the accounting structure.",
   inputSchema: z.object({
     onlyActive: z
       .boolean()
       .nullish()
-      .describe("Solo cuentas activas (default true)."),
+      .describe("Active accounts only (default true)."),
   }),
   execute: (input) => runChartOfAccounts(input),
 });
@@ -175,22 +175,22 @@ export async function runJournalEntries(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.items.length} asientos${
-      input.period ? ` de ${input.period}` : ""
-    }${res.data.nextOffset !== null ? " (hay más, acotá por período)" : ""}.`,
+    `${res.data.items.length} journal entries${
+      input.period ? ` for ${input.period}` : ""
+    }${res.data.nextOffset !== null ? " (more available, narrow by period)" : ""}.`,
     res.data,
   );
 }
 
 export const getJournalEntries = tool({
   description:
-    "Libro diario: asientos contables con fecha, período de devengamiento, " +
-    "descripción y sus líneas (debe/haber por cuenta). Filtrable por período " +
-    "YYYY-MM y canal. Solo canales fiscales (caja contable).",
+    "General journal: journal entries with date, accrual period, description " +
+    "and their lines (debit/credit per account). Filterable by period YYYY-MM " +
+    "and channel. Fiscal channels only (accounting books).",
   inputSchema: z.object({
-    period: z.string().nullish().describe("Período YYYY-MM, opcional."),
-    channelId: z.string().nullish().describe("UUID del canal, opcional."),
-    limit: z.number().nullish().describe("Máximo de asientos (default 25)."),
+    period: z.string().nullish().describe("Period YYYY-MM, optional."),
+    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    limit: z.number().nullish().describe("Max entries (default 25)."),
   }),
   execute: (input) => runJournalEntries(input),
 });
@@ -202,18 +202,18 @@ export async function runCostCenters(input: {
     onlyActive: input.onlyActive ?? true,
   });
   if (!res.ok) return errResult(res.error);
-  return okResult(`${res.data.length} centros de costo.`, res.data);
+  return okResult(`${res.data.length} cost centers.`, res.data);
 }
 
 export const getCostCenters = tool({
   description:
-    "Centros de costo (dimensiones contables): código, nombre y estado. Sin " +
-    "parámetros obligatorios. Para analizar gastos/resultados por dimensión.",
+    "Cost centers (accounting dimensions): code, name and status. No required " +
+    "parameters. For analyzing expenses/results by dimension.",
   inputSchema: z.object({
     onlyActive: z
       .boolean()
       .nullish()
-      .describe("Solo activos (default true)."),
+      .describe("Active only (default true)."),
   }),
   execute: (input) => runCostCenters(input),
 });
@@ -222,15 +222,15 @@ export async function runInflationAdjustments(): Promise<AiToolResult> {
   const res = await listInflationAdjustmentsAction();
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} ajustes por inflación (RG 4667) registrados.`,
+    `${res.data.length} inflation adjustments (RG 4667) recorded.`,
     res.data,
   );
 }
 
 export const getInflationAdjustments = tool({
   description:
-    "Ajustes por inflación (RG 4667): período, coeficiente aplicado y si ya se " +
-    "asentó. Sin parámetros. Para el ajuste contable por inflación.",
+    "Inflation adjustments (RG 4667): period, applied coefficient and whether " +
+    "it was already posted. No parameters. For the accounting inflation adjustment.",
   inputSchema: z.object({}),
   execute: () => runInflationAdjustments(),
 });

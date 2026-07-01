@@ -142,7 +142,7 @@ describe("runClientAging", () => {
     });
     const r = await runClientAging();
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("3 clientes");
+    expect(r.summary).toContain("3 clients");
     expect(r.summary).toContain("+90");
   });
 
@@ -183,7 +183,7 @@ describe("runLedger", () => {
       to: null,
     });
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("truncado");
+    expect(r.summary).toContain("truncated");
   });
 });
 
@@ -196,7 +196,7 @@ describe("runLibroIvaVentas", () => {
       channelId: null,
     });
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("IVA Ventas");
+    expect(r.summary).toContain("VAT Sales");
   });
 });
 
@@ -215,8 +215,8 @@ describe("runInvoices", () => {
       limit: 25,
     });
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("0 comprobantes");
-    expect(r.summary).toContain("hay más");
+    expect(r.summary).toContain("0 invoices");
+    expect(r.summary).toContain("more available");
   });
 });
 
@@ -243,7 +243,7 @@ describe("runSupplierAging", () => {
     });
     const r = await runSupplierAging();
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("2 proveedores");
+    expect(r.summary).toContain("2 suppliers");
     expect(r.summary).toContain("+90");
   });
 
@@ -273,7 +273,7 @@ describe("runPurchaseInvoices", () => {
       limit: 25,
     });
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("0 facturas de compra");
+    expect(r.summary).toContain("0 purchase invoices");
   });
 });
 
@@ -285,7 +285,7 @@ describe("runChecks", () => {
     });
     const r = await runChecks();
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("0 cheques recibidos");
+    expect(r.summary).toContain("0 checks received");
   });
 });
 

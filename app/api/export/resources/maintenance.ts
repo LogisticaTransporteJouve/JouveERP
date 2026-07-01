@@ -37,7 +37,7 @@ export const maintenance: Exporter = {
     if (range.to) query = query.lte("service_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los mantenimientos.");
+    if (error) throw new Error("Could not load maintenance records.");
 
     let total = 0;
     const rows = (data ?? []).map((row) => {

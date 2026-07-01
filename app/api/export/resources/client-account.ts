@@ -38,7 +38,7 @@ export const clientAccount: Exporter = {
   permission: "clients:read",
   load: async (params, range) => {
     const clientId = params.get("clientId");
-    if (!clientId) throw new Error("Falta el cliente.");
+    if (!clientId) throw new Error("Missing client.");
     const res = await getClientAccountAction(clientId);
     if (!res.ok) throw new Error(res.error);
     const movements = res.data.movements.filter((m) =>

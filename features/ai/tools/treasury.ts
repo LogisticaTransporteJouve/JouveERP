@@ -10,17 +10,17 @@ export async function runTreasurySummary(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const d = res.data;
   return okResult(
-    `${d.accounts.length} cuentas activas · ${d.checks_due_soon.count} cheques ` +
-      `por vencer (7 días).`,
+    `${d.accounts.length} active accounts · ${d.checks_due_soon.count} checks ` +
+      `due soon (7 days).`,
     d,
   );
 }
 
 export const getTreasurySummary = tool({
   description:
-    "Resumen de tesorería: saldos por cuenta y moneda (ARS/USD), totales " +
-    "actuales vs. fin del mes anterior, y cheques en cartera por vencer. " +
-    "Sin parámetros. Útil para '¿cómo viene la caja?'.",
+    "Treasury summary: balances per account and currency (ARS/USD), current " +
+    "totals vs. end of previous month, and portfolio checks due soon. " +
+    "No parameters. Useful for 'how's the cash doing?'.",
   inputSchema: z.object({}),
   execute: () => runTreasurySummary(),
 });

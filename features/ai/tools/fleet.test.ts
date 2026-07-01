@@ -44,7 +44,7 @@ describe("runVehicles", () => {
     vi.mocked(listVehiclesAction).mockResolvedValue({ ok: true, data: [] });
     const res = await runVehicles({});
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.summary).toContain("vehículos");
+    if (res.ok) expect(res.summary).toContain("vehicles");
   });
 
   it("returns an error result when the action fails", async () => {
@@ -62,10 +62,10 @@ describe("runTrips / runFuelLoads / runMaintenance / runFleetDocuments", () => {
     vi.mocked(listMaintenanceAction).mockResolvedValue({ ok: true, data: [] });
     vi.mocked(listFleetDocumentsAction).mockResolvedValue({ ok: true, data: [] });
 
-    expect((await runTrips()).summary).toContain("viajes");
-    expect((await runFuelLoads()).summary).toContain("combustible");
-    expect((await runMaintenance()).summary).toContain("mantenimiento");
-    expect((await runFleetDocuments()).summary).toContain("documentos");
+    expect((await runTrips()).summary).toContain("trips");
+    expect((await runFuelLoads()).summary).toContain("fuel");
+    expect((await runMaintenance()).summary).toContain("maintenance");
+    expect((await runFleetDocuments()).summary).toContain("documents");
   });
 });
 

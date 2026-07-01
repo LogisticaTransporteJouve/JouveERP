@@ -21,7 +21,7 @@ export async function buildLibroIvaComprasTemplateData(
     p_channel_id: channelId ?? undefined,
   });
   if (error) {
-    throw new Error(`No se pudo leer libro IVA Compras: ${error.message}`);
+    throw new Error(`Could not read libro IVA Compras: ${error.message}`);
   }
 
   const rows = (data ?? []) as unknown as LibroIvaComprasRow[];

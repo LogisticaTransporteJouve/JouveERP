@@ -77,7 +77,7 @@ export async function sendReceiptByEmailAction(
     };
   }
 
-  // El template builder se encarga de traer toda la data necesaria.
+  // The template builder handles fetching all the necessary data.
   let templateData;
   let pdfBuffer;
   try {

@@ -34,7 +34,7 @@ export const checks: Exporter = {
       )
       .order("due_date", { ascending: true });
 
-    if (error) throw new Error("No se pudieron cargar los cheques.");
+    if (error) throw new Error("Could not load checks.");
 
     const filtered = (data ?? []).filter((c) => inRange(c.due_date, range));
 

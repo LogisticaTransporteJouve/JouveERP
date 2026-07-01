@@ -34,7 +34,7 @@ export const fuel: Exporter = {
     if (range.to) query = query.lte("load_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las cargas de combustible.");
+    if (error) throw new Error("Could not load fuel loads.");
 
     let total = 0;
     const rows = (data ?? []).map((row) => {

@@ -132,7 +132,7 @@ export async function maybeTitleAiSession(
   try {
     const { text } = await generateText({
       model: buildTitleModel(),
-      prompt: `Resumí en un título corto (máximo 6 palabras, en español, sin comillas ni punto final) esta consulta a un ERP contable:\n\n"${firstUserText.slice(0, 400)}"`,
+      prompt: `Summarize in a short title (max 6 words, IN SPANISH, no quotes or trailing period) this query to an accounting ERP:\n\n"${firstUserText.slice(0, 400)}"`,
     });
     const clean = text.trim().replace(/^["']|["']$/g, "");
     if (clean) title = clean.slice(0, MAX_TITLE_LEN);

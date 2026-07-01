@@ -41,7 +41,7 @@ export const transactions: Exporter = {
     if (range.to) query = query.lte("transaction_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los movimientos.");
+    if (error) throw new Error("Could not load transactions.");
 
     let net = 0;
     const rows: string[][] = [];
