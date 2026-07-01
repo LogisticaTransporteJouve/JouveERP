@@ -5,6 +5,13 @@ import { Suspense, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tabs,
@@ -27,9 +34,18 @@ import {
 const money = (n: number) => formatNumber2(Math.abs(n));
 const signed = (n: number) => (n >= 0 ? money(n) : `-${money(n)}`);
 
-export function BalancePage() {
+export type CostCenterOption = { id: string; code: string; name: string };
+
+const ALL_COST_CENTERS = "__all__";
+
+export function BalancePage({
+  costCenters,
+}: {
+  costCenters: CostCenterOption[];
+}) {
   const [periodEnd, setPeriodEnd] = useState(currentMonth());
   const [periodStart, setPeriodStart] = useState("");
+  const [costCenterId, setCostCenterId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -62,6 +78,31 @@ export function BalancePage() {
             className="w-[180px]"
           />
         </div>
+        {costCenters.length > 0 && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">
+              Centro de costo
+            </label>
+            <Select
+              value={costCenterId ?? ALL_COST_CENTERS}
+              onValueChange={(v) =>
+                setCostCenterId(v === ALL_COST_CENTERS ? null : v)
+              }
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_COST_CENTERS}>Todos</SelectItem>
+                {costCenters.map((cc) => (
+                  <SelectItem key={cc.id} value={cc.id}>
+                    {cc.code} — {cc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {periodStart && (
           <button
             type="button"
@@ -82,6 +123,7 @@ export function BalancePage() {
         <BalanceTabs
           periodEnd={periodEnd}
           periodStart={periodStart || null}
+          costCenterId={costCenterId}
         />
       </Suspense>
     </div>
@@ -91,11 +133,13 @@ export function BalancePage() {
 function BalanceTabs({
   periodEnd,
   periodStart,
+  costCenterId,
 }: {
   periodEnd: string;
   periodStart: string | null;
+  costCenterId: string | null;
 }) {
-  const { data: rows } = useAccountBalances(periodEnd, periodStart);
+  const { data: rows } = useAccountBalances(periodEnd, periodStart, costCenterId);
 
   return (
     <Tabs defaultValue="saldos">
