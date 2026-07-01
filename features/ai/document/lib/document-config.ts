@@ -13,28 +13,28 @@ import type { ExtractionStatus } from "../types";
 
 /** Human label per document kind (shared by the tray, table and detail). */
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  factura_compra: "Factura de compra",
-  factura_venta: "Factura de venta",
-  nc_nd: "NC / ND",
-  recibo: "Recibo",
-  orden_pago: "Orden de pago",
-  remito: "Remito",
-  cheque: "Cheque",
-  extracto: "Extracto bancario",
-  otro: "Otro",
+  purchase_invoice: "Factura de compra",
+  sales_invoice: "Factura de venta",
+  credit_debit_note: "NC / ND",
+  receipt: "Recibo",
+  payment_order: "Orden de pago",
+  delivery_note: "Remito",
+  check: "Cheque",
+  bank_statement: "Extracto bancario",
+  other: "Otro",
 };
 
 /** One-line description per kind (tooltips). */
 export const DOCUMENT_TYPE_DESCRIPTIONS: Record<string, string> = {
-  factura_compra: "Factura recibida de un proveedor.",
-  factura_venta: "Factura emitida a un cliente.",
-  nc_nd: "Nota de crédito o débito.",
-  recibo: "Comprobante de cobro o pago recibido.",
-  orden_pago: "Orden de pago a un proveedor.",
-  remito: "Remito de mercadería — productos y cantidades, sin importes.",
-  cheque: "Cheque propio, de tercero o diferido.",
-  extracto: "Extracto bancario con movimientos y saldos.",
-  otro: "Documento sin tipo estructurado.",
+  purchase_invoice: "Factura recibida de un proveedor.",
+  sales_invoice: "Factura emitida a un cliente.",
+  credit_debit_note: "Nota de crédito o débito.",
+  receipt: "Comprobante de cobro o pago recibido.",
+  payment_order: "Orden de pago a un proveedor.",
+  delivery_note: "Remito de mercadería — productos y cantidades, sin importes.",
+  check: "Cheque propio, de tercero o diferido.",
+  bank_statement: "Extracto bancario con movimientos y saldos.",
+  other: "Documento sin tipo estructurado.",
 };
 
 export function documentTypeLabel(kind: string | null | undefined): string {

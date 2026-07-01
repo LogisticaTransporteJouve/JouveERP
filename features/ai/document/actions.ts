@@ -260,7 +260,7 @@ const CreateFromExtractionSchema = z.object({
 });
 
 /**
- * Creates a purchase invoice from a reviewed `factura_compra` extraction,
+ * Creates a purchase invoice from a reviewed `purchase_invoice` extraction,
  * reusing the existing create action (which re-validates everything). Requires
  * a matched supplier and a chosen channel. On success the draft is marked
  * confirmed with a link to the created entity.
@@ -289,7 +289,7 @@ export async function createPurchaseInvoiceFromExtractionAction(
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
-  if (ext.detected_type !== "factura_compra") {
+  if (ext.detected_type !== "purchase_invoice") {
     return { ok: false, error: "Solo se puede crear factura de compra desde acá." };
   }
 

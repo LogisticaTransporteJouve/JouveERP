@@ -17,7 +17,7 @@ describe("ChequeBatchExtractionSchema", () => {
           drawer_cuit: "30718775597",
           account: "179-133819/9",
           currency: "ARS",
-          type: "diferido",
+          type: "deferred",
         },
         { bank: "Banco San Juan", number: "49611389", amount: 1000000 },
       ],
@@ -37,6 +37,6 @@ describe("ChequeBatchExtractionSchema", () => {
   });
 
   it("is wired as the cheque extraction schema", () => {
-    expect(EXTRACTION_SCHEMAS.cheque).toBe(ChequeBatchExtractionSchema);
+    expect(EXTRACTION_SCHEMAS.check).toBe(ChequeBatchExtractionSchema);
   });
 });

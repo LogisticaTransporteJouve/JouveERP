@@ -1,14 +1,14 @@
 /** Document kinds the classifier can return (docs/ai-overview.md §5-bis). */
 export const DOCUMENT_KINDS = [
-  "factura_compra",
-  "factura_venta",
-  "recibo",
-  "orden_pago",
-  "remito",
-  "cheque",
-  "extracto",
-  "nc_nd",
-  "otro",
+  "purchase_invoice",
+  "sales_invoice",
+  "receipt",
+  "payment_order",
+  "delivery_note",
+  "check",
+  "bank_statement",
+  "credit_debit_note",
+  "other",
 ] as const;
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];

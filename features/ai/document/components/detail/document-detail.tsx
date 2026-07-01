@@ -45,19 +45,19 @@ export function DocumentDetail({
   kind: string | null;
 }) {
   switch (kind) {
-    case "factura_compra":
-    case "factura_venta":
-    case "nc_nd":
+    case "purchase_invoice":
+    case "sales_invoice":
+    case "credit_debit_note":
       return <InvoiceDetail payload={payload} />;
-    case "recibo":
+    case "receipt":
       return <ReceiptDetail payload={payload} />;
-    case "orden_pago":
+    case "payment_order":
       return <PaymentOrderDetail payload={payload} />;
-    case "remito":
+    case "delivery_note":
       return <RemitoDetail payload={payload} />;
-    case "cheque":
+    case "check":
       return <ChequeDetail payload={payload} />;
-    case "extracto":
+    case "bank_statement":
       return <ExtractoDetail payload={payload} />;
     default:
       return <GenericDetail payload={payload} />;

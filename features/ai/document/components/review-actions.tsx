@@ -70,7 +70,7 @@ export function ReviewActions({
     );
   }
 
-  if (extraction.detected_type !== "factura_compra") return null;
+  if (extraction.detected_type !== "purchase_invoice") return null;
 
   const supplierId =
     isRecord(extraction.matches) &&

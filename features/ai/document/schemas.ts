@@ -55,7 +55,7 @@ export const ExtractedItemSchema = z.object({
 export type ExtractedItem = z.infer<typeof ExtractedItemSchema>;
 
 /**
- * factura_compra / factura_venta / nc_nd. Header and items are split into two
+ * purchase_invoice / sales_invoice / credit_debit_note. Header and items are split into two
  * schemas and extracted in two calls (engine.ts) — historically to dodge the
  * union-parameter ceiling, kept because it also keeps each call focused.
  * `counterparty_*` (flat) stays the canonical counterparty for matching/mapping;
@@ -89,7 +89,7 @@ export const InvoiceExtractionSchema = InvoiceHeaderSchema.extend({
 });
 export type InvoiceExtraction = z.infer<typeof InvoiceExtractionSchema>;
 
-/** recibo. */
+/** receipt. */
 export const ReceiptExtractionSchema = z.object({
   counterparty_name: z.string().nullish(),
   counterparty_cuit: z.string().nullish(),
@@ -100,7 +100,7 @@ export const ReceiptExtractionSchema = z.object({
 });
 export type ReceiptExtraction = z.infer<typeof ReceiptExtractionSchema>;
 
-/** orden_pago. */
+/** payment_order. */
 export const PaymentOrderExtractionSchema = z.object({
   counterparty_name: z.string().nullish(),
   counterparty_cuit: z.string().nullish(),
@@ -125,7 +125,7 @@ export const RemitoItemSchema = z.object({
 });
 export type RemitoItem = z.infer<typeof RemitoItemSchema>;
 
-/** remito — a delivery note: products + quantities, no prices. */
+/** delivery_note — products + quantities, no prices. */
 export const RemitoExtractionSchema = z.object({
   counterparty_name: z.string().nullish(),
   counterparty_cuit: z.string().nullish(),
@@ -144,20 +144,20 @@ export const RemitoExtractionSchema = z.object({
 });
 export type RemitoExtraction = z.infer<typeof RemitoExtractionSchema>;
 
-/** cheque. */
+/** check. */
 export const ChequeExtractionSchema = z.object({
   bank: z.string().nullish(),
   series: z.string().nullish(),
   number: z.string().nullish(),
   date: z.string().nullish(), // emisión
-  payment_date: z.string().nullish(), // pago / vencimiento (diferido / CPD)
+  payment_date: z.string().nullish(), // payment / due date (deferred / post-dated)
   amount: z.number().nullish(),
   beneficiary: z.string().nullish(),
   drawer: z.string().nullish(), // titular de la cuenta que libra el cheque
   drawer_cuit: z.string().nullish(),
   account: z.string().nullish(), // nº de cuenta
   currency: z.enum(["ARS", "USD"]).nullish(),
-  type: z.enum(["propio", "tercero", "diferido"]).nullish(),
+  type: z.enum(["own", "third_party", "deferred"]).nullish(),
 });
 export type ChequeExtraction = z.infer<typeof ChequeExtractionSchema>;
 
@@ -177,7 +177,7 @@ export const ExtractoMovimientoSchema = z.object({
 });
 export type ExtractoMovimiento = z.infer<typeof ExtractoMovimientoSchema>;
 
-/** extracto bancario. */
+/** bank_statement. */
 export const ExtractoBancarioExtractionSchema = z.object({
   bank: z.string().nullish(),
   account: z.string().nullish(),
@@ -192,19 +192,19 @@ export type ExtractoBancarioExtraction = z.infer<
 >;
 
 /**
- * Extraction schema per document kind. Only `otro` stays classification-only
+ * Extraction schema per document kind. Only `other` stays classification-only
  * (no structured shape). Each kind drives both extraction and the per-type
  * detail renderer (components/detail/*).
  */
 export const EXTRACTION_SCHEMAS = {
-  factura_compra: InvoiceExtractionSchema,
-  factura_venta: InvoiceExtractionSchema,
-  nc_nd: InvoiceExtractionSchema,
-  recibo: ReceiptExtractionSchema,
-  orden_pago: PaymentOrderExtractionSchema,
-  remito: RemitoExtractionSchema,
-  cheque: ChequeBatchExtractionSchema,
-  extracto: ExtractoBancarioExtractionSchema,
+  purchase_invoice: InvoiceExtractionSchema,
+  sales_invoice: InvoiceExtractionSchema,
+  credit_debit_note: InvoiceExtractionSchema,
+  receipt: ReceiptExtractionSchema,
+  payment_order: PaymentOrderExtractionSchema,
+  delivery_note: RemitoExtractionSchema,
+  check: ChequeBatchExtractionSchema,
+  bank_statement: ExtractoBancarioExtractionSchema,
 } as const;
 
 export type ExtractableKind = keyof typeof EXTRACTION_SCHEMAS;
