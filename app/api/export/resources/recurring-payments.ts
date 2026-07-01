@@ -39,7 +39,7 @@ export const recurringPayments: Exporter = {
     if (range.to) query = query.lte("next_due_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los pagos recurrentes.");
+    if (error) throw new Error("Could not load recurring payments.");
 
     const rows = (data ?? []).map((row) => {
       const category = isRecurringCategory(row.category)

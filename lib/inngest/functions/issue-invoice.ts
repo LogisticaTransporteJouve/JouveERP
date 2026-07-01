@@ -116,10 +116,10 @@ function aggregateIva(items: ItemRow[]): InvoiceIvaEntry[] {
   for (const item of items) {
     if (item.iva_rate_id === null) continue;
     const base = round2(toNumber(item.line_neto));
-    const importe = round2(toNumber(item.line_iva));
+    const amount = round2(toNumber(item.line_iva));
     const bucket = buckets.get(item.iva_rate_id) ?? { base: 0, importe: 0 };
     bucket.base = round2(bucket.base + base);
-    bucket.importe = round2(bucket.importe + importe);
+    bucket.importe = round2(bucket.importe + amount);
     buckets.set(item.iva_rate_id, bucket);
   }
   const out: InvoiceIvaEntry[] = [];
@@ -212,7 +212,7 @@ export const issueInvoice = inngest.createFunction(
         .eq("id", invoice_id)
         .maybeSingle();
       if (error) throw new Error(`load-draft: ${error.message}`);
-      if (!draft) throw new Error(`Comprobante ${invoice_id} no existe.`);
+      if (!draft) throw new Error(`Invoice ${invoice_id} does not exist.`);
       if (draft.status !== "draft" && draft.status !== "emitting") {
         throw new Error(
           `Comprobante ${invoice_id} en estado ${draft.status} — no se puede emitir.`,

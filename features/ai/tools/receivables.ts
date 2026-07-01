@@ -12,17 +12,17 @@ export async function runClientAging(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const t = res.data.totals;
   return okResult(
-    `${t.client_count} clientes con saldo · total ${money(t.total_open)} · ` +
-      `+90 días ${money(t.bucket_90_plus)} (${t.document_count} comprobantes).`,
+    `${t.client_count} clients with balance · total ${money(t.total_open)} · ` +
+      `+90 days ${money(t.bucket_90_plus)} (${t.document_count} documents).`,
     res.data,
   );
 }
 
 export const getClientAging = tool({
   description:
-    "Aging de cuentas por cobrar: saldo abierto de cada cliente por bucket " +
-    "(0-30 / 30-60 / 60-90 / +90 días), ordenado por mayor deuda, con totales. " +
-    "Sin parámetros. Útil para '¿quién me debe más?' o riesgo de cobranzas.",
+    "Accounts receivable aging: open balance of each client per bucket " +
+    "(0-30 / 30-60 / 60-90 / +90 days), sorted by highest debt, with totals. " +
+    "No parameters. Useful for 'who owes me the most?' or collection risk.",
   inputSchema: z.object({}),
   execute: () => runClientAging(),
 });

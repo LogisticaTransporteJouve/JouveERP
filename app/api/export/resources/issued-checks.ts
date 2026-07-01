@@ -49,7 +49,7 @@ export const issuedChecks: Exporter = {
     if (range.to) query = query.lte("due_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron exportar los cheques propios.");
+    if (error) throw new Error("Could not export issued checks.");
 
     let total = 0;
     const rows = (data ?? [])

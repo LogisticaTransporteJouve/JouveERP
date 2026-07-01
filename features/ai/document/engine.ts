@@ -32,19 +32,19 @@ const ANTHROPIC_OBJECT_OPTIONS = {
 // idea), so the model knows what matters for each document type.
 const KIND_HINT: Record<ExtractableKind, string> = {
   factura_compra:
-    "Es una factura de compra: DZ & Sons es el comprador; la contraparte es el proveedor/vendedor.",
+    "This is a purchase invoice: DZ & Sons is the buyer; the counterparty is the supplier/seller.",
   factura_venta:
-    "Es una factura de venta: DZ & Sons es el vendedor; la contraparte es el cliente/comprador.",
-  nc_nd: "Es una nota de crédito o débito: tratala como una factura (cabecera + ítems).",
-  recibo: "Es un recibo: extraé contraparte, número, fecha e importe total.",
+    "This is a sales invoice: DZ & Sons is the seller; the counterparty is the customer/buyer.",
+  nc_nd: "This is a credit or debit note: treat it as an invoice (header + items).",
+  recibo: "This is a receipt: extract the counterparty, number, date and total amount.",
   orden_pago:
-    "Es una orden de pago: extraé contraparte, número, fecha e importe total.",
+    "This is a payment order: extract the counterparty, number, date and total amount.",
   remito:
-    "Es un remito: extraé productos y cantidades por renglón, SIN importes (los remitos no llevan precios).",
+    "This is a delivery note: extract products and quantities per line, WITHOUT amounts (delivery notes carry no prices).",
   cheque:
-    "Puede haber UNO o VARIOS cheques en la misma imagen (a veces 4 o más). Extraé TODOS, un objeto por cheque en 'cheques'. Por cada uno: banco, serie, número, importe, beneficiario, librador (titular de la cuenta) y su CUIT, número de cuenta, fecha de emisión, y fecha de pago/vencimiento si es diferido (CPD). tipo: propio/tercero/diferido.",
+    "There may be ONE or SEVERAL checks in the same image (sometimes 4 or more). Extract ALL of them, one object per check in 'cheques'. For each one: bank, series, number, amount, payee, drawer (account holder) and their CUIT, account number, issue date, and payment/due date if it is post-dated (CPD). tipo: propio/tercero/diferido.",
   extracto:
-    "Es un extracto bancario: una fila por movimiento (fecha, concepto, débito, crédito, saldo) más saldo inicial y final.",
+    "This is a bank statement: one row per transaction (date, description, debit, credit, balance) plus opening and closing balance.",
 };
 
 export type DocumentBytes = { bytes: Uint8Array; mediaType: string };
@@ -65,12 +65,12 @@ function documentPart(doc: DocumentBytes) {
   };
 }
 
-const CLASSIFY_SYSTEM = `Sos un clasificador de documentos contables/comerciales argentinos. Mirás el documento y decidís qué es, sin inventar. Devolvés el tipo, una confianza 0..1 y, si la ves, la moneda. Tipos posibles: factura de compra, factura de venta, recibo, orden de pago, remito, cheque, extracto bancario, nota de crédito/débito, u otro.`;
+const CLASSIFY_SYSTEM = `You are a classifier of Argentine accounting/commercial documents. You look at the document and decide what it is, without making anything up. You return the type, a confidence 0..1 and, if you can see it, the currency. Possible types: purchase invoice, sales invoice, receipt, payment order, delivery note, check, bank statement, credit/debit note, or other.`;
 
-const EXTRACT_SYSTEM = `Sos un extractor de datos de documentos contables argentinos. COPIÁS EXACTAMENTE lo que figura en el documento; si un dato no aparece, devolvés null (no lo inventes ni lo calcules: los faltantes se completan después de forma determinística). Montos como números, sin separadores de miles ni símbolo (1234.56). Fechas en formato AAAA-MM-DD.
-Reglas de renglones (facturas/remitos): una fila por renglón visible; no agrupes ni fusiones; salteá filas de subtotal/total y filas que sean solo una etiqueta de IVA.
-Reglas de importes: si la columna dice "con IVA" usá importe_total; si dice "sin IVA" usá importe_neto; ante ambigüedad contrastá contra los totales. En tickets y recibos los precios suelen ser con IVA.
-Contraparte: DZ & Sons S.A. es la empresa propia; la contraparte (contraparte_nombre/contraparte_cuit) es SIEMPRE la otra parte.`;
+const EXTRACT_SYSTEM = `You are a data extractor for Argentine accounting documents. COPY EXACTLY what appears in the document; if a value does not appear, return null (do not invent or compute it: missing values are filled in afterwards deterministically). Amounts as numbers, without thousands separators or symbol (1234.56). Dates in YYYY-MM-DD format.
+Line rules (invoices/delivery notes): one row per visible line; do not group or merge; skip subtotal/total rows and rows that are only an IVA label.
+Amount rules: if the column says "con IVA" use importe_total; if it says "sin IVA" use importe_neto; when ambiguous cross-check against the totals. On tickets and receipts prices usually include IVA.
+Counterparty: DZ & Sons S.A. is the own company; the counterparty (contraparte_nombre/contraparte_cuit) is ALWAYS the other party.`;
 
 /** Stage 1 — classify an unknown document (generic-tray mode). */
 export async function classifyDocument(
@@ -80,14 +80,14 @@ export async function classifyDocument(
   const content: ModelMessage["content"] = [
     {
       type: "text",
-      text: `Clasificá este documento.${contextHint ? ` Contexto: ${contextHint}.` : ""}`,
+      text: `Classify this document.${contextHint ? ` Context: ${contextHint}.` : ""}`,
     },
     documentPart(doc),
   ];
   const { object } = await generateObject({
     model: buildClassifierModel(),
     schema: ClassificationSchema,
-    schemaName: "ClasificacionDocumento",
+    schemaName: "DocumentClassification",
     system: CLASSIFY_SYSTEM,
     maxRetries: 2,
     messages: [{ role: "user", content }],
@@ -104,7 +104,7 @@ export async function extractDocument(
   const content: ModelMessage["content"] = [
     {
       type: "text",
-      text: `Extraé los datos de este documento (tipo: ${kind}). ${KIND_HINT[kind] ?? ""}`.trim(),
+      text: `Extract the data from this document (kind: ${kind}). ${KIND_HINT[kind] ?? ""}`.trim(),
     },
     documentPart(doc),
   ];
@@ -115,7 +115,7 @@ export async function extractDocument(
       generateObject({
         model: buildExtractionModel(),
         schema: InvoiceHeaderSchema,
-        schemaName: "ExtraccionFacturaCabecera",
+        schemaName: "InvoiceHeaderExtraction",
         system: EXTRACT_SYSTEM,
         maxRetries: 2,
         messages: [{ role: "user", content }],
@@ -124,7 +124,7 @@ export async function extractDocument(
       generateObject({
         model: buildExtractionModel(),
         schema: InvoiceItemsSchema,
-        schemaName: "ExtraccionFacturaItems",
+        schemaName: "InvoiceItemsExtraction",
         system: EXTRACT_SYSTEM,
         maxRetries: 2,
         messages: [{ role: "user", content }],
@@ -137,7 +137,7 @@ export async function extractDocument(
   const { object } = await generateObject({
     model: buildExtractionModel(),
     schema: EXTRACTION_SCHEMAS[kind],
-    schemaName: "ExtraccionDocumento",
+    schemaName: "DocumentExtraction",
     system: EXTRACT_SYSTEM,
     maxRetries: 2,
     messages: [{ role: "user", content }],

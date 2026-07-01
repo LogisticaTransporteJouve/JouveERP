@@ -13,7 +13,7 @@ export function okResult(summary: string, data: unknown): AiToolResult {
 }
 
 export function errResult(error: string): AiToolResult {
-  return { ok: false, summary: `No se pudo completar: ${error}`, error };
+  return { ok: false, summary: `Failed: ${error}`, error };
 }
 
 /** Money formatter for tool summaries (es-AR, no decimals). */

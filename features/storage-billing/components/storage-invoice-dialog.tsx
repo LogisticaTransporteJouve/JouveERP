@@ -76,10 +76,10 @@ export function StorageInvoiceDialog({
   const clientLines = client
     ? (billing?.lines ?? []).filter((l) => l.client_id === client.client_id)
     : [];
-  const almacenaje = clientLines.reduce((s, l) => s + l.storage_charge, 0);
-  const carga = clientLines.reduce((s, l) => s + l.handling_in_charge, 0);
-  const descarga = clientLines.reduce((s, l) => s + l.handling_out_charge, 0);
-  const total = almacenaje + carga + descarga;
+  const storage = clientLines.reduce((s, l) => s + l.storage_charge, 0);
+  const loading = clientLines.reduce((s, l) => s + l.handling_in_charge, 0);
+  const unloading = clientLines.reduce((s, l) => s + l.handling_out_charge, 0);
+  const total = storage + loading + unloading;
 
   useEffect(() => {
     if (open) {
@@ -226,9 +226,9 @@ export function StorageInvoiceDialog({
           </div>
 
           <div className="space-y-1 rounded-md border bg-muted/30 p-3 text-sm">
-            <Row label="Almacenaje" value={money(almacenaje)} />
-            <Row label="Carga" value={money(carga)} />
-            <Row label="Descarga" value={money(descarga)} />
+            <Row label="Almacenaje" value={money(storage)} />
+            <Row label="Carga" value={money(loading)} />
+            <Row label="Descarga" value={money(unloading)} />
             <div className="mt-1 flex items-center justify-between border-t pt-1 font-medium">
               <span>Total</span>
               <span className="font-mono">{money(total)}</span>

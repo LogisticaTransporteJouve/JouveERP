@@ -12,7 +12,7 @@ export function GlobalSearchTrigger() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // ⌘K (Mac) / Ctrl+K (Windows/Linux) abre el dialog.
+      // ⌘K (Mac) / Ctrl+K (Windows/Linux) opens the dialog.
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((v) => !v);

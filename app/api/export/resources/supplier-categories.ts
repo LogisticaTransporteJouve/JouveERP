@@ -28,7 +28,7 @@ export const supplierCategories: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las categorías.");
+    if (error) throw new Error("Could not load categories.");
 
     const rows = (data ?? []).map((row) => [
       row.name,

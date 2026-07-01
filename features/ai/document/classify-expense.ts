@@ -52,13 +52,13 @@ export function buildExpensePrompt(i: ExpenseClassifyInput): string {
   const accs = i.leafAccounts.map((a) => `${a.code} — ${a.name}`).join("\n");
   const ccs = i.costCenters.map((c) => `${c.code} — ${c.name}`).join("\n");
   return [
-    "Sos contador senior. Clasificá esta factura de compra en la cuenta de gasto correcta.",
-    `Proveedor: ${i.supplierName ?? "—"} (rubro: ${i.supplierCategory ?? "—"})`,
-    `Importe neto: ${i.invoiceNeto ?? "—"}`,
-    `Detalle de líneas:\n${i.lineDescriptions.map((d) => `- ${d}`).join("\n") || "—"}`,
-    `CUENTAS DISPONIBLES (elegí exactamente una, o "UNMAPPED" si ninguna encaja):\n${accs}`,
-    `CENTROS DE COSTO:\n${ccs || "—"}`,
-    'Devolvé accountCode (un código listado o "UNMAPPED"), costCenterCode (o null), confidence (0..1) y un reason breve.',
+    "You are a senior accountant. Classify this purchase invoice into the correct expense account.",
+    `Supplier: ${i.supplierName ?? "—"} (category: ${i.supplierCategory ?? "—"})`,
+    `Net amount: ${i.invoiceNeto ?? "—"}`,
+    `Line detail:\n${i.lineDescriptions.map((d) => `- ${d}`).join("\n") || "—"}`,
+    `AVAILABLE ACCOUNTS (choose exactly one, or "UNMAPPED" if none fits):\n${accs}`,
+    `COST CENTERS:\n${ccs || "—"}`,
+    'Return accountCode (a listed code or "UNMAPPED"), costCenterCode (or null), confidence (0..1) and a brief reason.',
   ].join("\n\n");
 }
 
@@ -106,7 +106,7 @@ export async function classifyExpense(
           costCenterCode: object.costCenterCode,
           costCenterName: ccName(object.costCenterCode),
           confidence: object.confidence,
-          reason: `baja confianza: ${object.reason}`,
+          reason: `low confidence: ${object.reason}`,
         };
       }
       return {
@@ -124,7 +124,7 @@ export async function classifyExpense(
         name === "AI_NoObjectGeneratedError" || name === "AI_TypeValidationError";
       if (schemaErr) {
         extra =
-          'CRÍTICO: tu respuesta anterior no respetó el schema. Devolvé SOLO el objeto JSON con accountCode (un código listado o "UNMAPPED"), costCenterCode, confidence, reason.';
+          'CRITICAL: your previous response did not respect the schema. Return ONLY the JSON object with accountCode (a listed code or "UNMAPPED"), costCenterCode, confidence, reason.';
       }
       if (attempt === ATTEMPTS) return fail("exhausted retries");
       if (!schemaErr) await new Promise((r) => setTimeout(r, 3000));

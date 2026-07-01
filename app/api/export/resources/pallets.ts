@@ -41,7 +41,7 @@ export const pallets: Exporter = {
     if (range.to) query = query.lte("entry_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los pallets.");
+    if (error) throw new Error("Could not load pallets.");
 
     const rows = (data ?? []).map((row) => {
       const warehouse: WarehouseJoin = row.warehouse;

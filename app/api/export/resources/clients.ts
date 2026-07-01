@@ -29,7 +29,7 @@ export const clients: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los clientes.");
+    if (error) throw new Error("Could not load clients.");
 
     const rows = (data ?? []).map((row) => [
       row.legal_name,

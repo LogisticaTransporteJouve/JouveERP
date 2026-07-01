@@ -34,7 +34,7 @@ export const exchangeRates: Exporter = {
     if (range.to) query = query.lte("rate_date", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar las cotizaciones.");
+    if (error) throw new Error("Could not load exchange rates.");
 
     const rows = (data ?? []).map((r) => [
       formatArgentineDate(r.rate_date),

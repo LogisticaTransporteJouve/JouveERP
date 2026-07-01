@@ -34,7 +34,7 @@ export const fleetDocuments: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudo cargar la documentación de flota.");
+    if (error) throw new Error("Could not load fleet documentation.");
 
     const rows = (data ?? []).map((row) => {
       const vehicle: VehicleJoin = row.vehicle;

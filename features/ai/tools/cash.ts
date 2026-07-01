@@ -17,16 +17,16 @@ export async function runAccounts(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const active = res.data.filter((a) => a.is_active).length;
   return okResult(
-    `${res.data.length} cuentas (${active} activas). Para saldos actuales usá getTreasurySummary.`,
+    `${res.data.length} accounts (${active} active). For current balances use getTreasurySummary.`,
     res.data,
   );
 }
 
 export const getAccounts = tool({
   description:
-    "Cuentas de tesorería (banco/caja/billetera/cheques) con moneda y saldo " +
-    "inicial. Sin parámetros. Para saldos ACTUALES usá getTreasurySummary; esta " +
-    "lista sirve para conocer las cuentas y sus UUID.",
+    "Treasury accounts (bank/cash/wallet/checks) with currency and opening " +
+    "balance. No parameters. For CURRENT balances use getTreasurySummary; this " +
+    "list is for knowing the accounts and their UUIDs.",
   inputSchema: z.object({}),
   execute: () => runAccounts(),
 });
@@ -47,8 +47,8 @@ export async function runTransactions(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.items.length} movimientos de caja${
-      res.data.nextOffset !== null ? " (hay más, acotá por fecha/cuenta)" : ""
+    `${res.data.items.length} cash movements${
+      res.data.nextOffset !== null ? " (more available, narrow by date/account)" : ""
     }.`,
     res.data,
   );
@@ -56,15 +56,15 @@ export async function runTransactions(input: {
 
 export const getTransactions = tool({
   description:
-    "Movimientos de caja/tesorería (ingresos, egresos, transferencias) con " +
-    "cuenta, canal, fecha, importe y contraparte. Filtrable por cuenta, canal y " +
-    "rango de fechas (YYYY-MM-DD). Para ver flujo de caja o un movimiento puntual.",
+    "Cash/treasury movements (inflows, outflows, transfers) with account, " +
+    "channel, date, amount and counterparty. Filterable by account, channel and " +
+    "date range (YYYY-MM-DD). For viewing cash flow or a specific movement.",
   inputSchema: z.object({
-    accountId: z.string().nullish().describe("UUID de la cuenta, opcional."),
-    channelId: z.string().nullish().describe("UUID del canal, opcional."),
-    dateFrom: z.string().nullish().describe("Fecha desde YYYY-MM-DD."),
-    dateTo: z.string().nullish().describe("Fecha hasta YYYY-MM-DD."),
-    limit: z.number().nullish().describe("Máximo de filas (default 25, máx 200)."),
+    accountId: z.string().nullish().describe("Account UUID, optional."),
+    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    dateFrom: z.string().nullish().describe("Date from YYYY-MM-DD."),
+    dateTo: z.string().nullish().describe("Date to YYYY-MM-DD."),
+    limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   execute: (input) => runTransactions(input),
 });
@@ -77,7 +77,7 @@ export async function runChecks(): Promise<AiToolResult> {
     (c) => c.status === "en_cartera",
   ).length;
   return okResult(
-    `${res.data.items.length} cheques recibidos (${enCartera} en cartera) · ` +
+    `${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
       `total ${money(total)}.`,
     res.data,
   );
@@ -85,9 +85,9 @@ export async function runChecks(): Promise<AiToolResult> {
 
 export const getChecks = tool({
   description:
-    "Cheques de terceros recibidos: número, banco, librador, vencimiento, " +
-    "importe, moneda y estado (en cartera / depositado / acreditado / endosado / " +
-    "rechazado). Sin parámetros. Para cartera de cheques o cobros con cheque.",
+    "Third-party checks received: number, bank, drawer, due date, amount, " +
+    "currency and status (in portfolio / deposited / credited / endorsed / " +
+    "bounced). No parameters. For the check portfolio or collections by check.",
   inputSchema: z.object({}),
   execute: () => runChecks(),
 });
@@ -97,16 +97,16 @@ export async function runIssuedChecks(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const total = res.data.reduce((s, c) => s + c.amount, 0);
   return okResult(
-    `${res.data.length} cheques propios emitidos · total ${money(total)}.`,
+    `${res.data.length} own checks issued · total ${money(total)}.`,
     res.data,
   );
 }
 
 export const getIssuedChecks = tool({
   description:
-    "Cheques propios emitidos a proveedores: número, banco, beneficiario, " +
-    "vencimiento, importe, moneda y estado (emitido / cobrado / rechazado / " +
-    "anulado). Sin parámetros. Para pagos con cheque propio o cheques a vencer.",
+    "Own checks issued to suppliers: number, bank, payee, due date, amount, " +
+    "currency and status (issued / cashed / bounced / voided). No parameters. " +
+    "For payments by own check or upcoming check due dates.",
   inputSchema: z.object({}),
   execute: () => runIssuedChecks(),
 });

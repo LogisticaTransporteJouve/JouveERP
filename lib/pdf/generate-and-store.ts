@@ -54,7 +54,7 @@ export async function buildTemplateData(
     .eq("id", comprobanteId)
     .maybeSingle();
   if (error) throw new Error(`load-comprobante: ${error.message}`);
-  if (!row) throw new Error(`Comprobante ${comprobanteId} no existe.`);
+  if (!row) throw new Error(`Invoice ${comprobanteId} does not exist.`);
 
   const channel = row.channel as {
     id: string;

@@ -22,9 +22,11 @@ describe("ai agent config", () => {
 describe("system prompt guardrails", () => {
   it("states the read-only constraint and anti-injection rule", () => {
     expect(SYSTEM_PROMPT).toContain("JouveERP");
-    expect(SYSTEM_PROMPT.toUpperCase()).toContain("SOLO LECTURA");
+    expect(SYSTEM_PROMPT.toUpperCase()).toContain("READ-ONLY");
     // DB text must be treated as data, not instructions.
-    expect(SYSTEM_PROMPT.toLowerCase()).toContain("instrucciones");
+    expect(SYSTEM_PROMPT.toLowerCase()).toContain("instructions");
+    // Must still instruct the assistant to reply to users in Spanish.
+    expect(SYSTEM_PROMPT.toLowerCase()).toContain("rioplatense");
     expect(SYSTEM_PROMPT.length).toBeGreaterThan(200);
   });
 });

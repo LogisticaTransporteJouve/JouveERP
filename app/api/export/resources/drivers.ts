@@ -32,7 +32,7 @@ export const drivers: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los choferes.");
+    if (error) throw new Error("Could not load drivers.");
 
     const rows = (data ?? []).map((row) => {
       const license = row.license_number

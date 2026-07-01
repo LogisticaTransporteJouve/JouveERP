@@ -157,7 +157,7 @@ const condicionIvaReceptorSchema = z.union([
   z.literal(CONDICION_IVA_RECEPTOR.MONOTRIBUTO_PROMOVIDO),
 ]);
 
-const monedaSchema = z.union([
+const currencySchema = z.union([
   z.literal(MONEDA.PESOS),
   z.literal(MONEDA.DOLARES),
 ]);
@@ -189,7 +189,7 @@ export const CreateComprobanteSchema = z
     doc_tipo: docTipoSchema,
     doc_nro: z.string().trim().min(1).max(20),
     iva_condition_receptor: condicionIvaReceptorSchema.nullable(),
-    moneda: monedaSchema.default(MONEDA.PESOS),
+    moneda: currencySchema.default(MONEDA.PESOS),
     cotizacion: z.number().positive().default(1),
     motivo_nc_nd: z.string().trim().max(500).nullable().optional(),
     invoice_origin_id: z.string().uuid().nullable().optional(),

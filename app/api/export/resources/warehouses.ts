@@ -29,7 +29,7 @@ export const warehouses: Exporter = {
     if (range.to) query = query.lte("created_at", `${range.to}T23:59:59.999`);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los depósitos.");
+    if (error) throw new Error("Could not load warehouses.");
 
     const rows = (data ?? []).map((row) => [
       row.name,

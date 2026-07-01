@@ -17,13 +17,13 @@ export async function runEmployees(): Promise<AiToolResult> {
   const res = await listEmployeesAction();
   if (!res.ok) return errResult(res.error);
   const active = res.data.filter((e) => e.is_active).length;
-  return okResult(`${res.data.length} empleados (${active} activos).`, res.data);
+  return okResult(`${res.data.length} employees (${active} active).`, res.data);
 }
 
 export const getEmployees = tool({
   description:
-    "Nómina de empleados: nombre, puesto, CUIL, frecuencia de pago y estado " +
-    "(activo/baja). Sin parámetros. Para personal o sueldos.",
+    "Employee roster: name, position, CUIL, pay frequency and status " +
+    "(active/terminated). No parameters. For personnel or payroll.",
   inputSchema: z.object({}),
   execute: () => runEmployees(),
 });
@@ -40,8 +40,8 @@ export async function runSearchEmployees(input: {
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.employees.length} empleados${
-      res.data.nextOffset !== null ? " (hay más, afiná la búsqueda)" : ""
+    `${res.data.employees.length} employees${
+      res.data.nextOffset !== null ? " (more available, refine the search)" : ""
     }.`,
     res.data,
   );
@@ -49,13 +49,13 @@ export async function runSearchEmployees(input: {
 
 export const searchEmployees = tool({
   description:
-    "Busca empleados por nombre o CUIL (full-text). Devuelve sus datos. Útil " +
-    "para encontrar el employee_id que pide otra tool o resolver a quién se " +
-    "refiere el usuario.",
+    "Search employees by name or CUIL (full-text). Returns their data. Useful " +
+    "to find the employee_id another tool requires or to resolve who the user " +
+    "is referring to.",
   inputSchema: z.object({
-    query: z.string().nullish().describe("Texto a buscar: nombre o CUIL."),
-    onlyActive: z.boolean().nullish().describe("Solo activos (default true)."),
-    limit: z.number().nullish().describe("Máximo de filas (default 25, máx 200)."),
+    query: z.string().nullish().describe("Text to search: name or CUIL."),
+    onlyActive: z.boolean().nullish().describe("Active only (default true)."),
+    limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   execute: (input) => runSearchEmployees(input),
 });
@@ -67,21 +67,21 @@ export async function runAttendance(input: {
   const res = await getAttendanceMonthAction(input.year, input.month);
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.records.length} novedades de asistencia en ${String(
+    `${res.data.records.length} attendance events in ${String(
       input.month,
-    ).padStart(2, "0")}/${input.year} · ${res.data.holidays.length} feriados.`,
+    ).padStart(2, "0")}/${input.year} · ${res.data.holidays.length} holidays.`,
     res.data,
   );
 }
 
 export const getAttendance = tool({
   description:
-    "Asistencia de un mes: novedades por empleado (ausencias justificadas/" +
-    "injustificadas, llegadas tarde, licencias, enfermedad) + feriados. Requiere " +
-    "año y mes.",
+    "Attendance for a month: events per employee (justified/unjustified " +
+    "absences, late arrivals, leaves, sickness) + holidays. Requires year and " +
+    "month.",
   inputSchema: z.object({
-    year: z.number().describe("Año, ej. 2026."),
-    month: z.number().describe("Mes 1-12."),
+    year: z.number().describe("Year, e.g. 2026."),
+    month: z.number().describe("Month 1-12."),
   }),
   execute: (input) => runAttendance(input),
 });
@@ -91,8 +91,8 @@ export async function runExpiringDocuments(): Promise<AiToolResult> {
   if (!res.ok) return errResult(res.error);
   const soonest = res.data[0];
   return okResult(
-    `${res.data.length} documentos por vencer (≤30 días)${
-      soonest ? ` · más urgente en ${soonest.days_until_expiry} días` : ""
+    `${res.data.length} documents expiring soon (≤30 days)${
+      soonest ? ` · most urgent in ${soonest.days_until_expiry} days` : ""
     }.`,
     res.data,
   );
@@ -100,9 +100,9 @@ export async function runExpiringDocuments(): Promise<AiToolResult> {
 
 export const getExpiringDocuments = tool({
   description:
-    "Documentos de empleados por vencer en los próximos 30 días (licencias, " +
-    "libreta sanitaria, cursos de cargas peligrosas, aptitudes, etc.), del más " +
-    "urgente al menos. Sin parámetros. Para vencimientos de papeles del personal.",
+    "Employee documents expiring within the next 30 days (licenses, health " +
+    "cards, hazardous cargo courses, fitness certificates, etc.), from most " +
+    "urgent to least. No parameters. For upcoming personnel paperwork expirations.",
   inputSchema: z.object({}),
   execute: () => runExpiringDocuments(),
 });

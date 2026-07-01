@@ -29,7 +29,7 @@ export const vehicles: Exporter = {
     if (range.to) query = query.lte("created_at", range.to);
 
     const { data, error } = await query;
-    if (error) throw new Error("No se pudieron cargar los vehículos.");
+    if (error) throw new Error("Could not load vehicles.");
 
     const rows = (data ?? []).map((row) => {
       const brandModel = [row.brand, row.model].filter(Boolean).join(" ") || "—";
