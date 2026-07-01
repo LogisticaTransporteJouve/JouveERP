@@ -42,15 +42,15 @@ function toRows(payload: unknown): Row[] {
   const parsed = ChequeBatchExtractionSchema.safeParse(payload);
   if (!parsed.success) return [];
   return parsed.data.cheques.map((c) => ({
-    banco: c.banco ?? "",
-    serie: c.serie ?? "",
-    numero: c.numero ?? "",
-    librador: c.librador ?? c.beneficiario ?? "",
-    librador_cuit: c.librador_cuit ?? "",
-    importe: c.importe != null ? String(c.importe) : "",
-    fecha: c.fecha ?? "",
-    fecha_pago: c.fecha_pago ?? c.fecha ?? "",
-    moneda: c.moneda === "USD" ? "USD" : "ARS",
+    banco: c.bank ?? "",
+    serie: c.series ?? "",
+    numero: c.number ?? "",
+    librador: c.drawer ?? c.beneficiary ?? "",
+    librador_cuit: c.drawer_cuit ?? "",
+    importe: c.amount != null ? String(c.amount) : "",
+    fecha: c.date ?? "",
+    fecha_pago: c.payment_date ?? c.date ?? "",
+    moneda: c.currency === "USD" ? "USD" : "ARS",
   }));
 }
 

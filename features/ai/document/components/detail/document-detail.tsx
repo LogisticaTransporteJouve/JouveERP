@@ -67,12 +67,12 @@ export function DocumentDetail({
 function PartyFields({ party }: { party: Party }) {
   return (
     <>
-      <Field label="Nombre" value={fmtText(party.nombre)} />
+      <Field label="Nombre" value={fmtText(party.name)} />
       <Field label="CUIT" value={fmtText(party.cuit)} />
-      <Field label="Cond. IVA" value={fmtText(party.condicion_iva)} />
-      <Field label="Domicilio" value={fmtText(party.domicilio)} />
-      <Field label="Localidad" value={fmtText(party.localidad)} />
-      <Field label="Provincia" value={fmtText(party.provincia)} />
+      <Field label="Cond. IVA" value={fmtText(party.iva_condition)} />
+      <Field label="Domicilio" value={fmtText(party.address)} />
+      <Field label="Localidad" value={fmtText(party.city)} />
+      <Field label="Provincia" value={fmtText(party.province)} />
     </>
   );
 }
@@ -81,54 +81,54 @@ function InvoiceDetail({ payload }: { payload: unknown }) {
   const parsed = InvoiceExtractionSchema.safeParse(payload);
   if (!parsed.success) return <GenericDetail payload={payload} />;
   const inv = parsed.data;
-  const cur = inv.moneda;
+  const cur = inv.currency;
 
   return (
     <div className="space-y-3">
       <Section icon={Users} title="Partes">
-        <Field label="Contraparte" value={fmtText(inv.contraparte_nombre)} />
-        <Field label="CUIT" value={fmtText(inv.contraparte_cuit)} />
-        {inv.emisor && (
+        <Field label="Contraparte" value={fmtText(inv.counterparty_name)} />
+        <Field label="CUIT" value={fmtText(inv.counterparty_cuit)} />
+        {inv.issuer && (
           <div className="mt-1 border-t pt-1">
             <p className="text-muted-foreground py-0.5 text-[11px] font-medium">
               Emisor
             </p>
-            <PartyFields party={inv.emisor} />
+            <PartyFields party={inv.issuer} />
           </div>
         )}
-        {inv.receptor && (
+        {inv.recipient && (
           <div className="mt-1 border-t pt-1">
             <p className="text-muted-foreground py-0.5 text-[11px] font-medium">
               Receptor
             </p>
-            <PartyFields party={inv.receptor} />
+            <PartyFields party={inv.recipient} />
           </div>
         )}
       </Section>
 
       <Section icon={Receipt} title="Comprobante">
-        <Field label="Letra" value={fmtText(inv.letra)} />
-        <Field label="Punto de venta" value={fmtText(inv.punto_venta)} />
-        <Field label="Número" value={fmtText(inv.numero)} />
-        <Field label="Fecha" value={fmtText(inv.fecha)} />
-        <Field label="Vencimiento" value={fmtText(inv.fch_vto_pago)} />
-        <Field label="Condición de pago" value={fmtText(inv.condicion_pago)} />
-        <Field label="Moneda" value={fmtText(inv.moneda)} />
+        <Field label="Letra" value={fmtText(inv.letter)} />
+        <Field label="Punto de venta" value={fmtText(inv.sales_point)} />
+        <Field label="Número" value={fmtText(inv.number)} />
+        <Field label="Fecha" value={fmtText(inv.date)} />
+        <Field label="Vencimiento" value={fmtText(inv.due_date)} />
+        <Field label="Condición de pago" value={fmtText(inv.payment_terms)} />
+        <Field label="Moneda" value={fmtText(inv.currency)} />
       </Section>
 
       <Section icon={Banknote} title="Importes">
-        <Field label="Neto" value={fmtMoney(inv.importe_neto, cur)} />
-        <Field label="IVA" value={fmtMoney(inv.importe_iva, cur)} />
-        <Field label="Otros trib." value={fmtMoney(inv.importe_trib, cur)} />
-        <Field label="Total" value={fmtMoney(inv.importe_total, cur)} />
+        <Field label="Neto" value={fmtMoney(inv.net_amount, cur)} />
+        <Field label="IVA" value={fmtMoney(inv.iva_amount, cur)} />
+        <Field label="Otros trib." value={fmtMoney(inv.other_taxes_amount, cur)} />
+        <Field label="Total" value={fmtMoney(inv.total_amount, cur)} />
       </Section>
 
-      {inv.pago && (
+      {inv.payment && (
         <Section icon={Building2} title="Pago">
-          <Field label="Método" value={fmtText(inv.pago.metodo)} />
-          <Field label="CBU" value={fmtText(inv.pago.cbu)} />
-          <Field label="Alias" value={fmtText(inv.pago.alias)} />
-          <Field label="Banco" value={fmtText(inv.pago.banco)} />
+          <Field label="Método" value={fmtText(inv.payment.method)} />
+          <Field label="CBU" value={fmtText(inv.payment.cbu)} />
+          <Field label="Alias" value={fmtText(inv.payment.alias)} />
+          <Field label="Banco" value={fmtText(inv.payment.bank)} />
         </Section>
       )}
 
@@ -158,15 +158,15 @@ function InvoiceDetail({ payload }: { payload: unknown }) {
               "right",
             ]}
             rows={inv.items.map((it) => [
-              it.descripcion,
-              fmtText(it.cantidad),
-              fmtText(it.unidad),
-              fmtMoney(it.precio_unitario, cur),
-              it.bonif_pct != null ? `${it.bonif_pct}%` : "—",
-              fmtMoney(it.importe_neto, cur),
-              fmtText(it.alicuota_iva),
-              fmtMoney(it.importe_iva, cur),
-              fmtMoney(it.importe_total, cur),
+              it.description,
+              fmtText(it.quantity),
+              fmtText(it.unit),
+              fmtMoney(it.unit_price, cur),
+              it.discount_pct != null ? `${it.discount_pct}%` : "—",
+              fmtMoney(it.net_amount, cur),
+              fmtText(it.iva_rate),
+              fmtMoney(it.iva_amount, cur),
+              fmtMoney(it.total_amount, cur),
             ])}
           />
         </Section>
@@ -181,12 +181,12 @@ function ReceiptDetail({ payload }: { payload: unknown }) {
   const r = parsed.data;
   return (
     <Section icon={Receipt} title="Recibo">
-      <Field label="Contraparte" value={fmtText(r.contraparte_nombre)} />
-      <Field label="CUIT" value={fmtText(r.contraparte_cuit)} />
-      <Field label="Número" value={fmtText(r.numero)} />
-      <Field label="Fecha" value={fmtText(r.fecha)} />
-      <Field label="Moneda" value={fmtText(r.moneda)} />
-      <Field label="Total" value={fmtMoney(r.importe_total, r.moneda)} />
+      <Field label="Contraparte" value={fmtText(r.counterparty_name)} />
+      <Field label="CUIT" value={fmtText(r.counterparty_cuit)} />
+      <Field label="Número" value={fmtText(r.number)} />
+      <Field label="Fecha" value={fmtText(r.date)} />
+      <Field label="Moneda" value={fmtText(r.currency)} />
+      <Field label="Total" value={fmtMoney(r.total_amount, r.currency)} />
     </Section>
   );
 }
@@ -197,12 +197,12 @@ function PaymentOrderDetail({ payload }: { payload: unknown }) {
   const o = parsed.data;
   return (
     <Section icon={Banknote} title="Orden de pago">
-      <Field label="Contraparte" value={fmtText(o.contraparte_nombre)} />
-      <Field label="CUIT" value={fmtText(o.contraparte_cuit)} />
-      <Field label="Número" value={fmtText(o.numero)} />
-      <Field label="Fecha" value={fmtText(o.fecha)} />
-      <Field label="Moneda" value={fmtText(o.moneda)} />
-      <Field label="Total" value={fmtMoney(o.importe_total, o.moneda)} />
+      <Field label="Contraparte" value={fmtText(o.counterparty_name)} />
+      <Field label="CUIT" value={fmtText(o.counterparty_cuit)} />
+      <Field label="Número" value={fmtText(o.number)} />
+      <Field label="Fecha" value={fmtText(o.date)} />
+      <Field label="Moneda" value={fmtText(o.currency)} />
+      <Field label="Total" value={fmtMoney(o.total_amount, o.currency)} />
     </Section>
   );
 }
@@ -214,19 +214,19 @@ function RemitoDetail({ payload }: { payload: unknown }) {
   return (
     <div className="space-y-3">
       <Section icon={Truck} title="Remito">
-        <Field label="Contraparte" value={fmtText(r.contraparte_nombre)} />
-        <Field label="CUIT" value={fmtText(r.contraparte_cuit)} />
-        <Field label="Punto de venta" value={fmtText(r.punto_venta)} />
-        <Field label="Número" value={fmtText(r.numero)} />
-        <Field label="Fecha" value={fmtText(r.fecha)} />
-        <Field label="Fecha de entrega" value={fmtText(r.fecha_entrega)} />
-        <Field label="Destino" value={fmtText(r.destino)} multiline />
-        <Field label="Transportista" value={fmtText(r.transportista)} />
-        <Field label="Conductor" value={fmtText(r.conductor)} />
-        <Field label="Dominio" value={fmtText(r.dominio_vehiculo)} />
+        <Field label="Contraparte" value={fmtText(r.counterparty_name)} />
+        <Field label="CUIT" value={fmtText(r.counterparty_cuit)} />
+        <Field label="Punto de venta" value={fmtText(r.sales_point)} />
+        <Field label="Número" value={fmtText(r.number)} />
+        <Field label="Fecha" value={fmtText(r.date)} />
+        <Field label="Fecha de entrega" value={fmtText(r.delivery_date)} />
+        <Field label="Destino" value={fmtText(r.destination)} multiline />
+        <Field label="Transportista" value={fmtText(r.carrier)} />
+        <Field label="Conductor" value={fmtText(r.driver)} />
+        <Field label="Dominio" value={fmtText(r.vehicle_plate)} />
         <Field label="Total kilos" value={fmtNumber(r.total_kilos)} />
         <Field label="CRE" value={fmtText(r.cre)} />
-        <Field label="Observaciones" value={fmtText(r.observaciones)} multiline />
+        <Field label="Observaciones" value={fmtText(r.observations)} multiline />
       </Section>
       {r.items.length > 0 && (
         <Section icon={List} title={`Ítems (${r.items.length})`}>
@@ -250,13 +250,13 @@ function RemitoDetail({ payload }: { payload: unknown }) {
               "left",
             ]}
             rows={r.items.map((it) => [
-              it.descripcion,
-              fmtText(it.codigo),
-              fmtText(it.cod_afip),
-              fmtText(it.cantidad),
-              fmtText(it.unidad),
-              fmtText(it.unidades),
-              fmtText(it.tipo_embalaje),
+              it.description,
+              fmtText(it.code),
+              fmtText(it.afip_code),
+              fmtText(it.quantity),
+              fmtText(it.unit),
+              fmtText(it.units),
+              fmtText(it.packaging_type),
             ])}
           />
         </Section>
@@ -279,18 +279,18 @@ function ChequeCard({
       icon={Banknote}
       title={total > 1 ? `Cheque ${index + 1} de ${total}` : "Cheque"}
     >
-      <Field label="Banco" value={fmtText(c.banco)} />
-      <Field label="Serie" value={fmtText(c.serie)} />
-      <Field label="Número" value={fmtText(c.numero)} />
-      <Field label="Tipo" value={fmtText(c.tipo)} />
-      <Field label="Importe" value={fmtMoney(c.importe, c.moneda)} />
-      <Field label="Beneficiario" value={fmtText(c.beneficiario)} />
-      <Field label="Librador" value={fmtText(c.librador)} />
-      <Field label="CUIT librador" value={fmtText(c.librador_cuit)} />
-      <Field label="Cuenta" value={fmtText(c.cuenta)} />
-      <Field label="Emisión" value={fmtText(c.fecha)} />
-      <Field label="Pago / vto" value={fmtText(c.fecha_pago)} />
-      <Field label="Moneda" value={fmtText(c.moneda)} />
+      <Field label="Banco" value={fmtText(c.bank)} />
+      <Field label="Serie" value={fmtText(c.series)} />
+      <Field label="Número" value={fmtText(c.number)} />
+      <Field label="Tipo" value={fmtText(c.type)} />
+      <Field label="Importe" value={fmtMoney(c.amount, c.currency)} />
+      <Field label="Beneficiario" value={fmtText(c.beneficiary)} />
+      <Field label="Librador" value={fmtText(c.drawer)} />
+      <Field label="CUIT librador" value={fmtText(c.drawer_cuit)} />
+      <Field label="Cuenta" value={fmtText(c.account)} />
+      <Field label="Emisión" value={fmtText(c.date)} />
+      <Field label="Pago / vto" value={fmtText(c.payment_date)} />
+      <Field label="Moneda" value={fmtText(c.currency)} />
     </Section>
   );
 }
@@ -305,7 +305,7 @@ function ChequeDetail({ payload }: { payload: unknown }) {
     const single = ChequeExtractionSchema.safeParse(payload);
     if (
       single.success &&
-      (single.data.banco || single.data.numero || single.data.importe != null)
+      (single.data.bank || single.data.number || single.data.amount != null)
     ) {
       cheques = [single.data];
     }
@@ -327,24 +327,24 @@ function ExtractoDetail({ payload }: { payload: unknown }) {
   return (
     <div className="space-y-3">
       <Section icon={Landmark} title="Extracto bancario">
-        <Field label="Banco" value={fmtText(e.banco)} />
-        <Field label="Cuenta" value={fmtText(e.cuenta)} />
-        <Field label="Período" value={fmtText(e.periodo)} />
-        <Field label="Moneda" value={fmtText(e.moneda)} />
-        <Field label="Saldo inicial" value={fmtMoney(e.saldo_inicial, e.moneda)} />
-        <Field label="Saldo final" value={fmtMoney(e.saldo_final, e.moneda)} />
+        <Field label="Banco" value={fmtText(e.bank)} />
+        <Field label="Cuenta" value={fmtText(e.account)} />
+        <Field label="Período" value={fmtText(e.period)} />
+        <Field label="Moneda" value={fmtText(e.currency)} />
+        <Field label="Saldo inicial" value={fmtMoney(e.opening_balance, e.currency)} />
+        <Field label="Saldo final" value={fmtMoney(e.closing_balance, e.currency)} />
       </Section>
-      {e.movimientos.length > 0 && (
-        <Section icon={List} title={`Movimientos (${e.movimientos.length})`}>
+      {e.movements.length > 0 && (
+        <Section icon={List} title={`Movimientos (${e.movements.length})`}>
           <DetailTable
             headers={["Fecha", "Concepto", "Débito", "Crédito", "Saldo"]}
             aligns={["left", "left", "right", "right", "right"]}
-            rows={e.movimientos.map((m) => [
-              fmtText(m.fecha),
-              m.concepto,
-              fmtMoney(m.debito, e.moneda),
-              fmtMoney(m.credito, e.moneda),
-              fmtMoney(m.saldo, e.moneda),
+            rows={e.movements.map((m) => [
+              fmtText(m.date),
+              m.concept,
+              fmtMoney(m.debit, e.currency),
+              fmtMoney(m.credit, e.currency),
+              fmtMoney(m.balance, e.currency),
             ])}
           />
         </Section>

@@ -69,8 +69,8 @@ export const documentExtraction = inngest.createFunction(
         confidence = 1;
       } else {
         const classification = await classifyDocument(doc);
-        kind = classification.tipo;
-        confidence = classification.confianza;
+        kind = classification.type;
+        confidence = classification.confidence;
       }
 
       let payload: unknown = {};
@@ -131,9 +131,9 @@ export const documentExtraction = inngest.createFunction(
             return classifyExpense({
               supplierName: matches.supplier_name ?? null,
               supplierCategory,
-              invoiceNeto: inv.success ? (inv.data.importe_neto ?? null) : null,
+              invoiceNeto: inv.success ? (inv.data.net_amount ?? null) : null,
               lineDescriptions: inv.success
-                ? inv.data.items.map((it) => it.descripcion).filter(Boolean)
+                ? inv.data.items.map((it) => it.description).filter(Boolean)
                 : [],
               leafAccounts: (leaves ?? []).flatMap((l) =>
                 l.code !== null && l.name !== null

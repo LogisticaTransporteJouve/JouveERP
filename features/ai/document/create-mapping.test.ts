@@ -11,7 +11,7 @@ const OPTS = {
 
 describe("buildPurchaseInvoiceInput", () => {
   it("threads account_id / cost_center_id from opts (null by default)", () => {
-    const payload = { numero: 1, fecha: "2026-03-12", importe_total: 100 };
+    const payload = { number: 1, date: "2026-03-12", total_amount: 100 };
     const base = buildPurchaseInvoiceInput(payload, OPTS);
     expect(base?.account_id).toBeNull();
     expect(base?.cost_center_id).toBeNull();
@@ -26,24 +26,24 @@ describe("buildPurchaseInvoiceInput", () => {
 
   it("maps a complete invoice with items that pass the create schema", () => {
     const payload = {
-      contraparte_cuit: "30-12345678-9",
-      punto_venta: 1,
-      numero: 12345,
-      letra: "A",
-      fecha: "2026-03-12",
-      moneda: "ARS",
-      importe_neto: 1000,
-      importe_iva: 210,
-      importe_total: 1210,
+      counterparty_cuit: "30-12345678-9",
+      sales_point: 1,
+      number: 12345,
+      letter: "A",
+      date: "2026-03-12",
+      currency: "ARS",
+      net_amount: 1000,
+      iva_amount: 210,
+      total_amount: 1210,
       items: [
         {
-          descripcion: "Servicio",
-          cantidad: 2,
-          precio_unitario: 500,
-          alicuota_iva: 21,
-          importe_neto: 1000,
-          importe_iva: 210,
-          importe_total: 1210,
+          description: "Servicio",
+          quantity: 2,
+          unit_price: 500,
+          iva_rate: 21,
+          net_amount: 1000,
+          iva_amount: 210,
+          total_amount: 1210,
         },
       ],
     };
@@ -59,20 +59,20 @@ describe("buildPurchaseInvoiceInput", () => {
   it("maps USD → DOL and a single 10.5% line to rate id 4", () => {
     const input = buildPurchaseInvoiceInput(
       {
-        punto_venta: 2,
-        numero: 7,
-        fecha: "2026-02-01",
-        moneda: "USD",
-        importe_total: 110.5,
+        sales_point: 2,
+        number: 7,
+        date: "2026-02-01",
+        currency: "USD",
+        total_amount: 110.5,
         items: [
           {
-            descripcion: "X",
-            cantidad: 1,
-            precio_unitario: 100,
-            alicuota_iva: 10.5,
-            importe_neto: 100,
-            importe_iva: 10.5,
-            importe_total: 110.5,
+            description: "X",
+            quantity: 1,
+            unit_price: 100,
+            iva_rate: 10.5,
+            net_amount: 100,
+            iva_amount: 10.5,
+            total_amount: 110.5,
           },
         ],
       },
@@ -86,12 +86,12 @@ describe("buildPurchaseInvoiceInput", () => {
   it("falls back to header-only when a line can't be mapped", () => {
     const input = buildPurchaseInvoiceInput(
       {
-        punto_venta: 1,
-        numero: 1,
-        fecha: "2026-01-01",
-        importe_total: 500,
+        sales_point: 1,
+        number: 1,
+        date: "2026-01-01",
+        total_amount: 500,
         // line has neither neto nor unit price → unit_price null → invalid
-        items: [{ descripcion: "Sin precio", alicuota_iva: 21 }],
+        items: [{ description: "Sin precio", iva_rate: 21 }],
       },
       OPTS,
     );
