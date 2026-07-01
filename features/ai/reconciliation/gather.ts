@@ -36,15 +36,15 @@ function shift(date: string, days: number): string {
 export async function reconcileExtracto(
   payload: unknown,
 ): Promise<ReconciliationSummary | null> {
-  if (!isRecord(payload) || !Array.isArray(payload.movimientos)) return null;
+  if (!isRecord(payload) || !Array.isArray(payload.movements)) return null;
 
   const movements: StatementMovement[] = [];
-  payload.movimientos.forEach((m, i) => {
+  payload.movements.forEach((m, i) => {
     if (!isRecord(m)) return;
-    const fecha = typeof m.fecha === "string" ? m.fecha : null;
-    const concepto = typeof m.concepto === "string" ? m.concepto : "";
-    const debito = typeof m.debito === "number" ? m.debito : 0;
-    const credito = typeof m.credito === "number" ? m.credito : 0;
+    const fecha = typeof m.date === "string" ? m.date : null;
+    const concepto = typeof m.concept === "string" ? m.concept : "";
+    const debito = typeof m.debit === "number" ? m.debit : 0;
+    const credito = typeof m.credit === "number" ? m.credit : 0;
     if (credito > 0) {
       movements.push({ index: i, date: fecha, concepto, amount: credito, direction: "in" });
     } else if (debito > 0) {

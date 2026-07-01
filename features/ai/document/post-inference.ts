@@ -80,29 +80,29 @@ export function normalizeAlicuota(raw: unknown): Alicuota | null {
  * document already provided.
  */
 export function computeItemTotals(item: {
-  cantidad?: number | null;
-  precio_unitario?: number | null;
-  bonif_pct?: number | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  discount_pct?: number | null;
   alicuota?: Alicuota | null;
-  importe_neto?: number | null;
-  importe_iva?: number | null;
-  importe_total?: number | null;
+  net_amount?: number | null;
+  iva_amount?: number | null;
+  total_amount?: number | null;
 }): {
-  importe_neto: number | null;
-  importe_iva: number | null;
-  importe_total: number | null;
+  net_amount: number | null;
+  iva_amount: number | null;
+  total_amount: number | null;
 } {
-  let neto = item.importe_neto ?? null;
-  let iva = item.importe_iva ?? null;
-  let total = item.importe_total ?? null;
+  let neto = item.net_amount ?? null;
+  let iva = item.iva_amount ?? null;
+  let total = item.total_amount ?? null;
 
   if (
     neto === null &&
-    item.cantidad != null &&
-    item.precio_unitario != null
+    item.quantity != null &&
+    item.unit_price != null
   ) {
-    const bonif = item.bonif_pct ?? 0;
-    neto = round2(item.cantidad * item.precio_unitario * (1 - bonif / 100));
+    const bonif = item.discount_pct ?? 0;
+    neto = round2(item.quantity * item.unit_price * (1 - bonif / 100));
   }
 
   if (iva === null && neto !== null && item.alicuota != null) {
@@ -113,7 +113,7 @@ export function computeItemTotals(item: {
     total = round2(neto + iva);
   }
 
-  return { importe_neto: neto, importe_iva: iva, importe_total: total };
+  return { net_amount: neto, iva_amount: iva, total_amount: total };
 }
 
 /**
@@ -166,29 +166,29 @@ export function applyInvoicePostInference(
   inv: InvoiceExtraction,
 ): InvoiceExtraction {
   const items = inv.items.map((item) => {
-    const alicuota = normalizeAlicuota(item.alicuota_iva);
+    const alicuota = normalizeAlicuota(item.iva_rate);
     const totals = computeItemTotals({
-      cantidad: item.cantidad,
-      precio_unitario: item.precio_unitario,
-      bonif_pct: item.bonif_pct,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount_pct: item.discount_pct,
       alicuota,
-      importe_neto: item.importe_neto,
-      importe_iva: item.importe_iva,
-      importe_total: item.importe_total,
+      net_amount: item.net_amount,
+      iva_amount: item.iva_amount,
+      total_amount: item.total_amount,
     });
-    return { ...item, alicuota_iva: alicuota, ...totals };
+    return { ...item, iva_rate: alicuota, ...totals };
   });
 
   const header = completeAmounts({
-    neto: inv.importe_neto,
-    iva: inv.importe_iva,
-    total: inv.importe_total,
-    trib: inv.importe_trib,
+    neto: inv.net_amount,
+    iva: inv.iva_amount,
+    total: inv.total_amount,
+    trib: inv.other_taxes_amount,
   });
 
   // Resolve a rate for lines that didn't print one: the uniform line rate if
   // there is one, else 0 when the header shows no IVA (exento / no gravado).
-  const uniform = inferUniformAlicuota(items.map((i) => i.alicuota_iva ?? null));
+  const uniform = inferUniformAlicuota(items.map((i) => i.iva_rate ?? null));
   const zeroFromHeader = header.iva === 0 ? 0 : null;
   const resolvedRate = uniform ?? zeroFromHeader;
 
@@ -196,26 +196,26 @@ export function applyInvoicePostInference(
     resolvedRate === null
       ? items
       : items.map((item) => {
-          if (item.alicuota_iva != null) return item;
+          if (item.iva_rate != null) return item;
           const totals = computeItemTotals({
-            cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario,
-            bonif_pct: item.bonif_pct,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            discount_pct: item.discount_pct,
             alicuota: resolvedRate,
-            importe_neto: item.importe_neto,
-            importe_iva: item.importe_iva,
-            importe_total: item.importe_total,
+            net_amount: item.net_amount,
+            iva_amount: item.iva_amount,
+            total_amount: item.total_amount,
           });
-          return { ...item, alicuota_iva: resolvedRate, ...totals };
+          return { ...item, iva_rate: resolvedRate, ...totals };
         });
 
   return {
     ...inv,
-    importe_neto: header.neto,
-    importe_iva: header.iva,
-    importe_total: header.total,
-    fch_vto_pago:
-      inv.fch_vto_pago ?? dueDateFromTerms(inv.fecha, inv.condicion_pago),
+    net_amount: header.neto,
+    iva_amount: header.iva,
+    total_amount: header.total,
+    due_date:
+      inv.due_date ?? dueDateFromTerms(inv.date, inv.payment_terms),
     items: filledItems,
   };
 }

@@ -146,12 +146,12 @@ export async function matchForKind(
 ): Promise<ExtractionMatches> {
   if (!isRecord(payload)) return {};
   const cuit =
-    typeof payload.contraparte_cuit === "string"
-      ? payload.contraparte_cuit
+    typeof payload.counterparty_cuit === "string"
+      ? payload.counterparty_cuit
       : null;
-  const numero = typeof payload.numero === "number" ? payload.numero : null;
+  const numero = typeof payload.number === "number" ? payload.number : null;
   const puntoVenta =
-    typeof payload.punto_venta === "number" ? payload.punto_venta : null;
+    typeof payload.sales_point === "number" ? payload.sales_point : null;
 
   if (kind === "factura_compra" || kind === "nc_nd") {
     return matchDocument({

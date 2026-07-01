@@ -60,18 +60,18 @@ export function buildPurchaseInvoiceInput(
   const inv = parsed.data;
 
   const mapped = inv.items.map((item) => {
-    const quantity = item.cantidad && item.cantidad > 0 ? item.cantidad : 1;
-    const lineNeto = item.importe_neto ?? null;
+    const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+    const lineNeto = item.net_amount ?? null;
     const unitPrice =
-      item.precio_unitario ?? (lineNeto !== null ? lineNeto / quantity : null);
+      item.unit_price ?? (lineNeto !== null ? lineNeto / quantity : null);
     return {
-      description: item.descripcion,
+      description: item.description,
       quantity,
       unit_price: unitPrice,
-      iva_rate_id: alicuotaToRateId(item.alicuota_iva),
+      iva_rate_id: alicuotaToRateId(item.iva_rate),
       line_neto: lineNeto,
-      line_iva: item.importe_iva ?? 0,
-      line_total: item.importe_total ?? null,
+      line_iva: item.iva_amount ?? 0,
+      line_total: item.total_amount ?? null,
       sort_order: 0,
     };
   });
@@ -94,16 +94,16 @@ export function buildPurchaseInvoiceInput(
     account_id: opts.accountId ?? null,
     cost_center_id: opts.costCenterId ?? null,
     kind: "factura",
-    letter: inv.letra ?? null,
-    punto_venta: inv.punto_venta ?? 0,
-    numero: inv.numero ?? 0,
-    fecha: inv.fecha ?? "",
-    fch_vto_pago: inv.fch_vto_pago ?? null,
-    imp_neto: inv.importe_neto ?? 0,
-    imp_iva: inv.importe_iva ?? 0,
-    imp_trib: inv.importe_trib ?? 0,
-    imp_total: inv.importe_total ?? 0,
-    moneda: inv.moneda === "USD" ? "DOL" : "PES",
+    letter: inv.letter ?? null,
+    punto_venta: inv.sales_point ?? 0,
+    numero: inv.number ?? 0,
+    fecha: inv.date ?? "",
+    fch_vto_pago: inv.due_date ?? null,
+    imp_neto: inv.net_amount ?? 0,
+    imp_iva: inv.iva_amount ?? 0,
+    imp_trib: inv.other_taxes_amount ?? 0,
+    imp_total: inv.total_amount ?? 0,
+    moneda: inv.currency === "USD" ? "DOL" : "PES",
     cotizacion: 1,
     items: allValid ? validItems : [],
   };

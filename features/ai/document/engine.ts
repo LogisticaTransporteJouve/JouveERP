@@ -42,7 +42,7 @@ const KIND_HINT: Record<ExtractableKind, string> = {
   remito:
     "This is a delivery note: extract products and quantities per line, WITHOUT amounts (delivery notes carry no prices).",
   cheque:
-    "There may be ONE or SEVERAL checks in the same image (sometimes 4 or more). Extract ALL of them, one object per check in 'cheques'. For each one: bank, series, number, amount, payee, drawer (account holder) and their CUIT, account number, issue date, and payment/due date if it is post-dated (CPD). tipo: propio/tercero/diferido.",
+    "There may be ONE or SEVERAL checks in the same image (sometimes 4 or more). Extract ALL of them, one object per check in 'cheques'. For each one: bank, series, number, amount, payee, drawer (account holder) and their CUIT, account number, issue date, and payment/due date if it is post-dated (CPD). type: propio/tercero/diferido.",
   extracto:
     "This is a bank statement: one row per transaction (date, description, debit, credit, balance) plus opening and closing balance.",
 };
@@ -69,8 +69,8 @@ const CLASSIFY_SYSTEM = `You are a classifier of Argentine accounting/commercial
 
 const EXTRACT_SYSTEM = `You are a data extractor for Argentine accounting documents. COPY EXACTLY what appears in the document; if a value does not appear, return null (do not invent or compute it: missing values are filled in afterwards deterministically). Amounts as numbers, without thousands separators or symbol (1234.56). Dates in YYYY-MM-DD format.
 Line rules (invoices/delivery notes): one row per visible line; do not group or merge; skip subtotal/total rows and rows that are only an IVA label.
-Amount rules: if the column says "con IVA" use importe_total; if it says "sin IVA" use importe_neto; when ambiguous cross-check against the totals. On tickets and receipts prices usually include IVA.
-Counterparty: DZ & Sons S.A. is the own company; the counterparty (contraparte_nombre/contraparte_cuit) is ALWAYS the other party.`;
+Amount rules: if the column says "con IVA" use total_amount; if it says "sin IVA" use net_amount; when ambiguous cross-check against the totals. On tickets and receipts prices usually include IVA.
+Counterparty: DZ & Sons S.A. is the own company; the counterparty (counterparty_name/counterparty_cuit) is ALWAYS the other party.`;
 
 /** Stage 1 — classify an unknown document (generic-tray mode). */
 export async function classifyDocument(

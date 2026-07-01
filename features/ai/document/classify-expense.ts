@@ -22,7 +22,7 @@ export type ExpenseClassifyInput = {
   supplierName: string | null;
   supplierCategory: string | null; // suppliers.category -> name (the "hint")
   invoiceNeto: number | null;
-  lineDescriptions: string[]; // extracted items[].descripcion
+  lineDescriptions: string[]; // extracted items[].description
   leafAccounts: ExpenseLeaf[]; // public.expense_leaf_accounts
   costCenters: { code: string; name: string }[];
 };
