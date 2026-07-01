@@ -16,7 +16,7 @@ const SEVERITY_ICON = {
   critical: OctagonAlert,
 } as const;
 
-const MONEY_KEY = /balance|closing|total|amount|90_plus|in$|out$/i;
+const MONEY_KEY = /balance|closing|total|amount|90_plus|in$|out$|loss/i;
 const METRIC_LABELS: Record<string, string> = {
   starting_balance: "Hoy",
   lowest_closing: "Mínimo",
@@ -24,6 +24,10 @@ const METRIC_LABELS: Record<string, string> = {
   total_out: "Egresos",
   total_90_plus: "+90 días",
   client_count: "Clientes",
+  expired: "Vencidos",
+  expiring_soon: "Por vencer",
+  loss_count: "Viajes",
+  total_loss: "Pérdida",
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
