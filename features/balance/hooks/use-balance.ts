@@ -10,14 +10,16 @@ import { balanceKeys } from "../lib/balance-keys";
 export function useAccountBalances(
   periodEnd: string,
   periodStart: string | null,
+  costCenterId: string | null,
 ) {
   return useSuspenseQuery({
-    queryKey: balanceKeys.saldos(periodEnd, periodStart),
+    queryKey: balanceKeys.saldos(periodEnd, periodStart, costCenterId),
     queryFn: () =>
       runAction(() =>
         getAccountBalancesAction({
           periodEnd,
           periodStart: periodStart ?? undefined,
+          costCenterId: costCenterId ?? undefined,
         }),
       ),
   });
