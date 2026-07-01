@@ -16,6 +16,14 @@ import {
   getSupplierAging,
   searchSuppliers,
 } from "./purchases";
+import {
+  getFleetDocuments,
+  getFleetProfitability,
+  getFuelLoads,
+  getMaintenance,
+  getTrips,
+  getVehicles,
+} from "./fleet";
 import { getClientAging } from "./receivables";
 import { getInvoices, getReceipts, searchClients } from "./sales";
 import { getTreasurySummary } from "./treasury";
@@ -68,6 +76,13 @@ export const aiTools = {
   searchEmployees,
   getAttendance,
   getExpiringDocuments,
+  // Flota / transporte
+  getVehicles,
+  getTrips,
+  getFuelLoads,
+  getMaintenance,
+  getFleetDocuments,
+  getFleetProfitability,
 } as const;
 
 export type AiToolName = keyof typeof aiTools;
