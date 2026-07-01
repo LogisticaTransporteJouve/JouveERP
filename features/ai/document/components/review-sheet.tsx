@@ -127,6 +127,10 @@ export function ReviewSheet({
   }, [fileId, data?.file?.original_filename, data?.file?.mime_type]);
 
   const open = extractionId !== null;
+  // Hide the floating sidecar while a nested action dialog (e.g. create cheques)
+  // is open, so the dialog can stay at the default z without the preview
+  // overlapping it (and without a z war that breaks its popovers).
+  const [nestedOpen, setNestedOpen] = useState(false);
   const kind = data?.detected_type ?? null;
   const band = confidenceBand(data?.confidence ?? null);
   const status = statusConfig(data?.status ?? "pending_review");
@@ -139,7 +143,7 @@ export function ReviewSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* Floating document sidecar, to the left of the 600px Sheet (desktop).
           The document floats directly on the dimmed backdrop — no card frame. */}
-      {open && (
+      {open && !nestedOpen && (
         <div
           data-doc-sidecar
           className="pointer-events-none fixed inset-y-0 left-0 right-[600px] z-[60] hidden items-center justify-center p-8 lg:flex"
@@ -243,6 +247,7 @@ export function ReviewSheet({
             <ReviewActions
               extraction={data}
               onCreated={() => onOpenChange(false)}
+              onNestedOpenChange={setNestedOpen}
             />
           </div>
         ) : (

@@ -1,11 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { listClientsAction } from "@/features/clients/actions/clients-actions";
-import { runAction } from "@/lib/query/run-action";
+import { ClientSearchCombobox } from "@/features/clients/components/client-search-combobox";
 
 import { useCreateChecksFromExtraction } from "../hooks/use-documents";
 import { ChequeBatchExtractionSchema } from "../schemas";
@@ -77,28 +74,33 @@ export function CreateChequesDialog({
     () => accounts.filter((a) => a.is_active && a.type === "checks"),
     [accounts],
   );
-  const { data: clients } = useQuery({
-    queryKey: ["clients", "endosante-options"],
-    queryFn: () => runAction(() => listClientsAction()),
-    staleTime: 60_000,
-  });
-  const clientOptions = useMemo(
-    () => (clients ?? []).map((c) => ({ value: c.id, label: c.legal_name })),
-    [clients],
-  );
   const createMut = useCreateChecksFromExtraction();
 
   const [rows, setRows] = useState<Row[]>([]);
   const [carteraId, setCarteraId] = useState("");
-  const [endosanteId, setEndosanteId] = useState("");
+  const [endosante, setEndosante] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (open) {
       setRows(toRows(payload));
       setCarteraId("");
-      setEndosanteId("");
+      setEndosante(null);
     }
   }, [open, payload]);
+
+  // A single physical cartera → auto-select it (no picker needed).
+  useEffect(() => {
+    if (open && !carteraId && carteraOptions.length === 1) {
+      setCarteraId(carteraOptions[0]!.id);
+    }
+  }, [open, carteraOptions, carteraId]);
+
+  const totalAmount = rows.reduce(
+    (s, r) => s + (r.importe ? Number(r.importe) : 0),
+    0,
+  );
 
   function update(i: number, patch: Partial<Row>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -113,7 +115,7 @@ export function CreateChequesDialog({
       {
         extractionId,
         cartera_account_id: carteraId,
-        source_client_id: endosanteId || null,
+        source_client_id: endosante?.id ?? null,
         cheques: rows.map((r) => ({
           banco: r.banco || null,
           serie: r.serie || null,
@@ -145,10 +147,7 @@ export function CreateChequesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="z-[70] flex max-h-[85vh] flex-col sm:max-w-2xl"
-        overlayClassName="z-[70]"
-      >
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Crear cheques en cartera</DialogTitle>
           <DialogDescription>
@@ -158,32 +157,31 @@ export function CreateChequesDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="chq-cartera">Cuenta de cartera</Label>
-            <Select value={carteraId} onValueChange={setCarteraId}>
-              <SelectTrigger id="chq-cartera">
-                <SelectValue placeholder="Elegí la cuenta" />
-              </SelectTrigger>
-              <SelectContent className="z-[80]">
-                {carteraOptions.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {carteraOptions.length > 1 && (
+            <div className="space-y-1">
+              <Label htmlFor="chq-cartera">Cuenta de cartera</Label>
+              <Select value={carteraId} onValueChange={setCarteraId}>
+                <SelectTrigger id="chq-cartera">
+                  <SelectValue placeholder="Elegí la cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {carteraOptions.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="chq-endosante">Endosante (opcional)</Label>
-            <Combobox
+            <ClientSearchCombobox
               id="chq-endosante"
-              options={clientOptions}
-              value={endosanteId}
-              onChange={setEndosanteId}
+              value={endosante?.id ?? ""}
+              label={endosante?.name ?? ""}
+              onChange={setEndosante}
               placeholder="Quién te lo entregó"
-              searchPlaceholder="Buscar cliente…"
-              emptyText="Sin clientes."
-              contentClassName="z-[80]"
             />
           </div>
         </div>
@@ -259,7 +257,7 @@ export function CreateChequesDialog({
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="z-[80]">
+                    <SelectContent>
                       <SelectItem value="ARS">ARS</SelectItem>
                       <SelectItem value="USD">USD</SelectItem>
                     </SelectContent>
@@ -274,6 +272,17 @@ export function CreateChequesDialog({
             </p>
           )}
         </div>
+
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between border-t pt-3 text-sm">
+            <span className="text-muted-foreground">
+              {rows.length} cheque{rows.length === 1 ? "" : "s"}
+            </span>
+            <span className="font-mono font-medium">
+              Total ${Math.round(totalAmount).toLocaleString("es-AR")}
+            </span>
+          </div>
+        )}
 
         <DialogFooter>
           <Button

@@ -72,7 +72,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={cn("w-[--radix-popover-trigger-width] p-0", contentClassName)}
+        className={cn("w-[var(--radix-popover-trigger-width)] p-0", contentClassName)}
         align="start"
       >
         <Command
