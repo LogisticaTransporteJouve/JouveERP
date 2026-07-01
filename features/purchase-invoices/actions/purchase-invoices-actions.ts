@@ -269,6 +269,33 @@ export async function createPurchaseInvoiceAction(
   }
 
   const supabase = await createClient();
+
+  // If an expense account is set (AI-suggested or manual), it must be a leaf
+  // expense account — otherwise the posting (build_purchase_invoice_journal_lines)
+  // would debit a parent or non-expense account and distort the EERR.
+  if (parsed.data.account_id) {
+    const { data: leaf, error: leafError } = await supabase
+      .from("expense_leaf_accounts")
+      .select("id")
+      .eq("id", parsed.data.account_id)
+      .maybeSingle();
+    if (leafError) {
+      logger.error("purchase_invoices.account_check.failed", {
+        userId: ctx.userId,
+        account_id: parsed.data.account_id,
+        error: leafError,
+      });
+      return { ok: false, error: "No se pudo validar la cuenta de gasto." };
+    }
+    if (!leaf) {
+      return {
+        ok: false,
+        error:
+          "La cuenta de gasto debe ser una cuenta hoja de resultado (sin subcuentas).",
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("purchase_invoices")
     .insert({

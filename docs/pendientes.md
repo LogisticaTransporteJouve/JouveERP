@@ -57,10 +57,12 @@
 - [x] **`CLAUDE.md`** en root — guía para devs / Claude Code (PR #83).
 - [x] **Tests faltantes** — backfill completo: `admin-users`, `afip-admin`,
       `aging`, `backups`, `search`, `treasury` ahora tienen `schema.test.ts`
-      (extrayendo la validación/lógica pura a `schema.ts`). 30/30 dominios con tests.
-- [ ] **Email del aging semanal sin proveedor.** `aging-weekly-summary` calcula
-      el resumen pero el envío es TODO — falta elegir/configurar proveedor
-      transaccional (Resend/SES) + cargar la API key. El cron corre y no manda nada.
+      (extrayendo la validación/lógica pura a `schema.ts`). 47/47 dominios con
+      tests (`shipments` cubierto — antes era el único sin `schema.test.ts`).
+- [x] **Email del aging semanal — cableado (2026-07).** `aging-weekly-summary`
+      ahora envía el resumen por Resend (`lib/email/client.ts`) a `FINANCE_EMAIL`.
+      Solo resta **config de entorno** (`RESEND_API_KEY`, `EMAIL_FROM`,
+      `FINANCE_EMAIL`); sin esas vars el cron loguea y saltea el envío (graceful).
 - [x] **`claude-proxy/`** — referencia muerta resuelta; su caso de uso es **AI.8**.
 
 ## 4. Staleness menor de docs

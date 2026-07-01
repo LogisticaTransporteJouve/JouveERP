@@ -2,6 +2,7 @@ import {
   convertToModelMessages,
   stepCountIs,
   streamText,
+  type ModelMessage,
   type UIMessage,
 } from "ai";
 
@@ -66,11 +67,25 @@ export async function streamChat(
     tools: aiTools,
     ignoreIncompleteToolCalls: true,
   });
-  const system = `${SYSTEM_PROMPT}${buildSkillsBlock(lastUserText(messages))}`;
+  // Cache the static block (base prompt + tool schemas) via an Anthropic
+  // ephemeral breakpoint — everything up to it is cached (5-min TTL), so the
+  // ~25 tool schemas + base prompt are re-read at ~0.1× input cost after the
+  // first turn. The per-turn skills block goes in a separate uncached system
+  // message so it never invalidates the cache.
+  const skills = buildSkillsBlock(lastUserText(messages));
+  const systemMessages: ModelMessage[] = [
+    {
+      role: "system",
+      content: SYSTEM_PROMPT,
+      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+    },
+  ];
+  if (skills) {
+    systemMessages.push({ role: "system", content: skills });
+  }
   return streamText({
     model: buildChatModel(),
-    system,
-    messages: modelMessages,
+    messages: [...systemMessages, ...modelMessages],
     tools: aiTools,
     stopWhen: stepCountIs(AI_MAX_STEPS),
     onFinish: onUsage

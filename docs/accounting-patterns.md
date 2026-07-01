@@ -292,7 +292,8 @@ Tres tabs (un solo fetch las alimenta):
 - **Balance General:** activo as-is; pasivo/patrimonio negados; inyecta "Resultado
   del período" en Patrimonio; check ecuación `Activo = Pasivo + PN`.
 
-**Sin exports.** Solo HTML en pantalla.
+**Sin export propio.** Balances/EERR solo HTML en pantalla (el exportador PDF
+genérico de `app/api/export/[resource]` cubre otros recursos, no estos).
 
 ---
 
@@ -306,13 +307,16 @@ RLS: SELECT `authenticated`; manage owner/admin/finance. CRUD vía
 `{list,create,update,delete}CostCenterAction` (`accounting:read`/`write`),
 `/accounting/cost-centers`.
 
-> ⚠️ **Dimensión dormante.** La columna `cost_center_id` (FK nullable, `ON DELETE SET
-> NULL`) existe en **6 tablas** (`transactions`, `invoices`, `purchase_invoices`,
-> `payment_orders`, `receipts`, `journal_entries`), pero **ningún código de app la
-> lee ni la escribe**, y `get_account_balances` **no** filtra por centro. El schema
-> está provisto; la integración operativa (asignar centro en altas, filtrar EERR por
-> centro) está **pendiente**. (La premisa de columnas `is_required`/`show_in_sales`/
-> `show_in_purchases` es falsa — no existen.)
+> ⚠️ **Dimensión escrita a medias — no reportable.** La columna `cost_center_id`
+> (FK nullable, `ON DELETE SET NULL`) existe en **6 tablas**. Update 2026-07:
+> ahora **se escribe** desde `createPurchaseInvoiceAction`, `recurring-payments`
+> y el mapeo de Document Intelligence — pero **`create_journal_entry` no recibe
+> el centro**, así que `journal_entries.cost_center_id` queda **siempre NULL**
+> (contradice el comentario de `l_closure.sql:22`), `get_account_balances` **no**
+> filtra por centro y **ningún read** lo consume. Resultado: se guarda en el
+> origen pero es **imposible reportar por centro end-to-end**. Falta: propagar el
+> centro al asiento + filtro de EERR. (La premisa de columnas `is_required`/
+> `show_in_sales`/`show_in_purchases` es falsa — no existen.)
 
 ---
 
@@ -360,8 +364,11 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
    `IVA_RATES` ahora `8→5/9→2.5` (= AFIP/RPCs), con test.
 2. ✅ **Asimetría action vs RLS en DELETE** (§1) — **corregido**:
    `deleteChartAccountAction` exige owner/admin, `deleteTransactionAction` exige owner.
-3. **Centros de costo dormantes** (§8): FK en 6 tablas + RPCs sin consumir; EERR no
-   filtra por centro. Falta la integración operativa.
+3. **Centros de costo escritos pero no reportables** (§8): ahora se **escriben**
+   (purchase-invoices, recurring-payments, Document Intelligence) pero
+   `create_journal_entry` no propaga el centro al asiento (`journal_entries.
+   cost_center_id` siempre NULL) y EERR no filtra por centro. Falta el
+   wire-through hasta el asiento + filtro.
 4. **Inflación apply/revert no implementado** (§9): solo CRUD de coeficientes;
    `journal_entry_id`/`applied_at` nunca se escriben; "Estado" siempre "Sin aplicar".
 5. **`auto_journal_mapping` sin uso** (§3.1): tabla + RLS existen, ningún generador
@@ -375,5 +382,8 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 8. **Export PDF de libro IVA bypassa RLS** (§6): usa service client; solo protege el
    `accounting:read` de la ruta. `purchase_invoices` además tiene SELECT RLS
    `USING(true)`.
-9. **Sin export contable**: libro diario/mayor/balances sin PDF/Excel; libro IVA sin
-   SIAP/CSV (solo PDF). Pendiente L.6 (CITI/SIAP) en el roadmap.
+9. **Export contable parcial**: existe un exportador PDF genérico
+   (`app/api/export/[resource]`) para caja/transactions, cost-centers,
+   purchase-invoices, receipts, checks, exchange-rates, etc. **Todavía falta**:
+   export de libro diario/mayor/balances, y libro IVA en SIAP/CSV (solo PDF).
+   Pendiente L.6 (CITI/SIAP) en el roadmap.
