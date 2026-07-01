@@ -414,7 +414,7 @@ const ChequeRowSchema = z.object({
 const CreateChecksFromExtractionSchema = z.object({
   extractionId: z.string().uuid(),
   cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
-  kind: z.enum(["fisico", "echeq"]),
+  source_client_id: z.string().uuid().nullable().optional(),
   cheques: z.array(ChequeRowSchema).min(1).max(100),
 });
 
@@ -438,7 +438,8 @@ export async function createChecksFromExtractionAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { extractionId, cartera_account_id, kind, cheques } = parsed.data;
+  const { extractionId, cartera_account_id, source_client_id, cheques } =
+    parsed.data;
 
   const supabase = await createSupabaseClient();
   const { data: ext, error } = await supabase
@@ -453,6 +454,18 @@ export async function createChecksFromExtractionAction(
   if (ext.detected_type !== "check") {
     return { ok: false, error: "Solo se pueden crear cheques desde acá." };
   }
+
+  // The check kind (fisico / echeq) is the cartera account's type, not a
+  // separate choice — derive it authoritatively.
+  const { data: acc } = await supabase
+    .from("accounts")
+    .select("type")
+    .eq("id", cartera_account_id)
+    .maybeSingle();
+  if (!acc || (acc.type !== "checks" && acc.type !== "echeq")) {
+    return { ok: false, error: "La cuenta de cartera no es válida." };
+  }
+  const kind = acc.type === "echeq" ? "echeq" : "fisico";
 
   const errors: { index: number; error: string }[] = [];
   let created = 0;
@@ -470,6 +483,7 @@ export async function createChecksFromExtractionAction(
       currency: row.moneda === "USD" ? "USD" : "ARS",
       cartera_account_id,
       source_kind: "manual",
+      source_client_id: source_client_id ?? null,
       notes: row.serie ? `Serie ${row.serie}` : null,
     };
     const v = ChequeCreateSchema.safeParse(candidate);
@@ -493,6 +507,7 @@ export async function createChecksFromExtractionAction(
       cartera_account_id: v.data.cartera_account_id,
       status: "en_cartera",
       source_kind: v.data.source_kind,
+      source_client_id: v.data.source_client_id ?? null,
       notes: v.data.notes ?? null,
       created_by: ctx.userId,
     });

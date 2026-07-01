@@ -1,9 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { listClientsAction } from "@/features/clients/actions/clients-actions";
+import { runAction } from "@/lib/query/run-action";
 
 import { useCreateChecksFromExtraction } from "../hooks/use-documents";
 import { ChequeBatchExtractionSchema } from "../schemas";
@@ -68,24 +72,31 @@ export function CreateChequesDialog({
   onCreated: () => void;
 }) {
   const { data: accounts } = useAccountsList();
+  // Scanned checks are always physical (fisico) → only the physical cartera.
   const carteraOptions = useMemo(
-    () =>
-      accounts.filter(
-        (a) => a.is_active && (a.type === "checks" || a.type === "echeq"),
-      ),
+    () => accounts.filter((a) => a.is_active && a.type === "checks"),
     [accounts],
+  );
+  const { data: clients } = useQuery({
+    queryKey: ["clients", "endosante-options"],
+    queryFn: () => runAction(() => listClientsAction()),
+    staleTime: 60_000,
+  });
+  const clientOptions = useMemo(
+    () => (clients ?? []).map((c) => ({ value: c.id, label: c.legal_name })),
+    [clients],
   );
   const createMut = useCreateChecksFromExtraction();
 
   const [rows, setRows] = useState<Row[]>([]);
-  const [kind, setKind] = useState<"fisico" | "echeq">("fisico");
   const [carteraId, setCarteraId] = useState("");
+  const [endosanteId, setEndosanteId] = useState("");
 
   useEffect(() => {
     if (open) {
       setRows(toRows(payload));
-      setKind("fisico");
       setCarteraId("");
+      setEndosanteId("");
     }
   }, [open, payload]);
 
@@ -102,7 +113,7 @@ export function CreateChequesDialog({
       {
         extractionId,
         cartera_account_id: carteraId,
-        kind,
+        source_client_id: endosanteId || null,
         cheques: rows.map((r) => ({
           banco: r.banco || null,
           serie: r.serie || null,
@@ -163,19 +174,17 @@ export function CreateChequesDialog({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="chq-kind">Tipo</Label>
-            <Select
-              value={kind}
-              onValueChange={(v) => setKind(v === "echeq" ? "echeq" : "fisico")}
-            >
-              <SelectTrigger id="chq-kind">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="z-[80]">
-                <SelectItem value="fisico">Físico</SelectItem>
-                <SelectItem value="echeq">E-cheq</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="chq-endosante">Endosante (opcional)</Label>
+            <Combobox
+              id="chq-endosante"
+              options={clientOptions}
+              value={endosanteId}
+              onChange={setEndosanteId}
+              placeholder="Quién te lo entregó"
+              searchPlaceholder="Buscar cliente…"
+              emptyText="Sin clientes."
+              contentClassName="z-[80]"
+            />
           </div>
         </div>
 

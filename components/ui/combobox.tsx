@@ -33,6 +33,7 @@ export function Combobox({
   emptyText = "Sin resultados.",
   disabled,
   className,
+  contentClassName,
   id,
 }: {
   options: ComboboxOption[];
@@ -43,6 +44,8 @@ export function Combobox({
   emptyText?: string;
   disabled?: boolean;
   className?: string;
+  /** Extra classes for the dropdown popover (e.g. z-index inside a dialog). */
+  contentClassName?: string;
   id?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -69,7 +72,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
+        className={cn("w-[--radix-popover-trigger-width] p-0", contentClassName)}
         align="start"
       >
         <Command
