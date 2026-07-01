@@ -45,7 +45,7 @@ export function ReviewActions({
   const [chequesOpen, setChequesOpen] = useState(false);
   const create = useCreatePurchaseInvoice();
 
-  if (extraction.detected_type === "cheque") {
+  if (extraction.detected_type === "check") {
     const count = chequeCount(extraction.payload);
     return (
       <div className="flex items-center gap-2 border-t pt-3">
