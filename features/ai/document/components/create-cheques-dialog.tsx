@@ -153,7 +153,7 @@ export function CreateChequesDialog({
               <SelectTrigger id="chq-cartera">
                 <SelectValue placeholder="Elegí la cuenta" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[80]">
                 {carteraOptions.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
                     {a.name}
@@ -171,7 +171,7 @@ export function CreateChequesDialog({
               <SelectTrigger id="chq-kind">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[80]">
                 <SelectItem value="fisico">Físico</SelectItem>
                 <SelectItem value="echeq">E-cheq</SelectItem>
               </SelectContent>
@@ -250,7 +250,7 @@ export function CreateChequesDialog({
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[80]">
                       <SelectItem value="ARS">ARS</SelectItem>
                       <SelectItem value="USD">USD</SelectItem>
                     </SelectContent>
