@@ -56,6 +56,7 @@ export function LoansTable({
       {
         accessorKey: "description",
         header: "Descripción",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <div>
             <Link
@@ -75,19 +76,19 @@ export function LoansTable({
         header: "Acreedor",
         enableSorting: false,
         cell: ({ row }) => row.original.lender ?? "—",
-        meta: { cellClassName: "text-sm" },
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         id: "channel",
         header: "Canal",
         enableSorting: false,
         cell: ({ row }) => row.original.channel_name ?? "—",
-        meta: { cellClassName: "text-sm" },
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         accessorKey: "principal",
         header: "Capital",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {formatMoney(row.original.principal)}
@@ -97,7 +98,7 @@ export function LoansTable({
       {
         accessorKey: "paid_total",
         header: "Pagado",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {formatMoney(row.original.paid_total)}
@@ -107,7 +108,7 @@ export function LoansTable({
       {
         accessorKey: "pending_total",
         header: "Pendiente",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {formatMoney(row.original.pending_total)}
@@ -121,7 +122,7 @@ export function LoansTable({
         accessorKey: "next_due_date",
         header: "Próx. venc.",
         cell: ({ row }) => row.original.next_due_date ?? "—",
-        meta: { headerClassName: "w-28", cellClassName: "text-sm" },
+        meta: { headerClassName: "w-28", cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         id: "status",
@@ -134,13 +135,13 @@ export function LoansTable({
             {LOAN_STATUS_LABEL[row.original.status]}
           </Badge>
         ),
-        meta: { headerClassName: "w-28" },
+        meta: { headerClassName: "w-28", mobile: "primary" },
       },
       {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

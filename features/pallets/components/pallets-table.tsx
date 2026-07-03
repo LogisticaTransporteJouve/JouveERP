@@ -114,7 +114,7 @@ export function PalletsTable({
           />
         ),
         enableSorting: false,
-        meta: { headerClassName: "w-10" },
+        meta: { headerClassName: "w-10", mobile: "primary" },
         cell: ({ row }) =>
           row.original.status === "en_deposito" ? (
             <Checkbox
@@ -130,34 +130,34 @@ export function PalletsTable({
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.code}</span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "primary" },
       },
       {
         id: "warehouse",
         header: "Depósito",
         enableSorting: false,
         cell: ({ row }) => row.original.warehouse?.name ?? "—",
-        meta: { cellClassName: "text-sm" },
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         id: "client",
         header: "Cliente",
         enableSorting: false,
         cell: ({ row }) => row.original.client?.legal_name ?? "—",
-        meta: { cellClassName: "text-sm" },
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         id: "product",
         header: "Producto",
         enableSorting: false,
         cell: ({ row }) => row.original.product?.name ?? "—",
-        meta: { cellClassName: "text-sm" },
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         accessorKey: "quantity",
         header: "Cant.",
         cell: ({ row }) => row.original.quantity ?? "—",
-        meta: { headerClassName: "w-24", cellClassName: "text-sm" },
+        meta: { headerClassName: "w-24", cellClassName: "text-sm", mobile: "primary" },
       },
       {
         id: "status",
@@ -168,25 +168,25 @@ export function PalletsTable({
             {PALLET_STATUS_LABELS[row.original.status]}
           </Badge>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "primary" },
       },
       {
         accessorKey: "entry_date",
         header: "Ingreso",
         cell: ({ row }) => row.original.entry_date,
-        meta: { headerClassName: "w-32", cellClassName: "text-sm" },
+        meta: { headerClassName: "w-32", cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         accessorKey: "exit_date",
         header: "Salida",
         cell: ({ row }) => row.original.exit_date ?? "—",
-        meta: { headerClassName: "w-32", cellClassName: "text-sm" },
+        meta: { headerClassName: "w-32", cellClassName: "text-sm", mobile: "secondary" },
       },
       {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

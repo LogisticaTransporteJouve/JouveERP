@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -32,6 +32,22 @@ export function PdfViewerInner({
   const [pages, setPages] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Fit-width: pdfjs renders at a fixed pixel width, so on narrow screens we
+  // cap it to the container instead of overflowing the dialog.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setContainerWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (loadError) {
     return (
       <p className="py-12 text-center text-sm text-destructive">
@@ -41,33 +57,37 @@ export function PdfViewerInner({
   }
 
   const visiblePages = Math.min(pages, maxPages);
+  const pageWidth =
+    containerWidth != null ? Math.min(760, containerWidth) : 760;
 
   return (
-    <Document
-      file={url}
-      onLoadSuccess={({ numPages }) => {
-        setPages(numPages);
-        setLoadError(null);
-      }}
-      onLoadError={(err) => setLoadError(err.message)}
-      loading={
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          Cargando PDF…
-        </div>
-      }
-      className="flex flex-col items-center gap-4"
-    >
-      {Array.from({ length: visiblePages }, (_, i) => (
-        <Page
-          key={i}
-          pageNumber={i + 1}
-          width={760}
-          className="overflow-hidden rounded-md shadow-2xl"
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-        />
-      ))}
-    </Document>
+    <div ref={containerRef} className="w-full">
+      <Document
+        file={url}
+        onLoadSuccess={({ numPages }) => {
+          setPages(numPages);
+          setLoadError(null);
+        }}
+        onLoadError={(err) => setLoadError(err.message)}
+        loading={
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Cargando PDF…
+          </div>
+        }
+        className="flex flex-col items-center gap-4"
+      >
+        {Array.from({ length: visiblePages }, (_, i) => (
+          <Page
+            key={i}
+            pageNumber={i + 1}
+            width={pageWidth}
+            className="overflow-hidden rounded-md shadow-2xl"
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+          />
+        ))}
+      </Document>
+    </div>
   );
 }

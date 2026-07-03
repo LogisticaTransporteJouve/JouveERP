@@ -195,7 +195,9 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/30 text-left text-xs">
             <tr>
-              <th className="w-24 px-3 py-2 font-medium">Código</th>
+              <th className="sticky left-0 z-10 w-24 bg-card px-3 py-2 font-medium">
+                Código
+              </th>
               <th className="px-3 py-2 font-medium">Cuenta</th>
               <th className="w-32 px-3 py-2 text-right font-medium">Debe</th>
               <th className="w-32 px-3 py-2 text-right font-medium">Haber</th>
@@ -211,8 +213,10 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.account_id} className="border-b last:border-b-0 hover:bg-muted/20">
-                  <td className="px-3 py-1 font-mono text-xs">{r.account_code}</td>
+                <tr key={r.account_id} className="group border-b last:border-b-0 hover:bg-muted/20">
+                  <td className="sticky left-0 z-10 bg-card px-3 py-1 font-mono text-xs group-hover:bg-muted/20">
+                    {r.account_code}
+                  </td>
                   <td className="px-3 py-1">{r.account_name}</td>
                   <td className="px-3 py-1 text-right font-mono">
                     {Number(r.total_debit) > 0 ? money(Number(r.total_debit)) : ""}
@@ -229,7 +233,7 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 font-semibold">
             <tr>
-              <td colSpan={2} className="px-3 py-2 text-right text-xs">
+              <td colSpan={2} className="sticky left-0 z-10 bg-card px-3 py-2 text-right text-xs">
                 Totales
               </td>
               <td className="px-3 py-2 text-right font-mono">{money(totals.totalDebit)}</td>

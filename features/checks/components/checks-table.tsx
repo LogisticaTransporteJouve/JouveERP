@@ -82,6 +82,7 @@ export function ChequesTable({
       {
         accessorKey: "kind",
         header: "Tipo",
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <span className="text-sm">{CHECK_KIND_LABEL[row.original.kind]}</span>
         ),
@@ -89,6 +90,7 @@ export function ChequesTable({
       {
         accessorKey: "check_number",
         header: "Número",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.check_number}</span>
         ),
@@ -96,6 +98,7 @@ export function ChequesTable({
       {
         accessorKey: "bank_name",
         header: "Banco",
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <span className="text-sm">{row.original.bank_name}</span>
         ),
@@ -103,6 +106,7 @@ export function ChequesTable({
       {
         accessorKey: "drawer_name",
         header: "Firmante",
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <div className="text-sm">
             {row.original.drawer_name}
@@ -117,6 +121,7 @@ export function ChequesTable({
       {
         accessorKey: "due_date",
         header: "Vencimiento",
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {formatArgentineDate(row.original.due_date)}
@@ -126,7 +131,7 @@ export function ChequesTable({
       {
         accessorKey: "amount",
         header: "Monto",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
         cell: ({ row }) => (
           <span className="font-mono text-sm">
             {formatMoney(Number(row.original.amount), row.original.currency)}
@@ -136,6 +141,7 @@ export function ChequesTable({
       {
         accessorKey: "status",
         header: "Estado",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <Badge variant="secondary" className={STATUS_TONE[row.original.status]}>
             {CHECK_STATUS_LABEL[row.original.status]}
@@ -146,7 +152,7 @@ export function ChequesTable({
         id: "actions",
         header: "Acciones",
         enableSorting: false,
-        meta: { align: "right", headerClassName: "w-[280px]" },
+        meta: { align: "right", headerClassName: "w-[280px]", mobile: "primary" },
         cell: ({ row }) => {
           const c = row.original;
           return (

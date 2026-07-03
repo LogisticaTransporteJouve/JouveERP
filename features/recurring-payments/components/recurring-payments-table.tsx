@@ -72,6 +72,7 @@ export function RecurringPaymentsTable() {
       {
         accessorKey: "description",
         header: "Descripción",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <span className="font-medium">{row.original.description}</span>
         ),
@@ -84,7 +85,7 @@ export function RecurringPaymentsTable() {
             {RECURRING_CATEGORY_LABELS[row.original.category]}
           </Badge>
         ),
-        meta: { headerClassName: "w-28" },
+        meta: { headerClassName: "w-28", mobile: "secondary" },
       },
       {
         accessorKey: "amount",
@@ -94,7 +95,7 @@ export function RecurringPaymentsTable() {
             {money(row.original.amount, row.original.currency)}
           </span>
         ),
-        meta: { headerClassName: "w-36", align: "right" },
+        meta: { headerClassName: "w-36", align: "right", mobile: "primary" },
       },
       {
         accessorKey: "frequency",
@@ -104,7 +105,7 @@ export function RecurringPaymentsTable() {
             {RECURRING_FREQUENCY_LABELS[row.original.frequency]}
           </span>
         ),
-        meta: { headerClassName: "w-24" },
+        meta: { headerClassName: "w-24", mobile: "secondary" },
       },
       {
         accessorKey: "next_due_date",
@@ -112,7 +113,7 @@ export function RecurringPaymentsTable() {
         cell: ({ row }) => (
           <span className="tabular-nums">{row.original.next_due_date}</span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
         accessorKey: "is_active",
@@ -124,13 +125,13 @@ export function RecurringPaymentsTable() {
             aria-label="Activo"
           />
         ),
-        meta: { headerClassName: "w-20" },
+        meta: { headerClassName: "w-20", mobile: "primary" },
       },
       {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

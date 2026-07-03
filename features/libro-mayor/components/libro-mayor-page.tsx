@@ -129,7 +129,9 @@ export function LibroMayorPage() {
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/30 text-left text-xs">
                 <tr>
-                  <th className="px-2 py-2 font-medium">Fecha</th>
+                  <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
+                    Fecha
+                  </th>
                   <th className="px-2 py-2 font-medium">Período</th>
                   <th className="px-2 py-2 font-medium">Descripción</th>
                   <th className="px-2 py-2 font-medium">Origen</th>
@@ -151,11 +153,11 @@ export function LibroMayorPage() {
                     <tr
                       key={r.line_id}
                       className={cn(
-                        "border-b last:border-b-0 hover:bg-muted/20",
+                        "group border-b last:border-b-0 hover:bg-muted/20",
                         r.is_reversal && "bg-red-500/5",
                       )}
                     >
-                      <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                      <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
                         {formatArgentineDate(r.entry_date)}
                       </td>
                       <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -196,7 +198,7 @@ export function LibroMayorPage() {
               </tbody>
               <tfoot className="border-t-2 bg-muted/30 font-semibold">
                 <tr>
-                  <td colSpan={4} className="px-2 py-2 text-right text-xs">
+                  <td colSpan={4} className="sticky left-0 z-10 bg-card px-2 py-2 text-right text-xs">
                     Totales ({rows.length} movimientos)
                   </td>
                   <td className="px-2 py-2 text-right font-mono">

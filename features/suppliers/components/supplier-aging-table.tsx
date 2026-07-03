@@ -71,6 +71,7 @@ export function SupplierAgingTable() {
       {
         accessorKey: "supplier_legal_name",
         header: "Proveedor",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <>
             <Link
@@ -88,19 +89,19 @@ export function SupplierAgingTable() {
       {
         accessorKey: "bucket_0_30",
         header: "0–30 días",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => <MoneyCell amount={row.original.bucket_0_30} />,
       },
       {
         accessorKey: "bucket_30_60",
         header: "30–60",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => <MoneyCell amount={row.original.bucket_30_60} />,
       },
       {
         accessorKey: "bucket_60_90",
         header: "60–90",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <MoneyCell amount={row.original.bucket_60_90} highlight />
         ),
@@ -108,7 +109,7 @@ export function SupplierAgingTable() {
       {
         accessorKey: "bucket_90_plus",
         header: "90+",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
         cell: ({ row }) => (
           <MoneyCell amount={row.original.bucket_90_plus} highlight />
         ),
@@ -116,7 +117,7 @@ export function SupplierAgingTable() {
       {
         accessorKey: "total_open",
         header: "Total",
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
         cell: ({ row }) => {
           const isOld =
             row.original.bucket_60_90 > 0 || row.original.bucket_90_plus > 0;
@@ -136,7 +137,7 @@ export function SupplierAgingTable() {
       {
         accessorKey: "document_count",
         header: "Documentos",
-        meta: { align: "right", headerClassName: "w-24" },
+        meta: { align: "right", headerClassName: "w-24", mobile: "secondary" },
         cell: ({ row }) => (
           <Badge variant="secondary" className="font-mono">
             {row.original.document_count}

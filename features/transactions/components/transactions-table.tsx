@@ -69,7 +69,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "transaction_date",
         header: "Fecha",
         enableSorting: false,
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "primary" },
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {formatArgentineDate(row.original.transaction_date)}
@@ -80,7 +80,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "kind",
         header: "Tipo",
         enableSorting: false,
-        meta: { headerClassName: "w-36" },
+        meta: { headerClassName: "w-36", mobile: "secondary" },
         cell: ({ row }) => {
           const Icon = KIND_ICON[row.original.kind];
           return (
@@ -98,6 +98,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "account_name",
         header: "Cuenta",
         enableSorting: false,
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <Link
             href={`/transactions?account=${row.original.account_id}`}
@@ -112,6 +113,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "channel_name",
         header: "Canal",
         enableSorting: false,
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.channel_name}
@@ -122,7 +124,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "description",
         header: "Descripción",
         enableSorting: false,
-        meta: { cellClassName: "max-w-[260px] truncate text-sm" },
+        meta: { cellClassName: "max-w-[260px] truncate text-sm", mobile: "primary" },
         cell: ({ row }) => (
           <>
             {row.original.description ?? (
@@ -140,7 +142,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "amount",
         header: "Monto",
         enableSorting: false,
-        meta: { align: "right", cellClassName: "font-mono text-sm" },
+        meta: { align: "right", cellClassName: "font-mono text-sm", mobile: "primary" },
         cell: ({ row }) => {
           const isOutflow =
             row.original.kind === "expense" ||
@@ -330,7 +332,7 @@ function DateRange({
   onChange: (from: string, to: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       <DatePicker
         value={from}
         onChange={(v) => onChange(v, to)}

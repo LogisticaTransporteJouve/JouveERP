@@ -122,6 +122,7 @@ export function ShipmentsTable() {
             {row.original.client?.legal_name ?? "—"}
           </span>
         ),
+        meta: { mobile: "secondary" },
       },
       {
         id: "route",
@@ -132,6 +133,7 @@ export function ShipmentsTable() {
             {formatRoute(row.original.origin, row.original.destination)}
           </span>
         ),
+        meta: { mobile: "primary" },
       },
       {
         accessorKey: "scheduled_date",
@@ -141,7 +143,7 @@ export function ShipmentsTable() {
             {formatDate(row.original.scheduled_date)}
           </span>
         ),
-        meta: { headerClassName: "w-36" },
+        meta: { headerClassName: "w-36", mobile: "secondary" },
       },
       {
         accessorKey: "trip",
@@ -152,13 +154,13 @@ export function ShipmentsTable() {
             {row.original.trip?.trip_date ?? "Sin asignar"}
           </span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
         accessorKey: "status",
         header: "Estado",
         cell: ({ row }) => <ShipmentStatusBadge status={row.original.status} />,
-        meta: { headerClassName: "w-36" },
+        meta: { headerClassName: "w-36", mobile: "primary" },
       },
       {
         accessorKey: "freight_amount",
@@ -176,13 +178,13 @@ export function ShipmentsTable() {
             )}
           </div>
         ),
-        meta: { align: "right", headerClassName: "w-40" },
+        meta: { align: "right", headerClassName: "w-40", mobile: "primary" },
       },
       {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => {
           const shipment = row.original;
           const statusActions = STATUS_ACTIONS[shipment.status];

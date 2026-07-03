@@ -64,6 +64,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "numero",
         header: "Comprobante",
         enableSorting: false,
+        meta: { mobile: "secondary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (
@@ -87,6 +88,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "supplier_legal_name",
         header: "Proveedor",
         enableSorting: false,
+        meta: { mobile: "primary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (
@@ -108,7 +110,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "channel_id",
         header: "Tipo",
         enableSorting: false,
-        meta: { headerClassName: "w-20" },
+        meta: { headerClassName: "w-20", mobile: "secondary" },
         cell: ({ row }) => {
           const inv = row.original;
           const dimmed = inv.status === "cancelled" ? "opacity-60" : undefined;
@@ -127,6 +129,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "fecha",
         header: "Fecha",
         enableSorting: false,
+        meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <span
             className={cn(
@@ -142,7 +145,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "imp_total",
         header: "Total",
         enableSorting: false,
-        meta: { align: "right", cellClassName: "font-mono" },
+        meta: { align: "right", cellClassName: "font-mono", mobile: "primary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (
@@ -157,6 +160,7 @@ function usePurchaseInvoiceColumns({
         accessorKey: "status",
         header: "Estado",
         enableSorting: false,
+        meta: { mobile: "primary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (
@@ -177,7 +181,7 @@ function usePurchaseInvoiceColumns({
         id: "actions",
         header: "Acciones",
         enableSorting: false,
-        meta: { align: "right", headerClassName: "w-24" },
+        meta: { align: "right", headerClassName: "w-24", mobile: "primary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (

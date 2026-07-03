@@ -62,7 +62,7 @@ export function TripsTable({
         cell: ({ row }) => (
           <span className="font-medium">{row.original.trip_date}</span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "primary" },
       },
       {
         accessorKey: "driver",
@@ -70,6 +70,7 @@ export function TripsTable({
         cell: ({ row }) => (
           <span className="text-sm">{row.original.driver?.full_name ?? "—"}</span>
         ),
+        meta: { mobile: "secondary" },
       },
       {
         accessorKey: "vehicle",
@@ -79,7 +80,7 @@ export function TripsTable({
             {row.original.vehicle?.patente ?? "—"}
           </span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
         id: "route",
@@ -90,6 +91,7 @@ export function TripsTable({
             {row.original.origin ?? "—"} → {row.original.destination ?? "—"}
           </span>
         ),
+        meta: { mobile: "primary" },
       },
       {
         accessorKey: "status",
@@ -99,7 +101,7 @@ export function TripsTable({
             {TRIP_STATUS_LABELS[row.original.status]}
           </Badge>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "primary" },
       },
       {
         accessorKey: "revenue",
@@ -107,13 +109,13 @@ export function TripsTable({
         cell: ({ row }) => (
           <span className="text-sm">{formatMoney(row.original.revenue)}</span>
         ),
-        meta: { headerClassName: "w-32" },
+        meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

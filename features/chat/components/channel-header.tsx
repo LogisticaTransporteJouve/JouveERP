@@ -1,6 +1,14 @@
 "use client";
 
-import { Bell, BellOff, LogOut, Pin, Settings, Users } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  ChevronLeft,
+  LogOut,
+  Pin,
+  Settings,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,9 +36,11 @@ import { ChannelSettingsDialog } from "./channel-settings-dialog";
 type Props = {
   channelId: string;
   currentUserId: string;
+  /** Shown as a back chevron below md — returns to the channel list pane. */
+  onBack?: () => void;
 };
 
-export function ChannelHeader({ channelId, currentUserId }: Props) {
+export function ChannelHeader({ channelId, currentUserId, onBack }: Props) {
   const { data } = useChannelHeader(channelId);
   const { data: channels } = useChannels();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -103,7 +113,19 @@ export function ChannelHeader({ channelId, currentUserId }: Props) {
 
   return (
     <>
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4 max-md:gap-2 max-md:px-3">
+        {onBack ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="-ml-1 size-8 shrink-0 md:hidden"
+            aria-label="Volver a la lista"
+            onClick={onBack}
+          >
+            <ChevronLeft className="size-5" />
+          </Button>
+        ) : null}
         {leading}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">{data.display_name}</h2>
