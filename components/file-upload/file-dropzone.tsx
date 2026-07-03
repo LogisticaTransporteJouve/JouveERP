@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { prepareImageForUpload } from "./image-compression";
 import {
   FILE_TYPE_PRESETS,
   type FileTypePreset,
@@ -37,17 +38,30 @@ export function FileDropzone({
 }: FileDropzoneProps) {
   const preset = FILE_TYPE_PRESETS[fileType];
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const pickerRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
-    (file: File) => {
-      const error = validateFile(file, preset.allowedTypes, preset.maxSize);
-      if (error) {
-        onError?.(error);
-        return;
+    async (file: File) => {
+      setIsProcessing(true);
+      try {
+        // Photos get downscaled/re-encoded to JPEG first (validation runs on
+        // the result, so a 12 MB camera shot or an iPhone HEIC still passes).
+        const prepared = await prepareImageForUpload(file);
+        const error = validateFile(
+          prepared,
+          preset.allowedTypes,
+          preset.maxSize,
+        );
+        if (error) {
+          onError?.(error);
+          return;
+        }
+        onFile(prepared);
+      } finally {
+        setIsProcessing(false);
       }
-      onFile(file);
     },
     [preset.allowedTypes, preset.maxSize, onError, onFile],
   );
@@ -56,22 +70,24 @@ export function FileDropzone({
     (event: React.DragEvent) => {
       event.preventDefault();
       setIsDragging(false);
-      if (disabled) return;
+      if (disabled || isProcessing) return;
       const file = event.dataTransfer.files[0];
-      if (file) handleFile(file);
+      if (file) void handleFile(file);
     },
-    [disabled, handleFile],
+    [disabled, isProcessing, handleFile],
   );
 
   const onPicked = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (file) handleFile(file);
+      if (file) void handleFile(file);
       // Reset so re-picking the same file re-triggers onChange.
       event.target.value = "";
     },
     [handleFile],
   );
+
+  const busy = disabled || isProcessing;
 
   const allowedLabels = Object.values(preset.allowedTypes).join(", ");
   const maxMb = Math.round(preset.maxSize / (1024 * 1024));
@@ -109,7 +125,7 @@ export function FileDropzone({
           type="button"
           variant="outline"
           size="sm"
-          disabled={disabled}
+          disabled={busy}
           onClick={() => cameraRef.current?.click()}
           className="hidden pointer-coarse:inline-flex"
         >
@@ -121,7 +137,7 @@ export function FileDropzone({
           type="button"
           variant="outline"
           size="sm"
-          disabled={disabled}
+          disabled={busy}
           onClick={() => pickerRef.current?.click()}
         >
           Elegir archivo
