@@ -1076,6 +1076,24 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_layouts: {
+        Row: {
+          layout: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          layout: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          layout?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           created_at: string
