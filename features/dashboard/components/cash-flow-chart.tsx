@@ -9,14 +9,11 @@ import { formatMoney } from "@/lib/format";
 
 import type { CashFlowChartData, CashFlowChartMonth } from "../schema";
 
-const VB_W = 720;
-const VB_H = 230;
-const PAD_L = 56;
+const MAX_BAR_W = 28;
+const END_RADIUS = 4;
 const PAD_R = 8;
 const PAD_T = 14;
 const PAD_B = 26;
-const MAX_BAR_W = 28;
-const END_RADIUS = 4;
 
 const MES = [
   "ene",
@@ -91,37 +88,25 @@ function barPath(
 }
 
 export function CashFlowChart({ data }: { data: CashFlowChartData }) {
-  const hatchId = useId();
   const [hovered, setHovered] = useState<number | null>(null);
 
-  const geometry = useMemo(() => {
-    const nets = data.months.map((m) => m.net);
-    const rawMax = Math.max(0, ...nets);
-    const rawMin = Math.min(0, ...nets);
-    const span = rawMax - rawMin || 1;
-    const yMax = rawMax + span * 0.08;
-    const yMin = rawMin === 0 ? 0 : rawMin - span * 0.08;
-
-    const innerH = VB_H - PAD_T - PAD_B;
-    const innerW = VB_W - PAD_L - PAD_R;
-    const yToPx = (v: number) =>
-      PAD_T + ((yMax - v) / (yMax - yMin || 1)) * innerH;
-
-    const step = niceStep((yMax - yMin) / 4 || 1);
-    const ticks: number[] = [];
-    for (let t = Math.ceil(yMin / step) * step; t <= yMax; t += step) {
-      ticks.push(t);
-    }
-
-    const slot = innerW / Math.max(data.months.length, 1);
-    const barW = Math.min(MAX_BAR_W, slot * 0.55);
+  // Compact (< md) window: the 2 most recent realized months + the next 4
+  // projected. Fewer bars keep labels legible on a phone-width viewBox.
+  const mobileMonths = useMemo(() => {
     const firstProjected = data.months.findIndex((m) => !m.realized);
-
-    return { yToPx, ticks, slot, barW, firstProjected };
+    if (firstProjected < 0) return data.months.slice(-6);
+    return data.months.slice(
+      Math.max(0, firstProjected - 2),
+      firstProjected + 4,
+    );
   }, [data.months]);
 
-  const { yToPx, ticks, slot, barW, firstProjected } = geometry;
-  const zeroY = yToPx(0);
+  const [selected, setSelected] = useState<number>(() => {
+    const realizedCount = mobileMonths.filter((m) => m.realized).length;
+    return realizedCount > 0 ? realizedCount - 1 : 0;
+  });
+
+  const selectedMonth = mobileMonths[selected] ?? null;
 
   return (
     <section className="rounded-lg border bg-card">
@@ -172,126 +157,68 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
         </div>
       </div>
 
-      <div className="relative p-2 text-foreground">
-        <svg
-          viewBox={`0 0 ${VB_W} ${VB_H}`}
-          className="w-full"
-          role="img"
-          aria-label={`Flujo de caja mensual, ${data.months.length} meses, realizado y proyectado.`}
-        >
-          <defs>
-            <pattern
-              id={hatchId}
-              patternUnits="userSpaceOnUse"
-              width="6"
-              height="6"
-              patternTransform="rotate(45)"
-            >
-              <rect
-                width="6"
-                height="6"
-                fill="currentColor"
-                opacity="0.12"
-              />
-              <line
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="6"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                opacity="0.45"
-              />
-            </pattern>
-          </defs>
-
-          {ticks.map((t) => (
-            <g key={t}>
-              <line
-                x1={PAD_L}
-                x2={VB_W - PAD_R}
-                y1={yToPx(t)}
-                y2={yToPx(t)}
-                stroke="currentColor"
-                strokeOpacity={t === 0 ? 0.4 : 0.1}
-              />
-              <text
-                x={PAD_L - 6}
-                y={yToPx(t)}
-                textAnchor="end"
-                dominantBaseline="middle"
-                fontSize="10"
-                fill="currentColor"
-                fillOpacity="0.55"
-                className="font-mono"
-              >
-                {compactArs.format(t)}
-              </text>
-            </g>
-          ))}
-
-          {firstProjected > 0 && (
-            <line
-              x1={PAD_L + firstProjected * slot}
-              x2={PAD_L + firstProjected * slot}
-              y1={PAD_T}
-              y2={VB_H - PAD_B}
-              stroke="currentColor"
-              strokeOpacity="0.25"
-              strokeDasharray="3 3"
-            />
-          )}
-
-          {data.months.map((m, i) => {
-            const x = PAD_L + i * slot + (slot - barW) / 2;
-            const vY = yToPx(m.net);
-            const yTop = m.net >= 0 ? vY : zeroY;
-            const h = Math.abs(vY - zeroY);
-            const isHover = hovered === i;
-            return (
-              <g key={m.month}>
-                {h >= 0.5 && (
-                  <path
-                    d={barPath(x, yTop, barW, h, m.net >= 0)}
-                    fill={m.realized ? "currentColor" : `url(#${hatchId})`}
-                    fillOpacity={m.realized ? (isHover ? 0.9 : 0.7) : 1}
-                    stroke={m.realized ? "none" : "currentColor"}
-                    strokeOpacity={isHover ? 0.8 : 0.5}
-                  />
-                )}
-                <text
-                  x={PAD_L + i * slot + slot / 2}
-                  y={VB_H - PAD_B + 14}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="currentColor"
-                  fillOpacity={isHover ? 0.9 : 0.55}
-                >
-                  {shortMonthLabel(m.month, i)}
-                </text>
-                <rect
-                  x={PAD_L + i * slot}
-                  y={PAD_T}
-                  width={slot}
-                  height={VB_H - PAD_T - PAD_B}
-                  fill="transparent"
-                  tabIndex={0}
-                  aria-label={`${monthLabel(m.month)}: entradas ${formatMoney(m.inTotal)}, salidas ${formatMoney(m.outTotal)}, neto ${formatMoney(m.net)}${m.closing != null ? `, saldo proyectado ${formatMoney(m.closing)}` : ""}`}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(i)}
-                  onBlur={() => setHovered(null)}
-                />
-              </g>
-            );
-          })}
-        </svg>
-
+      <div className="relative p-2 text-foreground max-md:hidden">
+        <ChartSvg
+          months={data.months}
+          vbW={720}
+          vbH={230}
+          padL={56}
+          active={hovered}
+          interaction="hover"
+          onActiveChange={setHovered}
+        />
         {hovered != null && data.months[hovered] && (
-          <ChartTooltip
+          <FloatingTooltip
             month={data.months[hovered]}
-            leftPct={((PAD_L + hovered * slot + slot / 2) / VB_W) * 100}
+            leftPct={
+              ((56 + (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
+                720) *
+              100
+            }
           />
+        )}
+      </div>
+
+      <div className="p-2 text-foreground md:hidden">
+        <ChartSvg
+          months={mobileMonths}
+          vbW={360}
+          vbH={200}
+          padL={44}
+          active={selected}
+          interaction="tap"
+          onActiveChange={(i) => {
+            if (i != null) setSelected(i);
+          }}
+        />
+        {selectedMonth && (
+          <div className="mx-2 mb-1 rounded-md border bg-muted/30 p-2 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">
+                {monthLabel(selectedMonth.month)}
+              </span>
+              <Badge variant={selectedMonth.realized ? "secondary" : "outline"}>
+                {selectedMonth.realized ? "Realizado" : "Proyectado"}
+              </Badge>
+            </div>
+            <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5">
+              <TooltipRow
+                label="Entradas"
+                value={formatMoney(selectedMonth.inTotal)}
+              />
+              <TooltipRow
+                label="Salidas"
+                value={formatMoney(selectedMonth.outTotal)}
+              />
+              <TooltipRow label="Neto" value={formatMoney(selectedMonth.net)} />
+              {selectedMonth.closing != null && (
+                <TooltipRow
+                  label="Saldo proy."
+                  value={formatMoney(selectedMonth.closing)}
+                />
+              )}
+            </dl>
+          </div>
         )}
       </div>
 
@@ -306,7 +233,175 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
   );
 }
 
-function ChartTooltip({
+function ChartSvg({
+  months,
+  vbW,
+  vbH,
+  padL,
+  active,
+  interaction,
+  onActiveChange,
+}: {
+  months: CashFlowChartMonth[];
+  vbW: number;
+  vbH: number;
+  padL: number;
+  active: number | null;
+  /** "hover" clears on leave/blur (floating tooltip); "tap" only sets. */
+  interaction: "hover" | "tap";
+  onActiveChange: (index: number | null) => void;
+}) {
+  const hatchId = useId();
+
+  const geometry = useMemo(() => {
+    const nets = months.map((m) => m.net);
+    const rawMax = Math.max(0, ...nets);
+    const rawMin = Math.min(0, ...nets);
+    const span = rawMax - rawMin || 1;
+    const yMax = rawMax + span * 0.08;
+    const yMin = rawMin === 0 ? 0 : rawMin - span * 0.08;
+
+    const innerH = vbH - PAD_T - PAD_B;
+    const innerW = vbW - padL - PAD_R;
+    const yToPx = (v: number) =>
+      PAD_T + ((yMax - v) / (yMax - yMin || 1)) * innerH;
+
+    const step = niceStep((yMax - yMin) / 4 || 1);
+    const ticks: number[] = [];
+    for (let t = Math.ceil(yMin / step) * step; t <= yMax; t += step) {
+      ticks.push(t);
+    }
+
+    const slot = innerW / Math.max(months.length, 1);
+    const barW = Math.min(MAX_BAR_W, slot * 0.55);
+    const firstProjected = months.findIndex((m) => !m.realized);
+
+    return { yToPx, ticks, slot, barW, firstProjected };
+  }, [months, vbW, vbH, padL]);
+
+  const { yToPx, ticks, slot, barW, firstProjected } = geometry;
+  const zeroY = yToPx(0);
+
+  return (
+    <svg
+      viewBox={`0 0 ${vbW} ${vbH}`}
+      className="w-full"
+      role="img"
+      aria-label={`Flujo de caja mensual, ${months.length} meses, realizado y proyectado.`}
+    >
+      <defs>
+        <pattern
+          id={hatchId}
+          patternUnits="userSpaceOnUse"
+          width="6"
+          height="6"
+          patternTransform="rotate(45)"
+        >
+          <rect width="6" height="6" fill="currentColor" opacity="0.12" />
+          <line
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            opacity="0.45"
+          />
+        </pattern>
+      </defs>
+
+      {ticks.map((t) => (
+        <g key={t}>
+          <line
+            x1={padL}
+            x2={vbW - PAD_R}
+            y1={yToPx(t)}
+            y2={yToPx(t)}
+            stroke="currentColor"
+            strokeOpacity={t === 0 ? 0.4 : 0.1}
+          />
+          <text
+            x={padL - 6}
+            y={yToPx(t)}
+            textAnchor="end"
+            dominantBaseline="middle"
+            fontSize="10"
+            fill="currentColor"
+            fillOpacity="0.55"
+            className="font-mono"
+          >
+            {compactArs.format(t)}
+          </text>
+        </g>
+      ))}
+
+      {firstProjected > 0 && (
+        <line
+          x1={padL + firstProjected * slot}
+          x2={padL + firstProjected * slot}
+          y1={PAD_T}
+          y2={vbH - PAD_B}
+          stroke="currentColor"
+          strokeOpacity="0.25"
+          strokeDasharray="3 3"
+        />
+      )}
+
+      {months.map((m, i) => {
+        const x = padL + i * slot + (slot - barW) / 2;
+        const vY = yToPx(m.net);
+        const yTop = m.net >= 0 ? vY : zeroY;
+        const h = Math.abs(vY - zeroY);
+        const isActive = active === i;
+        return (
+          <g key={m.month}>
+            {h >= 0.5 && (
+              <path
+                d={barPath(x, yTop, barW, h, m.net >= 0)}
+                fill={m.realized ? "currentColor" : `url(#${hatchId})`}
+                fillOpacity={m.realized ? (isActive ? 0.9 : 0.7) : 1}
+                stroke={m.realized ? "none" : "currentColor"}
+                strokeOpacity={isActive ? 0.8 : 0.5}
+              />
+            )}
+            <text
+              x={padL + i * slot + slot / 2}
+              y={vbH - PAD_B + 14}
+              textAnchor="middle"
+              fontSize="10"
+              fill="currentColor"
+              fillOpacity={isActive ? 0.9 : 0.55}
+            >
+              {shortMonthLabel(m.month, i)}
+            </text>
+            <rect
+              x={padL + i * slot}
+              y={PAD_T}
+              width={slot}
+              height={vbH - PAD_T - PAD_B}
+              fill="transparent"
+              tabIndex={0}
+              aria-label={`${monthLabel(m.month)}: entradas ${formatMoney(m.inTotal)}, salidas ${formatMoney(m.outTotal)}, neto ${formatMoney(m.net)}${m.closing != null ? `, saldo proyectado ${formatMoney(m.closing)}` : ""}`}
+              onClick={() => onActiveChange(i)}
+              onMouseEnter={
+                interaction === "hover" ? () => onActiveChange(i) : undefined
+              }
+              onMouseLeave={
+                interaction === "hover" ? () => onActiveChange(null) : undefined
+              }
+              onFocus={() => onActiveChange(i)}
+              onBlur={
+                interaction === "hover" ? () => onActiveChange(null) : undefined
+              }
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function FloatingTooltip({
   month,
   leftPct,
 }: {

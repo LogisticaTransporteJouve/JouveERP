@@ -1,6 +1,14 @@
 "use client";
 
+import { SlidersHorizontal } from "lucide-react";
+
 import { useScope } from "@/components/providers/scope-provider";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -17,13 +25,24 @@ const DIVISION_LABEL: Record<Division, string> = {
   jouve: "Logística Jouve",
 };
 
+const DIVISION_SHORT: Record<Division, string> = {
+  dz: "DZ",
+  jouve: "Jouve",
+};
+
 const FISCAL_LABEL: Record<FiscalFilter, string> = {
   all: "Todos los canales",
   fiscal: "Solo fiscal",
   internal: "Solo interno",
 };
 
-export function ScopeSelector() {
+const FISCAL_SHORT: Record<FiscalFilter, string> = {
+  all: "Todos",
+  fiscal: "Fiscal",
+  internal: "Interno",
+};
+
+function ScopeSelects({ stacked }: { stacked: boolean }) {
   const { division, fiscalFilter, channels, setDivision, setFiscalFilter } =
     useScope();
 
@@ -32,7 +51,7 @@ export function ScopeSelector() {
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <>
       <Select
         value={division ?? ALL_DIVISIONS}
         onValueChange={(value) => {
@@ -40,7 +59,11 @@ export function ScopeSelector() {
         }}
       >
         <SelectTrigger
-          className="h-8 w-[180px] text-xs text-muted-foreground"
+          className={
+            stacked
+              ? "h-9 w-full text-sm"
+              : "h-8 w-[180px] text-xs text-muted-foreground"
+          }
           aria-label="División"
         >
           <SelectValue placeholder="División" />
@@ -64,7 +87,11 @@ export function ScopeSelector() {
         }}
       >
         <SelectTrigger
-          className="h-8 w-[160px] text-xs text-muted-foreground"
+          className={
+            stacked
+              ? "h-9 w-full text-sm"
+              : "h-8 w-[160px] text-xs text-muted-foreground"
+          }
           aria-label="Tipo de canal"
         >
           <SelectValue placeholder="Tipo" />
@@ -75,6 +102,40 @@ export function ScopeSelector() {
           <SelectItem value="internal">{FISCAL_LABEL.internal}</SelectItem>
         </SelectContent>
       </Select>
-    </div>
+    </>
+  );
+}
+
+export function ScopeSelector() {
+  const { division, fiscalFilter } = useScope();
+
+  const summary = `${division ? DIVISION_SHORT[division] : "Todas"} · ${FISCAL_SHORT[fiscalFilter]}`;
+
+  return (
+    <>
+      <div className="hidden items-center gap-2 md:flex">
+        <ScopeSelects stacked={false} />
+      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 max-w-[9.5rem] gap-1.5 px-2 text-xs text-muted-foreground md:hidden"
+            aria-label="Alcance"
+          >
+            <SlidersHorizontal className="size-3.5 shrink-0" />
+            <span className="truncate">{summary}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="flex w-64 flex-col gap-2 md:hidden"
+        >
+          <ScopeSelects stacked />
+        </PopoverContent>
+      </Popover>
+    </>
   );
 }

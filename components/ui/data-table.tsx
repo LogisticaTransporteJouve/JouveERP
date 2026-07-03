@@ -3,6 +3,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -44,6 +45,11 @@ declare module "@tanstack/react-table" {
     headerClassName?: string;
     /** Extra className for the <td>. */
     cellClassName?: string;
+    /** Mobile (< md) behavior. Once ANY column sets this, the table switches
+     *  to mobile mode below md: "primary" columns stay visible, "secondary"
+     *  (and unannotated) columns move into a per-row expandable panel, and
+     *  "hidden" columns disappear. Desktop rendering never changes. */
+    mobile?: "primary" | "secondary" | "hidden";
   }
 }
 
@@ -110,6 +116,12 @@ export function DataTable<T>({
   const [sorting, setSorting] = React.useState<SortingState>(
     defaultSorting ?? [],
   );
+  const [mobileExpanded, setMobileExpanded] = React.useState<
+    Record<string, boolean>
+  >({});
+
+  // Mobile mode activates only when the caller annotated its columns.
+  const mobileMode = columns.some((c) => c.meta?.mobile != null);
 
   const table = useReactTable({
     data,
@@ -137,6 +149,7 @@ export function DataTable<T>({
       <TableHeader>
         {table.getHeaderGroups().map((hg) => (
           <TableRow key={hg.id}>
+            {mobileMode && <TableHead className="w-8 md:hidden" />}
             {hg.headers.map((header) => {
               const align = header.column.columnDef.meta?.align;
               const canSort = header.column.getCanSort();
@@ -147,6 +160,9 @@ export function DataTable<T>({
                   className={cn(
                     align && ALIGN[align],
                     header.column.columnDef.meta?.headerClassName,
+                    mobileMode &&
+                      header.column.columnDef.meta?.mobile !== "primary" &&
+                      "hidden md:table-cell",
                   )}
                 >
                   {header.isPlaceholder ? null : canSort ? (
@@ -186,8 +202,16 @@ export function DataTable<T>({
         {isLoading ? (
           Array.from({ length: skeletonRows }).map((_, r) => (
             <TableRow key={`skeleton-${r}`}>
-              {columns.map((_col, c) => (
-                <TableCell key={c}>
+              {mobileMode && <TableCell className="md:hidden" />}
+              {columns.map((col, c) => (
+                <TableCell
+                  key={c}
+                  className={cn(
+                    mobileMode &&
+                      col.meta?.mobile !== "primary" &&
+                      "hidden md:table-cell",
+                  )}
+                >
                   <Skeleton className="h-4 w-full" />
                 </TableCell>
               ))}
@@ -196,35 +220,112 @@ export function DataTable<T>({
         ) : rows.length === 0 ? (
           <TableRow>
             <TableCell
-              colSpan={columns.length}
+              colSpan={columns.length + (mobileMode ? 1 : 0)}
               className="py-10 text-center text-sm text-muted-foreground"
             >
               {emptyMessage}
             </TableCell>
           </TableRow>
         ) : (
-          rows.map((row) => (
-            <TableRow
-              key={row.id}
-              className={cn(onRowClick && "cursor-pointer")}
-              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-            >
-              {row.getVisibleCells().map((cell) => {
-                const align = cell.column.columnDef.meta?.align;
-                return (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      align && ALIGN[align],
-                      cell.column.columnDef.meta?.cellClassName,
-                    )}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ))
+          rows.map((row) => {
+            const detailCells = mobileMode
+              ? row
+                  .getVisibleCells()
+                  .filter(
+                    (cell) => cell.column.columnDef.meta?.mobile == null ||
+                      cell.column.columnDef.meta.mobile === "secondary",
+                  )
+              : [];
+            const isDetailOpen = mobileExpanded[row.id] === true;
+            return (
+              <React.Fragment key={row.id}>
+                <TableRow
+                  className={cn(onRowClick && "cursor-pointer")}
+                  onClick={
+                    onRowClick ? () => onRowClick(row.original) : undefined
+                  }
+                >
+                  {mobileMode && (
+                    <TableCell className="py-1 pr-0 md:hidden">
+                      {detailCells.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMobileExpanded((prev) => ({
+                              ...prev,
+                              [row.id]: !isDetailOpen,
+                            }));
+                          }}
+                          aria-expanded={isDetailOpen}
+                          aria-label={
+                            isDetailOpen ? "Ocultar detalle" : "Ver detalle"
+                          }
+                          className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "size-4 transition-transform",
+                              isDetailOpen && "rotate-180",
+                            )}
+                          />
+                        </button>
+                      )}
+                    </TableCell>
+                  )}
+                  {row.getVisibleCells().map((cell) => {
+                    const align = cell.column.columnDef.meta?.align;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          align && ALIGN[align],
+                          cell.column.columnDef.meta?.cellClassName,
+                          mobileMode &&
+                            cell.column.columnDef.meta?.mobile !== "primary" &&
+                            "hidden md:table-cell",
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+                {mobileMode && isDetailOpen && detailCells.length > 0 && (
+                  <TableRow className="md:hidden">
+                    <TableCell
+                      colSpan={columns.length + 1}
+                      className="bg-muted/30 px-4 py-3 whitespace-normal"
+                    >
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                        {detailCells.map((cell) => {
+                          const header = cell.column.columnDef.header;
+                          return (
+                            <div key={cell.id} className="min-w-0">
+                              <dt className="text-xs text-muted-foreground">
+                                {typeof header === "string"
+                                  ? header
+                                  : cell.column.id}
+                              </dt>
+                              <dd className="text-sm break-words">
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext(),
+                                )}
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
+            );
+          })
         )}
       </TableBody>
     </Table>

@@ -157,7 +157,7 @@ export function TripDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="trip_date"
@@ -196,7 +196,7 @@ export function TripDialog({
                 )}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="driver_id"
@@ -286,7 +286,7 @@ export function TripDialog({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="origin"
@@ -327,7 +327,7 @@ export function TripDialog({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="km"

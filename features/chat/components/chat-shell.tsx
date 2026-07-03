@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 import { ChannelHeader } from "./channel-header";
 import { ChannelList } from "./channel-list";
@@ -19,9 +20,25 @@ export function ChatShell({
   currentUserId,
   currentUserDisplayName,
 }: Props) {
+  // Below md the shell shows ONE pane at a time (list ↔ thread); there is no
+  // list-only route (/chat redirects to the self channel), so this is local
+  // view state: picking a channel switches to the thread, back returns here.
+  const [mobileView, setMobileView] = useState<"list" | "thread">(
+    activeChannelId ? "thread" : "list",
+  );
+
+  useEffect(() => {
+    if (activeChannelId) setMobileView("thread");
+  }, [activeChannelId]);
+
   return (
-    <div className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-[260px_1fr] overflow-hidden rounded-lg border bg-card">
-      <aside className="border-r">
+    <div className="grid h-[calc(100dvh-6.5rem)] grid-cols-1 overflow-hidden rounded-lg border bg-card max-md:h-[calc(100dvh-11rem)] md:grid-cols-[260px_1fr]">
+      <aside
+        className={cn(
+          "md:border-r",
+          mobileView === "thread" && "max-md:hidden",
+        )}
+      >
         <Suspense fallback={<ChannelListSkeleton />}>
           <ChannelList
             activeChannelId={activeChannelId}
@@ -29,13 +46,19 @@ export function ChatShell({
           />
         </Suspense>
       </aside>
-      <section className="flex h-full min-h-0 flex-col">
+      <section
+        className={cn(
+          "flex h-full min-h-0 flex-col",
+          mobileView === "list" && "max-md:hidden",
+        )}
+      >
         {activeChannelId ? (
           <>
             <Suspense fallback={<HeaderSkeleton />}>
               <ChannelHeader
                 channelId={activeChannelId}
                 currentUserId={currentUserId}
+                onBack={() => setMobileView("list")}
               />
             </Suspense>
             <div className="flex min-h-0 flex-1 flex-col">

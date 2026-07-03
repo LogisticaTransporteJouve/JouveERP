@@ -57,6 +57,7 @@ export function AgingTable() {
       {
         accessorKey: "legal_name",
         header: "Cliente",
+        meta: { mobile: "primary" },
         cell: ({ row }) => (
           <>
             <Link
@@ -75,13 +76,13 @@ export function AgingTable() {
         accessorKey: "bucket_0_30",
         header: "0–30 días",
         cell: ({ row }) => <MoneyCell amount={row.original.bucket_0_30} />,
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
       },
       {
         accessorKey: "bucket_30_60",
         header: "30–60",
         cell: ({ row }) => <MoneyCell amount={row.original.bucket_30_60} />,
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
       },
       {
         accessorKey: "bucket_60_90",
@@ -89,7 +90,7 @@ export function AgingTable() {
         cell: ({ row }) => (
           <MoneyCell amount={row.original.bucket_60_90} highlight />
         ),
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "secondary" },
       },
       {
         accessorKey: "bucket_90_plus",
@@ -97,7 +98,7 @@ export function AgingTable() {
         cell: ({ row }) => (
           <MoneyCell amount={row.original.bucket_90_plus} highlight />
         ),
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
       },
       {
         accessorKey: "total_open",
@@ -117,7 +118,7 @@ export function AgingTable() {
             </span>
           );
         },
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
       },
       {
         accessorKey: "document_count",
@@ -127,7 +128,7 @@ export function AgingTable() {
             {row.original.document_count}
           </Badge>
         ),
-        meta: { align: "right", headerClassName: "w-24" },
+        meta: { align: "right", headerClassName: "w-24", mobile: "secondary" },
       },
     ],
     [],

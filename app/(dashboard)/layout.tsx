@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { DateRangeProvider } from "@/components/providers/date-range-provider";
 import { ScopeProvider } from "@/components/providers/scope-provider";
 import { ScopeSelector } from "@/components/scope-selector";
@@ -93,15 +94,16 @@ export default async function DashboardLayout({
           <SidebarInset className="min-w-0">
             <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <SidebarTrigger className="-ml-1" />
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
                 <GlobalSearchTrigger />
                 <ScopeSelector />
                 <NotificationBell currentUserId={ctx.userId} />
               </div>
             </header>
-            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <main className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
               {children}
             </main>
+            <MobileTabBar userRoles={ctx.roles} />
             <BrowserNotifier currentUserId={ctx.userId} />
           </SidebarInset>
         </SidebarProvider>

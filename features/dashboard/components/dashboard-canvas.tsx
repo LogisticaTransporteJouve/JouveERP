@@ -18,6 +18,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   GripVertical,
   Pencil,
@@ -98,6 +100,17 @@ export function DashboardCanvas({
     setLayout((current) => [...current, { id, size: "full" }]);
   }
 
+  // Touch fallback: below md the drag handle is hidden and reordering happens
+  // with these arrows instead (dnd-kit pointer drag fights page scroll).
+  function moveWidget(id: WidgetId, delta: -1 | 1) {
+    setLayout((current) => {
+      const from = current.findIndex((i) => i.id === id);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= current.length) return current;
+      return arrayMove(current, from, to);
+    });
+  }
+
   async function handleSave() {
     setPending(true);
     const res = await saveMyDashboardLayoutAction(layout);
@@ -136,7 +149,12 @@ export function DashboardCanvas({
         {editing ? (
           <>
             <p className="text-xs text-muted-foreground">
-              Arrastrá para reordenar; cambiá tamaño o quitá widgets.
+              <span className="max-md:hidden">
+                Arrastrá para reordenar; cambiá tamaño o quitá widgets.
+              </span>
+              <span className="md:hidden">
+                Usá las flechas para reordenar o quitá widgets.
+              </span>
             </p>
             <div className="ml-auto flex items-center gap-2">
               <Button
@@ -207,11 +225,15 @@ export function DashboardCanvas({
             strategy={rectSortingStrategy}
           >
             <div className="grid gap-4 lg:grid-cols-2">
-              {layout.map((item) => (
+              {layout.map((item, index) => (
                 <SortableWidget
                   key={item.id}
                   id={item.id}
                   size={item.size}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < layout.length - 1}
+                  onMoveUp={() => moveWidget(item.id, -1)}
+                  onMoveDown={() => moveWidget(item.id, 1)}
                   onToggleSize={() => toggleSize(item.id)}
                   onRemove={() => removeWidget(item.id)}
                 >
@@ -240,12 +262,20 @@ export function DashboardCanvas({
 function SortableWidget({
   id,
   size,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
   onToggleSize,
   onRemove,
   children,
 }: {
   id: WidgetId;
   size: "half" | "full";
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onToggleSize: () => void;
   onRemove: () => void;
   children: ReactNode;
@@ -272,7 +302,7 @@ function SortableWidget({
       <div className="absolute -top-3 right-2 z-10 flex items-center gap-1 rounded-md border bg-background px-1 py-0.5 shadow-sm">
         <button
           type="button"
-          className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+          className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing max-md:hidden"
           aria-label={`Mover ${WIDGET_LABEL[id]}`}
           {...attributes}
           {...listeners}
@@ -281,7 +311,25 @@ function SortableWidget({
         </button>
         <button
           type="button"
-          className="p-1 text-muted-foreground hover:text-foreground"
+          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
+          aria-label={`Subir ${WIDGET_LABEL[id]}`}
+          disabled={!canMoveUp}
+          onClick={onMoveUp}
+        >
+          <ArrowUp className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
+          aria-label={`Bajar ${WIDGET_LABEL[id]}`}
+          disabled={!canMoveDown}
+          onClick={onMoveDown}
+        >
+          <ArrowDown className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="p-1 text-muted-foreground hover:text-foreground max-lg:hidden"
           aria-label={
             size === "full"
               ? `Achicar ${WIDGET_LABEL[id]} a media fila`

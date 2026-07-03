@@ -84,6 +84,7 @@ export function IssuedChecksTable({
             </div>
           </div>
         ),
+        meta: { mobile: "primary" },
       },
       {
         accessorKey: "kind",
@@ -93,6 +94,7 @@ export function IssuedChecksTable({
             {ISSUED_CHECK_KIND_LABEL[row.original.kind]}
           </Badge>
         ),
+        meta: { mobile: "secondary" },
       },
       {
         id: "beneficiary",
@@ -112,12 +114,13 @@ export function IssuedChecksTable({
             )}
           </>
         ),
+        meta: { mobile: "secondary" },
       },
       {
         accessorKey: "due_date",
         header: "Vence",
         cell: ({ row }) => formatArgentineDate(row.original.due_date),
-        meta: { cellClassName: "text-sm text-muted-foreground" },
+        meta: { cellClassName: "text-sm text-muted-foreground", mobile: "secondary" },
       },
       {
         accessorKey: "amount",
@@ -128,7 +131,7 @@ export function IssuedChecksTable({
             {formatNumber2(Number(row.original.amount))}
           </span>
         ),
-        meta: { align: "right" },
+        meta: { align: "right", mobile: "primary" },
       },
       {
         accessorKey: "status",
@@ -138,12 +141,13 @@ export function IssuedChecksTable({
             {ISSUED_CHECK_STATUS_LABEL[row.original.status]}
           </Badge>
         ),
+        meta: { mobile: "primary" },
       },
       {
         id: "actions",
         header: "Acciones",
         enableSorting: false,
-        meta: { headerClassName: "w-32", align: "right" },
+        meta: { headerClassName: "w-32", align: "right", mobile: "primary" },
         cell: ({ row }) => {
           const c = row.original;
           const isOpen = c.status === "emitted";

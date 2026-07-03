@@ -200,6 +200,7 @@ function buildColumns({
       accessorKey: "legal_name",
       header: "Razón social",
       enableSorting: false,
+      meta: { mobile: "primary" },
       cell: ({ row }) => {
         const supplier = row.original;
         return (
@@ -223,6 +224,7 @@ function buildColumns({
       accessorKey: "cuit",
       header: "CUIT",
       enableSorting: false,
+      meta: { mobile: "secondary" },
       cell: ({ row }) => (
         <span className="font-mono text-xs">{row.original.cuit}</span>
       ),
@@ -231,6 +233,7 @@ function buildColumns({
       accessorKey: "iva_condition",
       header: "Condición IVA",
       enableSorting: false,
+      meta: { mobile: "secondary" },
       cell: ({ row }) => (
         <Badge
           variant="secondary"
@@ -244,6 +247,7 @@ function buildColumns({
       accessorKey: "category_id",
       header: "Categoría",
       enableSorting: false,
+      meta: { mobile: "secondary" },
       cell: ({ row }) => {
         const categoryId = row.original.category_id;
         return categoryId && categoriesById[categoryId] ? (
@@ -259,6 +263,7 @@ function buildColumns({
       accessorKey: "is_active",
       header: "Estado",
       enableSorting: false,
+      meta: { mobile: "primary" },
       cell: ({ row }) =>
         row.original.is_active ? (
           <span className="text-sm text-emerald-600 dark:text-emerald-400">
@@ -272,6 +277,7 @@ function buildColumns({
       accessorKey: "updated_at",
       header: "Actualizado",
       enableSorting: false,
+      meta: { mobile: "secondary" },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatArgentineDate(row.original.updated_at)}
@@ -282,7 +288,7 @@ function buildColumns({
       id: "actions",
       header: "Acciones",
       enableSorting: false,
-      meta: { headerClassName: "w-24", align: "right" },
+      meta: { headerClassName: "w-24", align: "right", mobile: "primary" },
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
           {canWrite && <EditSupplierDialog supplier={row.original} />}

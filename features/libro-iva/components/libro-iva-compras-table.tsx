@@ -82,7 +82,9 @@ export function LibroIvaComprasTable({
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/30 text-left text-xs">
             <tr>
-              <th className="px-2 py-2 font-medium">Fecha</th>
+              <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
+                Fecha
+              </th>
               <th className="px-2 py-2 font-medium">Tipo</th>
               <th className="px-2 py-2 font-medium">Comprobante</th>
               <th className="px-2 py-2 font-medium">Proveedor</th>
@@ -103,7 +105,7 @@ export function LibroIvaComprasTable({
               <th className="px-2 py-2 font-medium">CAE prov.</th>
             </tr>
             <tr className="border-b text-xs text-muted-foreground">
-              <th />
+              <th className="sticky left-0 z-10 bg-card" />
               <th />
               <th />
               <th />
@@ -127,9 +129,9 @@ export function LibroIvaComprasTable({
               return (
                 <tr
                   key={row.purchase_invoice_id}
-                  className="border-b last:border-b-0 hover:bg-muted/20"
+                  className="group border-b last:border-b-0 hover:bg-muted/20"
                 >
-                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                  <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
                     {formatArgentineDate(row.fecha)}
                   </td>
                   <td className="px-2 py-1 text-xs">
@@ -194,7 +196,7 @@ export function LibroIvaComprasTable({
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
             <tr>
-              <td colSpan={5} className="px-2 py-2 text-right">
+              <td colSpan={5} className="sticky left-0 z-10 bg-card px-2 py-2 text-right">
                 Totales ({totals.count} comprobantes)
               </td>
               {IVA_RATES.map((r) => {
