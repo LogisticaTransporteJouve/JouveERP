@@ -1,15 +1,182 @@
-export default function DashboardPage() {
+import type { ReactNode } from "react";
+
+import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
+import { DashboardInsights } from "@/features/ai/insights/components/dashboard-insights";
+import {
+  getDashboardDueDatesAction,
+  getDashboardOpsAction,
+  getMyDashboardLayoutAction,
+} from "@/features/dashboard/actions/dashboard-actions";
+import { CashFlowChart } from "@/features/dashboard/components/cash-flow-chart";
+import { DashboardCanvas } from "@/features/dashboard/components/dashboard-canvas";
+import { DueDatesCard } from "@/features/dashboard/components/due-dates-card";
+import { FinanceKpis } from "@/features/dashboard/components/finance-kpis";
+import { OpsKpisRow } from "@/features/dashboard/components/ops-kpis";
+import { QuickActions } from "@/features/dashboard/components/quick-actions";
+import { TopDebtorsCard } from "@/features/dashboard/components/top-debtors-card";
+import {
+  defaultLayoutForRoles,
+  type DashboardAgingKpis,
+  type TopDebtor,
+  type WidgetId,
+} from "@/features/dashboard/schema";
+import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
+import { getCashFlowAction } from "@/features/treasury/actions/cash-flow-actions";
+import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
+import { requireUserContext } from "@/lib/auth/context";
+import { userCan } from "@/lib/auth/permissions";
+import { round2 } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+const TOP_DEBTORS = 5;
+
+export default async function DashboardPage() {
+  const ctx = await requireUserContext();
+
+  const canAccounting = userCan(ctx.roles, "accounting:read");
+  const [
+    treasuryRes,
+    agingRes,
+    supplierAgingRes,
+    dueDatesRes,
+    cashFlowRes,
+    opsRes,
+    layoutRes,
+  ] = await Promise.all([
+    canAccounting ? getTreasurySummaryAction() : null,
+    userCan(ctx.roles, "clients:read") ? getAgingSummaryAction() : null,
+    userCan(ctx.roles, "suppliers:read") ? getSupplierAgingAction() : null,
+    getDashboardDueDatesAction(),
+    canAccounting ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
+    getDashboardOpsAction(),
+    getMyDashboardLayoutAction(),
+  ]);
+
+  const treasury = treasuryRes?.ok ? treasuryRes.data : null;
+  const aging = agingRes?.ok ? agingRes.data : null;
+  const supplierAging = supplierAgingRes?.ok ? supplierAgingRes.data : null;
+  const cashFlow = cashFlowRes?.ok ? cashFlowRes.data : null;
+  const ops = opsRes.ok ? opsRes.data : null;
+  const savedLayout = layoutRes.ok ? layoutRes.data : null;
+
+  const receivables: DashboardAgingKpis | null = aging
+    ? {
+        total_open: aging.totals.total_open,
+        bucket_90_plus: aging.totals.bucket_90_plus,
+        party_count: aging.totals.client_count,
+      }
+    : null;
+
+  const payables: DashboardAgingKpis | null = supplierAging
+    ? {
+        total_open: round2(
+          supplierAging.reduce((sum, s) => sum + s.total_open, 0),
+        ),
+        bucket_90_plus: round2(
+          supplierAging.reduce((sum, s) => sum + s.bucket_90_plus, 0),
+        ),
+        party_count: supplierAging.length,
+      }
+    : null;
+
+  // getAgingSummaryAction already sorts by total_open desc.
+  const topDebtors: TopDebtor[] = (aging?.clients ?? [])
+    .filter((c) => c.total_open > 0)
+    .slice(0, TOP_DEBTORS)
+    .map((c) => ({
+      client_id: c.client_id,
+      name: c.display_name ?? c.legal_name,
+      cuit: c.cuit,
+      total_open: c.total_open,
+      oldest_days: c.oldest_days,
+    }));
+
+  // Widget catalog: only widgets whose data the caller can see get an entry;
+  // the canvas hides layout items with no entry.
+  const widgets: Partial<Record<WidgetId, ReactNode>> = {};
+  if (treasury || receivables || payables) {
+    widgets.finance_kpis = (
+      <FinanceKpis
+        treasury={
+          treasury
+            ? {
+                as_of: treasury.as_of,
+                liquid_now: treasury.liquid_now,
+                liquid_prev_eom: treasury.liquid_prev_eom,
+                usd_rate: treasury.usd_rate,
+                checks_now: treasury.checks_now,
+                checks_due_soon: treasury.checks_due_soon,
+              }
+            : null
+        }
+        receivables={receivables}
+        payables={payables}
+      />
+    );
+  }
+  if (
+    ops &&
+    (ops.trips_in_progress != null ||
+      ops.shipments_pending != null ||
+      ops.pallets_stored != null)
+  ) {
+    widgets.ops_kpis = <OpsKpisRow ops={ops} />;
+  }
+  if (cashFlow) {
+    widgets.cash_flow = (
+      <CashFlowChart
+        data={{
+          months: cashFlow.months,
+          cashToday: cashFlow.cashToday,
+          lowestClosing: cashFlow.lowestClosing,
+          deficitMonth: cashFlow.deficitMonth,
+        }}
+      />
+    );
+  }
+  if (userCan(ctx.roles, "ai:read")) {
+    widgets.insights = (
+      <DashboardInsights canManage={userCan(ctx.roles, "ai:admin")} />
+    );
+  }
+  if (dueDatesRes.ok) {
+    widgets.due_dates = <DueDatesCard items={dueDatesRes.data} />;
+  }
+  if (aging) {
+    widgets.top_debtors = <TopDebtorsCard debtors={topDebtors} />;
+  }
+
+  const template = defaultLayoutForRoles(ctx.roles).filter(
+    (item) => widgets[item.id] != null,
+  );
+  const resolvedLayout = (savedLayout ?? template).filter(
+    (item) => widgets[item.id] != null,
+  );
+
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          En construcción. Acá van a aparecer los widgets de caja y operaciones.
-        </p>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Resumen de caja, cobranzas, pagos y vencimientos de DZ &amp; Sons.
+          </p>
+        </div>
+        <QuickActions roles={ctx.roles} />
       </div>
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
-        Próxima fase B: roles, multi-división y alta de usuarios.
-      </div>
+
+      {Object.keys(widgets).length === 0 ? (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+          Usá el menú lateral para acceder a tus módulos habilitados.
+        </div>
+      ) : (
+        <DashboardCanvas
+          initialLayout={resolvedLayout}
+          defaultLayout={template}
+          widgets={widgets}
+        />
+      )}
     </div>
   );
 }

@@ -6,10 +6,20 @@ import { userCan } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AiRoute() {
+export default async function AiRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ ask?: string }>;
+}) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:chat")) {
     redirect("/dashboard");
   }
-  return <AiWorkspace canManageInsights={userCan(ctx.roles, "ai:admin")} />;
+  const { ask } = await searchParams;
+  return (
+    <AiWorkspace
+      canManageInsights={userCan(ctx.roles, "ai:admin")}
+      initialAsk={ask && ask.trim().length > 0 ? ask : undefined}
+    />
+  );
 }
