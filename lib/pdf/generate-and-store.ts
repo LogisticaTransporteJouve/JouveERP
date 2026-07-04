@@ -149,7 +149,7 @@ export async function buildTemplateData(
       ctz: Number(row.cotizacion),
       tipoDocRec: row.doc_tipo,
       nroDocRec: row.doc_nro === "" ? 0 : Number(row.doc_nro),
-      tipoCodAut: "E",
+      tipoCodAut: row.emission_type === "caea" ? "A" : "E",
       codAut: row.cae,
     };
     // Validate URL parses without crashing — buildInvoiceQRUrl is total but

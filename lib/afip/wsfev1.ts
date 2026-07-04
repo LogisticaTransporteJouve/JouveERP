@@ -625,6 +625,263 @@ export async function getVoucherInfo(
   });
 }
 
+// ---------------------------------------------------------------------------
+// CAEA — contingency emission (RG 5782/2025). One code per fortnight covers
+// every CAEA point of sale of the CUIT; vouchers issued under it are informed
+// afterwards (FECAEARegInformativo) until FchTopeInf.
+// ---------------------------------------------------------------------------
+
+export interface CaeaResult {
+  caea: string;
+  periodo: number;
+  orden: number;
+  fchVigDesde: string; // yyyymmdd
+  fchVigHasta: string; // yyyymmdd
+  fchTopeInf: string; // yyyymmdd
+  fchProceso: string | null;
+  observaciones: InvoiceObservation[];
+}
+
+interface RawCaeaGet {
+  CAEA?: string | number;
+  Periodo?: number;
+  Orden?: number;
+  FchVigDesde?: string | number;
+  FchVigHasta?: string | number;
+  FchTopeInf?: string | number;
+  FchProceso?: string | number;
+  Observaciones?: { Obs?: RawObs | RawObs[] };
+}
+
+interface ParsedCaeaGetResponse {
+  Envelope?: {
+    Body?: {
+      [key: string]:
+        | {
+            [key: string]: {
+              ResultGet?: RawCaeaGet;
+              Errors?: { Err?: RawError | RawError[] };
+            };
+          }
+        | SoapFault
+        | undefined;
+      Fault?: SoapFault;
+    };
+  };
+}
+
+function parseCaeaGet(
+  raw: unknown,
+  responseKey: string,
+  resultKey: string,
+): CaeaResult {
+  const r = raw as ParsedCaeaGetResponse;
+  detectSoapFault(r.Envelope?.Body?.Fault);
+  const response = r.Envelope?.Body?.[responseKey] as
+    | Record<
+        string,
+        { ResultGet?: RawCaeaGet; Errors?: { Err?: RawError | RawError[] } }
+      >
+    | undefined;
+  const result = response?.[resultKey];
+  detectServiceErrors(result?.Errors?.Err);
+  const get = result?.ResultGet;
+  if (!get?.CAEA) {
+    throw new AfipServiceError([
+      { code: 0, message: "AFIP no devolvió el CAEA." },
+    ]);
+  }
+  return {
+    caea: String(get.CAEA),
+    periodo: Number(get.Periodo ?? 0),
+    orden: Number(get.Orden ?? 0),
+    fchVigDesde: String(get.FchVigDesde ?? ""),
+    fchVigHasta: String(get.FchVigHasta ?? ""),
+    fchTopeInf: String(get.FchTopeInf ?? ""),
+    fchProceso: get.FchProceso ? String(get.FchProceso) : null,
+    observaciones: parseObservations(get.Observaciones),
+  };
+}
+
+/** FECAEASolicitar — requests the fortnight's CAEA (window: 5 days before the
+ *  quincena starts until its last day). 15008 = already granted → consultCAEA. */
+export async function requestCAEA(
+  periodo: number,
+  orden: 1 | 2,
+): Promise<CaeaResult> {
+  const ta = await getAccessTicket(WSFE_SERVICE_ID);
+  const cuit = getAfipCuit();
+  const inner = `<fe:FECAEASolicitar>
+    ${authBlock(ta.token, ta.sign, cuit)}
+    <fe:Periodo>${periodo}</fe:Periodo>
+    <fe:Orden>${orden}</fe:Orden>
+  </fe:FECAEASolicitar>`;
+
+  return callWsfev1("FECAEASolicitar", inner, (raw) =>
+    parseCaeaGet(raw, "FECAEASolicitarResponse", "FECAEASolicitarResult"),
+  );
+}
+
+/** FECAEAConsultar — re-fetches an already-assigned CAEA (recovery for 15008). */
+export async function consultCAEA(
+  periodo: number,
+  orden: 1 | 2,
+): Promise<CaeaResult> {
+  const ta = await getAccessTicket(WSFE_SERVICE_ID);
+  const cuit = getAfipCuit();
+  const inner = `<fe:FECAEAConsultar>
+    ${authBlock(ta.token, ta.sign, cuit)}
+    <fe:Periodo>${periodo}</fe:Periodo>
+    <fe:Orden>${orden}</fe:Orden>
+  </fe:FECAEAConsultar>`;
+
+  return callWsfev1("FECAEAConsultar", inner, (raw) =>
+    parseCaeaGet(raw, "FECAEAConsultarResponse", "FECAEAConsultarResult"),
+  );
+}
+
+export interface CaeaInformInput extends InvoiceRequestInput {
+  caea: string;
+  /** Generation timestamp yyyymmddhhmiss (mandatory on contingency PVs, 1440). */
+  cbteFchHsGen: string;
+}
+
+export interface CaeaInformResult {
+  ptoVta: number;
+  cbteTipo: number;
+  cbteNro: number;
+  caea: string;
+  observaciones: InvoiceObservation[];
+}
+
+interface RawCaeaDetResp extends RawCAEDetResp {
+  CAEA?: string | number;
+}
+
+interface ParsedCaeaRegInformativoResponse {
+  Envelope?: {
+    Body?: {
+      FECAEARegInformativoResponse?: {
+        FECAEARegInformativoResult?: {
+          FeCabResp?: RawCAEFeCabResp;
+          FeDetResp?: { FECAEADetResponse?: RawCaeaDetResp | RawCaeaDetResp[] };
+          Errors?: { Err?: RawError | RawError[] };
+        };
+      };
+      Fault?: SoapFault;
+    };
+  };
+}
+
+/**
+ * FECAEARegInformativo — informs ONE voucher issued offline under a CAEA.
+ * Same detail as FECAESolicitar plus CAEA + CbteFchHsGen (WSDL order: both go
+ * after the base fields). Throws AfipServiceError when AFIP rejects it.
+ */
+export async function informCaeaVoucher(
+  input: CaeaInformInput,
+): Promise<CaeaInformResult> {
+  const ta = await getAccessTicket(WSFE_SERVICE_ID);
+  const cuit = getAfipCuit();
+  const det = buildFECAEDetRequest(input).replace(
+    "</fe:FECAEDetRequest>",
+    `<fe:CAEA>${input.caea}</fe:CAEA><fe:CbteFchHsGen>${input.cbteFchHsGen}</fe:CbteFchHsGen></fe:FECAEDetRequest>`,
+  );
+  const inner = `<fe:FECAEARegInformativo>
+    ${authBlock(ta.token, ta.sign, cuit)}
+    <fe:FeCAEARegInfReq>
+      <fe:FeCabReq>
+        <fe:CantReg>1</fe:CantReg>
+        <fe:PtoVta>${input.ptoVta}</fe:PtoVta>
+        <fe:CbteTipo>${input.cbteTipo}</fe:CbteTipo>
+      </fe:FeCabReq>
+      <fe:FeDetReq>
+        ${det.replace(/fe:FECAEDetRequest/g, "fe:FECAEADetRequest")}
+      </fe:FeDetReq>
+    </fe:FeCAEARegInfReq>
+  </fe:FECAEARegInformativo>`;
+
+  return callWsfev1("FECAEARegInformativo", inner, (raw) => {
+    const r = raw as ParsedCaeaRegInformativoResponse;
+    detectSoapFault(r.Envelope?.Body?.Fault);
+    const result =
+      r.Envelope?.Body?.FECAEARegInformativoResponse
+        ?.FECAEARegInformativoResult;
+    detectServiceErrors(result?.Errors?.Err);
+
+    const det = pickFirstDet(result?.FeDetResp?.FECAEADetResponse);
+    if (!det) {
+      throw new AfipServiceError([
+        { code: 0, message: "AFIP no devolvió FECAEADetResponse." },
+      ]);
+    }
+    if (det.Resultado !== "A") {
+      const obs = parseObservations(det.Observaciones);
+      throw new AfipServiceError(
+        obs.length > 0
+          ? obs
+          : [
+              {
+                code: 0,
+                message: `AFIP rechazó el informe CAEA (Resultado=${det.Resultado ?? "?"}).`,
+              },
+            ],
+      );
+    }
+    return {
+      ptoVta: Number(result?.FeCabResp?.PtoVta ?? input.ptoVta),
+      cbteTipo: Number(result?.FeCabResp?.CbteTipo ?? input.cbteTipo),
+      cbteNro: Number(det.CbteDesde ?? input.cbteNro),
+      caea: String((det as RawCaeaDetResp).CAEA ?? input.caea),
+      observaciones: parseObservations(det.Observaciones),
+    };
+  });
+}
+
+interface ParsedCaeaSinMovResponse {
+  Envelope?: {
+    Body?: {
+      FECAEASinMovimientoInformarResponse?: {
+        FECAEASinMovimientoInformarResult?: {
+          CAEA?: string | number;
+          FchProceso?: string | number;
+          Resultado?: string;
+          PtoVta?: number;
+          Errors?: { Err?: RawError | RawError[] };
+        };
+      };
+      Fault?: SoapFault;
+    };
+  };
+}
+
+/** 1209 — "ya informado sin movimiento": idempotent no-op for the caller. */
+export const CAEA_NO_MOVEMENT_ALREADY_INFORMED = 1209;
+
+/** FECAEASinMovimientoInformar — declares a CAEA PV issued nothing under a CAEA. */
+export async function informCaeaNoMovement(
+  ptoVta: number,
+  caea: string,
+): Promise<{ resultado: string }> {
+  const ta = await getAccessTicket(WSFE_SERVICE_ID);
+  const cuit = getAfipCuit();
+  const inner = `<fe:FECAEASinMovimientoInformar>
+    ${authBlock(ta.token, ta.sign, cuit)}
+    <fe:PtoVta>${ptoVta}</fe:PtoVta>
+    <fe:CAEA>${caea}</fe:CAEA>
+  </fe:FECAEASinMovimientoInformar>`;
+
+  return callWsfev1("FECAEASinMovimientoInformar", inner, (raw) => {
+    const r = raw as ParsedCaeaSinMovResponse;
+    detectSoapFault(r.Envelope?.Body?.Fault);
+    const result =
+      r.Envelope?.Body?.FECAEASinMovimientoInformarResponse
+        ?.FECAEASinMovimientoInformarResult;
+    detectServiceErrors(result?.Errors?.Err);
+    return { resultado: String(result?.Resultado ?? "?") };
+  });
+}
+
 // Exposed for unit tests — lets us round-trip the parser without standing up
 // a real SOAP endpoint.
 export const __test_parsers__ = {
@@ -632,4 +889,5 @@ export const __test_parsers__ = {
   toAfipDate,
   fmtMoney,
   parseObservations,
+  parseCaeaGet,
 };

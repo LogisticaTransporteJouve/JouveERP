@@ -1,3 +1,4 @@
+import { getActiveCaeaForDate } from "@/lib/afip/caea";
 import {
   AfipServiceError,
   AfipTransportError,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/afip/wsfev1";
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
+import { todayInAR } from "@/lib/format";
 import { rpcAs } from "@/lib/db/rpc";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -53,7 +55,7 @@ import {
 
 const RETRYABLE_LIMIT = 5;
 
-type DraftRow = {
+export type DraftRow = {
   id: string;
   channel_id: string;
   client_id: string;
@@ -80,7 +82,7 @@ type DraftRow = {
   invoice_origin_id: string | null;
 };
 
-type ItemRow = {
+export type ItemRow = {
   iva_rate_id: number | null;
   line_neto: string | number;
   line_iva: string | number;
@@ -98,12 +100,14 @@ type DraftChannelJoin = {
   channel: { id: string; is_fiscal: boolean; name: string } | null;
 };
 
-type DraftLoad = {
+export type DraftLoad = {
   draft: DraftRow;
   iva: InvoiceIvaEntry[];
   origenes: Array<{ tipo: number; ptoVta: number; nro: number }>;
   channelIsFiscal: boolean;
   channelKind: string;
+  /** AFIP EmisionTipo of the POS ("CAE" | "CAEA" | null if never synced). */
+  posEmissionType: string | null;
 };
 
 function toNumber(value: string | number | null | undefined): number {
@@ -111,7 +115,7 @@ function toNumber(value: string | number | null | undefined): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-function aggregateIva(items: ItemRow[]): InvoiceIvaEntry[] {
+export function aggregateIva(items: ItemRow[]): InvoiceIvaEntry[] {
   const buckets = new Map<number, { base: number; importe: number }>();
   for (const item of items) {
     if (item.iva_rate_id === null) continue;
@@ -129,7 +133,10 @@ function aggregateIva(items: ItemRow[]): InvoiceIvaEntry[] {
   return out;
 }
 
-function buildAfipInput(load: DraftLoad, cbteNro: number): InvoiceRequestInput {
+export function buildAfipInput(
+  load: DraftLoad,
+  cbteNro: number,
+): InvoiceRequestInput {
   const draft = load.draft;
   if (draft.cbte_tipo_afip === null || draft.iva_condition_receptor === null) {
     throw new Error(
@@ -226,13 +233,19 @@ export const issueInvoice = inngest.createFunction(
         );
       }
 
-      const [{ data: items, error: itemsErr }, originPair] = await Promise.all([
-        supabase
-          .from("invoice_items")
-          .select("iva_rate_id, line_neto, line_iva")
-          .eq("invoice_id", invoice_id),
-        loadOrigen(supabase, draft.invoice_origin_id),
-      ]);
+      const [{ data: items, error: itemsErr }, originPair, posRes] =
+        await Promise.all([
+          supabase
+            .from("invoice_items")
+            .select("iva_rate_id, line_neto, line_iva")
+            .eq("invoice_id", invoice_id),
+          loadOrigen(supabase, draft.invoice_origin_id),
+          supabase
+            .from("sales_points")
+            .select("last_known_emission_type")
+            .eq("numero", draft.punto_venta)
+            .maybeSingle(),
+        ]);
       if (itemsErr) throw new Error(`load-items: ${itemsErr.message}`);
 
       // Flip status to emitting so duplicate clicks that bypass Inngest's
@@ -249,6 +262,7 @@ export const issueInvoice = inngest.createFunction(
         origenes: originPair ? [originPair] : [],
         channelIsFiscal: channel.is_fiscal,
         channelKind: channel.name,
+        posEmissionType: posRes.data?.last_known_emission_type ?? null,
       };
     });
 
@@ -320,6 +334,88 @@ export const issueInvoice = inngest.createFunction(
       ]);
     }
     const cbteTipo = draft.cbte_tipo_afip;
+
+    // Branch CAEA (contingencia): the POS is registered in ARCA's ABM with
+    // EmisionTipo CAEA. No FECAESolicitar — the voucher goes out offline with
+    // the fortnight's pre-granted code and its own gapless numbering; the
+    // caea-inform cron reports it to AFIP afterwards (FECAEARegInformativo).
+    if (load.posEmissionType?.toUpperCase().includes("CAEA")) {
+      const caea = await step.run("load-active-caea", async () => {
+        const active = await getActiveCaeaForDate(todayInAR());
+        if (!active) {
+          throw new AfipServiceError([
+            {
+              code: 0,
+              message:
+                "No hay CAEA vigente para la quincena — solicitalo desde AFIP admin antes de emitir por contingencia.",
+            },
+          ]);
+        }
+        return active;
+      });
+
+      const caeaNumero: number = await step.run(
+        "reserve-numero-caea",
+        async () => {
+          // Local numbering: AFIP only knows CAEA numbers once informed, so
+          // the source of truth is max(local, último informado en AFIP).
+          const supabase = getServiceClient();
+          const { data: localMax, error } = await supabase
+            .from("invoices")
+            .select("numero")
+            .eq("punto_venta", draft.punto_venta)
+            .eq("cbte_tipo_afip", cbteTipo)
+            .not("numero", "is", null)
+            .order("numero", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (error) throw new Error(`reserve-numero-caea: ${error.message}`);
+          let afipLast = 0;
+          try {
+            afipLast = await getLastAuthorizedNumber(
+              draft.punto_venta,
+              cbteTipo,
+            );
+          } catch {
+            // AFIP caído — exactamente el escenario CAEA. Seguimos con lo local.
+          }
+          return Math.max(Number(localMax?.numero ?? 0), afipLast) + 1;
+        },
+      );
+
+      await step.run("persist-caea-emission", async () => {
+        const supabase = getServiceClient();
+        const { error } = await supabase
+          .from("invoices")
+          .update({
+            numero: caeaNumero,
+            cae: caea.caea,
+            cae_vencimiento: caea.fch_vig_hasta,
+            emission_type: "caea",
+            cbte_fch_hs_gen: new Date().toISOString(),
+            status: "emitted",
+            emitted_at: new Date().toISOString(),
+          })
+          .eq("id", invoice_id);
+        if (error) throw new Error(`persist-caea-emission: ${error.message}`);
+      });
+
+      await step.run("hash-pdf-caea", async () => {
+        try {
+          const { generateAndPersistInvoicePdfHash } = await import(
+            "@/lib/pdf/generate-and-hash"
+          );
+          await generateAndPersistInvoicePdfHash(invoice_id);
+        } catch (err) {
+          logger.warn("issue_invoice.pdf_hash_failed_caea", {
+            invoice_id,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+
+      return { caea: caea.caea, cbteNro: caeaNumero };
+    }
 
     const reservedNumero: number = await step.run(
       "reserve-numero",
