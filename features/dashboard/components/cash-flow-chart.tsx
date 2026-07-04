@@ -114,7 +114,8 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
         <div>
           <h2 className="text-sm font-medium">Flujo de caja</h2>
           <p className="text-xs text-muted-foreground">
-            Neto mensual ARS · saldo hoy{" "}
+            Neto mensual en ARS{data.usdRate !== null ? " (USD al TC oficial)" : ""} ·
+            saldo hoy{" "}
             <span className="font-mono">{formatMoney(data.cashToday)}</span>
           </p>
         </div>
