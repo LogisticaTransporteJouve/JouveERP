@@ -21,7 +21,7 @@
 | Modelos fallback | Gemini Pro + GPT (reasoning) | Resiliencia a outages single-vendor |
 | Workflows IA | **Inngest** (no Temporal) | Ya está en JouveERP; alcanza para tool loops bounded |
 | Streaming | `createUIMessageStream` + AI SDK (sin Redis hace falta para single-app) | La implementación de referencia usa Redis pub/sub porque su agent corre en worker separado; JouveERP puede mantenerlo in-process |
-| Embeddings | **pgvector** en Supabase + `gemini-embedding-001` (768 dims) | Supabase ya está, no agregar infra |
+| Embeddings | ~~pgvector~~ **descartado** (2026-07-04, §11) | FTS `search_global` cubre free-text |
 | Sandbox de código (opt) | **Modal** (`modal` JS SDK) sólo si hay tool de `bash`/`file_*` | Postergable hasta que aparezca necesidad concreta |
 | Persistencia chat | Tablas Supabase `chat_sessions` + `chat_messages` | Reusa RLS por rol/usuario |
 | UI | shadcn + `@ai-sdk-tools/artifacts/client` para artifacts streamed | Patrón canvas/artefacto, ver §7 |
@@ -1462,9 +1462,10 @@ Cuando se decida arrancar Fase I, este es el orden mínimo de cambios:
 7. **UI mínima** (`app/(dashboard)/ai/page.tsx` con `useChat` de AI SDK)
 8. **Sidebar entry** + permission gate
 9. **Sentry context** + cost logging
-10. **Demo interno** — antes de skills, antes de embeddings
+10. **Demo interno** — antes de skills
 
-**Time-box:** 1-2 sprints para chat usable. Skills + embeddings vienen después.
+**Time-box:** 1-2 sprints para chat usable. Skills vienen después
+(embeddings: descartados, §11).
 
 ---
 
