@@ -169,7 +169,7 @@ function usePurchaseInvoiceColumns({
               className={
                 inv.status === "cancelled"
                   ? "bg-zinc-500/15 text-zinc-700 opacity-60 dark:text-zinc-300"
-                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
               {PURCHASE_INVOICE_STATUS_LABEL[inv.status]}

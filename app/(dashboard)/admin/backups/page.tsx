@@ -28,19 +28,19 @@ export default async function BackupsPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         <Card
-          icon={<ShieldCheck className="size-5 text-emerald-600" />}
+          icon={<ShieldCheck className="size-5 text-muted-foreground" />}
           title="Política de retención"
           body="Diarios con 30 días de retención. Más viejos se borran automáticamente."
         />
         <Card
-          icon={<AlertTriangle className="size-5 text-amber-600" />}
+          icon={<AlertTriangle className="size-5 text-muted-foreground" />}
           title="Drill mensual recomendado"
           body="Restaurar el dump más reciente a un proyecto temporal y verificar row counts. Procedimiento en scripts/restore-backup.sh."
         />
       </div>
 
       {!res.ok ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 p-4 text-sm">
+        <div className="rounded-lg border border-border bg-muted p-4 text-sm">
           {res.error}
         </div>
       ) : (

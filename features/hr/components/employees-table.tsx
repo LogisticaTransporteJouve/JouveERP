@@ -34,8 +34,8 @@ import { NewEmployeeDialog } from "./new-employee-dialog";
 
 const FREQUENCY_BADGE_TONE: Record<PayFrequency, string> = {
   semanal: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  mensual: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  mixto: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  mensual: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  mixto: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 
 import { formatInteger } from "@/lib/format";
@@ -217,7 +217,7 @@ function EmployeesTableRows({
         cell: ({ row }) => {
           const employee = row.original;
           return employee.is_active ? (
-            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            <span className="text-sm text-muted-foreground dark:text-muted-foreground">
               Activo
             </span>
           ) : (

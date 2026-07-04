@@ -12,8 +12,11 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 ## Estructura
 
 - `features/<dominio>/{actions,components,hooks,lib,schemas,types,index.ts}` —
-  slices autocontenidos. Solo importan de `@/components/ui/*`, `@/lib/*`,
-  `@/hooks/*`. **Importar de otra feature → prohibido** (subir a `@/lib/`).
+  slices autocontenidos. Base: importan de `@/components/ui/*`, `@/lib/*`,
+  `@/hooks/*`. **Cross-feature:** tipos, schemas, query-keys y pickers pueden
+  cruzar (ej. `accounts/schema`, `clients/schema`, `invoices/components/client-picker`);
+  **lógica de negocio (actions) no cruza**, salvo la excepción documentada
+  `issueFiscalInvoiceAction`. Si compartís lógica, subila a `@/lib/`.
 - `app/(dashboard)/<ruta>/page.tsx` — server components con prefetch + `Hydrate`.
 - `app/api/<x>/route.ts` — route handlers.
 - `lib/` — `auth/`, `supabase/`, `inngest/`, `query/`, `pdf/`, `db/database.types.ts`, …

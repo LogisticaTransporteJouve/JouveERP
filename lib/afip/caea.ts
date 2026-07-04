@@ -26,7 +26,7 @@ export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
   const supabase = getServiceClient();
   const { data: existing } = await supabase
     .from("caea_codes")
-    .select("*")
+    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
     .eq("periodo", q.periodo)
     .eq("orden", q.orden)
     .maybeSingle();
@@ -61,7 +61,7 @@ export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
       },
       { onConflict: "periodo,orden" },
     )
-    .select("*")
+    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
     .single();
   if (error || !inserted) {
     logger.error("caea.persist.failed", { periodo: q.periodo, orden: q.orden, error });
@@ -84,7 +84,7 @@ export async function getActiveCaeaForDate(
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("caea_codes")
-    .select("*")
+    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
     .lte("fch_vig_desde", dateIso)
     .gte("fch_vig_hasta", dateIso)
     .maybeSingle();

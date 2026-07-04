@@ -119,7 +119,7 @@ export function LibroMayorPage() {
         ) : (
           <div className="space-y-3">
             {truncated && (
-              <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+              <div className="rounded-lg border border-border bg-muted p-3 text-sm">
                 ⚠ La cuenta tiene más de 1000 movimientos. Mostrando los
                 primeros 1000 — filtrá por rango de fechas para ver el
                 resto.
@@ -154,7 +154,7 @@ export function LibroMayorPage() {
                       key={r.line_id}
                       className={cn(
                         "group border-b last:border-b-0 hover:bg-muted/20",
-                        r.is_reversal && "bg-red-500/5",
+                        r.is_reversal && "bg-muted",
                       )}
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
@@ -165,7 +165,7 @@ export function LibroMayorPage() {
                       </td>
                       <td className="px-2 py-1">
                         {r.is_reversal && (
-                          <Undo2 className="mr-1 inline-block size-3 text-red-600" />
+                          <Undo2 className="mr-1 inline-block size-3 text-foreground" />
                         )}
                         <span title={r.line_desc ?? ""}>{r.description}</span>
                       </td>

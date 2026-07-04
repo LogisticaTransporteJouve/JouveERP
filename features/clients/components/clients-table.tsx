@@ -33,10 +33,10 @@ import { NewClientDialog } from "./new-client-dialog";
 
 const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   responsable_inscripto: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  monotributo: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  monotributo: "bg-muted text-muted-foreground dark:text-muted-foreground",
   exento: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   consumidor_final: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
-  no_categorizado: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  no_categorizado: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 
 // Server-ordered + partially loaded (infinite scroll), so client sorting is
@@ -91,7 +91,7 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         enableSorting: false,
         cell: ({ row }) =>
           row.original.is_active ? (
-            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            <span className="text-sm text-muted-foreground dark:text-muted-foreground">
               Activo
             </span>
           ) : (

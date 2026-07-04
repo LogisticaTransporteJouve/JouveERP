@@ -28,8 +28,8 @@ import { NewIssuedCheckDialog } from "./new-issued-check-dialog";
 
 const STATUS_BADGE: Record<string, string> = {
   emitted: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  cashed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  rejected: "bg-red-500/15 text-red-700 dark:text-red-300",
+  cashed: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  rejected: "bg-muted text-foreground dark:text-foreground",
   cancelled: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
 };
 
@@ -162,7 +162,7 @@ export function IssuedChecksTable({
                     title="Marcar cobrado"
                     onClick={() => transition(c.id, "cashed", "Cobrado")}
                   >
-                    <CheckCircle2 className="size-4 text-emerald-600" />
+                    <CheckCircle2 className="size-4 text-muted-foreground" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -171,7 +171,7 @@ export function IssuedChecksTable({
                     title="Marcar rechazado"
                     onClick={() => transition(c.id, "rejected", "Rechazado")}
                   >
-                    <XCircle className="size-4 text-red-600" />
+                    <XCircle className="size-4 text-foreground" />
                   </Button>
                   <EditIssuedCheckDialog check={c} accounts={accounts} />
                   <Button

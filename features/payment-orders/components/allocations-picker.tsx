@@ -188,7 +188,7 @@ export function AllocationsPicker({
                     <div className="flex flex-col items-end">
                       <span
                         className={
-                          isPartial ? "text-amber-600 dark:text-amber-400" : ""
+                          isPartial ? "text-muted-foreground dark:text-muted-foreground" : ""
                         }
                       >
                         {amountToInput(c.outstanding)}

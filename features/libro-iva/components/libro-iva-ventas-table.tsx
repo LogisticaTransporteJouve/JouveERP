@@ -50,8 +50,8 @@ export function LibroIvaVentasTable({
   return (
     <div className="space-y-4">
       {(sinCae > 0 || sinItems > 0) && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
-          <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-muted-foreground" />
           <div className="space-y-1">
             {sinCae > 0 && (
               <p>
@@ -165,7 +165,7 @@ export function LibroIvaVentasTable({
                     {row.cae ? (
                       <span title={`Vto ${row.cae_vencimiento ?? ""}`}>{row.cae}</span>
                     ) : (
-                      <span className="text-amber-600">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>

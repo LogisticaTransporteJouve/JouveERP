@@ -269,7 +269,7 @@ export function AppSidebar({
                           <Icon className="size-4" />
                           {badge > 0 ? (
                             <span
-                              className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white"
+                              className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-medium leading-none text-white"
                               aria-label={`${badge} sin leer`}
                             >
                               {badge > 99 ? "99+" : badge}

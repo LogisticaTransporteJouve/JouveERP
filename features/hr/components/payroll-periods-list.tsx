@@ -46,7 +46,7 @@ export function PayrollPeriodsList({ actorRoles }: { actorRoles: Role[] }) {
             variant={row.original.status === "closed" ? "secondary" : "outline"}
             className={
               row.original.status === "closed"
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                ? "bg-muted text-muted-foreground dark:text-muted-foreground"
                 : ""
             }
           >

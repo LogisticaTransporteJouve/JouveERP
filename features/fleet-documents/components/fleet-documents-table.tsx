@@ -28,7 +28,7 @@ import { FleetDocumentDialog } from "./fleet-document-dialog";
 function expiryClass(expiresAt: string): string {
   const days = Math.round((Date.parse(expiresAt) - Date.now()) / 86400000);
   if (days <= 7) return "text-destructive font-medium";
-  if (days <= 30) return "text-amber-600 dark:text-amber-500";
+  if (days <= 30) return "text-muted-foreground dark:text-muted-foreground";
   return "text-muted-foreground";
 }
 

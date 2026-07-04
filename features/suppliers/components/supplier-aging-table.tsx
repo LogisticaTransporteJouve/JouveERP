@@ -226,7 +226,7 @@ function SummaryCard({
     tone === "danger"
       ? "text-destructive"
       : tone === "warn"
-        ? "text-amber-600 dark:text-amber-500"
+        ? "text-muted-foreground dark:text-muted-foreground"
         : emphasized
           ? "text-foreground"
           : "text-foreground";

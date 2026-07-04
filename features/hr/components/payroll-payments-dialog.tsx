@@ -77,15 +77,15 @@ export function PayrollPaymentsDialog({
       title={`Pagado ${money(paid)} / Total ${money(total)}`}
     >
       {saldo === 0 ? (
-        <span className="text-emerald-600 dark:text-emerald-400">
+        <span className="text-muted-foreground dark:text-muted-foreground">
           {money(saldo)}
         </span>
       ) : saldo > 0 ? (
-        <span className="text-amber-600 dark:text-amber-400">
+        <span className="text-muted-foreground dark:text-muted-foreground">
           {money(saldo)}
         </span>
       ) : (
-        <span className="text-rose-600 dark:text-rose-400">
+        <span className="text-foreground dark:text-foreground">
           {money(saldo)}
         </span>
       )}

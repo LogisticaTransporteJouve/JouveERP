@@ -200,7 +200,7 @@ export async function getChequeByIdAction(
 
   const { data: movements, error: movErr } = await supabase
     .from("check_movements")
-    .select("*")
+    .select("id, check_id, event, event_date, destination_account_id, endorsed_to_name, endorsed_to_cuit, transaction_id, notes, created_by, created_at")
     .eq("check_id", id)
     .order("event_date", { ascending: true });
 

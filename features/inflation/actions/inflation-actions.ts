@@ -26,7 +26,7 @@ export async function listInflationAdjustmentsAction(): Promise<
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("inflation_adjustments")
-    .select("*")
+    .select("id, period, coefficient, index_source, notes, journal_entry_id, applied_at, applied_by, created_at, updated_at")
     .order("period", { ascending: false });
   if (error) {
     logger.error("inflation_adjustments.list.failed", {

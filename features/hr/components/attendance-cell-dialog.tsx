@@ -137,7 +137,7 @@ export function AttendanceCellDialog({
           <DialogDescription>
             {date}
             {isSyncRow ? (
-              <span className="ml-2 text-amber-600 dark:text-amber-400">
+              <span className="ml-2 text-muted-foreground dark:text-muted-foreground">
                 · auto desde{" "}
                 {existing?.source === "leave_sync" ? "licencia" : "feriado"}
                 {" "}— editá la fuente para cambiar

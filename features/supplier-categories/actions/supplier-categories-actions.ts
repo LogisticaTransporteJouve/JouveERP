@@ -1,5 +1,6 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -88,6 +89,7 @@ export async function createSupplierCategoryAction(
     return { ok: false, error: "No se pudo crear la categoría." };
   }
 
+  await logAudit("supplier_category.created", ctx.userId, {}, data.id);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -132,6 +134,7 @@ export async function updateSupplierCategoryAction(
     return { ok: false, error: "No se pudo actualizar la categoría." };
   }
 
+  await logAudit("supplier_category.updated", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }
 
@@ -189,5 +192,6 @@ export async function deleteSupplierCategoryAction(
     return { ok: false, error: "No se pudo borrar la categoría." };
   }
 
+  await logAudit("supplier_category.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }

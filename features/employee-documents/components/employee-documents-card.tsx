@@ -31,9 +31,9 @@ import {
 import { EmployeeDocumentDialog } from "./employee-document-dialog";
 
 const STATUS_TONE: Record<DocumentStatus, string> = {
-  valid: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  expiring_soon: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  expired: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  valid: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  expiring_soon: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  expired: "bg-muted text-foreground dark:text-foreground",
 };
 
 export function EmployeeDocumentsCard({
@@ -150,7 +150,7 @@ function DocumentsTable({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-rose-600 hover:text-rose-700"
+                      className="h-8 w-8 text-foreground hover:text-foreground"
                       onClick={async () => {
                         const ok = await confirm({
                           title: "¿Borrar documento?",

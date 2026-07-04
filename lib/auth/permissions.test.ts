@@ -170,3 +170,106 @@ describe("isRole", () => {
     expect(isRole(42)).toBe(false);
   });
 });
+
+describe("full matrix snapshot (guards against silent privilege creep)", () => {
+  // Pins the entire role → permissions grid. Any added/removed grant — e.g.
+  // giving `operations` accounting:write — fails this test until the snapshot is
+  // consciously updated. Replaces the old spot-checks that let creep through.
+  it("owner and admin hold every permission", () => {
+    expect([...ROLE_PERMISSIONS.owner].sort()).toEqual([...PERMISSIONS].sort());
+    expect([...ROLE_PERMISSIONS.admin].sort()).toEqual([...PERMISSIONS].sort());
+  });
+
+  it("pins the exact permission set of every restricted role", () => {
+    const restricted = Object.fromEntries(
+      (["finance", "operations", "warehouse", "driver"] as const).map((r) => [
+        r,
+        [...ROLE_PERMISSIONS[r]].sort(),
+      ]),
+    );
+    expect(restricted).toMatchInlineSnapshot(`
+      {
+        "driver": [
+          "trips:read",
+        ],
+        "finance": [
+          "accounting:read",
+          "accounting:write",
+          "accounts:read",
+          "accounts:write",
+          "ai:chat",
+          "ai:read",
+          "channels:read",
+          "cheques:read",
+          "cheques:write",
+          "clients:read",
+          "clients:write",
+          "credit_debit_notes:issue",
+          "credit_debit_notes:read",
+          "email:send",
+          "files:read",
+          "files:write",
+          "hr:read",
+          "hr:write",
+          "invoices:cancel",
+          "invoices:issue",
+          "invoices:read",
+          "issued_checks:read",
+          "issued_checks:write",
+          "padron:lookup",
+          "payment_orders:read",
+          "payment_orders:write",
+          "purchase_invoices:cancel",
+          "purchase_invoices:read",
+          "purchase_invoices:write",
+          "receipts:read",
+          "receipts:write",
+          "recurring_payments:read",
+          "recurring_payments:write",
+          "retentions:read",
+          "retentions:write",
+          "storage_billing:issue",
+          "storage_billing:read",
+          "suppliers:read",
+          "suppliers:write",
+          "transactions:read",
+          "transactions:write",
+        ],
+        "operations": [
+          "ai:chat",
+          "ai:read",
+          "channels:read",
+          "clients:read",
+          "drivers:read",
+          "drivers:write",
+          "files:read",
+          "files:write",
+          "fleet_documents:read",
+          "fleet_documents:write",
+          "fuel:read",
+          "fuel:write",
+          "maintenance:read",
+          "maintenance:write",
+          "shipments:read",
+          "shipments:write",
+          "suppliers:read",
+          "trips:read",
+          "trips:write",
+          "vehicles:read",
+          "vehicles:write",
+        ],
+        "warehouse": [
+          "files:read",
+          "files:write",
+          "pallets:read",
+          "pallets:write",
+          "products:read",
+          "stock_movements:read",
+          "stock_movements:write",
+          "warehouses:read",
+          "warehouses:write",
+        ],
+      }
+    `);
+  });
+});

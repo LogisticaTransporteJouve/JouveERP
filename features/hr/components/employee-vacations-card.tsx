@@ -177,10 +177,10 @@ function BalancesSection({
                   <TableCell
                     className={`text-right font-mono font-semibold ${
                       b.remaining_days < 0
-                        ? "text-rose-600 dark:text-rose-400"
+                        ? "text-foreground dark:text-foreground"
                         : b.remaining_days === 0
                           ? "text-muted-foreground"
-                          : "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground dark:text-muted-foreground"
                     }`}
                   >
                     {b.remaining_days}

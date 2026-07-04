@@ -489,7 +489,7 @@ export function PaymentOrderForm({
         </div>
 
         {mode === "create" && isFirst && (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">
             Es la primera OP de este canal. Si ya tenías una numeración previa en
             otro sistema, podés escribir el siguiente número manualmente. Después
             queda fijado.

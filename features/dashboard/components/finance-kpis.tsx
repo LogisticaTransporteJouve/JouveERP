@@ -149,8 +149,8 @@ function DeltaBadge({
       variant="secondary"
       className={`shrink-0 gap-1 font-mono text-[10px] ${
         up
-          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-          : "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+          ? "bg-muted text-muted-foreground dark:text-muted-foreground"
+          : "bg-muted text-foreground dark:text-foreground"
       }`}
     >
       {up ? (
