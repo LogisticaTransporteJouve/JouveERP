@@ -15,7 +15,7 @@ describe("ai agent config", () => {
   });
 
   it("builds a chat model handle without needing the API key at construction", () => {
-    expect(buildChatModel()).toBeTruthy();
+    expect(buildChatModel().model).toBeTruthy();
   });
 });
 

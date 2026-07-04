@@ -13,9 +13,16 @@ const MAX_TITLE_LEN = 60;
 /** Daily token ceiling (prompt + completion, global) before chat is blocked. */
 export const AI_DAILY_TOKEN_CAP = 500_000;
 
-// Chat model price per 1M tokens (USD) — Sonnet 4.6 ($3 in / $15 out).
-const COST_PER_M_INPUT = 3;
-const COST_PER_M_OUTPUT = 15;
+// Per-1M-token prices (USD in/out) by model id. The turn may be served by a
+// fallback provider, so price by the model that actually answered. Unknown ids
+// fall back to the primary rate; Gemini/GPT prices are approximate.
+const MODEL_PRICING: Record<string, { in: number; out: number }> = {
+  "claude-sonnet-4-6": { in: 3, out: 15 },
+  "claude-haiku-4-5": { in: 1, out: 5 },
+  "gemini-pro-latest": { in: 1.25, out: 10 },
+  "gpt-5.2": { in: 1.25, out: 10 },
+};
+const DEFAULT_PRICING = { in: 3, out: 15 };
 
 /** Serialize a value (e.g. a UIMessage) to a jsonb-safe payload. */
 function toJson(value: unknown): Json {
@@ -153,11 +160,16 @@ export type AiUsageRecord = {
   toolNames: string[];
 };
 
-/** Estimated USD cost of a turn at the chat model's per-token price. */
-export function estimateCostUsd(inputTokens: number, outputTokens: number): number {
+/** Estimated USD cost of a turn, priced by the model that served it. */
+export function estimateCostUsd(
+  inputTokens: number,
+  outputTokens: number,
+  model?: string,
+): number {
+  const price = (model ? MODEL_PRICING[model] : undefined) ?? DEFAULT_PRICING;
   const cost =
-    (inputTokens / 1_000_000) * COST_PER_M_INPUT +
-    (outputTokens / 1_000_000) * COST_PER_M_OUTPUT;
+    (inputTokens / 1_000_000) * price.in +
+    (outputTokens / 1_000_000) * price.out;
   return Number(cost.toFixed(6));
 }
 
@@ -171,7 +183,11 @@ export async function logAiUsage(record: AiUsageRecord): Promise<void> {
     prompt_tokens: record.inputTokens,
     completion_tokens: record.outputTokens,
     cached_tokens: record.cachedTokens,
-    cost_usd: estimateCostUsd(record.inputTokens, record.outputTokens),
+    cost_usd: estimateCostUsd(
+      record.inputTokens,
+      record.outputTokens,
+      record.model,
+    ),
     tool_names: record.toolNames.length ? record.toolNames : null,
   });
   if (error) {

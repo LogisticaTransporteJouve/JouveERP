@@ -13,7 +13,6 @@ import {
   messageText,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
-import { AI_CHAT_MODEL } from "@/features/ai/model";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -113,7 +112,6 @@ export async function POST(req: Request) {
       logAiUsage({
         sessionId,
         userId: ctx.userId,
-        model: AI_CHAT_MODEL,
         ...usage,
       }),
   });
