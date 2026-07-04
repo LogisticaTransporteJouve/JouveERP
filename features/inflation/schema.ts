@@ -22,3 +22,12 @@ export const InflationAdjustmentCreateSchema = z.object({
 export const InflationAdjustmentDeleteSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const InflationApplySchema = z.object({
+  id: z.string().uuid(),
+  journal_entry_id: z.string().uuid(),
+});
+
+export const InflationRevertSchema = z.object({
+  id: z.string().uuid(),
+});

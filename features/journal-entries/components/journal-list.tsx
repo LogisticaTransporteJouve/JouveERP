@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { type JournalFilters } from "../schema";
 
 import { JournalEntryRow } from "./journal-entry-row";
 import { JournalFiltersBar } from "./journal-filters";
+import { ManualEntryDialog } from "./manual-entry-dialog";
 
 type Props = {
   channels: ReadonlyArray<{ id: string; name: string }>;
@@ -17,6 +19,7 @@ type Props = {
 
 export function JournalList({ channels, initialFilters }: Props) {
   const [filters, setFilters] = useState<JournalFilters>(initialFilters);
+  const [newEntryOpen, setNewEntryOpen] = useState(false);
   const {
     items: entries,
     isFetching,
@@ -35,7 +38,13 @@ export function JournalList({ channels, initialFilters }: Props) {
             órdenes de pago y movimientos de caja.
           </p>
         </div>
+        <Button onClick={() => setNewEntryOpen(true)}>
+          <Plus />
+          Nuevo asiento
+        </Button>
       </div>
+
+      <ManualEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
 
       <div className="rounded-lg border bg-card p-4">
         <JournalFiltersBar

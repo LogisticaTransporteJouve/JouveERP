@@ -1,6 +1,7 @@
 "use server";
 
 import type { ActionResult } from "@/lib/query/run-action";
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -10,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   InflationAdjustmentCreateSchema,
   InflationAdjustmentDeleteSchema,
+  InflationApplySchema,
+  InflationRevertSchema,
   type InflationAdjustment,
 } from "../schema";
 
@@ -93,5 +96,96 @@ export async function deleteInflationAdjustmentAction(
     });
     return { ok: false, error: "No se pudo borrar." };
   }
+  return { ok: true, data: undefined };
+}
+
+/** Links the manual reexpression entry to the period's coefficient. */
+export async function applyInflationAdjustmentAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "accounting:write")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const parsed = InflationApplySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Inválido." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inflation_adjustments")
+    .update({
+      journal_entry_id: parsed.data.journal_entry_id,
+      applied_at: new Date().toISOString(),
+      applied_by: ctx.userId,
+    })
+    .eq("id", parsed.data.id)
+    .is("journal_entry_id", null)
+    .select("id, period")
+    .maybeSingle();
+  if (error || !data) {
+    logger.error("inflation_adjustments.apply.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return {
+      ok: false,
+      error: error
+        ? "No se pudo vincular el asiento."
+        : "El período ya tiene un asiento aplicado.",
+    };
+  }
+
+  await logAudit(
+    "inflation_adjustment.applied",
+    ctx.userId,
+    { period: data.period, journal_entry_id: parsed.data.journal_entry_id },
+    parsed.data.id,
+  );
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Unlinks the entry from the coefficient (does NOT reverse the journal
+ * entry — that needs its own reversal entry in the journal).
+ */
+export async function revertInflationApplicationAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "accounting:write")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const parsed = InflationRevertSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Inválido." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inflation_adjustments")
+    .update({ journal_entry_id: null, applied_at: null, applied_by: null })
+    .eq("id", parsed.data.id)
+    .not("journal_entry_id", "is", null)
+    .select("id, period")
+    .maybeSingle();
+  if (error || !data) {
+    logger.error("inflation_adjustments.revert.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return {
+      ok: false,
+      error: error
+        ? "No se pudo desvincular."
+        : "El período no tiene asiento aplicado.",
+    };
+  }
+
+  await logAudit(
+    "inflation_adjustment.reverted",
+    ctx.userId,
+    { period: data.period },
+    parsed.data.id,
+  );
   return { ok: true, data: undefined };
 }
