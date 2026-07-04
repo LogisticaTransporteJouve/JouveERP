@@ -19,6 +19,8 @@ import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { NonRetriableError } from "inngest";
+
 import { inngest } from "../client";
 import {
   INVOICE_ISSUE_REQUESTED,
@@ -417,6 +419,12 @@ export const issueInvoice = inngest.createFunction(
       return { caea: caea.caea, cbteNro: caeaNumero };
     }
 
+    // Compute the number in memory only. It is NOT persisted before the AFIP
+    // call: a failed emission must leave `numero` null so the slot stays free.
+    // Persisting it up-front (the old persist-numero step) poisoned the POS —
+    // a rejected invoice held the number, and every later emission collided
+    // with the unique index and died. The number is written together with the
+    // CAE in persist-cae, so only authorized comprobantes occupy a number.
     const reservedNumero: number = await step.run(
       "reserve-numero",
       async () => {
@@ -424,15 +432,6 @@ export const issueInvoice = inngest.createFunction(
         return last + 1;
       },
     );
-
-    await step.run("persist-numero", async () => {
-      const supabase = getServiceClient();
-      const { error } = await supabase
-        .from("invoices")
-        .update({ numero: reservedNumero })
-        .eq("id", invoice_id);
-      if (error) throw new Error(`persist-numero: ${error.message}`);
-    });
 
     const cae: InvoiceCAEResult = await step.run("request-cae", async () => {
       const input = buildAfipInput(load, reservedNumero);
@@ -466,7 +465,13 @@ export const issueInvoice = inngest.createFunction(
           }
           throw err; // genuine transport failure — let Inngest retry
         }
-        throw err; // service / soap-fault errors are deterministic, no retry
+        // service / soap-fault / config / input errors are deterministic:
+        // retrying re-sends the same rejected payload and holds the invoice in
+        // "emitting" for the whole retry schedule. Fail fast.
+        throw new NonRetriableError(
+          err instanceof Error ? err.message : String(err),
+          { cause: err },
+        );
       }
     });
 
@@ -476,6 +481,7 @@ export const issueInvoice = inngest.createFunction(
       const { error } = await supabase
         .from("invoices")
         .update({
+          numero: reservedNumero,
           cae: cae.cae,
           cae_vencimiento: caeFchVtoIso,
           status: "emitted",

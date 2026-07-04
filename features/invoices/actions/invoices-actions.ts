@@ -154,7 +154,44 @@ export async function issueFiscalInvoiceAction(
     };
   }
 
-  const totals = computeTotals(data.items, true);
+  // NC/ND origin must be a real, emitted invoice of the same client and channel
+  // with a number already assigned. Otherwise: NC against another client's
+  // invoice (aging corruption), or CbtesAsoc with Nro=null (AFIP rejection).
+  if (data.invoice_origin_id) {
+    const { data: origin } = await supabase
+      .from("invoices")
+      .select("id, client_id, channel_id, status, numero")
+      .eq("id", data.invoice_origin_id)
+      .maybeSingle();
+    if (!origin) {
+      return { ok: false, error: "El comprobante de origen no existe." };
+    }
+    if (origin.status !== "emitted") {
+      return { ok: false, error: "El comprobante de origen no está emitido." };
+    }
+    if (origin.client_id !== data.client_id) {
+      return { ok: false, error: "El comprobante de origen pertenece a otro cliente." };
+    }
+    if (origin.channel_id !== data.channel_id) {
+      return { ok: false, error: "El comprobante de origen pertenece a otro canal." };
+    }
+    if (origin.numero === null) {
+      return { ok: false, error: "El comprobante de origen todavía no tiene número." };
+    }
+  }
+
+  // Every fiscal line needs an IVA rate: a null rate lands its net in ImpNeto
+  // but in no AlicIva bucket, so AFIP rejects the mismatch (ImpNeto != Σ BaseImp).
+  if (channel.is_fiscal && data.items.some((it) => it.iva_rate_id === null)) {
+    return {
+      ok: false,
+      error: "En comprobantes fiscales, cada ítem debe tener una alícuota de IVA.",
+    };
+  }
+
+  // isFiscal drives IVA computation: internal channels must not accrue IVA
+  // (it would post phantom revenue and charge IVA on a non-fiscal document).
+  const totals = computeTotals(data.items, channel.is_fiscal);
   const idempotency_key = randomUUID();
 
   // Insert draft + items. The DB trigger validates the fiscal-fields

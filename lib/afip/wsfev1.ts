@@ -407,11 +407,23 @@ function fmtMoney(n: number): string {
   return n.toFixed(2);
 }
 
+// Escape user-controlled string values before interpolating into the SOAP
+// envelope. DocNro is the only free-text field; a stray `<`/`&` would produce a
+// malformed request (numbering poison) or, worst case, XML injection.
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 function buildFECAEDetRequest(input: InvoiceRequestInput): string {
   const lines: string[] = [];
   lines.push(`<fe:Concepto>${input.concepto}</fe:Concepto>`);
   lines.push(`<fe:DocTipo>${input.docTipo}</fe:DocTipo>`);
-  lines.push(`<fe:DocNro>${input.docNro}</fe:DocNro>`);
+  lines.push(`<fe:DocNro>${xmlEscape(String(input.docNro))}</fe:DocNro>`);
   lines.push(`<fe:CbteDesde>${input.cbteNro}</fe:CbteDesde>`);
   lines.push(`<fe:CbteHasta>${input.cbteNro}</fe:CbteHasta>`);
   lines.push(`<fe:CbteFch>${toAfipDate(input.fecha)}</fe:CbteFch>`);
