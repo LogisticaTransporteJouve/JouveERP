@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  exportLibroIvaTxtAction,
   listLibroIvaComprasAction,
   listLibroIvaVentasAction,
 } from "../actions/libro-iva-actions";
@@ -33,5 +34,12 @@ export function useLibroIvaCompras(period: string, channelId: string | null) {
       runAction(() =>
         listLibroIvaComprasAction({ period, channelId: channelId ?? undefined }),
       ),
+  });
+}
+
+export function useExportLibroIvaTxt() {
+  return useMutation({
+    mutationFn: (input: { period: string; book: "ventas" | "compras" }) =>
+      runAction(() => exportLibroIvaTxtAction(input)),
   });
 }
