@@ -3,8 +3,20 @@
 import { z } from "zod";
 
 import { ChequeCreateSchema } from "@/features/checks/schema";
+import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
+import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
+import { createPaymentOrderAction } from "@/features/payment-orders/actions/payment-orders-actions";
 import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import { createReceiptAction } from "@/features/receipts/actions/receipts-actions";
+import {
+  CONCEPTO,
+  DOC_TIPO,
+  MONEDA,
+  condicionIvaReceptorFor,
+  isServiciosConcepto,
+  type ConceptoCode,
+} from "@/lib/afip/codes";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -16,7 +28,11 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { buildPurchaseInvoiceInput } from "./create-mapping";
+import {
+  buildPurchaseInvoiceInput,
+  buildSalesInvoiceItems,
+} from "./create-mapping";
+import { InvoiceExtractionSchema } from "./schemas";
 import { DOCUMENT_KINDS } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -533,4 +549,376 @@ export async function createChecksFromExtractionAction(
   }
 
   return { ok: true, data: { created, errors } };
+}
+
+// ---------------------------------------------------------------------------
+// Create-from-extraction: receipt, payment order, sales invoice, NC/ND compra.
+// Same shape as the purchase-invoice flow: load + guard the draft, map to the
+// existing create action (which re-validates and enforces its own permission),
+// then mark the extraction confirmed and audit.
+// ---------------------------------------------------------------------------
+
+type PendingExtractionRow = {
+  detected_type: string | null;
+  status: string;
+  matches: Json;
+  payload: Json;
+};
+
+/** Loads a draft and guards status + detected type. Returns an error string on failure. */
+async function loadPendingForCreate(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  extractionId: string,
+  expectedType: string,
+): Promise<{ ext: PendingExtractionRow } | { error: string }> {
+  const { data: ext, error } = await supabase
+    .from("ai_document_extractions")
+    .select("detected_type, status, matches, payload")
+    .eq("id", extractionId)
+    .maybeSingle();
+  if (error || !ext) return { error: "No se encontró la extracción." };
+  if (ext.status !== "pending_review") {
+    return { error: "La extracción ya fue procesada." };
+  }
+  if (ext.detected_type !== expectedType) {
+    return { error: "El tipo de documento no coincide con esta acción." };
+  }
+  return { ext };
+}
+
+function matchedId(matches: Json, key: "supplier_id" | "client_id"): string | null {
+  return isRecord(matches) && typeof matches[key] === "string"
+    ? matches[key]
+    : null;
+}
+
+async function confirmExtraction(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  userId: string,
+  extractionId: string,
+  entity: { table: string; id: string },
+): Promise<void> {
+  await supabase
+    .from("ai_document_extractions")
+    .update({
+      status: "confirmed",
+      created_entity: { table: entity.table, id: entity.id },
+    })
+    .eq("id", extractionId);
+  await logAudit(
+    "ai.document.confirmed",
+    userId,
+    { extraction_id: extractionId, [`${entity.table}_id`]: entity.id },
+    entity.id,
+  );
+}
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.");
+
+const CreateReceiptFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  channelId: z.string().min(1, "Canal requerido."),
+  numero: z.number().int().positive("Número inválido."),
+  receipt_date: dateString,
+  total_amount: z.number().finite().gt(0, "Importe inválido."),
+  currency: z.enum(["ARS", "USD"]),
+  account_id: z.string().uuid("Cuenta requerida."),
+});
+
+/**
+ * Creates a recibo from a reviewed `receipt` extraction: one payment line into
+ * the chosen account for the full amount; allocations stay on FIFO auto.
+ */
+export async function createReceiptFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "receipts:write")) {
+    return { ok: false, error: "No tenés permiso para crear recibos." };
+  }
+  const parsed = CreateReceiptFromExtractionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const loaded = await loadPendingForCreate(
+    supabase,
+    parsed.data.extractionId,
+    "receipt",
+  );
+  if ("error" in loaded) return { ok: false, error: loaded.error };
+
+  const clientId = matchedId(loaded.ext.matches, "client_id");
+  if (!clientId) {
+    return { ok: false, error: "Asociá un cliente antes de crear el recibo." };
+  }
+
+  const created = await createReceiptAction({
+    channel_id: parsed.data.channelId,
+    numero: parsed.data.numero,
+    client_id: clientId,
+    receipt_date: parsed.data.receipt_date,
+    total_amount: parsed.data.total_amount,
+    currency: parsed.data.currency,
+    notes: null,
+    payment_lines: [
+      { account_id: parsed.data.account_id, amount: parsed.data.total_amount },
+    ],
+    allocations: [],
+    retentions: [],
+  });
+  if (!created.ok) return created;
+
+  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
+    table: "receipts",
+    id: created.data.id,
+  });
+  return { ok: true, data: { id: created.data.id } };
+}
+
+const CreatePaymentOrderFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  channelId: z.string().min(1, "Canal requerido."),
+  numero: z.number().int().positive("Número inválido."),
+  payment_date: dateString,
+  total_amount: z.number().finite().gt(0, "Importe inválido."),
+  currency: z.enum(["ARS", "USD"]),
+  account_id: z.string().uuid("Cuenta requerida."),
+});
+
+/**
+ * Creates an orden de pago from a reviewed `payment_order` extraction: one
+ * account payment line for the full amount; allocations stay on FIFO auto.
+ */
+export async function createPaymentOrderFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.roles, "ai:read") ||
+    !userCan(ctx.roles, "payment_orders:write")
+  ) {
+    return { ok: false, error: "No tenés permiso para crear órdenes de pago." };
+  }
+  const parsed = CreatePaymentOrderFromExtractionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const loaded = await loadPendingForCreate(
+    supabase,
+    parsed.data.extractionId,
+    "payment_order",
+  );
+  if ("error" in loaded) return { ok: false, error: loaded.error };
+
+  const supplierId = matchedId(loaded.ext.matches, "supplier_id");
+  if (!supplierId) {
+    return { ok: false, error: "Asociá un proveedor antes de crear la OP." };
+  }
+
+  const created = await createPaymentOrderAction({
+    channel_id: parsed.data.channelId,
+    numero: parsed.data.numero,
+    supplier_id: supplierId,
+    payment_date: parsed.data.payment_date,
+    total_amount: parsed.data.total_amount,
+    currency: parsed.data.currency,
+    notes: null,
+    payment_lines: [
+      {
+        line_kind: "account",
+        account_id: parsed.data.account_id,
+        amount: parsed.data.total_amount,
+      },
+    ],
+    allocations: [],
+  });
+  if (!created.ok) return created;
+
+  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
+    table: "payment_orders",
+    id: created.data.id,
+  });
+  return { ok: true, data: { id: created.data.id } };
+}
+
+const CreatePurchaseNoteFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  channelId: z.string().min(1, "Canal requerido."),
+  kind: z.enum(["nc", "nd"]),
+  motivo: z.string().trim().min(1, "El motivo es requerido.").max(500),
+});
+
+/**
+ * Creates a purchase NC/ND from a reviewed `credit_debit_note` extraction.
+ * Scanned notes are received from suppliers, so they land on the purchase
+ * side (kind nc/nd) — the sales side emits its own notes via AFIP.
+ */
+export async function createPurchaseNoteFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.roles, "ai:read") ||
+    !userCan(ctx.roles, "purchase_invoices:write")
+  ) {
+    return { ok: false, error: "No tenés permiso para crear NC/ND de compra." };
+  }
+  const parsed = CreatePurchaseNoteFromExtractionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const loaded = await loadPendingForCreate(
+    supabase,
+    parsed.data.extractionId,
+    "credit_debit_note",
+  );
+  if ("error" in loaded) return { ok: false, error: loaded.error };
+
+  const supplierId = matchedId(loaded.ext.matches, "supplier_id");
+  if (!supplierId) {
+    return { ok: false, error: "Asociá un proveedor antes de crear la nota." };
+  }
+
+  const built = buildPurchaseInvoiceInput(loaded.ext.payload, {
+    channelId: parsed.data.channelId,
+    supplierId,
+    kind: parsed.data.kind,
+    motivo: parsed.data.motivo,
+  });
+  if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
+
+  if (built.moneda === "DOL" && built.fecha) {
+    const rate = await getUsdRateForDateAction(built.fecha);
+    if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
+  }
+
+  const created = await createPurchaseInvoiceAction(built);
+  if (!created.ok) return created;
+
+  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
+    table: "purchase_invoices",
+    id: created.data.id,
+  });
+  return { ok: true, data: { id: created.data.id } };
+}
+
+const CreateSalesInvoiceFromExtractionSchema = z.object({
+  extractionId: z.string().uuid(),
+  channelId: z.string().min(1, "Canal requerido."),
+  puntoVenta: z.number().int().min(1, "Punto de venta requerido.").max(99999),
+});
+
+/**
+ * Emits a sales invoice from a reviewed `sales_invoice` extraction through the
+ * normal issue workflow (AFIP for fiscal channels, local numbering for
+ * internal ones). The numero on the scan is NOT reused — the workflow reserves
+ * the next one. Blocked when the scan matches an already-registered invoice.
+ */
+export async function createSalesInvoiceFromExtractionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso para emitir comprobantes." };
+  }
+  const parsed = CreateSalesInvoiceFromExtractionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const loaded = await loadPendingForCreate(
+    supabase,
+    parsed.data.extractionId,
+    "sales_invoice",
+  );
+  if ("error" in loaded) return { ok: false, error: loaded.error };
+
+  const clientId = matchedId(loaded.ext.matches, "client_id");
+  if (!clientId) {
+    return { ok: false, error: "Asociá un cliente antes de emitir la factura." };
+  }
+  if (isRecord(loaded.ext.matches) && loaded.ext.matches.duplicate_of) {
+    return {
+      ok: false,
+      error: "Ese comprobante ya está registrado — no se vuelve a emitir.",
+    };
+  }
+
+  const header = InvoiceExtractionSchema.safeParse(loaded.ext.payload);
+  if (!header.success || !header.data.date) {
+    return { ok: false, error: "La extracción no tiene fecha — revisala." };
+  }
+  const built = buildSalesInvoiceItems(loaded.ext.payload);
+  if (!built) {
+    return { ok: false, error: "No se pudieron mapear los ítems del comprobante." };
+  }
+
+  const [{ data: channel }, { data: client }] = await Promise.all([
+    supabase
+      .from("invoicing_channels")
+      .select("id, division, is_fiscal")
+      .eq("id", parsed.data.channelId)
+      .maybeSingle(),
+    supabase
+      .from("clients")
+      .select("id, cuit, iva_condition")
+      .eq("id", clientId)
+      .maybeSingle(),
+  ]);
+  if (!channel) return { ok: false, error: "Canal no existe." };
+  if (!client?.cuit) {
+    return { ok: false, error: "El cliente no tiene CUIT cargado." };
+  }
+  if (!isIvaCondition(client.iva_condition)) {
+    return { ok: false, error: "El cliente no tiene condición de IVA válida." };
+  }
+
+  const fecha = header.data.date;
+  const concepto: ConceptoCode =
+    channel.division === "dz" ? CONCEPTO.PRODUCTOS_Y_SERVICIOS : CONCEPTO.SERVICIOS;
+  const servicios = isServiciosConcepto(concepto);
+  const moneda =
+    header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
+  let cotizacion = 1;
+  if (moneda === MONEDA.DOLARES) {
+    const rate = await getUsdRateForDateAction(fecha);
+    if (rate.ok && rate.data.rate) cotizacion = rate.data.rate;
+  }
+
+  const created = await issueFiscalInvoiceAction({
+    channel_id: channel.id,
+    client_id: client.id,
+    kind: "factura",
+    letter: null,
+    punto_venta: parsed.data.puntoVenta,
+    fecha,
+    fch_serv_desde: servicios ? fecha : null,
+    fch_serv_hasta: servicios ? fecha : null,
+    fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
+    concepto,
+    doc_tipo: DOC_TIPO.CUIT,
+    doc_nro: client.cuit,
+    iva_condition_receptor: channel.is_fiscal
+      ? condicionIvaReceptorFor(client.iva_condition)
+      : null,
+    moneda,
+    cotizacion,
+    motivo_nc_nd: null,
+    invoice_origin_id: null,
+    items: built.items,
+  });
+  if (!created.ok) return created;
+
+  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
+    table: "invoices",
+    id: created.data.id,
+  });
+  return { ok: true, data: { id: created.data.id } };
 }

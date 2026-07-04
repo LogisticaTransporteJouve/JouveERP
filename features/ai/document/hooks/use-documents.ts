@@ -2,11 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { runAction } from "@/lib/query/run-action";
+import { getNextPaymentOrderNumeroAction } from "@/features/payment-orders/actions/payment-orders-actions";
+import { getNextReceiptNumeroAction } from "@/features/receipts/actions/receipts-actions";
+import { runAction, type ActionResult } from "@/lib/query/run-action";
 
 import {
   createChecksFromExtractionAction,
+  createPaymentOrderFromExtractionAction,
   createPurchaseInvoiceFromExtractionAction,
+  createPurchaseNoteFromExtractionAction,
+  createReceiptFromExtractionAction,
+  createSalesInvoiceFromExtractionAction,
   discardExtractionAction,
   getExtractionAction,
   listExtractionsAction,
@@ -84,5 +90,51 @@ export function useDiscardExtraction() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: documentKeys.all });
     },
+  });
+}
+
+function useCreateFromExtraction(
+  action: (input: unknown) => Promise<ActionResult<{ id: string }>>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) => runAction(() => action(input)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: documentKeys.all });
+    },
+  });
+}
+
+export function useCreateReceiptFromExtraction() {
+  return useCreateFromExtraction(createReceiptFromExtractionAction);
+}
+
+export function useCreatePaymentOrderFromExtraction() {
+  return useCreateFromExtraction(createPaymentOrderFromExtractionAction);
+}
+
+export function useCreatePurchaseNoteFromExtraction() {
+  return useCreateFromExtraction(createPurchaseNoteFromExtractionAction);
+}
+
+export function useCreateSalesInvoiceFromExtraction() {
+  return useCreateFromExtraction(createSalesInvoiceFromExtractionAction);
+}
+
+/** Next recibo/OP numero for the chosen channel (to prefill the dialog). */
+export function useNextDocNumero(
+  kind: "receipt" | "payment_order",
+  channelId: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: documentKeys.nextNumero(kind, channelId || "_none"),
+    queryFn: () =>
+      runAction(() =>
+        kind === "receipt"
+          ? getNextReceiptNumeroAction({ channel_id: channelId })
+          : getNextPaymentOrderNumeroAction({ channel_id: channelId }),
+      ),
+    enabled: enabled && channelId.length > 0,
   });
 }
