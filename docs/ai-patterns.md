@@ -477,51 +477,13 @@ en bloques cacheables. El contexto dinámico (fecha, org actual) va sin cache.
 
 ---
 
-## 11. Embeddings + semántica (pgvector)
+## 11. Embeddings + semántica (pgvector) — DESCARTADO
 
-**Patrón de referencia:** servicio de embeddings (queue + worker con PGMQ).
-
-Para JouveERP:
-
-```sql
--- Migración nueva: extension + tabla
-create extension if not exists vector;
-
-create table public.ai_embeddings (
-  id uuid primary key default gen_random_uuid(),
-  source_type text not null check (source_type in ('cliente', 'factura', 'recibo')),
-  source_id uuid not null,
-  business_unit_id uuid references business_units(id),
-  content text not null,
-  embedding vector(768) not null,  -- gemini-embedding-001 dims
-  created_at timestamptz not null default now()
-);
-
-create index on public.ai_embeddings using hnsw (embedding vector_cosine_ops);
-
--- RPC
-create function public.match_embeddings(
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int,
-  filter_source_type text default null
-) returns table (id uuid, source_type text, source_id uuid, content text, similarity float)
-language sql stable as $$
-  select id, source_type, source_id, content,
-         1 - (embedding <=> query_embedding) as similarity
-  from public.ai_embeddings
-  where (filter_source_type is null or source_type = filter_source_type)
-    and 1 - (embedding <=> query_embedding) > match_threshold
-  order by embedding <=> query_embedding asc
-  limit match_count;
-$$;
-```
-
-**Trigger:** función Inngest que escucha cambios en `clientes`, `facturas`,
-`recibos` y enqueue jobs de embedding. Backfill inicial vía script.
-
-**Modelo:** `gemini-embedding-001` (768 dims, gratis hasta cierto umbral) o
-`text-embedding-3-small` (1536 dims, OpenAI).
+**Decisión 2026-07-04:** no se implementa. Requería pgvector + un proveedor de
+embeddings (infra paga nueva) sin un caso de uso que la búsqueda FTS existente
+(`search_global`) no cubra. Si algún día se revierte, el patrón de referencia
+era: extensión `vector` + tabla `ai_embeddings` (768 dims) + índice HNSW + RPC
+`match_embeddings` + job Inngest de embedding on-change.
 
 ---
 
@@ -662,11 +624,7 @@ Claude Desktop me liste facturas pendientes"). Cuando llegue:
 3. `createFallbackModel` con Gemini + GPT fallback
 4. Anthropic prompt caching sobre skills + tool descriptions
 
-**Fase I.3 — Embeddings (1 sprint)**
-1. pgvector + tabla `ai_embeddings`
-2. Función Inngest de embedding on-change
-3. Backfill script para clientes + facturas
-4. Tool `searchEmbeddings`
+**Fase I.3 — Embeddings** — **descartada** (decisión 2026-07-04, §11).
 
 **Fase I.4 — Cost tracking + artifacts (1 sprint)**
 1. Logging `ai.turn` + tabla `ai_usage`
@@ -688,8 +646,8 @@ Claude Desktop me liste facturas pendientes"). Cuando llegue:
 |---|---|---|
 | 1 | **Vercel AI SDK** sobre LangChain o llamadas directas | Estándar de facto, multi-provider built-in, `Experimental_Agent` resuelve el tool loop |
 | 2 | **Claude Sonnet 4.6** como modelo primario | Mejor relación costo/tool-use; Opus solo para queries de razonamiento pesado |
-| 3 | **Inngest** para jobs de IA (embeddings, batches) | Ya está en JouveERP, no agregar Temporal |
-| 4 | **pgvector** en Supabase (no Pinecone/Weaviate) | Supabase ya está, una infra menos |
+| 3 | **Inngest** para jobs de IA (batches) | Ya está en JouveERP, no agregar Temporal |
+| 4 | ~~pgvector en Supabase~~ | Embeddings descartados (2026-07-04, §11) |
 | 5 | **Sin Modal sandbox en MVP** | Postergar; tools whitelisted alcanza |
 | 6 | **Skills inyectadas al system prompt** vía keyword index | Token-efficient vs cargar todo siempre |
 | 7 | **Chat persistido en Supabase + RLS** | Reusa auth existente; sin store separado |
@@ -988,7 +946,6 @@ const AI_PERMISSIONS = {
   "ai:chat": ["owner", "admin", "finance", "operations"],
   "ai:write": ["owner", "admin", "finance"],         // tools que mutan datos
   "ai:admin": ["owner", "admin"],                     // ver/borrar chats de otros, ver costos
-  "ai:embeddings:rebuild": ["owner", "admin"],        // re-indexar
 } as const;
 ```
 
@@ -1056,7 +1013,6 @@ await supabase.from("audit_events").insert({
 Usar la tabla `rate_limit_buckets` existente. Sugerencia inicial:
 - `ai:chat:turn` — 30 turnos / hora / usuario
 - `ai:chat:tokens` — 500K tokens / día / org
-- `ai:embeddings:request` — 100 req / hora / usuario
 
 ```ts
 // app/api/ai/chat/route.ts
@@ -1203,8 +1159,7 @@ is thinking" antes de que llegue el primer chunk.
 | **Anthropic prompt cache** | 5 min | System prompt (skills + tool descriptions). 90% descuento en tokens cacheados |
 | **TanStack Query** | 1 min | Resultados de tools que son "list" (facturas, clientes) |
 | **Edge cache** | n/a | NO cachear respuestas del agent (cada turno es único) |
-| **Embeddings cache** | persistente | Las embeddings de clientes/facturas viven en pgvector — recalcular solo on-change |
-| **Title generation** | persistente | Generar el título del chat 1 sola vez con un modelo barato (`gpt-5-mini`), guardarlo en `ai_chat_sessions.title` |
+| **Title generation** | persistente | Generar el título del chat 1 sola vez con un modelo barato, guardarlo en `ai_chat_sessions.title` |
 
 ---
 

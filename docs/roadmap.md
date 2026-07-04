@@ -268,21 +268,25 @@ Antes de inlinear state machines / effects / async flows en un componente,
 
 ---
 
-## 3. Estado al 2026-06-22
+## 3. Estado al 2026-07-04
 
-**~110 PRs mergeados desde repo vacío.** La pata administrativa
+**~120 PRs mergeados desde repo vacío.** La pata administrativa
 (vender / cobrar / comprar / pagar) está end-to-end y **cerrada** (Fase K
-completa). **Contabilidad (Fase L)** está casi entera (core + libros +
-balances + inflación + centros de costo; falta L.6/L.7). **RRHH/Sueldos
-(Fase N)** y **Treasury** shippeados. La pata operativa **ya se construyó**:
-**Fase G (Flota)** completa (G.1–G.7) y **Fase H (Pallets/Depósito)** con
-masters + tarifas + facturación de storage. La **IA (Fase I)** está shippeada
-end-to-end: **AI.0–AI.8** (chat + 25 tools + persistencia + artifacts +
-medidor/tope + Document Intelligence + insights proactivos), más **Fase R**
-(pagos recurrentes) y M.2 (multimoneda). Lo que queda (L.6/L.7, RG 4667,
-emisión de storage H.5, envío de email) está bloqueado en specs/decisiones —
-ver `docs/pendientes.md`. (M.5 aprobaciones y M.6 portal cliente: descartados,
-decisiones #20 / #19.)
+completa). **Contabilidad (Fase L)** está **completa**: core + libros +
+balances + centros de costo + asientos manuales, ajuste por inflación RG 4667
+(asiento manual + cuenta RECPAM), export TXT **Libro IVA Digital** (L.6) y
+**CAEA** de contingencia (L.7). **RRHH/Sueldos (Fase N)** y **Treasury**
+shippeados. La pata operativa **ya se construyó**: **Fase G (Flota)** completa
+(G.1–G.7) y **Fase H (Pallets/Depósito)** completa (masters + tarifas
+versionadas con aumento % + facturación de storage con emisión AFIP y snapshot
+de tarifas). La **IA (Fase I)** está shippeada end-to-end: **AI.0–AI.8** (chat
++ 25 tools + persistencia + artifacts + medidor/tope + Document Intelligence
+con creación desde escaneo para factura de compra/venta, NC/ND, recibo, OP y
+cheques + insights proactivos), más **Fase R** (pagos recurrentes) y M.2
+(multimoneda, con flujo de caja que convierte USD al TC oficial). Único
+pendiente de configuración: env vars de Resend para el email del aging
+semanal. (M.5 aprobaciones, M.6 portal cliente, RAG/embeddings y write-tools
+IA: descartados — decisiones #20/#19 y 2026-07-04.)
 
 ### 3.1 Hecho — fases shippeadas
 
@@ -295,13 +299,13 @@ decisiones #20 / #19.)
 | **E — AFIP Comprobantes** ✅ | Workflow Inngest `issueInvoice` idempotente + retries + recovery vía `FECompConsultar`. Una sola tabla `comprobantes`. PDF + QR con `@react-pdf/renderer`. NC/ND con `cbtesAsoc`. Modo rápido "Emitir y continuar". E2E AFIP gateado | Anexo §E |
 | **F — Cobranzas, recibos, cheques** ✅ | Recibos con numerador `R{POS}-{numero}` por canal. Payment lines con auto-creación de metadata de cheque. Allocations con sum-validation. RPCs lifecycle de cheques (deposit/credit/endorse/reject) con transactions linkeadas. Retenciones / percepciones. Cuenta corriente per cliente. Aging buckets + cron Inngest semanal | Anexo §F |
 | **Subsistema social** ✅ | Chat (self/DMs/grupos, edit, reactions, typing, @-mentions, FTS ⌘K, channel admin), notifications (bell + popover + push real con service worker + Inngest), perfil con avatares monocromos | PR #44 — specs en `docs/chat-patterns.md`, `docs/notifications-patterns.md`, `docs/user-avatars.md` |
-| **L — Contabilidad** ✅ (casi entera) | Plan de cuentas jerárquico, asientos automáticos (transactions/invoices/OPs/receipts), libro diario + mayor, libro IVA ventas/compras, balance de saldos + EERR + balance general, ajuste por inflación (RG 4667), centros de costo | L.1–L.5, L.8, L.9 ✅. Falta L.6 (CITI/SIAP) + L.7 (CAEA) |
+| **L — Contabilidad** ✅ | Plan de cuentas jerárquico, asientos automáticos + manuales, libro diario + mayor, libro IVA ventas/compras + export TXT Libro IVA Digital (L.6), balance de saldos + EERR + balance general, ajuste por inflación (RG 4667, asiento manual + RECPAM), CAEA contingencia (L.7), centros de costo | L.1–L.9 ✅ completa |
 | **Treasury** ✅ | Dashboard transversal de caja: saldos por cuenta + cheques por vencer + alertas, sobre `accounts`/`transactions`/`checks` | `features/treasury/` |
 | **N — RRHH / Sueldos** ✅ | Empleados, períodos de sueldo + pagos + extras, asistencia mensual, vacaciones/licencias, documentos de empleado, + 2 crons Inngest | `features/hr/`, `features/employee-documents/` — detalle §3.5 |
 | **R — Pagos recurrentes** ✅ | `recurring_payments` CRUD + cron de generación; insumo del cash-flow de la IA | `features/recurring-payments/` |
 | **I — IA (AI.0–AI.8)** ✅ | Chat con 25 tools + persistencia + artifacts + medidor/tope de tokens, Document Intelligence (clasificar/OCR/extraer), insights proactivos (cash-flow + receivables) con cron | `features/ai/`, `features/chat/` — diseño en `docs/ai-overview.md`, `docs/ai-patterns.md` |
 | **G — Flota** ✅ | Choferes, vehículos, viajes, combustible, mantenimiento, documentos de flota, reportes, y acceso del chofer a sus propios viajes (`:own` vía RLS) | `features/{drivers,vehicles,trips,fuel,maintenance,fleet-documents,fleet-reports}/` (G.1–G.7) |
-| **H — Pallets / Depósito** ✅ | Depósitos, productos, pallets, tarifas de storage y facturación de storage | `features/{warehouses,products,pallets,storage-tariffs,storage-billing}/` (falta H.5 emisión AFIP) |
+| **H — Pallets / Depósito** ✅ | Depósitos, productos, pallets, tarifas de storage versionadas (aumento %, snapshot en cada facturación) y facturación de storage con emisión AFIP | `features/{warehouses,products,pallets,storage-tariffs,storage-billing}/` completa |
 
 ### 3.2 Fase K — Compras, Proveedores, Pagos — **completa** ✅
 
@@ -624,48 +628,43 @@ y exports regulatorios AFIP. **9 sub-PRs.**
 - Comparativos: período vs período anterior, mes vs YTD.
 - Exports PDF + Excel.
 
-#### L.6 — `feat: exports para contador — CITI Ventas/Compras + SIAP`
+#### L.6 — `feat: export Libro IVA Digital (TXT posicional)` ✅ (2026-07)
 
-- **CITI Ventas (RG 3685):** TXT con encabezado + un registro por
-  comprobante emitido + un registro por alícuota de IVA, formato fijo
-  AFIP. Posicional, sin separadores.
-- **CITI Compras (RG 3685):** mismo formato para `purchase_invoices` +
-  items de K.8.
-- **SIAP:** importable por el aplicativo de IVA con totales por mes.
-- Página `/accounting/exports` con selector de período + botón por
-  export.
-- Validación previa idéntica a L.4 (no exporta si hay comprobantes rotos).
-- Cron mensual opcional que pre-genera los exports del mes anterior y
-  los manda al email del contador (vinculado a M.6 si llega antes).
+- Shippeado como **Libro IVA Digital / Portal IVA** (los layouts RG 3685
+  "CITI" son los mismos; SIAP quedó retirado para IVA desde el período
+  11/2025 — RG 5705 "IVA Simple").
+- Builders posicionales puros en `features/libro-iva/lib/citi.ts`
+  (VENTAS_CBTE 266 / VENTAS_ALICUOTAS 62 / COMPRAS_CBTE 325 /
+  COMPRAS_ALICUOTAS 84) + acción `exportLibroIvaTxtAction` sobre las
+  mismas RPCs del libro en pantalla.
+- Botón "TXT AFIP" en ambas páginas del libro; documentos irrepresentables
+  se excluyen y se reportan como warnings.
 
-#### L.7 — `feat: CAEA fallback (alta contingencia AFIP)`
+#### L.7 — `feat: CAEA contingencia AFIP` ✅ (2026-07)
 
-- Cuando AFIP está caído > X minutos, permitir emitir contra **CAEA**
-  (Código de Autorización Electrónico Anticipado) — solicitado una vez
-  por quincena con un margen de comprobantes pre-autorizados.
-- RPC `requestCAEA` + endpoint `/admin/afip/caea`.
-- Workflow Inngest `issueInvoice` detecta error de AFIP y consume del
-  pool CAEA si está disponible; si no, marca el comprobante como `failed`
-  con motivo.
-- Tabla `caea_pool(id, caea text, period_start, period_end, channel_id,
-  total_authorized int, consumed_count int, status active|expired)`.
-- Reporte de **informativos CAEA (RG 2926)** — TXT con los comprobantes
-  emitidos contra cada CAEA, que se rinde a AFIP dentro de los 5 días.
-- Anteriormente estaba en J.8; movido acá porque es responsabilidad
-  contable / regulatoria.
+- Modelo RG 5782/2025 (CAEA = contingencia pura, sin adhesión): tabla
+  `caea_codes` por quincena + cron `caea-request` (días 11 y 26) vía
+  `FECAEASolicitar`/`FECAEAConsultar`.
+- `issueInvoice` emite offline cuando el POS es de contingencia
+  (EmisionTipo CAEA en el ABM de ARCA): numeración local gapless, código
+  de la quincena en `cae`, `emission_type = 'caea'`, `cbte_fch_hs_gen`.
+- Cron diario `caea-inform`: `FECAEARegInformativo` por comprobante
+  pendiente + `FECAEASinMovimientoInformar` por PV sin uso al vencer la
+  quincena. QR con `tipoCodAut: "A"`. Panel de estado en
+  `/admin/afip/puntos-de-venta`.
+- Prerrequisito único: crear el PV "CAEA — Contingencias" en el ABM de
+  ARCA.
 
-#### L.8 — `feat: ajuste por inflación (RG 4667)` ✅ (parcial — tabla + UI; asiento de reexpresión queda como manual)
+#### L.8 — `feat: ajuste por inflación (RG 4667)` ✅ (asiento manual, 2026-07)
 
-- Tabla `inflation_adjustments(id, period text 'YYYY-MM', coefficient
-  numeric, applied_at, applied_by, journal_entry_id, notes)`.
-- Página `/accounting/inflation` con período + coeficiente manual (IPIM
-  oficial INDEC o el que indique el contador) + leyenda + **preview del
-  asiento** antes de aplicar.
-- Genera un `journal_entry` de ajuste que reexpresa los saldos no
-  monetarios según el coeficiente. **Reversible** vía `is_reversal +
-  reversed_entry_id`.
-- Reporte de cuentas reexpresadas vs cuentas a valor histórico para
-  el contador.
+- Tabla `inflation_adjustments` (coeficiente por período) + página
+  `/accounting/inflation`.
+- **Decisión:** el asiento de reexpresión es **manual** — el contador lo
+  calcula afuera y lo carga con el dialog "Nuevo asiento" del libro diario
+  (botón "Generar asiento" en la página de inflación lo pre-carga con la
+  cuenta RECPAM 4.2.2 y la descripción del período, y vincula
+  `journal_entry_id` + `applied_at/applied_by` al confirmar; "Desvincular"
+  revierte el vínculo).
 
 #### L.9 — `feat: centros de costo (dimensiones contables)` ✅
 
