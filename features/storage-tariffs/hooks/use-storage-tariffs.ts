@@ -11,6 +11,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   createStorageTariffAction,
   deleteStorageTariffAction,
+  increaseStorageTariffsAction,
   listStorageTariffsAction,
   setStorageTariffActiveAction,
   updateStorageTariffAction,
@@ -60,6 +61,15 @@ export function useDeleteStorageTariff() {
   return useMutation({
     mutationFn: (id: string) =>
       runAction(() => deleteStorageTariffAction({ id })),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useIncreaseStorageTariffs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { percent: number; valid_from: string }) =>
+      runAction(() => increaseStorageTariffsAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

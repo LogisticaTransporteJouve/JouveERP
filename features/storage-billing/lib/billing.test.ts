@@ -199,3 +199,51 @@ describe("computeStorageBilling", () => {
     expect(r.lines[0]?.handling_out_charge).toBe(300); // exited within → descarga
   });
 });
+
+describe("applied_tariffs snapshot", () => {
+  const names = new Map([["c1", "Cliente 1"]]);
+  const GENERAL = {
+    client_id: null,
+    rate_per_pallet: 10,
+    period: "daily",
+    handling_in: 0,
+    handling_out: 0,
+    valid_from: "2026-01-01",
+    valid_to: null,
+    is_active: true,
+  };
+
+  it("captures the distinct tariffs actually used", () => {
+    const r = computeStorageBilling({
+      pallets: [
+        { id: "p1", client_id: "c1", code: "P-1", entry_date: "2026-07-01", exit_date: null },
+        { id: "p2", client_id: "c1", code: "P-2", entry_date: "2026-07-05", exit_date: null },
+      ],
+      tariffs: [GENERAL],
+      clientNames: names,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    });
+    expect(r.applied_tariffs).toHaveLength(1);
+    expect(r.applied_tariffs[0]).toMatchObject({
+      client_id: null,
+      rate_per_pallet: 10,
+      period: "daily",
+      valid_from: "2026-01-01",
+    });
+  });
+
+  it("is empty when no tariff applied", () => {
+    const r = computeStorageBilling({
+      pallets: [
+        { id: "p1", client_id: "c1", code: "P-1", entry_date: "2026-07-01", exit_date: null },
+      ],
+      tariffs: [],
+      clientNames: names,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    });
+    expect(r.applied_tariffs).toHaveLength(0);
+    expect(r.pallets_without_tariff).toBe(1);
+  });
+});

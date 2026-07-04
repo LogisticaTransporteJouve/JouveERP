@@ -47,6 +47,17 @@ export type ClientBilling = {
   charge: number;
 };
 
+/** Tariff actually used in a computation — snapshotted on the billing run. */
+export type AppliedTariff = {
+  client_id: string | null;
+  rate_per_pallet: number;
+  period: string;
+  handling_in: number;
+  handling_out: number;
+  valid_from: string;
+  valid_to: string | null;
+};
+
 export type StorageBilling = {
   lines: BillingLine[];
   byClient: ClientBilling[];
@@ -54,6 +65,7 @@ export type StorageBilling = {
   handling_total: number;
   total: number;
   pallets_without_tariff: number;
+  applied_tariffs: AppliedTariff[];
 };
 
 function dayNum(date: string): number {
@@ -113,12 +125,27 @@ export function computeStorageBilling(input: {
   const pEnd = dayNum(input.periodEnd);
 
   const lines: BillingLine[] = [];
+  const appliedTariffs = new Map<string, AppliedTariff>();
   let withoutTariff = 0;
 
   for (const pallet of input.pallets) {
     const days = daysInPeriod(pallet, pStart, pEnd);
     if (days === 0) continue;
     const tariff = pickTariff(input.tariffs, pallet.client_id, pStart, pEnd);
+    if (tariff) {
+      const key = `${tariff.client_id ?? ""}|${tariff.valid_from}|${tariff.rate_per_pallet}|${tariff.period}`;
+      if (!appliedTariffs.has(key)) {
+        appliedTariffs.set(key, {
+          client_id: tariff.client_id,
+          rate_per_pallet: tariff.rate_per_pallet,
+          period: tariff.period,
+          handling_in: tariff.handling_in,
+          handling_out: tariff.handling_out,
+          valid_from: tariff.valid_from,
+          valid_to: tariff.valid_to,
+        });
+      }
+    }
     const dailyRate = tariff
       ? tariff.period === "monthly"
         ? tariff.rate_per_pallet / 30
@@ -180,5 +207,6 @@ export function computeStorageBilling(input: {
     handling_total,
     total,
     pallets_without_tariff: withoutTariff,
+    applied_tariffs: [...appliedTariffs.values()],
   };
 }

@@ -332,6 +332,7 @@ export async function invoiceStorageAction(
       handling_in_total: loading,
       handling_out_total: unloading,
       total,
+      applied_tariffs: billing.applied_tariffs,
       invoice_id: result.data.id,
       created_by: ctx.userId,
     });
