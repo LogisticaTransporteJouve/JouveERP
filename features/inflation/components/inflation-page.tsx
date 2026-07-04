@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { BookOpen, Plus, Trash2, Unlink } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -27,12 +27,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ManualEntryDialog } from "@/features/journal-entries/components/manual-entry-dialog";
 import { formatArgentineDate } from "@/lib/format";
 
 import {
+  useApplyInflationAdjustment,
   useCreateInflationAdjustment,
   useDeleteInflationAdjustment,
   useInflationAdjustments,
+  useRevertInflationApplication,
 } from "../hooks/use-inflation";
 import type { InflationAdjustment } from "../schema";
 
@@ -44,8 +47,11 @@ const numFmt = new Intl.NumberFormat("es-AR", {
 export function InflationPage() {
   const { data: items } = useInflationAdjustments();
   const deleteMut = useDeleteInflationAdjustment();
+  const applyMut = useApplyInflationAdjustment();
+  const revertMut = useRevertInflationApplication();
   const confirm = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [entryFor, setEntryFor] = useState<InflationAdjustment | null>(null);
 
   const columns = useMemo<ColumnDef<InflationAdjustment>[]>(() => {
     async function handleDelete(adj: InflationAdjustment) {
@@ -59,6 +65,21 @@ export function InflationPage() {
       if (!ok) return;
       deleteMut.mutate(adj.id, {
         onSuccess: () => toast.success("Coeficiente borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    async function handleRevert(adj: InflationAdjustment) {
+      const ok = await confirm({
+        title: `Desvincular asiento de ${adj.period}`,
+        description:
+          "Solo se desvincula del coeficiente — el asiento sigue en el libro diario; si corresponde, cargá su reversión a mano.",
+        confirmLabel: "Desvincular",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      revertMut.mutate(adj.id, {
+        onSuccess: () => toast.success("Asiento desvinculado."),
         onError: (err) => toast.error(err.message),
       });
     }
@@ -117,20 +138,41 @@ export function InflationPage() {
         id: "actions",
         header: "",
         enableSorting: false,
-        meta: { headerClassName: "w-12" },
+        meta: { headerClassName: "w-40" },
         cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDelete(row.original)}
-            aria-label="Borrar"
-          >
-            <Trash2 className="size-4 text-destructive" />
-          </Button>
+          <div className="flex justify-end gap-1">
+            {row.original.journal_entry_id ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRevert(row.original)}
+              >
+                <Unlink className="size-4" />
+                Desvincular
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEntryFor(row.original)}
+              >
+                <BookOpen className="size-4" />
+                Generar asiento
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDelete(row.original)}
+              aria-label="Borrar"
+            >
+              <Trash2 className="size-4 text-destructive" />
+            </Button>
+          </div>
         ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [confirm, deleteMut, revertMut]);
 
   return (
     <div className="space-y-6">
@@ -158,6 +200,34 @@ export function InflationPage() {
       />
 
       <InflationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+
+      <ManualEntryDialog
+        open={entryFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setEntryFor(null);
+        }}
+        defaultDescription={
+          entryFor
+            ? `Ajuste por inflación RG 4667 — período ${entryFor.period}`
+            : undefined
+        }
+        prefillRecpam
+        onCreated={(journalEntryId) => {
+          if (!entryFor) return;
+          applyMut.mutate(
+            { id: entryFor.id, journal_entry_id: journalEntryId },
+            {
+              onSuccess: () =>
+                toast.success("Asiento vinculado al coeficiente."),
+              onError: (err) =>
+                toast.error(
+                  `El asiento se creó pero no se pudo vincular: ${err.message}`,
+                ),
+            },
+          );
+          setEntryFor(null);
+        }}
+      />
     </div>
   );
 }

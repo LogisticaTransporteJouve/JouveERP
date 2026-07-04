@@ -12,4 +12,6 @@ export const journalEntriesKeys = {
         channelId: filters.channelId ?? null,
       },
     ] as const,
+  postableAccounts: () =>
+    [...journalEntriesKeys.all, "postableAccounts"] as const,
 };
