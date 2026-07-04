@@ -243,3 +243,107 @@ export async function listInvoicingChannelsAction(): Promise<
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// CAEA — contingencia (L.7)
+// ---------------------------------------------------------------------------
+
+export interface CaeaStatus {
+  codes: Array<{
+    id: string;
+    periodo: number;
+    orden: number;
+    caea: string;
+    fch_vig_desde: string;
+    fch_vig_hasta: string;
+    fch_tope_inf: string;
+    created_at: string;
+  }>;
+  /** Comprobantes CAEA emitidos y todavía no informados a AFIP. */
+  pendingToInform: number;
+}
+
+export async function getCaeaStatusAction(): Promise<ActionResult<CaeaStatus>> {
+  const ctx = await requireAfipAdmin();
+  if (!ctx) {
+    return { ok: false, error: "No tenés permiso para administrar AFIP." };
+  }
+  const supabase = getServiceClient();
+  const [codesRes, pendingRes] = await Promise.all([
+    supabase
+      .from("caea_codes")
+      .select(
+        "id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, created_at",
+      )
+      .order("periodo", { ascending: false })
+      .order("orden", { ascending: false })
+      .limit(8),
+    supabase
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .eq("emission_type", "caea")
+      .is("caea_informed_at", null)
+      .eq("status", "emitted"),
+  ]);
+  if (codesRes.error) {
+    logger.error("caea.status.failed", { userId: ctx.userId, error: codesRes.error });
+    return { ok: false, error: "No se pudo leer el estado CAEA." };
+  }
+  return {
+    ok: true,
+    data: {
+      codes: codesRes.data ?? [],
+      pendingToInform: pendingRes.count ?? 0,
+    },
+  };
+}
+
+/**
+ * Requests the current + next fortnight's CAEA on demand (same path the
+ * caea-request cron uses). Fails with AFIP's message when the CUIT has no
+ * CAEA contingency POS registered in ARCA's ABM (15003) or the window is
+ * closed (15006).
+ */
+export async function requestCaeaNowAction(): Promise<
+  ActionResult<{ current: string | null; next: string | null }>
+> {
+  const ctx = await requireAfipAdmin();
+  if (!ctx) {
+    return { ok: false, error: "No tenés permiso para administrar AFIP." };
+  }
+
+  const { ensureCaea } = await import("@/lib/afip/caea");
+  const { nextQuincena, quincenaOf } = await import("@/lib/afip/caea-periods");
+  const { todayInAR } = await import("@/lib/format");
+
+  const current = quincenaOf(todayInAR());
+  let currentCaea: string | null = null;
+  let nextCaea: string | null = null;
+  let firstError: string | null = null;
+
+  try {
+    currentCaea = (await ensureCaea(current)).caea;
+  } catch (err) {
+    firstError = err instanceof Error ? err.message : String(err);
+  }
+  try {
+    nextCaea = (await ensureCaea(nextQuincena(current))).caea;
+  } catch (err) {
+    // La próxima quincena puede estar fuera de ventana (15006) — no es error
+    // si la actual se obtuvo.
+    logger.info("caea.request_now.next_unavailable", {
+      userId: ctx.userId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  if (!currentCaea && !nextCaea) {
+    return { ok: false, error: firstError ?? "No se pudo obtener el CAEA." };
+  }
+
+  await logAudit("caea.requested", ctx.userId, {
+    current: currentCaea,
+    next: nextCaea,
+  });
+  return { ok: true, data: { current: currentCaea, next: nextCaea } };
+}

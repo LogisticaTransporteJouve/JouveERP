@@ -10,8 +10,10 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   configurePosAction,
+  getCaeaStatusAction,
   listInvoicingChannelsAction,
   loadAfipAdminAction,
+  requestCaeaNowAction,
   syncAfipPosAction,
 } from "../actions/afip-admin-actions";
 import { afipAdminKeys } from "../lib/afip-admin-keys";
@@ -49,6 +51,23 @@ export function useConfigurePos() {
       runAction(() => configurePosAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: afipAdminKeys.panel() });
+    },
+  });
+}
+
+export function useCaeaStatus() {
+  return useSuspenseQuery({
+    queryKey: afipAdminKeys.caea(),
+    queryFn: () => runAction(() => getCaeaStatusAction()),
+  });
+}
+
+export function useRequestCaea() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => runAction(() => requestCaeaNowAction()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: afipAdminKeys.caea() });
     },
   });
 }

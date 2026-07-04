@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { loadAfipAdminAction } from "@/features/afip-admin/actions/afip-admin-actions";
+import {
+  getCaeaStatusAction,
+  loadAfipAdminAction,
+} from "@/features/afip-admin/actions/afip-admin-actions";
+import { CaeaPanel } from "@/features/afip-admin/components/caea-panel";
 import { SalesPointsPanel } from "@/features/afip-admin/components/sales-points-panel";
 import { afipAdminKeys } from "@/features/afip-admin/lib/afip-admin-keys";
 import { requireUserContext } from "@/lib/auth/context";
@@ -25,6 +29,10 @@ export default async function AfipSalesPointsPage() {
       queryKey: afipAdminKeys.panel(),
       queryFn: () => runAction(() => loadAfipAdminAction()),
     },
+    {
+      queryKey: afipAdminKeys.caea(),
+      queryFn: () => runAction(() => getCaeaStatusAction()),
+    },
   ]);
 
   return (
@@ -42,6 +50,7 @@ export default async function AfipSalesPointsPage() {
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
           <SalesPointsPanel />
+          <CaeaPanel />
         </Suspense>
       </Hydrate>
     </div>

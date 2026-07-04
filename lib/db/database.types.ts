@@ -501,6 +501,48 @@ export type Database = {
         }
         Relationships: []
       }
+      caea_codes: {
+        Row: {
+          caea: string
+          created_at: string
+          fch_proceso: string | null
+          fch_tope_inf: string
+          fch_vig_desde: string
+          fch_vig_hasta: string
+          id: string
+          no_movement_pvs: Json
+          observaciones: Json | null
+          orden: number
+          periodo: number
+        }
+        Insert: {
+          caea: string
+          created_at?: string
+          fch_proceso?: string | null
+          fch_tope_inf: string
+          fch_vig_desde: string
+          fch_vig_hasta: string
+          id?: string
+          no_movement_pvs?: Json
+          observaciones?: Json | null
+          orden: number
+          periodo: number
+        }
+        Update: {
+          caea?: string
+          created_at?: string
+          fch_proceso?: string | null
+          fch_tope_inf?: string
+          fch_vig_desde?: string
+          fch_vig_hasta?: string
+          id?: string
+          no_movement_pvs?: Json
+          observaciones?: Json | null
+          orden?: number
+          periodo?: number
+        }
+        Relationships: []
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["coa_account_type"]
@@ -1919,6 +1961,8 @@ export type Database = {
           afip_observaciones: Json | null
           cae: string | null
           cae_vencimiento: string | null
+          caea_informed_at: string | null
+          cbte_fch_hs_gen: string | null
           cbte_tipo_afip: number | null
           cbte_tipo_origen_afip: number | null
           channel_id: string
@@ -1930,6 +1974,7 @@ export type Database = {
           created_by: string | null
           doc_nro: string
           doc_tipo: number
+          emission_type: string
           emitted_at: string | null
           fch_serv_desde: string | null
           fch_serv_hasta: string | null
@@ -1960,6 +2005,8 @@ export type Database = {
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
+          caea_informed_at?: string | null
+          cbte_fch_hs_gen?: string | null
           cbte_tipo_afip?: number | null
           cbte_tipo_origen_afip?: number | null
           channel_id: string
@@ -1971,6 +2018,7 @@ export type Database = {
           created_by?: string | null
           doc_nro: string
           doc_tipo: number
+          emission_type?: string
           emitted_at?: string | null
           fch_serv_desde?: string | null
           fch_serv_hasta?: string | null
@@ -2001,6 +2049,8 @@ export type Database = {
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
+          caea_informed_at?: string | null
+          cbte_fch_hs_gen?: string | null
           cbte_tipo_afip?: number | null
           cbte_tipo_origen_afip?: number | null
           channel_id?: string
@@ -2012,6 +2062,7 @@ export type Database = {
           created_by?: string | null
           doc_nro?: string
           doc_tipo?: number
+          emission_type?: string
           emitted_at?: string | null
           fch_serv_desde?: string | null
           fch_serv_hasta?: string | null
