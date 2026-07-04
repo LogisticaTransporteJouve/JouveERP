@@ -23,7 +23,7 @@ export async function listCostCentersAction(
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
-  const query = supabase.from("cost_centers").select("*").order("code");
+  const query = supabase.from("cost_centers").select("id, code, name, description, is_active, created_at, updated_at").order("code");
   if (options.onlyActive) query.eq("is_active", true);
   const { data, error } = await query;
   if (error) {

@@ -169,14 +169,14 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
         className={cn(
           "flex items-center gap-2 rounded-lg border p-3 text-sm",
           totals.isBalanced
-            ? "border-emerald-500/40 bg-emerald-500/5"
-            : "border-red-500/40 bg-red-500/5",
+            ? "border-border bg-muted"
+            : "border-border bg-muted",
         )}
       >
         {totals.isBalanced ? (
-          <CheckCircle2 className="size-4 text-emerald-600" />
+          <CheckCircle2 className="size-4 text-muted-foreground" />
         ) : (
-          <AlertTriangle className="size-4 text-red-600" />
+          <AlertTriangle className="size-4 text-foreground" />
         )}
         <span>
           {totals.isBalanced
@@ -184,7 +184,7 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
             : "Balance DESBALANCEADO"}
           : Σ Debe {money(totals.totalDebit)} · Σ Haber {money(totals.totalCredit)}
           {!totals.isBalanced && (
-            <span className="ml-2 text-red-600">
+            <span className="ml-2 text-foreground">
               (diferencia {money(Math.abs(totals.totalDebit - totals.totalCredit))})
             </span>
           )}
@@ -277,8 +277,8 @@ function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
         className={cn(
           "rounded-lg border p-4 text-center text-lg font-semibold",
           eerr.resultado >= 0
-            ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
-            : "border-red-500/40 bg-red-500/5 text-red-700 dark:text-red-300",
+            ? "border-border bg-muted text-muted-foreground dark:text-muted-foreground"
+            : "border-border bg-muted text-foreground dark:text-foreground",
         )}
       >
         Resultado del período: {signed(eerr.resultado)}
@@ -326,8 +326,8 @@ function BGTab({ rows }: { rows: AccountBalanceRow[] }) {
           className={cn(
             "rounded-lg border p-3 text-sm font-semibold",
             cuadra
-              ? "border-emerald-500/40 bg-emerald-500/5"
-              : "border-red-500/40 bg-red-500/5",
+              ? "border-border bg-muted"
+              : "border-border bg-muted",
           )}
         >
           Total Pasivo + PN = {signed(sumaPN)} {cuadra ? "✓" : "✗"}

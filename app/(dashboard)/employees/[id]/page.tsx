@@ -82,7 +82,7 @@ export default async function EmployeeDetailPage({
             {!employee.is_active && (
               <Badge
                 variant="secondary"
-                className="ml-2 bg-red-500/15 text-xs text-red-700 dark:text-red-300"
+                className="ml-2 bg-muted text-xs text-foreground dark:text-foreground"
               >
                 Inactivo
                 {employee.termination_date

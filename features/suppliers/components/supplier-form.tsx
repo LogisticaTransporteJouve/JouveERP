@@ -214,7 +214,7 @@ export function SupplierForm({
             )}
           />
           {existingSupplier && (
-            <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+            <div className="rounded-md border border-border bg-muted p-3 text-sm">
               Ya existe el proveedor{" "}
               <Link
                 href={`/suppliers/${existingSupplier.id}`}

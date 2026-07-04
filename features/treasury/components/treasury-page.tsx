@@ -118,8 +118,8 @@ export function TreasuryPage() {
               variant="secondary"
               className={`gap-1 font-mono text-[10px] ${
                 delta > 0
-                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                  : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                  ? "bg-muted text-muted-foreground dark:text-muted-foreground"
+                  : "bg-muted text-foreground dark:text-foreground"
               }`}
             >
               {delta > 0 ? (
@@ -192,8 +192,8 @@ export function TreasuryPage() {
 
       {/* Soon to be credited — only if any */}
       {query.data && query.data.checks_due_soon.count > 0 && (
-        <div className="rounded-lg border bg-amber-500/5 p-4 text-sm">
-          <p className="font-medium text-amber-700 dark:text-amber-400">
+        <div className="rounded-lg border bg-muted p-4 text-sm">
+          <p className="font-medium text-muted-foreground dark:text-muted-foreground">
             Próximos a acreditarse (≤ 7 días)
           </p>
           <p className="mt-1 text-muted-foreground">
@@ -338,8 +338,8 @@ function DeltaBadge({
       variant="secondary"
       className={`gap-1 text-[10px] ${
         up
-          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-          : "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+          ? "bg-muted text-muted-foreground dark:text-muted-foreground"
+          : "bg-muted text-foreground dark:text-foreground"
       }`}
     >
       {up ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}

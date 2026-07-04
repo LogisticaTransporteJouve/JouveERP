@@ -152,14 +152,14 @@ export function PayrollPeriodGrid({
                 variant={isClosed ? "secondary" : "outline"}
                 className={
                   isClosed
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    ? "bg-muted text-muted-foreground dark:text-muted-foreground"
                     : ""
                 }
               >
                 {PAYROLL_STATUS_LABEL[period.status]}
               </Badge>
             ) : (
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-muted-foreground dark:text-muted-foreground">
                 Sin generar todavía.
               </span>
             )}

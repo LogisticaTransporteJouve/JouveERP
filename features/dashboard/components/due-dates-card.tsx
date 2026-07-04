@@ -39,9 +39,9 @@ export function DueDatesCard({ items }: { items: DueDateItem[] }) {
                   {formatArDateShort(item.date)}
                 </span>
                 {item.direction === "in" ? (
-                  <ArrowUpRight className="size-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
                 ) : item.direction === "out" ? (
-                  <ArrowDownRight className="size-4 shrink-0 text-rose-700 dark:text-rose-300" />
+                  <ArrowDownRight className="size-4 shrink-0 text-foreground dark:text-foreground" />
                 ) : (
                   <FileWarning className="size-4 shrink-0 text-muted-foreground" />
                 )}

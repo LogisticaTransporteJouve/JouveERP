@@ -19,7 +19,10 @@ export const caeaRequest = inngest.createFunction(
     id: "caea-request",
     name: "CAEA — solicitar código de la quincena",
     retries: 3,
-    triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 9 11,26 * *" }],
+    // Days 24-28 cover the 5-day pre-fetch window for next-month orden 1 across
+    // all month lengths (28/30/31); day 26 alone missed 31-day months. ensureCaea
+    // is idempotent, so the extra runs are no-ops once the code is stored.
+    triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 9 11,24,25,26,27,28 * *" }],
   },
   async ({ step }) => {
     const today = todayInAR();

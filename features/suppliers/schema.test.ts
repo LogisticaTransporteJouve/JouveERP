@@ -11,12 +11,12 @@ const UUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
 describe("SupplierCreateSchema", () => {
   it("acepta payload válido", () => {
     const res = SupplierCreateSchema.safeParse({
-      cuit: "30-12345678-9",
+      cuit: "30-71463743-2",
       legal_name: "Proveedor SRL",
       iva_condition: "responsable_inscripto",
     });
     expect(res.success).toBe(true);
-    if (res.success) expect(res.data.cuit).toBe("30123456789");
+    if (res.success) expect(res.data.cuit).toBe("30714637432");
   });
 
   it("rechaza CUIT corto", () => {
@@ -32,7 +32,7 @@ describe("SupplierCreateSchema", () => {
   it("rechaza legal_name vacío", () => {
     expect(
       SupplierCreateSchema.safeParse({
-        cuit: "30123456789",
+        cuit: "30714637432",
         legal_name: "",
         iva_condition: "responsable_inscripto",
       }).success,
@@ -42,7 +42,7 @@ describe("SupplierCreateSchema", () => {
   it("rechaza email inválido", () => {
     expect(
       SupplierCreateSchema.safeParse({
-        cuit: "30123456789",
+        cuit: "30714637432",
         legal_name: "Proveedor SRL",
         iva_condition: "responsable_inscripto",
         email: "no-es-email",
@@ -52,7 +52,7 @@ describe("SupplierCreateSchema", () => {
 
   it("normaliza email vacío a null", () => {
     const res = SupplierCreateSchema.safeParse({
-      cuit: "30123456789",
+      cuit: "30714637432",
       legal_name: "Proveedor SRL",
       iva_condition: "responsable_inscripto",
       email: "",
@@ -63,7 +63,7 @@ describe("SupplierCreateSchema", () => {
 
   it("default_payment_term_days acepta vacío o número", () => {
     const a = SupplierCreateSchema.safeParse({
-      cuit: "30123456789",
+      cuit: "30714637432",
       legal_name: "Proveedor SRL",
       iva_condition: "responsable_inscripto",
       default_payment_term_days: "",
@@ -72,7 +72,7 @@ describe("SupplierCreateSchema", () => {
     if (a.success) expect(a.data.default_payment_term_days).toBe(null);
 
     const b = SupplierCreateSchema.safeParse({
-      cuit: "30123456789",
+      cuit: "30714637432",
       legal_name: "Proveedor SRL",
       iva_condition: "responsable_inscripto",
       default_payment_term_days: 30,

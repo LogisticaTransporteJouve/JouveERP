@@ -62,7 +62,7 @@ export function PadronLookup() {
               </span>
             )}
             {result.stale && (
-              <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-yellow-700 dark:text-yellow-400">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground dark:text-muted-foreground">
                 stale (AFIP no disponible)
               </span>
             )}

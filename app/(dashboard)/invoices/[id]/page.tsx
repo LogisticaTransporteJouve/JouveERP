@@ -291,7 +291,7 @@ export default async function ComprobanteDetailPage({
               ) : c.status === "failed" ? (
                 <Badge
                   variant="secondary"
-                  className="bg-red-500/15 text-red-700 dark:text-red-300"
+                  className="bg-muted text-foreground dark:text-foreground"
                 >
                   Falló: revisá observaciones
                 </Badge>

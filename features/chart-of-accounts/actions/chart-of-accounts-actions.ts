@@ -1,5 +1,6 @@
 "use server";
 
+import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -33,7 +34,7 @@ export async function listChartOfAccountsAction(
   const supabase = await createClient();
   const query = supabase
     .from("chart_of_accounts")
-    .select("*")
+    .select("id, parent_id, code, name, level, account_type, eerr_category, system_role, is_active, created_by, created_at, updated_at")
     .order("code", { ascending: true });
 
   if (options.onlyActive) {
@@ -139,6 +140,7 @@ export async function createChartAccountAction(
     return { ok: false, error: "No se pudo crear la cuenta." };
   }
 
+  await logAudit("chart_account.created", ctx.userId, {}, data.id);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -197,6 +199,7 @@ export async function updateChartAccountAction(
     return { ok: false, error: "No se pudo actualizar la cuenta." };
   }
 
+  await logAudit("chart_account.updated", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }
 
@@ -255,5 +258,6 @@ export async function deleteChartAccountAction(
     return { ok: false, error: "No se pudo borrar la cuenta." };
   }
 
+  await logAudit("chart_account.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }

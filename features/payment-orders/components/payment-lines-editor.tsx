@@ -341,11 +341,11 @@ export function PaymentLinesEditor({
             return (
               <div
                 key={idx}
-                className="space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3"
+                className="space-y-3 rounded-md border border-border bg-muted p-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2 text-sm">
-                    <Wallet className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    <Wallet className="size-4 text-muted-foreground dark:text-muted-foreground" />
                     <span className="font-medium">Emitir cheque propio</span>
                   </div>
                   <Button

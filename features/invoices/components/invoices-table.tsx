@@ -66,9 +66,9 @@ const ANY_CHANNEL = "__any__";
 
 const STATUS_TONE: Record<InvoiceStatus, string> = {
   draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
-  emitting: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  emitted: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  failed: "bg-red-500/15 text-red-700 dark:text-red-300",
+  emitting: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  emitted: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  failed: "bg-muted text-foreground dark:text-foreground",
   cancelled: "bg-muted text-muted-foreground",
 };
 

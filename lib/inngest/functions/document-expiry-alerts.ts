@@ -46,7 +46,7 @@ export const documentExpiryAlerts = inngest.createFunction(
     const docs = await step.run("load-expiring-docs", async () => {
       const { data, error } = await supabase
         .from("v_documents_expiring")
-        .select("*")
+        .select("id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry")
         .order("days_until_expiry", { ascending: true });
       if (error) throw new Error(`load-expiring-docs: ${error.message}`);
       const cutoff = new Date(

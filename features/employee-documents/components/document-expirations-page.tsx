@@ -81,10 +81,10 @@ export function DocumentExpirationsPage() {
               variant="secondary"
               className={
                 isExpired
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  ? "bg-muted text-foreground dark:text-foreground"
                   : isCritical
-                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    ? "bg-muted text-foreground dark:text-foreground"
+                    : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
               {isExpired

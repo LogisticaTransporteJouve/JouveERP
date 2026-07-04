@@ -189,10 +189,10 @@ export function ClientAccountTab({
                 isOpening
                   ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
                   : m.source_type === "receipt"
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    ? "bg-muted text-muted-foreground dark:text-muted-foreground"
                     : m.kind === "nc"
                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
               {movementTypeLabel(m)}
@@ -222,14 +222,14 @@ export function ClientAccountTab({
                 (m.outstanding === 0 ? (
                   <Badge
                     variant="secondary"
-                    className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                    className="bg-muted text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground"
                   >
                     Pagada
                   </Badge>
                 ) : m.outstanding < m.gross_amount ? (
                   <Badge
                     variant="secondary"
-                    className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                    className="bg-muted text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground"
                   >
                     Parcial
                   </Badge>
@@ -255,7 +255,7 @@ export function ClientAccountTab({
                 m.outstanding != null &&
                 m.outstanding > 0 &&
                 m.outstanding < m.gross_amount && (
-                  <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                  <span className="text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">
                     Pendiente: {formatter.format(m.outstanding)}
                   </span>
                 )}
@@ -288,7 +288,7 @@ export function ClientAccountTab({
             <span
               className={
                 m.balance > 0
-                  ? "text-amber-600 dark:text-amber-400"
+                  ? "text-muted-foreground dark:text-muted-foreground"
                   : m.balance < 0
                     ? "text-blue-600 dark:text-blue-400"
                     : "text-muted-foreground"
@@ -571,7 +571,7 @@ function BalanceHeader({
 }) {
   const tone =
     balance > 0
-      ? "text-amber-600 dark:text-amber-400"
+      ? "text-muted-foreground dark:text-muted-foreground"
       : balance < 0
         ? "text-blue-600 dark:text-blue-400"
         : "text-muted-foreground";

@@ -34,7 +34,7 @@ import {
 } from "@/lib/afip/codes";
 import type { IvaCondition } from "@/features/clients/schema";
 
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, todayInAR } from "@/lib/format";
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
 import { computeTotals } from "../schema";
@@ -109,7 +109,7 @@ export function NcNdForm({
   const router = useRouter();
   const issueMut = useIssueFiscalInvoice();
 
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => todayInAR());
   const [motivo, setMotivo] = useState("");
   const [items, setItems] = useState<ItemDraft[]>(() =>
     origin.items.length === 0

@@ -107,7 +107,7 @@ export default async function PurchaseInvoiceDetailPage({
             {isCancelled && (
               <Badge
                 variant="secondary"
-                className="ml-2 bg-red-500/15 text-red-700 dark:text-red-300"
+                className="ml-2 bg-muted text-foreground dark:text-foreground"
               >
                 Anulada
               </Badge>
@@ -267,7 +267,7 @@ export default async function PurchaseInvoiceDetailPage({
                     {isCancelledOp && (
                       <Badge
                         variant="secondary"
-                        className="ml-2 bg-red-500/15 text-red-700 dark:text-red-300"
+                        className="ml-2 bg-muted text-foreground dark:text-foreground"
                       >
                         Anulada
                       </Badge>

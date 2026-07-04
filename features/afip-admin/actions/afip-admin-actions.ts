@@ -77,7 +77,7 @@ export async function loadAfipAdminAction(): Promise<
       });
       throw err;
     }),
-    supabase.from("sales_points").select("*").order("numero"),
+    supabase.from("sales_points").select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at").order("numero"),
   ]);
 
   if (dbRes.error) {
@@ -147,7 +147,7 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
   const upsertRes = await supabase
     .from("sales_points")
     .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false })
-    .select("*")
+    .select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at")
     .order("numero");
   if (upsertRes.error) {
     return { ok: false, error: upsertRes.error.message };
@@ -196,7 +196,7 @@ export async function configurePosAction(
     .from("sales_points")
     .update({ channel_id, nickname, is_enabled })
     .eq("numero", numero)
-    .select("*")
+    .select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at")
     .maybeSingle();
   if (update.error) {
     return { ok: false, error: update.error.message };

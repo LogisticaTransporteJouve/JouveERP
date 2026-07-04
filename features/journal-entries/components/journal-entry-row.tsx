@@ -32,7 +32,7 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
       : null;
 
   return (
-    <li className={cn("border-b last:border-b-0", entry.is_reversal && "bg-red-500/5")}>
+    <li className={cn("border-b last:border-b-0", entry.is_reversal && "bg-muted")}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -53,7 +53,7 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
         </span>
         <span className="flex-1 truncate text-sm">
           {entry.is_reversal && (
-            <Undo2 className="mr-1 inline-block size-3 text-red-600" />
+            <Undo2 className="mr-1 inline-block size-3 text-foreground" />
           )}
           {entry.description}
         </span>
@@ -68,7 +68,7 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
         <span
           className={cn(
             "w-28 shrink-0 text-right font-mono text-sm",
-            !balanced && "text-red-600",
+            !balanced && "text-foreground",
           )}
         >
           {money(debitSum)}
@@ -124,7 +124,7 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
               </tr>
               {!balanced && (
                 <tr>
-                  <td colSpan={5} className="pt-2 text-right text-xs text-red-600">
+                  <td colSpan={5} className="pt-2 text-right text-xs text-foreground">
                     Asiento desbalanceado: diferencia {money(Math.abs(debitSum - creditSum))}
                   </td>
                 </tr>

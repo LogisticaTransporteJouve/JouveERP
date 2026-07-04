@@ -25,11 +25,11 @@ import {
 import { NewChequeDialog } from "./new-check-dialog";
 
 const STATUS_TONE: Record<ChequeStatus, string> = {
-  en_cartera: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  en_cartera: "bg-muted text-muted-foreground dark:text-muted-foreground",
   depositado: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  acreditado: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  acreditado: "bg-muted text-muted-foreground dark:text-muted-foreground",
   endosado: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  rechazado: "bg-red-500/15 text-red-700 dark:text-red-300",
+  rechazado: "bg-muted text-foreground dark:text-foreground",
 };
 
 // Money formatter centralizado en lib/format (formatMoney).

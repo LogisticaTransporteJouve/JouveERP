@@ -64,8 +64,8 @@ export function SalesPointsPanel() {
               variant="secondary"
               className={
                 diagnostics.env === "prod"
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  ? "bg-muted text-muted-foreground dark:text-muted-foreground"
+                  : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
               {diagnostics.env === "prod" ? "Producción" : "Homologación"}
@@ -129,9 +129,9 @@ function DiagnosticsSection({ diagnostics }: { diagnostics: AfipDiagnostics }) {
 function DiagnosticRow({ entry }: { entry: DiagnosticEntry }) {
   const tone =
     entry.status === "ok"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-muted-foreground dark:text-muted-foreground"
       : entry.status === "warn"
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-muted-foreground dark:text-muted-foreground"
         : "text-destructive";
 
   const Icon =
@@ -209,7 +209,7 @@ function SalesPointsSection({
             {row.original.is_enabled ? (
               <Badge
                 variant="secondary"
-                className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                className="bg-muted text-muted-foreground dark:text-muted-foreground"
               >
                 Sí
               </Badge>

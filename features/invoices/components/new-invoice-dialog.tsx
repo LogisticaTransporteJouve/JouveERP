@@ -49,7 +49,7 @@ import {
   type IvaCondition,
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, todayInAR } from "@/lib/format";
 import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type {
@@ -201,7 +201,7 @@ function NewInvoiceForm({
       kind: "factura",
       channelId: initialChannel,
       puntoVenta: "",
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: todayInAR(),
       origin: null,
       client: initialClient,
       items: defaultItems(),

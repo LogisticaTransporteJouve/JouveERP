@@ -1,6 +1,7 @@
 "use server";
 
 import type { ActionResult } from "@/lib/query/run-action";
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -79,6 +80,9 @@ export async function getBackupSignedUrlAction(
     });
     return { ok: false, error: "No se pudo generar URL de descarga." };
   }
+
+  // A full-DB-dump download is a sensitive event — always audit it.
+  await logAudit("backup.downloaded", ctx.userId, { fileName });
 
   return {
     ok: true,

@@ -179,7 +179,7 @@ export function AllocationsPicker({
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs">
                     <div className="flex flex-col items-end">
-                      <span className={isPartial ? "text-amber-600 dark:text-amber-400" : ""}>
+                      <span className={isPartial ? "text-muted-foreground dark:text-muted-foreground" : ""}>
                         {amountToInput(c.outstanding)}
                       </span>
                       {isPartial && (

@@ -42,7 +42,7 @@ export async function listEmployeeDocumentsAction(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("employee_documents")
-    .select("*")
+    .select("id, employee_id, kind, number, issued_at, expires_at, issuing_authority, notes, attachment_file_id, notified_at, created_by, created_at, updated_at")
     .eq("employee_id", employeeId)
     .order("expires_at", { ascending: true })
     .order("id", { ascending: false });
@@ -74,7 +74,7 @@ export async function listExpiringDocumentsAction(): Promise<
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("v_documents_expiring")
-    .select("*")
+    .select("id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry")
     .order("days_until_expiry", { ascending: true });
 
   if (error) {

@@ -87,13 +87,13 @@ function balanceLabel(balance: number): {
   if (balance > 0.005) {
     return {
       text: "Les debemos",
-      className: "text-amber-600 dark:text-amber-400",
+      className: "text-muted-foreground dark:text-muted-foreground",
     };
   }
   if (balance < -0.005) {
     return {
       text: "Saldo a favor",
-      className: "text-emerald-600 dark:text-emerald-400",
+      className: "text-muted-foreground dark:text-muted-foreground",
     };
   }
   return { text: "Saldo cero", className: "text-muted-foreground" };
@@ -198,10 +198,10 @@ export function SupplierAccountTab({
                 isOpening
                   ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
                   : m.source_type === "payment_order"
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    ? "bg-muted text-muted-foreground dark:text-muted-foreground"
                     : m.kind === "nc"
                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                      : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
               {KIND_LABEL[m.kind] ?? m.kind}
@@ -238,14 +238,14 @@ export function SupplierAccountTab({
                 (m.outstanding === 0 ? (
                   <Badge
                     variant="secondary"
-                    className="bg-emerald-500/15 text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                    className="bg-muted text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground"
                   >
                     Pagada
                   </Badge>
                 ) : m.outstanding! < m.gross_amount ? (
                   <Badge
                     variant="secondary"
-                    className="bg-amber-500/15 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                    className="bg-muted text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground"
                   >
                     Parcial
                   </Badge>
@@ -285,7 +285,7 @@ export function SupplierAccountTab({
                 m.outstanding != null &&
                 m.outstanding > 0 &&
                 m.outstanding < m.gross_amount && (
-                  <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                  <span className="text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">
                     Pendiente: ${amountToInput(m.outstanding)}
                   </span>
                 )}
@@ -315,9 +315,9 @@ export function SupplierAccountTab({
             <span
               className={`font-mono text-sm font-medium ${
                 m.balance > 0
-                  ? "text-amber-600 dark:text-amber-400"
+                  ? "text-muted-foreground dark:text-muted-foreground"
                   : m.balance < 0
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-muted-foreground dark:text-muted-foreground"
                     : "text-muted-foreground"
               }`}
             >

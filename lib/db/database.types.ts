@@ -64,6 +64,27 @@ export type Database = {
           },
         ]
       }
+      accounting_closed_periods: {
+        Row: {
+          closed_at: string
+          closed_by: string | null
+          note: string | null
+          period: string
+        }
+        Insert: {
+          closed_at?: string
+          closed_by?: string | null
+          note?: string | null
+          period: string
+        }
+        Update: {
+          closed_at?: string
+          closed_by?: string | null
+          note?: string | null
+          period?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           created_at: string

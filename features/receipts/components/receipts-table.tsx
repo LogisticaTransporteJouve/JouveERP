@@ -65,7 +65,7 @@ export function ReceiptsTable({
       )}
 
       {truncated && (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+        <div className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm">
           ⚠ Mostrando los 100 recibos más recientes. Usá búsqueda global (⌘K)
           para encontrar uno específico.
         </div>
@@ -127,7 +127,7 @@ export function ReceiptsTable({
                       ) : (
                         <Badge
                           variant="secondary"
-                          className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          className="bg-muted text-muted-foreground dark:text-muted-foreground"
                         >
                           Emitido
                         </Badge>

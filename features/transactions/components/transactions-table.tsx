@@ -49,8 +49,8 @@ const ANY_KIND = "__any_kind__";
 // Money formatter centralizado en lib/format (formatMoney).
 
 const KIND_TONE: Record<TransactionKind, string> = {
-  income: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  expense: "bg-red-500/15 text-red-700 dark:text-red-300",
+  income: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  expense: "bg-muted text-foreground dark:text-foreground",
   transfer_in: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   transfer_out: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
 };
@@ -152,8 +152,8 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
             <span
               className={
                 isOutflow
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-emerald-600 dark:text-emerald-400"
+                  ? "text-foreground dark:text-foreground"
+                  : "text-muted-foreground dark:text-muted-foreground"
               }
             >
               {sign < 0 ? "-" : "+"}

@@ -108,7 +108,7 @@ export function AccountsTable({
         header: "Estado",
         cell: ({ row }) =>
           row.original.is_active ? (
-            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            <span className="text-sm text-muted-foreground dark:text-muted-foreground">
               Activa
             </span>
           ) : (

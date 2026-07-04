@@ -235,7 +235,7 @@ export function BulkPayrollPaymentDialog({
                     <span
                       className={`font-mono text-xs ${
                         e.saldo > 0
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-muted-foreground dark:text-muted-foreground"
                           : "text-muted-foreground"
                       }`}
                     >
