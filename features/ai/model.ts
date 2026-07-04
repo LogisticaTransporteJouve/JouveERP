@@ -63,7 +63,11 @@ export async function runWithFallback<T>(
  * Wraps an ordered list of models so a transient failure on one rotates to the
  * next provider. Identity/metadata is delegated to the primary (first) model.
  */
-function createFallbackModel(primary: ChatModel, models: ChatModel[]): ChatModel {
+function createFallbackModel(
+  primary: ChatModel,
+  models: ChatModel[],
+  onServed: (modelId: string) => void,
+): ChatModel {
   const onFallback = (fromIndex: number, error: unknown) =>
     logger.warn("ai.model_fallback", {
       failed: models[fromIndex]?.modelId,
@@ -78,12 +82,20 @@ function createFallbackModel(primary: ChatModel, models: ChatModel[]): ChatModel
     supportedUrls: primary.supportedUrls,
     doGenerate: (options) =>
       runWithFallback(
-        models.map((m) => () => Promise.resolve(m.doGenerate(options))),
+        models.map((m) => async () => {
+          const result = await m.doGenerate(options);
+          onServed(m.modelId);
+          return result;
+        }),
         { onFallback },
       ),
     doStream: (options) =>
       runWithFallback(
-        models.map((m) => () => Promise.resolve(m.doStream(options))),
+        models.map((m) => async () => {
+          const result = await m.doStream(options);
+          onServed(m.modelId);
+          return result;
+        }),
         { onFallback },
       ),
   };
@@ -96,7 +108,11 @@ function createFallbackModel(primary: ChatModel, models: ChatModel[]): ChatModel
  * down. With no fallback keys set it returns the Anthropic model unchanged
  * (identical behaviour to before).
  */
-export function buildChatModel(): ChatModel {
+export function buildChatModel(): {
+  model: ChatModel;
+  /** The model id that actually served the last call (for usage metering). */
+  servedModel: () => string;
+} {
   const primary = anthropic(AI_CHAT_MODEL);
   const models: ChatModel[] = [primary];
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
@@ -105,7 +121,14 @@ export function buildChatModel(): ChatModel {
   if (process.env.OPENAI_API_KEY) {
     models.push(openai(AI_FALLBACK_OPENAI_MODEL));
   }
-  return models.length === 1 ? primary : createFallbackModel(primary, models);
+  if (models.length === 1) {
+    return { model: primary, servedModel: () => primary.modelId };
+  }
+  let served = primary.modelId;
+  const model = createFallbackModel(primary, models, (id) => {
+    served = id;
+  });
+  return { model, servedModel: () => served };
 }
 
 /** Cheap model for chat-title autogeneration (first turn). */

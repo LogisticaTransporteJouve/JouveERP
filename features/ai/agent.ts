@@ -43,6 +43,8 @@ function lastUserText(messages: UIMessage[]): string {
 }
 
 export type AiUsageReport = {
+  /** Model that actually served the turn (may differ from primary on fallback). */
+  model: string;
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
@@ -85,8 +87,9 @@ export async function streamChat(
   if (skills) {
     systemMessages.push({ role: "system", content: skills });
   }
+  const { model, servedModel } = buildChatModel();
   return streamText({
-    model: buildChatModel(),
+    model,
     messages: [...systemMessages, ...modelMessages],
     tools: aiTools,
     stopWhen: stepCountIs(AI_MAX_STEPS),
@@ -98,6 +101,7 @@ export async function streamChat(
             ),
           );
           await onUsage({
+            model: servedModel(),
             inputTokens: totalUsage.inputTokens ?? 0,
             outputTokens: totalUsage.outputTokens ?? 0,
             cachedTokens: totalUsage.inputTokenDetails?.cacheReadTokens ?? 0,
