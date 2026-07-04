@@ -169,7 +169,10 @@ export function CashFlowPage() {
             F = facturado (canal fiscal) · I = interno · O = otros (cheques en
             cartera). Cobranzas, pagos a proveedores y cuotas de préstamos se
             proyectan por su fecha de vencimiento; lo ya vencido se ubica en{" "}
-            {monthLabel(data.pendingMonth)}. Solo ARS.
+            {monthLabel(data.pendingMonth)}.{" "}
+            {data.usdRate !== null
+              ? `Todo en ARS; lo que está en USD se convierte al TC oficial ($${data.usdRate.toLocaleString("es-AR")}).`
+              : "Solo ARS (sin cotización USD cargada)."}
           </p>
         </>
       )}

@@ -4658,6 +4658,7 @@ export type Database = {
           invoice_id: string | null
           kind: string | null
           letter: string | null
+          moneda: string | null
           numero: number | null
           open_amount: number | null
           punto_venta: number | null
@@ -4972,6 +4973,7 @@ export type Database = {
           imp_total: number | null
           kind: string | null
           letter: string | null
+          moneda: string | null
           numero: number | null
           open_amount: number | null
           punto_venta: number | null

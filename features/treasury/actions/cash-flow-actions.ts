@@ -57,14 +57,18 @@ export type CashFlowResult = CashFlow & {
   monthsFwd: number;
   /** First projected month (where pending receivables/payables are placed). */
   pendingMonth: string;
+  /** Latest official USD→ARS rate used to convert USD items (null = no rate → USD skipped). */
+  usdRate: number | null;
 };
 
 /**
- * Monthly cash flow (ARS) for internal control — includes blanco (canal fiscal)
- * y negro (canal interno). Past + current months are realized from cash
- * movements; future months project recurring payments (dated), open client
- * receivables and supplier payables (placed in the first projected month), and
- * received checks (by due date). Gated on accounting:read.
+ * Monthly cash flow expressed in ARS for internal control — includes blanco
+ * (canal fiscal) y negro (canal interno). Past + current months are realized
+ * from cash movements; future months project recurring payments (dated), open
+ * client receivables and supplier payables (by due date), received checks and
+ * loan installments. USD accounts/documents/checks are converted at the latest
+ * official rate (exchange_rates); without a loaded rate they're skipped, as
+ * before. Gated on accounting:read.
  */
 export async function getCashFlowAction(input: {
   monthsBack?: number;
@@ -92,10 +96,29 @@ export async function getCashFlowAction(input: {
   const supabase = await createClient();
   const events: CashFlowEvent[] = [];
 
+  // Latest official USD rate — everything USD is valued at this rate (it's a
+  // projection tool, not accounting; the ledger converts per-document).
+  const { data: rateRow } = await supabase
+    .from("exchange_rates")
+    .select("rate")
+    .eq("currency", "USD")
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const usdRate = rateRow ? Number(rateRow.rate) : null;
+
+  /** ARS value of an amount in the given currency (PES/ARS pass through).
+   *  Returns null when it's USD and there's no rate loaded → caller skips. */
+  function toArs(amount: number, currency: string | null): number | null {
+    if (currency === "USD" || currency === "DOL") {
+      return usdRate === null ? null : amount * usdRate;
+    }
+    return amount;
+  }
+
   const { data: accounts, error: accErr } = await supabase
     .from("accounts")
-    .select("id, opening_balance")
-    .eq("currency", "ARS");
+    .select("id, opening_balance, currency");
   if (accErr) {
     logger.error("cashflow.accounts.failed", {
       userId: ctx.userId,
@@ -103,17 +126,21 @@ export async function getCashFlowAction(input: {
     });
     return { ok: false, error: "No se pudo calcular el flujo de caja." };
   }
-  const accountIds = (accounts ?? []).map((a) => a.id);
-  let cashToday = (accounts ?? []).reduce(
-    (s, a) => s + Number(a.opening_balance),
-    0,
-  );
+  const accountCurrency = new Map<string, string>();
+  let cashToday = 0;
+  for (const a of accounts ?? []) {
+    const opening = toArs(Number(a.opening_balance), a.currency);
+    if (opening === null) continue; // USD sin cotización → afuera, como antes
+    accountCurrency.set(a.id, a.currency);
+    cashToday += opening;
+  }
+  const accountIds = [...accountCurrency.keys()];
 
   if (accountIds.length > 0) {
     const { data: txs, error: txErr } = await supabase
       .from("transactions")
       .select(
-        "kind, amount, transaction_date, channel:invoicing_channels(is_fiscal)",
+        "kind, amount, transaction_date, account_id, channel:invoicing_channels(is_fiscal)",
       )
       .in("account_id", accountIds)
       .lte("transaction_date", today);
@@ -122,7 +149,11 @@ export async function getCashFlowAction(input: {
       return { ok: false, error: "No se pudo calcular el flujo de caja." };
     }
     for (const tx of txs ?? []) {
-      const amt = Number(tx.amount);
+      const amt = toArs(
+        Number(tx.amount),
+        accountCurrency.get(tx.account_id) ?? "ARS",
+      );
+      if (amt === null) continue;
       cashToday += (BALANCE_SIGN[tx.kind] ?? 0) * amt;
       if (
         (tx.kind === "income" || tx.kind === "expense") &&
@@ -146,11 +177,12 @@ export async function getCashFlowAction(input: {
   const { data: recurring } = await supabase
     .from("recurring_payments")
     .select(
-      "amount, frequency, next_due_date, end_date, channel:invoicing_channels(is_fiscal)",
+      "amount, currency, frequency, next_due_date, end_date, channel:invoicing_channels(is_fiscal)",
     )
-    .eq("is_active", true)
-    .eq("currency", "ARS");
+    .eq("is_active", true);
   for (const rp of recurring ?? []) {
+    const amount = toArs(Math.abs(Number(rp.amount)), rp.currency);
+    if (amount === null) continue;
     let occ = rp.next_due_date;
     let guard = 0;
     while (occ <= rangeEndDate && guard < 400) {
@@ -161,7 +193,7 @@ export async function getCashFlowAction(input: {
           events.push({
             month: m,
             direction: "out",
-            amount: Math.abs(Number(rp.amount)),
+            amount,
             scope: readFiscal(rp.channel),
           });
         }
@@ -174,10 +206,10 @@ export async function getCashFlowAction(input: {
   // date (overdue ones clamp to the first projected month), channel-split.
   const { data: recv } = await supabase
     .from("v_aging_documents")
-    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha");
+    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda");
   for (const r of recv ?? []) {
-    const amt = Number(r.open_amount);
-    if (amt <= 0.005) continue;
+    const amt = toArs(Number(r.open_amount), r.moneda);
+    if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
     if (monthSet.has(m)) {
       events.push({
@@ -193,10 +225,10 @@ export async function getCashFlowAction(input: {
   // (overdue ones clamp to the first projected month), channel-split.
   const { data: pay } = await supabase
     .from("v_supplier_aging_documents")
-    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha");
+    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda");
   for (const p of pay ?? []) {
-    const amt = Number(p.open_amount);
-    if (amt <= 0.005) continue;
+    const amt = toArs(Number(p.open_amount), p.moneda);
+    if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(p.fch_vto_pago, p.fecha, firstFwd);
     if (monthSet.has(m)) {
       events.push({
@@ -211,17 +243,18 @@ export async function getCashFlowAction(input: {
   // Received checks in portfolio → inflow by due month (no channel → otro).
   const { data: checks } = await supabase
     .from("checks")
-    .select("amount, due_date")
+    .select("amount, currency, due_date")
     .eq("status", "en_cartera")
-    .eq("currency", "ARS")
     .gte("due_date", `${firstFwd}-01`);
   for (const c of checks ?? []) {
+    const amt = toArs(Math.abs(Number(c.amount)), c.currency);
+    if (amt === null) continue;
     const m = monthKey(c.due_date);
     if (monthSet.has(m)) {
       events.push({
         month: m,
         direction: "in",
-        amount: Math.abs(Number(c.amount)),
+        amount: amt,
         scope: "otro",
       });
     }
@@ -231,11 +264,13 @@ export async function getCashFlowAction(input: {
   // classified by the loan's channel (blanco / negro).
   const { data: activeLoans } = await supabase
     .from("loans")
-    .select("id, channel:invoicing_channels(is_fiscal)")
+    .select("id, currency, channel:invoicing_channels(is_fiscal)")
     .eq("status", "active");
-  const loanScope = new Map<string, CashScope>();
-  for (const l of activeLoans ?? []) loanScope.set(l.id, readFiscal(l.channel));
-  if (loanScope.size > 0) {
+  const loanInfo = new Map<string, { scope: CashScope; currency: string }>();
+  for (const l of activeLoans ?? []) {
+    loanInfo.set(l.id, { scope: readFiscal(l.channel), currency: l.currency });
+  }
+  if (loanInfo.size > 0) {
     const { data: loanInst } = await supabase
       .from("loan_installments")
       .select("loan_id, due_date, amount")
@@ -243,15 +278,17 @@ export async function getCashFlowAction(input: {
       .gte("due_date", `${firstFwd}-01`)
       .lte("due_date", rangeEndDate);
     for (const li of loanInst ?? []) {
-      const scope = loanScope.get(li.loan_id);
-      if (!scope) continue;
+      const loan = loanInfo.get(li.loan_id);
+      if (!loan) continue;
+      const amt = toArs(Math.abs(Number(li.amount)), loan.currency);
+      if (amt === null) continue;
       const m = monthKey(li.due_date);
       if (monthSet.has(m)) {
         events.push({
           month: m,
           direction: "out",
-          amount: Math.abs(Number(li.amount)),
-          scope,
+          amount: amt,
+          scope: loan.scope,
         });
       }
     }
@@ -260,6 +297,13 @@ export async function getCashFlowAction(input: {
   const flow = buildCashFlow({ months, events, cashToday });
   return {
     ok: true,
-    data: { ...flow, currency: "ARS", monthsBack, monthsFwd, pendingMonth: firstFwd },
+    data: {
+      ...flow,
+      currency: "ARS",
+      monthsBack,
+      monthsFwd,
+      pendingMonth: firstFwd,
+      usdRate,
+    },
   };
 }
