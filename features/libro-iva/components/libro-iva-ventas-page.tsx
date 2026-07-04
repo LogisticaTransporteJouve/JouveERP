@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { ExportTxtButton } from "./export-txt-button";
 import { LibroIvaVentasTable } from "./libro-iva-ventas-table";
 
 const ALL = "__all";
@@ -69,6 +70,7 @@ export function LibroIvaVentasPageContent({
             </SelectContent>
           </Select>
         </div>
+        <ExportTxtButton period={period} book="ventas" />
       </div>
 
       <Suspense fallback={<Skeleton className="h-64 w-full" />}>
