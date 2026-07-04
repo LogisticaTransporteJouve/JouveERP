@@ -3927,6 +3927,7 @@ export type Database = {
       }
       storage_billing_runs: {
         Row: {
+          applied_tariffs: Json
           client_id: string
           created_at: string
           created_by: string | null
@@ -3940,6 +3941,7 @@ export type Database = {
           total: number
         }
         Insert: {
+          applied_tariffs?: Json
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -3953,6 +3955,7 @@ export type Database = {
           total?: number
         }
         Update: {
+          applied_tariffs?: Json
           client_id?: string
           created_at?: string
           created_by?: string | null

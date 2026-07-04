@@ -1,11 +1,12 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
@@ -21,9 +22,20 @@ import {
   useSetStorageTariffActive,
   useStorageTariffs,
 } from "../hooks/use-storage-tariffs";
-import { TARIFF_PERIOD_LABELS, type StorageTariff } from "../schema";
+import {
+  TARIFF_PERIOD_LABELS,
+  tariffVigencia,
+  type StorageTariff,
+} from "../schema";
 
+import { IncreaseTariffsDialog } from "./increase-tariffs-dialog";
 import { StorageTariffDialog } from "./storage-tariff-dialog";
+
+const VIGENCIA_LABEL = {
+  vigente: "Vigente",
+  vencida: "Vencida",
+  futura: "Futura",
+} as const;
 
 function rate(amount: number): string {
   return `$${amount.toLocaleString("es-AR")}`;
@@ -41,6 +53,7 @@ export function StorageTariffsTable({
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; tariff: StorageTariff } | null
   >(null);
+  const [increaseOpen, setIncreaseOpen] = useState(false);
 
   const columns = useMemo<ColumnDef<StorageTariff>[]>(() => {
     async function handleDelete(t: StorageTariff) {
@@ -111,6 +124,26 @@ export function StorageTariffsTable({
           `${row.original.valid_from} → ${row.original.valid_to ?? "—"}`,
       },
       {
+        id: "vigencia_state",
+        header: "Estado",
+        enableSorting: false,
+        meta: { headerClassName: "w-24" },
+        cell: ({ row }) => {
+          const state = tariffVigencia(
+            row.original,
+            new Date().toISOString().slice(0, 10),
+          );
+          return (
+            <Badge
+              variant={state === "vigente" ? "secondary" : "outline"}
+              className="text-xs font-normal"
+            >
+              {VIGENCIA_LABEL[state]}
+            </Badge>
+          );
+        },
+      },
+      {
         accessorKey: "is_active",
         header: "Activo",
         meta: { headerClassName: "w-20" },
@@ -171,6 +204,10 @@ export function StorageTariffsTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportPdfButton resource="storage-tariffs" label="Exportar PDF" />
+          <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
+            <TrendingUp />
+            Aumentar %
+          </Button>
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nueva tarifa
@@ -196,6 +233,12 @@ export function StorageTariffsTable({
           }}
         />
       )}
+
+      <IncreaseTariffsDialog
+        tariffs={items}
+        open={increaseOpen}
+        onOpenChange={setIncreaseOpen}
+      />
     </>
   );
 }

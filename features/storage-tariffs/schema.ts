@@ -94,3 +94,26 @@ export const StorageTariffToggleSchema = z.object({
   id: z.string().uuid(),
   is_active: z.boolean(),
 });
+
+export const StorageTariffIncreaseSchema = z.object({
+  percent: z.coerce
+    .number({ message: "Porcentaje requerido." })
+    .gt(-100, "El porcentaje no puede ser -100% o menor.")
+    .max(1000, "Porcentaje demasiado alto.")
+    .refine((v) => v !== 0, { message: "El porcentaje no puede ser 0." }),
+  valid_from: dateStr,
+});
+
+export type StorageTariffIncreaseInput = z.infer<
+  typeof StorageTariffIncreaseSchema
+>;
+
+/** Vigencia state of a tariff relative to a reference date (YYYY-MM-DD). */
+export function tariffVigencia(
+  t: Pick<StorageTariff, "valid_from" | "valid_to">,
+  today: string,
+): "vigente" | "vencida" | "futura" {
+  if (t.valid_from > today) return "futura";
+  if (t.valid_to !== null && t.valid_to < today) return "vencida";
+  return "vigente";
+}
