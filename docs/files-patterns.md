@@ -641,16 +641,11 @@ Tope de salida: 500 chars (cabe en una columna `text` indexable a futuro,
 suficiente para fuzzy matching). Temperature 0. La idea es **clues for
 matching**, no transcripción completa.
 
-### 6.4 Cuándo agregar embeddings
+### 6.4 Embeddings — descartado
 
-No en el primer PR. Cuando el caso aparezca (asistente AI necesita citar
-fuentes), se suma:
-
-- Columna `embedding vector(1536)` con `pgvector` (extensión ya disponible
-  en Supabase).
-- Función Inngest `files-embed` con trigger en `files/uploaded` (o cron que
-  barra los `embedding is null`).
-- RPC `search_files_by_similarity(query_embedding, top_k)`.
+Decisión 2026-07-04: no se agrega pgvector ni embeddings de archivos (infra
+paga nueva sin caso de uso). La búsqueda de archivos queda por metadatos +
+`quick_ocr` + FTS.
 
 ---
 

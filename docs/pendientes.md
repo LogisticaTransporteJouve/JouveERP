@@ -1,89 +1,75 @@
 # Pendientes y faltantes — JouveERP
 
-> Estado al **2026-06-22**. Surge de una auditoría docs vs código (roadmap,
+> Estado al **2026-07-04**. Surge de una auditoría docs vs código (roadmap,
 > `docs/*`, `features/*`, migraciones, tests). Este doc es la lista de trabajo
 > real; cuando se resuelve cada punto, se sincroniza el roadmap.
 
-> **Update 2026-06-22** — gran sesión de build (PRs #83–#114). Shipped:
-> **AI.0–AI.8** completo (chat + 25 tools + persistencia + artifacts + medidor/tope
-> + Document Intelligence + insights proactivos), **Fase R** (pagos recurrentes),
-> **Fase G completa** (G.1–G.7: choferes, vehículos, viajes, combustible,
-> mantenimiento, documentos de flota, reportes, acceso del chofer a sus viajes),
-> **Fase H** (pallets/depósito: warehouses, products, pallets, tarifas y
-> facturación de storage), fixes contabilidad/RRHH, **backfill de tests** en las
-> 6 features que no tenían, y las specs `accounting-patterns.md` + `hr-patterns.md`.
-> Lo que sigue abajo es lo que **realmente** queda.
+> **Update 2026-07-04** — tanda de cierre (PRs #195–#201): mappers
+> crear-desde-escaneo para **todos** los tipos con destino (recibo, OP, factura
+> de venta, NC/ND de compra), **asientos manuales** + cuenta RECPAM + aplicación
+> RG 4667, **tarifas de storage versionadas** (aumento % + snapshot en cada
+> facturación), **flujo de caja con USD** al TC oficial, **L.6 export Libro IVA
+> Digital** (TXT posicional) y **L.7 CAEA** de contingencia. Con esto el
+> backlog de código queda **vacío**.
 
 ---
 
-## 1. Roadmap desactualizado — corregir (alto valor, bajo riesgo) ✅ sincronizado 2026-06-22
+## 1. Lo único pendiente (configuración, no código)
 
-`docs/roadmap.md` se sincroniza con el código en esta misma tanda.
+- [ ] **Email del aging semanal — env vars.** El cableado por Resend está
+      shippeado (`lib/email/client.ts`); faltan `RESEND_API_KEY`, `EMAIL_FROM`
+      y `FINANCE_EMAIL` en el entorno de producción. Sin ellas el cron loguea y
+      saltea el envío (graceful).
+- [ ] **CAEA — alta del punto de venta de contingencia.** Todo el flujo (código
+      por quincena, emisión offline, régimen informativo) está shippeado, pero
+      requiere crear una única vez el PV **"CAEA — Contingencias"** en
+      *Administración de Puntos de Venta y Domicilios* de ARCA. Hasta entonces
+      `FECAEASolicitar` responde 15003 y el panel de `/admin/afip` lo muestra.
+- [ ] **Tarifas de storage — cargar los valores reales.** El CRUD + versionado
+      está; los importes vigentes son estimados hasta que se confirmen con el
+      cliente. Se actualizan con "Aumentar %" o editando desde
+      `/storage-tariffs`.
 
-- [x] **Fase K cerrada.** §3.2 lista K.1–K.11 ✅ (PR #48 mergeado).
-- [x] **Fase N (HR / Personal-Sueldos) documentada** + `docs/hr-patterns.md`.
-- [x] **Treasury** con fila propia en §3.1.
-- [x] **Fase G (Flota) completa** (G.1–G.7).
-- [x] **Fase H (Pallets/Depósito)** construida (masters + tarifas + facturación).
-- [x] **AI.0–AI.8** completo (ver §5).
+## 2. Cerrado en la tanda 2026-07-04
 
-## 2. Planeado, no construido — **bloqueado en decisión/spec del usuario**
+- [x] **Document Intelligence — crear desde escaneo** para recibo, orden de
+      pago, factura de venta (emite por el flujo normal, con guard de
+      duplicados) y NC/ND de compra (#195). Remitos quedan como archivo (no hay
+      entidad remito en el ERP); extractos van por conciliación.
+- [x] **Asientos manuales** (`source_table = null`) + cuenta **RECPAM 4.2.2**
+      + aplicación **RG 4667** (generar/vincular/desvincular asiento desde la
+      página de inflación) (#196). Decisión: el ajuste se calcula afuera y se
+      carga manual — no hay RPC de reexpresión automática.
+- [x] **H.5 tarifas** — snapshot de tarifas aplicadas en `storage_billing_runs`
+      + aumento masivo por % con historial (#197). La emisión AFIP de storage ya
+      estaba cableada vía `issueFiscalInvoiceAction` (el doc estaba desactualizado).
+- [x] **Flujo de caja USD** — cuentas, cheques, aging, recurrentes y cuotas en
+      USD convertidos al último TC oficial; las vistas de aging ahora exponen
+      `moneda` (#198). Antes los USD del aging se sumaban como si fueran ARS.
+- [x] **L.6 — export Libro IVA Digital** (TXT posicional, diseño RG 3685;
+      importable en Portal IVA / IVA Simple RG 5705) (#199).
+- [x] **L.7 — CAEA contingencia** (RG 5782/2025): solicitud por quincena,
+      emisión offline en PV de contingencia, régimen informativo automático,
+      QR con `tipoCodAut A`, panel admin (#200).
 
-- [ ] **L.6** — exports CITI / SIAP (TXT posicional AFIP). *Necesita el formato
-      posicional exacto de AFIP.*
-- [ ] **L.7** — CAEA fallback (alta contingencia AFIP). *Necesita spec AFIP.*
-- [ ] **M.2** — multimoneda USD. Parcial: columnas `currency (ARS,USD)` ya están
-      en 6 tablas (`transactions`, `accounts`, `receipts`, `payment_orders`,
-      `checks`, `issued_checks`); falta tabla `exchange_rates` + job de cotización
-      + lógica de conversión. **En progreso** (modelo estándar: cotización oficial
-      BCRA a fecha de operación).
-- [x] ~~**M.5** — aprobaciones de montos altos~~ **descartado** (decisión #20, 2026-06-22): no hace falta.
-- [x] ~~**M.6** — portal cliente~~ **descartado** (decisión #19, 2026-06-22): no va.
-- [ ] **H.5 / emisión de factura de storage vía AFIP.** La facturación de storage
-      existe pero la tarifa es un estimado documentado; falta confirmar tarifas
-      reales + cablear la emisión AFIP.
-- [ ] **Inflación RG 4667 — generación del asiento de ajuste.** La tabla
-      `inflation_adjustments` (coeficiente por período) existe; falta el RPC que
-      genera el asiento de reexpresión. *Necesita el método regulatorio + qué
-      cuentas se tratan como no-monetarias.*
+## 3. Descartados (decisiones)
 
-## 3. Huecos reales (ni hecho ni planeado)
+- [x] ~~**M.5** — aprobaciones de montos altos~~ (decisión #20, 2026-06-22).
+- [x] ~~**M.6** — portal cliente~~ (decisión #19, 2026-06-22).
+- [x] ~~**RAG / embeddings (pgvector)**~~ (decisión 2026-07-04): infra paga
+      nueva sin caso de uso; la FTS `search_global` cubre free-text.
+- [x] ~~**Write-tools IA + NL→SQL**~~ (decisión 2026-07-04): el agente queda
+      read-only; las escrituras pasan por los flujos normales con confirmación
+      humana (Document Intelligence incluida).
 
-- [x] **Pagos recurrentes** (`recurring_payments`) — **Fase R** construida.
-- [x] **Document Intelligence** (escaneo + OCR + extracción + clasificación) —
-      **AI.8** construida.
-- [x] **Specs de arquitectura** — `docs/accounting-patterns.md` (Fase L+D) y
-      `docs/hr-patterns.md` (Fase N) escritas.
-- [x] **`CLAUDE.md`** en root — guía para devs / Claude Code (PR #83).
-- [x] **Tests faltantes** — backfill completo: `admin-users`, `afip-admin`,
-      `aging`, `backups`, `search`, `treasury` ahora tienen `schema.test.ts`
-      (extrayendo la validación/lógica pura a `schema.ts`). 47/47 dominios con
-      tests (`shipments` cubierto — antes era el único sin `schema.test.ts`).
-- [x] **Email del aging semanal — cableado (2026-07).** `aging-weekly-summary`
-      ahora envía el resumen por Resend (`lib/email/client.ts`) a `FINANCE_EMAIL`.
-      Solo resta **config de entorno** (`RESEND_API_KEY`, `EMAIL_FROM`,
-      `FINANCE_EMAIL`); sin esas vars el cron loguea y saltea el envío (graceful).
-- [x] **`claude-proxy/`** — referencia muerta resuelta; su caso de uso es **AI.8**.
+## 4. Hecho anteriormente (referencia)
 
-## 4. Staleness menor de docs
-
-- [x] `sumary-frontend-patterns.md`: pnpm `10.28.2` → `10.30.2` (real).
-- [ ] `ai-patterns.md`: nombres de modelo "Sonnet 4.6" (doc a futuro, no crítico).
-
-## 5. IA (`features/ai/`) — ✅ AI.0–AI.8 shipped
-
-- [x] Diseño Fase 0: `docs/ai-overview.md` (decisiones D1–D5 cerradas).
-- [x] AI.0 deps + permisos + `audit_events.actor_type`.
-- [x] AI.1 tools (lectura) · AI.2 agente + chat route · AI.3 página + historial ·
-      AI.4 tools restantes + artifacts · AI.5 insights (cash-flow + receivables) ·
-      AI.6 costo/límites/medidor.
-- [x] **AI.8 Document Intelligence**.
-- [x] Tope diario configurado (medidor + cap en `features/ai`).
-
----
-
-### Prioridad sugerida (lo que queda)
-1. **M.2 multimoneda** con modelo estándar (BCRA) — en progreso.
-2. Cablear proveedor de email (Resend) para el aging semanal.
-3. El resto (L.6/L.7, RG 4667, H.5 emisión, envío de email) **espera
-   specs/decisiones**. (M.5 aprobaciones y M.6 portal: descartados, #20 / #19.)
+- [x] **AI.0–AI.8** completo (chat + 25 tools + persistencia + artifacts +
+      medidor/tope + Document Intelligence + insights proactivos) + anomalías,
+      conciliación de extractos y skills de chat.
+- [x] **Fase K** (compras/pagos), **Fase L** (contabilidad, ahora completa),
+      **Fase N** (RRHH), **Fase G** (flota), **Fase H** (pallets/depósito),
+      **Fase R** (pagos recurrentes), **Treasury**, **M.2 multimoneda**
+      (exchange_rates + cron BCRA + asientos multimoneda).
+- [x] Tests: 47/47 dominios con `schema.test.ts`; matriz de permisos con
+      cobertura 100%.

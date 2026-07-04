@@ -49,7 +49,7 @@ código:
 | Item | Brief / `ai-patterns.md` asumía | Realidad | Plan |
 |---|---|---|---|
 | SDK del LLM | "ya targeteado" | `ai`, `@ai-sdk/*`, SDKs de anthropic/openai **no instalados** | Agregar en Fase 1 (`pnpm add`) |
-| Vector store | pgvector "ya está" | **Sin extensión `vector`, sin embeddings** en ningún lado | Diferir; FTS (`search_global`) cubre el MVP free-text |
+| Vector store | pgvector "ya está" | **Sin extensión `vector`, sin embeddings** en ningún lado | **Descartado** (decisión 2026-07-04): FTS (`search_global`) cubre free-text; no se agrega infra de embeddings |
 | `audit_events` | "tipo de actor IA" | la tabla **no tiene columna `actor_type`** | Agregar columna `actor_type` en migración de seguridad |
 | Tablas de chat | `chat_sessions`/`chat_messages` | esos nombres son del **chat humano** | Usar `ai_chat_sessions` / `ai_chat_messages` |
 | Multi-tenancy | `business_unit_id` en tablas de IA | la app es **single-CUIT** (`dz_sons`), decisión #1/#10 | Omitir `business_unit_id`; scope por `user_id` + RLS |
@@ -69,7 +69,7 @@ código:
 | Streaming | UI stream del AI SDK, in-process desde un route handler de Next | Sin Redis/relay (single app) |
 | Acceso a datos | **Tool-calling sobre los server actions existentes** | Reusa `userCan` + `ActionResult`; determinístico, auditable |
 | Agregación ad-hoc | Tool **SQL read-only** guard-railed | Cubre queries que los tools tipados no cubren |
-| Búsqueda free-text | RPC FTS existente `search_global` | RAG con pgvector diferido |
+| Búsqueda free-text | RPC FTS existente `search_global` | RAG con pgvector **descartado** (2026-07-04) |
 | Persistencia | Tablas Supabase + RLS | Reusa auth; sin store separado |
 | UI | shadcn + Tailwind v4 monocromo | Design system existente |
 | Validación | Zod 4 (`schema.ts`) | Convención existente |
@@ -133,23 +133,18 @@ Por qué esta forma:
 > primario de la propia implementación de referencia (acciones de recurso
 > read-only, sin SQL crudo).
 
-Los tools tipados cubren el MVP reducido (cash-flow + delta de cobranzas), así
-que el tool SQL **se difiere**. Si más adelante aparece una agregación real que
-los tools no cubren, se agrega `runReadOnlySql` **in-process** (mismo proceso
-Next.js, sin infra nueva), guardado así:
+Los tools tipados cubren todo el uso real (25 tools de lectura shipped), así
+que el tool SQL quedó **descartado** (decisión 2026-07-04, junto con los
+write-tools §4.7): el agente es read-only vía tools tipados y no ejecuta SQL
+arbitrario. Si a futuro se revierte la decisión, el diseño guardado era:
+`runReadOnlySql` in-process con denylist TS + transacción `read only` +
+`statement_timeout` vía RPC `security definer`.
 
-- **Solo SELECT**: (1) denylist en TS (rechaza todo menos un único
-  `SELECT`/`WITH`) + (2) ejecución en transacción Postgres `read only` con
-  `statement_timeout` vía RPC `security definer` (`ai_run_readonly_sql`).
-- Tope de filas + timeout. Auditado (§6). Gateado a `ai:read`.
-- Si el denylist resulta permeable, recién ahí se evalúa `libpg-query`.
+### 2.3 RAG (pgvector) — descartado
 
-### 2.3 RAG (pgvector) — explícitamente diferido
-
-Hoy no hay embeddings. El MVP usa la RPC FTS existente `search_global` para
-free-text. pgvector + `ai_embeddings` + un job Inngest de embedding on-change es
-un add-on posterior (`ai-patterns.md` §11), solo si la búsqueda por keyword
-demuestra ser insuficiente.
+Decisión 2026-07-04: no se agrega pgvector ni proveedor de embeddings (infra
+paga nueva sin caso de uso que lo justifique). La búsqueda free-text queda
+cubierta por la RPC FTS existente `search_global`.
 
 ### 2.4 El agente
 
@@ -235,7 +230,7 @@ Todos gateados al permiso listado.
 |---|---|---|---|
 | `searchGlobal` | FTS sobre clientes/proveedores/comprobantes/etc. | `searchGlobalAction` | `ai:read` |
 | `getChannels` | canales de facturación (para scope) | `listInvoicingChannelsAction` | `ai:read` |
-| `runReadOnlySql` *(diferido)* | escape hatch SELECT guardado, in-process (§2.2) | RPC `ai_run_readonly_sql` | `ai:read` |
+| `runReadOnlySql` *(descartado, §2.2)* | — | — | — |
 
 > Los tools devuelven un **resumen compacto + IDs clave** al modelo (disciplina
 > de tokens, `ai-patterns.md` §23), y el payload más completo a la UI como
@@ -614,11 +609,9 @@ create table public.ai_document_extractions (
 
 **Auditoría:** agregar `actor_type text not null default 'user' check (actor_type
 in ('user','ai-agent','system'))` a `audit_events` (hoy no tiene ninguna). El
-agente MVP es **read-only**, así que la única acción IA auditada es
-`runReadOnlySql` (logueada vía el helper existente `logAudit()`, `event_type =
-'ai.sql.execute'`, payload `{ model, session_id, tool_call_id, sql }`). Los tools
-de escritura (futuro) requieren cada uno confirmación in-chat **y** una fila en
-`audit_events` con `actor_type = 'ai-agent'`.
+agente es **read-only** vía tools tipados (SQL arbitrario y tools de escritura:
+descartados, decisión 2026-07-04) — las creaciones desde Document Intelligence
+las confirma un humano y se auditan con el flujo normal.
 
 ---
 
@@ -630,9 +623,9 @@ cobertura `lib/auth/permissions.test.ts`):
 | Permiso | Significado | Roles |
 |---|---|---|
 | `ai:chat` | usar la superficie de chat | owner, admin, finance, operations |
-| `ai:read` | leer insights, tool FTS, escape hatch SQL | owner, admin, finance, operations |
+| `ai:read` | leer insights, tool FTS | owner, admin, finance, operations |
 | `ai:admin` | ver todos los chats, usage/costos, gestionar insights | owner, admin |
-| `ai:write` *(reservado)* | tools que mutan (no en el MVP) | owner, admin, finance |
+| `ai:write` *(descartado 2026-07-04)* | tools que mutan — no se implementan; el agente queda read-only | — |
 
 Nota: los tools de datos gatean al permiso del **dominio** (ej. `invoices:read`),
 así que un usuario solo ve datos que podría ver en la UI; `ai:chat`/`ai:read`
@@ -642,7 +635,8 @@ gatean el *acceso a la superficie*, no los datos.
 
 ## 8. Seguridad, costo, límites (Fase 4)
 
-- **MVP read-only.** Sin tools de escritura hasta aprobación explícita.
+- **Agente read-only.** Tools de escritura y NL→SQL descartados (2026-07-04) —
+  las escrituras pasan siempre por los flujos normales con confirmación humana.
 - **Higiene anti prompt-injection.** Texto de la DB (`legal_name` del cliente,
   notas, etc.) envuelto en delimitadores y declarado como no confiable al modelo
   (`ai-patterns.md` §24). Params de ID validados como UUID vía Zod.
@@ -723,8 +717,10 @@ los patrones lo piden; lint/typecheck/test en verde. PRs abiertos como **draft**
   UI revisar-y-crear (preview lado a lado, pre-llena el alta existente). Arrancar
   por **factura de compra** (con ítems, K.8) — mayor volumen — y extender a
   recibo/OP/remito/cheque. *(grande)*
-- **AI.7+ (después):** sistema de skills + prompt caching; RAG con pgvector;
-  tools de escritura con confirmación + auditoría.
+- **AI.7+:** sistema de skills ✅ (shipped). RAG con pgvector y tools de
+  escritura + NL→SQL: **descartados** (decisión 2026-07-04 — sin infra de
+  embeddings; el agente queda read-only, las escrituras las confirma un humano
+  en los flujos normales).
 
 ---
 
