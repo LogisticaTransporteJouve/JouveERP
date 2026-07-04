@@ -178,6 +178,9 @@ export async function getSignedFileUrlAction(
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
   const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "files:read")) {
+    return { ok: false, error: "No tenés permiso para ver archivos." };
+  }
   const parsed = z.string().uuid().safeParse(fileId);
   if (!parsed.success) {
     return { ok: false, error: "ID inválido." };
@@ -233,7 +236,10 @@ export async function getSignedFileUrlAction(
 export async function detachFileAction(
   attachmentId: string,
 ): Promise<ActionResult<{ deletedBlob: boolean }>> {
-  await requireUserContext();
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "files:write")) {
+    return { ok: false, error: "No tenés permiso para modificar archivos." };
+  }
   const parsed = z.string().uuid().safeParse(attachmentId);
   if (!parsed.success) {
     return { ok: false, error: "ID inválido." };
@@ -294,6 +300,9 @@ export async function listAttachmentsAction(
   input: unknown,
 ): Promise<ActionResult<FileAttachmentRow[]>> {
   const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "files:read")) {
+    return { ok: false, error: "No tenés permiso para ver archivos." };
+  }
   const parsed = ListSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Parámetros inválidos." };
