@@ -96,16 +96,18 @@ export function computeComprasTotals(
     imp_total: 0,
   };
   for (const row of grouped) {
+    // Notas de crédito de compra reduce the IVA crédito: subtract them.
+    const sign = row.kind === "nc" ? -1 : 1;
     for (const [k, v] of Object.entries(row.per_rate)) {
       const id = Number(k);
       const existing = totals.per_rate[id] ?? { neto: 0, iva: 0 };
       totals.per_rate[id] = {
-        neto: existing.neto + v.neto,
-        iva: existing.iva + v.iva,
+        neto: existing.neto + sign * v.neto,
+        iva: existing.iva + sign * v.iva,
       };
     }
-    totals.imp_trib += row.imp_trib;
-    totals.imp_total += row.imp_total;
+    totals.imp_trib += sign * row.imp_trib;
+    totals.imp_total += sign * row.imp_total;
   }
   return totals;
 }
@@ -244,18 +246,21 @@ export function computeTotals(
     imp_total: 0,
   };
   for (const row of grouped) {
+    // Notas de crédito reduce the IVA débito: subtract them from the totals.
+    // The RPC returns NC amounts as positive with kind='nc'.
+    const sign = row.kind === "nc" ? -1 : 1;
     for (const [k, v] of Object.entries(row.per_rate)) {
       const id = Number(k);
       const existing = totals.per_rate[id] ?? { neto: 0, iva: 0 };
       totals.per_rate[id] = {
-        neto: existing.neto + v.neto,
-        iva: existing.iva + v.iva,
+        neto: existing.neto + sign * v.neto,
+        iva: existing.iva + sign * v.iva,
       };
     }
-    totals.imp_trib += row.imp_trib;
-    totals.imp_op_ex += row.imp_op_ex;
-    totals.imp_tot_conc += row.imp_tot_conc;
-    totals.imp_total += row.imp_total;
+    totals.imp_trib += sign * row.imp_trib;
+    totals.imp_op_ex += sign * row.imp_op_ex;
+    totals.imp_tot_conc += sign * row.imp_tot_conc;
+    totals.imp_total += sign * row.imp_total;
   }
   return totals;
 }

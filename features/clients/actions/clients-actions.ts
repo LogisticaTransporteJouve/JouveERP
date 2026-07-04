@@ -299,9 +299,22 @@ export async function getClientReferencesAction(
   }
 
   // Each entry: { table, column } where column is the FK to clients.id.
+  // Every table that references clients. RESTRICT rows block the delete anyway
+  // (surface a clear message); CASCADE rows (opening balances, allocations,
+  // storage tariffs, attachments) would be silently wiped, so count them here.
   const dependents: Array<{ table: string; column: string }> = [
-    // { table: "invoices", column: "client_id" }, // C.x
-    // { table: "receipts", column: "client_id" }, // C.x
+    { table: "invoices", column: "client_id" },
+    { table: "receipts", column: "client_id" },
+    { table: "checks", column: "source_client_id" },
+    { table: "pallets", column: "client_id" },
+    { table: "products", column: "client_id" },
+    { table: "shipments", column: "client_id" },
+    { table: "storage_billing_runs", column: "client_id" },
+    { table: "storage_tariffs", column: "client_id" },
+    { table: "client_opening_balances", column: "client_id" },
+    { table: "client_opening_balance_allocations", column: "client_id" },
+    { table: "file_attachments", column: "client_id" },
+    { table: "transactions", column: "counterparty_client_id" },
   ];
 
   const supabase = await createSupabaseClient();

@@ -304,9 +304,18 @@ export async function getSupplierReferencesAction(
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
+  // Every table that references suppliers. RESTRICT rows would block the delete
+  // at the DB anyway (surface a clear message instead of a raw FK error);
+  // CASCADE rows (opening balances, allocations, attachments) would be silently
+  // wiped, so they must be counted here to protect financial history.
   const dependents: Array<{ table: string; column: string }> = [
-    // { table: "purchase_invoices", column: "supplier_id" },  // K.2
-    // { table: "payment_orders", column: "supplier_id" },     // K.3
+    { table: "purchase_invoices", column: "supplier_id" },
+    { table: "payment_orders", column: "supplier_id" },
+    { table: "issued_checks", column: "supplier_id" },
+    { table: "supplier_opening_balances", column: "supplier_id" },
+    { table: "supplier_opening_balance_allocations", column: "supplier_id" },
+    { table: "file_attachments", column: "supplier_id" },
+    { table: "transactions", column: "counterparty_supplier_id" },
   ];
 
   const supabase = await createSupabaseClient();

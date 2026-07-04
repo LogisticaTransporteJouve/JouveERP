@@ -157,4 +157,14 @@ describe("computeTotals", () => {
     expect(totals.imp_trib).toBe(30);
     expect(totals.imp_total).toBe(1461);
   });
+
+  it("resta las notas de crédito (kind=nc) del IVA débito", () => {
+    const grouped = groupByInvoice([
+      baseRow({ invoice_id: "a", kind: "factura", iva_rate_id: 5, neto: 1000, iva: 210, imp_trib: 0, imp_total: 1210 }),
+      baseRow({ invoice_id: "b", kind: "nc", iva_rate_id: 5, neto: 400, iva: 84, imp_trib: 0, imp_total: 484 }),
+    ]);
+    const totals = computeTotals(grouped);
+    expect(totals.per_rate[5]).toEqual({ neto: 600, iva: 126 });
+    expect(totals.imp_total).toBe(726);
+  });
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
+import { isValidCuit } from "@/lib/validation/cuit";
 
 export const IVA_CONDITIONS = [
   "responsable_inscripto",
@@ -52,7 +53,10 @@ const phoneNullable = z
 
 const cuit = z.preprocess(
   (value) => (typeof value === "string" ? value.replace(/[^0-9]/g, "") : value),
-  z.string().regex(/^[0-9]{11}$/, "El CUIT debe tener 11 dígitos."),
+  z
+    .string()
+    .regex(/^[0-9]{11}$/, "El CUIT debe tener 11 dígitos.")
+    .refine(isValidCuit, "CUIT inválido (dígito verificador incorrecto)."),
 );
 
 const baseClientFields = {

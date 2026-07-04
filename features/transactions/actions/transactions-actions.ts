@@ -332,6 +332,29 @@ export async function updateTransactionAction(
   const data = parsed.data;
 
   const supabase = await createSupabaseClient();
+
+  // System-generated movements (receipt / payment order / transfer / invoice)
+  // must not have their amount/date edited — the journal would drift out of sync
+  // (the DB trigger enforces this too). Edit the source document instead.
+  const { data: existing } = await supabase
+    .from("transactions")
+    .select("receipt_id, payment_order_id, transfer_pair_id, invoice_id")
+    .eq("id", data.id)
+    .maybeSingle();
+  if (
+    existing &&
+    (existing.receipt_id ||
+      existing.payment_order_id ||
+      existing.transfer_pair_id ||
+      existing.invoice_id)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Este movimiento fue generado por un recibo, orden de pago, transferencia o comprobante. Editá el documento de origen, no el movimiento.",
+    };
+  }
+
   const { error } = await supabase
     .from("transactions")
     .update({
