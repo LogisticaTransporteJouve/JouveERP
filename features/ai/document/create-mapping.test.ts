@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { PurchaseInvoiceCreateSchema } from "@/features/purchase-invoices/schema";
 
-import { buildPurchaseInvoiceInput } from "./create-mapping";
+import {
+  buildPurchaseInvoiceInput,
+  buildSalesInvoiceItems,
+} from "./create-mapping";
 
 const OPTS = {
   channelId: "chan-1",
@@ -101,5 +104,89 @@ describe("buildPurchaseInvoiceInput", () => {
 
   it("returns null for a non-invoice payload", () => {
     expect(buildPurchaseInvoiceInput("nope", OPTS)).toBeNull();
+  });
+
+  it("maps a scanned NC with kind + motivo that pass the create schema", () => {
+    const input = buildPurchaseInvoiceInput(
+      { sales_point: 1, number: 9, date: "2026-05-01", total_amount: 121 },
+      { ...OPTS, kind: "nc", motivo: "Devolución de mercadería" },
+    );
+    expect(input?.kind).toBe("nc");
+    expect(input?.motivo_nc_nd).toBe("Devolución de mercadería");
+    expect(PurchaseInvoiceCreateSchema.safeParse(input).success).toBe(true);
+  });
+
+  it("defaults kind to factura with null motivo", () => {
+    const input = buildPurchaseInvoiceInput(
+      { number: 1, date: "2026-03-12", total_amount: 100 },
+      OPTS,
+    );
+    expect(input?.kind).toBe("factura");
+    expect(input?.motivo_nc_nd).toBeNull();
+  });
+});
+
+describe("buildSalesInvoiceItems", () => {
+  it("maps extracted lines and infers the rate id from amounts", () => {
+    const built = buildSalesInvoiceItems({
+      date: "2026-06-01",
+      items: [
+        {
+          description: "Flete Rosario",
+          quantity: 2,
+          unit_price: 500,
+          net_amount: 1000,
+          iva_amount: 210,
+        },
+      ],
+    });
+    expect(built?.fallback).toBe(false);
+    expect(built?.items).toHaveLength(1);
+    expect(built?.items[0]?.iva_rate_id).toBe(5);
+  });
+
+  it("prefers the printed alícuota over inference", () => {
+    const built = buildSalesInvoiceItems({
+      items: [
+        {
+          description: "X",
+          quantity: 1,
+          unit_price: 100,
+          iva_rate: 10.5,
+          net_amount: 100,
+          iva_amount: 10.5,
+        },
+      ],
+    });
+    expect(built?.items[0]?.iva_rate_id).toBe(4);
+  });
+
+  it("falls back to a single header-derived line when items don't map", () => {
+    const built = buildSalesInvoiceItems({
+      net_amount: 1000,
+      iva_amount: 210,
+      total_amount: 1210,
+      items: [{ description: "Sin precio" }],
+    });
+    expect(built?.fallback).toBe(true);
+    expect(built?.items).toHaveLength(1);
+    expect(built?.items[0]?.unit_price).toBe(1000);
+    expect(built?.items[0]?.iva_rate_id).toBe(5);
+  });
+
+  it("derives the neto from total - iva when the header has no neto", () => {
+    const built = buildSalesInvoiceItems({
+      iva_amount: 21,
+      total_amount: 121,
+      items: [],
+    });
+    expect(built?.fallback).toBe(true);
+    expect(built?.items[0]?.unit_price).toBe(100);
+    expect(built?.items[0]?.iva_rate_id).toBe(5);
+  });
+
+  it("returns null when not even the header has an amount", () => {
+    expect(buildSalesInvoiceItems({ items: [] })).toBeNull();
+    expect(buildSalesInvoiceItems("nope")).toBeNull();
   });
 });

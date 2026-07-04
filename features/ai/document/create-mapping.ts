@@ -1,3 +1,7 @@
+import {
+  ComprobanteItemInputSchema,
+  type ComprobanteItemInput,
+} from "@/features/invoices/schema";
 import { PurchaseInvoiceItemSchema } from "@/features/purchase-invoices/schema";
 
 import { InvoiceExtractionSchema } from "./schemas";
@@ -27,7 +31,8 @@ export type PurchaseInvoiceFromExtraction = {
   supplier_id: string;
   account_id: string | null;
   cost_center_id: string | null;
-  kind: "factura";
+  kind: "factura" | "nc" | "nd";
+  motivo_nc_nd: string | null;
   letter: string | null;
   punto_venta: number;
   numero: number;
@@ -53,6 +58,9 @@ export function buildPurchaseInvoiceInput(
     supplierId: string;
     accountId?: string | null;
     costCenterId?: string | null;
+    /** "factura" (default) or "nc"/"nd" for a scanned credit_debit_note. */
+    kind?: "factura" | "nc" | "nd";
+    motivo?: string | null;
   },
 ): PurchaseInvoiceFromExtraction | null {
   const parsed = InvoiceExtractionSchema.safeParse(payload);
@@ -93,7 +101,8 @@ export function buildPurchaseInvoiceInput(
     supplier_id: opts.supplierId,
     account_id: opts.accountId ?? null,
     cost_center_id: opts.costCenterId ?? null,
-    kind: "factura",
+    kind: opts.kind ?? "factura",
+    motivo_nc_nd: opts.motivo ?? null,
     letter: inv.letter ?? null,
     punto_venta: inv.sales_point ?? 0,
     numero: inv.number ?? 0,
@@ -107,4 +116,77 @@ export function buildPurchaseInvoiceInput(
     cotizacion: 1,
     items: allValid ? validItems : [],
   };
+}
+
+/** Closest standard AR alícuota (±0.5 pp) for an implied iva/neto percent. */
+function inferRateId(neto: number | null, iva: number | null): number | null {
+  if (iva === null || iva === 0) return PERCENT_TO_RATE_ID[0] ?? null;
+  if (!neto || neto <= 0) return null;
+  const pct = (iva / neto) * 100;
+  for (const [percent, id] of Object.entries(PERCENT_TO_RATE_ID)) {
+    if (Math.abs(pct - Number(percent)) <= 0.5) return id;
+  }
+  return null;
+}
+
+export type SalesInvoiceItemsFromExtraction = {
+  items: ComprobanteItemInput[];
+  /** True when items didn't map and a single header-derived line was used. */
+  fallback: boolean;
+};
+
+/**
+ * Maps extraction items to `issueFiscalInvoiceAction` items. Unlike purchases
+ * (where items are optional), a comprobante needs >= 1 item, so when the
+ * extracted lines don't validate we fall back to a single line built from the
+ * header amounts. Returns null only if not even the header has an amount.
+ */
+export function buildSalesInvoiceItems(
+  payload: unknown,
+): SalesInvoiceItemsFromExtraction | null {
+  const parsed = InvoiceExtractionSchema.safeParse(payload);
+  if (!parsed.success) return null;
+  const inv = parsed.data;
+
+  const candidates = inv.items.map((item) => {
+    const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+    const lineNeto = item.net_amount ?? null;
+    const unitPrice =
+      item.unit_price ?? (lineNeto !== null ? lineNeto / quantity : null);
+    return {
+      description: item.description,
+      quantity,
+      unit_price: unitPrice,
+      iva_rate_id:
+        alicuotaToRateId(item.iva_rate) ?? inferRateId(lineNeto, item.iva_amount ?? null),
+    };
+  });
+
+  const valid: SalesInvoiceItemsFromExtraction["items"] = [];
+  let allValid = candidates.length > 0;
+  for (const candidate of candidates) {
+    const result = ComprobanteItemInputSchema.safeParse(candidate);
+    if (result.success) {
+      valid.push(result.data);
+    } else {
+      allValid = false;
+      break;
+    }
+  }
+  if (allValid) return { items: valid, fallback: false };
+
+  const neto =
+    inv.net_amount ??
+    (inv.total_amount !== null && inv.total_amount !== undefined
+      ? inv.total_amount - (inv.iva_amount ?? 0) - (inv.other_taxes_amount ?? 0)
+      : null);
+  if (neto === null || neto <= 0) return null;
+  const single = ComprobanteItemInputSchema.safeParse({
+    description: "Según comprobante escaneado",
+    quantity: 1,
+    unit_price: neto,
+    iva_rate_id: inferRateId(neto, inv.iva_amount ?? null),
+  });
+  if (!single.success) return null;
+  return { items: [single.data], fallback: true };
 }
