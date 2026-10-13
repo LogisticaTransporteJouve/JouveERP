@@ -7,7 +7,10 @@ import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { createPaymentOrderAction } from "@/features/payment-orders/actions/payment-orders-actions";
-import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import {
+  createPurchaseInvoiceAction,
+  type PartialCreateFailure,
+} from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { createReceiptAction } from "@/features/receipts/actions/receipts-actions";
 import {
   CONCEPTO,
@@ -129,7 +132,10 @@ export async function scanDocumentAction(
     return { ok: false, error: "El archivo supera 10 MB." };
   }
   if (!SCAN_ALLOWED_MIME.has(file.type)) {
-    return { ok: false, error: `Tipo no permitido (${file.type || "desconocido"}).` };
+    return {
+      ok: false,
+      error: `Tipo no permitido (${file.type || "desconocido"}).`,
+    };
   }
 
   // Before the upload, so a blocked scan doesn't leave an orphaned file.
@@ -337,7 +343,10 @@ export async function createPurchaseInvoiceFromExtractionAction(
     !userCan(ctx.roles, "ai:read") ||
     !userCan(ctx.roles, "purchase_invoices:write")
   ) {
-    return { ok: false, error: "No tenés permiso para crear facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para crear facturas de compra.",
+    };
   }
 
   const parsed = CreateFromExtractionSchema.safeParse(input);
@@ -349,12 +358,16 @@ export async function createPurchaseInvoiceFromExtractionAction(
     .select("detected_type, status, matches, payload")
     .eq("id", parsed.data.extractionId)
     .maybeSingle();
-  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (error || !ext)
+    return { ok: false, error: "No se encontró la extracción." };
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
   if (ext.detected_type !== "purchase_invoice") {
-    return { ok: false, error: "Solo se puede crear factura de compra desde acá." };
+    return {
+      ok: false,
+      error: "Solo se puede crear factura de compra desde acá.",
+    };
   }
 
   const supplierId =
@@ -362,7 +375,10 @@ export async function createPurchaseInvoiceFromExtractionAction(
       ? ext.matches.supplier_id
       : null;
   if (!supplierId) {
-    return { ok: false, error: "Asociá un proveedor antes de crear la factura." };
+    return {
+      ok: false,
+      error: "Asociá un proveedor antes de crear la factura.",
+    };
   }
 
   // Resolve the confirmed expense suggestion (codes) → ids so the invoice posts
@@ -378,7 +394,9 @@ export async function createPurchaseInvoiceFromExtractionAction(
     const accCode =
       typeof expense.accountCode === "string" ? expense.accountCode : null;
     const ccCode =
-      typeof expense.costCenterCode === "string" ? expense.costCenterCode : null;
+      typeof expense.costCenterCode === "string"
+        ? expense.costCenterCode
+        : null;
     if (accCode && accCode !== "UNMAPPED") {
       const { data: acc } = await supabase
         .from("chart_of_accounts")
@@ -413,10 +431,17 @@ export async function createPurchaseInvoiceFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
-    createPurchaseInvoiceAction(built),
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () => createPurchaseInvoiceAction(built),
   );
-  if (!created.ok) return created;
+  if (!created.ok) {
+    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
+      table: "purchase_invoices",
+      failure: created,
+    });
+  }
 
   await supabase
     .from("ai_document_extractions")
@@ -448,11 +473,13 @@ export async function discardExtractionAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ai_document_extractions")
     .update({ status: "discarded" })
     .eq("id", extractionId)
-    .in("status", ["pending_review", "failed"]);
+    .in("status", ["pending_review", "failed"])
+    .select("id")
+    .maybeSingle();
   if (error) {
     logger.error("ai.document.discard.failed", {
       userId: ctx.userId,
@@ -460,6 +487,12 @@ export async function discardExtractionAction(
       error,
     });
     return { ok: false, error: "No se pudo descartar." };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: "La extracción no existe o ya fue procesada.",
+    };
   }
 
   await logAudit("ai.document.discarded", ctx.userId, {}, extractionId);
@@ -493,7 +526,9 @@ const CreateChecksFromExtractionSchema = z.object({
  */
 export async function createChecksFromExtractionAction(
   input: unknown,
-): Promise<ActionResult<{ created: number; errors: { index: number; error: string }[] }>> {
+): Promise<
+  ActionResult<{ created: number; errors: { index: number; error: string }[] }>
+> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para crear cheques." };
@@ -514,7 +549,8 @@ export async function createChecksFromExtractionAction(
     .select("detected_type, status")
     .eq("id", extractionId)
     .maybeSingle();
-  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (error || !ext)
+    return { ok: false, error: "No se encontró la extracción." };
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
@@ -585,7 +621,10 @@ export async function createChecksFromExtractionAction(
       created_by: ctx.userId,
     });
     if (insErr) {
-      errors.push({ index: i, error: "No se pudo guardar (¿número repetido?)." });
+      errors.push({
+        index: i,
+        error: "No se pudo guardar (¿número repetido?).",
+      });
       continue;
     }
     created += 1;
@@ -645,7 +684,10 @@ async function loadPendingForCreate(
   return { ext };
 }
 
-function matchedId(matches: Json, key: "supplier_id" | "client_id"): string | null {
+function matchedId(
+  matches: Json,
+  key: "supplier_id" | "client_id",
+): string | null {
   return isRecord(matches) && typeof matches[key] === "string"
     ? matches[key]
     : null;
@@ -697,25 +739,52 @@ async function releaseExtraction(
 /**
  * Claim → create → (release on failure). The create callback only runs for
  * the caller that won the claim; the up-front status read in each action is
- * just a fast path for a friendlier error.
+ * just a fast path for a friendlier error. A partial failure (the entity row
+ * was inserted, a later step failed) keeps the claim: releasing it would let
+ * the user create the same document twice.
  */
 async function createWithClaim<T>(
   supabase: ServerSupabase,
   extractionId: string,
-  create: () => Promise<ActionResult<T>>,
-): Promise<ActionResult<T>> {
+  create: () => Promise<ActionResult<T> | PartialCreateFailure>,
+): Promise<ActionResult<T> | PartialCreateFailure> {
   if (!(await claimExtraction(supabase, extractionId))) {
     return { ok: false, error: ALREADY_PROCESSED };
   }
-  let result: ActionResult<T>;
+  let result: ActionResult<T> | PartialCreateFailure;
   try {
     result = await create();
   } catch (err) {
     await releaseExtraction(supabase, extractionId);
     throw err;
   }
-  if (!result.ok) await releaseExtraction(supabase, extractionId);
+  if (!result.ok && !("createdId" in result)) {
+    await releaseExtraction(supabase, extractionId);
+  }
   return result;
+}
+
+/**
+ * Failure branch after createWithClaim: when the entity row exists anyway, the
+ * (still claimed) draft is linked to it so it isn't orphaned or re-created.
+ * Returns the error for the caller either way.
+ */
+async function linkPartialCreate(
+  supabase: ServerSupabase,
+  userId: string,
+  extractionId: string,
+  opts: {
+    table: string;
+    failure: { ok: false; error: string } | PartialCreateFailure;
+  },
+): Promise<{ ok: false; error: string }> {
+  if ("createdId" in opts.failure) {
+    await confirmExtraction(supabase, userId, extractionId, {
+      table: opts.table,
+      id: opts.failure.createdId,
+    });
+  }
+  return { ok: false, error: opts.failure.error };
 }
 
 /** Links the created entity to the (already claimed) draft + audits. */
@@ -765,7 +834,10 @@ export async function createReceiptFromExtractionAction(
   }
   const parsed = CreateReceiptFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -781,21 +853,27 @@ export async function createReceiptFromExtractionAction(
     return { ok: false, error: "Asociá un cliente antes de crear el recibo." };
   }
 
-  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
-    createReceiptAction({
-      channel_id: parsed.data.channelId,
-      numero: parsed.data.numero,
-      client_id: clientId,
-      receipt_date: parsed.data.receipt_date,
-      total_amount: parsed.data.total_amount,
-      currency: parsed.data.currency,
-      notes: null,
-      payment_lines: [
-        { account_id: parsed.data.account_id, amount: parsed.data.total_amount },
-      ],
-      allocations: [],
-      retentions: [],
-    }),
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      createReceiptAction({
+        channel_id: parsed.data.channelId,
+        numero: parsed.data.numero,
+        client_id: clientId,
+        receipt_date: parsed.data.receipt_date,
+        total_amount: parsed.data.total_amount,
+        currency: parsed.data.currency,
+        notes: null,
+        payment_lines: [
+          {
+            account_id: parsed.data.account_id,
+            amount: parsed.data.total_amount,
+          },
+        ],
+        allocations: [],
+        retentions: [],
+      }),
   );
   if (!created.ok) return created;
 
@@ -832,7 +910,10 @@ export async function createPaymentOrderFromExtractionAction(
   }
   const parsed = CreatePaymentOrderFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -848,24 +929,27 @@ export async function createPaymentOrderFromExtractionAction(
     return { ok: false, error: "Asociá un proveedor antes de crear la OP." };
   }
 
-  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
-    createPaymentOrderAction({
-      channel_id: parsed.data.channelId,
-      numero: parsed.data.numero,
-      supplier_id: supplierId,
-      payment_date: parsed.data.payment_date,
-      total_amount: parsed.data.total_amount,
-      currency: parsed.data.currency,
-      notes: null,
-      payment_lines: [
-        {
-          line_kind: "account",
-          account_id: parsed.data.account_id,
-          amount: parsed.data.total_amount,
-        },
-      ],
-      allocations: [],
-    }),
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      createPaymentOrderAction({
+        channel_id: parsed.data.channelId,
+        numero: parsed.data.numero,
+        supplier_id: supplierId,
+        payment_date: parsed.data.payment_date,
+        total_amount: parsed.data.total_amount,
+        currency: parsed.data.currency,
+        notes: null,
+        payment_lines: [
+          {
+            line_kind: "account",
+            account_id: parsed.data.account_id,
+            amount: parsed.data.total_amount,
+          },
+        ],
+        allocations: [],
+      }),
   );
   if (!created.ok) return created;
 
@@ -900,7 +984,10 @@ export async function createPurchaseNoteFromExtractionAction(
   }
   const parsed = CreatePurchaseNoteFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -929,10 +1016,17 @@ export async function createPurchaseNoteFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
-    createPurchaseInvoiceAction(built),
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () => createPurchaseInvoiceAction(built),
   );
-  if (!created.ok) return created;
+  if (!created.ok) {
+    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
+      table: "purchase_invoices",
+      failure: created,
+    });
+  }
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
     table: "purchase_invoices",
@@ -962,7 +1056,10 @@ export async function createSalesInvoiceFromExtractionAction(
   }
   const parsed = CreateSalesInvoiceFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -975,7 +1072,10 @@ export async function createSalesInvoiceFromExtractionAction(
 
   const clientId = matchedId(loaded.ext.matches, "client_id");
   if (!clientId) {
-    return { ok: false, error: "Asociá un cliente antes de emitir la factura." };
+    return {
+      ok: false,
+      error: "Asociá un cliente antes de emitir la factura.",
+    };
   }
   if (isRecord(loaded.ext.matches) && loaded.ext.matches.duplicate_of) {
     return {
@@ -990,7 +1090,10 @@ export async function createSalesInvoiceFromExtractionAction(
   }
   const built = buildSalesInvoiceItems(loaded.ext.payload);
   if (!built) {
-    return { ok: false, error: "No se pudieron mapear los ítems del comprobante." };
+    return {
+      ok: false,
+      error: "No se pudieron mapear los ítems del comprobante.",
+    };
   }
 
   const [{ data: channel }, { data: client }] = await Promise.all([
@@ -1016,39 +1119,43 @@ export async function createSalesInvoiceFromExtractionAction(
 
   const fecha = header.data.date;
   const concepto: ConceptoCode =
-    channel.division === "dz" ? CONCEPTO.PRODUCTOS_Y_SERVICIOS : CONCEPTO.SERVICIOS;
+    channel.division === "dz"
+      ? CONCEPTO.PRODUCTOS_Y_SERVICIOS
+      : CONCEPTO.SERVICIOS;
   const servicios = isServiciosConcepto(concepto);
-  const moneda =
-    header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
+  const moneda = header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
   let cotizacion = 1;
   if (moneda === MONEDA.DOLARES) {
     const rate = await getUsdRateForDateAction(fecha);
     if (rate.ok && rate.data.rate) cotizacion = rate.data.rate;
   }
 
-  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
-    issueFiscalInvoiceAction({
-      channel_id: channel.id,
-      client_id: client.id,
-      kind: "factura",
-      letter: null,
-      punto_venta: parsed.data.puntoVenta,
-      fecha,
-      fch_serv_desde: servicios ? fecha : null,
-      fch_serv_hasta: servicios ? fecha : null,
-      fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
-      concepto,
-      doc_tipo: DOC_TIPO.CUIT,
-      doc_nro: client.cuit,
-      iva_condition_receptor: channel.is_fiscal
-        ? condicionIvaReceptorFor(ivaCondition)
-        : null,
-      moneda,
-      cotizacion,
-      motivo_nc_nd: null,
-      invoice_origin_id: null,
-      items: built.items,
-    }),
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      issueFiscalInvoiceAction({
+        channel_id: channel.id,
+        client_id: client.id,
+        kind: "factura",
+        letter: null,
+        punto_venta: parsed.data.puntoVenta,
+        fecha,
+        fch_serv_desde: servicios ? fecha : null,
+        fch_serv_hasta: servicios ? fecha : null,
+        fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
+        concepto,
+        doc_tipo: DOC_TIPO.CUIT,
+        doc_nro: client.cuit,
+        iva_condition_receptor: channel.is_fiscal
+          ? condicionIvaReceptorFor(ivaCondition)
+          : null,
+        moneda,
+        cotizacion,
+        motivo_nc_nd: null,
+        invoice_origin_id: null,
+        items: built.items,
+      }),
   );
   if (!created.ok) return created;
 

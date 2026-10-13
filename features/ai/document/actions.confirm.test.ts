@@ -63,6 +63,8 @@ function query(table: string) {
 
 const createReceiptAction = vi.fn();
 const createPaymentOrderAction = vi.fn();
+const createPurchaseInvoiceAction = vi.fn();
+const logAudit = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({ userId: "u1", roles: ["owner"] }),
@@ -70,7 +72,11 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ from: query }),
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: async () => undefined }));
+vi.mock("@/lib/actions/audit", () => ({
+  logAudit: async (...args: unknown[]) => {
+    logAudit(...args);
+  },
+}));
 vi.mock("@/lib/inngest/client", () => ({ inngest: { send: vi.fn() } }));
 vi.mock("@/lib/rate-limit", () => ({
   RateLimitError: class extends Error {},
@@ -86,7 +92,8 @@ vi.mock("@/features/payment-orders/actions/payment-orders-actions", () => ({
 vi.mock(
   "@/features/purchase-invoices/actions/purchase-invoices-actions",
   () => ({
-    createPurchaseInvoiceAction: vi.fn(),
+    createPurchaseInvoiceAction: (input: unknown) =>
+      createPurchaseInvoiceAction(input),
   }),
 );
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
@@ -99,7 +106,10 @@ vi.mock("@/features/exchange-rates/actions/exchange-rates-actions", () => ({
 const {
   createChecksFromExtractionAction,
   createPaymentOrderFromExtractionAction,
+  createPurchaseInvoiceFromExtractionAction,
+  createPurchaseNoteFromExtractionAction,
   createReceiptFromExtractionAction,
+  discardExtractionAction,
 } = await import("./actions");
 
 const EXTRACTION_ID = "11111111-1111-4111-8111-111111111111";
@@ -133,6 +143,8 @@ const receiptInput = {
 beforeEach(() => {
   createReceiptAction.mockReset();
   createPaymentOrderAction.mockReset();
+  createPurchaseInvoiceAction.mockReset();
+  logAudit.mockReset();
 });
 
 describe("create-from-extraction is claim-then-create", () => {
@@ -244,5 +256,106 @@ describe("create-from-extraction is claim-then-create", () => {
     const res = await createReceiptFromExtractionAction(receiptInput);
     expect(res.ok).toBe(false);
     expect(createReceiptAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("partial creation keeps the draft claimed", () => {
+  const invoicePayload = {
+    sales_point: 1,
+    number: 42,
+    letter: "A",
+    date: "2026-07-01",
+    currency: "ARS",
+    net_amount: 100,
+    iva_amount: 21,
+    total_amount: 121,
+    items: [],
+  };
+  const partial = {
+    ok: false,
+    error: "Factura cargada pero no se pudieron guardar los ítems.",
+    createdId: "pi-1",
+  };
+
+  it("links the purchase invoice whose items failed instead of releasing", async () => {
+    seed("purchase_invoice", { supplier_id: "s1" });
+    const row = extraction();
+    if (row) row.payload = invoicePayload;
+    createPurchaseInvoiceAction.mockResolvedValueOnce(partial);
+
+    const res = await createPurchaseInvoiceFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+    });
+    expect(res).toEqual({ ok: false, error: partial.error });
+    expect(extraction()).toMatchObject({
+      status: "confirmed",
+      created_entity: { table: "purchase_invoices", id: "pi-1" },
+    });
+
+    // A retry must not create a second invoice.
+    const retry = await createPurchaseInvoiceFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+    });
+    expect(retry.ok).toBe(false);
+    expect(createPurchaseInvoiceAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("links the purchase NC whose items failed instead of releasing", async () => {
+    seed("credit_debit_note", { supplier_id: "s1" });
+    const row = extraction();
+    if (row) row.payload = invoicePayload;
+    createPurchaseInvoiceAction.mockResolvedValueOnce(partial);
+
+    const res = await createPurchaseNoteFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+      kind: "nc",
+      motivo: "Devolución",
+    });
+    expect(res).toEqual({ ok: false, error: partial.error });
+    expect(extraction()).toMatchObject({
+      status: "confirmed",
+      created_entity: { table: "purchase_invoices", id: "pi-1" },
+    });
+  });
+
+  it("still releases a purchase invoice that failed before inserting", async () => {
+    seed("purchase_invoice", { supplier_id: "s1" });
+    const row = extraction();
+    if (row) row.payload = invoicePayload;
+    createPurchaseInvoiceAction.mockResolvedValueOnce({
+      ok: false,
+      error: "No se pudo cargar la factura.",
+    });
+    await createPurchaseInvoiceFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+    });
+    expect(extraction()).toMatchObject({
+      status: "pending_review",
+      created_entity: null,
+    });
+  });
+});
+
+describe("discardExtractionAction", () => {
+  it("discards a pending draft and audits it", async () => {
+    seed("receipt", {});
+    const res = await discardExtractionAction(EXTRACTION_ID);
+    expect(res).toEqual({ ok: true, data: undefined });
+    expect(extraction()).toMatchObject({ status: "discarded" });
+    expect(logAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails without auditing when nothing was discarded", async () => {
+    seed("receipt", {});
+    const row = extraction();
+    if (row) row.status = "confirmed";
+    const res = await discardExtractionAction(EXTRACTION_ID);
+    expect(res.ok).toBe(false);
+    expect(extraction()).toMatchObject({ status: "confirmed" });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });

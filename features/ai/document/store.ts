@@ -106,7 +106,11 @@ export async function matchDocument(input: {
       }
     }
 
-    if (input.invoiceTable && input.numero != null && input.puntoVenta != null) {
+    if (
+      input.invoiceTable &&
+      input.numero != null &&
+      input.puntoVenta != null
+    ) {
       // A purchase-invoice number is the SUPPLIER's — (numero, punto_venta) is
       // only unique per supplier, so dedupe needs the matched supplier (skip if
       // we couldn't match one). Our own sales invoices are unique by
@@ -171,7 +175,8 @@ export async function matchForKind(
       invoiceTable: "invoices",
     });
   }
-  if (kind === "payment_order") return matchDocument({ table: "suppliers", cuit });
+  if (kind === "payment_order")
+    return matchDocument({ table: "suppliers", cuit });
   if (kind === "receipt") return matchDocument({ table: "clients", cuit });
   if (kind === "bank_statement") {
     const reconciliation = await reconcileExtracto(payload);
@@ -180,7 +185,10 @@ export async function matchForKind(
   return {};
 }
 
-/** Writes the extraction outcome back to the draft row (service role). */
+/**
+ * Writes the extraction outcome back to the draft row (service role). A draft
+ * the user discarded while the job was running stays discarded.
+ */
 export async function saveExtractionResult(
   extractionId: string,
   result: {
@@ -201,11 +209,11 @@ export async function saveExtractionResult(
       matches: toJson(result.matches),
       status: result.status,
     })
-    .eq("id", extractionId);
+    .eq("id", extractionId)
+    .neq("status", "discarded");
   if (error) throw error;
 }
 
-/** Marks an extraction failed (terminal). Best-effort, never throws. */
 /** Who requested an extraction (for usage attribution). Null if unknown. */
 export async function extractionRequester(
   extractionId: string,
@@ -223,11 +231,19 @@ export async function extractionRequester(
   return data?.created_by ?? null;
 }
 
-export async function markExtractionFailed(extractionId: string): Promise<void> {
+/**
+ * Marks an extraction failed (terminal). Leaves a discarded draft alone.
+ * Best-effort, never throws.
+ */
+export async function markExtractionFailed(
+  extractionId: string,
+): Promise<void> {
   const service = getServiceClient();
   const { error } = await service
     .from("ai_document_extractions")
     .update({ status: "failed" })
-    .eq("id", extractionId);
-  if (error) logger.error("ai.document.mark_failed.failed", { extractionId, error });
+    .eq("id", extractionId)
+    .neq("status", "discarded");
+  if (error)
+    logger.error("ai.document.mark_failed.failed", { extractionId, error });
 }
