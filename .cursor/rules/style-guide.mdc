@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+- Code, identifiers, commits, branches and PRs are in English; user-facing UI copy is Spanish from Argentina.
+- Use `pnpm`, never `npm`.
+- No `any` and no `as` casts.
+- Money is `numeric` in Postgres and never summed as a float in JS; aggregate totals in SQL.
+- Never read `.env*` files other than the `*.example` ones.

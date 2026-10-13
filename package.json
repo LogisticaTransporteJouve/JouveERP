@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.30.2",
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -121,7 +121,11 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix"
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs,cjs,json,css,yml,yaml}": [
+      "prettier --write"
     ]
   }
 }

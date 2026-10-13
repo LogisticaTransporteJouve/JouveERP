@@ -1,0 +1,16 @@
+---
+description: Next.js feature slices, server actions and UI
+globs: app/**/*.ts, app/**/*.tsx, features/**/*.ts, features/**/*.tsx, lib/**/*.ts, lib/**/*.tsx
+alwaysApply: false
+---
+
+# Next.js
+
+- App Router. Server Components by default; `"use client"` only where needed. Pages in `app/(dashboard)/<route>/page.tsx` prefetch and wrap in `Hydrate`.
+- Domains live in `features/<domain>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}`; shared infra in `lib/`, primitives in `components/ui/`.
+- Types, schemas, query keys and pickers may cross features; business-logic actions do not (only `issueFiscalInvoiceAction`). Shared logic goes to `lib/`.
+- Server actions: `"use server"` → `requireUserContext()` → `userCan(ctx.roles, "<perm>")` → Zod parse → `getServiceClient()` → `ActionResult<T>`. Never `select *`.
+- Client: `runAction(() => xAction(...))` inside `useSuspenseQuery` / `useSuspenseInfiniteQuery`; query keys in `features/<f>/lib/<f>-keys.ts`; mutations invalidate every affected feature's keys.
+- No `any`, no `as`: narrow with type guards or Zod.
+- UI: CRUD in a centered `Dialog` (never `Sheet`), 100% monochrome (danger = copy + icon), `lucide-react`, `<DatePicker>` for dates.
+- User-facing copy in Spanish from Argentina; server logs through `logger` (`lib/logger.ts`), never `console.*`.
