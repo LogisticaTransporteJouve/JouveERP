@@ -56,7 +56,10 @@ export async function listStorageTariffsAction(): Promise<
 > {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "storage_billing:read")) {
-    return { ok: false, error: "No tenés permiso para ver tarifas de almacenaje." };
+    return {
+      ok: false,
+      error: "No tenés permiso para ver tarifas de almacenaje.",
+    };
   }
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
@@ -106,7 +109,10 @@ export async function createStorageTariffAction(
     .select("id")
     .single();
   if (error) {
-    logger.error("storage_tariffs.create.failed", { userId: ctx.userId, error });
+    logger.error("storage_tariffs.create.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo crear la tarifa." };
   }
 
@@ -347,7 +353,10 @@ export async function deleteStorageTariffAction(input: {
     .delete()
     .eq("id", input.id);
   if (error) {
-    logger.error("storage_tariffs.delete.failed", { userId: ctx.userId, error });
+    logger.error("storage_tariffs.delete.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudo borrar la tarifa." };
   }
   await logAudit("storage_tariff.deleted", ctx.userId, {}, input.id);

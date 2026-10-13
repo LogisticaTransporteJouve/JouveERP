@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-  ACCOUNT_TYPE_LABEL,
-  isAccountType,
-} from "@/features/accounts/schema";
+import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";

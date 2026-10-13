@@ -86,7 +86,9 @@ export async function getDashboardDueDatesAction(): Promise<
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("issued_checks")
-        .select("id, check_number, beneficiary_name, amount, currency, due_date")
+        .select(
+          "id, check_number, beneficiary_name, amount, currency, due_date",
+        )
         .eq("status", "emitted")
         .gte("due_date", today)
         .lte("due_date", until);

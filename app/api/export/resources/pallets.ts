@@ -56,7 +56,8 @@ export const pallets: Exporter = {
       const client: ClientJoin = row.client;
       const product: ProductJoin = row.product;
       const status = isPalletStatus(row.status) ? row.status : "en_deposito";
-      const quantity = row.quantity === null ? "—" : String(Number(row.quantity));
+      const quantity =
+        row.quantity === null ? "—" : String(Number(row.quantity));
       return [
         row.code,
         warehouse.name,

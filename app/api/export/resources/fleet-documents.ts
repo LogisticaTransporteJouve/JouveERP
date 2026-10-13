@@ -1,6 +1,9 @@
 import "server-only";
 
-import { FLEET_DOC_KIND_LABELS, isFleetDocKind } from "@/features/fleet-documents/schema";
+import {
+  FLEET_DOC_KIND_LABELS,
+  isFleetDocKind,
+} from "@/features/fleet-documents/schema";
 import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";

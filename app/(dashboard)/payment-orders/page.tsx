@@ -52,7 +52,8 @@ export default async function PaymentOrdersPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Pagos a proveedores con imputación a facturas de compra. Numerador
-            independiente por canal: <span className="font-mono">OP0003-…</span>.
+            independiente por canal: <span className="font-mono">OP0003-…</span>
+            .
           </p>
         </div>
         <ExportPdfButton resource="payment-orders" label="Exportar PDF" />

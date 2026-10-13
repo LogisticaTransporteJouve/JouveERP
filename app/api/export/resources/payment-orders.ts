@@ -9,11 +9,7 @@ import {
   isPaymentOrderCurrency,
 } from "@/features/payment-orders/schema";
 
-import {
-  money,
-  type Exporter,
-  type ExportRange,
-} from "../shared";
+import { money, type Exporter, type ExportRange } from "../shared";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
 // Landscape A4 ≈ 794pt. Mirrors the on-screen payment-orders table
@@ -74,7 +70,9 @@ export const paymentOrders: Exporter = {
     let totalArs = 0;
     const rows = orders.map((op) => {
       const amount = Number(op.total_amount);
-      const currency = isPaymentOrderCurrency(op.currency) ? op.currency : "ARS";
+      const currency = isPaymentOrderCurrency(op.currency)
+        ? op.currency
+        : "ARS";
       if (currency === "ARS") totalArs += amount;
       return [
         formatArgentineDate(op.payment_date),

@@ -17,9 +17,7 @@ import {
 import { isAccountType } from "@/features/accounts/schema";
 import { indexMovementTotals } from "../lib/movement-totals";
 
-type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 function lastDayOfPrevMonth(iso: string): string {
   const [y, m] = iso.split("-").map(Number);
@@ -193,4 +191,3 @@ export async function getTreasurySummaryAction(): Promise<
 
   return { ok: true, data: summary };
 }
-

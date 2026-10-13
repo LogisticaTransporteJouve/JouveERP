@@ -22,7 +22,11 @@ import {
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 
-const INVOICE_KINDS = ["purchase_invoice", "sales_invoice", "credit_debit_note"];
+const INVOICE_KINDS = [
+  "purchase_invoice",
+  "sales_invoice",
+  "credit_debit_note",
+];
 
 /**
  * Document Intelligence pipeline (docs/ai-overview.md §5-bis): classify (Haiku,

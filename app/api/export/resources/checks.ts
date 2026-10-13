@@ -50,7 +50,9 @@ export const checks: Exporter = {
     const rows = filtered.map((c) => {
       const amount = Number(c.amount);
       total += amount;
-      const kindLabel = isChequeKind(c.kind) ? CHECK_KIND_LABEL[c.kind] : c.kind;
+      const kindLabel = isChequeKind(c.kind)
+        ? CHECK_KIND_LABEL[c.kind]
+        : c.kind;
       const statusLabel = isChequeStatus(c.status)
         ? CHECK_STATUS_LABEL[c.status]
         : c.status;

@@ -201,7 +201,9 @@ export async function getReceiptByIdAction(
       .order("created_at"),
     supabase
       .from("receipt_retentions")
-      .select("id, receipt_id, kind, tax_type, jurisdiction, certificate_number, certificate_date, amount, notes, created_at, updated_at")
+      .select(
+        "id, receipt_id, kind, tax_type, jurisdiction, certificate_number, certificate_date, amount, notes, created_at, updated_at",
+      )
       .eq("receipt_id", id)
       .order("created_at"),
     supabase

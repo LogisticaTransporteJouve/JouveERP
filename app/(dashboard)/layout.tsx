@@ -70,7 +70,9 @@ export default async function DashboardLayout({
   let initialScope: Scope | undefined;
   if (scopeCookie) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(scopeCookie)) as Partial<Scope>;
+      const parsed = JSON.parse(
+        decodeURIComponent(scopeCookie),
+      ) as Partial<Scope>;
       initialScope = {
         division: isDivision(parsed.division) ? parsed.division : null,
         fiscalFilter: isFiscalFilter(parsed.fiscalFilter)

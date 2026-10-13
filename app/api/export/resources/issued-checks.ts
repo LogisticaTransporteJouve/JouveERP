@@ -67,8 +67,7 @@ export const issuedChecks: Exporter = {
         if (!isIssuedCheckCurrency(row.currency)) return null;
         const supplier = (row as unknown as SupplierListLegalJoin).suppliers;
         const account = (row as unknown as AccountsListNameJoin).accounts;
-        const beneficiary =
-          supplier?.legal_name ?? row.beneficiary_name ?? "—";
+        const beneficiary = supplier?.legal_name ?? row.beneficiary_name ?? "—";
         const bank = row.bank_name || account?.name || "—";
         const amount = Number(row.amount);
         total += amount;

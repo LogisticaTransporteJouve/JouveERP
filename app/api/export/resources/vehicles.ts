@@ -42,7 +42,8 @@ export const vehicles: Exporter = {
     if (error) throw new Error("Could not load vehicles.");
 
     const rows = (data ?? []).map((row) => {
-      const brandModel = [row.brand, row.model].filter(Boolean).join(" ") || "—";
+      const brandModel =
+        [row.brand, row.model].filter(Boolean).join(" ") || "—";
       const type = isVehicleType(row.vehicle_type)
         ? VEHICLE_TYPE_LABELS[row.vehicle_type]
         : row.vehicle_type;
