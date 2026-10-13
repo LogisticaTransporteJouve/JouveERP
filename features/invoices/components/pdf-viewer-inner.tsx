@@ -63,6 +63,7 @@ export function PdfViewerInner({
   return (
     <div ref={containerRef} className="w-full">
       <Document
+        suspense={false}
         file={url}
         onLoadSuccess={({ numPages }) => {
           setPages(numPages);
