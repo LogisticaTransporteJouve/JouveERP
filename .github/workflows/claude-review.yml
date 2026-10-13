@@ -24,9 +24,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Prepare prompt context
         # Cargamos las reglas de negocio + el número de PR vía env vars en
@@ -45,7 +46,7 @@ jobs:
           echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
 
       - name: Claude review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         env:
           # Disponibles para los comandos `gh` que corra Claude vía la
           # tool allowlist; no expuestos al prompt.
