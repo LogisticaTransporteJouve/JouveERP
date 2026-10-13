@@ -5,6 +5,7 @@
 // accounting period-close guard. Uses the service client (guards are triggers,
 // so they fire regardless of RLS).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { RUN_INTEGRATION, makeServiceClient } from "./_setup";
@@ -12,7 +13,9 @@ import { RUN_INTEGRATION, makeServiceClient } from "./_setup";
 const d = RUN_INTEGRATION ? describe : describe.skip;
 
 d("money guards (integration)", () => {
-  const service = makeServiceClient();
+  // Built lazily: the describe body runs at collection time even when skipped,
+  // and the client throws without SUPABASE env vars.
+  let service: SupabaseClient;
   const created: { table: string; id: string }[] = [];
   let channelId: string;
   let clientA: string;
@@ -21,6 +24,7 @@ d("money guards (integration)", () => {
   let receiptA: string;
 
   beforeAll(async () => {
+    service = makeServiceClient();
     const { data: ch } = await service
       .from("invoicing_channels")
       .select("id")
@@ -39,10 +43,21 @@ d("money guards (integration)", () => {
     const { data: inv, error: invErr } = await service
       .from("invoices")
       .insert({
-        channel_id: channelId, client_id: clientA, kind: "factura",
-        punto_venta: 3, numero: 800000 + (stamp % 90000), fecha: "2026-07-04",
-        concepto: 1, doc_tipo: 80, doc_nro: "0", imp_neto: 100, imp_iva: 0,
-        imp_total: 100, moneda: "PES", cotizacion: 1, status: "emitted",
+        channel_id: channelId,
+        client_id: clientA,
+        kind: "factura",
+        punto_venta: 3,
+        numero: 800000 + (stamp % 90000),
+        fecha: "2026-07-04",
+        concepto: 1,
+        doc_tipo: 80,
+        doc_nro: "0",
+        imp_neto: 100,
+        imp_iva: 0,
+        imp_total: 100,
+        moneda: "PES",
+        cotizacion: 1,
+        status: "emitted",
         idempotency_key: crypto.randomUUID(),
       })
       .select("id")
@@ -54,9 +69,14 @@ d("money guards (integration)", () => {
     const { data: rc } = await service
       .from("receipts")
       .insert({
-        channel_id: channelId, punto_venta: 3, numero: 800000 + (stamp % 90000),
-        client_id: clientA, receipt_date: "2026-07-04", total_amount: 100,
-        currency: "ARS", status: "issued",
+        channel_id: channelId,
+        punto_venta: 3,
+        numero: 800000 + (stamp % 90000),
+        client_id: clientA,
+        receipt_date: "2026-07-04",
+        total_amount: 100,
+        currency: "ARS",
+        status: "issued",
       })
       .select("id")
       .single();
@@ -71,16 +91,20 @@ d("money guards (integration)", () => {
   });
 
   it("accepts a valid allocation within the invoice total", async () => {
-    const { error } = await service
-      .from("receipt_allocations")
-      .insert({ receipt_id: receiptA, invoice_id: invoiceA, amount_applied: 60 });
+    const { error } = await service.from("receipt_allocations").insert({
+      receipt_id: receiptA,
+      invoice_id: invoiceA,
+      amount_applied: 60,
+    });
     expect(error).toBeNull();
   });
 
   it("rejects over-application beyond the invoice total", async () => {
-    const { error } = await service
-      .from("receipt_allocations")
-      .insert({ receipt_id: receiptA, invoice_id: invoiceA, amount_applied: 60 });
+    const { error } = await service.from("receipt_allocations").insert({
+      receipt_id: receiptA,
+      invoice_id: invoiceA,
+      amount_applied: 60,
+    });
     expect(error).not.toBeNull();
   });
 
@@ -89,23 +113,38 @@ d("money guards (integration)", () => {
     const { data: inv2 } = await service
       .from("invoices")
       .insert({
-        channel_id: channelId, client_id: clientB, kind: "factura",
-        punto_venta: 3, numero: 700000 + (stamp % 90000), fecha: "2026-07-04",
-        concepto: 1, doc_tipo: 80, doc_nro: "0", imp_neto: 100, imp_iva: 0,
-        imp_total: 100, moneda: "PES", cotizacion: 1, status: "emitted",
+        channel_id: channelId,
+        client_id: clientB,
+        kind: "factura",
+        punto_venta: 3,
+        numero: 700000 + (stamp % 90000),
+        fecha: "2026-07-04",
+        concepto: 1,
+        doc_tipo: 80,
+        doc_nro: "0",
+        imp_neto: 100,
+        imp_iva: 0,
+        imp_total: 100,
+        moneda: "PES",
+        cotizacion: 1,
+        status: "emitted",
         idempotency_key: crypto.randomUUID(),
       })
       .select("id")
       .single();
     created.push({ table: "invoices", id: inv2!.id });
-    const { error } = await service
-      .from("receipt_allocations")
-      .insert({ receipt_id: receiptA, invoice_id: inv2!.id, amount_applied: 10 });
+    const { error } = await service.from("receipt_allocations").insert({
+      receipt_id: receiptA,
+      invoice_id: inv2!.id,
+      amount_applied: 10,
+    });
     expect(error).not.toBeNull();
   });
 
   it("blocks journal writes in a closed accounting period", async () => {
-    await service.from("accounting_closed_periods").insert({ period: "2020-01" });
+    await service
+      .from("accounting_closed_periods")
+      .insert({ period: "2020-01" });
     try {
       const { data: accs } = await service
         .from("chart_of_accounts")
@@ -123,7 +162,10 @@ d("money guards (integration)", () => {
       });
       expect(error).not.toBeNull();
     } finally {
-      await service.from("accounting_closed_periods").delete().eq("period", "2020-01");
+      await service
+        .from("accounting_closed_periods")
+        .delete()
+        .eq("period", "2020-01");
     }
   });
 });
