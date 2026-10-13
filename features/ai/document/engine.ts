@@ -155,7 +155,6 @@ async function extractWith<T>(
       schema,
       description,
       system: `${EXTRACT_SYSTEM}\n${SAFETY_LINE}`,
-      maxRetries: 2,
       maxOutputTokens: AI_EXTRACTION_MAX_OUTPUT_TOKENS,
       messages: [{ role: "user", content }],
       providerOptions: EXTRACT_PROVIDER_OPTIONS,

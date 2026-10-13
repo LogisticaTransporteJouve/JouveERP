@@ -37,17 +37,29 @@ function isRecord(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Drops reasoning parts (signed thinking blocks can't be replayed to Haiku). */
+function withoutReasoning(message: ModelMessage): ModelMessage | null {
+  if (message.role !== "assistant" || typeof message.content === "string") {
+    return message;
+  }
+  const content = message.content.filter((p) => p.type !== "reasoning");
+  return content.length > 0 ? { ...message, content } : null;
+}
+
 /**
  * The tail of the conversation, minus system messages (the repair call has its
- * own) and minus any leading tool results whose tool call fell outside the
- * window (the provider 400s on an orphaned tool_result).
+ * own), minus reasoning parts, and starting at a user turn: leading tool
+ * results whose tool call fell outside the window (the provider 400s on an
+ * orphaned tool_result) and leading assistant turns are skipped.
  */
 export function boundRepairContext(messages: ModelMessage[]): ModelMessage[] {
   const tail = messages
     .filter((m) => m.role !== "system")
-    .slice(-REPAIR_CONTEXT_MESSAGES);
+    .slice(-REPAIR_CONTEXT_MESSAGES)
+    .map(withoutReasoning)
+    .filter((m): m is ModelMessage => m !== null);
   let start = 0;
-  while (start < tail.length && tail[start]?.role === "tool") start++;
+  while (start < tail.length && tail[start]?.role !== "user") start++;
   return tail.slice(start);
 }
 

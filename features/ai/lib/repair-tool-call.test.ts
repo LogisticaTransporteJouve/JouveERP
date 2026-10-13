@@ -122,4 +122,41 @@ describe("repair helpers", () => {
     expect(out[0]?.role).not.toBe("tool");
     expect(out.some((m) => m.role === "system")).toBe(false);
   });
+
+  it("boundRepairContext starts at a user turn and strips reasoning", () => {
+    const msgs: ModelMessage[] = [
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "leading answer" }],
+      },
+      { role: "user", content: "¿Cuánto me debe Acme?" },
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "thinking…" },
+          {
+            type: "tool-call",
+            toolCallId: "t1",
+            toolName: "getClientAging",
+            input: {},
+          },
+        ],
+      },
+      { role: "assistant", content: [{ type: "reasoning", text: "only" }] },
+    ];
+    const out = boundRepairContext(msgs);
+    expect(out[0]).toEqual({ role: "user", content: "¿Cuánto me debe Acme?" });
+    expect(out).toHaveLength(2);
+    expect(out[1]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "t1",
+          toolName: "getClientAging",
+          input: {},
+        },
+      ],
+    });
+  });
 });

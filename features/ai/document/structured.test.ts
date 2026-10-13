@@ -118,4 +118,37 @@ describe("generateStructured", () => {
       ).toBe(200);
     });
   });
+
+  it("does not retry a truncated answer", async () => {
+    const truncated: GenerateResult = {
+      content: [{ type: "text", text: 'Here is the data: {"number": 1,' }],
+      finishReason: { unified: "length", raw: "max_tokens" },
+      usage,
+      warnings: [],
+    };
+    const model = sequenced([truncated, toolResult({ number: 1, name: null })]);
+    const run = generateStructured({
+      model,
+      schema: Schema,
+      description: "data",
+      system: "extract",
+      messages: [{ role: "user", content: "doc" }],
+      maxOutputTokens: 1000,
+    });
+    await expect(run).rejects.toBeInstanceOf(StructuredOutputError);
+    expect(model.doGenerateCalls).toHaveLength(1);
+  });
+
+  it("bounds each attempt with an abort signal", async () => {
+    const model = sequenced([toolResult({ number: 1, name: null })]);
+    await generateStructured({
+      model,
+      schema: Schema,
+      description: "data",
+      system: "extract",
+      messages: [{ role: "user", content: "doc" }],
+      maxOutputTokens: 1000,
+    });
+    expect(model.doGenerateCalls[0]?.abortSignal).toBeInstanceOf(AbortSignal);
+  });
 });
