@@ -11,7 +11,7 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 
 ## Estructura
 
-- `features/<dominio>/{actions,components,hooks,lib,schemas,types,index.ts}` —
+- `features/<dominio>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}` —
   slices autocontenidos. Base: importan de `@/components/ui/*`, `@/lib/*`,
   `@/hooks/*`. **Cross-feature:** tipos, schemas, query-keys y pickers pueden
   cruzar (ej. `accounts/schema`, `clients/schema`, `invoices/components/client-picker`);

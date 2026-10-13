@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: "Create or extend a feature slice in JouveERP (features/<domain>/{actions,components,hooks,lib,schemas,types}). Use when adding a business domain, a read/write server action, a TanStack hook, or a dashboard page. Triggers on 'nueva feature', 'nuevo dominio', 'server action', 'agregar módulo', 'feature slice'."
+description: "Create or extend a feature slice in JouveERP (features/<domain>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}). Use when adding a business domain, a read/write server action, a TanStack hook, or a dashboard page. Triggers on 'nueva feature', 'nuevo dominio', 'server action', 'agregar módulo', 'feature slice'."
 ---
 
 # Nueva feature (JouveERP)
@@ -13,9 +13,9 @@ features/<f>/
   components/   # UI del feature (client)
   hooks/        # use-*.ts (TanStack + runAction)
   lib/          # <f>-keys.ts (query keys), utils sin React
-  schemas/      # Zod + schema.test.ts
-  types/        # interfaces TS
-  index.ts      # barrel
+  schema.ts     # Zod schemas + tipos inferidos
+  schema.test.ts
+  index.ts      # barrel (opcional; solo algunos features lo tienen)
 ```
 
 Solo importa de `@/components/ui/*`, `@/lib/*`, `@/lib/auth/*`, `@/hooks/*`.
@@ -64,7 +64,7 @@ export async function getXAction(input: GetXInput): Promise<ActionResult<X>> {
 - Permisos nuevos → `lib/auth/permissions.ts` (`PERMISSIONS` + `ROLE_PERMISSIONS`)
   y **cubrir en `lib/auth/permissions.test.ts`** (matriz 100%).
 - Mutaciones sensibles → `logAudit()` (`lib/actions/audit.ts`).
-- Zod en `schemas/` + `schema.test.ts`.
+- Zod en `schema.ts` + `schema.test.ts` (archivos planos en la raíz del feature).
 
 ## Checklist
 

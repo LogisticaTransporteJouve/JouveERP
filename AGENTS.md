@@ -48,7 +48,7 @@ To add a skill: create `.agents/skills/<name>/SKILL.md`, the symlink
 - Never read `.env*` files other than the `*.example` ones; never run `supabase db push`,
   `supabase link` or a remote `db reset`. Do not start Docker or a local Supabase stack unprompted.
 - Validate with `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`; add `pnpm db:types:check`
-  and `supabase test db` only when `supabase/` changes and a local stack is already running.
+  and `supabase test db` (once `supabase/tests/` exists) only when `supabase/` changes and a local stack is already running.
 - Linear is optional: follow-ups go to the PR body's `## Follow-ups` section.
 - `.claude/settings.json` denies the destructive and secret-reading commands above.
 

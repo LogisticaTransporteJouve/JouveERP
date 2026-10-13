@@ -18,7 +18,7 @@ JOUVEERP LAYERS (single Next.js app, no packages):
   base:      lib/**            (shared infra + pure helpers: auth, supabase, query, afip, inngest client,
                                 pdf, email, logger, observability) — imports no feature's ACTIONS
              components/ui/**, hooks/**   (design system + generic hooks)
-  feature:   features/<domain>/{actions,components,hooks,lib,schemas,types,index.ts}
+  feature:   features/<domain>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}
   app:       app/**            (routes, route handlers, app/api/inngest/route.ts = the only place
                                 Inngest functions are registered)
 

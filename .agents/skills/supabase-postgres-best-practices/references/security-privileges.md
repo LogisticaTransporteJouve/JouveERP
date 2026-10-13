@@ -56,8 +56,8 @@ functions to `anon` and `authenticated` explicitly, and a revoke from `public` l
 standing. Name the roles, then grant back only what the app uses:
 
 ```sql
-revoke all on public.holdings from anon;
-grant select, insert, update on public.holdings to authenticated;
+revoke all on public.items from anon;
+grant select, insert, update on public.items to authenticated;
 
 revoke all on function public.f() from public, anon, authenticated;
 grant execute on function public.f() to authenticated;

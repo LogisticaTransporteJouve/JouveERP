@@ -118,7 +118,7 @@ contract. This is as strictly enforced as the no-branching law.
 1. **Mirror the nearest existing sibling EXACTLY — never invent a shape.** Before adding a slice,
    a seam or a job, find the sibling already in the repo and copy its skeleton: a feature mirrors
    `features/invoices/` / `features/aging/` (`actions/`, `components/`, `hooks/`, `lib/<f>-keys.ts`,
-   `schemas/`, `types/`, `index.ts`); an external integration mirrors `lib/afip/` (typed results, a
+   flat `schema.ts` + `schema.test.ts`, optional `index.ts`); an external integration mirrors `lib/afip/` (typed results, a
    typed error with a stable `code`, env parsing in its own `env.ts`); a job mirrors an existing
    `lib/inngest/functions/*`. A new folder shape, a novel file name, or a "dumped" file next to
    unrelated code is a defect even if it compiles. The codebase has one house form; grow it, do not
@@ -171,7 +171,7 @@ are the guard. Use this map verbatim; do NOT invent a cleaner-but-false one.
 base:      lib/**                    shared infra + pure helpers (auth, supabase, query, afip, inngest,
                                      pdf, email, files, logger, observability, format, scope)
            components/ui/**, hooks/** design system + generic hooks
-feature:   features/<domain>/        actions/ components/ hooks/ lib/ schemas/ types/ index.ts
+feature:   features/<domain>/        actions/ components/ hooks/ lib/ schema.ts schema.test.ts [index.ts]
                                      → may import base; may import ANOTHER feature's types, schemas,
                                        query keys, pickers and read actions (see below)
 app:       app/**                    routes (server components that prefetch + Hydrate), route

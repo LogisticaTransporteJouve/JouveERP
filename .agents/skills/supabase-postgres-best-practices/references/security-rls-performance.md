@@ -32,7 +32,7 @@ parent belongs to the caller):
 
 ```sql
 -- Helper in a non-exposed schema (runs as definer, bypasses RLS)
-create or replace function private.owns_import(p_import_id uuid)
+create or replace function private.owns_batch(p_batch_id uuid)
 returns boolean
 language sql
 stable
@@ -40,23 +40,23 @@ security definer
 set search_path = ''
 as $$
   select exists (
-    select 1 from public.imports
-    where id = p_import_id and user_id = (select auth.uid())
+    select 1 from public.batches
+    where id = p_batch_id and user_id = (select auth.uid())
   );
 $$;
 
-revoke all on function private.owns_import(uuid) from public, anon, authenticated;
-grant execute on function private.owns_import(uuid) to authenticated;
+revoke all on function private.owns_batch(uuid) from public, anon, authenticated;
+grant execute on function private.owns_batch(uuid) to authenticated;
 
 -- Use in policy (indexed lookup, not per-row check)
-create policy holdings_owner on holdings
+create policy items_owner on items
   for all to authenticated
   using      ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id and (select private.owns_import(import_id)));
+  with check ((select auth.uid()) = user_id and (select private.owns_batch(batch_id)));
 ```
 
 The helper derives identity from the session, never from a parameter, so a caller cannot ask about
-another user. A composite foreign key `(import_id, user_id) references imports (id, user_id)` gives
+another user. A composite foreign key `(batch_id, user_id) references batches (id, user_id)` gives
 the same guarantee without a function.
 
 Always add indexes on columns used in RLS policies:

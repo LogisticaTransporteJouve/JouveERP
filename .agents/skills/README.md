@@ -58,7 +58,7 @@ Prerequisites:
 
 Single Next.js app (`features/<domain>/{actions,components,hooks,lib,schemas,types}`, `lib/`, `app/`,
 `supabase/migrations/`). Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`; plus
-`pnpm db:types:check` and `supabase test db` only when `supabase/` changes and a local stack is
+`pnpm db:types:check` and `supabase test db` (once `supabase/tests/` exists) only when `supabase/` changes and a local stack is
 running. Conventional commits in English with no `Co-Authored-By`/footer; PRs always draft against
 `main`. No `any`, no `as`. The full list is in the root `CLAUDE.md`.
 

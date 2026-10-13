@@ -13,7 +13,7 @@ regression — fix the lens, not the label.
 | `features/receipts/actions/...` | `// Update existing receipt` above `if (existing) { const updates = {…} }` | The branch and the variable both say it. |
 | `features/invoices/components/...` | `// Reset selection` above `setSelectedIds(new Set()); setPage(0)` | Restates two self-naming statements. |
 | repo-wide | `// Get current user` above `requireUserContext()` | Pure echo. |
-| `features/payment-orders/schemas/schema.test.ts` | `// 1. build the input  // 2. parse it` … numbered running commentary | REFACTOR-INSTEAD when it narrates production logic; DELETE in a test whose steps are already one call each. |
+| `features/payment-orders/schema.test.ts` | `// 1. build the input  // 2. parse it` … numbered running commentary | REFACTOR-INSTEAD when it narrates production logic; DELETE in a test whose steps are already one call each. |
 
 ## KEEP + ANCHOR — Q2: unrecoverable from this repo
 
