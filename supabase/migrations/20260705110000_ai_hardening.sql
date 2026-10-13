@@ -19,6 +19,12 @@
 --    repair) so all of them count toward the daily cap (ai_usage_today() sums
 --    every row) while staying separable in the breakdown. Existing rows were
 --    all chat turns → default 'chat'.
+--
+-- 3. ai_usage_today(): the daily cap counted prompt-cache reads as full
+--    tokens. prompt_tokens is the TOTAL input (uncached + cache read + cache
+--    write), so a long cached chat/system prompt burned the cap ~10× faster
+--    than its actual cost. Cache reads (cached_tokens) are now subtracted;
+--    the return shape is unchanged.
 
 set row_security = off;
 
@@ -62,3 +68,34 @@ comment on column public.ai_usage.kind is
   'Qué originó el consumo: chat, chat_title, document_classify, document_extract, expense_classify, tool_repair. Todas cuentan para el tope diario (ai_usage_today).';
 
 create index ai_usage_kind_idx on public.ai_usage (kind, created_at);
+
+------------------------------------------------------------------------------
+-- 3. ai_usage_today — cache reads don't count toward the daily cap
+------------------------------------------------------------------------------
+create or replace function public.ai_usage_today()
+returns table (total_tokens bigint, cost_usd numeric)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    coalesce(
+      sum(
+        greatest(coalesce(prompt_tokens, 0) - coalesce(cached_tokens, 0), 0)
+        + coalesce(completion_tokens, 0)
+      ),
+      0
+    )::bigint as total_tokens,
+    coalesce(sum(cost_usd), 0)::numeric as cost_usd
+  from public.ai_usage
+  where created_at >= date_trunc('day', now());
+$$;
+
+comment on function public.ai_usage_today() is
+  'Tokens (input sin cache reads + output) y costo de IA consumidos hoy (global). Security definer: el medidor (ai:read) lee el agregado sin acceso a filas crudas.';
+
+revoke all on function public.ai_usage_today() from public;
+grant execute on function public.ai_usage_today() to authenticated;
+
+set row_security = on;

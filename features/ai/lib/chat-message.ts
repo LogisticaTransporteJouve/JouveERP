@@ -12,7 +12,8 @@ export const MAX_USER_MESSAGE_CHARS = 10_000;
  * message that fails the AI SDK's UIMessage schema. (Tool schemas are not
  * passed: no tool part is accepted from the client at all.)
  *
- * Returns the validated message, or null when it must be rejected (400).
+ * Returns a rebuilt `{ id, role: "user", parts: [{ type: "text", text }] }`
+ * (never the client's object), or null when it must be rejected (400).
  */
 export async function parseIncomingUserMessage(
   raw: unknown,
@@ -26,11 +27,15 @@ export async function parseIncomingUserMessage(
   }
   if (!message || message.role !== "user") return null;
   if (message.parts.length === 0) return null;
+  const parts: { type: "text"; text: string }[] = [];
   let chars = 0;
   for (const part of message.parts) {
     if (part.type !== "text") return null;
     chars += part.text.length;
+    parts.push({ type: "text", text: part.text });
   }
   if (chars === 0 || chars > MAX_USER_MESSAGE_CHARS) return null;
-  return message;
+  // Rebuilt from scratch: client-supplied `metadata` / `providerMetadata` /
+  // part `state` are dropped so nothing but id + text is persisted/replayed.
+  return { id: message.id, role: "user", parts };
 }

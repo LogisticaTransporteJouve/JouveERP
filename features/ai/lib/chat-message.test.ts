@@ -18,6 +18,29 @@ describe("parseIncomingUserMessage", () => {
     ]);
   });
 
+  it("drops client metadata and provider metadata", async () => {
+    const msg = await parseIncomingUserMessage({
+      id: "m1",
+      role: "user",
+      metadata: { injected: true },
+      parts: [
+        {
+          type: "text",
+          text: "hola",
+          state: "done",
+          providerMetadata: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        },
+      ],
+    });
+    expect(msg).toEqual({
+      id: "m1",
+      role: "user",
+      parts: [{ type: "text", text: "hola" }],
+    });
+  });
+
   it("rejects non-user roles", async () => {
     for (const role of ["assistant", "system"]) {
       expect(

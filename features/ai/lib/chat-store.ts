@@ -22,8 +22,9 @@ import { wrapUntrusted } from "./prompt-text";
 const MAX_TITLE_LEN = 60;
 
 /**
- * Daily token ceiling (prompt + completion, global, every AI call — chat,
+ * Daily token ceiling (uncached input + output, global, every AI call — chat,
  * titles, Document Intelligence, tool repair) before AI entry points block.
+ * Prompt-cache reads are excluded by ai_usage_today() (they cost ~0.1×).
  */
 export const AI_DAILY_TOKEN_CAP = 500_000;
 
@@ -217,7 +218,12 @@ export function sumUsageTokens(reports: AiUsageTokens[]): AiUsageTokens {
       cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
       cacheWriteTokens: acc.cacheWriteTokens + r.cacheWriteTokens,
     }),
-    { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
   );
 }
 
