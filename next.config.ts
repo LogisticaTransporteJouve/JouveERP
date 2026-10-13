@@ -20,7 +20,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    // Barrel packages imported across many files: only the used modules get
+    // bundled. (date-fns / recharts are in Next's default list.)
+    optimizePackageImports: ["lucide-react", "radix-ui", "ai"],
     serverActions: {
       bodySizeLimit: "10mb",
     },
