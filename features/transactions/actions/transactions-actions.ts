@@ -81,8 +81,10 @@ export async function listTransactionsAction(
   let query = supabase
     .from("v_transactions_tagged")
     .select(
+      // No `count`: the page uses the limit + 1 trick for "has more" and never
+      // exposes a total, and count=exact re-ran the whole filtered scan on
+      // every page.
       `${SELECT_COLUMNS}, channel_name, channel_division, channel_is_fiscal, account_name, account_type, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
-      { count: "exact" },
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
