@@ -113,7 +113,7 @@ def main() -> int:
         print("jobs entering `production` outside the approval gate:\n", file=sys.stderr)
         for v in violations:
             print(f"  {v}", file=sys.stderr)
-        print("\nAdd `approve` to the job's `needs` (see db-deploy.yml).", file=sys.stderr)
+        print("\nAdd `approve` to the job's `needs` (see the `approve` and `deploy-migrations` jobs in ci.yml).", file=sys.stderr)
         return 1
     print(f"ok: all {gated} production-environment jobs need `approve`")
     return 0
