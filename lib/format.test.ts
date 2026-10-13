@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   amountToInput,
   formatAmountInput,
+  formatArDateShort,
   formatArgentineDate,
   formatArgentineDateTime,
   formatInteger,
@@ -13,10 +14,16 @@ import {
 } from "./format";
 
 describe("formatArgentineDate", () => {
-  it("convierte ISO yyyy-mm-dd a 'd mmm yyyy' en es (shift AR)", () => {
-    // "yyyy-mm-dd" → 00:00 UTC → 21:00 ART on the previous day.
-    expect(formatArgentineDate("2026-05-17")).toBe("16 may 2026");
-    expect(formatArgentineDate("2026-01-01")).toBe("31 dic 2025");
+  it("muestra una fecha yyyy-mm-dd como el mismo día calendario", () => {
+    // A Postgres `date` has no time or zone: no AR shift applies.
+    expect(formatArgentineDate("2026-05-17")).toBe("17 may 2026");
+    expect(formatArgentineDate("2026-01-01")).toBe("1 ene 2026");
+    expect(formatArgentineDate("2026-12-31")).toBe("31 dic 2026");
+  });
+
+  it("retorna '—' para una fecha yyyy-mm-dd inexistente", () => {
+    expect(formatArgentineDate("2026-02-30")).toBe("—");
+    expect(formatArgentineDate("2026-13-01")).toBe("—");
   });
 
   it("convierte timestamp ISO con offset AR aplicado", () => {
@@ -56,6 +63,31 @@ describe("formatArgentineDateTime", () => {
   it("retorna '—' para null/inválido", () => {
     expect(formatArgentineDateTime(null)).toBe("—");
     expect(formatArgentineDateTime("xx")).toBe("—");
+  });
+
+  it("muestra una fecha yyyy-mm-dd sin hora y sin correr el día", () => {
+    expect(formatArgentineDateTime("2026-05-17")).toBe("17 may 2026");
+  });
+});
+
+describe("formatArDateShort", () => {
+  it("muestra una fecha yyyy-mm-dd como el mismo día calendario", () => {
+    expect(formatArDateShort("2026-05-17")).toBe("17/5/2026");
+    expect(formatArDateShort("2026-01-01")).toBe("1/1/2026");
+  });
+
+  it("lee timestamps en hora AR, sin depender de la zona del runtime", () => {
+    // 2026-05-17T02:00:00Z → 2026-05-16T23:00 ART
+    expect(formatArDateShort("2026-05-17T02:00:00Z")).toBe("16/5/2026");
+    expect(formatArDateShort(new Date("2026-05-17T12:00:00Z"))).toBe(
+      "17/5/2026",
+    );
+  });
+
+  it("retorna '—' para null/inválido", () => {
+    expect(formatArDateShort(null)).toBe("—");
+    expect(formatArDateShort("xx")).toBe("—");
+    expect(formatArDateShort(new Date("xx"))).toBe("—");
   });
 });
 
