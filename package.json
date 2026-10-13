@@ -57,7 +57,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "@tanstack/react-query": "^5.104.1",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "^9.2.6",
     "@tanstack/react-virtual": "^3.14.13",
     "ai": "^6.0.206",
     "class-variance-authority": "^0.7.1",
