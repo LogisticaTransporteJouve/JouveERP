@@ -28,6 +28,8 @@ type Subscription = {
 // Only queries currently rendered refetch (`refetchType: "active"`); inactive
 // ones are just marked stale and refetch when next used.
 const INVALIDATE_DEBOUNCE_MS = 500;
+// A steady stream of events must not postpone the refetch forever.
+const INVALIDATE_MAX_WAIT_MS = 2000;
 
 export function useRealtimeInvalidate(subscriptions: Subscription[]) {
   const queryClient = useQueryClient();
@@ -48,8 +50,10 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
 
     const pending = new Set<number>();
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let firstPendingAt: number | null = null;
     const flush = () => {
       timer = null;
+      firstPendingAt = null;
       for (const i of pending) {
         const current = subsRef.current[i];
         if (!current) continue;
@@ -77,8 +81,17 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
         },
         () => {
           pending.add(i);
+          const now = Date.now();
+          firstPendingAt ??= now;
           if (timer !== null) clearTimeout(timer);
-          timer = setTimeout(flush, INVALIDATE_DEBOUNCE_MS);
+          const waited = now - firstPendingAt;
+          timer = setTimeout(
+            flush,
+            Math.max(
+              0,
+              Math.min(INVALIDATE_DEBOUNCE_MS, INVALIDATE_MAX_WAIT_MS - waited),
+            ),
+          );
         },
       );
     }

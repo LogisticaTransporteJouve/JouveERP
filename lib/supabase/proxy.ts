@@ -63,7 +63,14 @@ export async function updateSession(
 
   // Only bounce off /auth/login when logged in. /auth/logout must reach its
   // route handler so the session can actually be cleared.
-  if (user && pathname.startsWith("/auth/login")) {
+  // Claims can outlive a server-side revocation (sign-out elsewhere, banned
+  // user) until the JWT expires; the dashboard's getUser() would then send the
+  // user back here and loop. Confirm with the Auth server before bouncing.
+  if (
+    user &&
+    pathname.startsWith("/auth/login") &&
+    (await supabase.auth.getUser()).data.user
+  ) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";

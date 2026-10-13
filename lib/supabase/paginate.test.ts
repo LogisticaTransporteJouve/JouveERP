@@ -26,6 +26,7 @@ describe("paginateRange", () => {
       [0, 999],
       [1000, 1999],
       [2000, 2999],
+      [2500, 3499],
     ]);
   });
 
@@ -36,11 +37,28 @@ describe("paginateRange", () => {
     expect(s.calls).toHaveLength(3);
   });
 
-  it("stops after a single short page", async () => {
+  it("stops on the empty page after a short one", async () => {
     const s = server(range(3));
     const res = await paginateRange(s.fetchPage);
     expect(res.data).toEqual([0, 1, 2]);
-    expect(s.calls).toHaveLength(1);
+    expect(s.calls).toEqual([
+      [0, 999],
+      [3, 1002],
+    ]);
+  });
+
+  it("still drains everything when the server caps below the page size", async () => {
+    const rows = range(1200);
+    const s = server(rows, 500);
+    const res = await paginateRange(s.fetchPage);
+    expect(res.data).toEqual(rows);
+  });
+
+  it("errors instead of growing past maxRows", async () => {
+    const s = server(range(3000));
+    const res = await paginateRange(s.fetchPage, 1000, 2500);
+    expect(res.data).toBeNull();
+    expect(res.error?.code).toBe("row_cap");
   });
 
   it("handles an empty result and a null data payload", async () => {

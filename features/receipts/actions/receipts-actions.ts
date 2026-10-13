@@ -335,9 +335,8 @@ export async function listPendingComprobantesForClientAction(
 
   const supabase = await createSupabaseClient();
 
-  // PostgREST caps individual responses at 1000 rows (db.max_rows).
-  // We chunk for clients with many migrated invoices. Defensive cap
-  // of 50000.
+  // PostgREST caps individual responses at 1000 rows (db.max_rows), so the
+  // reads below drain page by page (bounded by MAX_DRAIN_ROWS).
   type InvoiceRow = {
     id: string;
     numero: number | null;

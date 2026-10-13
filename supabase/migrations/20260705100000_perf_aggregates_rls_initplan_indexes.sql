@@ -14,6 +14,10 @@
 --    function is STABLE and its arguments are constants.
 -- 3. Missing indexes (consolidated libro IVA by date, checks FKs).
 
+-- ALTER POLICY / CREATE INDEX take table locks; fail fast instead of queueing
+-- behind live traffic (rerun at a quieter moment).
+set lock_timeout = '10s';
+
 set row_security = off;
 
 ------------------------------------------------------------------------------

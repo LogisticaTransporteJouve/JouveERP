@@ -12,9 +12,14 @@
 // Errors are returned, not thrown, so server actions keep returning
 // `ActionResult` without try/catch.
 
-/** Must equal the server's `max_rows`: a full page then means "maybe more",
- *  never "capped partial page that ends the loop early". */
+/** Requested window per page. The loop advances by the rows actually returned
+ *  and stops on an empty page, so a server `max_rows` lower than this (hosted
+ *  config drifting from supabase/config.toml) still drains completely. */
 export const PAGE_SIZE = 1000;
+
+/** Upper bound on a single drain. Past this the caller gets an error instead of
+ *  an ever-growing in-memory result (exports run in a serverless function). */
+export const MAX_DRAIN_ROWS = 100_000;
 
 /** Default chunk for `.in(column, ids)` filters: keeps the GET URL well under
  *  proxy/PostgREST limits (36-char uuids → ~8 KB per 200 ids). */
@@ -34,13 +39,14 @@ export type DrainResult<T> =
   | { data: null; error: PageError };
 
 /**
- * Fetches `[from, to]` windows until a short page signals the end.
+ * Fetches `[from, to]` windows until an empty page signals the end.
  * `fetchPage` must build a FRESH query each call (builders are mutable) and
  * apply `.range(from, to)` on a totally ordered query.
  */
 export async function paginateRange<T>(
   fetchPage: (from: number, to: number) => PromiseLike<Page<T>>,
   pageSize: number = PAGE_SIZE,
+  maxRows: number = MAX_DRAIN_ROWS,
 ): Promise<DrainResult<T>> {
   const rows: T[] = [];
   let from = 0;
@@ -48,9 +54,18 @@ export async function paginateRange<T>(
     const { data, error } = await fetchPage(from, from + pageSize - 1);
     if (error) return { data: null, error };
     const page = data ?? [];
+    if (page.length === 0) break;
     for (const row of page) rows.push(row);
-    if (page.length < pageSize) break;
-    from += pageSize;
+    if (rows.length > maxRows) {
+      return {
+        data: null,
+        error: {
+          message: `Result exceeds ${maxRows} rows; narrow the filters.`,
+          code: "row_cap",
+        },
+      };
+    }
+    from += page.length;
   }
   return { data: rows, error: null };
 }
