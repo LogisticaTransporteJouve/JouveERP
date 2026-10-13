@@ -5149,6 +5149,15 @@ export type Database = {
       }
     }
     Functions: {
+      account_movement_totals: {
+        Args: { p_split: string; p_until: string }
+        Returns: {
+          account_id: string
+          last_movement_date: string
+          net_until: number
+          net_until_split: number
+        }[]
+      }
       add_chat_channel_members: {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
@@ -5735,6 +5744,16 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      transaction_monthly_flows: {
+        Args: { p_from: string; p_until: string }
+        Returns: {
+          account_id: string
+          kind: string
+          month: string
+          scope: string
+          total: number
+        }[]
+      }
       update_chat_channel: {
         Args: { p_channel: string; p_description: string; p_name: string }
         Returns: undefined
