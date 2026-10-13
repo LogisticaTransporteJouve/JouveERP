@@ -22,6 +22,46 @@ VIOLATION = 1
 BROKEN_MATCHER = 2
 
 CASES: list[tuple[str, int, str, str]] = [
+    ("if_always_bypasses_approval", VIOLATION, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    needs: approve
+    if: always()
+    environment: production
+""", "only `needs.approve.result == 'success'` is allowed"),
+
+    ("if_success_allowed", OK, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    needs: approve
+    if: needs.approve.result == 'success'
+    environment: production
+""", ""),
+
+    ("environment_case_insensitive", VIOLATION, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    environment: Production
+""", "job `deploy` enters `production` without `approve`"),
+
+    ("environment_expression", VIOLATION, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    needs: approve
+    environment: ${{ inputs.env }}
+  other:
+    needs: approve
+    environment: production
+""", "names its environment dynamically"),
+
     ("gated", OK, """
 jobs:
   approve:

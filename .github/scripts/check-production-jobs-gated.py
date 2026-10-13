@@ -71,19 +71,36 @@ def main() -> int:
     gated = 0
     for path in sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml")):
         found = dict(jobs(path.read_text(encoding="utf-8", errors="replace")))
-        enters = [
-            n for n, k in found.items() if "production" in WORD.findall(k.get("environment", ""))
-        ]
+        enters = []
+        for n, k in found.items():
+            env = k.get("environment", "")
+            # GitHub matches environment names case-insensitively, and an
+            # expression or alias could resolve to `production` at runtime.
+            if "${{" in env or re.search(r"(^|\s)\*", env):
+                violations.append(f"{path}: job `{n}` names its environment dynamically")
+            if "production" in [w.lower() for w in WORD.findall(env)]:
+                enters.append(n)
         if not enters:
             continue
         gated += len(enters)
-        approve_env = WORD.findall(found.get("approve", {}).get("environment", ""))
+        approve_env = [w.lower() for w in WORD.findall(found.get("approve", {}).get("environment", ""))]
         if "production-gate" not in approve_env:
             violations.append(f"{path}: no `approve` job on `environment: production-gate`")
         for n in enters:
             if "approve" not in WORD.findall(found[n].get("needs", "")):
                 violations.append(
                     f"{path}: job `{n}` enters `production` without `approve` in its needs"
+                )
+            # `if: always()` (or !cancelled(), failure()) runs the job even when
+            # the approval was rejected or skipped.
+            cond = found[n].get("if", "").strip()
+            if cond and re.sub(r"\s+", " ", cond) not in (
+                "needs.approve.result == 'success'",
+                "${{ needs.approve.result == 'success' }}",
+            ):
+                violations.append(
+                    f"{path}: job `{n}` has `if: {cond}`; only "
+                    "`needs.approve.result == 'success'` is allowed on production jobs"
                 )
 
     if gated == 0:
