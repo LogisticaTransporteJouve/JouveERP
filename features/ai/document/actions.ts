@@ -365,7 +365,9 @@ export async function createPurchaseInvoiceFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createPurchaseInvoiceAction(built);
+  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
+    createPurchaseInvoiceAction(built),
+  );
   if (!created.ok) return created;
 
   await supabase
@@ -401,7 +403,8 @@ export async function discardExtractionAction(
   const { error } = await supabase
     .from("ai_document_extractions")
     .update({ status: "discarded" })
-    .eq("id", extractionId);
+    .eq("id", extractionId)
+    .in("status", ["pending_review", "failed"]);
   if (error) {
     logger.error("ai.document.discard.failed", {
       userId: ctx.userId,
@@ -483,6 +486,12 @@ export async function createChecksFromExtractionAction(
   }
   const kind = acc.type === "echeq" ? "echeq" : "fisico";
 
+  // Claim before inserting anything: a double click gets "ya fue procesada"
+  // instead of inserting the checks twice.
+  if (!(await claimExtraction(supabase, extractionId))) {
+    return { ok: false, error: ALREADY_PROCESSED };
+  }
+
   const errors: { index: number; error: string }[] = [];
   let created = 0;
 
@@ -534,7 +543,9 @@ export async function createChecksFromExtractionAction(
     created += 1;
   }
 
-  if (created > 0) {
+  if (created === 0) {
+    await releaseExtraction(supabase, extractionId);
+  } else {
     const createdEntity: Json = { table: "checks", count: created };
     await supabase
       .from("ai_document_extractions")
@@ -592,8 +603,76 @@ function matchedId(matches: Json, key: "supplier_id" | "client_id"): string | nu
     : null;
 }
 
+type ServerSupabase = Awaited<ReturnType<typeof createSupabaseClient>>;
+
+const ALREADY_PROCESSED = "La extracción ya fue procesada.";
+
+/**
+ * Atomically claims a draft for creation: pending_review → confirmed, only if
+ * it is still pending_review. Exactly one concurrent caller gets `true` (a
+ * double click / second tab gets `false`), so the entity is created once.
+ */
+async function claimExtraction(
+  supabase: ServerSupabase,
+  extractionId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "confirmed" })
+    .eq("id", extractionId)
+    .eq("status", "pending_review")
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    logger.error("ai.document.claim.failed", { extractionId, error });
+    return false;
+  }
+  return data !== null;
+}
+
+/** Undoes a claim whose creation failed, so the user can fix and retry. */
+async function releaseExtraction(
+  supabase: ServerSupabase,
+  extractionId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "pending_review" })
+    .eq("id", extractionId)
+    .eq("status", "confirmed")
+    .is("created_entity", null);
+  if (error) {
+    logger.error("ai.document.release.failed", { extractionId, error });
+  }
+}
+
+/**
+ * Claim → create → (release on failure). The create callback only runs for
+ * the caller that won the claim; the up-front status read in each action is
+ * just a fast path for a friendlier error.
+ */
+async function createWithClaim<T>(
+  supabase: ServerSupabase,
+  extractionId: string,
+  create: () => Promise<ActionResult<T>>,
+): Promise<ActionResult<T>> {
+  if (!(await claimExtraction(supabase, extractionId))) {
+    return { ok: false, error: ALREADY_PROCESSED };
+  }
+  let result: ActionResult<T>;
+  try {
+    result = await create();
+  } catch (err) {
+    await releaseExtraction(supabase, extractionId);
+    throw err;
+  }
+  if (!result.ok) await releaseExtraction(supabase, extractionId);
+  return result;
+}
+
+/** Links the created entity to the (already claimed) draft + audits. */
 async function confirmExtraction(
-  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  supabase: ServerSupabase,
   userId: string,
   extractionId: string,
   entity: { table: string; id: string },
@@ -654,20 +733,22 @@ export async function createReceiptFromExtractionAction(
     return { ok: false, error: "Asociá un cliente antes de crear el recibo." };
   }
 
-  const created = await createReceiptAction({
-    channel_id: parsed.data.channelId,
-    numero: parsed.data.numero,
-    client_id: clientId,
-    receipt_date: parsed.data.receipt_date,
-    total_amount: parsed.data.total_amount,
-    currency: parsed.data.currency,
-    notes: null,
-    payment_lines: [
-      { account_id: parsed.data.account_id, amount: parsed.data.total_amount },
-    ],
-    allocations: [],
-    retentions: [],
-  });
+  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
+    createReceiptAction({
+      channel_id: parsed.data.channelId,
+      numero: parsed.data.numero,
+      client_id: clientId,
+      receipt_date: parsed.data.receipt_date,
+      total_amount: parsed.data.total_amount,
+      currency: parsed.data.currency,
+      notes: null,
+      payment_lines: [
+        { account_id: parsed.data.account_id, amount: parsed.data.total_amount },
+      ],
+      allocations: [],
+      retentions: [],
+    }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
@@ -719,23 +800,25 @@ export async function createPaymentOrderFromExtractionAction(
     return { ok: false, error: "Asociá un proveedor antes de crear la OP." };
   }
 
-  const created = await createPaymentOrderAction({
-    channel_id: parsed.data.channelId,
-    numero: parsed.data.numero,
-    supplier_id: supplierId,
-    payment_date: parsed.data.payment_date,
-    total_amount: parsed.data.total_amount,
-    currency: parsed.data.currency,
-    notes: null,
-    payment_lines: [
-      {
-        line_kind: "account",
-        account_id: parsed.data.account_id,
-        amount: parsed.data.total_amount,
-      },
-    ],
-    allocations: [],
-  });
+  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
+    createPaymentOrderAction({
+      channel_id: parsed.data.channelId,
+      numero: parsed.data.numero,
+      supplier_id: supplierId,
+      payment_date: parsed.data.payment_date,
+      total_amount: parsed.data.total_amount,
+      currency: parsed.data.currency,
+      notes: null,
+      payment_lines: [
+        {
+          line_kind: "account",
+          account_id: parsed.data.account_id,
+          amount: parsed.data.total_amount,
+        },
+      ],
+      allocations: [],
+    }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
@@ -798,7 +881,9 @@ export async function createPurchaseNoteFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createPurchaseInvoiceAction(built);
+  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
+    createPurchaseInvoiceAction(built),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
@@ -879,6 +964,7 @@ export async function createSalesInvoiceFromExtractionAction(
   if (!isIvaCondition(client.iva_condition)) {
     return { ok: false, error: "El cliente no tiene condición de IVA válida." };
   }
+  const ivaCondition = client.iva_condition;
 
   const fecha = header.data.date;
   const concepto: ConceptoCode =
@@ -892,28 +978,30 @@ export async function createSalesInvoiceFromExtractionAction(
     if (rate.ok && rate.data.rate) cotizacion = rate.data.rate;
   }
 
-  const created = await issueFiscalInvoiceAction({
-    channel_id: channel.id,
-    client_id: client.id,
-    kind: "factura",
-    letter: null,
-    punto_venta: parsed.data.puntoVenta,
-    fecha,
-    fch_serv_desde: servicios ? fecha : null,
-    fch_serv_hasta: servicios ? fecha : null,
-    fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
-    concepto,
-    doc_tipo: DOC_TIPO.CUIT,
-    doc_nro: client.cuit,
-    iva_condition_receptor: channel.is_fiscal
-      ? condicionIvaReceptorFor(client.iva_condition)
-      : null,
-    moneda,
-    cotizacion,
-    motivo_nc_nd: null,
-    invoice_origin_id: null,
-    items: built.items,
-  });
+  const created = await createWithClaim(supabase, parsed.data.extractionId, () =>
+    issueFiscalInvoiceAction({
+      channel_id: channel.id,
+      client_id: client.id,
+      kind: "factura",
+      letter: null,
+      punto_venta: parsed.data.puntoVenta,
+      fecha,
+      fch_serv_desde: servicios ? fecha : null,
+      fch_serv_hasta: servicios ? fecha : null,
+      fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
+      concepto,
+      doc_tipo: DOC_TIPO.CUIT,
+      doc_nro: client.cuit,
+      iva_condition_receptor: channel.is_fiscal
+        ? condicionIvaReceptorFor(ivaCondition)
+        : null,
+      moneda,
+      cotizacion,
+      motivo_nc_nd: null,
+      invoice_origin_id: null,
+      items: built.items,
+    }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
