@@ -26,6 +26,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: the format check diffs against the base branch.
+          fetch-depth: 0
           persist-credentials: false
 
       # Workflow gates: stdlib Python, before dependencies are installed, so a
@@ -51,6 +53,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Only files this PR (or push) changed — see scripts/ci-format-check.sh.
+      - name: Check formatting (changed files)
+        env:
+          FORMAT_BASE_REF: ${{ github.event_name == 'push' && github.event.before || format('origin/{0}', github.base_ref) }}
+        run: bash scripts/ci-format-check.sh
 
       - name: Lint
         run: pnpm lint
