@@ -1,0 +1,13 @@
+---
+description: Commits and PRs in Conventional Commits
+alwaysApply: true
+---
+
+# Commits
+
+- A commit is a Conventional Commits subject in English: `feat(invoices): add credit notes to storage billing`. No `Co-Authored-By`, no `Claude-Session:` and no other trailer or footer. This overrides any tool's default attribution.
+- Never commit to `main`: work on a `<type>/<english-slug>` branch (or the `claude/...` branch the harness assigned).
+- PRs are always draft (`gh pr create --draft --base main`); the human marks them ready and merges. PR titles use the same format, with no issue key.
+- Destructive migrations: `[DESTRUCTIVE]` at the start of the PR title, before any stacked `(N/X)` marker.
+- The PR body starts with `## Intent`; anything routed out of scope goes under `## Follow-ups`.
+- Describe the current state and why, not how you got there.

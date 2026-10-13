@@ -11,7 +11,7 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 
 ## Estructura
 
-- `features/<dominio>/{actions,components,hooks,lib,schemas,types,index.ts}` —
+- `features/<dominio>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}` —
   slices autocontenidos. Base: importan de `@/components/ui/*`, `@/lib/*`,
   `@/hooks/*`. **Cross-feature:** tipos, schemas, query-keys y pickers pueden
   cruzar (ej. `accounts/schema`, `clients/schema`, `invoices/components/client-picker`);
@@ -44,8 +44,20 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 
 ## Skills de desarrollo
 
-En `.claude/skills/`: **`/new-feature`**, **`/new-migration`**, **`/new-inngest-fn`**.
-Invocalas al agregar dominios, migraciones o jobs.
+Canónicas en `.agents/skills/<name>/` (symlinks en `.claude/skills/`); índice y reglas para
+agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
+
+- **Scaffolds:** **`/new-feature`**, **`/new-migration`**, **`/new-inngest-fn`** — invocalas al
+  agregar dominios, migraciones o jobs.
+- **Planificar / construir / revisar / shippear:** `/adv-planning`, `/adv-research`,
+  `/auto-implement`, `/adv-review`, `/auto-ship-gate` (deja el PR en draft), `/auto-build`
+  (la cadena completa).
+- **Lentes:** `/enforce-ports-and-adapters` (slices y seams), `/enforce-clean-code` (DRY),
+  `/enforce-comment-value`, `/enforce-role-isolation` (`userCan` + RLS por rol);
+  perf/telemetry/identity en `.agents/skills/_shared/`.
+- **Otros:** `/nav-github`, `/nav-linear` (opcional), `supabase-postgres-best-practices`, `/tighten`.
+
+`.claude/settings.json` bloquea `supabase db push`/`link`, push a `main`, force-push y leer `.env*`.
 
 ## Docs
 

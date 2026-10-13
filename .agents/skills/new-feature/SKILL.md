@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: "Create or extend a feature slice in JouveERP (features/<domain>/{actions,components,hooks,lib,schemas,types}). Use when adding a business domain, a read/write server action, a TanStack hook, or a dashboard page. Triggers on 'nueva feature', 'nuevo dominio', 'server action', 'agregar módulo', 'feature slice'."
+description: "Create or extend a feature slice in JouveERP (features/<domain>/{actions,components,hooks,lib,schema.ts,schema.test.ts,index.ts?}). Use when adding a business domain, a read/write server action, a TanStack hook, or a dashboard page. Triggers on 'nueva feature', 'nuevo dominio', 'server action', 'agregar módulo', 'feature slice'."
 ---
 
 # Nueva feature (JouveERP)
@@ -13,13 +13,16 @@ features/<f>/
   components/   # UI del feature (client)
   hooks/        # use-*.ts (TanStack + runAction)
   lib/          # <f>-keys.ts (query keys), utils sin React
-  schemas/      # Zod + schema.test.ts
-  types/        # interfaces TS
-  index.ts      # barrel
+  schema.ts     # Zod schemas + tipos inferidos
+  schema.test.ts
+  index.ts      # barrel (opcional; solo algunos features lo tienen)
 ```
 
 Solo importa de `@/components/ui/*`, `@/lib/*`, `@/lib/auth/*`, `@/hooks/*`.
-**Importar de otra feature → prohibido** (si hace falta, subir a `@/lib/`).
+**Cross-feature:** se pueden importar tipos, schemas, query keys, pickers y actions de
+lectura que alimentan un picker. **Actions de negocio (escritura) no cruzan** — única
+excepción documentada: `issueFiscalInvoiceAction`. Si hace falta lógica compartida, subila a
+`@/lib/` (ver `/enforce-ports-and-adapters`).
 Estudiá `features/invoices/` y `features/aging/` como template.
 
 ## Server action (template)
@@ -61,11 +64,11 @@ export async function getXAction(input: GetXInput): Promise<ActionResult<X>> {
 - Permisos nuevos → `lib/auth/permissions.ts` (`PERMISSIONS` + `ROLE_PERMISSIONS`)
   y **cubrir en `lib/auth/permissions.test.ts`** (matriz 100%).
 - Mutaciones sensibles → `logAudit()` (`lib/actions/audit.ts`).
-- Zod en `schemas/` + `schema.test.ts`.
+- Zod en `schema.ts` + `schema.test.ts` (archivos planos en la raíz del feature).
 
 ## Checklist
 
-- [ ] Slice completo, sin imports cross-feature.
+- [ ] Slice completo; ninguna action de negocio importada de otra feature.
 - [ ] Actions devuelven `ActionResult<T>`, con `userCan` + sin `select *`.
 - [ ] Permisos en matriz + test.
 - [ ] Zod + schema.test.ts.
