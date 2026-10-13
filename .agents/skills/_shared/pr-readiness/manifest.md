@@ -13,11 +13,10 @@ branch (that closes the PR).
 
 ⚠️ **JouveERP PRs stay DRAFT.** The repo rule is "PRs always draft" (`gh pr create --draft`); the
 human marks a PR ready for review when they choose. An agent never runs `gh pr ready`. What that
-means for checks: `CI` (lint / typecheck / test / build), `DB types drift` and
-`migration-order-check` run on draft PRs, so they are the required signal. The `Claude Code Review`
-workflow is gated on `draft == false` and is EXPECTED to show as skipped on a draft — that is not a
-green, and it is not a failure; `/adv-review` is the in-session substitute. Report it as
-`claude-review: skipped (draft) — runs when the human marks the PR ready`.
+means for checks: the `CI` workflow's `Lint / Typecheck / Test / Build` and `database` jobs run on
+draft PRs, so they are the required signal. There is no review bot in CI; `/adv-review` is the
+in-session review. The `Preview` workflow only deploys once a `claude/*` PR is ready, so it shows
+as skipped on a draft — that is not a green, and it is not a failure.
 
 ## A1 — Follow-ups are in the PR body   [BLOCKING, auto-remedy]
 JouveERP does not require a Linear issue (no issue keys in branches or titles). Every finding
@@ -44,7 +43,7 @@ colliding migration timestamp, and filtering by base drops it out of the blockin
 Intersect each PR's file paths with this PR's (`gh pr diff <n> --name-only`). Only for a SHARED
 file, deep-dive with `gh pr diff` and tier it:
 - **BLOCKING:** both add a `supabase/migrations/*` file with the same or out-of-order timestamp
-  (the `migration-order-check` workflow requires each new timestamp > the max on `main`), OR same
+  (the CI `database` job requires each new timestamp > the max on `main`), OR same
   function / overlapping hunks in one file, OR both regenerate `lib/db/database.types.ts`.
 - **ADVISORY (merge-order note):** disjoint hunks in the same file, or one PR consumes a shared type the other changes.
 Pagination is a false-NEGATIVE risk: without `--limit` gh stops at 30 PRs, and `files` is capped
@@ -73,8 +72,7 @@ Dynamic checks ONLY if a local Supabase stack is ALREADY running (`supabase stat
 never start one unprompted: confirm the migrations apply on a fresh local database
 (`supabase db reset`, local only — never `--linked`/`--db-url`), `pnpm db:types:check` leaves no
 diff, and `supabase test db` passes if `supabase/tests/` exists. No local stack → record
-`db-dynamic: not run (no local stack)` and rely on the `DB types drift` + `migration-order-check`
-CI jobs.
+`db-dynamic: not run (no local stack)` and rely on the CI `database` job.
 For a new index/FK/RLS/query, also Read the relevant reference file(s) under
 `.agents/skills/supabase-postgres-best-practices/` (the index plus only the matched `references/*.md`), and apply any generic PG-perf finding — additive to the defect catalog.
 

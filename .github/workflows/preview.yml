@@ -1,0 +1,65 @@
+name: Preview
+
+# Vercel's Git integration skips claude/* branches (vercel.json), so agent
+# review rounds spend no deployments. Marking the PR ready for review, or
+# pushing to a PR that is already ready, deploys a preview through the CLI.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && startsWith(github.head_ref, 'claude/')
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: vercel-preview
+
+    steps:
+      # Secrets cannot be read in a job-level `if`, so a missing setup is
+      # detected here and every later step is skipped: the run stays green
+      # with a notice instead of failing every claude/* PR.
+      - name: Check Vercel secrets
+        id: secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::notice::VERCEL_TOKEN, VERCEL_ORG_ID or VERCEL_PROJECT_ID is not set; skipping the preview deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A named branch, not the merge ref, so the deployment carries the
+      # branch name.
+      - name: Checkout
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+
+      - name: Deploy to Vercel
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          url="$(npx -y vercel@59.26.0 deploy --yes --token "$VERCEL_TOKEN")"
+          echo "::notice::Preview deployed: $url"
+          echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"

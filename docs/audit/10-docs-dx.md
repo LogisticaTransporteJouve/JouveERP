@@ -10,7 +10,7 @@
 | docs/mobile-patterns.md | fresh | Every claim verified; not linked from any index |
 | docs/frontend-patterns.md | reference/partially drifted | Catalog from another repo; several "✅" never adopted; husky details mismatch |
 | docs/manual/ | drifted (coverage) | 9 pages, links resolve, no broken assets; claims "todos los módulos" while ~6 shipped areas have no page |
-| .github/workflows/ | fresh | CI = lint+typecheck+test+build + db-types drift + migration order + claude-review + db-deploy + daily backup. Matches CLAUDE.md |
+| .github/workflows/ | fresh | CI = lint+typecheck+test+build + database (db-types drift + migration order) + deploy-migrations + forbidden words + preview + daily backup. Matches CLAUDE.md |
 | .claude/skills/ | mostly fresh | All referenced files/templates exist; restate 2 conventions the code violates |
 
 ## FINDINGS
@@ -31,7 +31,7 @@
 [low][doc-drift] "sin Co-Authored-By" — every squash commit carries Co-authored-by: Tomas Dziurdzia (GitHub squash artifact of owner's 2nd email, not AI footer). Literal contradiction, spirit intact. Conventional-commit 30/30 comply ✓.
 [low][doc-drift] frontend-patterns.md — §2.1 dotenv-cli ✅ but dev is plain next dev; §3.1 pre-commit=prettier-only but actual .husky/pre-commit is lint-staged eslint --fix no prettier; §3.2 pre-push types-regen ✅ but no .husky/pre-push (CI covers). CONFIRMED (low, reference catalog).
 [low][doc-drift] README.md:116 integration suite "(triggers, RPCs, RLS)" — tests/integration/ has exactly one suite chat-flows.test.ts (9 tests). Money/accounting triggers, RPCs, RLS zero integration coverage. CONFIRMED overstatement.
-[ci verified true] pnpm dlx supabase gen types matches scripts/db-types.sh; db-types-check.yml diffs it (path-filtered); migration-order check matches skill; 14/14 Inngest fns registered; dev:up/seed:dev/bootstrapOwnerIfNeeded/logAudit/lib/email graceful skip all real.
+[ci verified true] pnpm dlx supabase gen types matches scripts/db-types.sh; the CI `database` job diffs it (path-filtered); migration-order check matches skill; 14/14 Inngest fns registered; dev:up/seed:dev/bootstrapOwnerIfNeeded/logAudit/lib/email graceful skip all real.
 
 ## ONBOARDING GAPS (fresh clone + README only)
 1. Incomplete .env.local.example (biggest): AI chat (no ANTHROPIC_API_KEY documented), fallback, email, push, Sentry silently/loudly broken. Dead SUPABASE_DB_URL.

@@ -210,7 +210,7 @@ ni footer de "Generated with Claude Code".
 - RLS habilitada en la **misma** migración que crea la tabla.
 - `alter publication supabase_realtime add table public.<t>` solo si esa
   tabla necesita realtime UI.
-- **CI `migration-order-check.yml`** valida que cada timestamp nuevo sea
+- **CI `ci.yml` (job `database`)** valida que cada timestamp nuevo sea
   posterior al máximo en `main`. Previene colisiones en prod.
 
 ### 2.5 Tipos generados
@@ -1050,7 +1050,7 @@ porque Tailwind v4 + `next/font` emiten `<style>` sin etiquetar. Scripts
 siguen estrictos.
 
 `supabase init` + migración mínima `<ts>_init.sql` con `pg_trgm`.
-`scripts/db-types.sh` + `db-types-check.sh`. CI `db-types-check.yml`.
+`scripts/db-types.sh` + `db-types-check.sh`. CI `ci.yml` (job `database`).
 
 ### A.6 — `feat: auth pages (login, logout) + protected dashboard`
 
@@ -1075,7 +1075,7 @@ ts/actor/event_type, sin INSERT policy (service role only).
 **Constraint trigger deferrable** `user_roles_owner_minimum_trigger`:
 levanta excepción si `count(*) where role_id='owner' = 0` después del commit.
 
-Workflow `migration-order-check.yml` agregado en este PR.
+Check de orden de migraciones agregado en este PR (hoy job `database` de `ci.yml`).
 
 ### B.2 — `feat: permissions matrix + withAuth wrapper`
 

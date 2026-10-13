@@ -55,7 +55,7 @@ installed is neither — report it, with the install command.)
 
 Local development (`supabase start`, `supabase test db`, `pnpm db:types:check`) needs no sign-in at
 all; only commands that reach the hosted project do. Never `supabase link` and never
-`supabase db push`: migrations reach production only through the `db-deploy.yml` workflow on merge
+`supabase db push`: migrations reach production only through the `deploy-migrations` job of `ci.yml` on merge
 to `main`.
 
 ## Running an interactive sign-in

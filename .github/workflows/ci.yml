@@ -1,48 +1,98 @@
 name: CI
 
+# The push trigger re-validates the exact SHA that landed on main: PR runs
+# test a merge preview, so two PRs that are green in isolation can still break
+# in combination once both land. Push runs on main also deploy migrations.
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
 
+# A new push to a PR cancels that PR's stale run. Main push runs each get a
+# group of their own, so every landed SHA is validated and no in-flight
+# migration deploy is ever cancelled by a newer push.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
   ci:
     name: Lint / Typecheck / Test / Build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    env:
-      NEXT_TELEMETRY_DISABLED: "1"
+    timeout-minutes: 15
 
     steps:
+      # fetch-depth 0 brings every branch, the PR base included, so no later
+      # step needs the token (the format check diffs against the base too).
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history: the format check diffs against the base branch.
           fetch-depth: 0
           persist-credentials: false
 
-      # Workflow gates: stdlib Python, before dependencies are installed, so a
-      # PR touching only .github/ is still policed.
-      - name: Every checkout sets persist-credentials
+      # PR runs diff against the PR's base branch; push runs diff against the
+      # previous main head. A degenerate push base (a head force-pushed out of
+      # history) falls back to the root commit, which makes every diff select
+      # everything: the run degrades to run-all, never to run-nothing.
+      - name: Resolve diff base
+        id: base
         run: |
-          python3 .github/scripts/check-checkout-persist-credentials.py
-          python3 .github/scripts/check_checkout_persist_credentials_test.py
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            candidate="${{ github.event.before }}"
+          else
+            candidate="origin/${{ github.base_ref }}"
+          fi
+          if [ -n "$candidate" ] && [ "$candidate" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "$candidate^{commit}" 2>/dev/null; then
+            echo "ref=$candidate" >> "$GITHUB_OUTPUT"
+            echo "range=$candidate..HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No usable diff base ('$candidate'), falling back to the root commit, which runs everything."
+            echo "ref=$(git rev-list --max-parents=0 HEAD | head -n 1)" >> "$GITHUB_OUTPUT"
+            # <root>..HEAD would leave the root commit itself unscanned.
+            echo "range=HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The word list is a secret so it is never spelled out in the repo.
+      # Secrets do not reach fork or Dependabot PRs, so only those may skip;
+      # everywhere else a missing secret fails the run. It runs before any
+      # other script from the branch so none can tamper with the tools it
+      # calls. It only guards against leaking the word by accident: anyone who
+      # can push a branch can also edit this workflow and read the secret.
+      - name: No forbidden words in files, names, commits or branch
+        env:
+          FORBIDDEN_WORDS: ${{ secrets.FORBIDDEN_WORDS }}
+          REQUIRE_FORBIDDEN_WORDS: ${{ (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')) && '1' || '' }}
+          FORBIDDEN_WORDS_RANGE: ${{ steps.base.outputs.range }}
+          FORBIDDEN_WORDS_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: bash scripts/check-forbidden-words.sh
+
+      # Workflow gates: stdlib Python, before dependencies are installed, so a
+      # PR touching only .github/ is still policed. A green gate run prints
+      # "ok" and proves nothing about the parser itself, so each parser gets
+      # its own fixtures.
+      - name: Every actions/checkout sets persist-credentials
+        run: python3 .github/scripts/check-checkout-persist-credentials.py
+
+      - name: Checkout-credentials gate self-test
+        run: python3 .github/scripts/check_checkout_persist_credentials_test.py
 
       - name: Every production job needs approval
-        run: |
-          python3 .github/scripts/check-production-jobs-gated.py
-          python3 .github/scripts/check_production_jobs_gated_test.py
+        run: python3 .github/scripts/check-production-jobs-gated.py
+
+      - name: Production-approval gate self-test
+        run: python3 .github/scripts/check_production_jobs_gated_test.py
 
       - name: Setup pnpm
+        # Version is read from the root package.json "packageManager" field.
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node.js
@@ -54,10 +104,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Reads the lockfile only. Non-blocking for now: main already carries
+      # high/critical advisories (next, sharp, ...). Flip continue-on-error to
+      # false once they are cleared so new ones block the merge.
+      - name: Audit dependencies (prod, high+)
+        continue-on-error: true
+        run: pnpm audit --audit-level=high --prod
+
       # Only files this PR (or push) changed — see scripts/ci-format-check.sh.
       - name: Check formatting (changed files)
         env:
-          FORMAT_BASE_REF: ${{ github.event_name == 'push' && github.event.before || format('origin/{0}', github.base_ref) }}
+          FORMAT_BASE_REF: ${{ steps.base.outputs.ref }}
         run: bash scripts/ci-format-check.sh
 
       - name: Lint
@@ -72,10 +129,245 @@ jobs:
       - name: Build
         run: pnpm build
 
-  audit:
-    name: Dependency audit (prod, high+)
+  # Every PR and push: the new-migration checks (name, future stamp, strictly
+  # increasing, unique), then — only when the database surface changed — a
+  # fresh local stack with every migration applied, plpgsql_check and the
+  # types drift check. On PRs, the append-only check.
+  database:
+    name: database
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      migrations: ${{ steps.changes.outputs.migrations }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # PR runs compare against the PR's base branch; push runs against the
+      # previous main head, or the first parent when that head is gone
+      # (force-push), so the checks never run against nothing.
+      - name: Resolve diff base
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+              && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              base="$BEFORE"
+            else
+              echo "::warning::No usable push base ('$BEFORE'), comparing against HEAD^."
+              base="$(git rev-parse HEAD^)"
+            fi
+            label="main (before this push)"
+          else
+            base="origin/${BASE_REF}"
+            label="$BASE_REF"
+          fi
+          echo "BASE=$base" >> "$GITHUB_ENV"
+          echo "BASE_LABEL=$label" >> "$GITHUB_ENV"
+
+      # The DB steps below only run when something they cover changed.
+      # `migrations` feeds deploy-migrations: on a push it asks for approval
+      # only when there is something new to apply.
+      - name: Detect relevant changes
+        id: changes
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only "${BASE}...HEAD")"
+          if printf '%s\n' "$changed" \
+            | grep -E '^(supabase/migrations/|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant changes — skipping the local stack, lint and types drift check."
+          fi
+          if printf '%s\n' "$changed" | grep -E '^(supabase/migrations/|scripts/supabase-cli-version$)' >/dev/null; then
+            echo "migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The push run repeats it because two PRs green on their own can land
+      # out of order, and deploy-migrations needs this job.
+      - name: New migration names and timestamps
+        run: |
+          set -euo pipefail
+          base="$BASE"
+
+          # --no-renames: a rename shows up as the file it adds, so its name
+          # and stamp are checked too (the append-only step rejects the
+          # rest). Every added file under supabase/migrations is checked,
+          # not just files that already look like migrations: a misnamed
+          # file must fail, not be skipped.
+          changed=$(git diff --no-renames --diff-filter=A --name-only "${base}...HEAD" -- supabase/migrations)
+
+          if [ -z "$changed" ]; then
+            echo "No new migrations."
+            exit 0
+          fi
+
+          # Highest timestamp on the base. The listing is filtered to
+          # well-formed names so a stray file cannot become the max.
+          latest_timestamp=$(git ls-tree --name-only "$base" supabase/migrations/ \
+            | sed 's|.*/||' \
+            | grep -E '^[0-9]{14}_' \
+            | cut -c1-14 \
+            | sort -n \
+            | tail -n 1 || true)
+
+          # Stamps are UTC (`supabase migration new` writes UTC). A day of
+          # slack covers a hand-written stamp from a timezone ahead of UTC.
+          now=$(date -u +%Y%m%d%H%M%S)
+          max_allowed=$(date -u -d '+1 day' +%Y%m%d%H%M%S)
+
+          # An empty bound turns every comparison below into a silent no-op,
+          # which is worse than no gate at all.
+          if ! [[ "$latest_timestamp" =~ ^[0-9]{14}$ ]] || ! [[ "$max_allowed" =~ ^[0-9]{14}$ ]]; then
+            echo "::error::Migration gate could not determine its bounds (newest on ${BASE_LABEL}: '${latest_timestamp}', future cutoff: '${max_allowed}'). Refusing to pass without checking."
+            exit 1
+          fi
+
+          echo "Newest migration on ${BASE_LABEL}: ${latest_timestamp} (now ${now} UTC)"
+
+          errors=0
+          while IFS= read -r file; do
+            name="${file#supabase/migrations/}"
+            if ! [[ "$name" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "::error file=${file}::${name} is not a valid migration name. Use supabase/migrations/<YYYYMMDDHHMMSS>_<snake_case>.sql (lowercase, digits and _ only)."
+              errors=$((errors + 1))
+              continue
+            fi
+            timestamp="${name:0:14}"
+            if [ "$timestamp" -gt "$max_allowed" ]; then
+              echo "::error file=${file}::${name} is stamped ${timestamp}, more than a day in the future (now ${now} UTC). Every later migration would have to beat it — restamp it with the current UTC time."
+              errors=$((errors + 1))
+            elif [ "$timestamp" -le "$latest_timestamp" ]; then
+              echo "::error file=${file}::${name} is stamped ${timestamp}, not after ${latest_timestamp} (${BASE_LABEL}'s newest, or an earlier new migration). Stamps must be unique and increasing — rename the file with a fresher timestamp."
+              errors=$((errors + 1))
+            else
+              echo "OK: ${name}"
+              # Paths arrive sorted, so each new file must also beat the previous one
+              # (supabase keys schema_migrations by the stamp).
+              latest_timestamp="$timestamp"
+            fi
+          done <<< "$changed"
+
+          if [ "$errors" -gt 0 ]; then
+            echo "${errors} migration file(s) rejected."
+            exit 1
+          fi
+
+      - name: Resolve pinned Supabase CLI version
+        if: ${{ !cancelled() && steps.changes.outputs.relevant == 'true' }}
+        run: echo "SUPABASE_CLI_VERSION=$(sed 's/^supabase@//' scripts/supabase-cli-version)" >> "$GITHUB_ENV"
+
+      - name: Setup Supabase CLI
+        if: ${{ !cancelled() && steps.changes.outputs.relevant == 'true' }}
+        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      # Runs even when the migration checks failed, so one push reports
+      # whether they apply.
+      - name: Start Supabase
+        id: db
+        if: ${{ !cancelled() && steps.changes.outputs.relevant == 'true' }}
+        run: supabase start
+
+      # plpgsql_check over every function in `public`, once every migration
+      # has applied. Errors only: warnings are a separate decision.
+      - name: DB function lint (plpgsql_check)
+        if: ${{ !cancelled() && steps.db.outcome == 'success' }}
+        run: supabase db lint --local --schema public --level error --fail-on error
+
+      # Runs even when the lint failed, so one push reports both.
+      - name: Check types drift
+        if: ${{ !cancelled() && steps.db.outcome == 'success' }}
+        run: bash scripts/db-types-check.sh
+
+      - name: Stop Supabase
+        if: always() && steps.changes.outputs.relevant == 'true'
+        run: supabase stop --no-backup
+
+      # Migrations are append-only: once merged, a file may have been applied
+      # to production, and editing it there is a silent no-op (supabase only
+      # records the version). Fix forward with a new migration instead. On a
+      # push the change already landed; the PR is where it can be stopped.
+      - name: Merged migrations are append-only
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: |
+          set -euo pipefail
+          touched=$(git diff --diff-filter=MDRCT --name-status "${BASE}...HEAD" -- supabase/migrations)
+
+          if [ -z "$touched" ]; then
+            echo "No existing migration was modified, deleted or renamed."
+            exit 0
+          fi
+
+          # <status>\t<path on base>[\t<new path>] (renames/copies carry both).
+          while IFS=$'\t' read -r status file new_path; do
+            echo "::error file=${file}::${status} ${file}${new_path:+ -> ${new_path}}: merged migrations are append-only — never edit, delete or rename one on ${BASE_LABEL}; add a new migration that fixes forward."
+          done <<< "$touched"
+          exit 1
+
+  # Approval gate: `approve` enters the `production-gate` environment, which
+  # has required reviewers and no secrets; `deploy-migrations` enters
+  # `production`, which holds the secrets and no reviewers, and needs
+  # `approve`. So nothing reaches production until someone approves the run.
+  # .github/scripts/check-production-jobs-gated.py keeps it that way.
+  #
+  # Push-only, no workflow_dispatch: a dispatch from another branch would
+  # apply its migrations, which are recorded and never re-run.
+  approve:
+    name: Approve production migrations
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.database.outputs.migrations == 'true'
+    needs: [database]
+    runs-on: ubuntu-latest
+    environment: production-gate
     timeout-minutes: 5
+    steps:
+      - run: echo "approved"
+
+  # Pushes any pending migrations to the linked Supabase project. Idempotent:
+  # `supabase db push` only applies migrations that aren't yet recorded in
+  # `supabase_migrations.schema_migrations`, so re-running is safe.
+  #
+  # Required GitHub environments (Settings → Environments):
+  #   production-gate — required reviewers on, no secrets.
+  #   production      — the secrets below; restrict to the `main` branch.
+  #
+  # Required secrets in the `production` environment:
+  #   SUPABASE_ACCESS_TOKEN  — personal access token from
+  #                            https://supabase.com/dashboard/account/tokens
+  #   SUPABASE_PROJECT_ID    — the 20-char ref of the production project
+  #                            (Settings → General → Reference ID)
+  #   SUPABASE_DB_PASSWORD   — the postgres user password set when the
+  #                            project was created (NOT the JWT secret)
+  deploy-migrations:
+    name: Push migrations to production
+    needs: [approve]
+    runs-on: ubuntu-latest
+    environment: production
+    # Budget for the slowest migration, not a measurement: a cancel in the
+    # middle of a long migration (index build, backfill) is worse than waiting.
+    timeout-minutes: 60
+    # Never cancel an in-flight deploy: a push killed mid-migration can leave
+    # the database half-migrated. A newer run queues behind it instead.
+    concurrency:
+      group: db-deploy
+      cancel-in-progress: false
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
     steps:
       - name: Checkout
@@ -83,13 +375,25 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Bail out if secrets are missing
+        run: |
+          if [ -z "${SUPABASE_ACCESS_TOKEN}" ] \
+             || [ -z "${SUPABASE_PROJECT_ID}" ] \
+             || [ -z "${SUPABASE_DB_PASSWORD}" ]; then
+            echo "::error::Missing one or more Supabase secrets. Configure SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD."
+            exit 1
+          fi
 
-      # Reads the lockfile only; no install needed.
-      # Non-blocking for now: main already carries high/critical advisories
-      # (next, sharp, ...). Flip continue-on-error to false once they are
-      # cleared so new ones block the merge.
-      - name: pnpm audit
-        continue-on-error: true
-        run: pnpm audit --audit-level=high --prod
+      - name: Resolve pinned Supabase CLI version
+        run: echo "SUPABASE_CLI_VERSION=$(sed 's/^supabase@//' scripts/supabase-cli-version)" >> "$GITHUB_ENV"
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Push migrations
+        run: supabase db push --include-all
