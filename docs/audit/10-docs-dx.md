@@ -8,7 +8,7 @@
 | docs/pendientes.md | fresh (2026-07-04, matches HEAD) | 2 small inaccuracies (schema.test claim, /admin/afip route) |
 | docs/roadmap.md | half-synced | §0–§3 fresh; §4.1 + §6 still say ~24 PRs pending that are all shipped |
 | docs/mobile-patterns.md | fresh | Every claim verified; not linked from any index |
-| docs/sumary-frontend-patterns.md | reference/partially drifted | Catalog from another repo; several "✅" never adopted; husky details mismatch |
+| docs/frontend-patterns.md | reference/partially drifted | Catalog from another repo; several "✅" never adopted; husky details mismatch |
 | docs/manual/ | drifted (coverage) | 9 pages, links resolve, no broken assets; claims "todos los módulos" while ~6 shipped areas have no page |
 | .github/workflows/ | fresh | CI = lint+typecheck+test+build + db-types drift + migration order + claude-review + db-deploy + daily backup. Matches CLAUDE.md |
 | .claude/skills/ | mostly fresh | All referenced files/templates exist; restate 2 conventions the code violates |
@@ -29,7 +29,7 @@
 [low][doc-drift] pendientes.md:27 "panel de /admin/afip" — no such page; CAEA panel in /admin/afip/puntos-de-venta. CONFIRMED.
 [low][doc-drift] "100% cobertura" permissions matrix (CLAUDE.md, roadmap:296, pendientes:75) — permissions.test.ts asserts structural invariants + ~10 spot-checks, NOT full 6×72 snapshot. Wrong grant to finance in most domains would pass. PLAUSIBLE overstatement. Fix: add matrix snapshot test.
 [low][doc-drift] "sin Co-Authored-By" — every squash commit carries Co-authored-by: Tomas Dziurdzia (GitHub squash artifact of owner's 2nd email, not AI footer). Literal contradiction, spirit intact. Conventional-commit 30/30 comply ✓.
-[low][doc-drift] sumary-frontend-patterns.md — §2.1 dotenv-cli ✅ but dev is plain next dev; §3.1 pre-commit=prettier-only but actual .husky/pre-commit is lint-staged eslint --fix no prettier; §3.2 pre-push types-regen ✅ but no .husky/pre-push (CI covers). CONFIRMED (low, reference catalog).
+[low][doc-drift] frontend-patterns.md — §2.1 dotenv-cli ✅ but dev is plain next dev; §3.1 pre-commit=prettier-only but actual .husky/pre-commit is lint-staged eslint --fix no prettier; §3.2 pre-push types-regen ✅ but no .husky/pre-push (CI covers). CONFIRMED (low, reference catalog).
 [low][doc-drift] README.md:116 integration suite "(triggers, RPCs, RLS)" — tests/integration/ has exactly one suite chat-flows.test.ts (9 tests). Money/accounting triggers, RPCs, RLS zero integration coverage. CONFIRMED overstatement.
 [ci verified true] pnpm dlx supabase gen types matches scripts/db-types.sh; db-types-check.yml diffs it (path-filtered); migration-order check matches skill; 14/14 Inngest fns registered; dev:up/seed:dev/bootstrapOwnerIfNeeded/logAudit/lib/email graceful skip all real.
 

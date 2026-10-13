@@ -1,6 +1,6 @@
-# Patrones de Sumary aplicables a JouveERP
+# Patrones de la app de referencia aplicables a JouveERP
 
-> Referencia técnica extraída leyendo el código de `~/Desktop/sumary` directamente.
+> Referencia técnica extraída leyendo el código de `~/Desktop/reference-app` directamente.
 > Todo lo de acá tiene path absoluto al archivo origen para ir a leer el detalle
 > cuando se implemente. Lo que aplica directo a JouveERP va marcado con ✅; lo
 > que **NO** aplica (multi-tenancy real, etc.) va con ❌.
@@ -241,7 +241,7 @@ jobs:
 
 ### 4.3 Branch flow ❌ no copiar literal
 
-Sumary: PRs van a `staging`, después workflow `promote-to-production` separado para mover a `production`.
+La app de referencia: PRs van a `staging`, después workflow `promote-to-production` separado para mover a `production`.
 
 **Para JouveERP:** **`feature → main`** mientras seamos un dev solo. La capa `staging` es overhead que no vale la pena para un sprint de un proyecto chico. Lo agregamos cuando seamos > 1 dev y un mismo `main` ya no represente "lo desplegado".
 
@@ -355,7 +355,7 @@ Reduce ruido al importar y permite renombrar internos sin romper consumers.
 }
 ```
 
-> Sumary tiene `strict: false` y `noImplicitAny: false`. **Para JouveERP recomiendo `strict: true` y `noUncheckedIndexedAccess: true`** — el costo en boilerplate vale la pena en un proyecto nuevo.
+> La app de referencia tiene `strict: false` y `noImplicitAny: false`. **Para JouveERP recomiendo `strict: true` y `noUncheckedIndexedAccess: true`** — el costo en boilerplate vale la pena en un proyecto nuevo.
 
 ---
 
@@ -461,7 +461,7 @@ export default async function RootLayout({ children }) {
 
 **Lo que define el lenguaje visual:**
 - `oklch()` — espacio perceptualmente uniforme. Mejor que HSL para grises porque mantiene la luminosidad consistente.
-- Hue ~285 (zinc) en Sumary. **Para JouveERP poné `0` en hue (gris puro).**
+- Hue ~285 (zinc) en la app de referencia. **Para JouveERP poné `0` en hue (gris puro).**
 - `--radius: 0.625rem` (10px) como base, que se deriva en `sm/md/lg/xl`.
 - **`tw-animate-css`** importado para tener `animate-in/out` y similares con sintaxis Tailwind v4.
 
@@ -644,7 +644,7 @@ return (
 ```
 
 Estructura:
-- **Header:** switcher de "tenant" (org en Sumary; en JouveERP **no aplica** — saltarlo, queda solo el logo).
+- **Header:** switcher de "tenant" (org en la app de referencia; en JouveERP **no aplica** — saltarlo, queda solo el logo).
 - **Content:**
   - Nav superior (notifications inbox)
   - NavMain (módulos principales con sub-items collapsibles)
@@ -888,7 +888,7 @@ export async function createClient() {
 }
 ```
 
-> En Next 16 `cookies()` es **async**. Sumary lo refleja con `await cookies()`. El catch silencia el caso "estamos en un Server Component que no puede setear cookies" — el proxy refresca antes.
+> En Next 16 `cookies()` es **async**. La app de referencia lo refleja con `await cookies()`. El catch silencia el caso "estamos en un Server Component que no puede setear cookies" — el proxy refresca antes.
 
 `lib/supabase/proxy.ts` — la usa el `proxy.ts` (middleware) para refrescar la sesión en cada request:
 ```ts
@@ -1199,7 +1199,7 @@ function TableCell({ className, ...props }) {
 
 ### 12.2 Tablas grandes ✅ (Fase D+ cuando movements crezcan)
 
-Sumary tiene **TanStack React Table + TanStack React Virtual** como deps. Para JouveERP:
+La app de referencia tiene **TanStack React Table + TanStack React Virtual** como deps. Para JouveERP:
 
 ```bash
 pnpm add @tanstack/react-table @tanstack/react-virtual
@@ -1253,7 +1253,7 @@ const [dialogOpen, setDialogOpen] = useState(false);
 </Dialog>
 ```
 
-Sumary **no usa** modales por URL (`?modal=foo`). Razón: los modales son ephemeral, refresh cierra. Más simple.
+La app de referencia **no usa** modales por URL (`?modal=foo`). Razón: los modales son ephemeral, refresh cierra. Más simple.
 
 **Excepción:** modales que necesitan deep-linking (compartir URL al colega) — ver `useDeepNavigation` en §15.5.
 
@@ -1504,7 +1504,7 @@ Uso:
 
 ### 14.4 NoOrganizationAccess (gate) ❌ adaptarlo a JouveERP como NoAccess genérico
 
-`components/shared/NoOrganizationAccess.tsx` — para users que están loggeados pero sin acceso (en Sumary: en grupo pero no en ninguna org). Usa `Card` central con icon + copy + CTAs.
+`components/shared/NoOrganizationAccess.tsx` — para users que están loggeados pero sin acceso (en la app de referencia: en grupo pero no en ninguna org). Usa `Card` central con icon + copy + CTAs.
 
 ```tsx
 <div className="flex min-h-[calc(100vh-200px)] items-center justify-center p-6">
@@ -1683,7 +1683,7 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 
 const loggerProvider = new LoggerProvider({
-  resource: resourceFromAttributes({ "service.name": "sumary-frontend" }),
+  resource: resourceFromAttributes({ "service.name": "reference-frontend" }),
   processors: [
     new BatchLogRecordProcessor(
       new OTLPLogExporter({
@@ -1697,7 +1697,7 @@ const loggerProvider = new LoggerProvider({
   ],
 });
 
-const logger = loggerProvider.getLogger("sumary-frontend");
+const logger = loggerProvider.getLogger("reference-frontend");
 
 export function registerOtelLogger() { logs.setGlobalLoggerProvider(loggerProvider); }
 export function emitOtelLog(severityNumber, body, attributes) {
@@ -1798,7 +1798,7 @@ export function WebVitals() {
 }
 ```
 
-Next 16 expone `useReportWebVitals`. Sumary lo prefiere a la captura interna de PostHog porque "el dynamic import de PostHog no funciona con Turbopack".
+Next 16 expone `useReportWebVitals`. La app de referencia lo prefiere a la captura interna de PostHog porque "el dynamic import de PostHog no funciona con Turbopack".
 
 ### 17.8 Backend: Winston + nestjs-cls ✅ (cuando haya backend Nest)
 
@@ -2019,9 +2019,9 @@ process.stdout.write(input.replace(PARTITION_TABLE_RE, ""));
 
 ## 20. Tests
 
-### 20.1 Vitest config (Sumary usa Jest legacy; nosotros vamos directo a Vitest) ✅
+### 20.1 Vitest config (la app de referencia usa Jest legacy; nosotros vamos directo a Vitest) ✅
 
-Sumary usa Jest aún. Para JouveERP **Vitest** (más rápido en Next 16). Config equivalente:
+La app de referencia usa Jest aún. Para JouveERP **Vitest** (más rápido en Next 16). Config equivalente:
 
 ```ts
 // vitest.config.ts
@@ -2246,7 +2246,7 @@ Cada componente shadcn pone `data-slot="<name>"` para que css selectors externos
 
 ### 21.5 Comentarios explicativos en código no-obvio ✅
 
-Sumary tiene comentarios verbosos en partes oscuras. Ejemplos reales:
+La app de referencia tiene comentarios verbosos en partes oscuras. Ejemplos reales:
 
 ```tsx
 // Loaded client-side only so its useQuery doesn't create a pending
@@ -2306,7 +2306,7 @@ const AnomaliesCountBadge = dynamic(() => import("...").then((m) => m.AnomaliesC
 33. **`data-slot`** attributes
 34. **cva** para variantes
 
-❌ NO copiar (Sumary-specific, no aplica):
+❌ NO copiar (específico de la app de referencia, no aplica):
 1. **Multi-org via `organization_members` + `active_organization_id`**
 2. **Switching org via `auth.updateUser({ data: ... })` + reload**
 3. **`useValidatedOrganization` con auto-correction**
@@ -2457,65 +2457,65 @@ Adaptar el yaml de §4.2 cambiando `staging` → `main`.
 
 ## 24. Archivos clave para volver a leer cuando implementemos
 
-| Tema | Archivo Sumary |
+| Tema | Archivo (app de referencia) |
 |---|---|
-| pnpm + scripts root | `~/Desktop/sumary/package.json` |
-| Husky | `~/Desktop/sumary/.husky/pre-push` |
-| CI principal | `~/Desktop/sumary/.github/workflows/ci.yml` |
-| Migration-order check | `~/Desktop/sumary/.github/workflows/migration-order-check.yml` |
-| Root layout providers | `~/Desktop/sumary/frontend/src/app/layout.tsx` |
-| globals.css con oklch | `~/Desktop/sumary/frontend/src/app/globals.css` |
-| Main protected layout | `~/Desktop/sumary/frontend/src/app/(main)/layout.tsx` |
-| AppSidebar | `~/Desktop/sumary/frontend/src/components/layout/sidebar/AppSidebar.tsx` |
-| NavMain (auto-open route-aware) | `~/Desktop/sumary/frontend/src/components/layout/sidebar/NavMain.tsx` |
-| NavOrg switcher con Command | `~/Desktop/sumary/frontend/src/components/layout/sidebar/NavOrg.tsx` |
-| NavUser dropdown | `~/Desktop/sumary/frontend/src/components/layout/sidebar/NavUser.tsx` |
-| AppSidebarHeader breadcrumbs | `~/Desktop/sumary/frontend/src/components/layout/sidebar/AppSidebarHeader.tsx` |
-| Sidebar primitive (cookie + Cmd+B) | `~/Desktop/sumary/frontend/src/components/ui/sidebar.tsx` |
-| Form primitive | `~/Desktop/sumary/frontend/src/components/ui/form.tsx` |
-| Button primitive | `~/Desktop/sumary/frontend/src/components/ui/button.tsx` |
-| Table primitive | `~/Desktop/sumary/frontend/src/components/ui/table.tsx` |
-| Empty primitive | `~/Desktop/sumary/frontend/src/components/ui/empty.tsx` |
-| Sonner toaster | `~/Desktop/sumary/frontend/src/components/ui/sonner.tsx` |
-| Skeleton | `~/Desktop/sumary/frontend/src/components/ui/skeleton.tsx` |
-| Theme provider | `~/Desktop/sumary/frontend/src/components/layout/ThemeContext.tsx` |
-| Query provider | `~/Desktop/sumary/frontend/src/components/providers/QueryProvider.tsx` |
-| PostHog identify | `~/Desktop/sumary/frontend/src/components/providers/PostHogIdentify.tsx` |
-| WebVitals | `~/Desktop/sumary/frontend/src/components/providers/WebVitals.tsx` |
-| useConfirm hook | `~/Desktop/sumary/frontend/src/hooks/use-confirm.tsx` |
-| useIsMobile | `~/Desktop/sumary/frontend/src/hooks/use-mobile.ts` |
-| useValidatedOrganization | `~/Desktop/sumary/frontend/src/hooks/use-validated-organization.ts` |
-| Server action ejemplo | `~/Desktop/sumary/frontend/src/features/close-management/actions/account-reconciliation-actions.ts` |
-| Form ejemplo (TeamClient) | `~/Desktop/sumary/frontend/src/features/settings/components/TeamClient.tsx` |
-| Skeleton feature ejemplo | `~/Desktop/sumary/frontend/src/features/settings/components/SettingsDetailsSkeleton.tsx` |
-| Supabase server client | `~/Desktop/sumary/frontend/src/lib/supabase/server.ts` |
-| Supabase proxy/middleware | `~/Desktop/sumary/frontend/src/lib/supabase/proxy.ts` |
-| Root proxy.ts (CSP + nonce) | `~/Desktop/sumary/frontend/src/proxy.ts` |
-| CSP builders | `~/Desktop/sumary/frontend/src/lib/security/csp.ts` |
-| Public pages helper | `~/Desktop/sumary/frontend/src/lib/auth/public-pages.ts` |
-| Logger frontend | `~/Desktop/sumary/frontend/src/lib/logger.ts` |
-| OTel logger | `~/Desktop/sumary/frontend/src/lib/otel-logger.ts` |
-| getCurrentUserOrganization helper | `~/Desktop/sumary/frontend/src/lib/utils/server-organization-utils.ts` |
-| organization-utils (validation) | `~/Desktop/sumary/frontend/src/lib/utils/organization-utils.ts` |
-| next.config.ts | `~/Desktop/sumary/frontend/next.config.ts` |
-| eslint.config.mjs | `~/Desktop/sumary/frontend/eslint.config.mjs` |
-| components.json shadcn config | `~/Desktop/sumary/frontend/components.json` |
-| playwright.config.ts | `~/Desktop/sumary/frontend/playwright.config.ts` |
-| RLS pentest spec | `~/Desktop/sumary/api/src/security/__tests__/vouchers-rls.spec.ts` |
-| pentest helpers (JWT signing) | `~/Desktop/sumary/api/src/security/__tests__/pentest-helpers.ts` |
-| Migration ejemplo (suppliers) | `~/Desktop/sumary/supabase/migrations/20260218170000_add_suppliers_table.sql` |
-| RLS policies ejemplo | `~/Desktop/sumary/supabase/migrations/20260218191142_add_suppliers_rls_policies.sql` |
-| Generated types script | `~/Desktop/sumary/scripts/generate-supabase-types.sh` |
-| strip-partition-types.mjs | `~/Desktop/sumary/scripts/strip-partition-types.mjs` |
-| StructuredLoggerService (API) | `~/Desktop/sumary/api/src/common/services/structured-logger.service.ts` |
-| OrganizationAuthGuard (API) | `~/Desktop/sumary/api/src/guards/organization-auth.guard.ts` |
-| AuthService (API) | `~/Desktop/sumary/api/src/modules/auth/auth.service.ts` |
+| pnpm + scripts root | `~/Desktop/reference-app/package.json` |
+| Husky | `~/Desktop/reference-app/.husky/pre-push` |
+| CI principal | `~/Desktop/reference-app/.github/workflows/ci.yml` |
+| Migration-order check | `~/Desktop/reference-app/.github/workflows/migration-order-check.yml` |
+| Root layout providers | `~/Desktop/reference-app/frontend/src/app/layout.tsx` |
+| globals.css con oklch | `~/Desktop/reference-app/frontend/src/app/globals.css` |
+| Main protected layout | `~/Desktop/reference-app/frontend/src/app/(main)/layout.tsx` |
+| AppSidebar | `~/Desktop/reference-app/frontend/src/components/layout/sidebar/AppSidebar.tsx` |
+| NavMain (auto-open route-aware) | `~/Desktop/reference-app/frontend/src/components/layout/sidebar/NavMain.tsx` |
+| NavOrg switcher con Command | `~/Desktop/reference-app/frontend/src/components/layout/sidebar/NavOrg.tsx` |
+| NavUser dropdown | `~/Desktop/reference-app/frontend/src/components/layout/sidebar/NavUser.tsx` |
+| AppSidebarHeader breadcrumbs | `~/Desktop/reference-app/frontend/src/components/layout/sidebar/AppSidebarHeader.tsx` |
+| Sidebar primitive (cookie + Cmd+B) | `~/Desktop/reference-app/frontend/src/components/ui/sidebar.tsx` |
+| Form primitive | `~/Desktop/reference-app/frontend/src/components/ui/form.tsx` |
+| Button primitive | `~/Desktop/reference-app/frontend/src/components/ui/button.tsx` |
+| Table primitive | `~/Desktop/reference-app/frontend/src/components/ui/table.tsx` |
+| Empty primitive | `~/Desktop/reference-app/frontend/src/components/ui/empty.tsx` |
+| Sonner toaster | `~/Desktop/reference-app/frontend/src/components/ui/sonner.tsx` |
+| Skeleton | `~/Desktop/reference-app/frontend/src/components/ui/skeleton.tsx` |
+| Theme provider | `~/Desktop/reference-app/frontend/src/components/layout/ThemeContext.tsx` |
+| Query provider | `~/Desktop/reference-app/frontend/src/components/providers/QueryProvider.tsx` |
+| PostHog identify | `~/Desktop/reference-app/frontend/src/components/providers/PostHogIdentify.tsx` |
+| WebVitals | `~/Desktop/reference-app/frontend/src/components/providers/WebVitals.tsx` |
+| useConfirm hook | `~/Desktop/reference-app/frontend/src/hooks/use-confirm.tsx` |
+| useIsMobile | `~/Desktop/reference-app/frontend/src/hooks/use-mobile.ts` |
+| useValidatedOrganization | `~/Desktop/reference-app/frontend/src/hooks/use-validated-organization.ts` |
+| Server action ejemplo | `~/Desktop/reference-app/frontend/src/features/close-management/actions/account-reconciliation-actions.ts` |
+| Form ejemplo (TeamClient) | `~/Desktop/reference-app/frontend/src/features/settings/components/TeamClient.tsx` |
+| Skeleton feature ejemplo | `~/Desktop/reference-app/frontend/src/features/settings/components/SettingsDetailsSkeleton.tsx` |
+| Supabase server client | `~/Desktop/reference-app/frontend/src/lib/supabase/server.ts` |
+| Supabase proxy/middleware | `~/Desktop/reference-app/frontend/src/lib/supabase/proxy.ts` |
+| Root proxy.ts (CSP + nonce) | `~/Desktop/reference-app/frontend/src/proxy.ts` |
+| CSP builders | `~/Desktop/reference-app/frontend/src/lib/security/csp.ts` |
+| Public pages helper | `~/Desktop/reference-app/frontend/src/lib/auth/public-pages.ts` |
+| Logger frontend | `~/Desktop/reference-app/frontend/src/lib/logger.ts` |
+| OTel logger | `~/Desktop/reference-app/frontend/src/lib/otel-logger.ts` |
+| getCurrentUserOrganization helper | `~/Desktop/reference-app/frontend/src/lib/utils/server-organization-utils.ts` |
+| organization-utils (validation) | `~/Desktop/reference-app/frontend/src/lib/utils/organization-utils.ts` |
+| next.config.ts | `~/Desktop/reference-app/frontend/next.config.ts` |
+| eslint.config.mjs | `~/Desktop/reference-app/frontend/eslint.config.mjs` |
+| components.json shadcn config | `~/Desktop/reference-app/frontend/components.json` |
+| playwright.config.ts | `~/Desktop/reference-app/frontend/playwright.config.ts` |
+| RLS pentest spec | `~/Desktop/reference-app/api/src/security/__tests__/vouchers-rls.spec.ts` |
+| pentest helpers (JWT signing) | `~/Desktop/reference-app/api/src/security/__tests__/pentest-helpers.ts` |
+| Migration ejemplo (suppliers) | `~/Desktop/reference-app/supabase/migrations/20260218170000_add_suppliers_table.sql` |
+| RLS policies ejemplo | `~/Desktop/reference-app/supabase/migrations/20260218191142_add_suppliers_rls_policies.sql` |
+| Generated types script | `~/Desktop/reference-app/scripts/generate-supabase-types.sh` |
+| strip-partition-types.mjs | `~/Desktop/reference-app/scripts/strip-partition-types.mjs` |
+| StructuredLoggerService (API) | `~/Desktop/reference-app/api/src/common/services/structured-logger.service.ts` |
+| OrganizationAuthGuard (API) | `~/Desktop/reference-app/api/src/guards/organization-auth.guard.ts` |
+| AuthService (API) | `~/Desktop/reference-app/api/src/modules/auth/auth.service.ts` |
 
 ---
 
 ## 25. Lecciones meta
 
-1. **Comments explain WHY, not WHAT.** Leerse 50 comentarios de Sumary deja claro: 90% justifican una decisión no-obvia. El otro 10% es un "DO NOT REMOVE" gritado.
+1. **Comments explain WHY, not WHAT.** Leerse 50 comentarios de la app de referencia deja claro: 90% justifican una decisión no-obvia. El otro 10% es un "DO NOT REMOVE" gritado.
 2. **Defense in depth.** RLS en DB + chequeo en server action + `withAuth` guard + ProtectedContent en client. Cada capa redundante.
 3. **Shadow rollout antes de breaking changes.** CSP estricto observa antes de enforcer. Tipos generados se chequean en CI antes de fallar localmente.
 4. **Auto-correction sobre rejection.** Si el active_organization_id es stale, switchea silenciosamente a uno válido y recarga. No le pegas un error 403 al user.

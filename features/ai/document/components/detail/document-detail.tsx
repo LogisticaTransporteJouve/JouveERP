@@ -34,7 +34,7 @@ import {
 
 /**
  * Renders the full extracted detail for a document, dispatching to a per-kind
- * renderer (the JouveERP analogue of Sumary's AnomalyTypeContent). Each renderer
+ * renderer (the JouveERP analogue of the reference app's AnomalyTypeContent). Each renderer
  * parses the payload with its Zod schema and shows every field it captured.
  */
 export function DocumentDetail({
@@ -119,7 +119,10 @@ function InvoiceDetail({ payload }: { payload: unknown }) {
       <Section icon={Banknote} title="Importes">
         <Field label="Neto" value={fmtMoney(inv.net_amount, cur)} />
         <Field label="IVA" value={fmtMoney(inv.iva_amount, cur)} />
-        <Field label="Otros trib." value={fmtMoney(inv.other_taxes_amount, cur)} />
+        <Field
+          label="Otros trib."
+          value={fmtMoney(inv.other_taxes_amount, cur)}
+        />
         <Field label="Total" value={fmtMoney(inv.total_amount, cur)} />
       </Section>
 
@@ -226,7 +229,11 @@ function RemitoDetail({ payload }: { payload: unknown }) {
         <Field label="Dominio" value={fmtText(r.vehicle_plate)} />
         <Field label="Total kilos" value={fmtNumber(r.total_kilos)} />
         <Field label="CRE" value={fmtText(r.cre)} />
-        <Field label="Observaciones" value={fmtText(r.observations)} multiline />
+        <Field
+          label="Observaciones"
+          value={fmtText(r.observations)}
+          multiline
+        />
       </Section>
       {r.items.length > 0 && (
         <Section icon={List} title={`Ítems (${r.items.length})`}>
@@ -240,15 +247,7 @@ function RemitoDetail({ payload }: { payload: unknown }) {
               "Unid.",
               "Embalaje",
             ]}
-            aligns={[
-              "left",
-              "left",
-              "left",
-              "right",
-              "left",
-              "right",
-              "left",
-            ]}
+            aligns={["left", "left", "left", "right", "left", "right", "left"]}
             rows={r.items.map((it) => [
               it.description,
               fmtText(it.code),
@@ -331,8 +330,14 @@ function ExtractoDetail({ payload }: { payload: unknown }) {
         <Field label="Cuenta" value={fmtText(e.account)} />
         <Field label="Período" value={fmtText(e.period)} />
         <Field label="Moneda" value={fmtText(e.currency)} />
-        <Field label="Saldo inicial" value={fmtMoney(e.opening_balance, e.currency)} />
-        <Field label="Saldo final" value={fmtMoney(e.closing_balance, e.currency)} />
+        <Field
+          label="Saldo inicial"
+          value={fmtMoney(e.opening_balance, e.currency)}
+        />
+        <Field
+          label="Saldo final"
+          value={fmtMoney(e.closing_balance, e.currency)}
+        />
       </Section>
       {e.movements.length > 0 && (
         <Section icon={List} title={`Movimientos (${e.movements.length})`}>
