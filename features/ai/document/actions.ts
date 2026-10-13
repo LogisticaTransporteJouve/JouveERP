@@ -7,7 +7,10 @@ import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { createPaymentOrderAction } from "@/features/payment-orders/actions/payment-orders-actions";
-import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import {
+  createPurchaseInvoiceAction,
+  type PartialCreateFailure,
+} from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { createReceiptAction } from "@/features/receipts/actions/receipts-actions";
 import {
   CONCEPTO,
@@ -26,8 +29,10 @@ import { inngest } from "@/lib/inngest/client";
 import { DOCUMENT_EXTRACTION_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { checkAiDailyCap } from "../lib/chat-store";
 import {
   buildPurchaseInvoiceInput,
   buildSalesInvoiceItems,
@@ -74,6 +79,37 @@ export type ExtractionDetail = PendingExtraction & { payload: Json };
 const LIST_COLUMNS =
   "id, file_id, detected_type, confidence, status, matches, created_at, file:files(original_filename, mime_type)";
 
+/** Per-user extraction budget (each one = 1–3 vision calls). */
+const EXTRACTION_RATE_LIMITS = {
+  hourly: { key: "ai:document:hourly", max: 30, windowMs: 60 * 60 * 1000 },
+  daily: { key: "ai:document:daily", max: 200, windowMs: 24 * 60 * 60 * 1000 },
+} as const;
+
+/**
+ * Spend guards for Document Intelligence, same style as the chat route:
+ * per-user hourly/daily rate limit (Postgres-backed, fail-closed) + the global
+ * daily AI token cap (fail-closed). Returns a user-facing error, or null.
+ */
+async function guardExtractionQuota(userId: string): Promise<string | null> {
+  try {
+    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.hourly });
+    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.daily });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return "Alcanzaste el límite de escaneos con IA. Probá más tarde.";
+    }
+    throw err;
+  }
+  const cap = await checkAiDailyCap();
+  if (cap === "exceeded") {
+    return "Se alcanzó el límite diario de IA. Probá de nuevo mañana.";
+  }
+  if (cap === "unavailable") {
+    return "No se pudo verificar el límite de IA. Probá de nuevo.";
+  }
+  return null;
+}
+
 /**
  * Uploads a standalone document (not attached to any entity yet) and kicks off
  * extraction — the entry point for the generic Documentos tray. The document
@@ -96,8 +132,15 @@ export async function scanDocumentAction(
     return { ok: false, error: "El archivo supera 10 MB." };
   }
   if (!SCAN_ALLOWED_MIME.has(file.type)) {
-    return { ok: false, error: `Tipo no permitido (${file.type || "desconocido"}).` };
+    return {
+      ok: false,
+      error: `Tipo no permitido (${file.type || "desconocido"}).`,
+    };
   }
+
+  // Before the upload, so a blocked scan doesn't leave an orphaned file.
+  const quotaError = await guardExtractionQuota(ctx.userId);
+  if (quotaError) return { ok: false, error: quotaError };
 
   const supabase = await createSupabaseClient();
   const fileId = crypto.randomUUID();
@@ -133,7 +176,7 @@ export async function scanDocumentAction(
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
-  return extractDocumentAction({ fileId });
+  return startExtraction(ctx.userId, { fileId });
 }
 
 /**
@@ -151,6 +194,17 @@ export async function extractDocumentAction(
   const parsed = ExtractInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
+  const quotaError = await guardExtractionQuota(ctx.userId);
+  if (quotaError) return { ok: false, error: quotaError };
+
+  return startExtraction(ctx.userId, parsed.data);
+}
+
+/** Creates the draft + dispatches the pipeline. Callers did auth + quota. */
+async function startExtraction(
+  userId: string,
+  input: z.infer<typeof ExtractInputSchema>,
+): Promise<ActionResult<{ extractionId: string }>> {
   const supabase = await createSupabaseClient();
 
   // Verify the caller can actually see this file (RLS client) before kicking
@@ -159,18 +213,18 @@ export async function extractDocumentAction(
   const { data: file } = await supabase
     .from("files")
     .select("id")
-    .eq("id", parsed.data.fileId)
+    .eq("id", input.fileId)
     .maybeSingle();
   if (!file) return { ok: false, error: "No encontramos el archivo." };
 
   const { data, error } = await supabase
     .from("ai_document_extractions")
-    .insert({ file_id: parsed.data.fileId, created_by: ctx.userId })
+    .insert({ file_id: input.fileId, created_by: userId })
     .select("id")
     .single();
   if (error) {
     logger.error("ai.document.create_draft.failed", {
-      userId: ctx.userId,
+      userId,
       error,
     });
     return { ok: false, error: "No se pudo iniciar la extracción." };
@@ -181,20 +235,20 @@ export async function extractDocumentAction(
       name: DOCUMENT_EXTRACTION_REQUESTED,
       data: {
         extraction_id: data.id,
-        file_id: parsed.data.fileId,
-        declared_type: parsed.data.declaredType ?? null,
+        file_id: input.fileId,
+        declared_type: input.declaredType ?? null,
       },
     });
   } catch (err) {
-    logger.error("ai.document.dispatch.failed", { userId: ctx.userId, error: err });
+    logger.error("ai.document.dispatch.failed", { userId, error: err });
     await supabase.from("ai_document_extractions").delete().eq("id", data.id);
     return { ok: false, error: "No se pudo iniciar la extracción." };
   }
 
   await logAudit(
     "ai.document.extraction_requested",
-    ctx.userId,
-    { file_id: parsed.data.fileId, declared_type: parsed.data.declaredType ?? null },
+    userId,
+    { file_id: input.fileId, declared_type: input.declaredType ?? null },
     data.id,
   );
   return { ok: true, data: { extractionId: data.id } };
@@ -289,7 +343,10 @@ export async function createPurchaseInvoiceFromExtractionAction(
     !userCan(ctx.roles, "ai:read") ||
     !userCan(ctx.roles, "purchase_invoices:write")
   ) {
-    return { ok: false, error: "No tenés permiso para crear facturas de compra." };
+    return {
+      ok: false,
+      error: "No tenés permiso para crear facturas de compra.",
+    };
   }
 
   const parsed = CreateFromExtractionSchema.safeParse(input);
@@ -301,12 +358,16 @@ export async function createPurchaseInvoiceFromExtractionAction(
     .select("detected_type, status, matches, payload")
     .eq("id", parsed.data.extractionId)
     .maybeSingle();
-  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (error || !ext)
+    return { ok: false, error: "No se encontró la extracción." };
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
   if (ext.detected_type !== "purchase_invoice") {
-    return { ok: false, error: "Solo se puede crear factura de compra desde acá." };
+    return {
+      ok: false,
+      error: "Solo se puede crear factura de compra desde acá.",
+    };
   }
 
   const supplierId =
@@ -314,7 +375,10 @@ export async function createPurchaseInvoiceFromExtractionAction(
       ? ext.matches.supplier_id
       : null;
   if (!supplierId) {
-    return { ok: false, error: "Asociá un proveedor antes de crear la factura." };
+    return {
+      ok: false,
+      error: "Asociá un proveedor antes de crear la factura.",
+    };
   }
 
   // Resolve the confirmed expense suggestion (codes) → ids so the invoice posts
@@ -330,7 +394,9 @@ export async function createPurchaseInvoiceFromExtractionAction(
     const accCode =
       typeof expense.accountCode === "string" ? expense.accountCode : null;
     const ccCode =
-      typeof expense.costCenterCode === "string" ? expense.costCenterCode : null;
+      typeof expense.costCenterCode === "string"
+        ? expense.costCenterCode
+        : null;
     if (accCode && accCode !== "UNMAPPED") {
       const { data: acc } = await supabase
         .from("chart_of_accounts")
@@ -365,8 +431,17 @@ export async function createPurchaseInvoiceFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createPurchaseInvoiceAction(built);
-  if (!created.ok) return created;
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () => createPurchaseInvoiceAction(built),
+  );
+  if (!created.ok) {
+    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
+      table: "purchase_invoices",
+      failure: created,
+    });
+  }
 
   await supabase
     .from("ai_document_extractions")
@@ -398,10 +473,13 @@ export async function discardExtractionAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ai_document_extractions")
     .update({ status: "discarded" })
-    .eq("id", extractionId);
+    .eq("id", extractionId)
+    .in("status", ["pending_review", "failed"])
+    .select("id")
+    .maybeSingle();
   if (error) {
     logger.error("ai.document.discard.failed", {
       userId: ctx.userId,
@@ -409,6 +487,12 @@ export async function discardExtractionAction(
       error,
     });
     return { ok: false, error: "No se pudo descartar." };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: "La extracción no existe o ya fue procesada.",
+    };
   }
 
   await logAudit("ai.document.discarded", ctx.userId, {}, extractionId);
@@ -442,7 +526,9 @@ const CreateChecksFromExtractionSchema = z.object({
  */
 export async function createChecksFromExtractionAction(
   input: unknown,
-): Promise<ActionResult<{ created: number; errors: { index: number; error: string }[] }>> {
+): Promise<
+  ActionResult<{ created: number; errors: { index: number; error: string }[] }>
+> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para crear cheques." };
@@ -463,7 +549,8 @@ export async function createChecksFromExtractionAction(
     .select("detected_type, status")
     .eq("id", extractionId)
     .maybeSingle();
-  if (error || !ext) return { ok: false, error: "No se encontró la extracción." };
+  if (error || !ext)
+    return { ok: false, error: "No se encontró la extracción." };
   if (ext.status !== "pending_review") {
     return { ok: false, error: "La extracción ya fue procesada." };
   }
@@ -482,6 +569,12 @@ export async function createChecksFromExtractionAction(
     return { ok: false, error: "La cuenta de cartera no es válida." };
   }
   const kind = acc.type === "echeq" ? "echeq" : "fisico";
+
+  // Claim before inserting anything: a double click gets "ya fue procesada"
+  // instead of inserting the checks twice.
+  if (!(await claimExtraction(supabase, extractionId))) {
+    return { ok: false, error: ALREADY_PROCESSED };
+  }
 
   const errors: { index: number; error: string }[] = [];
   let created = 0;
@@ -528,13 +621,18 @@ export async function createChecksFromExtractionAction(
       created_by: ctx.userId,
     });
     if (insErr) {
-      errors.push({ index: i, error: "No se pudo guardar (¿número repetido?)." });
+      errors.push({
+        index: i,
+        error: "No se pudo guardar (¿número repetido?).",
+      });
       continue;
     }
     created += 1;
   }
 
-  if (created > 0) {
+  if (created === 0) {
+    await releaseExtraction(supabase, extractionId);
+  } else {
     const createdEntity: Json = { table: "checks", count: created };
     await supabase
       .from("ai_document_extractions")
@@ -586,14 +684,112 @@ async function loadPendingForCreate(
   return { ext };
 }
 
-function matchedId(matches: Json, key: "supplier_id" | "client_id"): string | null {
+function matchedId(
+  matches: Json,
+  key: "supplier_id" | "client_id",
+): string | null {
   return isRecord(matches) && typeof matches[key] === "string"
     ? matches[key]
     : null;
 }
 
+type ServerSupabase = Awaited<ReturnType<typeof createSupabaseClient>>;
+
+const ALREADY_PROCESSED = "La extracción ya fue procesada.";
+
+/**
+ * Atomically claims a draft for creation: pending_review → confirmed, only if
+ * it is still pending_review. Exactly one concurrent caller gets `true` (a
+ * double click / second tab gets `false`), so the entity is created once.
+ */
+async function claimExtraction(
+  supabase: ServerSupabase,
+  extractionId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "confirmed" })
+    .eq("id", extractionId)
+    .eq("status", "pending_review")
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    logger.error("ai.document.claim.failed", { extractionId, error });
+    return false;
+  }
+  return data !== null;
+}
+
+/** Undoes a claim whose creation failed, so the user can fix and retry. */
+async function releaseExtraction(
+  supabase: ServerSupabase,
+  extractionId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "pending_review" })
+    .eq("id", extractionId)
+    .eq("status", "confirmed")
+    .is("created_entity", null);
+  if (error) {
+    logger.error("ai.document.release.failed", { extractionId, error });
+  }
+}
+
+/**
+ * Claim → create → (release on failure). The create callback only runs for
+ * the caller that won the claim; the up-front status read in each action is
+ * just a fast path for a friendlier error. A partial failure (the entity row
+ * was inserted, a later step failed) keeps the claim: releasing it would let
+ * the user create the same document twice.
+ */
+async function createWithClaim<T>(
+  supabase: ServerSupabase,
+  extractionId: string,
+  create: () => Promise<ActionResult<T> | PartialCreateFailure>,
+): Promise<ActionResult<T> | PartialCreateFailure> {
+  if (!(await claimExtraction(supabase, extractionId))) {
+    return { ok: false, error: ALREADY_PROCESSED };
+  }
+  let result: ActionResult<T> | PartialCreateFailure;
+  try {
+    result = await create();
+  } catch (err) {
+    await releaseExtraction(supabase, extractionId);
+    throw err;
+  }
+  if (!result.ok && !("createdId" in result)) {
+    await releaseExtraction(supabase, extractionId);
+  }
+  return result;
+}
+
+/**
+ * Failure branch after createWithClaim: when the entity row exists anyway, the
+ * (still claimed) draft is linked to it so it isn't orphaned or re-created.
+ * Returns the error for the caller either way.
+ */
+async function linkPartialCreate(
+  supabase: ServerSupabase,
+  userId: string,
+  extractionId: string,
+  opts: {
+    table: string;
+    failure: { ok: false; error: string } | PartialCreateFailure;
+  },
+): Promise<{ ok: false; error: string }> {
+  if ("createdId" in opts.failure) {
+    await confirmExtraction(supabase, userId, extractionId, {
+      table: opts.table,
+      id: opts.failure.createdId,
+    });
+  }
+  return { ok: false, error: opts.failure.error };
+}
+
+/** Links the created entity to the (already claimed) draft + audits. */
 async function confirmExtraction(
-  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  supabase: ServerSupabase,
   userId: string,
   extractionId: string,
   entity: { table: string; id: string },
@@ -638,7 +834,10 @@ export async function createReceiptFromExtractionAction(
   }
   const parsed = CreateReceiptFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -654,20 +853,28 @@ export async function createReceiptFromExtractionAction(
     return { ok: false, error: "Asociá un cliente antes de crear el recibo." };
   }
 
-  const created = await createReceiptAction({
-    channel_id: parsed.data.channelId,
-    numero: parsed.data.numero,
-    client_id: clientId,
-    receipt_date: parsed.data.receipt_date,
-    total_amount: parsed.data.total_amount,
-    currency: parsed.data.currency,
-    notes: null,
-    payment_lines: [
-      { account_id: parsed.data.account_id, amount: parsed.data.total_amount },
-    ],
-    allocations: [],
-    retentions: [],
-  });
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      createReceiptAction({
+        channel_id: parsed.data.channelId,
+        numero: parsed.data.numero,
+        client_id: clientId,
+        receipt_date: parsed.data.receipt_date,
+        total_amount: parsed.data.total_amount,
+        currency: parsed.data.currency,
+        notes: null,
+        payment_lines: [
+          {
+            account_id: parsed.data.account_id,
+            amount: parsed.data.total_amount,
+          },
+        ],
+        allocations: [],
+        retentions: [],
+      }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
@@ -703,7 +910,10 @@ export async function createPaymentOrderFromExtractionAction(
   }
   const parsed = CreatePaymentOrderFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -719,23 +929,28 @@ export async function createPaymentOrderFromExtractionAction(
     return { ok: false, error: "Asociá un proveedor antes de crear la OP." };
   }
 
-  const created = await createPaymentOrderAction({
-    channel_id: parsed.data.channelId,
-    numero: parsed.data.numero,
-    supplier_id: supplierId,
-    payment_date: parsed.data.payment_date,
-    total_amount: parsed.data.total_amount,
-    currency: parsed.data.currency,
-    notes: null,
-    payment_lines: [
-      {
-        line_kind: "account",
-        account_id: parsed.data.account_id,
-        amount: parsed.data.total_amount,
-      },
-    ],
-    allocations: [],
-  });
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      createPaymentOrderAction({
+        channel_id: parsed.data.channelId,
+        numero: parsed.data.numero,
+        supplier_id: supplierId,
+        payment_date: parsed.data.payment_date,
+        total_amount: parsed.data.total_amount,
+        currency: parsed.data.currency,
+        notes: null,
+        payment_lines: [
+          {
+            line_kind: "account",
+            account_id: parsed.data.account_id,
+            amount: parsed.data.total_amount,
+          },
+        ],
+        allocations: [],
+      }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
@@ -769,7 +984,10 @@ export async function createPurchaseNoteFromExtractionAction(
   }
   const parsed = CreatePurchaseNoteFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -798,8 +1016,17 @@ export async function createPurchaseNoteFromExtractionAction(
     if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
   }
 
-  const created = await createPurchaseInvoiceAction(built);
-  if (!created.ok) return created;
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () => createPurchaseInvoiceAction(built),
+  );
+  if (!created.ok) {
+    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
+      table: "purchase_invoices",
+      failure: created,
+    });
+  }
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
     table: "purchase_invoices",
@@ -829,7 +1056,10 @@ export async function createSalesInvoiceFromExtractionAction(
   }
   const parsed = CreateSalesInvoiceFromExtractionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
   }
 
   const supabase = await createSupabaseClient();
@@ -842,7 +1072,10 @@ export async function createSalesInvoiceFromExtractionAction(
 
   const clientId = matchedId(loaded.ext.matches, "client_id");
   if (!clientId) {
-    return { ok: false, error: "Asociá un cliente antes de emitir la factura." };
+    return {
+      ok: false,
+      error: "Asociá un cliente antes de emitir la factura.",
+    };
   }
   if (isRecord(loaded.ext.matches) && loaded.ext.matches.duplicate_of) {
     return {
@@ -857,7 +1090,10 @@ export async function createSalesInvoiceFromExtractionAction(
   }
   const built = buildSalesInvoiceItems(loaded.ext.payload);
   if (!built) {
-    return { ok: false, error: "No se pudieron mapear los ítems del comprobante." };
+    return {
+      ok: false,
+      error: "No se pudieron mapear los ítems del comprobante.",
+    };
   }
 
   const [{ data: channel }, { data: client }] = await Promise.all([
@@ -879,41 +1115,48 @@ export async function createSalesInvoiceFromExtractionAction(
   if (!isIvaCondition(client.iva_condition)) {
     return { ok: false, error: "El cliente no tiene condición de IVA válida." };
   }
+  const ivaCondition = client.iva_condition;
 
   const fecha = header.data.date;
   const concepto: ConceptoCode =
-    channel.division === "dz" ? CONCEPTO.PRODUCTOS_Y_SERVICIOS : CONCEPTO.SERVICIOS;
+    channel.division === "dz"
+      ? CONCEPTO.PRODUCTOS_Y_SERVICIOS
+      : CONCEPTO.SERVICIOS;
   const servicios = isServiciosConcepto(concepto);
-  const moneda =
-    header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
+  const moneda = header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
   let cotizacion = 1;
   if (moneda === MONEDA.DOLARES) {
     const rate = await getUsdRateForDateAction(fecha);
     if (rate.ok && rate.data.rate) cotizacion = rate.data.rate;
   }
 
-  const created = await issueFiscalInvoiceAction({
-    channel_id: channel.id,
-    client_id: client.id,
-    kind: "factura",
-    letter: null,
-    punto_venta: parsed.data.puntoVenta,
-    fecha,
-    fch_serv_desde: servicios ? fecha : null,
-    fch_serv_hasta: servicios ? fecha : null,
-    fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
-    concepto,
-    doc_tipo: DOC_TIPO.CUIT,
-    doc_nro: client.cuit,
-    iva_condition_receptor: channel.is_fiscal
-      ? condicionIvaReceptorFor(client.iva_condition)
-      : null,
-    moneda,
-    cotizacion,
-    motivo_nc_nd: null,
-    invoice_origin_id: null,
-    items: built.items,
-  });
+  const created = await createWithClaim(
+    supabase,
+    parsed.data.extractionId,
+    () =>
+      issueFiscalInvoiceAction({
+        channel_id: channel.id,
+        client_id: client.id,
+        kind: "factura",
+        letter: null,
+        punto_venta: parsed.data.puntoVenta,
+        fecha,
+        fch_serv_desde: servicios ? fecha : null,
+        fch_serv_hasta: servicios ? fecha : null,
+        fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
+        concepto,
+        doc_tipo: DOC_TIPO.CUIT,
+        doc_nro: client.cuit,
+        iva_condition_receptor: channel.is_fiscal
+          ? condicionIvaReceptorFor(ivaCondition)
+          : null,
+        moneda,
+        cotizacion,
+        motivo_nc_nd: null,
+        invoice_origin_id: null,
+        items: built.items,
+      }),
+  );
   if (!created.ok) return created;
 
   await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {

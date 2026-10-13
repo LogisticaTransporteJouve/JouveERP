@@ -7,9 +7,10 @@ import { DOCUMENT_KINDS } from "./types";
 // the deterministic post-inference (post-inference.ts) fills the gaps. Narrow
 // schema per type = less hallucination (docs/ai-overview.md §5-bis).
 //
-// generateObject runs with structuredOutputMode='jsonTool' (engine.ts), so the
-// schemas are sent as a tool input_schema rather than Anthropic's constrained
-// grammar — there is no 16-union-parameter ceiling and no grammar-compile cost.
+// The schemas are sent as a tool input_schema rather than Anthropic's
+// constrained grammar (classification: generateObject jsonTool mode;
+// extraction: generateStructured, auto tool choice — engine.ts / structured.ts)
+// so there is no 16-union-parameter ceiling and no grammar-compile cost.
 
 /** Stage 1 — classification (generic-tray mode). */
 export const ClassificationSchema = z.object({

@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { regenerateInsights } from "./analyst";
+import { canSeeInsight } from "./lib/visibility";
 
 export type InsightCard = {
   id: string;
@@ -53,15 +54,23 @@ export async function listInsightsAction(): Promise<
     return { ok: false, error: "No se pudieron cargar los insights." };
   }
 
-  const cards = (data ?? []).slice().sort((a, b) => {
-    const sev = (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
+  // Defense in depth on top of RLS: drop cards from domains this user can't
+  // read (e.g. operations must not see treasury / AR / AP cards).
+  const visible = (data ?? []).filter((card) =>
+    canSeeInsight(ctx.roles, card.kind),
+  );
+  const cards = visible.sort((a, b) => {
+    const sev =
+      (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
     return sev !== 0 ? sev : b.generated_at.localeCompare(a.generated_at);
   });
   return { ok: true, data: cards };
 }
 
 /** On-demand recompute of the analyst's insights (ai:admin). */
-export async function runAnalystAction(): Promise<ActionResult<{ count: number }>> {
+export async function runAnalystAction(): Promise<
+  ActionResult<{ count: number }>
+> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para recalcular insights." };

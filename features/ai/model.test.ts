@@ -1,7 +1,26 @@
 import { APICallError } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it, vi } from "vitest";
 
-import { isRetryableModelError, runWithFallback } from "./model";
+import {
+  createFallbackModel,
+  isRetryableModelError,
+  runWithFallback,
+} from "./model";
+
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV3["doGenerate"]>>;
+
+function generateResult(text: string): GenerateResult {
+  return {
+    content: [{ type: "text", text }],
+    finishReason: { unified: "stop", raw: "end_turn" },
+    usage: {
+      inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+      outputTokens: { total: 1, text: 1, reasoning: 0 },
+    },
+    warnings: [],
+  };
+}
 
 function apiError(statusCode: number): APICallError {
   return new APICallError({
@@ -90,5 +109,54 @@ describe("runWithFallback", () => {
       { isRetryable: () => true },
     );
     expect(result).toBe("ok");
+  });
+});
+
+describe("createFallbackModel (sticky per turn)", () => {
+  it("keeps serving from the fallback link once a call fell back", async () => {
+    let primaryCalls = 0;
+    const primary = new MockLanguageModelV3({
+      modelId: "primary",
+      doGenerate: async () => {
+        primaryCalls++;
+        if (primaryCalls === 1) throw apiError(503);
+        return generateResult("primary");
+      },
+    });
+    const secondary = new MockLanguageModelV3({
+      modelId: "secondary",
+      doGenerate: async () => generateResult("secondary"),
+    });
+    const served: string[] = [];
+    const model = createFallbackModel(primary, [primary, secondary], (id) => {
+      served.push(id);
+    });
+
+    await model.doGenerate({ prompt: [] });
+    await model.doGenerate({ prompt: [] });
+    await model.doGenerate({ prompt: [] });
+
+    // Step 1 fell back; steps 2–3 must NOT bounce back to the primary.
+    expect(primaryCalls).toBe(1);
+    expect(served).toEqual(["secondary", "secondary", "secondary"]);
+  });
+
+  it("stays on the primary when nothing failed", async () => {
+    const primary = new MockLanguageModelV3({
+      modelId: "primary",
+      doGenerate: async () => generateResult("primary"),
+    });
+    const secondary = new MockLanguageModelV3({
+      modelId: "secondary",
+      doGenerate: async () => generateResult("secondary"),
+    });
+    const served: string[] = [];
+    const model = createFallbackModel(primary, [primary, secondary], (id) => {
+      served.push(id);
+    });
+    await model.doGenerate({ prompt: [] });
+    await model.doGenerate({ prompt: [] });
+    expect(served).toEqual(["primary", "primary"]);
+    expect(secondary.doGenerateCalls).toHaveLength(0);
   });
 });

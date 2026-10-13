@@ -249,9 +249,20 @@ export async function getPurchaseInvoiceAllocationsAction(
   return { ok: true, data: out };
 }
 
+/**
+ * The header row was inserted but a later step failed (e.g. its items). The
+ * invoice exists: callers that track what they created (AI drafts) must link
+ * `createdId` instead of treating this as "nothing was created".
+ */
+export type PartialCreateFailure = {
+  ok: false;
+  error: string;
+  createdId: string;
+};
+
 export async function createPurchaseInvoiceAction(
   input: unknown,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string }> | PartialCreateFailure> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "purchase_invoices:write")) {
     return {
@@ -356,6 +367,7 @@ export async function createPurchaseInvoiceAction(
       return {
         ok: false,
         error: "Factura cargada pero no se pudieron guardar los ítems.",
+        createdId: data.id,
       };
     }
   }

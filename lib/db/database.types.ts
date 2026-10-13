@@ -306,6 +306,7 @@ export type Database = {
           cost_usd: number | null
           created_at: string
           id: string
+          kind: string
           model: string | null
           prompt_tokens: number | null
           session_id: string | null
@@ -318,6 +319,7 @@ export type Database = {
           cost_usd?: number | null
           created_at?: string
           id?: string
+          kind?: string
           model?: string | null
           prompt_tokens?: number | null
           session_id?: string | null
@@ -330,6 +332,7 @@ export type Database = {
           cost_usd?: number | null
           created_at?: string
           id?: string
+          kind?: string
           model?: string | null
           prompt_tokens?: number | null
           session_id?: string | null

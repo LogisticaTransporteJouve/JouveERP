@@ -1,16 +1,16 @@
-import type { UIMessage } from "ai";
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
+import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
   AI_DAILY_TOKEN_CAP,
   appendAiMessage,
   ensureAiSession,
   getAiUsageToday,
   loadAiSessionMessages,
-  logAiUsage,
   maybeTitleAiSession,
   messageText,
+  recordAiUsage,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
 import { requireUserContext } from "@/lib/auth/context";
@@ -54,7 +54,10 @@ export async function POST(req: Request) {
     if (err instanceof RateLimitError) {
       return NextResponse.json(
         { error: "Alcanzaste el límite de consultas de IA. Probá más tarde." },
-        { status: 429, headers: { "Retry-After": String(err.retryAfterSeconds) } },
+        {
+          status: 429,
+          headers: { "Retry-After": String(err.retryAfterSeconds) },
+        },
       );
     }
     throw err;
@@ -79,13 +82,25 @@ export async function POST(req: Request) {
     );
   }
 
-  const body: { sessionId?: string; message?: UIMessage } = await req.json();
-  const { sessionId, message } = body;
-  if (!sessionId || !UUID_RE.test(sessionId) || !message) {
-    return NextResponse.json(
-      { error: "Pedido inválido." },
-      { status: 400 },
-    );
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+  }
+  const sessionId =
+    typeof body === "object" && body !== null && "sessionId" in body
+      ? body.sessionId
+      : undefined;
+  const rawMessage =
+    typeof body === "object" && body !== null && "message" in body
+      ? body.message
+      : undefined;
+  // The message is persisted and replayed into the model: only a plain user
+  // text turn is accepted (no assistant/system role, no forged tool results).
+  const message = await parseIncomingUserMessage(rawMessage);
+  if (typeof sessionId !== "string" || !UUID_RE.test(sessionId) || !message) {
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
   // Create-or-verify the session (id is client-supplied), then persist the
@@ -108,8 +123,11 @@ export async function POST(req: Request) {
 
   const allMessages = [...prior, message];
   const result = await streamChat(allMessages, {
+    userId: ctx.userId,
+    sessionId,
     onUsage: (usage) =>
-      logAiUsage({
+      recordAiUsage({
+        kind: "chat",
         sessionId,
         userId: ctx.userId,
         ...usage,
@@ -126,7 +144,11 @@ export async function POST(req: Request) {
       try {
         await appendAiMessage(sessionId, responseMessage);
         if (isFirstTurn) {
-          await maybeTitleAiSession(sessionId, messageText(message));
+          await maybeTitleAiSession(
+            ctx.userId,
+            sessionId,
+            messageText(message),
+          );
         }
       } catch (err) {
         logger.error("ai.chat.persist.failed", {
