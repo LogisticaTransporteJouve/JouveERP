@@ -1,0 +1,2 @@
+# Husky runs hooks with sh; the logic lives in bash.
+exec bash scripts/hooks/commit-msg.sh "$1"

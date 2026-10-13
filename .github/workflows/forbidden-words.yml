@@ -1,0 +1,49 @@
+name: Forbidden words
+
+# Every branch is visible to the repo's readers as soon as it is pushed, PR
+# or not, and ci.yml only runs for PRs and main. This job scans each push to
+# any other branch; no cancel-in-progress, so commits force-pushed away were
+# still scanned.
+on:
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: forbidden-words
+    # A branch deletion is a push too, with nothing left to check out.
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Scans the whole branch since it left main (all history when it
+      # shares none), not only the new commits: a push whose head says
+      # [skip ci] creates no run, so the next push has to cover it. A skipped
+      # head later force-pushed away is never scanned here; only the hooks
+      # cover it.
+      - name: Resolve range
+        id: range
+        run: |
+          set -euo pipefail
+          if base=$(git merge-base HEAD origin/main 2>/dev/null); then
+            echo "range=$base..HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: No forbidden words in files, names, commits or branch
+        env:
+          FORBIDDEN_WORDS: ${{ secrets.FORBIDDEN_WORDS }}
+          REQUIRE_FORBIDDEN_WORDS: ${{ github.actor != 'dependabot[bot]' && '1' || '' }}
+          FORBIDDEN_WORDS_RANGE: ${{ steps.range.outputs.range }}
+          FORBIDDEN_WORDS_BRANCH: ${{ github.ref_name }}
+        run: bash scripts/check-forbidden-words.sh
