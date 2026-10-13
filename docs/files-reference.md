@@ -166,7 +166,7 @@ function stringify(c: unknown): string {
 > **Diferido a Fase I.2.** No entra en K.10 — depende de I.1 (Vercel AI
 > SDK + Claude wired). Al implementar, evaluar si usar Anthropic SDK
 > directo (este código de referencia) o `@ai-sdk/anthropic` +
-> `generateText` (patrón usado en `sumary copy`, consistente con el resto
+> `generateText` (patrón usado en `reference-app copy`, consistente con el resto
 > de I.x). La decisión va junto con la del transporte (§6 más arriba).
 
 Prompt corto, temperature 0, sin streaming. Se usa Anthropic SDK directo
@@ -351,7 +351,7 @@ features/files/
   hooks/
     use-upload-file.ts
     use-bulk-upload.ts        # progress por archivo
-  keys.ts                     # files-keys.ts patrón sumary
+  keys.ts                     # files-keys.ts patrón de la app de referencia
 ```
 
 ### 3.2 Estado del upload por archivo

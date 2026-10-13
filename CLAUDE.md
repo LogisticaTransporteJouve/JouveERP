@@ -72,7 +72,7 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
 - `docs/hr-patterns.md` — arquitectura RRHH (Fase N): empleados, sueldos,
   asistencia, vacaciones (LCT), documentos + crons.
 - `docs/{chat,files,notifications}-patterns.md`, `files-reference.md`,
-  `sumary-frontend-patterns.md`, `user-avatars.md` — specs por subsistema.
+  `frontend-patterns.md`, `user-avatars.md` — specs por subsistema.
 - `docs/manual/` — manual HTML para usuario final.
 
 ## Comandos

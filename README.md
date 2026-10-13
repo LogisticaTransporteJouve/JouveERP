@@ -22,7 +22,7 @@ de facturación (fiscal/interno × DZ/Jouve).
   de verdad sobre el estado**. Qué está hecho, qué está en vuelo, qué viene
   después. Decisiones cerradas, design system, convenciones, anti-patrones,
   riesgos, métricas, y changelog histórico por fase en el anexo.
-- [`docs/sumary-frontend-patterns.md`](docs/sumary-frontend-patterns.md) —
+- [`docs/frontend-patterns.md`](docs/frontend-patterns.md) —
   referencia técnica de patrones (tooling, navegación, tablas, forms, hooks,
   CSP, RLS, tests). Snippets pegables.
 - [`docs/ai-patterns.md`](docs/ai-patterns.md) — plan completo de Fase I (IA).

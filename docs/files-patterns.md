@@ -547,7 +547,7 @@ export const isSpreadsheet = (m?: string | null) =>
 > sin migración. Las secciones §6.1–§6.4 son la referencia para cuando
 > llegue I.2; al momento de codearlas, revisar si Inngest sigue siendo el
 > mejor transporte vs. `after()` + pool en server action (patrón usado en
-> `sumary copy`). La decisión se cierra cuando arranque I.1 (Vercel AI
+> `reference-app copy`). La decisión se cierra cuando arranque I.1 (Vercel AI
 > SDK), no antes.
 
 ### 6.1 Evento
@@ -1017,7 +1017,7 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
 2. **K.10b `feat: files lib + dropzone + preview`** — helpers
    `lib/files/{storage-path,file-association-utils,preview,mime-type-icons,format-file-size}.ts`,
    `components/file-upload/{FileDropzone,file-upload-utils}.tsx`
-   (port desde `sumary copy` + `capture="environment"` para mobile),
+   (port desde `reference-app copy` + `capture="environment"` para mobile),
    `components/file-preview/FilePreviewDialog.tsx`, tests Vitest.
    ~380 LOC.
 3. **K.10c `feat: attach files to purchases`** — server actions

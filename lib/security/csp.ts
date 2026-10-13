@@ -1,7 +1,7 @@
 /**
  * Strict, nonce-based Content Security Policy.
  *
- * Notes from the Sumary patterns doc (§18.2) carried over:
+ * Notes from the frontend patterns doc (§18.2) carried over:
  *  - script-src uses 'strict-dynamic' so scripts loaded transitively by a
  *    nonce-tagged script are also trusted, without enumerating CDN hosts.
  *  - style-src falls back to 'unsafe-inline' because Tailwind / next/font
@@ -63,12 +63,7 @@ export function buildContentSecurityPolicy({
       .filter(Boolean)
       .join(" "),
     "font-src": "'self' data:",
-    "connect-src": [
-      "'self'",
-      supabaseOrigin,
-      supabaseWs,
-      ...extraConnect,
-    ]
+    "connect-src": ["'self'", supabaseOrigin, supabaseWs, ...extraConnect]
       .filter(Boolean)
       .join(" "),
     // 'self' (not 'none') so the in-app PDF viewer can iframe

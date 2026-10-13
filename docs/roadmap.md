@@ -82,7 +82,7 @@ colores de marca**: paleta 100% monocromática. El producto comunica con
 contraste, espaciado y tipografía, no con hue.
 
 La arquitectura de componentes y feature folders está documentada en
-`docs/sumary-frontend-patterns.md` — cuando se implementa cada fase, se
+`docs/frontend-patterns.md` — cuando se implementa cada fase, se
 consulta ese documento para los detalles concretos.
 
 ### 1.2 Colores — Tailwind v4 + `oklch()`
@@ -444,7 +444,7 @@ Fix en 3 partes:
 > **Re-escopeado 2026-05-16.** El plan original era un bucket dedicado
 > `purchase-attachments` + tabla `purchase_invoice_attachments`. Pasamos a
 > implementar el subsistema files completo (calcado del patrón validado en
-> `sumary copy`) y cablearlo solo a `purchase_invoices` por ahora. M.4 se
+> `reference-app copy`) y cablearlo solo a `purchase_invoices` por ahora. M.4 se
 > reduce a "sumar entidades atachables sobre la infra de K.10".
 >
 > **OCR diferido a Fase I.2.** La columna `files.quick_ocr` se crea en K.10a
@@ -481,7 +481,7 @@ Helpers + UI primitives reusables, sin server actions. ~380 LOC.
   `deleteFileAttachmentsAndOrphanCheck`.
 - `lib/files/preview.ts` — type guards `isImage`, `isPdf`, `isSpreadsheet`.
 - `lib/files/mime-type-icons.ts` + `lib/files/format-file-size.ts` (port
-  desde sumary).
+  desde la app de referencia).
 - `components/file-upload/file-upload-utils.ts` — `ALLOWED_DOCUMENT_TYPES`,
   `MAX_DOCUMENT_SIZE`, `validateFile`, presets.
 - `components/file-upload/FileDropzone.tsx` — port + `capture="environment"`
@@ -914,7 +914,7 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y
 `apps/api`, se mueve la lógica AFIP a un module Nest. El patrón típico
 (auth guard + decorator que inyecta context, `nestjs-cls` para propagar
 `userId`, helmet + throttler) está documentado en
-`docs/sumary-frontend-patterns.md` §10.
+`docs/frontend-patterns.md` §10.
 
 ---
 
@@ -962,7 +962,7 @@ Si se introduce: se agrega `pnpm-workspace.yaml` con `apps/web` y
 
 ## 11. Referencia rápida
 
-- **Patrones de Sumary** (frontend, tooling): `docs/sumary-frontend-patterns.md`.
+- **Patrones de la app de referencia** (frontend, tooling): `docs/frontend-patterns.md`.
 - **AI / Fase I**: `docs/ai-overview.md` (diseño + plan AI.0–AI.8) +
   `docs/ai-build-plan.md` (runbook) + `docs/ai-patterns.md` (patrones).
 - **Subsistema social**: `docs/chat-patterns.md`,
@@ -1434,7 +1434,7 @@ Specs detalladas: `docs/chat-patterns.md`, `docs/notifications-patterns.md`,
    (`lib/db/database.ts` + `lib/db/database.types.extensions.ts`) porque
    no se levantó Supabase local durante el dev del PR #44. Después de:
    ```bash
-   pnpm dlx supabase stop --project-id sumary-dev
+   pnpm dlx supabase stop --project-id JouveErp
    pnpm dlx supabase start
    pnpm db:types:generate
    ```

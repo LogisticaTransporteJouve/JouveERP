@@ -77,7 +77,7 @@ type PreviewState = {
 };
 
 /**
- * Document review surface (Sumary's AnomaliesRowSheet layout): the extracted
+ * Document review surface (the reference app's AnomaliesRowSheet layout): the extracted
  * data lives in a right-side Sheet (~600px); the source document floats in a
  * sidecar to its left (desktop), with its own zoom/download toolbar at the
  * bottom. On smaller screens only the data Sheet shows.
@@ -165,7 +165,10 @@ export function ReviewSheet({
           // The document sidecar floats outside the sheet content; clicks on its
           // toolbar must not be treated as "click outside" (which would close it).
           const target = e.detail.originalEvent.target;
-          if (target instanceof Element && target.closest("[data-doc-sidecar]")) {
+          if (
+            target instanceof Element &&
+            target.closest("[data-doc-sidecar]")
+          ) {
             e.preventDefault();
           }
         }}
