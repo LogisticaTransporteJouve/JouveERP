@@ -206,6 +206,23 @@ export async function saveExtractionResult(
 }
 
 /** Marks an extraction failed (terminal). Best-effort, never throws. */
+/** Who requested an extraction (for usage attribution). Null if unknown. */
+export async function extractionRequester(
+  extractionId: string,
+): Promise<string | null> {
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("ai_document_extractions")
+    .select("created_by")
+    .eq("id", extractionId)
+    .maybeSingle();
+  if (error) {
+    logger.warn("ai.document.requester.failed", { extractionId, error });
+    return null;
+  }
+  return data?.created_by ?? null;
+}
+
 export async function markExtractionFailed(extractionId: string): Promise<void> {
   const service = getServiceClient();
   const { error } = await service

@@ -8,9 +8,9 @@ import {
   ensureAiSession,
   getAiUsageToday,
   loadAiSessionMessages,
-  logAiUsage,
   maybeTitleAiSession,
   messageText,
+  recordAiUsage,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
 import { requireUserContext } from "@/lib/auth/context";
@@ -108,8 +108,11 @@ export async function POST(req: Request) {
 
   const allMessages = [...prior, message];
   const result = await streamChat(allMessages, {
+    userId: ctx.userId,
+    sessionId,
     onUsage: (usage) =>
-      logAiUsage({
+      recordAiUsage({
+        kind: "chat",
         sessionId,
         userId: ctx.userId,
         ...usage,
@@ -126,7 +129,11 @@ export async function POST(req: Request) {
       try {
         await appendAiMessage(sessionId, responseMessage);
         if (isFirstTurn) {
-          await maybeTitleAiSession(sessionId, messageText(message));
+          await maybeTitleAiSession(
+            ctx.userId,
+            sessionId,
+            messageText(message),
+          );
         }
       } catch (err) {
         logger.error("ai.chat.persist.failed", {

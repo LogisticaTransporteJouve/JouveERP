@@ -62,8 +62,8 @@ código:
 | Tema | Elección | Por qué |
 |---|---|---|
 | Agent / tool loop | **Vercel AI SDK** (`ai`) `Experimental_Agent` + `stepCountIs(N)` | Restricción del brief; matchea `ai-patterns.md` §5 |
-| Modelo | **Claude Sonnet 4.6** (`claude-sonnet-4-6`) para todo (chat + insights) | Mejor tool-use/costo; alcanza para cash-flow. Opus 4.8 (`claude-opus-4-8`) queda como escalado opcional futuro si un insight se queda corto |
-| Modelo barato | **Claude Haiku 4.5** (`claude-haiku-4-5`) | Títulos de chat, tareas chicas |
+| Modelo | **Claude Sonnet 5.5** (`claude-sonnet-5-5`) para chat + extracción | Mejor tool-use/costo. Opus 5.5 (`claude-opus-5-5`) queda como escalado opcional futuro. Ojo: Sonnet 5.5 rechaza `tool_choice` forzado → la extracción usa `generateStructured` (tool con `auto`), no `generateObject` jsonTool |
+| Modelo barato | **Claude Haiku 5.5** (`claude-haiku-5-5`) | Títulos de chat, clasificación de documentos/gastos, reparación de tool calls |
 | Cadena de fallback | Gemini + GPT vía `@ai-sdk/google`, `@ai-sdk/openai` | Resiliencia a outage single-vendor |
 | Background / proactivo | **Inngest** cron (existente `lib/inngest/`) | Restricción del brief; template = `aging-weekly-summary.ts` |
 | Streaming | UI stream del AI SDK, in-process desde un route handler de Next | Sin Redis/relay (single app) |
@@ -74,7 +74,9 @@ código:
 | UI | shadcn + Tailwind v4 monocromo | Design system existente |
 | Validación | Zod 4 (`schema.ts`) | Convención existente |
 
-> Pricing confirmado (2026, por MTok): Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5. El
+> Pricing (2026-10, por MTok; fuente única en `features/ai/lib/pricing.ts`):
+> Sonnet 5.5 $2/$10 (lectura cacheada $0.20, escritura $2.50), Haiku 5.5
+> $0.10/$0.50 (prompts ≤100K). El
 > prompt caching de Anthropic sobre bloques estáticos del prompt es obligatorio
 > cuando el system prompt crezca (`ai-patterns.md` §10): lectura cacheada ~0.1×
 > input (−90%).
@@ -651,12 +653,18 @@ gatean el *acceso a la superficie*, no los datos.
 
 | Modelo | Input | Output | Uso |
 |---|---|---|---|
-| Claude Sonnet 4.6 | $3 | $15 | chat + insights (todo) |
-| Claude Haiku 4.5 | $1 | $5 | títulos de chat, tareas chicas |
+| Claude Sonnet 5.5 | $2 | $10 | chat + extracción de documentos |
+| Claude Haiku 5.5 | $0.10 | $0.50 | títulos, clasificación, reparación de tool calls |
 
 Prompt caching: lectura cacheada ~0.1× input (−90%), escritura 1.25× (TTL 5
-min). El system prompt (tools + skills) va cacheado → la mayor parte del costo
-por turno desaparece tras el primer turno.
+min). Dos breakpoints: el system prompt (tools + prompt base) y el último
+mensaje de cada paso del loop (`withTailCacheBreakpoint`), así el historial
+también se relee desde caché. `estimateCostUsd` cobra lecturas/escrituras de
+caché a su tarifa. Todo consumo (chat, títulos, Document Intelligence,
+reparación) se registra en `ai_usage` con `kind` y cuenta para el tope diario.
+
+> Las estimaciones de abajo son de la época Sonnet 4.6 ($3/$15); con 5.5 el
+> costo por token es ~33% menor.
 
 Estimaciones (supuestos, ajustables):
 - **Chat:** ~$0.05–0.10 por turno (loop con 1–3 tool calls, system cacheado).

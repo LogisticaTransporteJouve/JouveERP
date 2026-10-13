@@ -26,8 +26,10 @@ import { inngest } from "@/lib/inngest/client";
 import { DOCUMENT_EXTRACTION_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { checkAiDailyCap } from "../lib/chat-store";
 import {
   buildPurchaseInvoiceInput,
   buildSalesInvoiceItems,
@@ -74,6 +76,37 @@ export type ExtractionDetail = PendingExtraction & { payload: Json };
 const LIST_COLUMNS =
   "id, file_id, detected_type, confidence, status, matches, created_at, file:files(original_filename, mime_type)";
 
+/** Per-user extraction budget (each one = 1–3 vision calls). */
+const EXTRACTION_RATE_LIMITS = {
+  hourly: { key: "ai:document:hourly", max: 30, windowMs: 60 * 60 * 1000 },
+  daily: { key: "ai:document:daily", max: 200, windowMs: 24 * 60 * 60 * 1000 },
+} as const;
+
+/**
+ * Spend guards for Document Intelligence, same style as the chat route:
+ * per-user hourly/daily rate limit (Postgres-backed, fail-closed) + the global
+ * daily AI token cap (fail-closed). Returns a user-facing error, or null.
+ */
+async function guardExtractionQuota(userId: string): Promise<string | null> {
+  try {
+    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.hourly });
+    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.daily });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return "Alcanzaste el límite de escaneos con IA. Probá más tarde.";
+    }
+    throw err;
+  }
+  const cap = await checkAiDailyCap();
+  if (cap === "exceeded") {
+    return "Se alcanzó el límite diario de IA. Probá de nuevo mañana.";
+  }
+  if (cap === "unavailable") {
+    return "No se pudo verificar el límite de IA. Probá de nuevo.";
+  }
+  return null;
+}
+
 /**
  * Uploads a standalone document (not attached to any entity yet) and kicks off
  * extraction — the entry point for the generic Documentos tray. The document
@@ -98,6 +131,10 @@ export async function scanDocumentAction(
   if (!SCAN_ALLOWED_MIME.has(file.type)) {
     return { ok: false, error: `Tipo no permitido (${file.type || "desconocido"}).` };
   }
+
+  // Before the upload, so a blocked scan doesn't leave an orphaned file.
+  const quotaError = await guardExtractionQuota(ctx.userId);
+  if (quotaError) return { ok: false, error: quotaError };
 
   const supabase = await createSupabaseClient();
   const fileId = crypto.randomUUID();
@@ -133,7 +170,7 @@ export async function scanDocumentAction(
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
-  return extractDocumentAction({ fileId });
+  return startExtraction(ctx.userId, { fileId });
 }
 
 /**
@@ -151,6 +188,17 @@ export async function extractDocumentAction(
   const parsed = ExtractInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
+  const quotaError = await guardExtractionQuota(ctx.userId);
+  if (quotaError) return { ok: false, error: quotaError };
+
+  return startExtraction(ctx.userId, parsed.data);
+}
+
+/** Creates the draft + dispatches the pipeline. Callers did auth + quota. */
+async function startExtraction(
+  userId: string,
+  input: z.infer<typeof ExtractInputSchema>,
+): Promise<ActionResult<{ extractionId: string }>> {
   const supabase = await createSupabaseClient();
 
   // Verify the caller can actually see this file (RLS client) before kicking
@@ -159,18 +207,18 @@ export async function extractDocumentAction(
   const { data: file } = await supabase
     .from("files")
     .select("id")
-    .eq("id", parsed.data.fileId)
+    .eq("id", input.fileId)
     .maybeSingle();
   if (!file) return { ok: false, error: "No encontramos el archivo." };
 
   const { data, error } = await supabase
     .from("ai_document_extractions")
-    .insert({ file_id: parsed.data.fileId, created_by: ctx.userId })
+    .insert({ file_id: input.fileId, created_by: userId })
     .select("id")
     .single();
   if (error) {
     logger.error("ai.document.create_draft.failed", {
-      userId: ctx.userId,
+      userId,
       error,
     });
     return { ok: false, error: "No se pudo iniciar la extracción." };
@@ -181,20 +229,20 @@ export async function extractDocumentAction(
       name: DOCUMENT_EXTRACTION_REQUESTED,
       data: {
         extraction_id: data.id,
-        file_id: parsed.data.fileId,
-        declared_type: parsed.data.declaredType ?? null,
+        file_id: input.fileId,
+        declared_type: input.declaredType ?? null,
       },
     });
   } catch (err) {
-    logger.error("ai.document.dispatch.failed", { userId: ctx.userId, error: err });
+    logger.error("ai.document.dispatch.failed", { userId, error: err });
     await supabase.from("ai_document_extractions").delete().eq("id", data.id);
     return { ok: false, error: "No se pudo iniciar la extracción." };
   }
 
   await logAudit(
     "ai.document.extraction_requested",
-    ctx.userId,
-    { file_id: parsed.data.fileId, declared_type: parsed.data.declaredType ?? null },
+    userId,
+    { file_id: input.fileId, declared_type: input.declaredType ?? null },
     data.id,
   );
   return { ok: true, data: { extractionId: data.id } };

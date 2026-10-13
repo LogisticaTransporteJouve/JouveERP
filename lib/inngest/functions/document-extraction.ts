@@ -1,7 +1,11 @@
-import { classifyExpense } from "@/features/ai/document/classify-expense";
+import {
+  classifyExpense,
+  type ExpenseClassifyResult,
+} from "@/features/ai/document/classify-expense";
 import {
   classifyDocument,
   extractDocument,
+  type UsageSink,
 } from "@/features/ai/document/engine";
 import { applyInvoicePostInference } from "@/features/ai/document/post-inference";
 import {
@@ -10,10 +14,14 @@ import {
 } from "@/features/ai/document/schemas";
 import {
   downloadFileBytes,
+  extractionRequester,
   markExtractionFailed,
   matchForKind,
   saveExtractionResult,
+  type ExtractionMatches,
 } from "@/features/ai/document/store";
+import { recordAiUsage } from "@/features/ai/lib/chat-store";
+import { AI_TITLE_MODEL } from "@/features/ai/model";
 import { inngest } from "@/lib/inngest/client";
 import { getServiceClient } from "@/lib/supabase/service";
 import {
@@ -22,7 +30,32 @@ import {
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 
-const INVOICE_KINDS = ["purchase_invoice", "sales_invoice", "credit_debit_note"];
+const INVOICE_KINDS = [
+  "purchase_invoice",
+  "sales_invoice",
+  "credit_debit_note",
+];
+
+/**
+ * Collects the token usage of a step's model calls and writes it to ai_usage
+ * (attributed to the requester) so Document Intelligence counts toward the
+ * daily AI cap. Flushed in a `finally` inside the step: a failed attempt was
+ * still billed, and a retried step re-bills.
+ */
+function usageMeter(userId: string | null): {
+  sink: UsageSink;
+  flush: () => Promise<void>;
+} {
+  const pending: Array<Promise<void>> = [];
+  return {
+    sink: (kind, model, usage) => {
+      pending.push(recordAiUsage({ kind, model, userId, ...usage }));
+    },
+    flush: async () => {
+      await Promise.all(pending);
+    },
+  };
+}
 
 /**
  * Document Intelligence pipeline (docs/ai-overview.md §5-bis): classify (Haiku,
@@ -59,40 +92,17 @@ export const documentExtraction = inngest.createFunction(
     const { extraction_id, file_id, declared_type } =
       DocumentExtractionRequestedSchema.parse(event.data);
 
+    const requester = await step.run("requester", () =>
+      extractionRequester(extraction_id),
+    );
+
     const extracted = await step.run("classify-and-extract", async () => {
-      const doc = await downloadFileBytes(file_id);
-
-      let kind: string;
-      let confidence: number | null;
-      if (declared_type) {
-        kind = declared_type;
-        confidence = 1;
-      } else {
-        const classification = await classifyDocument(doc);
-        kind = classification.type;
-        confidence = classification.confidence;
+      const meter = usageMeter(requester);
+      try {
+        return await classifyAndExtract(file_id, declared_type, meter.sink);
+      } finally {
+        await meter.flush();
       }
-
-      let payload: unknown = {};
-      if (isExtractableKind(kind)) {
-        const raw = await extractDocument(kind, doc);
-        if (INVOICE_KINDS.includes(kind)) {
-          // generateObject already validated `raw` against this schema, so a
-          // parse failure here is a real anomaly — fail (retry) rather than
-          // silently save an un-post-inferred, inconsistent payload.
-          const parsed = InvoiceExtractionSchema.safeParse(raw);
-          if (!parsed.success) {
-            throw new Error(
-              `Extracción de factura inválida: ${parsed.error.message}`,
-            );
-          }
-          payload = applyInvoicePostInference(parsed.data);
-        } else {
-          payload = raw;
-        }
-      }
-
-      return { kind, confidence, payload };
     });
 
     const matches = await step.run("match", () =>
@@ -105,43 +115,16 @@ export const documentExtraction = inngest.createFunction(
     const expense =
       extracted.kind === "purchase_invoice"
         ? await step.run("classify-expense", async () => {
-            const svc = getServiceClient();
-            const [{ data: leaves }, { data: ccs }] = await Promise.all([
-              svc.from("expense_leaf_accounts").select("code, name"),
-              svc
-                .from("cost_centers")
-                .select("code, name")
-                .eq("is_active", true),
-            ]);
-
-            let supplierCategory: string | null = null;
-            if (matches.supplier_id) {
-              const { data: sup } = await svc
-                .from("suppliers")
-                .select("category:supplier_categories(name)")
-                .eq("id", matches.supplier_id)
-                .maybeSingle();
-              const cat = Array.isArray(sup?.category)
-                ? sup?.category[0]
-                : sup?.category;
-              supplierCategory = cat?.name ?? null;
+            const meter = usageMeter(requester);
+            try {
+              return await suggestExpense(
+                extracted.payload,
+                matches,
+                meter.sink,
+              );
+            } finally {
+              await meter.flush();
             }
-
-            const inv = InvoiceExtractionSchema.safeParse(extracted.payload);
-            return classifyExpense({
-              supplierName: matches.supplier_name ?? null,
-              supplierCategory,
-              invoiceNeto: inv.success ? (inv.data.net_amount ?? null) : null,
-              lineDescriptions: inv.success
-                ? inv.data.items.map((it) => it.description).filter(Boolean)
-                : [],
-              leafAccounts: (leaves ?? []).flatMap((l) =>
-                l.code !== null && l.name !== null
-                  ? [{ code: l.code, name: l.name }]
-                  : [],
-              ),
-              costCenters: ccs ?? [],
-            });
           })
         : null;
 
@@ -158,3 +141,89 @@ export const documentExtraction = inngest.createFunction(
     return { extraction_id, kind: extracted.kind };
   },
 );
+
+/** Download + classify (unless declared) + extract + post-inference. */
+async function classifyAndExtract(
+  fileId: string,
+  declaredType: string | null | undefined,
+  onUsage: UsageSink,
+): Promise<{ kind: string; confidence: number | null; payload: unknown }> {
+  const doc = await downloadFileBytes(fileId);
+
+  let kind: string;
+  let confidence: number | null;
+  if (declaredType) {
+    kind = declaredType;
+    confidence = 1;
+  } else {
+    const classification = await classifyDocument(doc, { onUsage });
+    kind = classification.type;
+    confidence = classification.confidence;
+  }
+
+  let payload: unknown = {};
+  if (isExtractableKind(kind)) {
+    const raw = await extractDocument(kind, doc, { onUsage });
+    if (INVOICE_KINDS.includes(kind)) {
+      // The extraction already validated `raw` against this schema, so a
+      // parse failure here is a real anomaly — fail (retry) rather than
+      // silently save an un-post-inferred, inconsistent payload.
+      const parsed = InvoiceExtractionSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new Error(
+          `Extracción de factura inválida: ${parsed.error.message}`,
+        );
+      }
+      payload = applyInvoicePostInference(parsed.data);
+    } else {
+      payload = raw;
+    }
+  }
+
+  return { kind, confidence, payload };
+}
+
+/** Expense account / cost center suggestion for a purchase invoice. */
+async function suggestExpense(
+  payload: unknown,
+  matches: ExtractionMatches,
+  onUsage: UsageSink,
+): Promise<ExpenseClassifyResult> {
+  const svc = getServiceClient();
+  const [{ data: leaves }, { data: ccs }] = await Promise.all([
+    svc.from("expense_leaf_accounts").select("code, name"),
+    svc.from("cost_centers").select("code, name").eq("is_active", true),
+  ]);
+
+  let supplierCategory: string | null = null;
+  if (matches.supplier_id) {
+    const { data: sup } = await svc
+      .from("suppliers")
+      .select("category:supplier_categories(name)")
+      .eq("id", matches.supplier_id)
+      .maybeSingle();
+    const cat = Array.isArray(sup?.category) ? sup?.category[0] : sup?.category;
+    supplierCategory = cat?.name ?? null;
+  }
+
+  const inv = InvoiceExtractionSchema.safeParse(payload);
+  return classifyExpense(
+    {
+      supplierName: matches.supplier_name ?? null,
+      supplierCategory,
+      invoiceNeto: inv.success ? (inv.data.net_amount ?? null) : null,
+      lineDescriptions: inv.success
+        ? inv.data.items.map((it) => it.description).filter(Boolean)
+        : [],
+      leafAccounts: (leaves ?? []).flatMap((l) =>
+        l.code !== null && l.name !== null
+          ? [{ code: l.code, name: l.name }]
+          : [],
+      ),
+      costCenters: ccs ?? [],
+    },
+    {
+      onUsage: (usage) => onUsage("expense_classify", AI_TITLE_MODEL, usage),
+    },
+  );
+}
