@@ -1,9 +1,9 @@
 import { simulateReadableStream, tool, type UIMessage } from "ai";
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-type StreamResult = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>;
+type StreamResult = Awaited<ReturnType<MockLanguageModelV4["doStream"]>>;
 type StreamPart =
   StreamResult["stream"] extends ReadableStream<infer P> ? P : never;
 
@@ -44,7 +44,7 @@ const textStep = (): StreamResult =>
     },
   ]);
 
-let mockModel = new MockLanguageModelV3();
+let mockModel = new MockLanguageModelV4();
 const logAudit = vi.fn(async () => undefined);
 const recordAiUsage = vi.fn(async () => undefined);
 
@@ -97,7 +97,7 @@ beforeEach(() => {
   recordAiUsage.mockClear();
   const steps = [toolStep(), textStep()];
   let i = 0;
-  mockModel = new MockLanguageModelV3({
+  mockModel = new MockLanguageModelV4({
     doStream: async () => {
       const step = steps[i++];
       if (!step) throw new Error("unexpected extra model call");
@@ -154,11 +154,17 @@ describe("streamChat", () => {
     expect(last.content.at(-1)?.providerOptions).toMatchObject({
       anthropic: { cacheControl: { type: "ephemeral" } },
     });
-    // At most 4 Anthropic breakpoints per request.
-    const marks = (second?.prompt ?? []).filter(
-      (m) => m.providerOptions?.anthropic !== undefined,
-    ).length;
-    expect(marks).toBeLessThanOrEqual(4);
+    // Exactly system + tail: the previous step's tail breakpoint must not
+    // carry forward (Anthropic allows at most 4 per request).
+    const marks = (second?.prompt ?? [])
+      .flatMap((m) => [
+        m.providerOptions?.anthropic,
+        ...(typeof m.content === "string"
+          ? []
+          : m.content.map((part) => part.providerOptions?.anthropic)),
+      ])
+      .filter((options) => options !== undefined).length;
+    expect(marks).toBe(2);
   });
 
   it("does not replay reasoning from earlier turns", async () => {

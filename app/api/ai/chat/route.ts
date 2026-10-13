@@ -1,3 +1,4 @@
+import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
@@ -13,6 +14,7 @@ import {
   recordAiUsage,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
+import { aiTools } from "@/features/ai/tools";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -134,13 +136,15 @@ export async function POST(req: Request) {
       }),
   });
 
-  return result.toUIMessageStreamResponse({
+  const stream = toUIMessageStream({
+    stream: result.stream,
+    tools: aiTools,
     originalMessages: allMessages,
     // The last original message is the user turn, so the SDK won't auto-assign
     // an id to the assistant response — give it one so persisted messages have
     // stable ids on resume.
     generateMessageId: () => crypto.randomUUID(),
-    onFinish: async ({ responseMessage }) => {
+    onEnd: async ({ responseMessage }) => {
       try {
         await appendAiMessage(sessionId, responseMessage);
         if (isFirstTurn) {
@@ -159,4 +163,5 @@ export async function POST(req: Request) {
       }
     },
   });
+  return createUIMessageStreamResponse({ stream });
 }

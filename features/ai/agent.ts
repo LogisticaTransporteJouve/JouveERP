@@ -1,8 +1,9 @@
 import {
   convertToModelMessages,
-  stepCountIs,
+  isStepCount,
   streamText,
   type ModelMessage,
+  type SystemModelMessage,
   type UIMessage,
 } from "ai";
 
@@ -175,7 +176,7 @@ export async function streamChat(
   // never invalidates that prefix. Breakpoint 2 (the history tail) is placed
   // per step in prepareStep.
   const skills = buildSkillsBlock(lastUserText(messages));
-  const systemMessages: ModelMessage[] = [
+  const instructions: SystemModelMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPT,
@@ -183,26 +184,29 @@ export async function streamChat(
     },
   ];
   if (skills) {
-    systemMessages.push({ role: "system", content: skills });
+    instructions.push({ role: "system", content: skills });
   }
   const { model, servedModel } = buildChatModel();
   return streamText({
     model,
-    messages: [...systemMessages, ...modelMessages],
-    // The only system messages are the two built above: the chat route only
-    // accepts user text turns (lib/chat-message.ts) and history comes from our
-    // own persisted rows.
-    allowSystemInMessages: true,
+    instructions,
+    messages: modelMessages,
     tools: aiTools,
-    stopWhen: stepCountIs(AI_MAX_STEPS),
+    stopWhen: isStepCount(AI_MAX_STEPS),
     maxOutputTokens: AI_CHAT_MAX_OUTPUT_TOKENS,
     // Multistep tool use over business data: medium is the recommended
     // starting point on Sonnet 5.5 (default high spends more for chat).
     providerOptions: { anthropic: { effort: "medium" } },
-    prepareStep: ({ messages: stepMessages }) => ({
-      messages: withTailCacheBreakpoint(stepMessages),
+    // Rebuilt from the untouched history every step: a `messages` override
+    // carries forward, so reusing the previous step's messages would keep each
+    // old tail breakpoint and overflow Anthropic's limit of 4.
+    prepareStep: ({ initialMessages, responseMessages }) => ({
+      messages: withTailCacheBreakpoint([
+        ...initialMessages,
+        ...responseMessages,
+      ]),
     }),
-    experimental_repairToolCall: makeRepairToolCall(
+    repairToolCall: makeRepairToolCall(
       haikuRegenerator({
         onUsage: (usage) =>
           recordAiUsage({
@@ -214,7 +218,7 @@ export async function streamChat(
           }),
       }),
     ),
-    onStepFinish: userId
+    onStepEnd: userId
       ? async ({ toolCalls }) => {
           for (const call of toolCalls) {
             await logAudit(
@@ -232,8 +236,8 @@ export async function streamChat(
           }
         }
       : undefined,
-    onFinish: onUsage
-      ? async ({ totalUsage, steps }) => {
+    onEnd: onUsage
+      ? async ({ usage, steps }) => {
           const toolNames = Array.from(
             new Set(
               steps.flatMap((step) => step.toolCalls.map((c) => c.toolName)),
@@ -241,7 +245,7 @@ export async function streamChat(
           );
           await onUsage({
             model: servedModel(),
-            ...usageTokens(totalUsage),
+            ...usageTokens(usage),
             toolNames,
           });
         }

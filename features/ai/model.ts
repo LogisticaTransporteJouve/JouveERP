@@ -10,9 +10,11 @@ import { logger } from "@/lib/logger";
  * tool-use/cost; Claude Opus 5.5 reserved as an optional future escalation).
  *
  * Notes for the 5.5 family (vs the 4.x models this replaced):
- * - @ai-sdk/anthropic 3.0.x doesn't know these ids yet, so it defaults
- *   max_tokens to 4096 and won't use native structured outputs: every call
- *   site sets `maxOutputTokens` explicitly.
+ * - @ai-sdk/anthropic knows these ids, so it would default max_tokens to the
+ *   model ceiling (128K) and pick native structured outputs (constrained
+ *   decoding) for generateObject: every call site sets `maxOutputTokens`
+ *   explicitly, and Haiku generateObject calls pin `structuredOutputMode:
+ *   "jsonTool"`.
  * - Sonnet 5.5 rejects a forced tool_choice (`any` / `tool`) with a 400, so
  *   generateObject's json-tool mode can't run on it (document/structured.ts).
  *   Haiku 5.5 still accepts a forced tool_choice.

@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   generateText,
-  stepCountIs,
+  isStepCount,
   tool,
   type LanguageModel,
   type ModelMessage,
@@ -70,7 +70,7 @@ export async function generateStructured<T>(opts: {
       : opts.messages;
     const result = await generateText({
       model: opts.model,
-      system:
+      instructions:
         `${opts.system}\n\nReturn your answer ONLY by calling the ` +
         `"${SUBMIT_TOOL_NAME}" tool exactly once with the complete data.`,
       messages,
@@ -81,7 +81,7 @@ export async function generateStructured<T>(opts: {
         }),
       },
       toolChoice: "auto",
-      stopWhen: stepCountIs(1),
+      stopWhen: isStepCount(1),
       maxOutputTokens: opts.maxOutputTokens,
       maxRetries: opts.maxRetries ?? 1,
       abortSignal: AbortSignal.timeout(
@@ -89,7 +89,7 @@ export async function generateStructured<T>(opts: {
       ),
       providerOptions: opts.providerOptions,
     });
-    usages.push(usageTokens(result.totalUsage));
+    usages.push(usageTokens(result.usage));
 
     const call = result.toolCalls.find((c) => c.toolName === SUBMIT_TOOL_NAME);
     const parsed = call ? opts.schema.safeParse(call.input) : null;
