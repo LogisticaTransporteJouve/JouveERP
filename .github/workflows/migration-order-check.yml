@@ -108,10 +108,13 @@ jobs:
               echo "::error file=${file}::${name} is stamped ${timestamp}, more than a day in the future (now ${now} UTC). Every later migration would have to beat it — restamp it with the current UTC time."
               errors=$((errors + 1))
             elif [ "$timestamp" -le "$latest_timestamp" ]; then
-              echo "::error file=${file}::${name} is stamped ${timestamp}, not after ${BASE_REF}'s newest ${latest_timestamp}. Two PRs likely raced — rebase and rename the file with a fresher timestamp."
+              echo "::error file=${file}::${name} is stamped ${timestamp}, not after ${latest_timestamp} (${BASE_REF}'s newest, or an earlier migration in this PR). Stamps must be unique and increasing — rename the file with a fresher timestamp."
               errors=$((errors + 1))
             else
               echo "OK: ${name}"
+              # Paths arrive sorted, so each new file must also beat the previous one
+              # (supabase keys schema_migrations by the stamp).
+              latest_timestamp="$timestamp"
             fi
           done <<< "$changed"
 

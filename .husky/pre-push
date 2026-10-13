@@ -6,17 +6,17 @@
 zero=0000000000000000000000000000000000000000
 
 # git feeds one line per pushed ref: <local ref> <local sha> <remote ref> <remote sha>
-while read -r local_ref local_sha remote_ref remote_sha; do
+while read -r local_ref local_sha _remote_ref _remote_sha; do
   # Deleting a remote branch pushes nothing.
   [ "$local_sha" = "$zero" ] && continue
 
-  if [ "$remote_sha" = "$zero" ]; then
-    # New branch: compare against where it forked from main.
-    base=$(git merge-base origin/main "$local_sha" 2>/dev/null) || base=""
-  else
-    base="$remote_sha"
+  # Compare against where the branch forked from main, so main's own
+  # migrations merged into the branch are never attributed to it.
+  base=$(git merge-base origin/main "$local_sha" 2>/dev/null) || base=""
+  if [ -z "$base" ]; then
+    echo "pre-push: no merge-base with origin/main for ${local_ref}; skipping the types check (run git fetch)." >&2
+    continue
   fi
-  [ -n "$base" ] || continue
 
   changed=$(git diff --name-only "$base" "$local_sha" 2>/dev/null) || continue
 
