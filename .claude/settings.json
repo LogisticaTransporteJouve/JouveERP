@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(*supabase*db push*)",
+      "Bash(*supabase*db reset*--linked*)",
+      "Bash(*supabase*db reset*--db-url*)",
+      "Bash(*supabase*migration repair*)",
+      "Bash(*supabase link*)",
+      "Bash(git push*--force*)",
+      "Bash(git push* -f*)",
+      "Bash(git push* +*)",
+      "Bash(git push*--delete*)",
+      "Bash(git push*:main*)",
+      "Bash(git push* main*)",
+      "Bash(git push*refs/heads/main*)",
+      "Bash(git push*HEAD:main*)",
+      "Bash(*pr merge*--admin*)",
+      "Bash(*.env)",
+      "Bash(*.env *)",
+      "Bash(*.env.local)",
+      "Bash(*.env.local *)",
+      "Bash(*.env.*.local*)",
+      "Bash(*.env.development)",
+      "Bash(*.env.development *)",
+      "Bash(*.env.production)",
+      "Bash(*.env.production *)",
+      "Bash(*.env.test)",
+      "Bash(*.env.test *)",
+      "Bash(*.env.keys*)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.development)",
+      "Read(**/.env.production)",
+      "Read(**/.env.test)",
+      "Read(**/.env.keys)",
+      "Read(**/.envrc)"
+    ]
+  },
+  "attribution": {
+    "commit": ""
+  }
+}
