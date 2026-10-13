@@ -16,6 +16,7 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
+import { getInvoicingChannels } from "@/lib/channels";
 import {
   isDivision,
   isFiscalFilter,
@@ -39,13 +40,17 @@ export default async function DashboardLayout({
   }
 
   const supabase = await createClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, division, is_fiscal, is_active")
-    .order("division")
-    .order("is_fiscal", { ascending: false });
+  // Shared (React cache) with pages that also list channels in this request.
+  // Sorted division → fiscal first, as the scope selector expects.
+  const channelsData = [...(await getInvoicingChannels())].sort((a, b) =>
+    a.division === b.division
+      ? Number(b.is_fiscal) - Number(a.is_fiscal)
+      : a.division < b.division
+        ? -1
+        : 1,
+  );
 
-  const channels: InvoicingChannelSummary[] = (channelsData ?? [])
+  const channels: InvoicingChannelSummary[] = channelsData
     .filter((row) => isDivision(row.division))
     .map((row) => ({
       id: row.id,

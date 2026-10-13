@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -269,45 +270,55 @@ export async function increaseStorageTariffsAction(
     };
   }
 
-  let updated = 0;
-  for (const t of eligible) {
-    const oldRate = Number(t.rate_per_pallet);
-    const { data: inserted, error: insErr } = await supabase
-      .from("storage_tariffs")
-      .insert({
-        client_id: t.client_id,
-        rate_per_pallet: round2(oldRate * factor),
-        handling_in: round2(Number(t.handling_in) * factor),
-        handling_out: round2(Number(t.handling_out) * factor),
-        period: t.period,
-        valid_from,
-        valid_to: null,
-        notes: `Aumento ${percent}% s/ $${oldRate.toLocaleString("es-AR")}`,
-        created_by: ctx.userId,
-      })
-      .select("id")
-      .single();
-    if (insErr || !inserted) {
-      logger.error("storage_tariffs.increase.insert_failed", {
-        userId: ctx.userId,
-        tariffId: t.id,
-        error: insErr,
-      });
-      continue;
-    }
-    const { error: closeErr } = await supabase
-      .from("storage_tariffs")
-      .update({ valid_to: dayBefore(valid_from) })
-      .eq("id", t.id);
-    if (closeErr) {
-      // The new row still wins (latest valid_from), but log the overlap.
-      logger.error("storage_tariffs.increase.close_failed", {
-        userId: ctx.userId,
-        tariffId: t.id,
-        error: closeErr,
-      });
-    }
-    updated += 1;
+  // One bulk insert for all the new rows (atomic: all or none), then one
+  // chunked update closing the old ones the day before. Was 2 round trips per
+  // tariff. Inserting first keeps the previous invariant: if the close fails
+  // the new row still wins (latest valid_from) and the overlap is logged.
+  const { data: inserted, error: insErr } = await supabase
+    .from("storage_tariffs")
+    .insert(
+      eligible.map((t) => {
+        const oldRate = Number(t.rate_per_pallet);
+        return {
+          client_id: t.client_id,
+          rate_per_pallet: round2(oldRate * factor),
+          handling_in: round2(Number(t.handling_in) * factor),
+          handling_out: round2(Number(t.handling_out) * factor),
+          period: t.period,
+          valid_from,
+          valid_to: null,
+          notes: `Aumento ${percent}% s/ $${oldRate.toLocaleString("es-AR")}`,
+          created_by: ctx.userId,
+        };
+      }),
+    )
+    .select("id");
+  if (insErr || !inserted) {
+    logger.error("storage_tariffs.increase.insert_failed", {
+      userId: ctx.userId,
+      count: eligible.length,
+      error: insErr,
+    });
+    return { ok: false, error: "No se pudo aplicar el aumento." };
+  }
+  const updated = inserted.length;
+
+  const closeRes = await fetchInChunks(
+    eligible.map((t) => t.id),
+    (ids) =>
+      supabase
+        .from("storage_tariffs")
+        .update({ valid_to: dayBefore(valid_from) })
+        .in("id", ids)
+        .select("id"),
+  );
+  if (closeRes.error) {
+    // The new rows still win (latest valid_from), but log the overlap.
+    logger.error("storage_tariffs.increase.close_failed", {
+      userId: ctx.userId,
+      tariffIds: eligible.map((t) => t.id),
+      error: closeRes.error,
+    });
   }
 
   if (updated === 0) {

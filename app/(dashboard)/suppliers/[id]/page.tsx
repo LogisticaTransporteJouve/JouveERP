@@ -20,10 +20,10 @@ import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { IVA_CONDITION_LABEL } from "@/features/suppliers/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -40,7 +40,19 @@ export default async function SupplierDetailPage({
   }
 
   const { id } = await params;
-  const result = await getSupplierByIdAction(id);
+  // Independent reads in parallel (see clients/[id]).
+  const [result, activeChannels, accountsResult, dehydratedState] =
+    await Promise.all([
+      getSupplierByIdAction(id),
+      getActiveInvoicingChannels(),
+      listAccountsAction(),
+      prefetchQueries([
+        {
+          queryKey: suppliersKeys.account(id),
+          queryFn: () => runAction(() => getSupplierAccountAction(id)),
+        },
+      ]),
+    ]);
   if (!result.ok) {
     redirect("/suppliers");
   }
@@ -51,23 +63,8 @@ export default async function SupplierDetailPage({
   const supplier = result.data;
   const canWrite = userCan(ctx.roles, "suppliers:write");
 
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name");
-  const channels = (channelsData ?? []).map((c) => ({ id: c.id, name: c.name }));
-
-  const accountsResult = await listAccountsAction();
+  const channels = activeChannels.map((c) => ({ id: c.id, name: c.name }));
   const accounts = accountsResult.ok ? accountsResult.data : [];
-
-  const dehydratedState = await prefetchQueries([
-    {
-      queryKey: suppliersKeys.account(id),
-      queryFn: () => runAction(() => getSupplierAccountAction(id)),
-    },
-  ]);
 
   return (
     <div className="space-y-6">
