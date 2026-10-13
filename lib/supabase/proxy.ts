@@ -35,14 +35,19 @@ export async function updateSession(
     },
   );
 
-  // IMPORTANT: DO NOT REMOVE auth.getUser().
-  // This call is what triggers the JWT refresh when the access_token is close
-  // to expiry. Without it, sessions silently expire even with a valid
-  // refresh_token. Don't move logic that depends on `user` either — the
-  // refresh side-effect must run on every request.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // IMPORTANT: DO NOT REMOVE auth.getClaims().
+  // It reads the session (refreshing the access_token through the cookie
+  // adapter when it is close to expiry — without this call sessions silently
+  // expire even with a valid refresh_token) and verifies the JWT. With
+  // asymmetric signing keys the signature is checked locally against the
+  // cached JWKS, so the proxy no longer pays an Auth-server round trip on
+  // every request (getUser() did; requireUserContext() still calls getUser()
+  // for the authoritative check). With the legacy symmetric secret it falls
+  // back to getUser() internally — same cost as before, never less safe.
+  // Don't move logic that depends on `user` — the refresh must run on every
+  // request.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims.sub ? claimsData.claims : null;
 
   const { pathname, search } = request.nextUrl;
 
