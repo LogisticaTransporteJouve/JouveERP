@@ -38,19 +38,22 @@ jobs:
           set -euo pipefail
           base="origin/${BASE_REF}"
 
-          touched=$(git diff --diff-filter=MDRCT --name-only "${base}...HEAD" -- supabase/migrations)
+          touched=$(git diff --diff-filter=MDRCT --name-status "${base}...HEAD" -- supabase/migrations)
 
           if [ -z "$touched" ]; then
             echo "No existing migration was modified, deleted or renamed."
             exit 0
           fi
 
-          while IFS= read -r file; do
-            echo "::error file=${file}::${file} already exists on ${BASE_REF}. Merged migrations are append-only — never edit, delete or rename one; add a new migration that fixes forward."
+          # <status>\t<path on base>[\t<new path>] (renames/copies carry both).
+          while IFS=$'\t' read -r status file new_path; do
+            echo "::error file=${file}::${status} ${file}${new_path:+ -> ${new_path}}: merged migrations are append-only — never edit, delete or rename one on ${BASE_REF}; add a new migration that fixes forward."
           done <<< "$touched"
           exit 1
 
       - name: New migration names and timestamps
+        # Report naming/order problems even when the append-only step failed.
+        if: ${{ !cancelled() }}
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -59,10 +62,10 @@ jobs:
 
           # --no-renames: a rename shows up as the file it adds, so its name
           # and stamp are checked too (the append-only step rejects the
-          # delete half). A/M only — everything under supabase/migrations,
+          # rest). Every added file under supabase/migrations is checked,
           # not just files that already look like migrations: a misnamed
           # file must fail, not be skipped.
-          changed=$(git diff --no-renames --diff-filter=AM --name-only "${base}...HEAD" -- supabase/migrations)
+          changed=$(git diff --no-renames --diff-filter=A --name-only "${base}...HEAD" -- supabase/migrations)
 
           if [ -z "$changed" ]; then
             echo "No new migrations in this PR."
