@@ -10,17 +10,25 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import {
-  type ColumnDef,
+  type CellData,
+  type ColumnDef as TableColumnDef,
+  createExpandedRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
   type ExpandedState,
+  flexRender,
+  metaHelper,
   type OnChangeFn,
   type RowData,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
   type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 
 import { Button } from "@/components/ui/button";
@@ -35,25 +43,44 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-// Per-column UI hints, set via ColumnDef.meta.
-declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    /** Text alignment for the header + cells. */
-    align?: "left" | "center" | "right";
-    /** Extra className for the <th>. Use for width (e.g. "w-32"). */
-    headerClassName?: string;
-    /** Extra className for the <td>. */
-    cellClassName?: string;
-    /** Mobile (< md) behavior. Once ANY column sets this, the table switches
-     *  to mobile mode below md: "primary" columns stay visible, "secondary"
-     *  (and unannotated) columns move into a per-row expandable panel, and
-     *  "hidden" columns disappear. Desktop rendering never changes. */
-    mobile?: "primary" | "secondary" | "hidden";
-  }
-}
+/** Per-column UI hints, set via ColumnDef.meta. */
+type DataTableColumnMeta = {
+  /** Text alignment for the header + cells. */
+  align?: "left" | "center" | "right";
+  /** Extra className for the <th>. Use for width (e.g. "w-32"). */
+  headerClassName?: string;
+  /** Extra className for the <td>. */
+  cellClassName?: string;
+  /** Mobile (< md) behavior. Once ANY column sets this, the table switches
+   *  to mobile mode below md: "primary" columns stay visible, "secondary"
+   *  (and unannotated) columns move into a per-row expandable panel, and
+   *  "hidden" columns disappear. Desktop rendering never changes. */
+  mobile?: "primary" | "secondary" | "hidden";
+};
 
-export type { ColumnDef, ExpandedState } from "@tanstack/react-table";
+// Every DataTable registers the same features. Pagination and expansion are
+// switched per table through `manualPagination` and `getSubRows`; the sort
+// functions are the ones `sortFn: "auto"` resolves to.
+const features = tableFeatures({
+  rowSortingFeature,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  sortedRowModel: createSortedRowModel(),
+  expandedRowModel: createExpandedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    text: sortFn_text,
+    datetime: sortFn_datetime,
+  },
+  columnMeta: metaHelper<DataTableColumnMeta>(),
+});
+
+export type ColumnDef<
+  TData extends RowData,
+  TValue extends CellData = CellData,
+> = TableColumnDef<typeof features, TData, TValue>;
+export type { ExpandedState } from "@tanstack/react-table";
 
 const ALIGN: Record<"left" | "center" | "right", string> = {
   left: "",
@@ -61,7 +88,7 @@ const ALIGN: Record<"left" | "center" | "right", string> = {
   right: "text-right",
 };
 
-export type DataTableProps<T> = {
+export type DataTableProps<T extends RowData> = {
   columns: ColumnDef<T>[];
   data: T[];
   /** Stable row id (recommended). */
@@ -96,7 +123,7 @@ export type DataTableProps<T> = {
  * its TanStack ColumnDef[] and data) so sorting, pagination, the empty state,
  * loading skeletons, and the card border stay consistent everywhere.
  */
-export function DataTable<T>({
+export function DataTable<T extends RowData>({
   columns,
   data,
   getRowId,
@@ -123,7 +150,8 @@ export function DataTable<T>({
   // Mobile mode activates only when the caller annotated its columns.
   const mobileMode = columns.some((c) => c.meta?.mobile != null);
 
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data,
     columns,
     state: { sorting, ...(expanded !== undefined ? { expanded } : {}) },
@@ -131,14 +159,9 @@ export function DataTable<T>({
     onExpandedChange,
     getRowId,
     getSubRows,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getSubRows ? getExpandedRowModel() : undefined,
-    getPaginationRowModel: enablePagination
-      ? getPaginationRowModel()
-      : undefined,
+    manualPagination: !enablePagination,
     initialState: enablePagination
-      ? { pagination: { pageSize: initialPageSize } }
+      ? { pagination: { pageIndex: 0, pageSize: initialPageSize } }
       : undefined,
   });
 
@@ -230,9 +253,10 @@ export function DataTable<T>({
           rows.map((row) => {
             const detailCells = mobileMode
               ? row
-                  .getVisibleCells()
+                  .getAllCells()
                   .filter(
-                    (cell) => cell.column.columnDef.meta?.mobile == null ||
+                    (cell) =>
+                      cell.column.columnDef.meta?.mobile == null ||
                       cell.column.columnDef.meta.mobile === "secondary",
                   )
               : [];
@@ -273,7 +297,7 @@ export function DataTable<T>({
                       )}
                     </TableCell>
                   )}
-                  {row.getVisibleCells().map((cell) => {
+                  {row.getAllCells().map((cell) => {
                     const align = cell.column.columnDef.meta?.align;
                     return (
                       <TableCell
@@ -340,7 +364,7 @@ export function DataTable<T>({
         </span>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">
-            Página {table.getState().pagination.pageIndex + 1} de{" "}
+            Página {table.state.pagination.pageIndex + 1} de{" "}
             {table.getPageCount()}
           </span>
           <Button
