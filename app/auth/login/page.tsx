@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeRedirectPath } from "@/lib/security/safe-redirect";
 
 import { LoginForm } from "./login-form";
 
@@ -12,7 +13,7 @@ export default async function LoginPage({
   searchParams: SearchParams;
 }) {
   const { redirectTo } = await searchParams;
-  const safeRedirect = redirectTo?.startsWith("/") ? redirectTo : undefined;
+  const safeRedirect = safeRedirectPath(redirectTo) ?? undefined;
 
   return (
     <main className="flex min-h-svh items-center justify-center px-4">
@@ -29,7 +30,9 @@ export default async function LoginPage({
           <CardTitle className="text-lg">
             Logística y Transporte Jouve
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Ingresá para continuar</p>
+          <p className="text-sm text-muted-foreground">
+            Ingresá para continuar
+          </p>
         </CardHeader>
         <CardContent>
           <LoginForm redirectTo={safeRedirect} />

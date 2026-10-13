@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { logger } from "@/lib/logger";
+import { safeRedirectPath } from "@/lib/security/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 
 const SignInSchema = z.object({
@@ -42,9 +43,5 @@ export async function signInWithEmail(
     return { error: "Credenciales inválidas." };
   }
 
-  const target =
-    parsed.data.redirectTo && parsed.data.redirectTo.startsWith("/")
-      ? parsed.data.redirectTo
-      : "/dashboard";
-  redirect(target);
+  redirect(safeRedirectPath(parsed.data.redirectTo) ?? "/dashboard");
 }
