@@ -14,7 +14,12 @@ description: "Create a Supabase SQL migration in JouveERP (supabase/migrations/)
   mergeada; si hay que ajustar algo, va una **nueva**.
 - **RLS en la MISMA migración** que crea la tabla:
   `alter table public.<t> enable row level security;` + las policies.
-  Usá el helper existente `public.user_has_role(text[])` y `(select auth.uid())`.
+  Usá el helper existente envuelto en `select` (se evalúa una vez por statement, no por fila):
+  `(select public.user_has_role(array[...]))`; para filas propias del usuario,
+  `user_id = (select auth.uid())`. Toda policy de escritura lleva `with check` explícito.
+- **Funciones:** `security definer` siempre con `set search_path` y chequeo de rol adentro;
+  `revoke all on function ... from public, anon, authenticated;` y después el `grant` mínimo.
+  Nunca `grant` a `anon`. Ver `/enforce-role-isolation`.
 - **Realtime** solo si la UI necesita refresco cross-user:
   `alter publication supabase_realtime add table public.<t>;`
 - **Después de aplicar:** regenerar tipos y commitearlos —
@@ -39,11 +44,11 @@ alter table public.<t> enable row level security;
 
 create policy "<t> select" on public.<t>
   for select to authenticated
-  using ( <condición> or public.user_has_role(array['owner','admin']) );
+  using ( (select public.user_has_role(array['owner','admin'])) );
 
 create policy "<t> insert" on public.<t>
   for insert to authenticated
-  with check ( <condición> );
+  with check ( (select public.user_has_role(array['owner','admin'])) );
 
 -- update / delete según corresponda
 ```
@@ -52,6 +57,8 @@ create policy "<t> insert" on public.<t>
 
 - [ ] Timestamp > máximo en `main`.
 - [ ] RLS habilitada + policies en la misma migración.
-- [ ] Helper `user_has_role(text[])` para checks de rol.
+- [ ] Helper `(select public.user_has_role(...))` para checks de rol, con la lista de roles
+      alineada a `lib/auth/permissions.ts`.
+- [ ] Índice en cada FK y columna de filtro; trigger `set_updated_at()` si hay `updated_at`.
 - [ ] Tipos regenerados y commiteados.
 - [ ] No se editó ninguna migración mergeada.

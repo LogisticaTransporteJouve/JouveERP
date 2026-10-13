@@ -19,7 +19,10 @@ features/<f>/
 ```
 
 Solo importa de `@/components/ui/*`, `@/lib/*`, `@/lib/auth/*`, `@/hooks/*`.
-**Importar de otra feature → prohibido** (si hace falta, subir a `@/lib/`).
+**Cross-feature:** se pueden importar tipos, schemas, query keys, pickers y actions de
+lectura que alimentan un picker. **Actions de negocio (escritura) no cruzan** — única
+excepción documentada: `issueFiscalInvoiceAction`. Si hace falta lógica compartida, subila a
+`@/lib/` (ver `/enforce-ports-and-adapters`).
 Estudiá `features/invoices/` y `features/aging/` como template.
 
 ## Server action (template)
@@ -65,7 +68,7 @@ export async function getXAction(input: GetXInput): Promise<ActionResult<X>> {
 
 ## Checklist
 
-- [ ] Slice completo, sin imports cross-feature.
+- [ ] Slice completo; ninguna action de negocio importada de otra feature.
 - [ ] Actions devuelven `ActionResult<T>`, con `userCan` + sin `select *`.
 - [ ] Permisos en matriz + test.
 - [ ] Zod + schema.test.ts.
