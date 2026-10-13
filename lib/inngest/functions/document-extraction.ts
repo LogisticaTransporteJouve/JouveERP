@@ -37,6 +37,10 @@ export const documentExtraction = inngest.createFunction(
     name: "Document Intelligence — classify + extract",
     triggers: [{ event: DOCUMENT_EXTRACTION_REQUESTED }],
     idempotency: "event.data.extraction_id",
+    // Each run makes 1-2 vision LLM calls on a whole document. Cap the fan-out
+    // so a bulk upload doesn't hit provider rate limits (429 → retries) or
+    // spike spend; the rest queue in Inngest.
+    concurrency: { limit: 5 },
     retries: 2,
     onFailure: async ({ event, error }) => {
       const originalData = (event.data as { event?: { data?: unknown } }).event

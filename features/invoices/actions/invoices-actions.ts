@@ -289,7 +289,12 @@ export async function issueFiscalInvoiceAction(
   try {
     await inngest.send({
       name: INVOICE_ISSUE_REQUESTED,
-      data: { invoice_id, idempotency_key },
+      data: {
+        invoice_id,
+        idempotency_key,
+        channel_id: data.channel_id,
+        punto_venta: data.punto_venta,
+      },
     });
   } catch (err) {
     // Roll back the draft so the user can retry cleanly. The most common

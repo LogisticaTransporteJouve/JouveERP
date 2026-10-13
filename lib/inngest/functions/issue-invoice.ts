@@ -182,6 +182,15 @@ export const issueInvoice = inngest.createFunction(
     name: "Issue invoice (request CAE)",
     triggers: [{ event: INVOICE_ISSUE_REQUESTED }],
     idempotency: "event.data.idempotency_key",
+    // One emission at a time per numbering sequence: the fiscal branch reads
+    // FECompUltimoAutorizado + 1 and the internal one max(numero) + 1, so two
+    // concurrent runs on the same (channel, punto de venta) would race for
+    // the same numero (AFIP rejects one; internal hits the unique index and
+    // burns retries). Different sequences still run in parallel.
+    concurrency: {
+      key: 'event.data.channel_id + ":" + string(event.data.punto_venta)',
+      limit: 1,
+    },
     retries: RETRYABLE_LIMIT,
     onFailure: async ({ event, error }) => {
       const supabase = getServiceClient();
