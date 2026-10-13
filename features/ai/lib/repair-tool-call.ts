@@ -1,5 +1,4 @@
-// Tool-call repair for the chat agent (modeled on Sumary's
-// packages/shared/src/repair-tool-call.ts + ai-agent/repair-tool-call.ts).
+// Tool-call repair for the chat agent.
 //
 // When the model mis-fills a tool's arguments the AI SDK does NOT drop the call:
 // it echoes the invalid tool_use (non-object input) back on the next step,
