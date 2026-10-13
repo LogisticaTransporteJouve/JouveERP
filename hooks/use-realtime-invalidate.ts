@@ -21,6 +21,14 @@ type Subscription = {
 // of the raw subscriptions array so the channel doesn't tear down on
 // every render. The latest queryKeys are read through `subsRef` at
 // invalidation time.
+//
+// Invalidation is debounced (trailing, INVALIDATE_DEBOUNCE_MS): a bulk write
+// (e.g. a receipt with 30 allocations, a billing run) fires one event per row,
+// and invalidating on each one refetched the same queries dozens of times.
+// Only queries currently rendered refetch (`refetchType: "active"`); inactive
+// ones are just marked stale and refetch when next used.
+const INVALIDATE_DEBOUNCE_MS = 500;
+
 export function useRealtimeInvalidate(subscriptions: Subscription[]) {
   const queryClient = useQueryClient();
   const subsRef = useRef(subscriptions);
@@ -38,6 +46,23 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
       `realtime-invalidate:${signature}:${Math.random().toString(36).slice(2, 8)}`,
     );
 
+    const pending = new Set<number>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      for (const i of pending) {
+        const current = subsRef.current[i];
+        if (!current) continue;
+        for (const key of current.queryKeys) {
+          void queryClient.invalidateQueries({
+            queryKey: key,
+            refetchType: "active",
+          });
+        }
+      }
+      pending.clear();
+    };
+
     for (let i = 0; i < subsRef.current.length; i++) {
       const sub = subsRef.current[i]!;
       channel.on(
@@ -51,11 +76,9 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
           ...(sub.filter ? { filter: sub.filter } : {}),
         },
         () => {
-          const current = subsRef.current[i];
-          if (!current) return;
-          for (const key of current.queryKeys) {
-            queryClient.invalidateQueries({ queryKey: key });
-          }
+          pending.add(i);
+          if (timer !== null) clearTimeout(timer);
+          timer = setTimeout(flush, INVALIDATE_DEBOUNCE_MS);
         },
       );
     }
@@ -63,6 +86,7 @@ export function useRealtimeInvalidate(subscriptions: Subscription[]) {
     channel.subscribe();
 
     return () => {
+      if (timer !== null) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, [signature, queryClient]);
