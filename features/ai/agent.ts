@@ -189,6 +189,10 @@ export async function streamChat(
   return streamText({
     model,
     messages: [...systemMessages, ...modelMessages],
+    // The only system messages are the two built above: the chat route only
+    // accepts user text turns (lib/chat-message.ts) and history comes from our
+    // own persisted rows.
+    allowSystemInMessages: true,
     tools: aiTools,
     stopWhen: stepCountIs(AI_MAX_STEPS),
     maxOutputTokens: AI_CHAT_MAX_OUTPUT_TOKENS,

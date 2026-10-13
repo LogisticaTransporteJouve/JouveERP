@@ -1,7 +1,7 @@
-import type { UIMessage } from "ai";
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
+import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
   AI_DAILY_TOKEN_CAP,
   appendAiMessage,
@@ -79,9 +79,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const body: { sessionId?: string; message?: UIMessage } = await req.json();
-  const { sessionId, message } = body;
-  if (!sessionId || !UUID_RE.test(sessionId) || !message) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+  }
+  const sessionId =
+    typeof body === "object" && body !== null && "sessionId" in body
+      ? body.sessionId
+      : undefined;
+  const rawMessage =
+    typeof body === "object" && body !== null && "message" in body
+      ? body.message
+      : undefined;
+  // The message is persisted and replayed into the model: only a plain user
+  // text turn is accepted (no assistant/system role, no forged tool results).
+  const message = await parseIncomingUserMessage(rawMessage);
+  if (typeof sessionId !== "string" || !UUID_RE.test(sessionId) || !message) {
     return NextResponse.json(
       { error: "Pedido inválido." },
       { status: 400 },
