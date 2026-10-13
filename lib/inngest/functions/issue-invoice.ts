@@ -1,5 +1,5 @@
 import { getActiveCaeaForDate } from "@/lib/afip/caea";
-import { AfipServiceError, AfipTransportError } from "@/lib/afip/errors";
+import { AfipServiceError } from "@/lib/afip/errors";
 import {
   getLastAuthorizedNumber,
   getVoucherInfo,
@@ -16,26 +16,24 @@ import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { NonRetriableError } from "inngest";
-
 import { inngest } from "../client";
 import {
   INVOICE_ISSUE_REQUESTED,
   InvoiceIssueRequestedSchema,
 } from "../events";
+import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
 // Two branches based on `channel.is_fiscal`:
 //
 // FISCAL (AFIP):
 //   load-draft       → snapshot the row + channel (status flips draft → emitting)
-//   reserve-numero   → ask AFIP for the last authorized number for the POS
-//   persist-numero   → store number before requesting the CAE so a crashed
-//                      retry can recover via FECompConsultar
-//   request-cae      → call FECAESolicitar; on transport error, ask AFIP
-//                      "did you actually register this number?" before
-//                      letting Inngest retry. If AFIP did, adopt that CAE.
-//   persist-cae      → store CAE + flip status to emitted.
+//   reserve-numero-and-request-cae → ONE step: last authorized number + 1,
+//                      recorded in afip_attempted_numero, then FECAESolicitar.
+//                      Recovers a lost response via FECompConsultar, adopting
+//                      the CAE only if the voucher matches this invoice. See
+//                      issue-invoice-cae.ts for why it must be a single step.
+//   persist-cae      → store numero + CAE + flip status to emitted.
 //   generate-pdf     → render fiscal PDF (CAE + QR).
 //
 // INTERNAL (no AFIP):
@@ -179,13 +177,14 @@ export const issueInvoice = inngest.createFunction(
     name: "Issue invoice (request CAE)",
     triggers: [{ event: INVOICE_ISSUE_REQUESTED }],
     idempotency: "event.data.idempotency_key",
-    // Narrows numbering races per (channel, punto de venta). Inngest limits
-    // concurrent STEPS per key, not whole runs, so two runs can still
-    // interleave between `reserve-numero` and `request-cae` on the fiscal
-    // branch; closing that needs an atomic reservation (see the internal
-    // branch's next_internal_invoice_numero_atomic).
+    // One step at a time per punto de venta. Inngest limits concurrent STEPS
+    // per key (not whole runs), which is exactly what the fiscal branch needs:
+    // reading AFIP's last number and requesting the CAE happen inside one
+    // step. Keyed by punto de venta alone because AFIP numbers per (CUIT,
+    // punto de venta, tipo): two channels sharing a punto de venta share the
+    // sequence. The internal and CAEA branches number atomically on their own.
     concurrency: {
-      key: 'event.data.channel_id + ":" + string(event.data.punto_venta)',
+      key: "string(event.data.punto_venta)",
       limit: 1,
     },
     retries: RETRYABLE_LIMIT,
@@ -419,61 +418,61 @@ export const issueInvoice = inngest.createFunction(
       return { caea: caea.caea, cbteNro: caeaNumero };
     }
 
-    // Compute the number in memory only. It is NOT persisted before the AFIP
-    // call: a failed emission must leave `numero` null so the slot stays free.
-    // Persisting it up-front (the old persist-numero step) poisoned the POS —
-    // a rejected invoice held the number, and every later emission collided
-    // with the unique index and died. The number is written together with the
-    // CAE in persist-cae, so only authorized comprobantes occupy a number.
-    const reservedNumero: number = await step.run(
-      "reserve-numero",
+    // `numero` is written only together with the CAE (persist-cae): a failed
+    // emission must leave it null so the slot stays free. Persisting it
+    // up-front poisoned the POS — a rejected invoice held the number and every
+    // later emission collided with the unique index. The attempted number is
+    // kept in afip_attempted_numero instead (recovery input, not unique).
+    const cae: InvoiceCAEResult = await step.run(
+      "reserve-numero-and-request-cae",
       async () => {
-        const last = await getLastAuthorizedNumber(draft.punto_venta, cbteTipo);
-        return last + 1;
+        const supabase = getServiceClient();
+        return reserveNumberAndRequestCae({
+          invoiceId: invoice_id,
+          ptoVta: draft.punto_venta,
+          cbteTipo,
+          expected: {
+            impTotal: toNumber(draft.imp_total),
+            fecha: draft.fecha,
+            docTipo: draft.doc_tipo,
+            docNro: draft.doc_nro,
+          },
+          buildInput: (cbteNro) => buildAfipInput(load, cbteNro),
+          afip: { getLastAuthorizedNumber, requestCAE, getVoucherInfo },
+          attempts: {
+            read: async () => {
+              const { data, error } = await supabase
+                .from("invoices")
+                .select("afip_attempted_numero")
+                .eq("id", invoice_id)
+                .maybeSingle();
+              if (error) throw new Error(`read-attempt: ${error.message}`);
+              return data?.afip_attempted_numero ?? null;
+            },
+            record: async (cbteNro) => {
+              const { error } = await supabase
+                .from("invoices")
+                .update({ afip_attempted_numero: cbteNro })
+                .eq("id", invoice_id);
+              if (error) throw new Error(`record-attempt: ${error.message}`);
+            },
+            takenByOther: async (cbteNro) => {
+              const { data, error } = await supabase
+                .from("invoices")
+                .select("id")
+                .eq("punto_venta", draft.punto_venta)
+                .eq("cbte_tipo_afip", cbteTipo)
+                .neq("id", invoice_id)
+                .neq("status", "failed")
+                .or(`numero.eq.${cbteNro},afip_attempted_numero.eq.${cbteNro}`)
+                .limit(1);
+              if (error) throw new Error(`check-attempt: ${error.message}`);
+              return (data ?? []).length > 0;
+            },
+          },
+        });
       },
     );
-
-    const cae: InvoiceCAEResult = await step.run("request-cae", async () => {
-      const input = buildAfipInput(load, reservedNumero);
-      try {
-        return await requestCAE(input);
-      } catch (err) {
-        if (err instanceof AfipTransportError) {
-          // The request might have reached AFIP and the response was lost
-          // mid-flight. Ask AFIP if it already registered this number.
-          logger.info("issue_invoice.recovery_attempt", {
-            invoice_id,
-            ptoVta: draft.punto_venta,
-            cbteTipo,
-            cbteNro: reservedNumero,
-          });
-          const info = await getVoucherInfo(
-            draft.punto_venta,
-            cbteTipo,
-            reservedNumero,
-          );
-          if (info?.cae && info.caeFchVto) {
-            return {
-              ptoVta: info.ptoVta,
-              cbteTipo: info.cbteTipo,
-              cbteNro: info.cbteNro,
-              cae: info.cae,
-              caeFchVto: info.caeFchVto,
-              observaciones: [],
-              fchProceso: null,
-            };
-          }
-          throw err; // genuine transport failure — let Inngest retry
-        }
-        // service / soap-fault / config / input errors are deterministic:
-        // retrying re-sends the same rejected payload and holds the invoice in
-        // "emitting" for the whole retry schedule. Fail fast.
-        throw new NonRetriableError(
-          err instanceof Error ? err.message : String(err),
-          { cause: err },
-        );
-      }
-    });
 
     await step.run("persist-cae", async () => {
       const supabase = getServiceClient();
@@ -481,7 +480,7 @@ export const issueInvoice = inngest.createFunction(
       const { error } = await supabase
         .from("invoices")
         .update({
-          numero: reservedNumero,
+          numero: cae.cbteNro,
           cae: cae.cae,
           cae_vencimiento: caeFchVtoIso,
           status: "emitted",
@@ -516,7 +515,7 @@ export const issueInvoice = inngest.createFunction(
     return {
       cae: cae.cae,
       caeFchVto: cae.caeFchVto,
-      cbteNro: reservedNumero,
+      cbteNro: cae.cbteNro,
     };
   },
 );

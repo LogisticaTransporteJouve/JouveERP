@@ -1982,6 +1982,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          afip_attempted_numero: number | null
           afip_observaciones: Json | null
           cae: string | null
           cae_vencimiento: string | null
@@ -2026,6 +2027,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          afip_attempted_numero?: number | null
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
@@ -2070,6 +2072,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          afip_attempted_numero?: number | null
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
@@ -5204,6 +5207,7 @@ export type Database = {
         Args: { p_delta: number; p_employee_id: string }
         Returns: undefined
       }
+      bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
           p_invoice: Database["public"]["Tables"]["invoices"]["Row"]

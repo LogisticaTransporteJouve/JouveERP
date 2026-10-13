@@ -48,13 +48,3 @@ export async function listUsersWithRoles(): Promise<UserWithRoles[]> {
     roles: rolesByUser.get(user.id) ?? [],
   }));
 }
-
-export async function ownerCount(): Promise<number> {
-  const service = getServiceClient();
-  const { count, error } = await service
-    .from("user_roles")
-    .select("*", { count: "exact", head: true })
-    .eq("role_id", "owner");
-  if (error) throw error;
-  return count ?? 0;
-}

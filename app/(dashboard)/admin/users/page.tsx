@@ -1,14 +1,12 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import {
-  bootstrapOwnerIfNeeded,
-  listUsersAction,
-} from "@/features/admin-users/actions/users-actions";
+import { listUsersAction } from "@/features/admin-users/actions/users-actions";
 import { UsersTable } from "@/features/admin-users/components/users-table";
 import { adminUsersKeys } from "@/features/admin-users/lib/admin-users-keys";
+import { bootstrapOwnerIfNeeded } from "@/features/admin-users/lib/bootstrap-owner";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, type Role } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -20,11 +18,13 @@ export const dynamic = "force-dynamic";
 export default async function AdminUsersPage() {
   const ctx = await requireUserContext();
 
-  // One-shot: if no owner exists, the first authenticated user becomes one.
-  await bootstrapOwnerIfNeeded();
-  const refreshed = await requireUserContext();
+  // One-shot: on a fresh install (no owner yet) the first user ever created
+  // becomes owner. requireUserContext() is cached per request, so the new
+  // role is added locally instead of re-reading it.
+  const promoted = await bootstrapOwnerIfNeeded(ctx);
+  const roles: Role[] = promoted ? [...ctx.roles, "owner"] : ctx.roles;
 
-  if (!userCan(refreshed.roles, "users:read")) {
+  if (!userCan(roles, "users:read")) {
     redirect("/dashboard");
   }
 
@@ -45,10 +45,7 @@ export default async function AdminUsersPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <UsersTable
-            actorRoles={refreshed.roles}
-            currentUserId={ctx.userId}
-          />
+          <UsersTable actorRoles={roles} currentUserId={ctx.userId} />
         </Suspense>
       </Hydrate>
     </div>

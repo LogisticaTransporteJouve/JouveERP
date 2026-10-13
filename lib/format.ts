@@ -23,16 +23,48 @@ const MONTHS_ES = [
 
 const AR_OFFSET_MS = 3 * 60 * 60 * 1000;
 
+type CalendarDay = { year: number; monthIndex: number; day: number };
+
+const PLAIN_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Calendar day of `value` as seen in Argentina, or null if unparseable.
+ *  A plain "yyyy-mm-dd" (a Postgres `date`) has no time or zone: it IS the
+ *  calendar day, so it is read as-is. Shifting it like a timestamp (JS parses
+ *  it as 00:00 UTC) would render the previous day. Timestamps are shifted to
+ *  Argentina (UTC-3, no DST since 2009). */
+function arCalendarDay(value: string | Date): CalendarDay | null {
+  if (typeof value === "string") {
+    const plain = PLAIN_DATE.exec(value);
+    if (plain) {
+      const year = Number(plain[1]);
+      const monthIndex = Number(plain[2]) - 1;
+      const day = Number(plain[3]);
+      const check = new Date(Date.UTC(year, monthIndex, day));
+      if (
+        check.getUTCFullYear() !== year ||
+        check.getUTCMonth() !== monthIndex ||
+        check.getUTCDate() !== day
+      ) {
+        return null;
+      }
+      return { year, monthIndex, day };
+    }
+  }
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return null;
+  const ar = new Date(date.getTime() - AR_OFFSET_MS);
+  return {
+    year: ar.getUTCFullYear(),
+    monthIndex: ar.getUTCMonth(),
+    day: ar.getUTCDate(),
+  };
+}
+
 export function formatArgentineDate(value: string | null | undefined): string {
   if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  // Shift to Argentina (UTC-3, no DST since 2009) and read the UTC parts.
-  const ar = new Date(date.getTime() - AR_OFFSET_MS);
-  const day = ar.getUTCDate();
-  const month = MONTHS_ES[ar.getUTCMonth()] ?? "";
-  const year = ar.getUTCFullYear();
-  return `${day} ${month} ${year}`;
+  const cal = arCalendarDay(value);
+  if (!cal) return "—";
+  return `${cal.day} ${MONTHS_ES[cal.monthIndex] ?? ""} ${cal.year}`;
 }
 
 /**
@@ -55,8 +87,7 @@ export function formatAmountInput(raw: string): string {
   const cleaned = raw.replace(/[^\d,]/g, "");
   const parts = cleaned.split(",");
   let intPart = parts[0] ?? "";
-  const decPart =
-    parts.length > 1 ? parts.slice(1).join("").slice(0, 2) : null;
+  const decPart = parts.length > 1 ? parts.slice(1).join("").slice(0, 2) : null;
   if (intPart.length > 1) intPart = intPart.replace(/^0+(?=\d)/, "");
   if (intPart.length === 0 && decPart !== null) intPart = "0";
   const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -77,14 +108,18 @@ const moneyFmt0 = new Intl.NumberFormat("es-AR", {
 });
 
 /** "3.865,59" — without currency symbol. */
-export function formatNumber2(value: number | string | null | undefined): string {
+export function formatNumber2(
+  value: number | string | null | undefined,
+): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n)) return "0,00";
   return moneyFmt2.format(n);
 }
 
 /** "3.866" — integer, no decimals. */
-export function formatInteger(value: number | string | null | undefined): string {
+export function formatInteger(
+  value: number | string | null | undefined,
+): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n)) return "0";
   return moneyFmt0.format(Math.round(n));
@@ -120,10 +155,13 @@ export function formatMoneyWithCode(
   return `${currencyCode} ${formatNumber2(value)}`;
 }
 
+/** "17 may 2026, 12:30" in Argentine time. A plain "yyyy-mm-dd" carries no
+ *  time, so it renders as the date alone rather than an invented hour. */
 export function formatArgentineDateTime(
   value: string | null | undefined,
 ): string {
   if (!value) return "—";
+  if (PLAIN_DATE.test(value)) return formatArgentineDate(value);
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   const ar = new Date(date.getTime() - AR_OFFSET_MS);
@@ -135,14 +173,17 @@ export function formatArgentineDateTime(
   return `${day} ${month} ${year}, ${hh}:${mm}`;
 }
 
-/** "17/5/2026" — short es-AR date via `toLocaleDateString`. Used by
+/** "17/5/2026" — short es-AR date (the `toLocaleDateString("es-AR")` shape),
+ *  built by hand so it does not depend on the runtime's time zone. Used by
  *  emails and attachments where the compact format is preferred over the "17 may 2026"
  *  of `formatArgentineDate`. Accepts an ISO string or Date; invalid → "—". */
-export function formatArDateShort(value: string | Date | null | undefined): string {
+export function formatArDateShort(
+  value: string | Date | null | undefined,
+): string {
   if (!value) return "—";
-  const d = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-AR");
+  const cal = arCalendarDay(value);
+  if (!cal) return "—";
+  return `${cal.day}/${cal.monthIndex + 1}/${cal.year}`;
 }
 
 /** "YYYY-MM-DD" of the current day in Argentine time (UTC-3). Used as the default
@@ -163,10 +204,7 @@ export function round2(n: number): number {
  *  if the string does not represent a finite number. It is the semantic inverse of
  *  `formatAmountInput` / `amountToInput`. */
 export function parseArAmount(raw: string): number | null {
-  const cleaned = raw
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".");
+  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ".");
   if (cleaned.length === 0) return null;
   const n = Number.parseFloat(cleaned);
   return Number.isFinite(n) ? n : null;
