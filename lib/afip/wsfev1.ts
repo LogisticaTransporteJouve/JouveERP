@@ -195,20 +195,16 @@ function authBlock(token: string, sign: string, cuit: string): string {
 }
 
 export async function getServerStatus(): Promise<ServerStatus> {
-  return callWsfev1(
-    "FEDummy",
-    `<fe:FEDummy/>`,
-    (raw) => {
-      const r = raw as ParsedDummyResponse;
-      detectSoapFault(r.Envelope?.Body?.Fault);
-      const result = r.Envelope?.Body?.FEDummyResponse?.FEDummyResult;
-      return {
-        appServer: result?.AppServer ?? "UNKNOWN",
-        dbServer: result?.DbServer ?? "UNKNOWN",
-        authServer: result?.AuthServer ?? "UNKNOWN",
-      };
-    },
-  );
+  return callWsfev1("FEDummy", `<fe:FEDummy/>`, (raw) => {
+    const r = raw as ParsedDummyResponse;
+    detectSoapFault(r.Envelope?.Body?.Fault);
+    const result = r.Envelope?.Body?.FEDummyResponse?.FEDummyResult;
+    return {
+      appServer: result?.AppServer ?? "UNKNOWN",
+      dbServer: result?.DbServer ?? "UNKNOWN",
+      authServer: result?.AuthServer ?? "UNKNOWN",
+    };
+  });
 }
 
 export function normalizeSalesPoints(
@@ -301,6 +297,8 @@ export interface VoucherInfo {
   cbteNro: number;
   cbteFch: string;
   impTotal: number;
+  docTipo: number | null;
+  docNro: string | null;
   cae: string | null;
   caeFchVto: string | null;
   emisionTipo: string | null;
@@ -609,9 +607,7 @@ export async function getVoucherInfo(
 
     const errors = asArray(result?.Errors?.Err);
     if (errors.length > 0) {
-      const isNotFound = errors.some(
-        (e) => Number(e.Code) === NO_EXISTE_CODE,
-      );
+      const isNotFound = errors.some((e) => Number(e.Code) === NO_EXISTE_CODE);
       if (isNotFound) return null;
       throw new AfipServiceError(
         errors.map((e) => ({
@@ -630,6 +626,8 @@ export async function getVoucherInfo(
       cbteNro: Number(res.CbteDesde ?? cbteNro),
       cbteFch: String(res.CbteFch ?? ""),
       impTotal: Number(res.ImpTotal ?? 0),
+      docTipo: res.DocTipo === undefined ? null : Number(res.DocTipo),
+      docNro: res.DocNro === undefined ? null : String(res.DocNro),
       cae: res.CodAutorizacion ? String(res.CodAutorizacion) : null,
       caeFchVto: res.FchVto ? String(res.FchVto) : null,
       emisionTipo: res.EmisionTipo ? String(res.EmisionTipo) : null,

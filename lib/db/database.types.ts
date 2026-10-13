@@ -1982,6 +1982,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          afip_attempted_numero: number | null
           afip_observaciones: Json | null
           cae: string | null
           cae_vencimiento: string | null
@@ -2026,6 +2027,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          afip_attempted_numero?: number | null
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
@@ -2070,6 +2072,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          afip_attempted_numero?: number | null
           afip_observaciones?: Json | null
           cae?: string | null
           cae_vencimiento?: string | null
