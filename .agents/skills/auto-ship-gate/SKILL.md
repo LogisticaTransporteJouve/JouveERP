@@ -22,16 +22,11 @@ manifest (Phase A) gates entry to the loop.
 **JouveERP specifics that shape this gate:**
 - **PRs always stay draft** (`gh pr create --draft`). The human marks a PR ready when they choose.
   This skill NEVER runs `gh pr ready`.
-- **Checks that run on drafts** (the required signal): the `CI` workflow (`Lint / Typecheck / Test /
-  Build`), `DB types drift` (only when `supabase/migrations/`, `lib/db/database.types.ts` or its
-  scripts changed) and `migration-order-check`.
-- **The `Claude Code Review` workflow is gated on `draft == false`**, so on a draft it shows as a
-  `skipping` row (or not at all). That is EXPECTED: report it as
-  `claude-review: skipped (draft) — runs when the human marks the PR ready`. It is not a pass and not a
-  blocker; `/adv-review` is the in-session substitute. When the human later marks the PR ready, its
-  comment arrives as a PR comment from `github-actions[bot]` — a later invocation of this skill treats
-  its 🔴/🟡 items as findings (step 2).
-- Other review bots (Cursor Bugbot, `chatgpt-codex-connector`, Copilot) are not part of the repo's
+- **Checks that run on drafts** (the required signal): the `CI` workflow's jobs `Lint / Typecheck /
+  Test / Build` and `database` (migration names/order/append-only always; the local stack, plpgsql
+  lint and types drift only when `supabase/migrations/`, `lib/db/database.types.ts` or its scripts
+  changed). `Preview` deploys only once a `claude/*` PR is ready, so it is skipped on a draft.
+- Review bots (Cursor Bugbot, `chatgpt-codex-connector`, Copilot) are not part of the repo's
   setup today. If one is installed and posts on drafts, the settle rule below applies to it; if none
   runs, step 1 reduces to "zero unresolved bot threads" and the loop is effectively CI-only. Every
   other rail still binds.
@@ -78,7 +73,7 @@ loop — a relaunch can re-enter mid-file and would otherwise never have read th
 1. Read `.claude/skills/_shared/pr-readiness/manifest.md` in full now — that path resolves against the REPO ROOT, not your cwd.
 2. A5's migration check is ORCHESTRATOR work — a local Supabase run and any PR comment are forbidden to a subagent, so do it yourself rather than handing it to the wave. Never start a local stack or Docker unprompted.
 3. Execute A1–A6 against the current PR head, adversarially verifying every finding (≥6 `Explore` subagents, pasting `.claude/skills/_shared/subagent-constraints/hard-constraints.md` + `.claude/skills/_shared/subagent-constraints/working-location.md`).
-4. **Keep the PR draft.** Do NOT run `gh pr ready` — that is the human's call in JouveERP. The checks that matter (CI, DB types drift, migration order) run on drafts; the draft-gated `Claude Code Review` is recorded as skipped, not awaited.
+4. **Keep the PR draft.** Do NOT run `gh pr ready` — that is the human's call in JouveERP. The checks that matter (the CI `Lint / Typecheck / Test / Build` and `database` jobs) run on drafts.
 5. NEGATIVE GATE: do NOT proceed to "The loop" until you have Read the manifest and **cleared** every BLOCKING item. A
    BLOCKING item that cannot clear does not enter the loop — attended or not. ("Surfacing" it is how
    you report it, not a way past it.) A malformed PR (missing Intent, missing follow-ups, unresolved migration/conflict) does not enter the bot loop. Re-run only the affected manifest item after a later push.
@@ -91,14 +86,14 @@ loop — a relaunch can re-enter mid-file and would otherwise never have read th
 - Traps that make a naive read call it green when it isn't:
   1. **The run reviewed nothing.** A push cancels an in-flight run, which may still complete as `neutral`/`cancelled`. Read the run's `output.summary` / the bot's comment for a real verdict, not the conclusion bucket. `gh pr checks` printing `skipping` is not a pass.
   2. **Wrong run.** Bind every verdict to the head SHA via `check-runs?filter=all`.
-  3. **Bots without a check.** Some bots (e.g. `chatgpt-codex-connector`) post threads but publish no check-run, so nothing gates on them, and they can post after the others completed. The `Claude Code Review` workflow posts a PR **comment** (not a review thread) from `github-actions[bot]` when it runs.
+  3. **Bots without a check.** Some bots (e.g. `chatgpt-codex-connector`) post threads but publish no check-run, so nothing gates on them, and they can post after the others completed.
   4. **Truncated thread list.** Query `last:100` — the newest window — and compare `totalCount` against what you got. Past 100, paginate.
 - Fetch every unresolved bot thread on the PR (the query is not head-scoped — the head binding comes from the run, above):
   ```
   gh api graphql -f query='{ repository(owner:"LogisticaTransporteJouve",name:"JouveERP"){ pullRequest(number:N){ reviewThreads(last:100){ totalCount nodes { id isResolved isOutdated comments(first:1){ nodes { author{login} body path line } } } } }}}'
   ```
   Filter `isResolved==false` and `comments.nodes[0].author.login` in the set of review-bot logins actually present on this PR (e.g. `github-actions`, `cursor`, `chatgpt-codex-connector`, `copilot-pull-request-reviewer`). Do NOT filter on `isOutdated` — that only means the thread's diff anchor moved, so it drops findings nobody addressed. Also read bot PR comments (`gh pr view <n> --comments`) newer than the head commit for 🔴/🟡 items.
-- No review bot runs on this draft → record `bots: none run on draft (claude-review skipped)`, confirm zero unresolved bot threads, and go to step 4.
+- No review bot runs on this draft → record `bots: none run on draft`, confirm zero unresolved bot threads, and go to step 4.
 - Cap the whole gate at ~6 head-cycles, and ~4 rounds on any single unchanged head. Past that the bots are not converging: surface it instead of looping on.
 
 ### 2. Adversarially verify EACH finding before touching it
@@ -121,9 +116,9 @@ Commit (conventional, English, one line, NO trailer/footer — per CLAUDE.md), p
 
 ### 4. Only now: await CI green
 - `gh pr checks <n>` — wait until no check is `pending`.
-- **DID-NOT-RUN check.** Nothing pending is not the same as CI having run. `CI` triggers on `pull_request` to `main`: a PR based on another branch (a stacked PR) shows **no row at all**; `DB types drift` exits early when no relevant path changed; `Claude Code Review` shows `skipping` on a draft. None of those is a green. List every check that did not actually run, with the reason — where the reason is structural (stacked base, unmatched paths, draft-gated review bot) it is NOT a blocker: record it, and never wait on a check that cannot run. But "it didn't run" is not "it would have passed": for a stacked PR, run `pnpm lint && pnpm typecheck && pnpm test && pnpm build` locally on the head and record the result.
+- **DID-NOT-RUN check.** Nothing pending is not the same as CI having run. `CI` triggers on `pull_request` to `main`: a PR based on another branch (a stacked PR) shows **no row at all**; the `database` job skips its local-stack steps when no relevant path changed; `Preview` shows `skipping` on a draft. None of those is a green. List every check that did not actually run, with the reason — where the reason is structural (stacked base, unmatched paths, draft-gated preview) it is NOT a blocker: record it, and never wait on a check that cannot run. But "it didn't run" is not "it would have passed": for a stacked PR, run `pnpm lint && pnpm typecheck && pnpm test && pnpm build` locally on the head and record the result.
 - A red CI job: read the actual failing job log (`gh run view --log-failed` or the job URL), reproduce locally, fix, push → this is a new head, so **go back to step 1** (bots re-review the fix too).
-- Ignore-list the always-noisy non-required checks (e.g. `Vercel Preview Comments`) — gate on `CI` (`Lint / Typecheck / Test / Build`), `DB types drift` and `migration-order-check` where they ran (`gh pr checks <n> --required` if branch protection defines a required set), minus whatever the DID-NOT-RUN check showed cannot run on this PR.
+- Ignore-list the always-noisy non-required checks (e.g. `Vercel Preview Comments`) — gate on the `CI` jobs `Lint / Typecheck / Test / Build` and `database` where they ran (`gh pr checks <n> --required` if branch protection defines a required set), minus whatever the DID-NOT-RUN check showed cannot run on this PR.
 
 ### 4b. Final bot re-query
 Re-run the step-1 thread/comment query once more here, before mergeable — CI's run is dead time in which a re-run or a second bot can have posted. Anything new is a finding like any other: run step 2's verification wave first. Then:
@@ -175,5 +170,4 @@ End with a compact status: head SHA, draft state, bot verdict (none ran on draft
 ⚠️ **Emit the RECEIPT — three artifacts, verbatim, not summarised.** Your caller reports merge-ready
 only by passing these through, and cannot re-derive them without becoming a second, ungoverned gate:
 1. the head SHA the verdict is bound to, 2. the `check-runs?filter=all` result on that SHA,
-3. each review bot's verdict line on that head — or the literal `bots: none run on draft
-(claude-review skipped)`. A verdict with no receipt is the claim this gate exists to replace.
+3. each review bot's verdict line on that head — or the literal `bots: none run on draft`. A verdict with no receipt is the claim this gate exists to replace.

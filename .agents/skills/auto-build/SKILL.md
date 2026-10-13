@@ -119,9 +119,9 @@ the doctrine cannot be the one to report its absence, so the check lives here.
 
 ## Merge-safe (whole run)
 Never merge, never mark the PR ready for review, never take the change past merge-ready-as-draft.
-JouveERP PRs always stay draft; CI (lint/typecheck/test/build), `DB types drift` and
-`migration-order-check` run on drafts, while the `Claude Code Review` workflow waits for the human to
-mark the PR ready — that skipped row is expected, not a pass.
+JouveERP PRs always stay draft; the CI jobs (`Lint / Typecheck / Test / Build`, `database`) run on
+drafts, while `Preview` waits for the human to mark the PR ready — that skipped row is expected,
+not a pass.
 Continuously maintain the run's **living master plan** per `.claude/skills/_shared/execution-plan/master-plan-format.md`
 — the running single source of truth, updated at every transition (not just at the end), that ABSORBS this run's state (never `night-shift.state`, which belongs
 to the mode). Its `gate:` field is yours and `auto-ship-gate` knows nothing about it: `not-started`

@@ -84,7 +84,7 @@ JouveERP's conventions win:
 - Writes that span several tables (receipts, payment orders, opening balances) go through one RPC,
   and cancellations through the existing triggers — never re-implemented in TypeScript.
 - After a migration, regenerate `lib/db/database.types.ts` (`pnpm db:types:generate`, local stack
-  only); CI's `DB types drift` job diffs it. pgTAP tests go in `supabase/tests/` when added.
+  only); CI's `database` job diffs it. pgTAP tests go in `supabase/tests/` when added.
 
 The adversarial review of policies, grants, and definer functions is `enforce-role-isolation`;
 this skill is the machinery it builds on.

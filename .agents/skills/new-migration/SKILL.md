@@ -8,8 +8,8 @@ description: "Create a Supabase SQL migration in JouveERP (supabase/migrations/)
 ## Reglas
 
 - **Archivo:** `supabase/migrations/YYYYMMDDHHMMSS_<scope>.sql` (timestamp UTC).
-  El timestamp **debe ser mayor** al máximo en `main` — el CI `migration-order-check`
-  lo valida. Si hay duda, usá la fecha/hora actual.
+  El timestamp **debe ser mayor** al máximo en `main` — el job `database` de CI
+  (`ci.yml`) lo valida. Si hay duda, usá la fecha/hora actual.
 - **Una migración = un cambio cohesivo.** **Nunca** editar una migración ya
   mergeada; si hay que ajustar algo, va una **nueva**.
 - **RLS en la MISMA migración** que crea la tabla:
@@ -24,7 +24,7 @@ description: "Create a Supabase SQL migration in JouveERP (supabase/migrations/)
   `alter publication supabase_realtime add table public.<t>;`
 - **Después de aplicar:** regenerar tipos y commitearlos —
   `pnpm dlx supabase gen types typescript --local --schema public > lib/db/database.types.ts`
-  (el CI `db-types-check` diff-ea; si hay drift, falla).
+  (el job `database` de CI diff-ea; si hay drift, falla).
 - **Sin `select *`** en las queries que la consuman.
 
 ## Template

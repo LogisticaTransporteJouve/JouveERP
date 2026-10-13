@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Supabase migrations
 
-- File name `supabase/migrations/YYYYMMDDHHMMSS_<scope>.sql`, timestamp greater than the max on `main` (`migration-order-check` enforces it).
+- File name `supabase/migrations/YYYYMMDDHHMMSS_<scope>.sql`, timestamp greater than the max on `main` (the CI `database` job enforces it).
 - **Never edit a migration that was merged.** To change something from a past migration, add a **new** one.
-- Never run `supabase db push` or `supabase link`: `db-deploy.yml` applies migrations to production on merge to `main`.
+- Never run `supabase db push` or `supabase link`: the `deploy-migrations` job of `ci.yml` applies migrations to production on merge to `main`.
 - Every new table enables RLS in the same migration, with policies on `(select public.user_has_role(array[...]))` in `USING` and `WITH CHECK` (self-scoped rows: `user_id = (select auth.uid())`). Never grant to `anon`.
 - `SECURITY DEFINER` functions carry `SET search_path` and check the role inside; revoke from `public, anon, authenticated` before granting.
 - Money is `numeric(18, 2)`. Index every FK and filter column.

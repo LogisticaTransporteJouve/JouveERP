@@ -33,7 +33,7 @@ class below is only the look-here index; the rule lives in that guide.
 - Read the whole file before Pass 1 / Wave 1. Treat every Curated class as a place a bug is
   statistically likely — go look there, don't wait for it to jump out.
 - Frequency = how often this class actually breaks (high / occasional; "seed" = carried over from a
-  codebase with the same stack and from the house rules in `.github/claude-review-context.md`, not yet
+  codebase with the same stack and from the house rules in CLAUDE.md, not yet
   measured here). Higher = look harder. Recalibrate from JouveERP's own PR history as it accumulates.
 - Check "Known false-positives" before raising a finding — the listed shapes are correct as
   written; raising them wastes a finding.
@@ -60,7 +60,7 @@ class below is only the look-here index; the rule lives in that guide.
 - Where: invoices and their items (neto, IVA 21/10.5/27, percepciones, total), receipts / payment orders and their lines, purchase invoices, exchange rates (`features/exchange-rates`, BCRA cron), inflation adjustment, aging, balances, libro IVA, trial balance, anything converting ARS↔USD.
 - Example: `Number(total)` / `parseFloat` summed in JS and compared with `===` to a DB `numeric`; a USD invoice added to an ARS total; a conversion at today's rate on a document dated last month; `?? 0` turning a missing rate into a real zero; IVA computed per line and rounded differently from the AFIP payload.
 - Fix: money is `numeric(18, 2)` in Postgres and validated as a decimal in Zod; totals and balances are computed in SQL/RPC, not by summing in JS; round once, at the place AFIP's rules say; every amount carries its currency and is converted with an explicit dated rate; missing value → "sin dato", not 0.
-- source: house rules (`.github/claude-review-context.md`), adapted seed.
+- source: house rules (CLAUDE.md), adapted seed.
 
 **[double-entry / accounting integrity]**
 - Pattern: a journal entry whose debits ≠ credits, an automatic entry missing for a business event (or created twice), a write into a closed accounting period, a ledger account referenced by code instead of id (or the reverse) inconsistently.
@@ -84,7 +84,7 @@ class below is only the look-here index; the rule lives in that guide.
 - Where: `features/invoices`, `lib/afip/*`, `lib/inngest/functions/{issue-invoice,caea-*}.ts`, `features/afip-admin`, channel config (`invoicing_channels.is_fiscal`, POS mapping).
 - Example: `inngest.send` of the emit event for a `*_interno` channel; an UPDATE on an invoice with `cae` set; retrying an `AfipError` with code `SERVICE` (deterministic) as if it were `TRANSPORT`.
 - Fix: only `is_fiscal = true` channels emit; CAE'd vouchers are immutable (corrected only by NC/ND); `motivo_nc_nd` + `CbtesAsoc` required for NC/ND; retry only `TRANSPORT`; branch on `AfipError.code`.
-- source: house rules (`.github/claude-review-context.md`).
+- source: house rules (CLAUDE.md).
 
 **[PostgREST truncation / keyset pagination soundness]**
 - Pattern: an un-ranged select over a table that can exceed `max_rows = 1000` (silently truncated); offset paging over a live table; `range` without `order`; missing tie-break / has-more; a huge `.in()` exceeding URL length.
@@ -105,7 +105,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[migrations — ordered, append-only, typed]**
 - Pattern: timestamp ≤ the max on `main`; editing a merged migration; RLS missing from the creating migration; RPC/table shape changed without regenerating `lib/db/database.types.ts`; missing `set_updated_at()` trigger on a table with `updated_at`; unflagged large-table lock risk; a destructive change without the `[DESTRUCTIVE]` PR-title prefix.
 - Frequency: occasional (seed).
-- Where: `supabase/migrations/`, `lib/db/database.types.ts`, `migration-order-check.yml`, `db-types-check.yml`, `db-deploy.yml` (applies on merge to `main`).
+- Where: `supabase/migrations/`, `lib/db/database.types.ts`, `ci.yml` jobs `database` and `deploy-migrations` (applies on merge to `main`).
 - Example: two open PRs with the same timestamp prefix; a fix applied by editing an already-deployed migration (never re-applied in prod); a new column used in WHERE with no index.
 - Fix: `YYYYMMDDHHMMSS_<scope>.sql` > max on `main`; a NEW migration for every change; RLS + policies in the same file; regenerate and commit types; index new filter/FK columns; flag lock/rewrite risk in the PR body. See `/new-migration`.
 - source: CLAUDE.md; `/new-migration`.
@@ -124,7 +124,7 @@ class below is only the look-here index; the rule lives in that guide.
 - Where: `features/*/hooks/use-*.ts` mutations, `features/*/lib/*-keys.ts`, `useRealtimeInvalidate`, sign-out listeners.
 - Example: `useCreatePaymentOrder` invalidating `paymentOrdersKeys` but not `transactionsKeys`, `purchaseInvoicesKeys`, `suppliersKeys`, `checksKeys`, `issuedChecksKeys`; a Realtime channel without `filter: "column=eq.X"` refetching on every unrelated change.
 - Fix: invalidate every affected feature's keys on settle; reset local state from the server row; clear the cache on sign-out; filter Realtime server-side.
-- source: house rules (`.github/claude-review-context.md`).
+- source: house rules (CLAUDE.md).
 
 **[silently-swallowed / unchecked errors]**
 - Pattern: reading `.data` while ignoring `.error`; an action that throws instead of returning `ActionResult`; a catch that maps a non-retryable failure to retryable (or the reverse); a synthetic success.
@@ -212,7 +212,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[deploy / CI wiring / torn-deploy]**
 - Pattern: a new Inngest function not registered in `app/api/inngest/route.ts`; code that needs a migration merged before the migration is applied; an env var added locally but not in `.env.*.example` / Vercel; a cron without `TZ=America/Argentina/Buenos_Aires`.
 - Frequency: occasional, real incidents.
-- Where: `lib/inngest/functions/*`, `app/api/inngest/route.ts`, `.env.local.example`, `.env.production.example`, `db-deploy.yml`.
+- Where: `lib/inngest/functions/*`, `app/api/inngest/route.ts`, `.env.local.example`, `.env.production.example`, `ci.yml` (`deploy-migrations`).
 - Fix: register every function; land migrations with or before the code that needs them (they apply on merge to `main`); add every new variable NAME to the examples; verify the running deployment, not just the merge.
 - source: `/new-inngest-fn`; adv-review.
 
@@ -229,7 +229,7 @@ class below is only the look-here index; the rule lives in that guide.
 - Frequency: occasional.
 - Where: `features/*/components/**`, `app/(dashboard)/**/page.tsx`.
 - Fix: `Dialog` for create/edit; tokens only (danger = copy + icon, not red); `<DatePicker>` with ISO `YYYY-MM-DD`; shadcn primitives; prefetch + `Hydrate` for suspense queries.
-- source: CLAUDE.md; `.github/claude-review-context.md`.
+- source: CLAUDE.md.
 
 **[data exposure / audit logging / telemetry leaks / inbound callbacks]**
 - Pattern: server-only fields (tokens, secrets, AFIP cert/key, service-role results) reaching client payloads or a widened `select *`; an audit event written before the op runs, with the wrong actor, or missing on a sensitive mutation; amounts, CUIT/DNI/CBU, tokens, or extracted JSON in logs, Sentry, or error messages; an inbound callback (e.g. `/api/inngest`) served without signature verification.
