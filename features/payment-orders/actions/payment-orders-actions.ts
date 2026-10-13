@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import type {
@@ -273,46 +274,49 @@ export async function listPendingInvoicesForSupplierAction(
     fecha: string;
     imp_total: number | string;
   };
-  const CHUNK = 1000;
-  const HARD_CAP = 50000;
-  const invoices: Row[] = [];
-  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
-    const { data: chunk, error } = await supabase
-      .from("purchase_invoices")
-      .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
-      .eq("supplier_id", supplierId)
-      .eq("status", "received")
-      .order("fecha", { ascending: true })
-      .range(offset, offset + CHUNK - 1);
-    if (error) {
-      logger.error("payment_orders.pending.list_invoices_failed", {
-        userId: ctx.userId,
-        supplierId,
-        error,
-      });
-      return { ok: false, error: "No se pudieron listar facturas pendientes." };
-    }
-    const got = (chunk ?? []) as Row[];
-    invoices.push(...got);
-    if (got.length < CHUNK) break;
+  // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
+  // Both reads are independent → in parallel.
+  const [invoicesRes, allocsRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("purchase_invoices")
+        .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+        .eq("supplier_id", supplierId)
+        .eq("status", "received")
+        .order("fecha", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("payment_order_allocations")
+        .select(
+          "id, purchase_invoice_id, amount_applied, payment_order_id, payment_orders!inner ( status, supplier_id )",
+        )
+        .eq("payment_orders.supplier_id", supplierId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  if (invoicesRes.error) {
+    logger.error("payment_orders.pending.list_invoices_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error: invoicesRes.error,
+    });
+    return { ok: false, error: "No se pudieron listar facturas pendientes." };
   }
-
-  if (invoices.length === 0) return { ok: true, data: [] };
-
-  const { data: allocations, error: aErr } = await supabase
-    .from("payment_order_allocations")
-    .select(
-      "purchase_invoice_id, amount_applied, payment_order_id, payment_orders!inner ( status, supplier_id )",
-    )
-    .eq("payment_orders.supplier_id", supplierId);
-  if (aErr) {
+  if (allocsRes.error) {
     logger.error("payment_orders.pending.list_allocations_failed", {
       userId: ctx.userId,
       supplierId,
-      error: aErr,
+      error: allocsRes.error,
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
+  const invoices: Row[] = invoicesRes.data;
+  if (invoices.length === 0) return { ok: true, data: [] };
+  const allocations = allocsRes.data;
 
   const allocatedByInvoice = new Map<string, number>();
   for (const alloc of allocations ?? []) {

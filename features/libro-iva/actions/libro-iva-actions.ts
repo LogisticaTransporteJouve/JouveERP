@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
@@ -17,6 +18,10 @@ import {
   type ComprasDocExtra,
   type VentasDocExtra,
 } from "../lib/citi";
+import {
+  fetchLibroIvaComprasRows,
+  fetchLibroIvaVentasRows,
+} from "../lib/fetch-books";
 import {
   groupByInvoice,
   groupComprasByInvoice,
@@ -47,10 +52,11 @@ export async function listLibroIvaVentasAction(input: {
   input = parsed.data;
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("libro_iva_ventas", {
-    p_period: input.period,
-    p_channel_id: input.channelId ?? undefined,
-  });
+  const { data, error } = await fetchLibroIvaVentasRows(
+    supabase,
+    input.period,
+    input.channelId ?? null,
+  );
 
   if (error) {
     logger.error("libro_iva_ventas.failed", {
@@ -61,7 +67,7 @@ export async function listLibroIvaVentasAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Ventas." };
   }
 
-  return { ok: true, data: (data ?? []) as LibroIvaVentasRow[] };
+  return { ok: true, data };
 }
 
 export async function listLibroIvaComprasAction(input: {
@@ -82,10 +88,11 @@ export async function listLibroIvaComprasAction(input: {
   input = parsed.data;
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("libro_iva_compras", {
-    p_period: input.period,
-    p_channel_id: input.channelId ?? undefined,
-  });
+  const { data, error } = await fetchLibroIvaComprasRows(
+    supabase,
+    input.period,
+    input.channelId ?? null,
+  );
 
   if (error) {
     logger.error("libro_iva_compras.failed", {
@@ -96,7 +103,7 @@ export async function listLibroIvaComprasAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
 
-  return { ok: true, data: (data ?? []) as LibroIvaComprasRow[] };
+  return { ok: true, data };
 }
 
 const ExportTxtInput = z.object({
@@ -130,9 +137,11 @@ export async function exportLibroIvaTxtAction(input: {
   const supabase = await createClient();
 
   if (book === "ventas") {
-    const { data, error } = await supabase.rpc("libro_iva_ventas", {
-      p_period: period,
-    });
+    const { data, error } = await fetchLibroIvaVentasRows(
+      supabase,
+      period,
+      null,
+    );
     if (error) {
       logger.error("libro_iva.export.ventas_failed", {
         userId: ctx.userId,
@@ -141,17 +150,34 @@ export async function exportLibroIvaTxtAction(input: {
       });
       return { ok: false, error: "No se pudo leer el libro IVA Ventas." };
     }
-    const grouped = groupByInvoice((data ?? []) as LibroIvaVentasRow[]);
+    const grouped = groupByInvoice(data);
 
+    // Currency per document, looked up in chunks (a month can have thousands
+    // of comprobantes; one `.in()` would overflow the URL). A failed lookup
+    // aborts the export: without it every foreign-currency document would be
+    // written as PES at 1, a silently wrong fiscal file.
+    const monedas = await fetchInChunks(
+      grouped.map((g) => g.invoice_id),
+      (ids) =>
+        supabase
+          .from("invoices")
+          .select("id, moneda, cotizacion")
+          .in("id", ids),
+    );
+    if (monedas.error) {
+      logger.error("libro_iva.export.ventas_currency_failed", {
+        userId: ctx.userId,
+        period,
+        error: monedas.error,
+      });
+      return {
+        ok: false,
+        error: "No se pudo leer la moneda de los comprobantes.",
+      };
+    }
     const extras = new Map<string, VentasDocExtra>();
-    if (grouped.length > 0) {
-      const { data: monedas } = await supabase
-        .from("invoices")
-        .select("id, moneda, cotizacion")
-        .in("id", grouped.map((g) => g.invoice_id));
-      for (const m of monedas ?? []) {
-        extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
-      }
+    for (const m of monedas.data) {
+      extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
     }
 
     const result = buildVentasTxt(grouped, extras, period);
@@ -164,9 +190,11 @@ export async function exportLibroIvaTxtAction(input: {
     return { ok: true, data: result };
   }
 
-  const { data, error } = await supabase.rpc("libro_iva_compras", {
-    p_period: period,
-  });
+  const { data, error } = await fetchLibroIvaComprasRows(
+    supabase,
+    period,
+    null,
+  );
   if (error) {
     logger.error("libro_iva.export.compras_failed", {
       userId: ctx.userId,
@@ -175,17 +203,30 @@ export async function exportLibroIvaTxtAction(input: {
     });
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
-  const grouped = groupComprasByInvoice((data ?? []) as LibroIvaComprasRow[]);
+  const grouped = groupComprasByInvoice(data);
 
+  const monedas = await fetchInChunks(
+    grouped.map((g) => g.purchase_invoice_id),
+    (ids) =>
+      supabase
+        .from("purchase_invoices")
+        .select("id, moneda, cotizacion")
+        .in("id", ids),
+  );
+  if (monedas.error) {
+    logger.error("libro_iva.export.compras_currency_failed", {
+      userId: ctx.userId,
+      period,
+      error: monedas.error,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer la moneda de los comprobantes.",
+    };
+  }
   const extras = new Map<string, ComprasDocExtra>();
-  if (grouped.length > 0) {
-    const { data: monedas } = await supabase
-      .from("purchase_invoices")
-      .select("id, moneda, cotizacion")
-      .in("id", grouped.map((g) => g.purchase_invoice_id));
-    for (const m of monedas ?? []) {
-      extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
-    }
+  for (const m of monedas.data) {
+    extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
   }
 
   const result = buildComprasTxt(grouped, extras, period);

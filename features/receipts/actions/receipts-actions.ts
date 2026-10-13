@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
@@ -346,62 +347,66 @@ export async function listPendingComprobantesForClientAction(
     fecha: string;
     imp_total: number | string;
   };
-  const CHUNK = 1000;
-  const HARD_CAP = 50000;
-  const comprobantes: InvoiceRow[] = [];
-  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
-    const { data: chunk, error } = await supabase
-      .from("invoices")
-      .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
-      .eq("client_id", clientId)
-      .eq("status", "emitted")
-      .order("fecha", { ascending: true })
-      .range(offset, offset + CHUNK - 1);
-    if (error) {
-      logger.error("receipts.pending.list_comprobantes_failed", {
-        userId: ctx.userId,
-        clientId,
-        error,
-      });
-      return {
-        ok: false,
-        error: "No se pudieron listar los comprobantes pendientes.",
-      };
-    }
-    const got = (chunk ?? []) as InvoiceRow[];
-    comprobantes.push(...got);
-    if (got.length < CHUNK) break;
-  }
-
-  if (comprobantes.length === 0) return { ok: true, data: [] };
-
-  // Receipt allocations: we filter by receipts.client_id (not by
-  // .in(invoice_id, thousands…)) so we don't blow up the PostgREST URL.
-  // Opening allocations: whatever the balance adjustment already settled
-  // must also be subtracted from outstanding, otherwise the picker offers to
-  // re-apply against already-closed invoices. Both are independent → in parallel.
-  const [allocsRes, openingAllocsRes] = await Promise.all([
-    supabase
-      .from("receipt_allocations")
-      .select(
-        "invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
-      )
-      .eq("receipts.client_id", clientId),
-    supabase
-      .from("client_opening_balance_allocations")
-      .select("invoice_id, amount_applied")
-      .eq("client_id", clientId),
+  // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
+  // The three reads are independent → in parallel.
+  const [comprobantesRes, allocsRes, openingAllocsRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("invoices")
+        .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+        .eq("client_id", clientId)
+        .eq("status", "emitted")
+        .order("fecha", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // Receipt allocations: we filter by receipts.client_id (not by
+    // .in(invoice_id, thousands…)) so we don't blow up the PostgREST URL.
+    paginateRange((from, to) =>
+      supabase
+        .from("receipt_allocations")
+        .select(
+          "id, invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
+        )
+        .eq("receipts.client_id", clientId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // Opening allocations: whatever the balance adjustment already settled
+    // must also be subtracted from outstanding, otherwise the picker offers
+    // to re-apply against already-closed invoices.
+    paginateRange((from, to) =>
+      supabase
+        .from("client_opening_balance_allocations")
+        .select("invoice_id, amount_applied")
+        .eq("client_id", clientId)
+        .order("invoice_id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
-  const { data: allocations, error: aErr } = allocsRes;
-  if (aErr) {
+  if (comprobantesRes.error) {
+    logger.error("receipts.pending.list_comprobantes_failed", {
+      userId: ctx.userId,
+      clientId,
+      error: comprobantesRes.error,
+    });
+    return {
+      ok: false,
+      error: "No se pudieron listar los comprobantes pendientes.",
+    };
+  }
+  if (allocsRes.error || openingAllocsRes.error) {
     logger.error("receipts.pending.list_allocations_failed", {
       userId: ctx.userId,
       clientId,
-      error: aErr,
+      error: allocsRes.error ?? openingAllocsRes.error,
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
-  const { data: openingAllocs } = openingAllocsRes;
+  const comprobantes: InvoiceRow[] = comprobantesRes.data;
+  if (comprobantes.length === 0) return { ok: true, data: [] };
+  const allocations = allocsRes.data;
+  const openingAllocs = openingAllocsRes.data;
 
   const allocatedByComprobante = new Map<string, number>();
   for (const alloc of allocations ?? []) {

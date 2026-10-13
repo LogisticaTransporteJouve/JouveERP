@@ -6,6 +6,7 @@ import {
 } from "@/features/pallets/schema";
 import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import type { Exporter } from "../shared";
@@ -30,17 +31,24 @@ export const pallets: Exporter = {
   load: async (_params, range) => {
     const supabase = await createClient();
 
-    let query = supabase
-      .from("pallets")
-      .select(
-        "code, quantity, status, entry_date, warehouse:warehouses!inner(name), client:clients!inner(legal_name), product:products(name)",
-      )
-      .order("entry_date", { ascending: true });
+    // Drained page by page: PostgREST caps responses at max_rows (1000);
+    // `id` closes the order so OFFSET pages never repeat or skip rows.
+    const build = () => {
+      let query = supabase
+        .from("pallets")
+        .select(
+          "code, quantity, status, entry_date, warehouse:warehouses!inner(name), client:clients!inner(legal_name), product:products(name)",
+        )
+        .order("entry_date", { ascending: true })
+        .order("id", { ascending: true });
 
-    if (range.from) query = query.gte("entry_date", range.from);
-    if (range.to) query = query.lte("entry_date", range.to);
-
-    const { data, error } = await query;
+      if (range.from) query = query.gte("entry_date", range.from);
+      if (range.to) query = query.lte("entry_date", range.to);
+      return query;
+    };
+    const { data, error } = await paginateRange((from, to) =>
+      build().range(from, to),
+    );
     if (error) throw new Error("Could not load pallets.");
 
     const rows = (data ?? []).map((row) => {

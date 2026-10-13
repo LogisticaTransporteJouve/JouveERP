@@ -2,6 +2,7 @@ import "server-only";
 
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import { money, type Exporter } from "../shared";
@@ -23,17 +24,24 @@ export const fuel: Exporter = {
   load: async (_params, range) => {
     const supabase = await createClient();
 
-    let query = supabase
-      .from("fuel_loads")
-      .select(
-        "load_date, liters, amount, odometer_km, station, vehicles!inner(patente)",
-      )
-      .order("load_date", { ascending: true });
+    // Drained page by page: PostgREST caps responses at max_rows (1000);
+    // `id` closes the order so OFFSET pages never repeat or skip rows.
+    const build = () => {
+      let query = supabase
+        .from("fuel_loads")
+        .select(
+          "load_date, liters, amount, odometer_km, station, vehicles!inner(patente)",
+        )
+        .order("load_date", { ascending: true })
+        .order("id", { ascending: true });
 
-    if (range.from) query = query.gte("load_date", range.from);
-    if (range.to) query = query.lte("load_date", range.to);
-
-    const { data, error } = await query;
+      if (range.from) query = query.gte("load_date", range.from);
+      if (range.to) query = query.lte("load_date", range.to);
+      return query;
+    };
+    const { data, error } = await paginateRange((from, to) =>
+      build().range(from, to),
+    );
     if (error) throw new Error("Could not load fuel loads.");
 
     let total = 0;

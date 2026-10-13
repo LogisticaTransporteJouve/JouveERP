@@ -4,6 +4,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { round2, todayInAR } from "@/lib/format";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -14,6 +15,7 @@ import {
   type TreasurySummary,
 } from "../schema";
 import { isAccountType } from "@/features/accounts/schema";
+import { indexMovementTotals } from "../lib/movement-totals";
 
 type ActionResult<T> =
   | { ok: true; data: T }
@@ -78,49 +80,32 @@ export async function getTreasurySummaryAction(): Promise<
       : [],
   );
 
-  // 2. Sum signed transactions up to today and up to the end of the previous
-  // month, per account. PostgREST doesn't support aggregate sum in select
-  // ergonomically, so we fetch the minimal rows and aggregate in JS. For a small
-  // fleet with thousands (not millions) of transactions this is < 100ms.
-  const { data: txsRaw, error: txErr } = await supabase
-    .from("transactions")
-    .select("account_id, kind, amount, transaction_date")
-    .lte("transaction_date", today);
+  // 2. Signed transaction totals per account up to today and up to the end of
+  // the previous month, summed in Postgres (account_movement_totals). Summing
+  // fetched rows in JS silently truncated at PostgREST's max_rows (1000); the
+  // RPC returns one row per account, still drained in case accounts > 1000.
+  const totalsRes = await paginateRange((from, to) =>
+    supabase
+      .rpc("account_movement_totals", { p_until: today, p_split: prevEom })
+      .order("account_id", { ascending: true })
+      .range(from, to),
+  );
 
-  if (txErr) {
+  if (totalsRes.error) {
     logger.error("treasury.summary.tx_failed", {
       userId: ctx.userId,
-      error: txErr,
+      error: totalsRes.error,
     });
     return { ok: false, error: "No se pudieron leer movimientos." };
   }
 
-  const signOf = (kind: string): 1 | -1 =>
-    kind === "income" || kind === "transfer_in" ? 1 : -1;
-
-  const netNow = new Map<string, number>();
-  const netPrevEom = new Map<string, number>();
-  const lastMoveByAccount = new Map<string, string>();
-
-  for (const t of txsRaw ?? []) {
-    const signed = signOf(t.kind) * Number(t.amount);
-    netNow.set(t.account_id, (netNow.get(t.account_id) ?? 0) + signed);
-    if (t.transaction_date <= prevEom) {
-      netPrevEom.set(
-        t.account_id,
-        (netPrevEom.get(t.account_id) ?? 0) + signed,
-      );
-    }
-    const prev = lastMoveByAccount.get(t.account_id);
-    if (!prev || t.transaction_date > prev) {
-      lastMoveByAccount.set(t.account_id, t.transaction_date);
-    }
-  }
+  const totals = indexMovementTotals(totalsRes.data);
 
   const accounts: TreasuryAccountRow[] = accountsTyped.map((a) => {
     const opening = Number(a.opening_balance);
-    const balance_now = round2(opening + (netNow.get(a.id) ?? 0));
-    const balance_prev_eom = round2(opening + (netPrevEom.get(a.id) ?? 0));
+    const t = totals.get(a.id);
+    const balance_now = round2(opening + (t?.netUntil ?? 0));
+    const balance_prev_eom = round2(opening + (t?.netUntilSplit ?? 0));
     return {
       id: a.id,
       name: a.name,
@@ -129,7 +114,7 @@ export async function getTreasurySummaryAction(): Promise<
       is_active: a.is_active,
       balance_now,
       balance_prev_eom,
-      last_movement_date: lastMoveByAccount.get(a.id) ?? null,
+      last_movement_date: t?.lastMovementDate ?? null,
     };
   });
 

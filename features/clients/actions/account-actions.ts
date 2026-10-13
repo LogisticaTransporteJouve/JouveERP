@@ -7,6 +7,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
   IsoDateSchema,
@@ -14,8 +16,6 @@ import {
   NotesSchema,
   UuidSchema,
 } from "@/lib/validation/common";
-
-import type { ReceiptStatusJoin } from "@/features/receipts/schema";
 
 const SetOpeningInput = z.object({
   client_id: UuidSchema,
@@ -88,49 +88,57 @@ export async function getClientAccountAction(
 
   const supabase = await createSupabaseClient();
 
-  // PostgREST has a `db.max_rows` cap (default 1000) that applies
-  // even if you request more with `.range()`. We chunk in batches of 1000 until
-  // the set is exhausted. Defensive cap of 50000 movements per client.
-  const CHUNK = 1000;
-  const HARD_CAP = 50000;
-  type MovementRow = {
-    source_type: string | null;
-    source_id: string | null;
-    movement_date: string | null;
-    created_at: string | null;
-    kind: string | null;
-    letter: string | null;
-    punto_venta: number | null;
-    numero: number | null;
-    signed_amount: number | string | null;
-    gross_amount: number | string | null;
-    channel_id: string | null;
-    channel_name: string | null;
-    channel_division: string | null;
-    channel_is_fiscal: boolean | null;
-  };
-  const data: MovementRow[] = [];
-  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
-    const { data: chunk, error } = await supabase
-      .from("v_client_account_movements")
-      .select(
-        "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
-      )
-      .eq("client_id", clientId)
-      .order("movement_date", { ascending: true })
-      .order("created_at", { ascending: true })
-      .range(offset, offset + CHUNK - 1);
-    if (error) {
-      logger.error("clients.account.list_failed", {
-        userId: ctx.userId,
-        clientId,
-        error,
-      });
-      return { ok: false, error: "No se pudo cargar la cuenta corriente." };
-    }
-    const got = (chunk ?? []) as MovementRow[];
-    data.push(...got);
-    if (got.length < CHUNK) break;
+  // PostgREST caps every response at `max_rows` (1000), so the feed and the
+  // allocations are drained page by page (lib/supabase/paginate). Each drain
+  // needs a total order: movement_date + created_at alone can tie, so
+  // source_type + source_id close it. The three reads are independent.
+  const [movementsRes, allocsRes, openingAllocsRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("v_client_account_movements")
+        .select(
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
+        )
+        .eq("client_id", clientId)
+        .order("movement_date", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("source_type", { ascending: true })
+        .order("source_id", { ascending: true, nullsFirst: true })
+        .range(from, to),
+    ),
+    // Every allocation made by this client's receipts. Filtering by the
+    // receipt's client_id (not `.in(invoice_id, …)`) avoids PostgREST's URL
+    // length cap with thousands of migrated invoices; !inner narrows to the
+    // parent. The same rows give both per-invoice "applied" and per-receipt
+    // "a cuenta", so no second `.in(receipt_id, …)` query is needed.
+    paginateRange((from, to) =>
+      supabase
+        .from("receipt_allocations")
+        .select(
+          "id, invoice_id, receipt_id, amount_applied, receipts!inner ( status, client_id )",
+        )
+        .eq("receipts.client_id", clientId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // What the balance adjustment settled, so invoices the opening marked as
+    // settled show the "Pagada" / "Parcial" badge.
+    paginateRange((from, to) =>
+      supabase
+        .from("client_opening_balance_allocations")
+        .select("invoice_id, amount_applied")
+        .eq("client_id", clientId)
+        .order("invoice_id", { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  if (movementsRes.error || allocsRes.error || openingAllocsRes.error) {
+    logger.error("clients.account.list_failed", {
+      userId: ctx.userId,
+      clientId,
+      error: movementsRes.error ?? allocsRes.error ?? openingAllocsRes.error,
+    });
+    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
 
   // Opening balance behaves like an adjustment transaction: on its date
@@ -138,7 +146,7 @@ export async function getClientAccountAction(
   // balance_computed_just_before. To keep the ordering clear, on a date tie
   // the opening row goes last (after the invoices/receipts of that same
   // day) — so the adjustment reconciles the full day.
-  const rows = (data ?? []).slice().sort((a, b) => {
+  const rows = movementsRes.data.slice().sort((a, b) => {
     const dateA = a.movement_date ?? "";
     const dateB = b.movement_date ?? "";
     if (dateA !== dateB) return dateA < dateB ? -1 : 1;
@@ -148,72 +156,24 @@ export async function getClientAccountAction(
     return (a.created_at ?? "").localeCompare(b.created_at ?? "");
   });
 
-  // Per-document outstanding: invoices show imp_total − Σ allocations
-  // applied (from issued receipts only). Receipts show their "a cuenta"
-  // (total − Σ allocations made by THIS receipt).
-  const invoiceIds = rows
-    .filter((r) => r.source_type === "invoice" && r.source_id)
-    .map((r) => r.source_id!) as string[];
-  const receiptIds = rows
-    .filter((r) => r.source_type === "receipt" && r.source_id)
-    .map((r) => r.source_id!) as string[];
-
-  const appliedByInvoice = new Map<string, number>();
-  const appliedByReceipt = new Map<string, number>();
-  if (invoiceIds.length > 0 || receiptIds.length > 0) {
-    // We filter by the receipt's client_id (not by .in(invoice_id, …))
-    // to avoid PostgREST's URL length cap when there are thousands of
-    // migrated invoices. !inner ensures the filter narrows to the parent.
-    const { data: allocs } = await supabase
-      .from("receipt_allocations")
-      .select(
-        "invoice_id, receipt_id, amount_applied, receipts!inner ( status, client_id )",
-      )
-      .eq("receipts.client_id", clientId);
-
-    for (const a of allocs ?? []) {
-      const status = (a as unknown as ReceiptStatusJoin).receipts?.status;
-      if (status === "canceled") continue;
-      const amt = Number(a.amount_applied);
-      if (a.invoice_id) {
-        appliedByInvoice.set(
-          a.invoice_id,
-          (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
-        );
-      }
-    }
-
-    // Also add what the balance adjustment applied, so invoices
-    // that the opening marked as settled show the "Pagada" or
-    // "Parcial" badge. We query by client_id (more efficient and without the
-    // URL length limit that does affect `.in("invoice_id", [...])` with
-    // thousands of IDs).
-    const { data: openingAllocs } = await supabase
-      .from("client_opening_balance_allocations")
-      .select("invoice_id, amount_applied")
-      .eq("client_id", clientId);
-    for (const a of openingAllocs ?? []) {
-      const amt = Number(a.amount_applied);
-      appliedByInvoice.set(
-        a.invoice_id,
-        (appliedByInvoice.get(a.invoice_id) ?? 0) + amt,
-      );
-    }
-
-    if (receiptIds.length > 0) {
-      const { data: receiptAllocs } = await supabase
-        .from("receipt_allocations")
-        .select("receipt_id, amount_applied")
-        .in("receipt_id", receiptIds);
-      for (const a of receiptAllocs ?? []) {
-        const amt = Number(a.amount_applied);
-        appliedByReceipt.set(
-          a.receipt_id,
-          (appliedByReceipt.get(a.receipt_id) ?? 0) + amt,
-        );
-      }
-    }
-  }
+  // Per-document outstanding: invoices show imp_total − Σ allocations from
+  // non-canceled receipts − Σ opening allocations. Receipts show their
+  // "a cuenta" (total − Σ allocations made by THIS receipt).
+  const {
+    appliedByDocument: appliedByInvoice,
+    appliedByPayer: appliedByReceipt,
+  } = sumAllocations(
+    allocsRes.data.map((a) => ({
+      document_id: a.invoice_id,
+      payer_id: a.receipt_id,
+      amount_applied: a.amount_applied,
+      counts_for_document: readEmbeddedStatus(a.receipts) !== "canceled",
+    })),
+    openingAllocsRes.data.map((a) => ({
+      document_id: a.invoice_id,
+      amount_applied: a.amount_applied,
+    })),
+  );
   let running = 0;
   const movements: AccountMovement[] = [];
   for (const row of rows) {
