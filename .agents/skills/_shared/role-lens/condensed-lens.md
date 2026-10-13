@@ -25,10 +25,11 @@ agent/skill wiring; lib/auth/** (permissions matrix, context). Nothing in that l
 MODEL: single company, single tenant (one `business_units` row, `dz_sons`) — NO per-user ownership of
 business data. Access is ROLE-based: roles `owner, admin, finance, operations, warehouse, driver`
 (table `user_roles`), permissions `<resource>:<verb>` in `lib/auth/permissions.ts` (`PERMISSIONS` +
-`ROLE_PERMISSIONS`, covered 100% by `lib/auth/permissions.test.ts`). The app's PRIMARY boundary is
-the server action: `requireUserContext()` → `userCan(ctx.roles, "<perm>")` → only then
-`getServiceClient()`. RLS is the SECOND boundary (user-scoped client, Realtime, Storage, direct
-PostgREST): every table has RLS in its creating migration, policies gate on
+`ROLE_PERMISSIONS`, covered 100% by `lib/auth/permissions.test.ts`). Every server action
+gates first: `requireUserContext()` → `userCan(ctx.roles, "<perm>")`. Most actions then use the
+user-scoped `createClient()`, so RLS is ALSO enforced (and policy drift vs the matrix breaks or
+leaks features); on the minority that use `getServiceClient()` the gate is the ONLY boundary. RLS
+also guards Realtime, Storage and direct PostgREST: every table has RLS in its creating migration, policies gate on
 `(select public.user_has_role(array[...]))`. A few rows ARE self-scoped and pin to the session:
 `user_profiles`, `push_subscriptions`, `dashboard_layouts`, `notifications`, the AI assistant's
 `ai_chat_sessions`/`ai_chat_messages`, team-chat rows scoped by `chat_channel_members`, and the

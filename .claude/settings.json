@@ -16,8 +16,6 @@
       "Bash(git push*refs/heads/main*)",
       "Bash(git push*HEAD:main*)",
       "Bash(*pr merge*--admin*)",
-      "Bash(*.env)",
-      "Bash(*.env *)",
       "Bash(*.env.local)",
       "Bash(*.env.local *)",
       "Bash(*.env.*.local*)",
@@ -35,7 +33,19 @@
       "Read(**/.env.production)",
       "Read(**/.env.test)",
       "Read(**/.env.keys)",
-      "Read(**/.envrc)"
+      "Read(**/.envrc)",
+      "Bash(* .env)",
+      "Bash(* .env *)",
+      "Bash(*/.env)",
+      "Bash(*/.env *)",
+      "Bash(* .env|*)",
+      "Bash(* .env;*)",
+      "Bash(* .env&*)",
+      "Bash(*.env.staging*)",
+      "Read(**/.env.staging*)",
+      "Bash(git push*--mirror*)",
+      "Bash(git push* :*)",
+      "Bash(*vercel*--prod*)"
     ]
   },
   "attribution": {

@@ -34,8 +34,10 @@ unforgiving, because every shape below reads like ordinary code.
 
 ## The two boundaries
 
-1. **The server action (primary).** Almost every read and write goes through a `"use server"` action
-   that uses `getServiceClient()` — the service-role client, which **bypasses RLS**. So for those
+1. **The server action gate (always).** Every `"use server"` action runs `requireUserContext()` →
+   `userCan(...)` first. Most actions (~60 of ~70 files) then use the user-scoped `createClient()`
+   from `lib/supabase/server`, so RLS ALSO enforces access and the gate is defence in depth. A
+   minority use `getServiceClient()` — the service-role client, which **bypasses RLS** — and on those
    paths the action's own gate is the ONLY boundary:
 
    ```ts
@@ -54,7 +56,9 @@ unforgiving, because every shape below reads like ordinary code.
    }
    ```
 
-2. **RLS (second line).** Every table has RLS enabled **in the migration that creates it**. RLS is
+2. **RLS (enforced on most paths).** Because most actions use the user-scoped client, an RLS role
+   list narrower than the permission matrix silently breaks the feature, and a wider one leaks it —
+   policy drift is a first-class finding, not a footnote. Every table has RLS enabled **in the migration that creates it**. RLS is
    what guards the user-scoped server client (`createClient()`), the browser client (Realtime,
    Storage, any direct PostgREST call) and anything that forgets step 2 above. Policies gate on the
    helper `public.user_has_role(text[])` (SECURITY DEFINER, reads `user_roles` for
@@ -181,7 +185,7 @@ mention is UNCHECKED, not passed.
   grant execute on function public.f(uuid, date) to authenticated;   -- only if the UI calls it as an RPC
   ```
 
-  Existing migrations revoke `from public` only — pre-existing, raise it; new functions name the
+  Most existing migrations revoke `from public` only — pre-existing, raise it; new functions name the
   roles. A changed signature is a NEW object with fresh default grants: re-revoke.
 - **Tables**: never `grant ... to anon`. A DEFINER function that returns identifiers to any caller
   without a role check is an enumeration oracle.

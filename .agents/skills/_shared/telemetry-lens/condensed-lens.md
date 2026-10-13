@@ -28,8 +28,8 @@ HOUSE PIPELINE (the only sanctioned emitters — three channels, never mixed):
 - ERRORS: `captureException(error, context)` / `captureMessage(message, level, context)` from
   `lib/observability.ts` — logs AND forwards to Sentry when `SENTRY_DSN` is set (lazy import, no-op
   without a DSN). Sentry is initialised ONLY in `sentry.{server,edge,client}.config.ts` via
-  `instrumentation.ts`; `beforeSend` strips authorization/cookie headers. Nothing else imports
-  `@sentry/nextjs`.
+  `instrumentation.ts`; `beforeSend` strips authorization/cookie headers. Besides those, only
+  `lib/observability.ts` imports `@sentry/nextjs` (lazily) — it is the sanctioned forwarder.
 - AUDIT: `logAudit(eventType, actorId, payload, targetResourceId?)` from `lib/actions/audit.ts` →
   the `audit_events` table (service role, insert-only; failures are logged, never thrown). AI cost
   goes to `ai_usage` (tokens + cost per turn), not to logs.
@@ -38,7 +38,7 @@ second error tracker) is a platform decision, not a drive-by.
 
 THE EIGHT CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, not passed):
 1. HOUSE-PIPELINE — no parallel logger, no `console.*` in server code, no direct `@sentry/nextjs`
-   import outside the config files / `instrumentation.ts`, no second error tracker or analytics SDK,
+   import outside the config files / `instrumentation.ts` / `lib/observability.ts` (lazy), no second error tracker or analytics SDK,
    no `Sentry.init` elsewhere. Client-side errors surface through error boundaries (Sentry client
    config), not ad-hoc `console.error`.
 2. STABLE-NAMES — log messages and audit event types are static, greppable, dot-namespaced slugs
@@ -83,7 +83,7 @@ THE EIGHT CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED,
    grant, or code) is a DEFECT. Logs and Sentry are never relied on as the audit trail.
 
 SEVERITY: secret/PII/financial value in any field / parallel logger or tracker / `Sentry.init` or
-`@sentry/nextjs` outside its files / object spread into a signal / interpolated or data-built event
+`@sentry/nextjs` outside its files (config files, `instrumentation.ts`, `lib/observability.ts`) / object spread into a signal / interpolated or data-built event
 name / renamed audit event type / mutable `audit_events` / raw error or document content returned to
 the client / new failure surface with no emission = HARD blockers (any one = does not merge).
 `console.*` in server code / missing correlation id / wrong severity / per-row logging = raise-and-
