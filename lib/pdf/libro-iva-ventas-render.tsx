@@ -2,7 +2,7 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import type { LibroIvaVentasRow } from "@/features/libro-iva/schema";
+import { fetchLibroIvaVentasRows } from "@/features/libro-iva/lib/fetch-books";
 import { formatArgentineDateTime } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -16,15 +16,14 @@ export async function buildLibroIvaVentasTemplateData(
   channelId: string | null,
 ): Promise<LibroIvaVentasTemplateData> {
   const supabase = getServiceClient();
-  const { data, error } = await supabase.rpc("libro_iva_ventas", {
-    p_period: period,
-    p_channel_id: channelId ?? undefined,
-  });
+  const { data: rows, error } = await fetchLibroIvaVentasRows(
+    supabase,
+    period,
+    channelId,
+  );
   if (error) {
     throw new Error(`Could not read libro IVA Ventas: ${error.message}`);
   }
-
-  const rows = (data ?? []) as unknown as LibroIvaVentasRow[];
 
   let channelName = "Todos los canales fiscales";
   if (channelId) {

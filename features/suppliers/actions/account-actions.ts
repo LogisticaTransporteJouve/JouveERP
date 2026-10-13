@@ -7,6 +7,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
   IsoDateSchema,
@@ -15,7 +17,6 @@ import {
   UuidSchema,
 } from "@/lib/validation/common";
 
-import type { PaymentOrderStatusJoin } from "@/features/payment-orders/schema";
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
 const SetSupplierOpeningInput = z.object({
@@ -205,8 +206,6 @@ export async function getSupplierAccountAction(
 
   const supabase = await createSupabaseClient();
 
-  const CHUNK = 1000;
-  const HARD_CAP = 50000;
   type Row = {
     source_type: string;
     source_id: string | null;
@@ -223,99 +222,75 @@ export async function getSupplierAccountAction(
     channel_division: string | null;
     channel_is_fiscal: boolean | null;
   };
-  const data: Row[] = [];
-  for (let offset = 0; offset < HARD_CAP; offset += CHUNK) {
-    const { data: chunk, error } = await supabase
-      .from("v_supplier_account_movements")
-      .select(
-        "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
-      )
-      .eq("supplier_id", supplierId)
-      .order("movement_date", { ascending: true })
-      .order("created_at", { ascending: true })
-      .range(offset, offset + CHUNK - 1);
-    if (error) {
-      logger.error("suppliers.account.list_failed", {
-        userId: ctx.userId,
-        supplierId,
-        error,
-      });
-      return { ok: false, error: "No se pudo cargar la cuenta corriente." };
-    }
-    const got = (chunk ?? []) as Row[];
-    data.push(...got);
-    if (got.length < CHUNK) break;
-  }
-
-  // Per-document outstanding: factura/ND shows imp_total − Σ allocations
-  // from issued OPs. An OP shows its "a cuenta" (total − Σ its own allocations).
-  const piIds = data
-    .filter((r) => r.source_type === "purchase_invoice" && r.source_id)
-    .map((r) => r.source_id as string);
-  const opIds = data
-    .filter((r) => r.source_type === "payment_order" && r.source_id)
-    .map((r) => r.source_id as string);
-
-  const appliedByInvoice = new Map<string, number>();
-  if (piIds.length > 0) {
-    const [allocsRes, openingAllocsRes] = await Promise.all([
+  // PostgREST caps every response at `max_rows` (1000), so the feed and the
+  // allocations are drained page by page (lib/supabase/paginate) with a total
+  // order (movement_date + created_at can tie → source_type + source_id).
+  // The three reads are independent → in parallel.
+  const [movementsRes, allocsRes, openingAllocsRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("v_supplier_account_movements")
+        .select(
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
+        )
+        .eq("supplier_id", supplierId)
+        .order("movement_date", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("source_type", { ascending: true })
+        .order("source_id", { ascending: true, nullsFirst: true })
+        .range(from, to),
+    ),
+    // Every allocation made by this supplier's payment orders (filtered via
+    // the parent's supplier_id, not `.in(…)`, to stay under the URL cap). The
+    // same rows give per-invoice "applied" (issued OPs only) and per-OP
+    // "a cuenta", so no second `.in(payment_order_id, …)` query is needed.
+    paginateRange((from, to) =>
       supabase
         .from("payment_order_allocations")
         .select(
-          "purchase_invoice_id, amount_applied, payment_orders!inner ( status, supplier_id )",
+          "id, purchase_invoice_id, payment_order_id, amount_applied, payment_orders!inner ( status, supplier_id )",
         )
-        .eq("payment_orders.supplier_id", supplierId),
+        .eq("payment_orders.supplier_id", supplierId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // Opening balance allocations: an invoice that received money from the
+    // adjustment also reduces the aging/outstanding.
+    paginateRange((from, to) =>
       supabase
         .from("supplier_opening_balance_allocations")
         .select("purchase_invoice_id, amount_applied")
-        .eq("supplier_id", supplierId),
-    ]);
-    const { data: allocs, error: aErr } = allocsRes;
-    if (aErr) {
-      logger.error("suppliers.account.allocations_failed", {
-        userId: ctx.userId,
-        error: aErr,
-      });
-    }
-    for (const a of allocs ?? []) {
-      const status = (a as unknown as PaymentOrderStatusJoin).payment_orders
-        ?.status;
-      if (status !== "issued") continue;
-      const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
-      appliedByInvoice.set(
-        a.purchase_invoice_id,
-        prev + Number(a.amount_applied),
-      );
-    }
-    // Also add the opening balance allocations: an invoice that
-    // received money from the adjustment also reduces the aging/outstanding.
-    const { data: openingAllocs } = openingAllocsRes;
-    for (const a of openingAllocs ?? []) {
-      const prev = appliedByInvoice.get(a.purchase_invoice_id) ?? 0;
-      appliedByInvoice.set(
-        a.purchase_invoice_id,
-        prev + Number(a.amount_applied),
-      );
-    }
+        .eq("supplier_id", supplierId)
+        .order("purchase_invoice_id", { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  if (movementsRes.error || allocsRes.error || openingAllocsRes.error) {
+    logger.error("suppliers.account.list_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error: movementsRes.error ?? allocsRes.error ?? openingAllocsRes.error,
+    });
+    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
+  const data = movementsRes.data as Row[];
 
-  const appliedByOP = new Map<string, number>();
-  if (opIds.length > 0) {
-    const { data: opAllocs, error: oErr } = await supabase
-      .from("payment_order_allocations")
-      .select("payment_order_id, amount_applied")
-      .in("payment_order_id", opIds);
-    if (oErr) {
-      logger.error("suppliers.account.op_allocations_failed", {
-        userId: ctx.userId,
-        error: oErr,
-      });
-    }
-    for (const a of opAllocs ?? []) {
-      const prev = appliedByOP.get(a.payment_order_id) ?? 0;
-      appliedByOP.set(a.payment_order_id, prev + Number(a.amount_applied));
-    }
-  }
+  // Per-document outstanding: factura/ND shows imp_total − Σ allocations
+  // from issued OPs − Σ opening allocations. An OP shows its "a cuenta"
+  // (total − Σ its own allocations).
+  const { appliedByDocument: appliedByInvoice, appliedByPayer: appliedByOP } =
+    sumAllocations(
+      allocsRes.data.map((a) => ({
+        document_id: a.purchase_invoice_id,
+        payer_id: a.payment_order_id,
+        amount_applied: a.amount_applied,
+        counts_for_document: readEmbeddedStatus(a.payment_orders) === "issued",
+      })),
+      openingAllocsRes.data.map((a) => ({
+        document_id: a.purchase_invoice_id,
+        amount_applied: a.amount_applied,
+      })),
+    );
 
   // Re-sort: rows arrive ordered by movement_date+created_at (asc). Opening
   // balance rows have movement_date = opening_date — they sit naturally where
@@ -408,11 +383,16 @@ export async function getSupplierAgingAction(): Promise<
 
   // The aging view returns only numerics per supplier — we join with
   // suppliers for name/CUIT.
-  const { data: agingRows, error } = await supabase
-    .from("v_supplier_aging")
-    .select(
-      "supplier_id, bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus, total_open, document_count, oldest_days, suppliers!inner(legal_name, cuit)",
-    );
+  // Drained past max_rows (1000) — one row per supplier with open documents.
+  const { data: agingRows, error } = await paginateRange((from, to) =>
+    supabase
+      .from("v_supplier_aging")
+      .select(
+        "supplier_id, bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus, total_open, document_count, oldest_days, suppliers!inner(legal_name, cuit)",
+      )
+      .order("supplier_id", { ascending: true })
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("suppliers.aging.list_failed", { userId: ctx.userId, error });

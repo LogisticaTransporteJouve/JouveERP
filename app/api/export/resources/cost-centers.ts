@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import type { Exporter } from "../shared";
@@ -18,17 +19,24 @@ export const costCenters: Exporter = {
   load: async (_params, range) => {
     const supabase = await createClient();
 
-    let query = supabase
-      .from("cost_centers")
-      .select("code, name, description, is_active, created_at")
-      .order("created_at", { ascending: true });
+    // Drained page by page: PostgREST caps responses at max_rows (1000);
+    // `id` closes the order so OFFSET pages never repeat or skip rows.
+    const build = () => {
+      let query = supabase
+        .from("cost_centers")
+        .select("code, name, description, is_active, created_at")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
 
-    // created_at is a timestamptz; bound the upper end to the full day so
-    // rows created on `range.to` are not excluded.
-    if (range.from) query = query.gte("created_at", range.from);
-    if (range.to) query = query.lte("created_at", `${range.to}T23:59:59.999`);
-
-    const { data, error } = await query;
+      // created_at is a timestamptz; bound the upper end to the full day so
+      // rows created on `range.to` are not excluded.
+      if (range.from) query = query.gte("created_at", range.from);
+      if (range.to) query = query.lte("created_at", `${range.to}T23:59:59.999`);
+      return query;
+    };
+    const { data, error } = await paginateRange((from, to) =>
+      build().range(from, to),
+    );
     if (error) throw new Error("Could not load cost centers.");
 
     const rows = (data ?? []).map((cc) => [

@@ -20,7 +20,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    // Barrel packages imported across many files: only the used modules get
+    // bundled. (date-fns / recharts are in Next's default list.)
+    optimizePackageImports: ["lucide-react", "radix-ui", "ai"],
     serverActions: {
       bodySizeLimit: "10mb",
     },
@@ -37,12 +39,36 @@ const nextConfig: NextConfig = {
     // Legacy Spanish routes → English routes. Kept so bookmarks, browser
     // history, and login `redirectTo` params with old URLs still resolve.
     return [
-      { source: "/comprobantes/:path*", destination: "/invoices/:path*", permanent: true },
-      { source: "/clientes/:path*", destination: "/clients/:path*", permanent: true },
-      { source: "/recibos/:path*", destination: "/receipts/:path*", permanent: true },
-      { source: "/cuentas/:path*", destination: "/accounts/:path*", permanent: true },
-      { source: "/caja/:path*", destination: "/transactions/:path*", permanent: true },
-      { source: "/cheques/:path*", destination: "/checks/:path*", permanent: true },
+      {
+        source: "/comprobantes/:path*",
+        destination: "/invoices/:path*",
+        permanent: true,
+      },
+      {
+        source: "/clientes/:path*",
+        destination: "/clients/:path*",
+        permanent: true,
+      },
+      {
+        source: "/recibos/:path*",
+        destination: "/receipts/:path*",
+        permanent: true,
+      },
+      {
+        source: "/cuentas/:path*",
+        destination: "/accounts/:path*",
+        permanent: true,
+      },
+      {
+        source: "/caja/:path*",
+        destination: "/transactions/:path*",
+        permanent: true,
+      },
+      {
+        source: "/cheques/:path*",
+        destination: "/checks/:path*",
+        permanent: true,
+      },
     ];
   },
 };

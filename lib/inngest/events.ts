@@ -9,6 +9,12 @@ export const INVOICE_ISSUE_REQUESTED = "invoice/issue.requested" as const;
 export const InvoiceIssueRequestedSchema = z.object({
   invoice_id: z.string().uuid(),
   idempotency_key: z.string().min(1),
+  // Numbering scope of the draft: issue-invoice serializes runs per
+  // (channel, punto de venta) so two emissions never race for the same
+  // AFIP / internal numero. Optional only for events queued before this
+  // field existed; the action always sends both.
+  channel_id: z.string().min(1).optional(),
+  punto_venta: z.number().int().optional(),
 });
 
 export type InvoiceIssueRequested = z.infer<typeof InvoiceIssueRequestedSchema>;
