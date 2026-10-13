@@ -1,6 +1,11 @@
 import "server-only";
 
-import { generateObject, NoObjectGeneratedError, type UserContent } from "ai";
+import {
+  generateObject,
+  NoObjectGeneratedError,
+  type FilePart,
+  type UserContent,
+} from "ai";
 import type { z } from "zod";
 
 import {
@@ -79,17 +84,10 @@ const KIND_HINT: Record<ExtractableKind, string> = {
 
 export type DocumentBytes = { bytes: Uint8Array; mediaType: string };
 
-/** Build the model content part for a document (image vs PDF/other). */
-function documentPart(doc: DocumentBytes) {
-  if (doc.mediaType.startsWith("image/")) {
-    return {
-      type: "image" as const,
-      image: doc.bytes,
-      mediaType: doc.mediaType,
-    };
-  }
+/** Build the model content part for a document (images are file parts too). */
+function documentPart(doc: DocumentBytes): FilePart {
   return {
-    type: "file" as const,
+    type: "file",
     data: doc.bytes,
     mediaType: doc.mediaType || "application/pdf",
   };
@@ -121,7 +119,7 @@ export async function classifyDocument(
       model: buildClassifierModel(),
       schema: ClassificationSchema,
       schemaName: "DocumentClassification",
-      system: `${CLASSIFY_SYSTEM}\n${SAFETY_LINE}`,
+      instructions: `${CLASSIFY_SYSTEM}\n${SAFETY_LINE}`,
       maxRetries: 2,
       maxOutputTokens: AI_SMALL_MAX_OUTPUT_TOKENS,
       messages: [{ role: "user", content }],

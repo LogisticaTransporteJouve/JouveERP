@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DataTable, type ColumnDef } from "./data-table";
 
-type Row = { id: string; name: string };
+type Row = { id: string; name: string; children?: Row[] };
 
 const columns: ColumnDef<Row>[] = [
-  { accessorKey: "name", header: "Nombre", cell: ({ row }) => row.original.name },
+  {
+    accessorKey: "name",
+    header: "Nombre",
+    cell: ({ row }) => row.original.name,
+  },
   { id: "actions", header: "", enableSorting: false, cell: () => "•" },
 ];
 
@@ -67,5 +71,79 @@ describe("DataTable", () => {
     // The sortable "Nombre" header renders a clickable button; the actions
     // column (enableSorting: false) does not.
     expect(screen.getByRole("button", { name: /Nombre/ })).toBeDefined();
+  });
+
+  it("sorts by a column when its header is clicked", () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[
+          { id: "1", name: "Beta" },
+          { id: "2", name: "Alpha" },
+          { id: "3", name: "Gamma" },
+        ]}
+        getRowId={(r) => r.id}
+      />,
+    );
+    const names = () =>
+      Array.from(container.querySelectorAll("tbody tr td:first-child")).map(
+        (td) => td.textContent,
+      );
+    expect(names()).toEqual(["Beta", "Alpha", "Gamma"]);
+    fireEvent.click(screen.getByRole("button", { name: /Nombre/ }));
+    expect(names()).toEqual(["Alpha", "Beta", "Gamma"]);
+    fireEvent.click(screen.getByRole("button", { name: /Nombre/ }));
+    expect(names()).toEqual(["Gamma", "Beta", "Alpha"]);
+  });
+
+  it("paginates only when enabled", () => {
+    const data = Array.from({ length: 5 }, (_, i) => ({
+      id: String(i),
+      name: `Fila ${i}`,
+    }));
+    const { container, rerender } = render(
+      <DataTable columns={columns} data={data} getRowId={(r) => r.id} />,
+    );
+    expect(container.querySelectorAll("tbody tr").length).toBe(5);
+
+    rerender(
+      <DataTable
+        columns={columns}
+        data={data}
+        getRowId={(r) => r.id}
+        enablePagination
+        initialPageSize={2}
+        key="paged"
+      />,
+    );
+    expect(container.querySelectorAll("tbody tr").length).toBe(2);
+    expect(screen.getByText(/Página 1 de 3/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(screen.getByText(/Página 2 de 3/)).toBeDefined();
+    expect(screen.getByText("Fila 2")).toBeDefined();
+  });
+
+  it("renders sub-rows when expanded", () => {
+    const treeColumns: ColumnDef<Row>[] = [
+      {
+        id: "name",
+        header: "Nombre",
+        cell: ({ row }) =>
+          `${"-".repeat(row.depth)}${row.original.name}${row.getCanExpand() ? "+" : ""}`,
+      },
+    ];
+    render(
+      <DataTable
+        columns={treeColumns}
+        data={[
+          { id: "1", name: "Padre", children: [{ id: "2", name: "Hijo" }] },
+        ]}
+        getRowId={(r) => r.id}
+        getSubRows={(r) => r.children}
+        expanded={{ "1": true }}
+      />,
+    );
+    expect(screen.getByText("Padre+")).toBeDefined();
+    expect(screen.getByText("-Hijo")).toBeDefined();
   });
 });

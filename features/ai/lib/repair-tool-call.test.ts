@@ -22,6 +22,7 @@ const schema = {
 
 function repairOptions(input: string, error: Error) {
   return {
+    instructions: undefined,
     system: undefined,
     messages: [] satisfies ModelMessage[],
     toolCall: {

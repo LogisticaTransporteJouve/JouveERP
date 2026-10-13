@@ -3,7 +3,7 @@
 // When the model mis-fills a tool's arguments the AI SDK does NOT drop the call:
 // it echoes the invalid tool_use (non-object input) back on the next step,
 // which Anthropic rejects (`tool_use.input: Input should be an object`) and the
-// whole turn dies. `experimental_repairToolCall` is the only hook that runs
+// whole turn dies. `repairToolCall` is the only hook that runs
 // before that echo. On an invalid-input error we regenerate schema-valid
 // arguments with the cheap utility model (Haiku), bounded in context and time;
 // if that fails (or there is no intent to recover) we return the smallest
@@ -136,9 +136,13 @@ export function haikuRegenerator(opts: {
         model: buildRepairModel(),
         schema: jsonSchema(inputSchema),
         maxOutputTokens: AI_SMALL_MAX_OUTPUT_TOKENS,
-        providerOptions: { anthropic: { effort: "low" } },
+        // jsonTool: tool input schemas aren't guaranteed to compile for
+        // Anthropic constrained decoding (now the default for the 5.5 ids).
+        providerOptions: {
+          anthropic: { structuredOutputMode: "jsonTool", effort: "low" },
+        },
         abortSignal: AbortSignal.timeout(REPAIR_TIMEOUT_MS),
-        system:
+        instructions:
           `You are repairing a malformed call to the "${toolName}" tool in an ` +
           "ongoing conversation with an accounting ERP assistant. Using the " +
           "conversation so far, produce corrected arguments that satisfy the " +
@@ -168,7 +172,7 @@ export function haikuRegenerator(opts: {
   };
 }
 
-/** Builds the `experimental_repairToolCall` callback. */
+/** Builds the `repairToolCall` callback. */
 export function makeRepairToolCall<TOOLS extends ToolSet>(
   regenerate: RegenerateArgs,
 ): ToolCallRepairFunction<TOOLS> {

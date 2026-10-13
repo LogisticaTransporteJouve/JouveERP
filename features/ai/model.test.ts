@@ -1,5 +1,5 @@
 import { APICallError } from "ai";
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -8,7 +8,7 @@ import {
   runWithFallback,
 } from "./model";
 
-type GenerateResult = Awaited<ReturnType<MockLanguageModelV3["doGenerate"]>>;
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
 
 function generateResult(text: string): GenerateResult {
   return {
@@ -115,7 +115,7 @@ describe("runWithFallback", () => {
 describe("createFallbackModel (sticky per turn)", () => {
   it("keeps serving from the fallback link once a call fell back", async () => {
     let primaryCalls = 0;
-    const primary = new MockLanguageModelV3({
+    const primary = new MockLanguageModelV4({
       modelId: "primary",
       doGenerate: async () => {
         primaryCalls++;
@@ -123,7 +123,7 @@ describe("createFallbackModel (sticky per turn)", () => {
         return generateResult("primary");
       },
     });
-    const secondary = new MockLanguageModelV3({
+    const secondary = new MockLanguageModelV4({
       modelId: "secondary",
       doGenerate: async () => generateResult("secondary"),
     });
@@ -142,11 +142,11 @@ describe("createFallbackModel (sticky per turn)", () => {
   });
 
   it("stays on the primary when nothing failed", async () => {
-    const primary = new MockLanguageModelV3({
+    const primary = new MockLanguageModelV4({
       modelId: "primary",
       doGenerate: async () => generateResult("primary"),
     });
-    const secondary = new MockLanguageModelV3({
+    const secondary = new MockLanguageModelV4({
       modelId: "secondary",
       doGenerate: async () => generateResult("secondary"),
     });

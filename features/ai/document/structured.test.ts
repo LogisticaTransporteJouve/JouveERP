@@ -1,4 +1,4 @@
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -8,7 +8,7 @@ import {
   generateStructured,
 } from "./structured";
 
-type GenerateResult = Awaited<ReturnType<MockLanguageModelV3["doGenerate"]>>;
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
 
 const usage = {
   inputTokens: { total: 100, noCache: 40, cacheRead: 50, cacheWrite: 10 },
@@ -45,9 +45,9 @@ const Schema = z.object({
   name: z.string().nullish(),
 });
 
-function sequenced(results: GenerateResult[]): MockLanguageModelV3 {
+function sequenced(results: GenerateResult[]): MockLanguageModelV4 {
   let i = 0;
-  return new MockLanguageModelV3({
+  return new MockLanguageModelV4({
     modelId: "claude-sonnet-5-5",
     doGenerate: async () => {
       const r = results[Math.min(i, results.length - 1)];

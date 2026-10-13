@@ -32,6 +32,7 @@ export function PdfPreviewInner({ url }: { url: string }) {
 
   return (
     <Document
+      suspense={false}
       file={url}
       onLoadSuccess={({ numPages }) => {
         setPages(numPages);
