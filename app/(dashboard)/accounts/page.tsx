@@ -7,10 +7,10 @@ import { AccountsTable } from "@/features/accounts/components/accounts-table";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -22,13 +22,9 @@ export default async function CuentasPage() {
     redirect("/dashboard");
   }
 
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name");
-  const channels = (channelsData ?? []).map((c) => ({ id: c.id, name: c.name }));
+  // Shared (React cache) with the dashboard layout's channel read.
+  const channelsData = await getActiveInvoicingChannels();
+  const channels = channelsData.map((c) => ({ id: c.id, name: c.name }));
 
   const dehydratedState = await prefetchQueries([
     {

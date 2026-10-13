@@ -14,10 +14,10 @@ import {
 } from "@/features/transactions/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -60,14 +60,10 @@ export default async function CajaPage({
     date_to: asISODate(params.to),
   };
 
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name");
+  // Shared (React cache) with the dashboard layout's channel read.
+  const channelsData = await getActiveInvoicingChannels();
 
-  const channels = (channelsData ?? []).map((c) => ({
+  const channels = channelsData.map((c) => ({
     id: c.id,
     name: c.name,
   }));
@@ -98,8 +94,8 @@ export default async function CajaPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
           <p className="text-sm text-muted-foreground">
-            Ingresos, egresos y transferencias entre cuentas. Cada movimiento
-            se imputa a un canal (Jouve o DZ) para reportes por división.
+            Ingresos, egresos y transferencias entre cuentas. Cada movimiento se
+            imputa a un canal (Jouve o DZ) para reportes por división.
           </p>
         </div>
         <ExportPdfButton resource="transactions" label="Exportar PDF" />

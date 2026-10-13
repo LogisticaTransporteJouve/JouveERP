@@ -5,6 +5,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -14,13 +15,7 @@ import {
   type CashFlowEvent,
   type CashScope,
 } from "../lib/cash-flow";
-
-const BALANCE_SIGN: Record<string, number> = {
-  income: 1,
-  transfer_in: 1,
-  expense: -1,
-  transfer_out: -1,
-};
+import { monthlyFlowsToEvents } from "../lib/movement-totals";
 
 function monthKey(isoDate: string): string {
   return isoDate.slice(0, 7);
@@ -134,42 +129,51 @@ export async function getCashFlowAction(input: {
     accountCurrency.set(a.id, a.currency);
     cashToday += opening;
   }
-  const accountIds = [...accountCurrency.keys()];
 
-  if (accountIds.length > 0) {
-    const { data: txs, error: txErr } = await supabase
-      .from("transactions")
-      .select(
-        "kind, amount, transaction_date, account_id, channel:invoicing_channels(is_fiscal)",
-      )
-      .in("account_id", accountIds)
-      .lte("transaction_date", today);
-    if (txErr) {
-      logger.error("cashflow.tx.failed", { userId: ctx.userId, error: txErr });
+  if (accountCurrency.size > 0) {
+    // Summed in Postgres: fetching every transaction and summing in JS was
+    // silently truncated at PostgREST's max_rows (1000). Both RPCs return
+    // aggregated rows, still drained page by page with a total order.
+    const [totalsRes, flowsRes] = await Promise.all([
+      paginateRange((from, to) =>
+        supabase
+          .rpc("account_movement_totals", { p_until: today, p_split: today })
+          .order("account_id", { ascending: true })
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        supabase
+          .rpc("transaction_monthly_flows", {
+            p_from: rangeStartDate,
+            p_until: today,
+          })
+          .order("account_id", { ascending: true })
+          .order("month", { ascending: true })
+          .order("kind", { ascending: true })
+          .order("scope", { ascending: true })
+          .range(from, to),
+      ),
+    ]);
+    if (totalsRes.error || flowsRes.error) {
+      logger.error("cashflow.tx.failed", {
+        userId: ctx.userId,
+        error: totalsRes.error ?? flowsRes.error,
+      });
       return { ok: false, error: "No se pudo calcular el flujo de caja." };
     }
-    for (const tx of txs ?? []) {
-      const amt = toArs(
-        Number(tx.amount),
-        accountCurrency.get(tx.account_id) ?? "ARS",
-      );
-      if (amt === null) continue;
-      cashToday += (BALANCE_SIGN[tx.kind] ?? 0) * amt;
-      if (
-        (tx.kind === "income" || tx.kind === "expense") &&
-        tx.transaction_date >= rangeStartDate
-      ) {
-        const m = monthKey(tx.transaction_date);
-        if (monthSet.has(m)) {
-          events.push({
-            month: m,
-            direction: tx.kind === "income" ? "in" : "out",
-            amount: Math.abs(amt),
-            scope: readFiscal(tx.channel),
-          });
-        }
-      }
+    for (const t of totalsRes.data) {
+      const currency = accountCurrency.get(t.account_id);
+      if (currency === undefined) continue; // excluded above (USD sin cotización)
+      const net = toArs(Number(t.net_until), currency);
+      if (net !== null) cashToday += net;
     }
+    events.push(
+      ...monthlyFlowsToEvents(flowsRes.data, {
+        accountCurrency,
+        toArs,
+        monthSet,
+      }),
+    );
   }
   cashToday = round2(cashToday);
 
@@ -204,9 +208,14 @@ export async function getCashFlowAction(input: {
 
   // Open client receivables → expected collection in the month of their due
   // date (overdue ones clamp to the first projected month), channel-split.
-  const { data: recv } = await supabase
-    .from("v_aging_documents")
-    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda");
+  // Drained past max_rows (1000): open documents grow with the business.
+  const { data: recv } = await paginateRange((from, to) =>
+    supabase
+      .from("v_aging_documents")
+      .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
+      .order("invoice_id", { ascending: true })
+      .range(from, to),
+  );
   for (const r of recv ?? []) {
     const amt = toArs(Number(r.open_amount), r.moneda);
     if (amt === null || amt <= 0.005) continue;
@@ -223,9 +232,13 @@ export async function getCashFlowAction(input: {
 
   // Open supplier payables → expected payment in the month of their due date
   // (overdue ones clamp to the first projected month), channel-split.
-  const { data: pay } = await supabase
-    .from("v_supplier_aging_documents")
-    .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda");
+  const { data: pay } = await paginateRange((from, to) =>
+    supabase
+      .from("v_supplier_aging_documents")
+      .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
+      .order("purchase_invoice_id", { ascending: true })
+      .range(from, to),
+  );
   for (const p of pay ?? []) {
     const amt = toArs(Number(p.open_amount), p.moneda);
     if (amt === null || amt <= 0.005) continue;
@@ -241,11 +254,15 @@ export async function getCashFlowAction(input: {
   }
 
   // Received checks in portfolio → inflow by due month (no channel → otro).
-  const { data: checks } = await supabase
-    .from("checks")
-    .select("amount, currency, due_date")
-    .eq("status", "en_cartera")
-    .gte("due_date", `${firstFwd}-01`);
+  const { data: checks } = await paginateRange((from, to) =>
+    supabase
+      .from("checks")
+      .select("id, amount, currency, due_date")
+      .eq("status", "en_cartera")
+      .gte("due_date", `${firstFwd}-01`)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
   for (const c of checks ?? []) {
     const amt = toArs(Math.abs(Number(c.amount)), c.currency);
     if (amt === null) continue;

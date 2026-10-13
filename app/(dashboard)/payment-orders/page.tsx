@@ -9,10 +9,10 @@ import { PaymentOrdersTable } from "@/features/payment-orders/components/payment
 import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -24,14 +24,10 @@ export default async function PaymentOrdersPage() {
     redirect("/dashboard");
   }
 
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name");
+  // Shared (React cache) with the dashboard layout's channel read.
+  const channelsData = await getActiveInvoicingChannels();
 
-  const channels = (channelsData ?? []).map((c) => ({
+  const channels = channelsData.map((c) => ({
     id: c.id,
     name: c.name,
   }));
@@ -56,7 +52,8 @@ export default async function PaymentOrdersPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Pagos a proveedores con imputación a facturas de compra. Numerador
-            independiente por canal: <span className="font-mono">OP0003-…</span>.
+            independiente por canal: <span className="font-mono">OP0003-…</span>
+            .
           </p>
         </div>
         <ExportPdfButton resource="payment-orders" label="Exportar PDF" />

@@ -9,10 +9,10 @@ import { ChequesTable } from "@/features/checks/components/checks-table";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -24,14 +24,10 @@ export default async function ChequesPage() {
     redirect("/dashboard");
   }
 
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name");
+  // Shared (React cache) with the dashboard layout's channel read.
+  const channelsData = await getActiveInvoicingChannels();
 
-  const channels = (channelsData ?? []).map((c) => ({
+  const channels = channelsData.map((c) => ({
     id: c.id,
     name: c.name,
   }));

@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 
 import { useGlobalSearch } from "../hooks/use-search";
@@ -26,7 +23,9 @@ export function GlobalSearchDialog({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
-  const { data, isFetching } = useGlobalSearch(query);
+  // Debounced so typing "transporte" issues one search, not ten.
+  const debouncedQuery = useDebouncedValue(query, 250);
+  const { data, isFetching } = useGlobalSearch(debouncedQuery);
   const results = data ?? [];
 
   useEffect(() => {
@@ -81,7 +80,8 @@ export function GlobalSearchDialog({
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Empezá a tipear para buscar (mínimo 2 caracteres).
             </p>
-          ) : isFetching && results.length === 0 ? (
+          ) : (isFetching || query !== debouncedQuery) &&
+            results.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Buscando…
             </p>

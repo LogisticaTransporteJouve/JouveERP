@@ -11,6 +11,7 @@ import {
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
 import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import { money, type Exporter } from "../shared";
@@ -38,17 +39,24 @@ export const issuedChecks: Exporter = {
   permission: "issued_checks:read",
   load: async (params, range) => {
     const supabase = await createClient();
-    let query = supabase
-      .from("issued_checks")
-      .select(
-        `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name )`,
-      )
-      .order("due_date", { ascending: true });
+    // Drained page by page: PostgREST caps responses at max_rows (1000);
+    // `id` closes the order so OFFSET pages never repeat or skip rows.
+    const build = () => {
+      let query = supabase
+        .from("issued_checks")
+        .select(
+          `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name )`,
+        )
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true });
 
-    if (range.from) query = query.gte("due_date", range.from);
-    if (range.to) query = query.lte("due_date", range.to);
-
-    const { data, error } = await query;
+      if (range.from) query = query.gte("due_date", range.from);
+      if (range.to) query = query.lte("due_date", range.to);
+      return query;
+    };
+    const { data, error } = await paginateRange((from, to) =>
+      build().range(from, to),
+    );
     if (error) throw new Error("Could not export issued checks.");
 
     let total = 0;
@@ -59,8 +67,7 @@ export const issuedChecks: Exporter = {
         if (!isIssuedCheckCurrency(row.currency)) return null;
         const supplier = (row as unknown as SupplierListLegalJoin).suppliers;
         const account = (row as unknown as AccountsListNameJoin).accounts;
-        const beneficiary =
-          supplier?.legal_name ?? row.beneficiary_name ?? "—";
+        const beneficiary = supplier?.legal_name ?? row.beneficiary_name ?? "—";
         const bank = row.bank_name || account?.name || "—";
         const amount = Number(row.amount);
         total += amount;

@@ -322,12 +322,18 @@ export async function getSupplierReferencesAction(
   const details: Record<string, number> = {};
   let total = 0;
 
-  for (const dep of dependents) {
-    const { count, error } = await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from(dep.table as any)
-      .select("*", { count: "exact", head: true })
-      .eq(dep.column, id);
+  // Independent head-only counts → in parallel (was one round trip per table).
+  const counts = await Promise.all(
+    dependents.map((dep) =>
+      supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from(dep.table as any)
+        .select("*", { count: "exact", head: true })
+        .eq(dep.column, id),
+    ),
+  );
+  dependents.forEach((dep, i) => {
+    const { count, error } = counts[i]!;
     if (error) {
       logger.warn("suppliers.refs.count_failed", {
         userId: ctx.userId,
@@ -335,13 +341,13 @@ export async function getSupplierReferencesAction(
         table: dep.table,
         err: error.message,
       });
-      continue;
+      return;
     }
     if (count && count > 0) {
       details[dep.table] = count;
       total += count;
     }
-  }
+  });
 
   return { ok: true, data: { total, details } };
 }

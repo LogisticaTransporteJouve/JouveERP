@@ -1,8 +1,5 @@
 import { getActiveCaeaForDate } from "@/lib/afip/caea";
-import {
-  AfipServiceError,
-  AfipTransportError,
-} from "@/lib/afip/errors";
+import { AfipServiceError, AfipTransportError } from "@/lib/afip/errors";
 import {
   getLastAuthorizedNumber,
   getVoucherInfo,
@@ -182,6 +179,15 @@ export const issueInvoice = inngest.createFunction(
     name: "Issue invoice (request CAE)",
     triggers: [{ event: INVOICE_ISSUE_REQUESTED }],
     idempotency: "event.data.idempotency_key",
+    // Narrows numbering races per (channel, punto de venta). Inngest limits
+    // concurrent STEPS per key, not whole runs, so two runs can still
+    // interleave between `reserve-numero` and `request-cae` on the fiscal
+    // branch; closing that needs an atomic reservation (see the internal
+    // branch's next_internal_invoice_numero_atomic).
+    concurrency: {
+      key: 'event.data.channel_id + ":" + string(event.data.punto_venta)',
+      limit: 1,
+    },
     retries: RETRYABLE_LIMIT,
     onFailure: async ({ event, error }) => {
       const supabase = getServiceClient();
@@ -215,9 +221,7 @@ export const issueInvoice = inngest.createFunction(
       const supabase = getServiceClient();
       const { data: draft, error } = await supabase
         .from("invoices")
-        .select(
-          "*, channel:invoicing_channels(id, is_fiscal, name)",
-        )
+        .select("*, channel:invoicing_channels(id, is_fiscal, name)")
         .eq("id", invoice_id)
         .maybeSingle();
       if (error) throw new Error(`load-draft: ${error.message}`);
@@ -230,9 +234,7 @@ export const issueInvoice = inngest.createFunction(
 
       const channel = (draft as unknown as DraftChannelJoin).channel;
       if (!channel) {
-        throw new Error(
-          `Comprobante ${invoice_id} — canal no encontrado.`,
-        );
+        throw new Error(`Comprobante ${invoice_id} — canal no encontrado.`);
       }
 
       const [{ data: items, error: itemsErr }, originPair, posRes] =
@@ -310,9 +312,8 @@ export const issueInvoice = inngest.createFunction(
 
       await step.run("hash-pdf-internal", async () => {
         try {
-          const { generateAndPersistInvoicePdfHash } = await import(
-            "@/lib/pdf/generate-and-hash"
-          );
+          const { generateAndPersistInvoicePdfHash } =
+            await import("@/lib/pdf/generate-and-hash");
           await generateAndPersistInvoicePdfHash(invoice_id);
         } catch (err) {
           logger.warn("issue_invoice.pdf_hash_failed_internal", {
@@ -404,9 +405,8 @@ export const issueInvoice = inngest.createFunction(
 
       await step.run("hash-pdf-caea", async () => {
         try {
-          const { generateAndPersistInvoicePdfHash } = await import(
-            "@/lib/pdf/generate-and-hash"
-          );
+          const { generateAndPersistInvoicePdfHash } =
+            await import("@/lib/pdf/generate-and-hash");
           await generateAndPersistInvoicePdfHash(invoice_id);
         } catch (err) {
           logger.warn("issue_invoice.pdf_hash_failed_caea", {
@@ -502,9 +502,8 @@ export const issueInvoice = inngest.createFunction(
     // optional.
     await step.run("hash-pdf", async () => {
       try {
-        const { generateAndPersistInvoicePdfHash } = await import(
-          "@/lib/pdf/generate-and-hash"
-        );
+        const { generateAndPersistInvoicePdfHash } =
+          await import("@/lib/pdf/generate-and-hash");
         await generateAndPersistInvoicePdfHash(invoice_id);
       } catch (err) {
         logger.warn("issue_invoice.pdf_hash_failed", {

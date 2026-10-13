@@ -170,13 +170,22 @@ export async function issueFiscalInvoiceAction(
       return { ok: false, error: "El comprobante de origen no está emitido." };
     }
     if (origin.client_id !== data.client_id) {
-      return { ok: false, error: "El comprobante de origen pertenece a otro cliente." };
+      return {
+        ok: false,
+        error: "El comprobante de origen pertenece a otro cliente.",
+      };
     }
     if (origin.channel_id !== data.channel_id) {
-      return { ok: false, error: "El comprobante de origen pertenece a otro canal." };
+      return {
+        ok: false,
+        error: "El comprobante de origen pertenece a otro canal.",
+      };
     }
     if (origin.numero === null) {
-      return { ok: false, error: "El comprobante de origen todavía no tiene número." };
+      return {
+        ok: false,
+        error: "El comprobante de origen todavía no tiene número.",
+      };
     }
   }
 
@@ -185,7 +194,8 @@ export async function issueFiscalInvoiceAction(
   if (channel.is_fiscal && data.items.some((it) => it.iva_rate_id === null)) {
     return {
       ok: false,
-      error: "En comprobantes fiscales, cada ítem debe tener una alícuota de IVA.",
+      error:
+        "En comprobantes fiscales, cada ítem debe tener una alícuota de IVA.",
     };
   }
 
@@ -289,7 +299,12 @@ export async function issueFiscalInvoiceAction(
   try {
     await inngest.send({
       name: INVOICE_ISSUE_REQUESTED,
-      data: { invoice_id, idempotency_key },
+      data: {
+        invoice_id,
+        idempotency_key,
+        channel_id: data.channel_id,
+        punto_venta: data.punto_venta,
+      },
     });
   } catch (err) {
     // Roll back the draft so the user can retry cleanly. The most common

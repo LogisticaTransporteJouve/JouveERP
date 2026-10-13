@@ -23,10 +23,10 @@ import { IVA_CONDITION_LABEL } from "@/features/clients/schema";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -43,7 +43,25 @@ export default async function ClientDetailPage({
   }
 
   const { id } = await params;
-  const result = await getClientByIdAction(id);
+  // Independent reads in parallel: the client row, the pickers' channels and
+  // accounts, and the cuenta-corriente prefetch (a not-found id just wastes
+  // the prefetch; the account actions validate the id themselves).
+  const [result, activeChannels, accountsResult, dehydratedState] =
+    await Promise.all([
+      getClientByIdAction(id),
+      getActiveInvoicingChannels(),
+      listAccountsAction(),
+      prefetchQueries([
+        {
+          queryKey: clientsKeys.account(id),
+          queryFn: () => runAction(() => getClientAccountAction(id)),
+        },
+        {
+          queryKey: clientsKeys.openingBalance(id),
+          queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
+        },
+      ]),
+    ]);
   if (!result.ok) {
     redirect("/clients");
   }
@@ -54,35 +72,15 @@ export default async function ClientDetailPage({
   const client = result.data;
   const canWrite = userCan(ctx.roles, "clients:write");
 
-  // Fetch channels + accounts so the cuenta-corriente tab can render the
+  // Channels + accounts so the cuenta-corriente tab can render the
   // New invoice / New receipt dialogs with this client pre-selected.
-  const supabase = await createSupabaseClient();
-  const { data: channelsData } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, division, is_fiscal, is_active")
-    .eq("is_active", true)
-    .order("name");
-
-  const channels = (channelsData ?? []).map((c) => ({
+  const channels = activeChannels.map((c) => ({
     id: c.id,
     name: c.name,
     division: c.division,
     is_fiscal: c.is_fiscal,
   }));
-
-  const accountsResult = await listAccountsAction();
   const accounts = accountsResult.ok ? accountsResult.data : [];
-
-  const dehydratedState = await prefetchQueries([
-    {
-      queryKey: clientsKeys.account(id),
-      queryFn: () => runAction(() => getClientAccountAction(id)),
-    },
-    {
-      queryKey: clientsKeys.openingBalance(id),
-      queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
-    },
-  ]);
 
   return (
     <div className="space-y-6">
