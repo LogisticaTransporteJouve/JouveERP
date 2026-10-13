@@ -3,7 +3,7 @@ name: Migration order
 # Runs on every PR (no `paths:` filter) so this required check always
 # reports a status — branch protection treats path-filtered workflows as
 # permanently pending, blocking merges on PRs that don't touch migrations.
-# The job itself short-circuits when no new migrations are present.
+# The job itself short-circuits when no migrations changed.
 on:
   pull_request:
     branches: [main]
@@ -23,41 +23,102 @@ jobs:
 
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Compare migration timestamps against main
+      # Migrations are append-only: once merged, a file may have been applied
+      # to production, and editing it there is a silent no-op (supabase only
+      # records the version). Fix forward with a new migration instead.
+      - name: Existing migrations are append-only
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
+          base="origin/${BASE_REF}"
 
-          # Highest timestamp on main, defaulting to 0 if there are no migrations.
-          base_max=$(git ls-tree --name-only origin/${{ github.base_ref }} -- supabase/migrations \
-            | grep -E '^[0-9]{14}_' \
-            | cut -d_ -f1 \
-            | sort -n \
-            | tail -n 1 \
-            || true)
-          base_max=${base_max:-0}
+          touched=$(git diff --diff-filter=MDRCT --name-status "${base}...HEAD" -- supabase/migrations)
 
-          # New migration files introduced by this PR.
-          mapfile -t new_files < <(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD -- supabase/migrations \
-            | grep -E '^supabase/migrations/[0-9]{14}_' \
-            || true)
+          if [ -z "$touched" ]; then
+            echo "No existing migration was modified, deleted or renamed."
+            exit 0
+          fi
 
-          if [ ${#new_files[@]} -eq 0 ]; then
+          # <status>\t<path on base>[\t<new path>] (renames/copies carry both).
+          while IFS=$'\t' read -r status file new_path; do
+            echo "::error file=${file}::${status} ${file}${new_path:+ -> ${new_path}}: merged migrations are append-only — never edit, delete or rename one on ${BASE_REF}; add a new migration that fixes forward."
+          done <<< "$touched"
+          exit 1
+
+      - name: New migration names and timestamps
+        # Report naming/order problems even when the append-only step failed.
+        if: ${{ !cancelled() }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          base="origin/${BASE_REF}"
+
+          # --no-renames: a rename shows up as the file it adds, so its name
+          # and stamp are checked too (the append-only step rejects the
+          # rest). Every added file under supabase/migrations is checked,
+          # not just files that already look like migrations: a misnamed
+          # file must fail, not be skipped.
+          changed=$(git diff --no-renames --diff-filter=A --name-only "${base}...HEAD" -- supabase/migrations)
+
+          if [ -z "$changed" ]; then
             echo "No new migrations in this PR."
             exit 0
           fi
 
-          echo "Latest timestamp on main: $base_max"
+          # Highest timestamp on the base branch. The listing is filtered to
+          # well-formed names so a stray file cannot become the max.
+          latest_timestamp=$(git ls-tree --name-only "$base" supabase/migrations/ \
+            | sed 's|.*/||' \
+            | grep -E '^[0-9]{14}_' \
+            | cut -c1-14 \
+            | sort -n \
+            | tail -n 1 || true)
 
-          for file in "${new_files[@]}"; do
-            ts=$(basename "$file" | cut -d_ -f1)
-            if [ "$ts" -le "$base_max" ]; then
-              echo "::error file=$file::Migration timestamp $ts is not strictly greater than main's latest $base_max. Two PRs likely raced — rename the file with a fresher timestamp."
-              exit 1
+          # Stamps are UTC (`supabase migration new` writes UTC). A day of
+          # slack covers a hand-written stamp from a timezone ahead of UTC.
+          now=$(date -u +%Y%m%d%H%M%S)
+          max_allowed=$(date -u -d '+1 day' +%Y%m%d%H%M%S)
+
+          # An empty bound turns every comparison below into a silent no-op,
+          # which is worse than no gate at all.
+          if ! [[ "$latest_timestamp" =~ ^[0-9]{14}$ ]] || ! [[ "$max_allowed" =~ ^[0-9]{14}$ ]]; then
+            echo "::error::Migration gate could not determine its bounds (newest on ${BASE_REF}: '${latest_timestamp}', future cutoff: '${max_allowed}'). Refusing to pass without checking."
+            exit 1
+          fi
+
+          echo "Newest migration on ${BASE_REF}: ${latest_timestamp} (now ${now} UTC)"
+
+          errors=0
+          while IFS= read -r file; do
+            name="${file#supabase/migrations/}"
+            if ! [[ "$name" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "::error file=${file}::${name} is not a valid migration name. Use supabase/migrations/<YYYYMMDDHHMMSS>_<snake_case>.sql (lowercase, digits and _ only)."
+              errors=$((errors + 1))
+              continue
             fi
-            echo "OK: $file ($ts > $base_max)"
-            base_max="$ts"
-          done
+            timestamp="${name:0:14}"
+            if [ "$timestamp" -gt "$max_allowed" ]; then
+              echo "::error file=${file}::${name} is stamped ${timestamp}, more than a day in the future (now ${now} UTC). Every later migration would have to beat it — restamp it with the current UTC time."
+              errors=$((errors + 1))
+            elif [ "$timestamp" -le "$latest_timestamp" ]; then
+              echo "::error file=${file}::${name} is stamped ${timestamp}, not after ${latest_timestamp} (${BASE_REF}'s newest, or an earlier migration in this PR). Stamps must be unique and increasing — rename the file with a fresher timestamp."
+              errors=$((errors + 1))
+            else
+              echo "OK: ${name}"
+              # Paths arrive sorted, so each new file must also beat the previous one
+              # (supabase keys schema_migrations by the stamp).
+              latest_timestamp="$timestamp"
+            fi
+          done <<< "$changed"
+
+          if [ "$errors" -gt 0 ]; then
+            echo "${errors} migration file(s) rejected."
+            exit 1
+          fi
