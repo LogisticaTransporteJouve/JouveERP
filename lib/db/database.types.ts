@@ -5204,6 +5204,7 @@ export type Database = {
         Args: { p_delta: number; p_employee_id: string }
         Returns: undefined
       }
+      bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
           p_invoice: Database["public"]["Tables"]["invoices"]["Row"]

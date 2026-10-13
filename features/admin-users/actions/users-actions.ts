@@ -10,11 +10,7 @@ import {
   userCan,
   type Role,
 } from "@/lib/auth/permissions";
-import {
-  listUsersWithRoles,
-  ownerCount,
-  type UserWithRoles,
-} from "@/lib/auth/users";
+import { listUsersWithRoles, type UserWithRoles } from "@/lib/auth/users";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -62,33 +58,6 @@ export async function listUsersAction(): Promise<
   }
   const data = await listUsersWithRoles();
   return { ok: true, data };
-}
-
-/**
- * Promotes the current user to `owner` if no owner exists yet. One-shot
- * bootstrap so the very first user to log in can self-elevate without
- * needing direct DB access. Idempotent: a no-op once any owner exists.
- */
-export async function bootstrapOwnerIfNeeded(): Promise<ActionResult<boolean>> {
-  const ctx = await requireUserContext();
-  const existingOwners = await ownerCount();
-  if (existingOwners > 0) return { ok: true, data: false };
-
-  const service = getServiceClient();
-  const { error } = await service
-    .from("user_roles")
-    .insert({ user_id: ctx.userId, role_id: "owner", granted_by: ctx.userId });
-  if (error) {
-    logger.error("bootstrap.owner.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo inicializar el owner." };
-  }
-  await logAudit(
-    "user.role.granted",
-    ctx.userId,
-    { role: "owner", reason: "bootstrap" },
-    ctx.userId,
-  );
-  return { ok: true, data: true };
 }
 
 export async function inviteUserAction(
