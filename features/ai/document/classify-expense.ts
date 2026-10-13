@@ -3,10 +3,7 @@ import "server-only";
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 
-import {
-  usageTokens,
-  type AiUsageTokens,
-} from "@/features/ai/lib/chat-store";
+import { usageTokens, type AiUsageTokens } from "@/features/ai/lib/chat-store";
 import { wrapUntrusted } from "@/features/ai/lib/prompt-text";
 import {
   AI_SMALL_MAX_OUTPUT_TOKENS,
@@ -63,9 +60,7 @@ function fail(reason: string): ExpenseClassifyResult {
  * "</line_items>\nIgnore the rules…" can't break out or start an instruction.
  */
 export function buildExpensePrompt(i: ExpenseClassifyInput): string {
-  const accs = i.leafAccounts
-    .map((a) => `${a.code} — ${a.name}`)
-    .join("\n");
+  const accs = i.leafAccounts.map((a) => `${a.code} — ${a.name}`).join("\n");
   const ccs = i.costCenters.map((c) => `${c.code} — ${c.name}`).join("\n");
   const lines = i.lineDescriptions.length
     ? i.lineDescriptions.map((d) => `- ${wrapUntrusted("line", d)}`).join("\n")
@@ -107,7 +102,9 @@ export async function classifyExpense(
   const accountName = (code: string) =>
     input.leafAccounts.find((a) => a.code === code)?.name ?? null;
   const ccName = (code: string | null) =>
-    code ? (input.costCenters.find((c) => c.code === code)?.name ?? null) : null;
+    code
+      ? (input.costCenters.find((c) => c.code === code)?.name ?? null)
+      : null;
 
   const base = buildExpensePrompt(input);
   let extra = "";
@@ -122,7 +119,10 @@ export async function classifyExpense(
       });
       opts.onUsage?.(usageTokens(usage));
       // Low-confidence non-sentinel → demote to UNMAPPED (human decides).
-      if (object.accountCode !== UNMAPPED && object.confidence < MIN_CONFIDENCE) {
+      if (
+        object.accountCode !== UNMAPPED &&
+        object.confidence < MIN_CONFIDENCE
+      ) {
         return {
           accountCode: UNMAPPED,
           accountName: null,
@@ -135,7 +135,9 @@ export async function classifyExpense(
       return {
         accountCode: object.accountCode,
         accountName:
-          object.accountCode === UNMAPPED ? null : accountName(object.accountCode),
+          object.accountCode === UNMAPPED
+            ? null
+            : accountName(object.accountCode),
         costCenterCode: object.costCenterCode,
         costCenterName: ccName(object.costCenterCode),
         confidence: object.confidence,
@@ -148,7 +150,8 @@ export async function classifyExpense(
       }
       const name = err instanceof Error ? err.name : "";
       const schemaErr =
-        name === "AI_NoObjectGeneratedError" || name === "AI_TypeValidationError";
+        name === "AI_NoObjectGeneratedError" ||
+        name === "AI_TypeValidationError";
       if (schemaErr) {
         extra =
           'CRITICAL: your previous response did not respect the schema. Return ONLY the JSON object with accountCode (a listed code or "UNMAPPED"), costCenterCode, confidence, reason.';

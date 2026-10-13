@@ -54,7 +54,10 @@ export async function POST(req: Request) {
     if (err instanceof RateLimitError) {
       return NextResponse.json(
         { error: "Alcanzaste el límite de consultas de IA. Probá más tarde." },
-        { status: 429, headers: { "Retry-After": String(err.retryAfterSeconds) } },
+        {
+          status: 429,
+          headers: { "Retry-After": String(err.retryAfterSeconds) },
+        },
       );
     }
     throw err;
@@ -97,10 +100,7 @@ export async function POST(req: Request) {
   // text turn is accepted (no assistant/system role, no forged tool results).
   const message = await parseIncomingUserMessage(rawMessage);
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId) || !message) {
-    return NextResponse.json(
-      { error: "Pedido inválido." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
   // Create-or-verify the session (id is client-supplied), then persist the

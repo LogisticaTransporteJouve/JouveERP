@@ -60,14 +60,17 @@ export async function listInsightsAction(): Promise<
     canSeeInsight(ctx.roles, card.kind),
   );
   const cards = visible.sort((a, b) => {
-    const sev = (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
+    const sev =
+      (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
     return sev !== 0 ? sev : b.generated_at.localeCompare(a.generated_at);
   });
   return { ok: true, data: cards };
 }
 
 /** On-demand recompute of the analyst's insights (ai:admin). */
-export async function runAnalystAction(): Promise<ActionResult<{ count: number }>> {
+export async function runAnalystAction(): Promise<
+  ActionResult<{ count: number }>
+> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para recalcular insights." };
