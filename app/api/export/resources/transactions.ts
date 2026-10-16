@@ -13,6 +13,7 @@ import {
   dateCell,
   money,
   moneyCell,
+  totalCell,
   type ExportCell,
   type Exporter,
 } from "../shared";
@@ -41,7 +42,7 @@ export const transactions: Exporter = {
       let query = supabase
         .from("v_transactions_tagged")
         .select(
-          "kind, amount, transaction_date, description, account_name, channel_name",
+          "kind, amount, currency, transaction_date, description, account_name, channel_name",
         )
         .order("transaction_date", { ascending: true })
         .order("created_at", { ascending: true })
@@ -57,11 +58,14 @@ export const transactions: Exporter = {
     if (error) throw new Error("Could not load transactions.");
 
     let net = 0;
+    const currencies = new Set<string>();
     const rows: ExportCell[][] = [];
     for (const row of data ?? []) {
       if (!isTransactionKind(row.kind)) continue;
       const amount = Number(row.amount ?? 0);
       const outflow = isOutflow(row.kind);
+      const currency = row.currency ?? "ARS";
+      currencies.add(currency);
       net += (outflow ? -1 : 1) * amount;
       rows.push([
         dateCell(row.transaction_date),
@@ -70,6 +74,7 @@ export const transactions: Exporter = {
         row.channel_name ?? "—",
         row.description ?? "—",
         moneyCell(outflow ? -amount : amount, {
+          currency,
           text: `${outflow ? "-" : "+"}${money(amount)}`,
         }),
       ]);
@@ -85,9 +90,11 @@ export const transactions: Exporter = {
         "",
         "",
         "Neto",
-        moneyCell(net, {
-          text: `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
-        }),
+        totalCell(
+          net,
+          currencies,
+          `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
+        ),
       ],
       orientation: "landscape",
       fileName: "caja-movimientos",

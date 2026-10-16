@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Permission } from "@/lib/auth/permissions";
+import { exportSlug } from "@/lib/export/download";
 import type { XlsxCell, XlsxSheet } from "@/lib/export/xlsx";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
@@ -20,6 +21,20 @@ export function moneyCell(
   { currency = "ARS", text }: { currency?: string; text?: string } = {},
 ): TypedCell {
   return { text: text ?? money(amount), value: { money: amount, currency } };
+}
+
+/** A total over rows in `currencies`: an amount when they share one, and
+ *  only the PDF's text when they mix (a sum across currencies is no amount
+ *  in either). */
+export function totalCell(
+  amount: number,
+  currencies: ReadonlySet<string>,
+  text = money(amount),
+): ExportCell {
+  const [only] = currencies;
+  return currencies.size <= 1
+    ? moneyCell(amount, { currency: only ?? "ARS", text })
+    : text;
 }
 
 /** A `YYYY-MM-DD` date or timestamp: `5 jun 2026` in the PDF, a date cell in
@@ -61,13 +76,31 @@ export type Exporter = {
   load: (params: URLSearchParams, range: ExportRange) => Promise<ExportOutput>;
 };
 
-/** The exporter's rows as a spreadsheet: typed cells keep their type, and a
- *  right-aligned column's numeric strings (a year, a count) become numbers;
- *  every other string stays text. */
-export function exportSheet(out: ExportOutput): XlsxSheet {
+/** `base`, plus a slug of `detail` (an entity or channel name) when any. */
+export function withSlug(base: string, detail: string | null | undefined) {
+  const slug = detail ? exportSlug(detail) : "";
+  return slug ? `${base}-${slug}` : base;
+}
+
+/** What the PDF prints above its table. */
+export type ExportContext = { dateRangeLabel: string; generatedAt: string };
+
+/** The exporter's rows as a spreadsheet, under the PDF's header lines: typed
+ *  cells keep their type, and a right-aligned column's numeric strings (a
+ *  year, a count) become numbers; every other string stays text. */
+export function exportSheet(
+  out: ExportOutput,
+  context: ExportContext,
+): XlsxSheet {
   const row = (cells: readonly ExportCell[]) => cells.map(cellValue);
   return {
     name: out.title,
+    preamble: [
+      out.title,
+      ...(out.subtitle ? [out.subtitle] : []),
+      `Período: ${context.dateRangeLabel}`,
+      `Generado el ${context.generatedAt}`,
+    ],
     columns: out.columns.map((c) => ({
       header: c.header,
       type: c.align === "right" ? "number" : "text",

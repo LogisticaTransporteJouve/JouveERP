@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { downloadFromUrl } from "@/lib/export/download";
+import { XLSX_MIME } from "@/lib/export/mime";
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -73,6 +74,7 @@ export function ExportButton({
       await downloadFromUrl(
         `/api/export/${resource}?${qs.toString()}`,
         `${resource}.xlsx`,
+        XLSX_MIME,
       );
       setOpen(false);
     } catch (err) {

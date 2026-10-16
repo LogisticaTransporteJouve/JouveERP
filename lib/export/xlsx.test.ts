@@ -190,6 +190,39 @@ describe("xlsxSheetData", () => {
   });
 });
 
+describe("xlsxSheetData preamble", () => {
+  it("writes context lines above the header and freezes below it", () => {
+    const { data, frozenRows, widths } = xlsxSheetData({
+      name: "s",
+      preamble: ["Comprobantes", "Período: Todo el historial"],
+      columns: [{ header: "Cliente" }],
+      rows: [["Acme"]],
+    });
+    expect(data[0]).toEqual([
+      { type: String, value: "Comprobantes", fontWeight: "bold" },
+    ]);
+    expect(data[1]).toEqual([
+      { type: String, value: "Período: Todo el historial" },
+    ]);
+    expect(data[2]).toEqual([null]);
+    expect(data[3]).toEqual([
+      { type: String, value: "Cliente", fontWeight: "bold" },
+    ]);
+    expect(frozenRows).toBe(4);
+    // Context lines don't widen the first column.
+    expect(widths).toEqual([9]);
+  });
+
+  it("drops lone surrogates and keeps paired ones", () => {
+    const { data } = xlsxSheetData({
+      name: "s",
+      columns: [{ header: "a" }],
+      rows: [["x\uD800y\uDC00z 😀"]],
+    });
+    expect(data[1]).toEqual([{ type: String, value: "xyz 😀" }]);
+  });
+});
+
 describe("buildXlsx", () => {
   it("freezes the header and stores injection strings as shared text", async () => {
     const files = await unzip({
@@ -200,6 +233,13 @@ describe("buildXlsx", () => {
     const sheet = files["xl/worksheets/sheet1.xml"] ?? "";
     expect(sheet).toContain('state="frozen"');
     expect(sheet).toContain('ySplit="1"');
+    const withPreamble = await unzip({
+      name: "p",
+      preamble: ["Título"],
+      columns: [{ header: "a" }],
+      rows: [],
+    });
+    expect(withPreamble["xl/worksheets/sheet1.xml"]).toContain('ySplit="3"');
     expect(sheet).not.toContain("<f>");
     const strings = files["xl/sharedStrings.xml"] ?? "";
     expect(strings).toContain("<t>=cmd|' /C calc'!A0</t>");

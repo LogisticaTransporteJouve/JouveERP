@@ -26,7 +26,7 @@ beforeEach(() => {
   roles = ["finance"];
   buildData.mockReset().mockResolvedValue({
     period: "2026-06",
-    channelName: "Todos",
+    channelName: "DZ Fiscal",
     generatedAt: "",
     rows: [],
   });
@@ -51,8 +51,15 @@ describe("GET /api/accounting/libro-iva-ventas/xlsx", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe(XLSX_MIME);
     expect(res.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="libro-iva-ventas-2026-06.xlsx"',
+      'attachment; filename="libro-iva-ventas-2026-06-dz-fiscal.xlsx"',
     );
     expect(buildData).toHaveBeenCalledWith("2026-06", "c1");
+  });
+
+  it("hides the database error behind a generic message", async () => {
+    buildData.mockRejectedValue(new Error("relation does not exist"));
+    const res = await get("period=2026-06");
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Error generando el Excel." });
   });
 });

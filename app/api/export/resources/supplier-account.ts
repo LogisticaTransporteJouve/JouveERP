@@ -11,6 +11,7 @@ import {
   inRange,
   moneyCell,
   type Exporter,
+  withSlug,
 } from "../shared";
 
 const SUPPLIER_KIND_LABEL: Record<string, string> = {
@@ -80,7 +81,7 @@ export const supplierAccount: Exporter = {
         moneyCell(totalHaber),
         moneyCell(finalBalance),
       ],
-      fileName: "cuenta-corriente-proveedor",
+      fileName: withSlug("cuenta-corriente-proveedor", params.get("name")),
     };
   },
 };

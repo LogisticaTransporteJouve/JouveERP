@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { downloadFromUrl } from "@/lib/export/download";
+import { XLSX_MIME } from "@/lib/export/mime";
 
 /** PDF and Excel downloads of one libro IVA period. */
 export function LibroIvaExportButtons({
@@ -28,6 +29,7 @@ export function LibroIvaExportButtons({
       await downloadFromUrl(
         `${base}/xlsx?${qs.toString()}`,
         `libro-iva-${book}-${period}.xlsx`,
+        XLSX_MIME,
       );
     } catch (err) {
       toast.error(

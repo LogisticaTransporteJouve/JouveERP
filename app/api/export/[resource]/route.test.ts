@@ -75,6 +75,13 @@ describe("GET /api/export/[resource]", () => {
     expect([bytes[0], bytes[1]]).toEqual([0x50, 0x4b]);
   });
 
+  it("hides a loader's error behind a generic message", async () => {
+    load.mockRejectedValue(new Error("Could not load invoices."));
+    const res = await get("format=xlsx");
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Error generando el archivo." });
+  });
+
   it("keeps the PDF as the default, with typed cells as their text", async () => {
     const res = await get("");
     expect(res.status).toBe(200);

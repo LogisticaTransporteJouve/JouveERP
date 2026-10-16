@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { libroIvaVentasSheet } from "@/features/libro-iva/lib/libro-iva-xlsx";
+import { exportSlug } from "@/lib/export/download";
 import { buildXlsx } from "@/lib/export/xlsx";
 import { xlsxResponse } from "@/lib/export/xlsx-response";
+import { logger } from "@/lib/logger";
 import { buildLibroIvaVentasTemplateData } from "@/lib/pdf/libro-iva-ventas-render";
 
 import { readLibroIvaRequest } from "../../libro-iva-request";
@@ -15,10 +17,15 @@ export async function GET(req: Request) {
   try {
     const data = await buildLibroIvaVentasTemplateData(period, channel);
     const file = await buildXlsx(libroIvaVentasSheet(data));
-    return xlsxResponse(file, `libro-iva-ventas-${period}.xlsx`);
-  } catch (err) {
+    const channelSlug = channel ? exportSlug(data.channelName) : "";
+    return xlsxResponse(
+      file,
+      `libro-iva-ventas-${period}${channelSlug ? `-${channelSlug}` : ""}.xlsx`,
+    );
+  } catch (error) {
+    logger.error("libro_iva.ventas.xlsx.failed", { period, error });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando Excel." },
+      { error: "Error generando el Excel." },
       { status: 500 },
     );
   }

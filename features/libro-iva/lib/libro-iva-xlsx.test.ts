@@ -31,13 +31,25 @@ const row = (over: Partial<LibroIvaVentasRow>): LibroIvaVentasRow => ({
   ...over,
 });
 
+const book = {
+  period: "2026-06",
+  channelName: "DZ Fiscal",
+  generatedAt: "5 jun 2026 10:00",
+};
+
 describe("libroIvaVentasSheet", () => {
-  it("writes one row per voucher, codes as text, amounts as ARS", () => {
+  it("writes the PDF's header lines and one row per voucher", () => {
     const sheet = libroIvaVentasSheet({
-      period: "2026-06",
+      ...book,
       rows: [row({}), row({ iva_rate_id: 4, neto: "50", iva: "5.25" })],
     });
-    expect(sheet.name).toBe("IVA Ventas 2026-06");
+    expect(sheet.name).toBe("Libro IVA Ventas 2026-06");
+    expect(sheet.preamble).toEqual([
+      "Libro IVA Ventas — 2026-06",
+      "DZ Fiscal",
+      "1 comprobantes",
+      "Generado el 5 jun 2026 10:00",
+    ]);
     expect(sheet.rows).toHaveLength(1);
     const headers = sheet.columns.map((c) => c.header);
     const at = (header: string) => sheet.rows[0]?.[headers.indexOf(header)];
@@ -49,5 +61,46 @@ describe("libroIvaVentasSheet", () => {
     expect(at("Neto 27%")).toBeNull();
     expect(at("Total")).toEqual({ money: 121, currency: "ARS" });
     expect(sheet.totals?.[0]).toBe("Totales (1 comprobantes)");
+  });
+
+  it("writes credit notes negative so each column sums to its total", () => {
+    const sheet = libroIvaVentasSheet({
+      ...book,
+      rows: [
+        row({ imp_trib: "10", imp_total: "131" }),
+        row({
+          invoice_id: "i2",
+          kind: "nc",
+          numero: 43,
+          neto: "40",
+          iva: "8.4",
+          imp_trib: "2",
+          imp_op_ex: "-5",
+          imp_total: "50.4",
+        }),
+      ],
+    });
+    const headers = sheet.columns.map((c) => c.header);
+    const col = (header: string) => headers.indexOf(header);
+    const money = (cell: unknown) =>
+      cell && typeof cell === "object" && "money" in cell ? cell.money : 0;
+    for (const header of ["Neto 21%", "IVA 21%", "Perc.", "Total"]) {
+      const sum = sheet.rows.reduce(
+        (acc, r) => acc + Number(money(r[col(header)])),
+        0,
+      );
+      expect(money(sheet.totals?.[col(header)])).toBeCloseTo(sum);
+    }
+    expect(sheet.rows[1]?.[col("Total")]).toEqual({
+      money: -50.4,
+      currency: "ARS",
+    });
+    expect(sheet.rows[1]?.[col("Perc.")]).toEqual({
+      money: -2,
+      currency: "ARS",
+    });
+    // The PDF hides a non-positive No grav.; so does the sheet.
+    expect(sheet.rows[1]?.[col("No grav.")]).toBeNull();
+    expect(sheet.totals?.[col("No grav.")]).toBeNull();
   });
 });

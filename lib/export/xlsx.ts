@@ -33,10 +33,12 @@ export type XlsxSheet = {
   rows: readonly (readonly XlsxCell[])[];
   /** A bold last row, aligned with `columns`. */
   totals?: readonly XlsxCell[];
+  /** Context lines above the table (title first, in bold): what the PDF
+   *  prints in its header. */
+  preamble?: readonly string[];
 };
 
-export const XLSX_MIME =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export { XLSX_MIME } from "./mime";
 
 const FORMAT = {
   money: "#,##0.00",
@@ -64,7 +66,8 @@ const EMPTY_MARK = "—";
 const MIN_WIDTH = 8;
 const MAX_WIDTH = 60;
 
-/** Drops the control characters XML 1.0 cannot carry. */
+/** Drops what XML 1.0 cannot carry: control characters, U+FFFE/U+FFFF and
+ *  lone surrogates. */
 function cleanText(value: string): string {
   let out = "";
   for (const ch of value) {
@@ -73,6 +76,8 @@ function cleanText(value: string): string {
       continue;
     }
     if (code === 0xfffe || code === 0xffff) continue;
+    // A paired surrogate iterates as one two-unit character.
+    if (ch.length === 1 && code >= 0xd800 && code <= 0xdfff) continue;
     out += ch;
   }
   return out.slice(0, MAX_TEXT);
@@ -227,6 +232,8 @@ function headerLabel(column: XlsxColumn, currency: string | null): string {
 export function xlsxSheetData(sheet: XlsxSheet): {
   data: SheetData;
   widths: number[];
+  /** Rows above and including the header, to freeze. */
+  frozenRows: number;
 } {
   const currencies = sheet.columns.map((c, i) => columnCurrency(sheet, i, c));
   const headers = sheet.columns.map((c, i) =>
@@ -241,7 +248,15 @@ export function xlsxSheetData(sheet: XlsxSheet): {
       return cell && bold ? { ...cell, ...BOLD } : cell;
     });
 
+  const preamble: SheetData = (sheet.preamble ?? []).map((line, i) => [
+    i === 0
+      ? { type: String, value: cleanText(line), ...BOLD }
+      : { type: String, value: cleanText(line) },
+  ]);
+  if (preamble.length > 0) preamble.push([null]);
+
   const data: SheetData = [
+    ...preamble,
     headers.map((value) => ({ type: String, value, ...BOLD })),
     ...sheet.rows.map((row) => writeRow(row, false)),
     ...(sheet.totals ? [writeRow(sheet.totals, true)] : []),
@@ -250,15 +265,16 @@ export function xlsxSheetData(sheet: XlsxSheet): {
   return {
     data,
     widths: widths.map((w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w + 2))),
+    frozenRows: preamble.length + 1,
   };
 }
 
-/** The sheet as an `.xlsx` file, with the header row frozen. */
+/** The sheet as an `.xlsx` file, frozen below the header row. */
 export async function buildXlsx(sheet: XlsxSheet): Promise<Blob> {
-  const { data, widths } = xlsxSheetData(sheet);
+  const { data, widths, frozenRows } = xlsxSheetData(sheet);
   return writeXlsxFile(data, {
     sheet: xlsxSheetName(sheet.name),
-    stickyRowsCount: 1,
+    stickyRowsCount: frozenRows,
     columns: widths.map((width) => ({ width })),
   }).toBlob();
 }

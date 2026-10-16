@@ -11,6 +11,7 @@ import {
   inRange,
   moneyCell,
   type Exporter,
+  withSlug,
 } from "../shared";
 
 function clientType(m: AccountMovement): string {
@@ -75,7 +76,7 @@ export const clientAccount: Exporter = {
         moneyCell(totalHaber),
         moneyCell(finalBalance),
       ],
-      fileName: "cuenta-corriente-cliente",
+      fileName: withSlug("cuenta-corriente-cliente", params.get("name")),
     };
   },
 };

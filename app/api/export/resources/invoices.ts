@@ -9,7 +9,7 @@ import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { dateCell, moneyCell, type Exporter } from "../shared";
+import { dateCell, moneyCell, totalCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -49,19 +49,20 @@ export const invoices: Exporter = {
     if (error) throw new Error("Could not load invoices.");
 
     let total = 0;
+    const currencies = new Set<string>();
     const rows = (data ?? []).map((row) => {
       const client: ClientJoin = row.clients;
       const status = isInvoiceStatus(row.status) ? row.status : "draft";
       const amount = Number(row.imp_total);
       total += amount;
+      const currency = row.moneda === "PES" ? "ARS" : "USD";
+      currencies.add(currency);
       return [
         dateCell(row.fecha),
         formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero),
         client.legal_name,
         INVOICE_STATUS_LABEL[status],
-        moneyCell(amount, {
-          currency: row.moneda === "PES" ? "ARS" : "USD",
-        }),
+        moneyCell(amount, { currency }),
       ];
     });
 
@@ -69,7 +70,7 @@ export const invoices: Exporter = {
       title: "Comprobantes",
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total", moneyCell(total)],
+      totalsRow: ["", "", "", "Total", totalCell(total, currencies)],
       orientation: "landscape",
       fileName: "comprobantes",
     };

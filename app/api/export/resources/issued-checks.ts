@@ -17,6 +17,7 @@ import {
   dateCell,
   money,
   moneyCell,
+  totalCell,
   type Exporter,
   type TypedCell,
 } from "../shared";
@@ -65,6 +66,7 @@ export const issuedChecks: Exporter = {
     if (error) throw new Error("Could not export issued checks.");
 
     let total = 0;
+    const currencies = new Set<string>();
     const rows = (data ?? [])
       .map((row) => {
         if (!isIssuedCheckKind(row.kind)) return null;
@@ -76,6 +78,7 @@ export const issuedChecks: Exporter = {
         const bank = row.bank_name || account?.name || "—";
         const amount = Number(row.amount);
         total += amount;
+        currencies.add(row.currency);
         return [
           bank,
           `#${row.check_number}`,
@@ -93,7 +96,7 @@ export const issuedChecks: Exporter = {
       subtitle: "Cheques emitidos a proveedores",
       columns: ISSUED_CHECK_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", moneyCell(total), ""],
+      totalsRow: ["", "", "", "", "Total", totalCell(total, currencies), ""],
       orientation: "landscape",
       fileName: "cheques-propios",
     };
