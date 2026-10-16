@@ -145,7 +145,11 @@ describe("getInvoiceDetailAction", () => {
 
 describe("cancelInvoiceAction with the opening balance applied", () => {
   it("explains the opening-balance guard", async () => {
-    h.updateError = { code: "23514", message: "opening" };
+    h.updateError = {
+      code: "23514",
+      message:
+        "El comprobante x está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.",
+    };
     const res = await cancelInvoiceAction({ id: ID });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/saldo inicial/);

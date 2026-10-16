@@ -984,7 +984,10 @@ export async function cancelInvoiceAction(
           "El comprobante tiene cobros imputados. Anulá esos recibos antes de anular el comprobante.",
       };
     }
-    if (error.code === PG_CHECK_VIOLATION) {
+    if (
+      error.code === PG_CHECK_VIOLATION &&
+      error.message.includes("saldo inicial")
+    ) {
       return {
         ok: false,
         error:
