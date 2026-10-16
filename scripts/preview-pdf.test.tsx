@@ -52,6 +52,7 @@ describe("invoice PDF preview", () => {
         doc_tipo_label: "CUIT",
         doc_nro: "30718543866",
         iva_condition_label: "Responsable Inscripto",
+        condicion_iva_receptor: 1,
         address: "Calle Falsa 123, La Matanza, BA",
       },
       kind: "factura",

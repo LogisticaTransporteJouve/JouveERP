@@ -9,7 +9,11 @@ import {
 
 import { INVOICE_KIND_LABEL } from "@/features/invoices/schema";
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
-import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
+import {
+  CONDICION_IVA_RECEPTOR,
+  ivaRatePercent,
+  type IvaRateId,
+} from "@/lib/afip/codes";
 
 // Single PDF template that renders fiscal AND internal comprobantes. The
 // `isFiscal` flag toggles the AFIP-specific furniture (letter box, CAE
@@ -48,9 +52,10 @@ export interface InvoiceTemplateData {
     doc_tipo_label: string; // "CUIT" / "DNI" / "CF"
     doc_nro: string;
     iva_condition_label: string;
+    /** AFIP CondicionIVAReceptorId sent with the voucher; null when internal. */
+    condicion_iva_receptor: number | null;
     address: string | null;
   };
-
 
   // Comprobante metadata
   kind: InvoiceKind;
@@ -229,12 +234,36 @@ type CopyLabel = "ORIGINAL" | "DUPLICADO" | null;
 const REGIMEN_TRANSPARENCIA_LEYENDA =
   "Régimen de Transparencia Fiscal al Consumidor (Ley 27.743). El monto de IVA discriminado y los demás impuestos nacionales indirectos contenidos en esta operación se detallan a continuación.";
 
-function isFacturaBToConsumidorFinal(data: InvoiceTemplateData): boolean {
+const MONOTRIBUTO_RECEPTOR_LEYENDA =
+  "El crédito fiscal discriminado en el presente comprobante sólo podrá ser computado a efectos del Régimen de Sostenimiento e Inclusión Fiscal para Pequeños Contribuyentes de la Ley N° 27.618.";
+
+const MONOTRIBUTO_RECEPTOR_CONDITIONS: readonly number[] = [
+  CONDICION_IVA_RECEPTOR.MONOTRIBUTO,
+  CONDICION_IVA_RECEPTOR.MONOTRIBUTO_SOCIAL,
+  CONDICION_IVA_RECEPTOR.MONOTRIBUTO_PROMOVIDO,
+];
+
+export function isFacturaBToConsumidorFinal(
+  data: InvoiceTemplateData,
+): boolean {
   return (
     data.isFiscal &&
     data.kind === "factura" &&
     data.letter === "B" &&
-    data.receptor.doc_tipo_label === "Consumidor Final"
+    data.receptor.condicion_iva_receptor ===
+      CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL
+  );
+}
+
+/** RG 5003: an A voucher to a monotributista carries the Ley 27.618 legend. */
+export function isLetterAToMonotributo(data: InvoiceTemplateData): boolean {
+  return (
+    data.isFiscal &&
+    data.letter === "A" &&
+    data.receptor.condicion_iva_receptor !== null &&
+    MONOTRIBUTO_RECEPTOR_CONDITIONS.includes(
+      data.receptor.condicion_iva_receptor,
+    )
   );
 }
 
@@ -332,8 +361,7 @@ function InvoicePage({
           )}
           {data.fch_serv_hasta && (
             <Text style={{ marginLeft: 16 }}>
-              <Text style={styles.metaLabel}>hasta:</Text>{" "}
-              {data.fch_serv_hasta}
+              <Text style={styles.metaLabel}>hasta:</Text> {data.fch_serv_hasta}
             </Text>
           )}
           {data.fch_vto_pago && (
@@ -425,7 +453,9 @@ function InvoicePage({
             {data.moneda !== "PES" && (
               <View style={styles.totalsRow}>
                 <Text>Tipo de cambio</Text>
-                <Text>{data.moneda} @ {formatARS(data.cotizacion)}</Text>
+                <Text>
+                  {data.moneda} @ {formatARS(data.cotizacion)}
+                </Text>
               </View>
             )}
           </>
@@ -453,6 +483,12 @@ function InvoicePage({
         </View>
       )}
 
+      {isLetterAToMonotributo(data) && (
+        <View style={styles.fiscalLeyenda}>
+          <Text>{MONOTRIBUTO_RECEPTOR_LEYENDA}</Text>
+        </View>
+      )}
+
       {/* Footer with CAE + QR (fiscal only) */}
       {data.isFiscal && data.cae && (
         <View style={styles.footer}>
@@ -477,8 +513,8 @@ function InvoicePage({
 
       {!data.isFiscal && (
         <Text style={styles.noFiscalNote}>
-          Este comprobante no constituye factura ni tiene efectos
-          tributarios. Es de uso interno de JouveERP.
+          Este comprobante no constituye factura ni tiene efectos tributarios.
+          Es de uso interno de JouveERP.
         </Text>
       )}
     </Page>
@@ -488,7 +524,9 @@ function InvoicePage({
 // Mirrors the table in lib/afip/codes.ts. Kept inline because the PDF-side
 // only needs the int code as a string for display next to the letter.
 function kindAfipCode(kind: InvoiceKind, letter: InvoiceLetter): string {
-  if (kind === "factura") return letter === "A" ? "01" : letter === "B" ? "06" : "11";
-  if (kind === "nd") return letter === "A" ? "02" : letter === "B" ? "07" : "12";
+  if (kind === "factura")
+    return letter === "A" ? "01" : letter === "B" ? "06" : "11";
+  if (kind === "nd")
+    return letter === "A" ? "02" : letter === "B" ? "07" : "12";
   return letter === "A" ? "03" : letter === "B" ? "08" : "13";
 }

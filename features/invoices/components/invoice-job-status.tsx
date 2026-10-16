@@ -1,15 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
 import { Badge } from "@/components/ui/badge";
 
 import { useInvoiceStatusPoll } from "../hooks/use-invoices";
 import { INVOICE_STATUS_LABEL, type InvoiceStatus } from "../schema";
 
-const TERMINAL_STATES: InvoiceStatus[] = [
-  "emitted",
-  "failed",
-  "cancelled",
-];
+const TERMINAL_STATES: InvoiceStatus[] = ["emitted", "failed", "cancelled"];
 
 const TONE: Record<InvoiceStatus, string> = {
   draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
@@ -26,8 +25,17 @@ export function InvoiceJobStatus({
   id: string;
   initialStatus: InvoiceStatus;
 }) {
+  const router = useRouter();
   const { data } = useInvoiceStatusPoll(id, initialStatus);
   const status = data?.status ?? initialStatus;
+
+  // The detail page is server-rendered: once the emission settles, render it
+  // again so the number, CAE and observaciones show up.
+  useEffect(() => {
+    if (status !== initialStatus && TERMINAL_STATES.includes(status)) {
+      router.refresh();
+    }
+  }, [status, initialStatus, router]);
 
   return (
     <Badge variant="secondary" className={TONE[status]}>

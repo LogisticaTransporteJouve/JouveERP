@@ -10,6 +10,7 @@ import {
   condicionIvaReceptorFor,
 } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
+import { todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -17,7 +18,6 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
-
 import {
   FreightInvoiceSchema,
   ShipmentCreateSchema,
@@ -28,6 +28,7 @@ import {
   type ShipmentHistoryEntry,
   type ShipmentStatus,
 } from "../schema";
+import { freightInvoiceDates } from "../lib/freight-invoice";
 
 const SELECT_COLUMNS =
   "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name), trip:trips(trip_date)";
@@ -248,7 +249,7 @@ export async function changeShipmentStatusAction(
     return { ok: false, error: "No se encontró la carga." };
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
   const patch: {
     status: ShipmentStatus;
     delivery_date?: string;
@@ -270,7 +271,10 @@ export async function changeShipmentStatusAction(
     .update(patch)
     .eq("id", id);
   if (updErr) {
-    logger.error("shipments.status.update_failed", { userId: ctx.userId, error: updErr });
+    logger.error("shipments.status.update_failed", {
+      userId: ctx.userId,
+      error: updErr,
+    });
     return { ok: false, error: "No se pudo cambiar el estado." };
   }
 
@@ -284,7 +288,10 @@ export async function changeShipmentStatusAction(
       changed_by: ctx.userId,
     });
   if (histErr) {
-    logger.error("shipments.status.history_failed", { userId: ctx.userId, error: histErr });
+    logger.error("shipments.status.history_failed", {
+      userId: ctx.userId,
+      error: histErr,
+    });
   }
 
   await logAudit(
@@ -304,7 +311,10 @@ export async function deleteShipmentAction(input: {
     return { ok: false, error: "No tenés permiso para borrar cargas." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("shipments").delete().eq("id", input.id);
+  const { error } = await supabase
+    .from("shipments")
+    .delete()
+    .eq("id", input.id);
   if (error) {
     logger.error("shipments.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar la carga." };
@@ -386,9 +396,10 @@ export async function invoiceFreightAction(
     return { ok: false, error: "La condición de IVA del cliente es inválida." };
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const serviceDate = shipment.delivery_date ?? shipment.scheduled_date ?? today;
-  const ruta = [shipment.origin, shipment.destination].filter(Boolean).join(" → ");
+  const dates = freightInvoiceDates(shipment, todayInAR());
+  const ruta = [shipment.origin, shipment.destination]
+    .filter(Boolean)
+    .join(" → ");
 
   const result = await issueFiscalInvoiceAction({
     channel_id: parsed.data.channel_id,
@@ -396,10 +407,7 @@ export async function invoiceFreightAction(
     kind: "factura",
     letter: null,
     punto_venta: parsed.data.punto_venta,
-    fecha: today,
-    fch_serv_desde: serviceDate,
-    fch_serv_hasta: serviceDate,
-    fch_vto_pago: serviceDate,
+    ...dates,
     concepto: CONCEPTO.SERVICIOS,
     doc_tipo: DOC_TIPO.CUIT,
     doc_nro: client.cuit,
@@ -417,10 +425,23 @@ export async function invoiceFreightAction(
   });
   if (!result.ok) return result;
 
-  await supabase
+  const { error: linkErr } = await supabase
     .from("shipments")
     .update({ invoice_id: result.data.id })
     .eq("id", parsed.data.shipmentId);
+  if (linkErr) {
+    logger.error("shipments.freight_invoice.link_failed", {
+      userId: ctx.userId,
+      shipmentId: parsed.data.shipmentId,
+      invoiceId: result.data.id,
+      error: linkErr,
+    });
+    return {
+      ok: false,
+      error:
+        "La factura se emitió pero no se vinculó a la carga. Anotá el comprobante antes de volver a facturar.",
+    };
+  }
   await logAudit(
     "shipment.freight_invoiced",
     ctx.userId,

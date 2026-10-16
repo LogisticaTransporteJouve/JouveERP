@@ -93,8 +93,17 @@ export const CONDICION_IVA_RECEPTOR = {
 export type CondicionIvaReceptorCode =
   (typeof CONDICION_IVA_RECEPTOR)[keyof typeof CONDICION_IVA_RECEPTOR];
 
+export function isCondicionIvaReceptorCode(
+  value: unknown,
+): value is CondicionIvaReceptorCode {
+  return Object.values(CONDICION_IVA_RECEPTOR).some((code) => code === value);
+}
+
 // Maps our internal `clients.iva_condition` to AFIP's CondicionIVAReceptorId.
-const IVA_CONDITION_TO_RECEPTOR: Record<IvaCondition, CondicionIvaReceptorCode> = {
+const IVA_CONDITION_TO_RECEPTOR: Record<
+  IvaCondition,
+  CondicionIvaReceptorCode
+> = {
   responsable_inscripto: CONDICION_IVA_RECEPTOR.RESPONSABLE_INSCRIPTO,
   monotributo: CONDICION_IVA_RECEPTOR.MONOTRIBUTO,
   exento: CONDICION_IVA_RECEPTOR.EXENTO,
@@ -112,13 +121,47 @@ export function condicionIvaReceptorFor(
 // Letter resolution — given issuer + recipient IVA conditions, what letter?
 //
 // Rules (single-CUIT, issuer = Responsable Inscripto):
-//   - Recipient RI → letter A (IVA itemized)
-//   - Recipient Monotributo / Exento / Consumidor Final / No categorizado → B
+//   - Recipient RI or Monotributo → letter A (RG 5003: monotributistas
+//     receive A, with the Ley 27.618 legend on the printed voucher)
+//   - Recipient Exento / Consumidor Final / No categorizado → B
 //   - If the issuer were monotributo, all letters would be C — not our case today.
 // --------------------------------------------------------------------------
 export function letterFor(receptorIva: IvaCondition): InvoiceLetter {
-  if (receptorIva === "responsable_inscripto") return "A";
+  if (receptorIva === "responsable_inscripto" || receptorIva === "monotributo")
+    return "A";
   return "B";
+}
+
+// RG 5616 class table (FEParamGetCondicionIvaReceptor, Cmp_Clase): which
+// CondicionIVAReceptorId values AFIP accepts for each voucher letter. AFIP
+// rejects a voucher whose letter and receptor condition don't match.
+const RECEPTOR_CONDITIONS_BY_LETTER: Record<
+  InvoiceLetter,
+  readonly CondicionIvaReceptorCode[]
+> = {
+  A: [
+    CONDICION_IVA_RECEPTOR.RESPONSABLE_INSCRIPTO,
+    CONDICION_IVA_RECEPTOR.MONOTRIBUTO,
+    CONDICION_IVA_RECEPTOR.MONOTRIBUTO_SOCIAL,
+    CONDICION_IVA_RECEPTOR.MONOTRIBUTO_PROMOVIDO,
+  ],
+  B: [
+    CONDICION_IVA_RECEPTOR.EXENTO,
+    CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL,
+    CONDICION_IVA_RECEPTOR.NO_CATEGORIZADO,
+    CONDICION_IVA_RECEPTOR.PROVEEDOR_EXTERIOR,
+    CONDICION_IVA_RECEPTOR.CLIENTE_EXTERIOR,
+    CONDICION_IVA_RECEPTOR.IVA_LIBERADO,
+    CONDICION_IVA_RECEPTOR.IVA_NO_ALCANZADO,
+  ],
+  C: Object.values(CONDICION_IVA_RECEPTOR),
+};
+
+export function isReceptorConditionValidForLetter(
+  letter: InvoiceLetter,
+  receptor: CondicionIvaReceptorCode,
+): boolean {
+  return RECEPTOR_CONDITIONS_BY_LETTER[letter].includes(receptor);
 }
 
 // --------------------------------------------------------------------------

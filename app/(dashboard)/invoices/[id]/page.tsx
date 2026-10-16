@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
+import { CancelInvoiceDialog } from "@/features/invoices/components/cancel-invoice-dialog";
 import { InvoiceJobStatus } from "@/features/invoices/components/invoice-job-status";
 import {
   IssueNcNdDialog,
@@ -21,6 +22,7 @@ import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-p
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import type { IvaCondition } from "@/features/clients/schema";
 import {
+  INTERNAL_CANCELLABLE_STATUSES,
   INVOICE_KIND_LABEL,
   formatInvoiceNumero,
   type InvoiceStatus,
@@ -49,6 +51,10 @@ export default async function ComprobanteDetailPage({
   if (!res.ok) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.roles, "invoices:issue");
+  const canCancel =
+    userCan(ctx.roles, "invoices:cancel") &&
+    !c.channel.is_fiscal &&
+    INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
 
   const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, { whenNullNumero: "pendiente" })}`;
 
@@ -70,7 +76,9 @@ export default async function ComprobanteDetailPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             {INVOICE_KIND_LABEL[c.kind]}{" "}
             <span className="font-mono text-base text-muted-foreground">
-              {formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, { whenNullNumero: "pendiente" })}
+              {formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, {
+                whenNullNumero: "pendiente",
+              })}
             </span>
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -97,6 +105,7 @@ export default async function ComprobanteDetailPage({
           {canIssue && c.status === "emitted" && !c.pdf_hash && (
             <RegeneratePdfButton id={c.id} />
           )}
+          {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
           {canIssue &&
             c.status === "emitted" &&
             c.kind === "factura" &&
@@ -110,6 +119,8 @@ export default async function ComprobanteDetailPage({
                 punto_venta: c.punto_venta,
                 fecha: c.fecha,
                 concepto: c.concepto,
+                moneda: c.moneda,
+                cotizacion: c.cotizacion,
                 doc_nro: c.doc_nro,
                 client: {
                   id: c.client.id,

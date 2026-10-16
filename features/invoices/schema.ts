@@ -6,6 +6,7 @@ import {
   DOC_TIPO,
   IVA_RATE,
   MONEDA,
+  ivaRatePercent,
   type InvoiceKind,
   type InvoiceLetter,
 } from "@/lib/afip/codes";
@@ -52,11 +53,17 @@ const LETTER_VALUES = LETTERS as readonly InvoiceLetter[];
 // --------------------------------------------------------------------------
 
 export function isInvoiceKind(value: unknown): value is InvoiceKind {
-  return typeof value === "string" && (KIND_VALUES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (KIND_VALUES as readonly string[]).includes(value)
+  );
 }
 
 export function isInvoiceLetter(value: unknown): value is InvoiceLetter {
-  return typeof value === "string" && (LETTER_VALUES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (LETTER_VALUES as readonly string[]).includes(value)
+  );
 }
 
 export function isInvoiceStatus(value: unknown): value is InvoiceStatus {
@@ -74,10 +81,7 @@ type InvoiceDbRow = Database["public"]["Tables"]["invoices"]["Row"];
 type ComprobanteItemDbRow =
   Database["public"]["Tables"]["invoice_items"]["Row"];
 
-export type InvoiceRow = Omit<
-  InvoiceDbRow,
-  "kind" | "letter" | "status"
-> & {
+export type InvoiceRow = Omit<InvoiceDbRow, "kind" | "letter" | "status"> & {
   kind: InvoiceKind;
   letter: InvoiceLetter | null;
   status: InvoiceStatus;
@@ -193,7 +197,9 @@ export const CreateComprobanteSchema = z
     cotizacion: z.number().positive().default(1),
     motivo_nc_nd: z.string().trim().max(500).nullable().optional(),
     invoice_origin_id: z.string().uuid().nullable().optional(),
-    items: z.array(ComprobanteItemInputSchema).min(1, "Agregá al menos un ítem"),
+    items: z
+      .array(ComprobanteItemInputSchema)
+      .min(1, "Agregá al menos un ítem"),
   })
   .superRefine((value, ctx) => {
     if (value.kind !== "factura" && !value.invoice_origin_id) {
@@ -206,6 +212,15 @@ export const CreateComprobanteSchema = z
   });
 
 export type CreateComprobanteInput = z.infer<typeof CreateComprobanteSchema>;
+
+export const CancelInvoiceSchema = z.object({ id: z.string().uuid() });
+
+/** Statuses an internal invoice can be cancelled from. A fiscal voucher with
+ *  CAE is never cancelled: an NC compensates it. */
+export const INTERNAL_CANCELLABLE_STATUSES: readonly InvoiceStatus[] = [
+  "emitted",
+  "failed",
+];
 
 // --------------------------------------------------------------------------
 // Total computation helpers (server-side reuse).
@@ -222,36 +237,50 @@ export interface ComprobanteTotals {
   per_rate: Array<{ id: number; base: number; importe: number }>;
 }
 
+type TotalsItem = Pick<
+  ComprobanteItemInput,
+  "quantity" | "unit_price" | "iva_rate_id"
+>;
+
+export interface LineAmounts {
+  line_neto: number;
+  line_iva: number;
+  line_total: number;
+}
+
+/** One line's amounts, rounded to cents. Internal channels carry no IVA. */
+export function computeLineAmounts(
+  item: TotalsItem,
+  isFiscal: boolean,
+): LineAmounts {
+  const lineNeto = round2(item.quantity * item.unit_price);
+  const lineIva =
+    isFiscal && item.iva_rate_id !== null
+      ? round2((lineNeto * ivaRatePercent(item.iva_rate_id)) / 100)
+      : 0;
+  return {
+    line_neto: lineNeto,
+    line_iva: lineIva,
+    line_total: round2(lineNeto + lineIva),
+  };
+}
+
 export function computeTotals(
-  items: Array<Pick<ComprobanteItemInput, "quantity" | "unit_price" | "iva_rate_id">>,
+  items: TotalsItem[],
   isFiscal: boolean,
 ): ComprobanteTotals {
   const buckets = new Map<number, { base: number; importe: number }>();
   let neto = 0;
 
   for (const item of items) {
-    const lineNeto = round2(item.quantity * item.unit_price);
-    neto = round2(neto + lineNeto);
+    const line = computeLineAmounts(item, isFiscal);
+    neto = round2(neto + line.line_neto);
 
     if (!isFiscal || item.iva_rate_id === null) continue;
 
-    const pct =
-      item.iva_rate_id === IVA_RATE.ZERO
-        ? 0
-        : item.iva_rate_id === IVA_RATE.TEN_FIVE
-          ? 10.5
-          : item.iva_rate_id === IVA_RATE.TWENTY_ONE
-            ? 21
-            : item.iva_rate_id === IVA_RATE.TWENTY_SEVEN
-              ? 27
-              : item.iva_rate_id === IVA_RATE.FIVE
-                ? 5
-                : 2.5;
-    const lineIva = round2((lineNeto * pct) / 100);
-
     const bucket = buckets.get(item.iva_rate_id) ?? { base: 0, importe: 0 };
-    bucket.base = round2(bucket.base + lineNeto);
-    bucket.importe = round2(bucket.importe + lineIva);
+    bucket.base = round2(bucket.base + line.line_neto);
+    bucket.importe = round2(bucket.importe + line.line_iva);
     buckets.set(item.iva_rate_id, bucket);
   }
 
@@ -325,6 +354,7 @@ export function formatInvoiceNumero(
     numero == null
       ? (opts.whenNullNumero ?? "—")
       : String(numero).padStart(8, "0");
-  if (kind === "factura") return letter ? `${letter}${pos}-${num}` : `${pos}-${num}`;
+  if (kind === "factura")
+    return letter ? `${letter}${pos}-${num}` : `${pos}-${num}`;
   return `${kind === "nc" ? "NC" : "ND"}${pos}-${num}`;
 }

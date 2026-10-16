@@ -1,6 +1,3 @@
-import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,40 +6,16 @@ import {
   type Permission,
 } from "@/lib/auth/permissions";
 
+import {
+  ALL_SQL,
+  lastStatement,
+  latestDefinition,
+} from "./testing/migration-sql";
+
 // Static check over supabase/migrations: the LATEST definition of each money
 // RPC exposed to `authenticated` must reject callers whose roles lack the
 // matching write permission. Without it a direct POST /rest/v1/rpc/<fn> skips
 // the server action's userCan() gate.
-
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-
-const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
-  .filter((f) => f.endsWith(".sql"))
-  .sort()
-  .map((f) => readFileSync(path.join(MIGRATIONS_DIR, f), "utf8"));
-
-const ALL_SQL = MIGRATIONS.join("\n");
-
-function latestDefinition(fn: string): string {
-  const header = new RegExp(
-    `create\\s+(?:or\\s+replace\\s+)?function\\s+public\\.${fn}\\s*\\(`,
-    "gi",
-  );
-  let lastStart = -1;
-  for (const match of ALL_SQL.matchAll(header)) {
-    lastStart = match.index ?? -1;
-  }
-  if (lastStart < 0) throw new Error(`No definition found for ${fn}`);
-  const open = ALL_SQL.indexOf("$$", lastStart);
-  const close = ALL_SQL.indexOf("$$", open + 2);
-  return ALL_SQL.slice(lastStart, close + 2);
-}
-
-function lastStatement(pattern: RegExp): string | null {
-  let last: string | null = null;
-  for (const match of ALL_SQL.matchAll(pattern)) last = match[0];
-  return last;
-}
 
 function holders(permission: Permission): string[] {
   return ROLES.filter((role) =>
