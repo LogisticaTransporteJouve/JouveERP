@@ -4,6 +4,17 @@ import { Table2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { formatValue } from "../artifacts/format";
+import {
+  fieldFormat,
+  isIdKey,
+  isRecord,
+  prettifyKey,
+  resolveRows,
+  toNumber,
+  type DataRow,
+} from "../artifacts/rows";
+
 /** Friendly label per tool name, for both the running state and the artifact. */
 const TOOL_LABELS: Record<string, string> = {
   getClientAging: "Aging de clientes",
@@ -73,14 +84,14 @@ const TOOL_LABELS: Record<string, string> = {
   proposeJournalEntry: "Propuesta de asiento",
   proposeExchangeRate: "Propuesta de cotización",
   askQuestions: "Preguntas",
+  renderChart: "Gráfico",
+  renderTable: "Tabla",
 };
 
 export function toolLabel(name: string): string {
   return TOOL_LABELS[name] ?? "datos";
 }
 
-const MONEY_KEY =
-  /total|saldo|importe|imp_|amount|monto|neto|iva|debe|haber|debit|credit|balance|running|bucket|open/i;
 const MAX_ROWS = 8;
 const MAX_COLS = 5;
 
@@ -201,36 +212,7 @@ const COLUMN_HINTS: Record<string, Col[]> = {
   ],
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Pull a row array out of a tool's `data`: either the array itself, or the
- *  first array-of-objects property (e.g. `clients`, `items`, `rows`). */
-function resolveRows(data: unknown): Record<string, unknown>[] | null {
-  if (Array.isArray(data)) {
-    const rows = data.filter(isRecord);
-    return rows.length ? rows : null;
-  }
-  if (isRecord(data)) {
-    for (const value of Object.values(data)) {
-      if (Array.isArray(value)) {
-        const rows = value.filter(isRecord);
-        if (rows.length) return rows;
-      }
-    }
-  }
-  return null;
-}
-
-function prettifyKey(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function deriveColumns(
-  toolName: string,
-  rows: Record<string, unknown>[],
-): Col[] {
+function deriveColumns(toolName: string, rows: DataRow[]): Col[] {
   const first = rows[0] ?? {};
   const hinted = COLUMN_HINTS[toolName];
   if (hinted) {
@@ -238,33 +220,28 @@ function deriveColumns(
     if (present.length) return present.slice(0, MAX_COLS);
   }
   return Object.keys(first)
-    .filter((k) => !/_id$|^id$/i.test(k))
+    .filter((k) => !isIdKey(k))
     .slice(0, MAX_COLS)
     .map((k) => ({ key: k, label: prettifyKey(k) }));
 }
 
-function isNumericMoneyString(key: string, value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    MONEY_KEY.test(key) &&
-    /^-?\d+(\.\d+)?$/.test(value)
-  );
+/** A cell's number, unless the column is a code (kept as written). */
+function cellNumber(key: string, value: unknown): number | null {
+  return fieldFormat(key) === "code" ? null : toNumber(value);
 }
 
 function isNumericCell(key: string, value: unknown): boolean {
-  return typeof value === "number" || isNumericMoneyString(key, value);
+  return cellNumber(key, value) !== null;
 }
 
 function formatCell(key: string, value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "number") {
-    return MONEY_KEY.test(key)
-      ? `$${Math.round(value).toLocaleString("es-AR")}`
-      : value.toLocaleString("es-AR");
-  }
-  // Some money fields (e.g. received-check amounts) arrive as numeric strings.
-  if (isNumericMoneyString(key, value)) {
-    return `$${Math.round(Number(value)).toLocaleString("es-AR")}`;
+  // Postgres numerics arrive as numeric strings; each column reads by its
+  // name (money, US$, percent, count, code).
+  const n = cellNumber(key, value);
+  if (n !== null) {
+    const format = fieldFormat(key);
+    return formatValue(n, format === "code" ? "number" : format);
   }
   if (typeof value === "boolean") return value ? "Sí" : "No";
   const s = String(value);

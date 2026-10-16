@@ -25,8 +25,10 @@ import {
   proposalToolOutputSchema,
   type AiConfirmation,
 } from "../lib/confirmation-schema";
+import { artifactSchema } from "../artifacts/spec";
+import { activitySteps } from "../lib/activity";
 import { AiMarkdown } from "../lib/markdown";
-import { segmentParts, type ChatPart } from "../lib/chat-segments";
+import { isCardPart, segmentParts, type ChatPart } from "../lib/chat-segments";
 import {
   ANSWERS_TURN_TEXT,
   ASK_QUESTIONS_TOOL,
@@ -35,9 +37,11 @@ import {
   type QuestionAnswers,
 } from "../lib/questions";
 
+import { ActivityBlock } from "./activity-block";
+import { ArtifactCard, PinArtifactButton } from "./artifact-card";
 import { ProposalCard } from "./proposal-card";
 import { QuestionsCard } from "./questions-card";
-import { ToolArtifact, toolLabel } from "./tool-renderers";
+import { toolLabel } from "./tool-renderers";
 
 const SUGGESTIONS = [
   "¿Cómo viene la caja?",
@@ -167,40 +171,15 @@ export function AiChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedPrompt]);
 
-  function renderPart(m: UIMessage, part: ChatPart, i: number): ReactNode {
-    if (part.type === "text") {
-      // User input stays plain text; assistant replies are trusted markdown
-      // (headings, tables, lists).
-      return m.role === "assistant" ? (
-        <AiMarkdown key={i} body={part.text} />
-      ) : (
-        <p key={i} className="whitespace-pre-wrap">
-          {part.text}
-        </p>
-      );
-    }
-    if (!isToolUIPart(part)) return null;
-    const name = getToolName(part);
-    if (part.state === "output-available") {
-      return <ToolArtifact key={i} toolName={name} output={part.output} />;
-    }
-    if (part.state === "output-error") {
-      return (
-        <p
-          key={i}
-          className="text-muted-foreground flex items-center gap-1 text-xs italic"
-        >
-          <Sparkles className="size-3" /> No se pudo consultar {toolLabel(name)}
-          .
-        </p>
-      );
-    }
-    return (
-      <p
-        key={i}
-        className="text-muted-foreground flex items-center gap-1 text-xs italic"
-      >
-        <Sparkles className="size-3" /> consultando {toolLabel(name)}…
+  function renderText(m: UIMessage, part: ChatPart, i: number): ReactNode {
+    if (part.type !== "text") return null;
+    // User input stays plain text; assistant replies are trusted markdown
+    // (headings, tables, lists).
+    return m.role === "assistant" ? (
+      <AiMarkdown key={i} body={part.text} />
+    ) : (
+      <p key={i} className="whitespace-pre-wrap">
+        {part.text}
       </p>
     );
   }
@@ -271,33 +250,47 @@ export function AiChat({
         ) : (
           messages
             .filter((m) => !isAnswersTurn(m))
-            .map((m) => (
-              <div
-                key={m.id}
-                className={cn(
-                  "flex flex-col gap-2",
-                  m.role === "user" ? "items-end" : "items-start",
-                )}
-              >
-                <span className="text-muted-foreground text-xs">
-                  {m.role === "user" ? "Vos" : "Asistente"}
-                </span>
-                {segmentParts(m.parts).map((seg) =>
-                  seg.kind === "card" ? (
-                    renderCard(seg.part, seg.index)
-                  ) : (
-                    <BubbleSegment
-                      key={`b-${seg.parts[0]?.index ?? 0}`}
-                      role={m.role}
-                    >
-                      {seg.parts.map(({ part, index }) =>
-                        renderPart(m, part, index),
-                      )}
-                    </BubbleSegment>
-                  ),
-                )}
-              </div>
-            ))
+            .map((m, mi, shown) => {
+              const steps =
+                m.role === "assistant"
+                  ? activitySteps(m.parts, isCardPart)
+                  : [];
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "flex flex-col gap-2",
+                    m.role === "user" ? "items-end" : "items-start",
+                  )}
+                >
+                  <span className="text-muted-foreground text-xs">
+                    {m.role === "user" ? "Vos" : "Asistente"}
+                  </span>
+                  {steps.length > 0 && (
+                    <ActivityBlock
+                      steps={steps}
+                      live={busy && mi === shown.length - 1}
+                    />
+                  )}
+                  {segmentParts(m.parts).map((seg) =>
+                    seg.kind === "card" ? (
+                      renderCard(seg.part, seg.index)
+                    ) : seg.kind === "artifact" ? (
+                      <ArtifactPart key={seg.id} data={seg.data} />
+                    ) : (
+                      <BubbleSegment
+                        key={`b-${seg.parts[0]?.index ?? 0}`}
+                        role={m.role}
+                      >
+                        {seg.parts.map(({ part, index }) =>
+                          renderText(m, part, index),
+                        )}
+                      </BubbleSegment>
+                    ),
+                  )}
+                </div>
+              );
+            })
         )}
         {status === "submitted" && (
           <p className="text-muted-foreground text-xs italic">Pensando…</p>
@@ -364,6 +357,23 @@ function BubbleSegment({
     >
       {children}
     </div>
+  );
+}
+
+function ArtifactPart({ data }: { data: unknown }) {
+  const parsed = artifactSchema.safeParse(data);
+  if (!parsed.success) {
+    return (
+      <p className="text-muted-foreground text-xs italic">
+        No se pudo mostrar el gráfico o la tabla.
+      </p>
+    );
+  }
+  return (
+    <ArtifactCard
+      artifact={parsed.data}
+      control={<PinArtifactButton artifact={parsed.data} />}
+    />
   );
 }
 

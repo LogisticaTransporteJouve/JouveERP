@@ -5,6 +5,7 @@ import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
+import type { AiArtifactSink } from "../artifacts/sink";
 import type { ProposalSpec } from "../lib/proposal-specs";
 
 import { errResult, type AiRunResult, type AiToolResult } from "./result";
@@ -58,6 +59,8 @@ export type AiActionContext = {
   roles: readonly Role[];
   /** Present in a chat session; `propose` actions refuse to run without it. */
   proposals?: AiProposalStore;
+  /** Present in a chat session; the artifact tools are offered only with it. */
+  artifacts?: AiArtifactSink;
 };
 
 /** The tool call an execution answers (from the AI SDK). */
@@ -89,6 +92,8 @@ export type AiAction = {
   readonly permissions: readonly Permission[];
   readonly sideEffect: AiSideEffect;
   readonly sources: readonly string[];
+  /** The input schema of a `read` action (pinned artifacts store its parse). */
+  readonly input?: z.ZodType;
   /** Permission gate → input validation → run → provenance. Never throws. */
   execute: (
     ctx: AiActionContext,
@@ -184,6 +189,7 @@ export function defineAiAction<S extends z.ZodType>(
     permissions,
     sideEffect: def.sideEffect,
     sources: def.sources,
+    input: def.input,
     execute,
     toTool: (ctx) =>
       tool({

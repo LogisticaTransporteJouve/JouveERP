@@ -173,6 +173,13 @@ export function formatMoneyWithCode(
   return `${currencyCode} ${formatNumber2(value)}`;
 }
 
+/** "may 2026" for a "2026-05" period; anything else unchanged. */
+export function formatPeriod(value: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(value);
+  const month = m ? MONTHS_ES[Number(m[2]) - 1] : undefined;
+  return m && month ? `${month} ${m[1]}` : value;
+}
+
 /** "17 may 2026, 12:30" in Argentine time. A plain "yyyy-mm-dd" carries no
  *  time, so it renders as the date alone rather than an invented hour. */
 export function formatArgentineDateTime(

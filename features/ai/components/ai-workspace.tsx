@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { PanelLeft, Sparkles } from "lucide-react";
+import { PanelLeft, Pin, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -115,14 +116,20 @@ export function AiWorkspace({
         </Button>
         <Sparkles className="size-5" />
         <h1 className="text-2xl font-semibold">Asistente IA</h1>
-        {usage.data && (
-          <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/ai/pinned">
+              <Pin className="size-4" />
+              Fijados
+            </Link>
+          </Button>
+          {usage.data && (
             <AiUsageMeter
               totalTokens={usage.data.totalTokens}
               cap={usage.data.cap}
             />
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1 gap-4">
