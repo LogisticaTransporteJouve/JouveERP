@@ -4,6 +4,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { upsertManualExchangeRate } from "@/lib/commands/upsert-exchange-rate";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,9 +36,6 @@ export async function listExchangeRatesAction(): Promise<
   return { ok: true, data: (data ?? []) as ExchangeRate[] };
 }
 
-// Manual entry (finance). Does an upsert: a manual rate overrides the BCRA
-// one for that date (deliberate override). The cron, on the other hand,
-// does not overwrite an existing row.
 export async function createExchangeRateAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -49,40 +47,7 @@ export async function createExchangeRateAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Inválido." };
   }
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("exchange_rates")
-    .upsert(
-      {
-        currency: "USD",
-        rate_date: parsed.data.rate_date,
-        rate: parsed.data.rate,
-        source: "manual",
-        notes: parsed.data.notes ?? null,
-        // Deliberate override: the row carries its own creation timestamp
-        // (if it overwrites a bcra one, it doesn't inherit the old created_at).
-        created_at: new Date().toISOString(),
-        created_by: ctx.userId,
-      },
-      { onConflict: "currency,rate_date" },
-    )
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("exchange_rates.create.failed", {
-      userId: ctx.userId,
-      rate_date: parsed.data.rate_date,
-      error,
-    });
-    return { ok: false, error: "No se pudo guardar la cotización." };
-  }
-  await logAudit(
-    "exchange_rate.upserted",
-    ctx.userId,
-    { rate_date: parsed.data.rate_date, rate: parsed.data.rate, source: "manual" },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return upsertManualExchangeRate(ctx.userId, parsed.data);
 }
 
 export async function deleteExchangeRateAction(

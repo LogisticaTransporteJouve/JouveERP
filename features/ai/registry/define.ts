@@ -3,6 +3,9 @@ import type { z } from "zod";
 
 import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
+import type { ActionResult } from "@/lib/query/run-action";
+
+import type { ProposalSpec } from "../lib/proposal-specs";
 
 import { errResult, type AiRunResult, type AiToolResult } from "./result";
 
@@ -21,14 +24,44 @@ export const AI_DOMAINS = [
 export type AiDomain = (typeof AI_DOMAINS)[number];
 
 /** read: only reads. propose: drafts a change the user must confirm.
- *  execute: performs a confirmed change. Phase 1 registers reads only. */
+ *  execute: performs a confirmed change. */
 export type AiSideEffect = "read" | "propose" | "execute";
+
+/** A proposal revision as the store is asked to keep it. */
+export type AiProposalRevisionInput = {
+  toolCallId: string;
+  action: string;
+  revisionKey: string;
+  draft: unknown;
+  labels: Record<string, string>;
+  summary: { label: string; value: string }[];
+};
+
+/** A store refusal the model may read and act on (its message is Spanish
+ *  user-facing copy): a lost race, or a revisionKey of another action. */
+export class AiProposalStoreError extends Error {}
+
+/**
+ * Where `propose` actions park their drafts until the user decides. Bound to
+ * one user and one chat session by whoever builds the context; a newer
+ * revision with the same `revisionKey` supersedes the pending one.
+ */
+export interface AiProposalStore {
+  createRevision(
+    input: AiProposalRevisionInput,
+  ): Promise<{ id: string; revision: number }>;
+}
 
 /** Who the assistant is acting for, from the chat route's session. */
 export type AiActionContext = {
   userId: string;
   roles: readonly Role[];
+  /** Present in a chat session; `propose` actions refuse to run without it. */
+  proposals?: AiProposalStore;
 };
+
+/** The tool call an execution answers (from the AI SDK). */
+export type AiToolCall = { toolCallId: string };
 
 export type AiActionDefinition<S extends z.ZodType> = {
   name: string;
@@ -57,9 +90,27 @@ export type AiAction = {
   readonly sideEffect: AiSideEffect;
   readonly sources: readonly string[];
   /** Permission gate → input validation → run → provenance. Never throws. */
-  execute: (ctx: AiActionContext, input: unknown) => Promise<AiToolResult>;
+  execute: (
+    ctx: AiActionContext,
+    input: unknown,
+    call?: AiToolCall,
+  ) => Promise<AiToolResult>;
   /** The AI SDK tool bound to `ctx`. */
   toTool: (ctx: AiActionContext) => Tool;
+  /** Set on `propose` actions only. */
+  readonly proposal?: AiProposal;
+};
+
+/** What a `propose` action adds: its card spec and the executor a confirmed
+ *  draft runs through. */
+export type AiProposal = {
+  readonly spec: ProposalSpec;
+  /** Re-parses `draft` with the spec's schema and performs the write as
+   *  `ctx.userId`. The caller has already checked the action's permissions. */
+  executeDraft: (
+    ctx: AiActionContext,
+    draft: unknown,
+  ) => Promise<ActionResult<{ id: string }>>;
 };
 
 export function canRunAiAction(
@@ -69,7 +120,7 @@ export function canRunAiAction(
   return permissions.every((p) => userCan(roles, p));
 }
 
-function toPermissions(
+export function toPermissions(
   permission: Permission | readonly Permission[],
 ): readonly Permission[] {
   return typeof permission === "string" ? [permission] : permission;

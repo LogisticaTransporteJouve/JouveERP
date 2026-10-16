@@ -16,7 +16,8 @@ export function AiUsageMeter({
   totalTokens: number;
   cap: number;
 }) {
-  const pct = cap > 0 ? Math.min(100, Math.round((totalTokens / cap) * 100)) : 0;
+  const pct =
+    cap > 0 ? Math.min(100, Math.round((totalTokens / cap) * 100)) : 0;
   const atCap = totalTokens >= cap;
 
   return (

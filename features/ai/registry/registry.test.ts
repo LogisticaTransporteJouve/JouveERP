@@ -38,7 +38,7 @@ beforeEach(() => {
 });
 
 describe("registry catalogue", () => {
-  it("has unique names, known permissions, sources and read-only effects", () => {
+  it("has unique names, known permissions, sources and read or propose effects", () => {
     const names = AI_ACTIONS.map((a) => a.name);
     expect(new Set(names).size).toBe(names.length);
     for (const action of AI_ACTIONS) {
@@ -47,7 +47,11 @@ describe("registry catalogue", () => {
         expect(PERMISSIONS, `${action.name}: ${p}`).toContain(p);
       }
       expect(action.sources.length, action.name).toBeGreaterThan(0);
-      expect(action.sideEffect, action.name).toBe("read");
+      expect(["read", "propose"], action.name).toContain(action.sideEffect);
+      // A proposal carries its card spec and executor; a read never does.
+      expect(Boolean(action.proposal), action.name).toBe(
+        action.sideEffect === "propose",
+      );
     }
   });
 
@@ -56,10 +60,13 @@ describe("registry catalogue", () => {
     expect(visibleAiActions(["admin"])).toHaveLength(AI_ACTIONS.length);
   });
 
-  it("shows each role exactly the actions whose permissions it holds", () => {
+  it("shows each role exactly the actions whose permissions it holds, plus the question card", () => {
     for (const role of ROLES) {
       const tools = Object.keys(buildAiTools(ctx([role])));
-      const expected = visibleAiActions([role]).map((a) => a.name);
+      const expected = [
+        "askQuestions",
+        ...visibleAiActions([role]).map((a) => a.name),
+      ];
       expect(tools.sort()).toEqual(expected.sort());
     }
   });

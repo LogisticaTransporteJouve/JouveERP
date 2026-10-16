@@ -122,6 +122,45 @@ export async function appendAiMessage(
 }
 
 /**
+ * Saves the answered question card: rewrites the persisted assistant message
+ * (matched by its UIMessage id among the session's latest rows) only while
+ * the card's tool part is still `input-available` in the database. Of two
+ * submissions of the same card exactly one gets true; the other (and a card
+ * that is not persisted) gets false.
+ */
+export async function saveAnsweredQuestionCard(
+  sessionId: string,
+  message: UIMessage,
+  partIndex: number,
+): Promise<boolean> {
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("ai_chat_messages")
+    .select("id, content")
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) throw error;
+  const row = (data ?? []).find(
+    (r) =>
+      typeof r.content === "object" &&
+      r.content !== null &&
+      !Array.isArray(r.content) &&
+      r.content.id === message.id,
+  );
+  if (!row) return false;
+  const { data: updated, error: updateError } = await service
+    .from("ai_chat_messages")
+    .update({ content: toJson(message) })
+    .eq("id", row.id)
+    .eq("session_id", sessionId)
+    .filter(`content->parts->${partIndex}->>state`, "eq", "input-available")
+    .select("id");
+  if (updateError) throw updateError;
+  return (updated?.length ?? 0) > 0;
+}
+
+/**
  * Generates a short title from the first user message (Haiku) if the session
  * doesn't have one yet. Best-effort: falls back to a truncation of the user's
  * text and never throws, so a title failure can't break persistence.

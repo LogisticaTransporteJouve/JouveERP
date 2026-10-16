@@ -53,6 +53,11 @@ import {
   getSupplierUpcomingDues,
   searchSuppliers,
 } from "./actions/purchases";
+import {
+  proposeExchangeRate,
+  proposeJournalEntry,
+  proposeLeave,
+} from "./actions/proposals";
 import { getClientAging } from "./actions/receivables";
 import {
   getClientSalesSummary,
@@ -80,8 +85,9 @@ import {
 } from "./actions/warehouse";
 import type { AiAction } from "./define";
 
-/** Every action the assistant knows, one definition each. The chat tools and
- *  the capabilities summary are generated from this list per user. */
+/** Every action the assistant knows, one definition each. The chat tools,
+ *  the capabilities summary and the proposal executors are generated from
+ *  this list per user. */
 export const AI_ACTIONS: readonly AiAction[] = [
   // Ventas / cuentas por cobrar
   getClientAging,
@@ -121,6 +127,8 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLoans,
   getLoanDetail,
   getExchangeRates,
+  proposeJournalEntry,
+  proposeExchangeRate,
   // RRHH / sueldos
   getEmployees,
   searchEmployees,
@@ -133,6 +141,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getVacationOverview,
   getLeavesSummary,
   getAttendanceSummary,
+  proposeLeave,
   // Flota / transporte
   getVehicles,
   getTrips,

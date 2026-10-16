@@ -7,9 +7,10 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
 
 ## Principios
 
-- **Una definición por acción.** Cada capacidad del asistente es un `defineAiAction` en
-  `features/ai/registry/`. De ahí salen los tools del chat, el resumen de capacidades del system prompt y
-  (en fases siguientes) las tarjetas de propuesta y los flujos programados.
+- **Una definición por acción.** Cada capacidad del asistente es un `defineAiAction` (o
+  `defineAiProposal`) en `features/ai/registry/`. De ahí salen los tools del chat, el resumen de
+  capacidades del system prompt, las tarjetas de propuesta y (en fases siguientes) los flujos
+  programados.
 - **Mismos permisos que la app.** Una acción declara sus permisos (`lib/auth/permissions.ts`). El chat
   solo genera los tools que el usuario puede usar —el modelo ni siquiera ve, por ejemplo, los tools de
   sueldos si el rol no tiene `hr:read`— y cada ejecución vuelve a chequear el permiso. Debajo, cada
@@ -21,7 +22,7 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
 - **No es asesoramiento.** El asistente explica datos y trade-offs; no decide. Si le piden una
   recomendación, presenta opciones y cierra con un aviso fijo.
 
-## Fase 1 — ve todo (este PR)
+## Fase 1 — ve todo (hecha)
 
 **Registry** (`features/ai/registry/`):
 
@@ -32,7 +33,7 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
 | `build.ts` | `buildAiTools(ctx)` (tools AI SDK filtrados por rol) y `buildCapabilitiesSummary(roles)` (una línea por acción, agrupado por área). |
 | `actions/*.ts` | Las acciones por dominio. Las 31 tools anteriores migradas sin cambio de comportamiento. |
 
-`sideEffect` es `read | propose | execute`; en fase 1 todas son `read`.
+`sideEffect` es `read | propose | execute`; en fase 1 todas eran `read` (fase 2 suma `propose`).
 
 **Lecturas nuevas con agregados** (migración `20261016090000_ai_cfo_read_aggregates.sql`, todas
 `SECURITY INVOKER`, solo `authenticated`), cada una detrás de un server action en su feature:
@@ -61,23 +62,74 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
 capacidades del usuario, "nunca inventes cifras; citá fuente y fecha; si un resultado es parcial,
 decilo", datos como datos (anti-injection) y la regla de no-asesoramiento con aviso fijo.
 
-## Fase 2 — pregunta y actúa
+## Fase 2 — pregunta y actúa (hecha)
 
-- **`askQuestions`**: tool de tarjeta con 1–8 preguntas (opción única, múltiple o texto). Corta el
-  turno; las respuestas vuelven como un mensaje estructurado del usuario, no como texto libre.
-- **Tools `propose`**: devuelven `{ requiresConfirmation, action, revisionKey, draft, summary rows,
-  confirmLabel, declineLabel, inspect }`. El borrador se valida con **el mismo Zod que el formulario
-  manual**; si falta o choca algo, la tool devuelve `issues` y `candidates` conversacionales (ej. dos
-  clientes con nombre parecido) en vez de inventar.
-- **`ai_chat_confirmations`** (RLS por `user_id`): una fila por propuesta con estado y `revisionKey`;
-  confirmar es un compare-and-set (`pending → confirmed` solo si la revisión coincide), así un doble
-  click o una tarjeta vieja no ejecuta dos veces.
-- **Confirmar ejecuta el server action existente** (mismo `userCan`, mismo `logAudit`) con una clave
-  de idempotencia derivada de la confirmación. Nada de escrituras propias del asistente.
-- **Tarjetas reemplazadas:** una propuesta nueva sobre la misma entidad marca la anterior
-  `superseded`; la UI la deshabilita.
-- **Composer ocupado** mientras hay una tarjeta pendiente, y **frontera tool/texto**: el modelo no
-  narra como hecho lo que todavía espera confirmación.
+**Preguntas (`askQuestions`).** Tool sin `execute` (`features/ai/registry/ask-questions.ts`): el
+modelo pide 1–8 preguntas (`single`, `multi`, `text`; opciones `{ value, label }`, `allowOther`
+suma "Otro"). La llamada corta el turno y el chat muestra una tarjeta. Al responder, el cliente pone
+las respuestas como output del tool (`addToolOutput`) y manda `{ sessionId, questionAnswers }`; el
+route valida las respuestas contra la tarjeta (`features/ai/lib/questions.ts`: cada pregunta una vez,
+solo opciones de la tarjeta, texto acotado), las guarda como resultado del tool en el mensaje
+persistido con un compare-and-set (solo si la parte sigue `input-available` en la base; un segundo
+envío recibe 409 y el chat recarga la conversación) y agrega un turno fijo del usuario (oculto en la UI) para que el modelo siga en un turno
+nuevo. "Omitir" responde `{ skipped: true }`. Una tarjeta respondida queda de solo lectura con las
+respuestas.
+
+**Propuestas (`sideEffect: "propose"`).** `defineAiProposal` (`features/ai/registry/propose.ts`):
+`prepare` resuelve lo que dijo el modelo (nombres, códigos) con las acciones de lectura de cada
+feature, valida el borrador con **el mismo Zod del formulario manual** y lo guarda como revisión
+pendiente; no escribe nada de negocio. Devuelve `{ requiresConfirmation, confirmationId, action,
+revisionKey, revision, title, draft, summary: [{ label, value }], confirmLabel, declineLabel }`, o
+`{ requiresConfirmation: false, issues, candidates }` si falta o choca un dato (el prompt obliga a
+preguntar con `askQuestions` en vez de elegir). Las specs de cada propuesta (schema, campos
+editables, resumen, textos) están en `features/ai/lib/proposal-specs.ts`, compartidas por servidor y
+tarjeta.
+
+| Acción | Permisos | Escritura al confirmar |
+|---|---|---|
+| `proposeLeave` | `hr:write` + `hr:read` | `lib/commands/create-leave.ts` |
+| `proposeJournalEntry` | `accounting:write` + `accounting:read` | `lib/commands/create-manual-journal-entry.ts` |
+| `proposeExchangeRate` | `accounting:write` | `lib/commands/upsert-exchange-rate.ts` |
+
+Las escrituras viven en `lib/commands/` (sin gate propio, `server-only`, cliente con la sesión del
+usuario, así RLS aplica, y `logAudit` adentro); el server action del formulario manual y el
+ejecutor de la propuesta llaman a la misma función después de su propio gate. Así ninguna acción
+de escritura cruza features.
+
+**`ai_chat_confirmations`** (migración `20261016110000_ai_chat_confirmations.sql`): una fila por
+revisión con `status` `pending | confirmed | declined | superseded | failed`. RLS: `authenticated`
+solo lee sus filas (`user_id = (select auth.uid())` y rol con `ai:chat`); toda escritura va por el
+service client después del gate y filtrando por el usuario (`features/ai/lib/confirmations.ts`).
+Un índice único parcial permite una sola revisión `pending` por `(session_id, revision_key)`.
+
+- **Confirmar** (`confirmAiProposalAction`): `ai:chat` + los permisos de la propuesta → re-valida el
+  borrador con el schema del formulario → compare-and-set `pending → confirmed` (UPDATE con
+  `status = 'pending'` en el WHERE) → ejecuta → guarda `result_id` o pasa a `failed` → `logAudit`
+  (`ai.proposal.confirmed | failed`). Un doble click o una tarjeta vieja no ejecuta dos veces.
+- **Descartar**: compare-and-set `pending → declined` + `logAudit`.
+- **Modificar**: Dialog centrado con los campos editables de la spec, validado con el schema en el
+  cliente y de nuevo en el servidor (`reviseAiProposalAction`, mismos permisos). Solo se toman los
+  campos editables (no se puede cambiar el empleado o las cuentas desde el diálogo); la edición es
+  la revisión siguiente de la misma tarjeta y reemplaza a la anterior. El reemplazo es por id y solo
+  si esa revisión sigue `pending`: si un Confirmar ganó la carrera, la edición falla y no reabre una
+  propuesta ya ejecutada. La cotización se edita con hasta 6 decimales, como en el formulario manual.
+- **Reemplazadas**: el modelo revisa una propuesta pasando su `revisionKey`; la revisión pendiente
+  anterior pasa a `superseded` (por id, solo si sigue `pending`) y su tarjeta dice "Reemplazada". Un
+  `revisionKey` de otra acción se rechaza.
+- **Fallidas**: si la escritura falla al confirmar, la revisión queda `failed` y no se reintenta;
+  hay que volver a proponerla.
+- El estado de las propuestas de la sesión entra cada turno como bloque de sistema ("Propuestas en
+  esta conversación"), desde la base: el modelo sabe qué confirmó, descartó o editó el usuario.
+
+**Chat.** Las partes del mensaje se renderizan en orden: texto en burbujas y tarjetas
+(preguntas/propuestas) como bloques propios, así el texto posterior a una tarjeta aparece debajo.
+El composer se bloquea mientras hay preguntas sin responder (salvo que la tarjeta no se pueda
+mostrar); con una propuesta pendiente solo muestra un aviso, porque se le puede pedir un cambio al
+asistente.
+
+**Límites.** El diálogo de Modificar edita los campos simples (fechas, tipo, notas, descripción,
+cotización); las líneas de un asiento se cambian pidiéndoselo al asistente. Si el servidor cae entre
+el claim y la escritura, la fila queda `confirmed` sin `result_id`.
 
 ## Fase 3 — muestra
 

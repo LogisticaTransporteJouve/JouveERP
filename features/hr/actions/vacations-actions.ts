@@ -1,6 +1,7 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createLeave } from "@/lib/commands/create-leave";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -75,35 +76,7 @@ export async function createLeaveAction(
     };
   }
 
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("employee_leaves")
-    .insert({
-      employee_id: parsed.data.employee_id,
-      start_date: parsed.data.start_date,
-      end_date: parsed.data.end_date,
-      kind: parsed.data.kind,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    return { ok: false, error: error?.message ?? "No se pudo crear." };
-  }
-  await logAudit(
-    "leave.created",
-    ctx.userId,
-    {
-      employee_id: parsed.data.employee_id,
-      kind: parsed.data.kind,
-      start_date: parsed.data.start_date,
-      end_date: parsed.data.end_date,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createLeave(ctx.userId, parsed.data);
 }
 
 export async function updateLeaveAction(input: unknown): Promise<ActionResult> {

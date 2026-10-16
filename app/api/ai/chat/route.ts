@@ -1,4 +1,8 @@
-import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
+import {
+  createUIMessageStreamResponse,
+  toUIMessageStream,
+  type UIMessage,
+} from "ai";
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
@@ -12,8 +16,18 @@ import {
   maybeTitleAiSession,
   messageText,
   recordAiUsage,
+  saveAnsweredQuestionCard,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
+import {
+  chatProposalStore,
+  listSessionConfirmations,
+  proposalStatusNote,
+} from "@/features/ai/lib/confirmations";
+import {
+  answersTurnMessage,
+  applyQuestionAnswers,
+} from "@/features/ai/lib/questions";
 import { buildAiTools, buildCapabilitiesSummary } from "@/features/ai/registry";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -90,18 +104,30 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
-  const sessionId =
-    typeof body === "object" && body !== null && "sessionId" in body
-      ? body.sessionId
+  const field = (key: string): unknown =>
+    typeof body === "object" && body !== null && key in body
+      ? Reflect.get(body, key)
       : undefined;
-  const rawMessage =
-    typeof body === "object" && body !== null && "message" in body
-      ? body.message
-      : undefined;
-  // The message is persisted and replayed into the model: only a plain user
-  // text turn is accepted (no assistant/system role, no forged tool results).
-  const message = await parseIncomingUserMessage(rawMessage);
-  if (typeof sessionId !== "string" || !UUID_RE.test(sessionId) || !message) {
+  const sessionId = field("sessionId");
+  if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+  }
+  // A turn is either a plain user text message, or the answers to the
+  // question card the transcript ends on (they become that tool call's
+  // output). The message is persisted and replayed into the model: no
+  // assistant/system role, no forged tool results.
+  const rawAnswers = field("questionAnswers");
+  const answers =
+    typeof rawAnswers === "object" && rawAnswers !== null
+      ? {
+          toolCallId: Reflect.get(rawAnswers, "toolCallId"),
+          answers: Reflect.get(rawAnswers, "answers"),
+        }
+      : null;
+  const message = answers
+    ? null
+    : await parseIncomingUserMessage(field("message"));
+  if (!answers && !message) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
@@ -121,15 +147,72 @@ export async function POST(req: Request) {
 
   const prior = await loadAiSessionMessages(ctx.userId, sessionId);
   const isFirstTurn = prior.length === 0;
-  await appendAiMessage(sessionId, message);
+  let allMessages: UIMessage[];
+  if (answers) {
+    if (typeof answers.toolCallId !== "string") {
+      return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+    }
+    const applied = applyQuestionAnswers(
+      prior,
+      answers.toolCallId,
+      answers.answers,
+    );
+    const answered = applied.ok ? applied.messages.at(-1) : undefined;
+    if (!applied.ok || !answered) {
+      return NextResponse.json(
+        { error: applied.ok ? "No hay preguntas pendientes." : applied.error },
+        { status: 409 },
+      );
+    }
+    // Compare-and-set on the stored card: a second submission (double click,
+    // two tabs) gets 409 instead of starting a second run.
+    if (
+      !(await saveAnsweredQuestionCard(sessionId, answered, applied.partIndex))
+    ) {
+      return NextResponse.json(
+        { error: "No hay preguntas pendientes." },
+        { status: 409 },
+      );
+    }
+    // The model answers in a new turn: replaying the card's assistant message
+    // as an unfinished turn would need its thinking blocks back unchanged.
+    const turn = answersTurnMessage(answers.toolCallId);
+    await appendAiMessage(sessionId, turn);
+    allMessages = [...applied.messages, turn];
+  } else if (message) {
+    await appendAiMessage(sessionId, message);
+    allMessages = [...prior, message];
+  } else {
+    return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+  }
 
-  const allMessages = [...prior, message];
+  // What the user decided on earlier proposal cards, from the database: the
+  // transcript's tool results never change after the fact.
+  let proposalNote = "";
+  try {
+    proposalNote = proposalStatusNote(
+      await listSessionConfirmations(ctx.userId, sessionId),
+    );
+  } catch (err) {
+    logger.error("ai.chat.proposals.load_failed", {
+      userId: ctx.userId,
+      sessionId,
+      error: err,
+    });
+  }
+
   // Only the actions this user's roles may run become tools: the model never
   // sees (or can call) the rest, and each tool re-checks the permission.
-  const tools = buildAiTools({ userId: ctx.userId, roles: ctx.roles });
+  // Proposals park their drafts in this session for the user to confirm.
+  const tools = buildAiTools({
+    userId: ctx.userId,
+    roles: ctx.roles,
+    proposals: chatProposalStore(ctx.userId, sessionId),
+  });
   const result = await streamChat(allMessages, {
     tools,
     capabilities: buildCapabilitiesSummary(ctx.roles),
+    notes: proposalNote,
     userId: ctx.userId,
     sessionId,
     onUsage: (usage) =>
@@ -152,7 +235,7 @@ export async function POST(req: Request) {
     onEnd: async ({ responseMessage }) => {
       try {
         await appendAiMessage(sessionId, responseMessage);
-        if (isFirstTurn) {
+        if (isFirstTurn && message) {
           await maybeTitleAiSession(
             ctx.userId,
             sessionId,

@@ -69,6 +69,10 @@ const TOOL_LABELS: Record<string, string> = {
   getAfipStatus: "Estado AFIP",
   searchGlobal: "Búsqueda",
   getAttachments: "Adjuntos",
+  proposeLeave: "Propuesta de licencia",
+  proposeJournalEntry: "Propuesta de asiento",
+  proposeExchangeRate: "Propuesta de cotización",
+  askQuestions: "Preguntas",
 };
 
 export function toolLabel(name: string): string {

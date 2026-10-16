@@ -148,6 +148,71 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_chat_confirmations: {
+        Row: {
+          action: string
+          created_at: string
+          decided_at: string | null
+          draft: Json
+          error: string | null
+          id: string
+          labels: Json
+          origin: string
+          result_id: string | null
+          revision: number
+          revision_key: string
+          session_id: string
+          status: string
+          summary: Json
+          tool_call_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          decided_at?: string | null
+          draft: Json
+          error?: string | null
+          id?: string
+          labels?: Json
+          origin?: string
+          result_id?: string | null
+          revision?: number
+          revision_key: string
+          session_id: string
+          status?: string
+          summary: Json
+          tool_call_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          decided_at?: string | null
+          draft?: Json
+          error?: string | null
+          id?: string
+          labels?: Json
+          origin?: string
+          result_id?: string | null
+          revision?: number
+          revision_key?: string
+          session_id?: string
+          status?: string
+          summary?: Json
+          tool_call_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_chat_confirmations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_chat_messages: {
         Row: {
           content: Json
