@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { formatCurrencyAmounts } from "@/lib/aging";
 import {
   formatArgentineDate,
   formatMoney,
@@ -54,23 +55,19 @@ export function FinanceKpis({
           />
         )}
         {receivables && (
-          <KpiTile
+          <AgingKpiTile
             href="/aging"
             label="Por cobrar"
-            value={formatMoneyWithCode(receivables.total_open, "ARS")}
-            subtitle={`${receivables.party_count} clientes · +90 días ${formatMoney(
-              receivables.bucket_90_plus,
-            )}`}
+            kpis={receivables}
+            partyPlural="clientes"
           />
         )}
         {payables && (
-          <KpiTile
+          <AgingKpiTile
             href="/aging-suppliers"
             label="Por pagar"
-            value={formatMoneyWithCode(payables.total_open, "ARS")}
-            subtitle={`${payables.party_count} proveedores · +90 días ${formatMoney(
-              payables.bucket_90_plus,
-            )}`}
+            kpis={payables}
+            partyPlural="proveedores"
           />
         )}
       </div>
@@ -99,10 +96,47 @@ export function FinanceKpis({
   );
 }
 
+/** Receivables / payables: one ARS figure (dollars at the latest official
+ *  rate) with the per-currency split underneath when there are dollars. */
+function AgingKpiTile({
+  href,
+  label,
+  kpis,
+  partyPlural,
+}: {
+  href: string;
+  label: string;
+  kpis: DashboardAgingKpis;
+  partyPlural: string;
+}) {
+  const hasUsd = kpis.total.usd !== 0;
+  const value =
+    hasUsd && kpis.total_ars_equivalent !== null
+      ? `≈ ${formatMoneyWithCode(kpis.total_ars_equivalent, "ARS")}`
+      : formatMoneyWithCode(kpis.total.ars, "ARS");
+  const detail = hasUsd
+    ? kpis.total_ars_equivalent !== null
+      ? formatCurrencyAmounts(kpis.total)
+      : `${formatCurrencyAmounts(kpis.total)} · sin cotización cargada`
+    : undefined;
+  return (
+    <KpiTile
+      href={href}
+      label={label}
+      value={value}
+      detail={detail}
+      subtitle={`${kpis.party_count} ${partyPlural} · +90 días ${formatCurrencyAmounts(
+        kpis.bucket_90_plus,
+      )}`}
+    />
+  );
+}
+
 function KpiTile({
   href,
   label,
   value,
+  detail,
   subtitle,
   delta,
   deltaCurrency,
@@ -110,14 +144,23 @@ function KpiTile({
   href: string;
   label: string;
   value: string;
+  detail?: string;
   subtitle: string;
   delta?: number;
   deltaCurrency?: "ARS" | "USD";
 }) {
   return (
-    <Link href={href} className="rounded-lg border bg-card p-4 hover:bg-accent/50">
+    <Link
+      href={href}
+      className="rounded-lg border bg-card p-4 hover:bg-accent/50"
+    >
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold">{value}</p>
+      {detail && (
+        <p className="truncate font-mono text-xs text-muted-foreground">
+          {detail}
+        </p>
+      )}
       <div className="mt-1 flex items-center justify-between gap-2 text-xs">
         <span className="truncate text-muted-foreground">{subtitle}</span>
         {delta != null && deltaCurrency && (

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { aggregateClientAging } from "@/lib/aging";
+
 import {
   offeredTools,
   scriptedModel,
@@ -118,18 +120,7 @@ describe("runWorkflowAgent", () => {
   it("runs the tool loop, audits each call and splits answer and summary", async () => {
     getAgingSummaryAction.mockResolvedValue({
       ok: true,
-      data: {
-        clients: [],
-        totals: {
-          bucket_0_30: 0,
-          bucket_30_60: 0,
-          bucket_60_90: 0,
-          bucket_90_plus: 200,
-          total_open: 1000,
-          client_count: 3,
-          document_count: 5,
-        },
-      },
+      data: aggregateClientAging([], null),
     });
     model = scriptedModel([
       toolCallTurn("getClientAging", {}),

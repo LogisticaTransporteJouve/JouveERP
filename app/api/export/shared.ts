@@ -1,5 +1,6 @@
 import "server-only";
 
+import { AGING_BUCKETS, type AgingBucket, type AgingReport } from "@/lib/aging";
 import type { Permission } from "@/lib/auth/permissions";
 import { exportSlug } from "@/lib/export/download";
 import type { XlsxCell, XlsxSheet } from "@/lib/export/xlsx";
@@ -126,3 +127,118 @@ export const ACCOUNT_COLUMNS: TableReportColumn[] = [
   { header: "Haber", width: 90, align: "right", mono: true },
   { header: "Saldo", width: 88, align: "right", mono: true },
 ];
+
+const AGING_BUCKET_HEADERS: Record<AgingBucket, string> = {
+  "0_30": "0–30 días",
+  "30_60": "30–60",
+  "60_90": "60–90",
+  "90_plus": "90+",
+};
+
+const usdMoney = (n: number) => `US$${formatNumber2(n)}`;
+
+/**
+ * Landscape aging report (clients or suppliers). Pesos and dollars are never
+ * summed: a party with balances in both currencies gets one row per currency,
+ * each amount typed in its own currency. "Total en ARS" is the party's
+ * exposure with dollars at the latest official rate ("—" without a rate).
+ * With dollars present, the per-currency totals are rows of their own and the
+ * totals row carries only the peso equivalent.
+ */
+export function agingExport(
+  report: AgingReport,
+  meta: {
+    title: string;
+    subtitle: string;
+    partyHeader: string;
+    fileName: string;
+  },
+): ExportOutput {
+  const { rows, totals, usd_rate } = report;
+  const amount = (n: number, currency: "ARS" | "USD") =>
+    moneyCell(n, {
+      currency,
+      text: currency === "USD" ? usdMoney(n) : money(n),
+    });
+  const equivalent = (n: number | null): ExportCell =>
+    n === null ? "—" : moneyCell(n);
+  const rateNote = usd_rate
+    ? `USD al dólar oficial ${money(usd_rate.rate)} (${formatArgentineDate(usd_rate.rate_date)})`
+    : "Sin cotización del dólar cargada: los saldos en USD no se consolidan";
+
+  const out: ExportCell[][] = [];
+  for (const r of rows) {
+    const currencies: ("ARS" | "USD")[] =
+      r.total.usd !== 0 && r.total.ars !== 0
+        ? ["ARS", "USD"]
+        : r.total.usd !== 0
+          ? ["USD"]
+          : ["ARS"];
+    currencies.forEach((currency, i) => {
+      const key = currency === "ARS" ? "ars" : "usd";
+      out.push([
+        r.legal_name,
+        r.cuit,
+        currency,
+        ...AGING_BUCKETS.map((b) => amount(r.buckets[b][key], currency)),
+        amount(r.total[key], currency),
+        i === 0 ? equivalent(r.total_ars_equivalent) : "",
+      ]);
+    });
+  }
+
+  const hasUsd = totals.total.usd !== 0;
+  const totalsFor = (currency: "ARS" | "USD", label: string) => {
+    const key = currency === "ARS" ? "ars" : "usd";
+    return [
+      label,
+      "",
+      currency,
+      ...AGING_BUCKETS.map((b) => amount(totals.buckets[b][key], currency)),
+      amount(totals.total[key], currency),
+    ];
+  };
+  if (hasUsd) {
+    out.push(
+      [...totalsFor("ARS", "Totales en pesos"), ""],
+      [...totalsFor("USD", "Totales en dólares"), ""],
+    );
+  }
+
+  return {
+    title: meta.title,
+    subtitle: `${meta.subtitle} · ${rateNote}`,
+    columns: [
+      { header: meta.partyHeader, width: 200 },
+      { header: "CUIT", width: 90, mono: true },
+      { header: "Moneda", width: 44 },
+      ...AGING_BUCKETS.map((b): TableReportColumn => ({
+        header: AGING_BUCKET_HEADERS[b],
+        width: 78,
+        align: "right",
+        mono: true,
+      })),
+      { header: "Total", width: 74, align: "right", mono: true },
+      { header: "Total en ARS", width: 74, align: "right", mono: true },
+    ],
+    rows: out,
+    totalsRow: hasUsd
+      ? [
+          "Total en pesos",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          equivalent(totals.total_ars_equivalent),
+        ]
+      : [
+          ...totalsFor("ARS", "Totales"),
+          equivalent(totals.total_ars_equivalent),
+        ],
+    orientation: "landscape",
+    fileName: meta.fileName,
+  };
+}

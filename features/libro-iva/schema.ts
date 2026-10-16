@@ -1,3 +1,5 @@
+import { round2 } from "@/lib/format";
+
 export const LIBRO_IVA_VENTAS_PATH = "/accounting/libro-iva-ventas";
 export const LIBRO_IVA_COMPRAS_PATH = "/accounting/libro-iva-compras";
 
@@ -21,6 +23,12 @@ export type LibroIvaComprasRow = {
   channel_id: string;
   channel_name: string;
   has_items: boolean;
+  moneda: string;
+  cotizacion: string | number;
+  neto_orig: string | number;
+  iva_orig: string | number;
+  imp_trib_orig: string | number;
+  imp_total_orig: string | number;
 };
 
 export type LibroIvaComprasGroupedRow = {
@@ -39,7 +47,12 @@ export type LibroIvaComprasGroupedRow = {
   channel_name: string;
   channel_id: string;
   has_items: boolean;
-  per_rate: Record<number, { neto: number; iva: number }>;
+  /** Pesos: the document's amounts × its cotizacion (the book's figures). */
+  per_rate: PerRate;
+  moneda: string;
+  cotizacion: number;
+  /** The same figures in the document's own currency (Libro IVA Digital TXT). */
+  orig: { per_rate: PerRate; imp_trib: number; imp_total: number };
 };
 
 export function groupComprasByInvoice(
@@ -66,15 +79,19 @@ export function groupComprasByInvoice(
         channel_id: r.channel_id,
         has_items: r.has_items,
         per_rate: {},
+        moneda: r.moneda,
+        cotizacion: Number(r.cotizacion),
+        orig: {
+          per_rate: {},
+          imp_trib: Number(r.imp_trib_orig),
+          imp_total: Number(r.imp_total_orig),
+        },
       };
       map.set(r.purchase_invoice_id, acc);
     }
     const key = r.iva_rate_id ?? -1;
-    const existing = acc.per_rate[key] ?? { neto: 0, iva: 0 };
-    acc.per_rate[key] = {
-      neto: existing.neto + Number(r.neto),
-      iva: existing.iva + Number(r.iva),
-    };
+    addRate(acc.per_rate, key, r.neto, r.iva);
+    addRate(acc.orig.per_rate, key, r.neto_orig, r.iva_orig);
   }
   return Array.from(map.values());
 }
@@ -136,7 +153,31 @@ export type LibroIvaVentasRow = {
   channel_id: string;
   channel_name: string;
   has_items: boolean;
+  moneda: string;
+  cotizacion: string | number;
+  neto_orig: string | number;
+  iva_orig: string | number;
+  imp_trib_orig: string | number;
+  imp_op_ex_orig: string | number;
+  imp_tot_conc_orig: string | number;
+  imp_total_orig: string | number;
 };
+
+/** Neto + IVA per iva_rate_id (key); -1 = "no breakdown". */
+export type PerRate = Record<number, { neto: number; iva: number }>;
+
+function addRate(
+  perRate: PerRate,
+  key: number,
+  neto: string | number,
+  iva: string | number,
+): void {
+  const existing = perRate[key] ?? { neto: 0, iva: 0 };
+  perRate[key] = {
+    neto: existing.neto + Number(neto),
+    iva: existing.iva + Number(iva),
+  };
+}
 
 // AFIP iva_rate_id → rate. Mirror of lib/afip/codes.ts IVA_RATE_PERCENT
 // (id 8 = 5%, id 9 = 2.5%); they used to be swapped here. Ascending order.
@@ -189,8 +230,18 @@ export type LibroIvaVentasGroupedRow = {
   channel_name: string;
   channel_id: string;
   has_items: boolean;
-  /** Neto + IVA per iva_rate_id (key). iva_rate_id = -1 represents "no breakdown" */
-  per_rate: Record<number, { neto: number; iva: number }>;
+  /** Pesos: the document's amounts × its cotizacion (the book's figures). */
+  per_rate: PerRate;
+  moneda: string;
+  cotizacion: number;
+  /** The same figures in the document's own currency (Libro IVA Digital TXT). */
+  orig: {
+    per_rate: PerRate;
+    imp_trib: number;
+    imp_op_ex: number;
+    imp_tot_conc: number;
+    imp_total: number;
+  };
 };
 
 export function groupByInvoice(
@@ -221,15 +272,21 @@ export function groupByInvoice(
         channel_id: r.channel_id,
         has_items: r.has_items,
         per_rate: {},
+        moneda: r.moneda,
+        cotizacion: Number(r.cotizacion),
+        orig: {
+          per_rate: {},
+          imp_trib: Number(r.imp_trib_orig),
+          imp_op_ex: Number(r.imp_op_ex_orig),
+          imp_tot_conc: Number(r.imp_tot_conc_orig),
+          imp_total: Number(r.imp_total_orig),
+        },
       };
       map.set(r.invoice_id, acc);
     }
     const key = r.iva_rate_id ?? -1;
-    const existing = acc.per_rate[key] ?? { neto: 0, iva: 0 };
-    acc.per_rate[key] = {
-      neto: existing.neto + Number(r.neto),
-      iva: existing.iva + Number(r.iva),
-    };
+    addRate(acc.per_rate, key, r.neto, r.iva);
+    addRate(acc.orig.per_rate, key, r.neto_orig, r.iva_orig);
   }
   return Array.from(map.values());
 }
@@ -272,4 +329,55 @@ export function computeTotals(
     totals.imp_total += sign * row.imp_total;
   }
   return totals;
+}
+
+/** A foreign-currency document's contribution to the book, per currency. */
+export type ForeignCurrencyTotal = {
+  moneda: string;
+  count: number;
+  /** Signed (NC subtract), in the document currency. */
+  imp_total_orig: number;
+  /** Signed (NC subtract), in pesos at each document's cotizacion. */
+  imp_total_ars: number;
+};
+
+type CurrencyDoc = {
+  kind: string;
+  moneda: string;
+  cotizacion: number;
+  imp_total: number;
+  orig: { imp_total: number };
+};
+
+/**
+ * Foreign-currency documents grouped by currency, so the page can show what
+ * the peso totals include. Pesos ("PES") are left out: they need no note.
+ */
+export function foreignCurrencyTotals(
+  docs: readonly CurrencyDoc[],
+): ForeignCurrencyTotal[] {
+  const map = new Map<string, ForeignCurrencyTotal>();
+  for (const d of docs) {
+    if (d.moneda === "PES") continue;
+    const sign = d.kind === "nc" ? -1 : 1;
+    const acc = map.get(d.moneda) ?? {
+      moneda: d.moneda,
+      count: 0,
+      imp_total_orig: 0,
+      imp_total_ars: 0,
+    };
+    acc.count += 1;
+    acc.imp_total_orig = round2(acc.imp_total_orig + sign * d.orig.imp_total);
+    acc.imp_total_ars = round2(acc.imp_total_ars + sign * d.imp_total);
+    map.set(d.moneda, acc);
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.moneda.localeCompare(b.moneda),
+  );
+}
+
+/** Foreign-currency documents whose cotizacion is missing or 1: converting
+ *  them leaves the amount at face value, so the accountant must check them. */
+export function countSuspectRates(docs: readonly CurrencyDoc[]): number {
+  return docs.filter((d) => d.moneda !== "PES" && d.cotizacion <= 1).length;
 }

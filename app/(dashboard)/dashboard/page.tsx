@@ -23,9 +23,9 @@ import {
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import { getCashFlowAction } from "@/features/treasury/actions/cash-flow-actions";
 import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
+import type { AgingReport } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { round2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -60,35 +60,24 @@ export default async function DashboardPage() {
   const ops = opsRes.ok ? opsRes.data : null;
   const savedLayout = layoutRes.ok ? layoutRes.data : null;
 
-  const receivables: DashboardAgingKpis | null = aging
-    ? {
-        total_open: aging.totals.total_open,
-        bucket_90_plus: aging.totals.bucket_90_plus,
-        party_count: aging.totals.client_count,
-      }
-    : null;
+  const toKpis = (report: AgingReport): DashboardAgingKpis => ({
+    total: report.totals.total,
+    total_ars_equivalent: report.totals.total_ars_equivalent,
+    bucket_90_plus: report.totals.buckets["90_plus"],
+    party_count: report.totals.party_count,
+  });
+  const receivables = aging ? toKpis(aging) : null;
+  const payables = supplierAging ? toKpis(supplierAging) : null;
 
-  const payables: DashboardAgingKpis | null = supplierAging
-    ? {
-        total_open: round2(
-          supplierAging.reduce((sum, s) => sum + s.total_open, 0),
-        ),
-        bucket_90_plus: round2(
-          supplierAging.reduce((sum, s) => sum + s.bucket_90_plus, 0),
-        ),
-        party_count: supplierAging.length,
-      }
-    : null;
-
-  // getAgingSummaryAction already sorts by total_open desc.
-  const topDebtors: TopDebtor[] = (aging?.clients ?? [])
-    .filter((c) => c.total_open > 0)
+  // getAgingSummaryAction already sorts by ARS-equivalent exposure.
+  const topDebtors: TopDebtor[] = (aging?.rows ?? [])
     .slice(0, TOP_DEBTORS)
     .map((c) => ({
-      client_id: c.client_id,
+      client_id: c.id,
       name: c.display_name ?? c.legal_name,
       cuit: c.cuit,
-      total_open: c.total_open,
+      total: c.total,
+      total_ars_equivalent: c.total_ars_equivalent,
       oldest_days: c.oldest_days,
     }));
 

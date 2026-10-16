@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { aggregateClientAging, type ClientAgingViewRow } from "@/lib/aging";
+
 import {
+  agingExport,
   cellText,
+  cellValue,
   dateCell,
   exportSheet,
   moneyCell,
@@ -77,5 +81,99 @@ describe("totalCell", () => {
       value: { money: 10, currency: "ARS" },
     });
     expect(totalCell(10, new Set(["ARS", "USD"]))).toBe("$10,00");
+  });
+});
+
+describe("agingExport", () => {
+  const zero = {
+    ars_bucket_0_30: 0,
+    ars_bucket_30_60: 0,
+    ars_bucket_60_90: 0,
+    ars_bucket_90_plus: 0,
+    ars_total_open: 0,
+    usd_bucket_0_30: 0,
+    usd_bucket_30_60: 0,
+    usd_bucket_60_90: 0,
+    usd_bucket_90_plus: 0,
+    usd_total_open: 0,
+    document_count: 1,
+    oldest_days: 10,
+  };
+  const party = (
+    id: string,
+    over: Partial<ClientAgingViewRow>,
+  ): ClientAgingViewRow => ({
+    ...zero,
+    client_id: id,
+    clients: { legal_name: id, display_name: null, cuit: "20-1-2" },
+    ...over,
+  });
+  const meta = {
+    title: "Aging",
+    subtitle: "Saldos",
+    partyHeader: "Cliente",
+    fileName: "aging",
+  };
+
+  it("writes one row per currency, each amount typed in its own currency", () => {
+    const out = agingExport(
+      aggregateClientAging(
+        [
+          party("mixto", {
+            ars_bucket_0_30: 100,
+            ars_total_open: 100,
+            usd_bucket_90_plus: 2,
+            usd_total_open: 2,
+          }),
+        ],
+        { rate: 1000, rate_date: "2026-10-15" },
+      ),
+      meta,
+    );
+    const headers = out.columns.map((c) => c.header);
+    const at = (r: number, h: string) => out.rows[r]?.[headers.indexOf(h)];
+    expect(at(0, "Moneda")).toBe("ARS");
+    expect(cellValue(at(0, "0–30 días") ?? "")).toEqual({
+      money: 100,
+      currency: "ARS",
+    });
+    expect(cellValue(at(0, "Total en ARS") ?? "")).toEqual({
+      money: 2100,
+      currency: "ARS",
+    });
+    expect(at(1, "Moneda")).toBe("USD");
+    expect(cellValue(at(1, "90+") ?? "")).toEqual({
+      money: 2,
+      currency: "USD",
+    });
+    expect(cellText(at(1, "Total") ?? "")).toBe("US$2,00");
+    // Per-currency totals as rows, the peso equivalent in the totals row.
+    expect(out.rows.map((r) => r[0])).toEqual([
+      "mixto",
+      "mixto",
+      "Totales en pesos",
+      "Totales en dólares",
+    ]);
+    expect(cellValue(out.totalsRow?.at(-1) ?? "")).toEqual({
+      money: 2100,
+      currency: "ARS",
+    });
+    expect(out.subtitle).toContain("dólar oficial");
+    expect(out.columns.reduce((s, c) => s + c.width, 0)).toBe(794);
+  });
+
+  it("keeps a peso-only report to a single totals row, and says when there is no rate", () => {
+    const pesos = agingExport(
+      aggregateClientAging([party("a", { ars_total_open: 5 })], null),
+      meta,
+    );
+    expect(pesos.rows).toHaveLength(1);
+    expect(pesos.totalsRow?.[0]).toBe("Totales");
+    expect(pesos.subtitle).toContain("Sin cotización");
+    const noRate = agingExport(
+      aggregateClientAging([party("u", { usd_total_open: 3 })], null),
+      meta,
+    );
+    expect(noRate.totalsRow?.at(-1)).toBe("—");
   });
 });

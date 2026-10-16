@@ -7,7 +7,13 @@ import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
 
 import { defineAiAction } from "../define";
-import { type AiRunResult, errResult, money, okResult } from "../result";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  totalsByCurrency,
+} from "../result";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`invoices:read` / `receipts:read` / `clients:read`) + RLS, so the tool
@@ -28,11 +34,17 @@ export async function runInvoices(input: {
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.items.reduce((s, i) => s + i.imp_total, 0);
+  const total = totalsByCurrency(
+    res.data.items.map((i) => ({
+      amount: i.kind === "nc" ? -i.imp_total : i.imp_total,
+      currency: i.moneda,
+      counts: i.status === "emitted",
+    })),
+  );
   return okResult(
     `${res.data.items.length} invoices${
       res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
-    } · total ${money(total)}.`,
+    } · emitted total ${total} (credit notes subtract; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );
@@ -73,11 +85,17 @@ export async function runReceipts(input: {
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.items.reduce((s, r) => s + r.total_amount, 0);
+  const total = totalsByCurrency(
+    res.data.items.map((r) => ({
+      amount: r.total_amount,
+      currency: r.currency,
+      counts: r.status === "issued",
+    })),
+  );
   return okResult(
     `${res.data.items.length} receipts${
       res.data.nextOffset !== null ? " (more available)" : ""
-    } · total collected ${money(total)}.`,
+    } · total collected ${total} (issued only; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );

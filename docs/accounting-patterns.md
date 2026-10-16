@@ -254,6 +254,35 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   3,8,9,4,5,6).
 - **Sin-desglose fallback:** comprobantes sin items (legacy AFIP, ~1313 de K.2) →
   fila sintética `iva_rate_id=NULL` con `imp_neto/imp_iva` del header.
+- **En pesos** (mig `20261016140000_multicurrency_reports`), con la misma
+  conversión y redondeo que el asiento del comprobante
+  (`build_invoice_journal_lines` / `build_purchase_invoice_journal_lines`), así el
+  libro cuadra al centavo con IVA débito/crédito y ventas/compras del mayor:
+  - **Tipo de cambio:** `PES` (o sin moneda) = 1; si no, la `cotizacion` guardada
+    (la informada a AFIP); si es 0, `get_exchange_rate('USD', fecha)`; si no hay,
+    1. La columna `cotizacion` del RPC devuelve el tipo de cambio efectivamente
+    usado.
+  - **Redondeo por comprobante:** IVA = `round(imp_iva × tc, 2)`, percepciones =
+    `round(imp_trib × tc, 2)`; en ventas el ingreso
+    `round((imp_neto + imp_op_ex + imp_tot_conc) × tc, 2)` se reparte en
+    `imp_op_ex` e `imp_tot_conc` (cada uno redondeado) y neto (el resto); en
+    compras neto = `round(imp_neto × tc, 2)`. `imp_total` (ARS) = suma de esos
+    componentes redondeados (lo que el asiento imputa a clientes/proveedores), no
+    `round(imp_total × tc, 2)`.
+  - **Por alícuota:** cada fila se redondea y la diferencia de centavos contra el
+    neto/IVA del comprobante va a su alícuota más grande, así las filas suman lo
+    del asiento.
+  - `moneda`, `cotizacion` y `*_orig` (importes en la moneda del comprobante)
+    quedan para trazabilidad. La pantalla lista los comprobantes en moneda
+    extranjera y avisa los que tienen tipo de cambio ≤ 1.
+  - El TXT de Libro IVA Digital (`lib/citi.ts`) usa `*_orig` + código de moneda
+    AFIP (lista cerrada; un código desconocido o un tipo de cambio > 9999,999999
+    excluye el comprobante con aviso) + tipo de cambio, como lo espera ARCA.
+- **Aging por moneda:** `v_client_aging`/`v_supplier_aging` exponen `ars_*` y
+  `usd_*` por separado (`usd_*` = DOL/USD; cualquier otra moneda cae en `ars_*`,
+  la app solo emite PES y DOL). El total único (pantallas, dashboard, PDF, IA) es
+  el equivalente en pesos al último dólar oficial (`lib/fx.ts`, `lib/aging.ts`),
+  o ninguno si hay USD y no hay cotización cargada.
 - **Validación pre-presentación advisoria** (no bloquea): banner ámbar con "N sin
   CAE" / "N sin desglose". El **export PDF no está gateado** por estas alertas.
 - **Export:** solo **PDF** (`@react-pdf`, A4 landscape), rutas

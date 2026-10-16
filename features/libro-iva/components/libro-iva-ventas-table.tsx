@@ -16,6 +16,7 @@ import {
   libroIvaVoucherNumber,
 } from "../schema";
 
+import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaVentasTable({
@@ -77,6 +78,8 @@ export function LibroIvaVentasTable({
         </div>
       )}
 
+      <CurrencyNote docs={grouped} />
+
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/30 text-left text-xs">
@@ -101,7 +104,8 @@ export function LibroIvaVentasTable({
                 Perc.
               </th>
               <th className="px-2 py-2 text-right font-medium">No grav.</th>
-              <th className="px-2 py-2 text-right font-medium">Total</th>
+              <th className="px-2 py-2 text-right font-medium">Total $</th>
+              <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
               <th className="px-2 py-2 font-medium">CAE</th>
             </tr>
             <tr className="border-b text-xs text-muted-foreground">
@@ -119,6 +123,7 @@ export function LibroIvaVentasTable({
                 </Fragment>
               ))}
               <th className="border-l" />
+              <th />
               <th />
               <th />
               <th />
@@ -179,6 +184,13 @@ export function LibroIvaVentasTable({
                   <td className="px-2 py-1 text-right font-mono text-xs font-medium">
                     {money(row.imp_total)}
                   </td>
+                  <td className="px-2 py-1 text-right font-mono text-xs">
+                    <OriginalCurrencyCell
+                      moneda={row.moneda}
+                      cotizacion={row.cotizacion}
+                      impTotal={row.orig.imp_total}
+                    />
+                  </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.cae ? (
                       <span title={`Vto ${row.cae_vencimiento ?? ""}`}>
@@ -222,6 +234,7 @@ export function LibroIvaVentasTable({
               <td className="px-2 py-2 text-right font-mono">
                 {money(totals.imp_total)}
               </td>
+              <td />
               <td />
             </tr>
           </tfoot>

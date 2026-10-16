@@ -4,6 +4,9 @@
 // "Diseños de Registros" oficial — VENTAS_CBTE 266 chars / VENTAS_ALICUOTAS 62 /
 // COMPRAS_CBTE 325 / COMPRAS_ALICUOTAS 84. Importes: 13 enteros + 2 decimales
 // implícitos, cero-padded; fechas AAAAMMDD; tipo de cambio 4 + 6 decimales.
+// Los importes van en la moneda del comprobante (como se informaron a AFIP)
+// junto con su código de moneda y tipo de cambio; ARCA los pasa a pesos. Por
+// eso se usan las cifras `orig` y no las del libro en pesos.
 
 import type {
   LibroIvaComprasGroupedRow,
@@ -53,11 +56,15 @@ function amount(value: number, len = 15): string {
   return digits.padStart(len, "0").slice(-len);
 }
 
-/** Exchange rate: 4 integers + 6 implied decimals (PES → 0001000000). */
+/** Exchange rate: 4 integers + 6 implied decimals (PES → 0001000000). The
+ *  caller has already checked it fits (see `resolveCurrency`). */
 function exchangeRate(value: number): string {
   const millionths = Math.round(Math.abs(value) * 1_000_000);
-  return String(millionths).padStart(10, "0").slice(-10);
+  return String(millionths).padStart(10, "0");
 }
+
+/** Largest rate the 4+6 field can hold. */
+const MAX_EXCHANGE_RATE = 9999.999999;
 
 /** Uppercased ASCII (AFIP files are ANSI; we normalize to the safe subset). */
 function normalizeText(value: string): string {
@@ -83,8 +90,64 @@ function fecha8(iso: string): string {
   return iso.replaceAll("-", "");
 }
 
-function monedaCode(moneda: string | null): string {
-  return moneda === "DOL" || moneda === "USD" ? "DOL" : "PES";
+/** AFIP currency codes (FEParamGetTiposMonedas) the TXT accepts, and the ISO
+ *  codes the app may store for them. */
+const AFIP_MONEDAS = new Set([
+  "PES", // Pesos
+  "DOL", // Dólar estadounidense
+  "002", // Dólar libre EEUU
+  "010", // Peso mexicano
+  "011", // Peso uruguayo
+  "012", // Real
+  "014", // Corona danesa
+  "018", // Dólar canadiense
+  "019", // Yen
+  "021", // Libra esterlina
+  "060", // Euro
+]);
+const ISO_TO_AFIP: Record<string, string> = {
+  ARS: "PES",
+  USD: "DOL",
+  EUR: "060",
+  BRL: "012",
+  UYU: "011",
+  GBP: "021",
+};
+
+type CurrencyResult =
+  | { ok: true; moneda: string; rate: number; warning: string | null }
+  | { ok: false; reason: string };
+
+/**
+ * Currency code and exchange rate for the TXT. An unknown code or a rate the
+ * field cannot hold excludes the document (an invalid record would reject the
+ * whole import); a foreign currency at rate 1 or less is kept but flagged.
+ */
+export function resolveCurrency(
+  moneda: string | null,
+  cotizacion: number,
+): CurrencyResult {
+  const raw = (moneda ?? "PES").trim().toUpperCase();
+  const code = ISO_TO_AFIP[raw] ?? raw;
+  if (!AFIP_MONEDAS.has(code)) {
+    return { ok: false, reason: `moneda desconocida "${raw}"` };
+  }
+  if (code === "PES") return { ok: true, moneda: code, rate: 1, warning: null };
+  if (!Number.isFinite(cotizacion) || cotizacion > MAX_EXCHANGE_RATE) {
+    return {
+      ok: false,
+      reason: `tipo de cambio ${cotizacion} fuera del formato (máximo 9999,999999)`,
+    };
+  }
+  return {
+    ok: true,
+    moneda: code,
+    rate: cotizacion,
+    warning:
+      cotizacion <= 1
+        ? `en ${code} con tipo de cambio ${cotizacion}: revisá la cotización`
+        : null,
+  };
 }
 
 /** Resolves per_rate buckets to AFIP alícuota entries, inferring the rate of
@@ -117,11 +180,6 @@ function resolveAlicuotas(
 
 // --- Ventas -------------------------------------------------------------------
 
-export type VentasDocExtra = {
-  moneda: string | null;
-  cotizacion: number;
-};
-
 /**
  * VENTAS_CBTE (266) + VENTAS_ALICUOTAS (62). One cbte line per document; the
  * alícuotas file lists its records in the same document order (spec
@@ -129,7 +187,6 @@ export type VentasDocExtra = {
  */
 export function buildVentasTxt(
   docs: readonly LibroIvaVentasGroupedRow[],
-  extras: ReadonlyMap<string, VentasDocExtra>,
   period: string,
 ): CitiExport {
   const cbteLines: string[] = [];
@@ -142,22 +199,27 @@ export function buildVentasTxt(
       warnings.push(`Venta ${label}: sin tipo de comprobante AFIP — excluida.`);
       continue;
     }
-    const alicuotas = resolveAlicuotas(doc.per_rate);
+    const { orig } = doc;
+    const alicuotas = resolveAlicuotas(orig.per_rate);
     if (alicuotas === null || alicuotas.length === 0) {
       warnings.push(
         `Venta ${label}: no se pudo derivar la alícuota — excluida.`,
       );
       continue;
     }
-    const extra = extras.get(doc.invoice_id);
-    const moneda = monedaCode(extra?.moneda ?? "PES");
-    const cotiz = extra?.cotizacion ?? 1;
+    const currency = resolveCurrency(doc.moneda, doc.cotizacion);
+    if (!currency.ok) {
+      warnings.push(`Venta ${label}: ${currency.reason} — excluida.`);
+      continue;
+    }
+    if (currency.warning) warnings.push(`Venta ${label}: ${currency.warning}.`);
+    const { moneda, rate: cotiz } = currency;
     const ivaTotal = alicuotas.reduce((s, a) => s + a.iva, 0);
     const codOperacion =
       ivaTotal === 0
-        ? Number(doc.imp_op_ex) > 0
+        ? orig.imp_op_ex > 0
           ? "E"
-          : Number(doc.imp_tot_conc) > 0
+          : orig.imp_tot_conc > 0
             ? "N"
             : "0"
         : "0";
@@ -171,10 +233,10 @@ export function buildVentasTxt(
         num(doc.doc_tipo, 2) +
         docDigits(doc.doc_nro, 20) +
         text(doc.client_legal_name, 30) +
-        amount(Number(doc.imp_total)) +
-        amount(Number(doc.imp_tot_conc)) +
+        amount(orig.imp_total) +
+        amount(orig.imp_tot_conc) +
         amount(0) +
-        amount(Number(doc.imp_op_ex)) +
+        amount(orig.imp_op_ex) +
         amount(0) +
         amount(0) +
         amount(0) +
@@ -183,7 +245,7 @@ export function buildVentasTxt(
         exchangeRate(cotiz) +
         num(alicuotas.length, 1) +
         codOperacion +
-        amount(Number(doc.imp_trib)) +
+        amount(orig.imp_trib) +
         "00000000",
     );
 
@@ -218,11 +280,6 @@ export function buildVentasTxt(
 
 // --- Compras ------------------------------------------------------------------
 
-export type ComprasDocExtra = {
-  moneda: string | null;
-  cotizacion: number;
-};
-
 /** kind + letter → AFIP purchase voucher code (mirror of lib/afip/codes). */
 const COMPRAS_CBTE_TIPO: Record<string, Record<string, number>> = {
   factura: { A: 1, B: 6, C: 11 },
@@ -236,7 +293,6 @@ const COMPRAS_CBTE_TIPO: Record<string, Record<string, number>> = {
  */
 export function buildComprasTxt(
   docs: readonly LibroIvaComprasGroupedRow[],
-  extras: ReadonlyMap<string, ComprasDocExtra>,
   period: string,
 ): CitiExport {
   const cbteLines: string[] = [];
@@ -258,7 +314,7 @@ export function buildComprasTxt(
     const discriminated = doc.letter === "A";
     let alicuotas: { rateId: number; neto: number; iva: number }[] = [];
     if (discriminated) {
-      const resolved = resolveAlicuotas(doc.per_rate);
+      const resolved = resolveAlicuotas(doc.orig.per_rate);
       if (resolved === null || resolved.length === 0) {
         warnings.push(
           `Compra ${label}: no se pudo derivar la alícuota — excluida.`,
@@ -268,9 +324,15 @@ export function buildComprasTxt(
       alicuotas = resolved;
     }
     const ivaComputable = alicuotas.reduce((s, a) => s + a.iva, 0);
-    const extra = extras.get(doc.purchase_invoice_id);
-    const moneda = monedaCode(extra?.moneda ?? "PES");
-    const cotiz = extra?.cotizacion ?? 1;
+    const currency = resolveCurrency(doc.moneda, doc.cotizacion);
+    if (!currency.ok) {
+      warnings.push(`Compra ${label}: ${currency.reason} — excluida.`);
+      continue;
+    }
+    if (currency.warning) {
+      warnings.push(`Compra ${label}: ${currency.warning}.`);
+    }
+    const { moneda, rate: cotiz } = currency;
 
     cbteLines.push(
       fecha8(doc.fecha) +
@@ -281,7 +343,7 @@ export function buildComprasTxt(
         "80" +
         docDigits(doc.supplier_cuit, 20) +
         text(doc.supplier_legal_name, 30) +
-        amount(doc.imp_total) +
+        amount(doc.orig.imp_total) +
         amount(0) +
         amount(0) +
         amount(0) +
@@ -294,7 +356,7 @@ export function buildComprasTxt(
         num(alicuotas.length, 1) +
         "0" +
         amount(ivaComputable) +
-        amount(doc.imp_trib) +
+        amount(doc.orig.imp_trib) +
         num(0, 11) +
         text("", 30) +
         amount(0),

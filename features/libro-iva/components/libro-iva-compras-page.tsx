@@ -38,8 +38,9 @@ export function LibroIvaComprasPageContent({
         </h1>
         <p className="text-sm text-muted-foreground">
           Comprobantes recibidos fiscales del período, agrupados por alícuota
-          (RG 1361). Solo se listan canales fiscales — los gastos internos no
-          van al libro IVA.
+          (RG 1361), en pesos: los comprobantes en moneda extranjera se
+          convierten con su propia cotización. Solo se listan canales fiscales —
+          los gastos internos no van al libro IVA.
         </p>
       </div>
 
