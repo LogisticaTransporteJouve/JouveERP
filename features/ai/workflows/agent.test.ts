@@ -64,6 +64,8 @@ describe("buildWorkflowTools", () => {
     expect(names).not.toContain("askQuestions");
     expect(names.some((n) => n.startsWith("propose"))).toBe(false);
     expect(names).not.toContain(OPEN_EARLIER_RUN_TOOL);
+    expect(names).not.toContain("renderChart");
+    expect(names).not.toContain("renderTable");
   });
 
   it("follows the user's roles at run time", () => {

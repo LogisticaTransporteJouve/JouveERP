@@ -209,7 +209,7 @@ o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del 
   `expired` las que quedaron en cola más de 23 h. `ai-workflow-run` (idempotente por `run_id`,
   concurrencia 3 y 1 por usuario): *claim* (tarea pausada, usuario sin acceso o tope diario →
   `skipped` con motivo; si no, `queued → running`), *execute* (relee al usuario, corre el agente con
-  `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas ni
+  `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas, artefactos ni
   `askQuestions`, auditando cada tool como `ai-agent`) y *notify* (notificación in-app
   `ai_workflow_run`). El dueño sale de la fila, nunca del evento. El uso va a `ai_usage` como
   `workflow_run` y cuenta para el tope diario.
