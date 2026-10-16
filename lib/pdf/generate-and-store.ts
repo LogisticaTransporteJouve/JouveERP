@@ -166,9 +166,7 @@ export async function buildTemplateData(
       iva_condition: bu?.tax_condition ?? "",
       address: bu?.tax_address ?? null,
       division_label:
-        channel.division === "jouve"
-          ? "Logística Jouve"
-          : "DZ Instalaciones",
+        channel.division === "jouve" ? "Logística Jouve" : "DZ Instalaciones",
       iibb_number: bu?.iibb_number ?? null,
       inicio_actividades: bu?.inicio_actividades ?? null,
     },
@@ -177,6 +175,7 @@ export async function buildTemplateData(
       doc_tipo_label: DOC_TIPO_LABEL[row.doc_tipo] ?? String(row.doc_tipo),
       doc_nro: row.doc_nro,
       iva_condition_label: IVA_LABEL[client.iva_condition],
+      condicion_iva_receptor: row.iva_condition_receptor,
       address: client.real_address ?? client.address,
     },
     kind: row.kind as InvoiceKind,
@@ -212,4 +211,3 @@ export async function buildTemplateData(
 // Re-export so the Inngest workflow can import without pulling in the heavy
 // renderer transitively at module load time.
 export type { InvoiceRow };
-
