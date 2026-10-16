@@ -4727,6 +4727,7 @@ export type Database = {
       v_aging_documents: {
         Row: {
           amount_applied: number | null
+          amount_credited_by_nc: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
@@ -5845,6 +5846,10 @@ export type Database = {
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
+      }
+      reserve_caea_invoice_numero: {
+        Args: { p_afip_last: number; p_invoice_id: string }
+        Returns: number
       }
       search_chat_messages: {
         Args: { p_channel?: string; p_limit?: number; p_query: string }

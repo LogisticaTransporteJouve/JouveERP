@@ -10,7 +10,6 @@ import {
 } from "@/lib/afip/wsfev1";
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
-import { todayInAR } from "@/lib/format";
 import { rpcAs } from "@/lib/db/rpc";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -343,13 +342,14 @@ export const issueInvoice = inngest.createFunction(
     // caea-inform cron reports it to AFIP afterwards (FECAEARegInformativo).
     if (load.posEmissionType?.toUpperCase().includes("CAEA")) {
       const caea = await step.run("load-active-caea", async () => {
-        const active = await getActiveCaeaForDate(todayInAR());
+        // The CAEA must cover the voucher's date (CbteFch), not the run's.
+        const active = await getActiveCaeaForDate(draft.fecha);
         if (!active) {
           throw new AfipServiceError([
             {
               code: 0,
               message:
-                "No hay CAEA vigente para la quincena — solicitalo desde AFIP admin antes de emitir por contingencia.",
+                "No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.",
             },
           ]);
         }
@@ -360,18 +360,8 @@ export const issueInvoice = inngest.createFunction(
         "reserve-numero-caea",
         async () => {
           // Local numbering: AFIP only knows CAEA numbers once informed, so
-          // the source of truth is max(local, último informado en AFIP).
-          const supabase = getServiceClient();
-          const { data: localMax, error } = await supabase
-            .from("invoices")
-            .select("numero")
-            .eq("punto_venta", draft.punto_venta)
-            .eq("cbte_tipo_afip", cbteTipo)
-            .not("numero", "is", null)
-            .order("numero", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (error) throw new Error(`reserve-numero-caea: ${error.message}`);
+          // the floor is max(local, último informado en AFIP). The RPC picks
+          // and writes the number in one locked transaction.
           let afipLast = 0;
           try {
             afipLast = await getLastAuthorizedNumber(
@@ -381,7 +371,13 @@ export const issueInvoice = inngest.createFunction(
           } catch {
             // AFIP caído — exactamente el escenario CAEA. Seguimos con lo local.
           }
-          return Math.max(Number(localMax?.numero ?? 0), afipLast) + 1;
+          const supabase = getServiceClient();
+          const { data, error } = await supabase.rpc(
+            "reserve_caea_invoice_numero",
+            { p_invoice_id: invoice_id, p_afip_last: afipLast },
+          );
+          if (error) throw new Error(`reserve-numero-caea: ${error.message}`);
+          return rpcAs<number>(data);
         },
       );
 
@@ -390,7 +386,6 @@ export const issueInvoice = inngest.createFunction(
         const { error } = await supabase
           .from("invoices")
           .update({
-            numero: caeaNumero,
             cae: caea.caea,
             cae_vencimiento: caea.fch_vig_hasta,
             emission_type: "caea",
@@ -520,7 +515,7 @@ export const issueInvoice = inngest.createFunction(
   },
 );
 
-async function loadOrigen(
+export async function loadOrigen(
   supabase: ReturnType<typeof getServiceClient>,
   originId: string | null,
 ): Promise<{ tipo: number; ptoVta: number; nro: number } | null> {
