@@ -5168,11 +5168,280 @@ export type Database = {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
       }
+      ai_account_type_totals: {
+        Args: {
+          p_cost_center_id?: string
+          p_period_end: string
+          p_period_start?: string
+        }
+        Returns: {
+          account_type: string
+          accounts: number
+          balance: number
+          eerr_category: string
+          total_credit: number
+          total_debit: number
+        }[]
+      }
+      ai_afip_last_numbers: {
+        Args: never
+        Returns: {
+          channel_id: string
+          is_enabled: boolean
+          kind: string
+          last_fecha: string
+          last_numero: number
+          letter: string
+          nickname: string
+          punto_venta: number
+        }[]
+      }
+      ai_attendance_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          employee_id: string
+          events: number
+          hours_lost: number
+          kind: string
+          legal_name: string
+        }[]
+      }
+      ai_client_sales_summary: {
+        Args: {
+          p_client_id?: string
+          p_from: string
+          p_limit?: number
+          p_to: string
+        }
+        Returns: {
+          avg_days_to_pay: number
+          client_id: string
+          collected_ars: number
+          collected_usd: number
+          credit_notes: number
+          invoiced_ars: number
+          invoices: number
+          legal_name: string
+          open_ars: number
+          open_foreign: number
+          overdue_ars: number
+          receipts: number
+          total_clients: number
+          total_collected_ars: number
+          total_invoiced_ars: number
+          total_open_ars: number
+        }[]
+      }
+      ai_cost_center_breakdown: {
+        Args: { p_period_end: string; p_period_start: string }
+        Returns: {
+          account_type: string
+          balance: number
+          cost_center_code: string
+          cost_center_id: string
+          cost_center_name: string
+          total_credit: number
+          total_debit: number
+        }[]
+      }
+      ai_driver_extras: {
+        Args: { p_from_period: string; p_to_period: string }
+        Returns: {
+          employee_id: string
+          extras_count: number
+          extras_total: number
+          legal_name: string
+          period: string
+          sueldo_neto: number
+          total_a_pagar: number
+          viaticos: number
+        }[]
+      }
+      ai_expense_by_category: {
+        Args: { p_period_end: string; p_period_start: string }
+        Returns: {
+          amount: number
+          category: string
+          period: string
+        }[]
+      }
+      ai_fleet_margin: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_limit?: number
+          p_to: string
+        }
+        Returns: {
+          fuel_cost: number
+          group_key: string
+          label: string
+          maintenance_cost: number
+          margin_pct: number
+          net: number
+          revenue: number
+          total_groups: number
+          total_net: number
+          total_revenue: number
+          trip_cost: number
+          trips: number
+        }[]
+      }
+      ai_leaves_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          days: number
+          employee_id: string
+          kind: string
+          leaves: number
+          legal_name: string
+        }[]
+      }
+      ai_pallets_summary: {
+        Args: never
+        Returns: {
+          client_id: string
+          client_name: string
+          entered_30d: number
+          exited_30d: number
+          in_stock: number
+          units_in_stock: number
+          warehouse_id: string
+          warehouse_name: string
+        }[]
+      }
+      ai_payroll_concepts: {
+        Args: {
+          p_drivers_only?: boolean
+          p_from_period: string
+          p_to_period: string
+        }
+        Returns: {
+          amount: number
+          concept: string
+          employees: number
+          entries: number
+          kind: string
+        }[]
+      }
+      ai_payroll_summary: {
+        Args: {
+          p_employee_id?: string
+          p_from_period: string
+          p_group_by?: string
+          p_to_period: string
+        }
+        Returns: {
+          deudas: number
+          employees: number
+          extras: number
+          group_key: string
+          label: string
+          paid: number
+          periods: number
+          saldo: number
+          sueldo_neto: number
+          telefono: number
+          total_a_pagar: number
+          vacaciones: number
+          viaticos: number
+        }[]
+      }
+      ai_shipments_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          freight: number
+          invoiced: number
+          shipments: number
+          status: string
+        }[]
+      }
+      ai_supplier_price_evolution: {
+        Args: {
+          p_category_id?: string
+          p_from: string
+          p_group_by?: string
+          p_item_query?: string
+          p_limit?: number
+          p_supplier_id?: string
+          p_to: string
+        }
+        Returns: {
+          avg_unit_price_ars: number
+          dim_id: string
+          dim_label: string
+          documents: number
+          item: string
+          net_ars: number
+          period: string
+          quantity: number
+        }[]
+      }
+      ai_supplier_purchases_summary: {
+        Args: {
+          p_category_id?: string
+          p_from: string
+          p_limit?: number
+          p_supplier_id?: string
+          p_to: string
+        }
+        Returns: {
+          category: string
+          invoices: number
+          legal_name: string
+          net_ars: number
+          next_due_date: string
+          open_ars: number
+          open_foreign: number
+          overdue_ars: number
+          paid_ars: number
+          paid_usd: number
+          purchased_ars: number
+          supplier_id: string
+          total_open_ars: number
+          total_purchased_ars: number
+          total_suppliers: number
+        }[]
+      }
+      ai_supplier_upcoming_dues: {
+        Args: { p_days?: number; p_limit?: number; p_supplier_id?: string }
+        Returns: {
+          days_to_due: number
+          due_date: string
+          fecha: string
+          kind: string
+          legal_name: string
+          letter: string
+          moneda: string
+          numero: number
+          open_amount: number
+          punto_venta: number
+          purchase_invoice_id: string
+          supplier_id: string
+          total_documents: number
+          total_open_ars: number
+        }[]
+      }
       ai_usage_today: {
         Args: never
         Returns: {
           cost_usd: number
           total_tokens: number
+        }[]
+      }
+      ai_vacation_overview: {
+        Args: { p_as_of?: string; p_expiring_days?: number }
+        Returns: {
+          employee_id: string
+          entitled_days: number
+          expiring_days: number
+          legal_name: string
+          next_expiry: string
+          remaining_days: number
+          taken_this_year: number
+          used_days: number
         }[]
       }
       apply_account_opening_balance: {
