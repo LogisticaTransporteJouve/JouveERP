@@ -56,8 +56,8 @@ export function latestForCard(
 }
 
 /** True while a proposal whose card is in the transcript waits for the
- *  user. A pending row with no card (its turn never got persisted) cannot be
- *  decided from the chat, so it must not hold the composer. */
+ *  user (the composer's hint). A pending row with no card (its turn never got
+ *  persisted) cannot be decided from the chat, so it is not counted. */
 export function hasPendingConfirmation(
   rows: readonly AiConfirmation[],
   cardToolCallIds: ReadonlySet<string>,

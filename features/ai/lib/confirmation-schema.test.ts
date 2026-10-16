@@ -43,7 +43,7 @@ describe("latestForCard", () => {
 });
 
 describe("hasPendingConfirmation", () => {
-  it("holds the composer only for a pending card the transcript shows", () => {
+  it("counts only a pending card the transcript shows", () => {
     const pending: AiConfirmation = { ...base, status: "pending" };
     expect(hasPendingConfirmation([pending], new Set(["call-1"]))).toBe(true);
     expect(hasPendingConfirmation([pending], new Set(["call-2"]))).toBe(false);

@@ -185,7 +185,21 @@ describe("reviseAiProposalAction", () => {
         }),
       }),
       "user",
+      ID,
     );
+  });
+
+  it("fails without reopening when a confirm got to the edited revision first", async () => {
+    const { AiProposalStoreError } = await import("../registry/define");
+    createConfirmationRevision.mockRejectedValue(
+      new AiProposalStoreError("race"),
+    );
+    const res = await reviseAiProposalAction(ID, { end_date: "2026-11-09" });
+    expect(res).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/pendiente/),
+    });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 
   it("rejects an edit the form's schema rejects", async () => {

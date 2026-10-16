@@ -122,13 +122,16 @@ export async function appendAiMessage(
 }
 
 /**
- * Rewrites a persisted message in place, matched by its UIMessage id among the
- * session's latest rows (the answered question card: its tool part gets the
- * answers as output). Returns false when no such message is persisted.
+ * Saves the answered question card: rewrites the persisted assistant message
+ * (matched by its UIMessage id among the session's latest rows) only while
+ * the card's tool part is still `input-available` in the database. Of two
+ * submissions of the same card exactly one gets true; the other (and a card
+ * that is not persisted) gets false.
  */
-export async function replaceAiMessage(
+export async function saveAnsweredQuestionCard(
   sessionId: string,
   message: UIMessage,
+  partIndex: number,
 ): Promise<boolean> {
   const service = getServiceClient();
   const { data, error } = await service
@@ -146,13 +149,15 @@ export async function replaceAiMessage(
       r.content.id === message.id,
   );
   if (!row) return false;
-  const { error: updateError } = await service
+  const { data: updated, error: updateError } = await service
     .from("ai_chat_messages")
     .update({ content: toJson(message) })
     .eq("id", row.id)
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .filter(`content->parts->${partIndex}->>state`, "eq", "input-available")
+    .select("id");
   if (updateError) throw updateError;
-  return true;
+  return (updated?.length ?? 0) > 0;
 }
 
 /**

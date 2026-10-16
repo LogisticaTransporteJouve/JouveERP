@@ -198,6 +198,7 @@ describe("applyQuestionAnswers", () => {
     );
     expect(res.ok).toBe(true);
     if (!res.ok) return;
+    expect(res.partIndex).toBe(1);
     const part = res.messages.at(-1)?.parts[1];
     expect(part).toMatchObject({
       type: "tool-askQuestions",
@@ -245,6 +246,22 @@ describe("pendingQuestionCall", () => {
     expect(pendingQuestionCall(transcript("input-available"))).toBe("call-1");
     expect(pendingQuestionCall(transcript("output-available"))).toBeNull();
     expect(pendingQuestionCall([])).toBeNull();
+  });
+
+  it("never waits on a card whose input does not parse", () => {
+    const broken: UIMessage = {
+      id: "m9",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-askQuestions",
+          toolCallId: "call-9",
+          state: "input-available",
+          input: { questions: [] },
+        },
+      ],
+    };
+    expect(pendingQuestionCall([broken])).toBeNull();
   });
 });
 

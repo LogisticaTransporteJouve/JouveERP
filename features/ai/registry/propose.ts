@@ -12,6 +12,7 @@ import type {
   TypedProposalSpec,
 } from "../lib/proposal-specs";
 import {
+  AiProposalStoreError,
   canRunAiAction,
   toPermissions,
   type AiAction,
@@ -189,6 +190,8 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
         summary: validated.summary,
       });
     } catch (error) {
+      if (error instanceof AiProposalStoreError)
+        return errResult(error.message);
       logger.error("ai.proposal.store_failed", {
         action: def.name,
         userId: ctx.userId,

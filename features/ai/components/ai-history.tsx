@@ -64,7 +64,12 @@ export function AiHistory({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <Button variant="outline" size="sm" className="justify-start" onClick={onNew}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="justify-start"
+        onClick={onNew}
+      >
         <Plus className="size-4" />
         Nuevo chat
       </Button>

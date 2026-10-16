@@ -10,14 +10,17 @@ import { UuidSchema } from "@/lib/validation/common";
 import type { AiConfirmation } from "../lib/confirmation-schema";
 import {
   claimConfirmation,
-  ConcurrentRevisionError,
   createConfirmationRevision,
   getConfirmation,
   listSessionConfirmations,
   recordConfirmationOutcome,
 } from "../lib/confirmations";
 import { AI_ACTIONS } from "../registry/catalog";
-import { canRunAiAction, type AiAction } from "../registry/define";
+import {
+  AiProposalStoreError,
+  canRunAiAction,
+  type AiAction,
+} from "../registry/define";
 
 const isUuid = (value: string) => UuidSchema.safeParse(value).success;
 
@@ -176,8 +179,10 @@ export async function declineAiProposalAction(
 /**
  * The user's edit of a pending proposal from the card's Modify dialog: the
  * edited draft, held to the form's schema, becomes the next revision of the
- * same card and supersedes the one edited. Labels carry over: the editable
- * fields never change which records the draft points at.
+ * same card and supersedes the one edited, only while that one is still
+ * pending: an edit racing a confirm fails instead of reopening it. Labels
+ * carry over: the editable fields never change which records the draft
+ * points at.
  */
 export async function reviseAiProposalAction(
   id: string,
@@ -227,6 +232,7 @@ export async function reviseAiProposalAction(
         summary: valid.summary,
       },
       "user",
+      row.id,
     );
     await logAudit(
       "ai.proposal.revised",
@@ -243,7 +249,7 @@ export async function reviseAiProposalAction(
     if (!fresh) return { ok: false, error: GONE };
     return { ok: true, data: fresh };
   } catch (error) {
-    if (error instanceof ConcurrentRevisionError) {
+    if (error instanceof AiProposalStoreError) {
       return { ok: false, error: GONE };
     }
     logger.error("ai.confirmations.revise_failed", {

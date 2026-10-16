@@ -126,6 +126,24 @@ describe("propose actions", () => {
     );
   });
 
+  it("hands the model the store's refusal (a lost race, another action's key)", async () => {
+    const { AiProposalStoreError } = await import("./define");
+    const s = store();
+    s.createRevision.mockRejectedValue(
+      new AiProposalStoreError("Ese revisionKey es de otra propuesta."),
+    );
+    const res = await proposeExchangeRate.execute(
+      ctx(["finance"], s),
+      { rate_date: "2026-10-16", rate: 1200, revisionKey: "leave-1" },
+      call,
+    );
+    expect(res).toEqual({
+      ok: false,
+      summary: "Failed: Ese revisionKey es de otra propuesta.",
+      error: "Ese revisionKey es de otra propuesta.",
+    });
+  });
+
   it("returns issues and candidates instead of guessing an ambiguous employee", async () => {
     searchEmployeesAction.mockResolvedValue({
       ok: true,

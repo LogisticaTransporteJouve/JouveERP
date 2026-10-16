@@ -37,6 +37,10 @@ export type AiProposalRevisionInput = {
   summary: { label: string; value: string }[];
 };
 
+/** A store refusal the model may read and act on (its message is Spanish
+ *  user-facing copy): a lost race, or a revisionKey of another action. */
+export class AiProposalStoreError extends Error {}
+
 /**
  * Where `propose` actions park their drafts until the user decides. Bound to
  * one user and one chat session by whoever builds the context; a newer

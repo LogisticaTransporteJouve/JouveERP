@@ -23,26 +23,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { amountToInput, formatAmountInput, parseArAmount } from "@/lib/format";
 
 import { useReviseAiProposal } from "../hooks/use-ai-confirmations";
 import type { AiConfirmation } from "../lib/confirmation-schema";
-import type { ProposalField, ProposalSpec } from "../lib/proposal-specs";
-
-function fieldText(draft: unknown, field: ProposalField): string {
-  if (typeof draft !== "object" || draft === null) return "";
-  const value: unknown = Reflect.get(draft, field.key);
-  if (typeof value === "number") {
-    return field.kind === "number" ? amountToInput(value) : String(value);
-  }
-  return typeof value === "string" ? value : "";
-}
-
-function fieldValue(field: ProposalField, text: string): unknown {
-  if (field.kind === "number") return parseArAmount(text) ?? Number.NaN;
-  if (field.kind === "textarea") return text.trim() ? text.trim() : null;
-  return text;
-}
+import {
+  fieldInputText,
+  fieldInputValue,
+  formatFieldInput,
+  type ProposalSpec,
+} from "../lib/proposal-specs";
 
 /**
  * Edits a pending proposal's editable fields in a centered dialog. The edit is
@@ -97,7 +86,7 @@ function EditForm({
   const revise = useReviseAiProposal(sessionId);
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      spec.fields.map((f) => [f.key, fieldText(confirmation.draft, f)]),
+      spec.fields.map((f) => [f.key, fieldInputText(confirmation.draft, f)]),
     ),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -106,7 +95,7 @@ function EditForm({
     e.preventDefault();
     const edit: Record<string, unknown> = {};
     for (const f of spec.fields)
-      edit[f.key] = fieldValue(f, values[f.key] ?? "");
+      edit[f.key] = fieldInputValue(f, values[f.key] ?? "");
     const base =
       typeof confirmation.draft === "object" && confirmation.draft !== null
         ? confirmation.draft
@@ -170,13 +159,7 @@ function EditForm({
                 id={id}
                 value={value}
                 inputMode={f.kind === "number" ? "decimal" : undefined}
-                onChange={(e) =>
-                  set(
-                    f.kind === "number"
-                      ? formatAmountInput(e.target.value)
-                      : e.target.value,
-                  )
-                }
+                onChange={(e) => set(formatFieldInput(f, e.target.value))}
               />
             )}
             {errors[f.key] && (

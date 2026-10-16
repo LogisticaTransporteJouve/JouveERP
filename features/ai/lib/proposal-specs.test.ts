@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   exchangeRateProposalSpec,
+  fieldInputText,
+  fieldInputValue,
+  formatFieldInput,
   journalEntryProposalSpec,
   leaveProposalSpec,
   PROPOSAL_SPECS,
+  type ProposalField,
 } from "./proposal-specs";
 
 const EMP = "11111111-1111-4111-8111-111111111111";
@@ -98,5 +102,56 @@ describe("proposal specs", () => {
         if (f.kind === "select") expect(f.options?.length).toBeGreaterThan(1);
       }
     }
+  });
+});
+
+describe("rate field precision", () => {
+  const rateField = exchangeRateProposalSpec.fields.find(
+    (f) => f.key === "rate",
+  );
+
+  it("keeps up to 6 decimals in the Modify dialog and on the card", () => {
+    expect(rateField?.decimals).toBe(6);
+    if (!rateField) return;
+    const text = fieldInputText({ rate: 1180.123456 }, rateField);
+    expect(text).toBe("1.180,123456");
+    expect(fieldInputValue(rateField, text)).toBe(1180.123456);
+    expect(formatFieldInput(rateField, "1180,1234567")).toBe("1.180,123456");
+    expect(fieldInputText({ rate: 1180.5 }, rateField)).toBe("1.180,50");
+
+    const res = exchangeRateProposalSpec.validate(
+      { rate_date: "2026-10-16", rate: 1180.123456 },
+      {},
+    );
+    expect(res.ok && res.summary).toContainEqual({
+      label: "Cotización",
+      value: "$ 1.180,123456",
+    });
+  });
+
+  it("keeps money fields at 2 decimals", () => {
+    const money: ProposalField = {
+      key: "amount",
+      label: "Importe",
+      kind: "number",
+    };
+    expect(formatFieldInput(money, "10,129")).toBe("10,12");
+  });
+});
+
+describe("journal entry card", () => {
+  it("shows each line's description", () => {
+    const res = journalEntryProposalSpec.validate(
+      {
+        entry_date: "2026-10-16",
+        description: "Ajuste",
+        lines: [
+          { account_id: A1, debit: 100, credit: 0, description: "Caja chica" },
+          { account_id: A2, debit: 0, credit: 100 },
+        ],
+      },
+      {},
+    );
+    expect(res.ok && res.summary[2]?.value).toBe("Debe $ 100,00 · Caja chica");
   });
 });

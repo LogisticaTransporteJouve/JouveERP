@@ -79,15 +79,20 @@ export function formatArgentineDate(value: string | null | undefined): string {
  * (e.g. 3865.59 → "3.865,59"). Inverse of `parseAmount` so values can
  * round-trip from DB → form → DB without losing/inflating digits.
  */
-export function amountToInput(value: number): string {
-  return formatAmountInput(value.toFixed(2).replace(".", ","));
+export function amountToInput(value: number, decimals = 2): string {
+  const fixed = value.toFixed(decimals);
+  // Beyond 2 decimals (a rate), trailing zeros are noise: 1180.500000 → 1180,50.
+  const trimmed =
+    decimals > 2 ? fixed.replace(/(\.\d{2}\d*?)0+$/, "$1") : fixed;
+  return formatAmountInput(trimmed.replace(".", ","), decimals);
 }
 
-export function formatAmountInput(raw: string): string {
+export function formatAmountInput(raw: string, decimals = 2): string {
   const cleaned = raw.replace(/[^\d,]/g, "");
   const parts = cleaned.split(",");
   let intPart = parts[0] ?? "";
-  const decPart = parts.length > 1 ? parts.slice(1).join("").slice(0, 2) : null;
+  const decPart =
+    parts.length > 1 ? parts.slice(1).join("").slice(0, decimals) : null;
   if (intPart.length > 1) intPart = intPart.replace(/^0+(?=\d)/, "");
   if (intPart.length === 0 && decPart !== null) intPart = "0";
   const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -114,6 +119,18 @@ export function formatNumber2(
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n)) return "0,00";
   return moneyFmt2.format(n);
+}
+
+const rateFmt = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+});
+
+/** "1.180,505" — an exchange rate: 2 to 6 decimals, no currency symbol. */
+export function formatRate(value: number | string | null | undefined): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0,00";
+  return rateFmt.format(n);
 }
 
 /** "3.866" — integer, no decimals. */

@@ -47,6 +47,7 @@ const {
   ConcurrentRevisionError,
   createConfirmationRevision,
   proposalStatusNote,
+  RevisionKeyMismatchError,
 } = await import("./confirmations");
 
 const ROW: AiConfirmation = {
@@ -105,10 +106,17 @@ describe("claimConfirmation (compare-and-set)", () => {
 });
 
 describe("createConfirmationRevision", () => {
-  it("supersedes the pending revision of the same key, then inserts the next one", async () => {
+  const pending = {
+    id: "c2",
+    action: "proposeExchangeRate",
+    revision: 2,
+    status: "pending",
+  };
+
+  it("supersedes the key's pending revision by id, then inserts the next one", async () => {
     responses.push(
-      { data: null, error: null },
-      { data: { revision: 2 }, error: null },
+      { data: pending, error: null },
+      { data: [{ id: "c2" }], error: null },
       { data: { id: "c3", revision: 3 }, error: null },
     );
     const res = await createConfirmationRevision(
@@ -118,14 +126,14 @@ describe("createConfirmationRevision", () => {
       "assistant",
     );
     expect(res).toEqual({ id: "c3", revision: 3 });
-    expect(calls[0]).toMatchObject({
+    expect(calls[1]).toMatchObject({
       op: "update",
       payload: { status: "superseded" },
     });
-    expect(calls[0]?.filters).toEqual([
+    expect(calls[1]?.filters).toEqual([
       ["user_id", "u1"],
-      ["session_id", "s1"],
-      ["revision_key", "k1"],
+      ["id", "c2"],
+      ["action", "proposeExchangeRate"],
       ["status", "pending"],
     ]);
     expect(calls[2]).toMatchObject({
@@ -139,14 +147,64 @@ describe("createConfirmationRevision", () => {
     });
   });
 
+  it("inserts without superseding when the key's latest revision is decided", async () => {
+    responses.push(
+      { data: { ...pending, status: "confirmed" }, error: null },
+      { data: { id: "c3", revision: 3 }, error: null },
+    );
+    await createConfirmationRevision("u1", "s1", input, "assistant");
+    expect(calls.map((c) => c.op)).toEqual(["select", "insert"]);
+  });
+
+  it("refuses a re-proposal when a confirm claimed the pending revision first", async () => {
+    responses.push({ data: pending, error: null }, { data: [], error: null });
+    await expect(
+      createConfirmationRevision("u1", "s1", input, "assistant"),
+    ).rejects.toBeInstanceOf(ConcurrentRevisionError);
+    expect(calls.some((c) => c.op === "insert")).toBe(false);
+  });
+
+  it("refuses a user edit of a revision that is no longer pending (no reopening)", async () => {
+    // The edited row is still the latest, but a confirm moved it out of pending.
+    responses.push(
+      { data: { ...pending, status: "confirmed" }, error: null },
+      { data: [], error: null },
+    );
+    await expect(
+      createConfirmationRevision("u1", "s1", input, "user", "c2"),
+    ).rejects.toBeInstanceOf(ConcurrentRevisionError);
+    expect(calls.some((c) => c.op === "insert")).toBe(false);
+  });
+
+  it("refuses a user edit of a revision that a newer one replaced", async () => {
+    responses.push({
+      data: { ...pending, id: "c5", revision: 5 },
+      error: null,
+    });
+    await expect(
+      createConfirmationRevision("u1", "s1", input, "user", "c2"),
+    ).rejects.toBeInstanceOf(ConcurrentRevisionError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("refuses a revisionKey that belongs to another action", async () => {
+    responses.push({
+      data: { ...pending, action: "proposeLeave" },
+      error: null,
+    });
+    await expect(
+      createConfirmationRevision("u1", "s1", input, "assistant"),
+    ).rejects.toBeInstanceOf(RevisionKeyMismatchError);
+    expect(calls).toHaveLength(1);
+  });
+
   it("reports a lost race on the one-pending index as a concurrent revision", async () => {
     responses.push(
-      { data: null, error: null },
       { data: null, error: null },
       { data: null, error: { code: "23505", message: "duplicate" } },
     );
     await expect(
-      createConfirmationRevision("u1", "s1", input, "user"),
+      createConfirmationRevision("u1", "s1", input, "assistant"),
     ).rejects.toBeInstanceOf(ConcurrentRevisionError);
   });
 });

@@ -16,7 +16,7 @@ import {
   maybeTitleAiSession,
   messageText,
   recordAiUsage,
-  replaceAiMessage,
+  saveAnsweredQuestionCard,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
 import {
@@ -164,7 +164,11 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
-    if (!(await replaceAiMessage(sessionId, answered))) {
+    // Compare-and-set on the stored card: a second submission (double click,
+    // two tabs) gets 409 instead of starting a second run.
+    if (
+      !(await saveAnsweredQuestionCard(sessionId, answered, applied.partIndex))
+    ) {
       return NextResponse.json(
         { error: "No hay preguntas pendientes." },
         { status: 409 },

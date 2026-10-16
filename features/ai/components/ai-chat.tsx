@@ -10,11 +10,14 @@ import {
 } from "ai";
 import { Send, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { runAction } from "@/lib/query/run-action";
 import { cn } from "@/lib/utils";
 
+import { getAiSessionMessagesAction } from "../actions/chat-actions";
 import { useAiConfirmations } from "../hooks/use-ai-confirmations";
 import { aiKeys } from "../lib/ai-keys";
 import {
@@ -86,15 +89,35 @@ export function AiChat({
         },
       }),
   );
-  const { messages, sendMessage, addToolOutput, status } = useChat({
-    id: sessionId,
-    messages: initialMessages,
-    transport,
-    onFinish: () => {
-      onPersisted(sessionId);
-      void qc.invalidateQueries({ queryKey: aiKeys.confirmations(sessionId) });
+  // Set while an answers submission is in flight: if the server refuses it
+  // (409: the card was already answered elsewhere), the transcript is
+  // reloaded from the server instead of keeping the local answers.
+  const answering = useRef(false);
+  const { messages, setMessages, sendMessage, addToolOutput, status } = useChat(
+    {
+      id: sessionId,
+      messages: initialMessages,
+      transport,
+      onFinish: () => {
+        answering.current = false;
+        onPersisted(sessionId);
+        void qc.invalidateQueries({
+          queryKey: aiKeys.confirmations(sessionId),
+        });
+      },
+      onError: () => {
+        if (!answering.current) return;
+        answering.current = false;
+        toast.info(
+          "Esas preguntas ya estaban respondidas. Actualicé la conversación.",
+        );
+        void runAction(() => getAiSessionMessagesAction(sessionId)).then(
+          setMessages,
+          () => undefined,
+        );
+      },
     },
-  });
+  );
   const { data: confirmations } = useAiConfirmations(sessionId);
 
   const busy = status === "submitted" || status === "streaming";
@@ -102,11 +125,13 @@ export function AiChat({
   const waitingProposal = confirmations
     ? hasPendingConfirmation(confirmations, toolCallIds(messages))
     : false;
-  const locked = busy || atCap || waitingQuestion !== null || waitingProposal;
+  // Only an unanswered card holds the composer; a pending proposal can still
+  // be changed by asking for it.
+  const locked = busy || atCap || waitingQuestion !== null;
   const hint = waitingQuestion
     ? "Respondé las preguntas de arriba para seguir."
     : waitingProposal
-      ? "Confirmá, modificá o descartá la propuesta pendiente para seguir."
+      ? "Tenés una propuesta pendiente: confirmala, modificala o descartala en la tarjeta, o pedime cambios."
       : null;
 
   function submit(text: string) {
@@ -123,6 +148,7 @@ export function AiChat({
       toolCallId,
       output: answers,
     });
+    answering.current = true;
     // The server sets the answers as the card's tool output and appends this
     // same fixed turn; the chat hides it (the card shows the answers).
     void sendMessage(
@@ -300,8 +326,8 @@ export function AiChat({
           placeholder={
             atCap
               ? "Límite diario alcanzado"
-              : hint
-                ? "Esperando tu respuesta en la tarjeta…"
+              : waitingQuestion
+                ? "Esperando tus respuestas en la tarjeta…"
                 : "Escribí tu pregunta…"
           }
           disabled={locked}

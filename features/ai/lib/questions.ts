@@ -145,7 +145,9 @@ export function applyQuestionAnswers(
   messages: UIMessage[],
   toolCallId: string,
   rawAnswers: unknown,
-): { ok: true; messages: UIMessage[] } | { ok: false; error: string } {
+):
+  | { ok: true; messages: UIMessage[]; partIndex: number }
+  | { ok: false; error: string } {
   const last = messages.at(-1);
   if (!last || last.role !== "assistant") {
     return { ok: false, error: "No hay preguntas pendientes." };
@@ -176,7 +178,11 @@ export function applyQuestionAnswers(
     input: part.input,
     output: answers.data,
   };
-  return { ok: true, messages: [...messages.slice(0, -1), { ...last, parts }] };
+  return {
+    ok: true,
+    messages: [...messages.slice(0, -1), { ...last, parts }],
+    partIndex: index,
+  };
 }
 
 /** The user turn that follows an answered card. The answers themselves are
@@ -204,7 +210,8 @@ export function isAnswersTurn(message: UIMessage): boolean {
 }
 
 /** The question card the user still has to answer, if the transcript ends on
- *  one. */
+ *  one the chat can show. A card whose input does not parse cannot be
+ *  answered, so it never holds the composer. */
 export function pendingQuestionCall(messages: UIMessage[]): string | null {
   const last = messages.at(-1);
   if (!last || last.role !== "assistant") return null;
@@ -212,7 +219,8 @@ export function pendingQuestionCall(messages: UIMessage[]): string | null {
     if (
       isToolUIPart(p) &&
       p.type === `tool-${ASK_QUESTIONS_TOOL}` &&
-      p.state === "input-available"
+      p.state === "input-available" &&
+      askQuestionsInputSchema.safeParse(p.input).success
     ) {
       return p.toolCallId;
     }

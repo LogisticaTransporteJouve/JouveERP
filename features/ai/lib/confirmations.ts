@@ -5,9 +5,10 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import type {
-  AiProposalRevisionInput,
-  AiProposalStore,
+import {
+  AiProposalStoreError,
+  type AiProposalRevisionInput,
+  type AiProposalStore,
 } from "../registry/define";
 import {
   CONFIRMATION_COLUMNS,
@@ -21,10 +22,20 @@ import {
  * every query filters by the acting user's id itself.
  */
 
-/** Thrown when another revision of the same proposal won the race. */
-export class ConcurrentRevisionError extends Error {
+/** Another decision on the same proposal (a confirm, a decline, another
+ *  revision) won the race; nothing was stored. */
+export class ConcurrentRevisionError extends AiProposalStoreError {
   constructor() {
-    super("concurrent_revision");
+    super("La propuesta cambió mientras tanto. Volvé a intentarlo.");
+  }
+}
+
+/** The revisionKey names a proposal of another action. */
+export class RevisionKeyMismatchError extends AiProposalStoreError {
+  constructor() {
+    super(
+      "Ese revisionKey es de otra propuesta: omitilo para hacer una propuesta nueva.",
+    );
   }
 }
 
@@ -43,39 +54,52 @@ export function parseConfirmationRows(rows: unknown[]): AiConfirmation[] {
 }
 
 /**
- * Stores a new revision of a proposal: supersedes the pending revision with
- * the same key (only this user's, in this session), then inserts the next
- * revision as pending. The partial unique index allows one pending revision
- * per key, so a concurrent writer fails here instead of leaving two.
+ * Stores the next revision of a proposal. The revision it replaces is
+ * superseded first, by id and only while it is still pending: if a confirm,
+ * a decline or another revision got there first, nothing is inserted
+ * (ConcurrentRevisionError), so an edit can never reopen a proposal that was
+ * already executed. `replaces` is the revision the user edited; without it
+ * (the model's re-proposal) it is the key's latest revision, if pending.
+ * The partial unique index (one pending per key) is the last guard.
  */
 export async function createConfirmationRevision(
   userId: string,
   sessionId: string,
   input: AiProposalRevisionInput,
   origin: "assistant" | "user",
+  replaces?: string,
 ): Promise<{ id: string; revision: number }> {
   const service = getServiceClient();
-  const { error: supersedeError } = await service
+  const { data: latest, error: latestError } = await service
     .from("ai_chat_confirmations")
-    .update({ status: "superseded", decided_at: new Date().toISOString() })
-    .eq("user_id", userId)
-    .eq("session_id", sessionId)
-    .eq("revision_key", input.revisionKey)
-    .eq("status", "pending");
-  if (supersedeError) throw supersedeError;
-
-  const { data: last, error: lastError } = await service
-    .from("ai_chat_confirmations")
-    .select("revision")
+    .select("id, action, revision, status")
     .eq("user_id", userId)
     .eq("session_id", sessionId)
     .eq("revision_key", input.revisionKey)
     .order("revision", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (lastError) throw lastError;
+  if (latestError) throw latestError;
+  if (latest && latest.action !== input.action) {
+    throw new RevisionKeyMismatchError();
+  }
+  if (replaces && latest?.id !== replaces) throw new ConcurrentRevisionError();
 
-  const revision = (last?.revision ?? 0) + 1;
+  const supersede =
+    replaces ?? (latest?.status === "pending" ? latest.id : null);
+  if (supersede) {
+    const { data: superseded, error: supersedeError } = await service
+      .from("ai_chat_confirmations")
+      .update({ status: "superseded", decided_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("id", supersede)
+      .eq("action", input.action)
+      .eq("status", "pending")
+      .select("id");
+    if (supersedeError) throw supersedeError;
+    if (!superseded?.length) throw new ConcurrentRevisionError();
+  }
+
   const { data, error } = await service
     .from("ai_chat_confirmations")
     .insert({
@@ -84,7 +108,7 @@ export async function createConfirmationRevision(
       tool_call_id: input.toolCallId,
       action: input.action,
       revision_key: input.revisionKey,
-      revision,
+      revision: (latest?.revision ?? 0) + 1,
       origin,
       draft: toJson(input.draft),
       labels: toJson(input.labels),

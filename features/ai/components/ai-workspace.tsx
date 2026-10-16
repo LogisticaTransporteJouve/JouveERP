@@ -33,9 +33,10 @@ export function AiWorkspace({
   const [liveNewId, setLiveNewId] = useState("");
   const [activeSessionId, setActiveSessionId] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [seed, setSeed] = useState<{ sessionId: string; prompt: string } | null>(
-    null,
-  );
+  const [seed, setSeed] = useState<{
+    sessionId: string;
+    prompt: string;
+  } | null>(null);
 
   useEffect(() => {
     const id = crypto.randomUUID();
@@ -46,9 +47,7 @@ export function AiWorkspace({
 
   const sessions = useAiSessions();
   const usage = useAiUsageToday();
-  const atCap = usage.data
-    ? usage.data.totalTokens >= usage.data.cap
-    : false;
+  const atCap = usage.data ? usage.data.totalTokens >= usage.data.cap : false;
   const isLive = activeSessionId === liveNewId;
   const messages = useAiSessionMessages(
     activeSessionId,
@@ -149,7 +148,7 @@ export function AiWorkspace({
               <AiChat
                 key={activeSessionId}
                 sessionId={activeSessionId}
-                initialMessages={isLive ? [] : messages.data ?? []}
+                initialMessages={isLive ? [] : (messages.data ?? [])}
                 onPersisted={handlePersisted}
                 atCap={atCap}
                 seedPrompt={

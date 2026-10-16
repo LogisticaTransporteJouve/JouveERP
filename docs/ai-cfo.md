@@ -70,7 +70,8 @@ suma "Otro"). La llamada corta el turno y el chat muestra una tarjeta. Al respon
 las respuestas como output del tool (`addToolOutput`) y manda `{ sessionId, questionAnswers }`; el
 route valida las respuestas contra la tarjeta (`features/ai/lib/questions.ts`: cada pregunta una vez,
 solo opciones de la tarjeta, texto acotado), las guarda como resultado del tool en el mensaje
-persistido y agrega un turno fijo del usuario (oculto en la UI) para que el modelo siga en un turno
+persistido con un compare-and-set (solo si la parte sigue `input-available` en la base; un segundo
+envío recibe 409 y el chat recarga la conversación) y agrega un turno fijo del usuario (oculto en la UI) para que el modelo siga en un turno
 nuevo. "Omitir" responde `{ skipped: true }`. Una tarjeta respondida queda de solo lectura con las
 respuestas.
 
@@ -109,16 +110,22 @@ Un índice único parcial permite una sola revisión `pending` por `(session_id,
 - **Modificar**: Dialog centrado con los campos editables de la spec, validado con el schema en el
   cliente y de nuevo en el servidor (`reviseAiProposalAction`, mismos permisos). Solo se toman los
   campos editables (no se puede cambiar el empleado o las cuentas desde el diálogo); la edición es
-  la revisión siguiente de la misma tarjeta y reemplaza a la anterior.
+  la revisión siguiente de la misma tarjeta y reemplaza a la anterior. El reemplazo es por id y solo
+  si esa revisión sigue `pending`: si un Confirmar ganó la carrera, la edición falla y no reabre una
+  propuesta ya ejecutada. La cotización se edita con hasta 6 decimales, como en el formulario manual.
 - **Reemplazadas**: el modelo revisa una propuesta pasando su `revisionKey`; la revisión pendiente
-  anterior pasa a `superseded` y su tarjeta dice "Reemplazada".
+  anterior pasa a `superseded` (por id, solo si sigue `pending`) y su tarjeta dice "Reemplazada". Un
+  `revisionKey` de otra acción se rechaza.
+- **Fallidas**: si la escritura falla al confirmar, la revisión queda `failed` y no se reintenta;
+  hay que volver a proponerla.
 - El estado de las propuestas de la sesión entra cada turno como bloque de sistema ("Propuestas en
   esta conversación"), desde la base: el modelo sabe qué confirmó, descartó o editó el usuario.
 
 **Chat.** Las partes del mensaje se renderizan en orden: texto en burbujas y tarjetas
 (preguntas/propuestas) como bloques propios, así el texto posterior a una tarjeta aparece debajo.
-El composer se bloquea con un aviso mientras hay preguntas sin responder o una propuesta pendiente
-cuya tarjeta está en la conversación.
+El composer se bloquea mientras hay preguntas sin responder (salvo que la tarjeta no se pueda
+mostrar); con una propuesta pendiente solo muestra un aviso, porque se le puede pedir un cambio al
+asistente.
 
 **Límites.** El diálogo de Modificar edita los campos simples (fechas, tipo, notas, descripción,
 cotización); las líneas de un asiento se cambian pidiéndoselo al asistente. Si el servidor cae entre

@@ -7,7 +7,14 @@ import {
   LEAVE_KINDS,
 } from "@/features/hr/vacation-schema";
 import { ManualJournalEntryCreateSchema } from "@/features/journal-entries/schema";
-import { formatArgentineDate, formatMoney } from "@/lib/format";
+import {
+  amountToInput,
+  formatAmountInput,
+  formatArgentineDate,
+  formatMoney,
+  formatRate,
+  parseArAmount,
+} from "@/lib/format";
 
 /**
  * What a proposal card needs on both sides of the wire: the draft schema (the
@@ -27,7 +34,33 @@ export type ProposalField = {
   label: string;
   kind: "date" | "text" | "textarea" | "number" | "select";
   options?: readonly { value: string; label: string }[];
+  /** number only: decimals the input keeps (default 2, money). */
+  decimals?: number;
 };
+
+/** A draft field as the Modify dialog's input shows it (es-AR numbers). */
+export function fieldInputText(draft: unknown, field: ProposalField): string {
+  if (typeof draft !== "object" || draft === null) return "";
+  const value: unknown = Reflect.get(draft, field.key);
+  if (typeof value === "number") {
+    return field.kind === "number"
+      ? amountToInput(value, field.decimals)
+      : String(value);
+  }
+  return typeof value === "string" ? value : "";
+}
+
+/** Live formatting of what the user types into a field. */
+export function formatFieldInput(field: ProposalField, raw: string): string {
+  return field.kind === "number" ? formatAmountInput(raw, field.decimals) : raw;
+}
+
+/** The draft value a field's input text stands for. */
+export function fieldInputValue(field: ProposalField, text: string): unknown {
+  if (field.kind === "number") return parseArAmount(text) ?? Number.NaN;
+  if (field.kind === "textarea") return text.trim() ? text.trim() : null;
+  return text;
+}
 
 export type ProposalIssue = { field: string; message: string };
 
@@ -145,8 +178,8 @@ export const journalEntryProposalSpec = defineProposalSpec({
       label: labels[l.account_id] ?? l.account_id,
       value:
         l.debit > 0
-          ? `Debe ${formatMoney(l.debit)}`
-          : `Haber ${formatMoney(l.credit)}`,
+          ? `Debe ${formatMoney(l.debit)}${l.description ? ` · ${l.description}` : ""}`
+          : `Haber ${formatMoney(l.credit)}${l.description ? ` · ${l.description}` : ""}`,
     })),
     {
       label: "Total",
@@ -160,14 +193,19 @@ export const exchangeRateProposalSpec = defineProposalSpec({
   draft: ExchangeRateCreateSchema,
   fields: [
     { key: "rate_date", label: "Fecha", kind: "date" },
-    { key: "rate", label: "Cotización (ARS por USD)", kind: "number" },
+    {
+      key: "rate",
+      label: "Cotización (ARS por USD)",
+      kind: "number",
+      decimals: 6,
+    },
     { key: "notes", label: "Notas", kind: "textarea" },
   ],
   confirmLabel: "Guardar cotización",
   declineLabel: "Descartar",
   summarize: (d) => [
     { label: "Fecha", value: formatArgentineDate(d.rate_date) },
-    { label: "Cotización", value: formatMoney(d.rate) },
+    { label: "Cotización", value: `$ ${formatRate(d.rate)}` },
     { label: "Fuente", value: "Manual (reemplaza la del BCRA de ese día)" },
     ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
   ],

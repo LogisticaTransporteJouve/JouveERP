@@ -45,7 +45,7 @@ export function QuestionsCard({
   if (!parsed.success) {
     return (
       <p className="text-muted-foreground text-xs italic">
-        No se pudieron mostrar las preguntas.
+        No se pudieron mostrar las preguntas. Podés seguir escribiendo.
       </p>
     );
   }
