@@ -13,7 +13,8 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { round2 } from "@/lib/format";
+import { fiscalVoucherIssue } from "@/lib/afip/rules";
+import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
@@ -21,7 +22,9 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   CreateComprobanteSchema,
+  computeLineAmounts,
   computeTotals,
+  isInvoiceLetter,
   isInvoiceStatus,
   type InvoiceRow,
   type CreateComprobanteInput,
@@ -129,23 +132,6 @@ export async function issueFiscalInvoiceAction(
   if (!client.is_active)
     return { ok: false, error: "El cliente está inactivo." };
 
-  // Fiscal-only resolution. For internal channels we don't pick a letter or
-  // a cbte_tipo_afip — the issue-invoice workflow takes the internal branch
-  // (skips AFIP entirely, numbers locally, writes a "no fiscal" PDF).
-  const letter: InvoiceLetter | null = channel.is_fiscal
-    ? (data.letter ?? letterFor(client.iva_condition))
-    : null;
-  const cbteTipoAfip: CbteTipoCode | null = channel.is_fiscal
-    ? cbteTipoFor(data.kind, letter as InvoiceLetter)
-    : null;
-
-  if (channel.is_fiscal && data.iva_condition_receptor === null) {
-    return {
-      ok: false,
-      error: "Para emitir fiscal hace falta CondicionIVAReceptorId (RG 5616).",
-    };
-  }
-
   const pos = await loadEnabledPos(supabase, data.punto_venta, data.channel_id);
   if (!pos) {
     return {
@@ -157,46 +143,104 @@ export async function issueFiscalInvoiceAction(
   // NC/ND origin must be a real, emitted invoice of the same client and channel
   // with a number already assigned. Otherwise: NC against another client's
   // invoice (aging corruption), or CbtesAsoc with Nro=null (AFIP rejection).
+  let origin: { letter: InvoiceLetter | null; moneda: string } | null = null;
   if (data.invoice_origin_id) {
-    const { data: origin } = await supabase
+    const { data: originRow, error: originErr } = await supabase
       .from("invoices")
-      .select("id, client_id, channel_id, status, numero")
+      .select("id, client_id, channel_id, status, numero, kind, letter, moneda")
       .eq("id", data.invoice_origin_id)
       .maybeSingle();
-    if (!origin) {
+    if (originErr) {
+      logger.error("issue_invoice.load_origin_failed", {
+        userId: ctx.userId,
+        invoice_origin_id: data.invoice_origin_id,
+        error: originErr,
+      });
+      return { ok: false, error: "No se pudo leer el comprobante de origen." };
+    }
+    if (!originRow) {
       return { ok: false, error: "El comprobante de origen no existe." };
     }
-    if (origin.status !== "emitted") {
+    if (originRow.status !== "emitted") {
       return { ok: false, error: "El comprobante de origen no está emitido." };
     }
-    if (origin.client_id !== data.client_id) {
+    if (originRow.client_id !== data.client_id) {
       return {
         ok: false,
         error: "El comprobante de origen pertenece a otro cliente.",
       };
     }
-    if (origin.channel_id !== data.channel_id) {
+    if (originRow.channel_id !== data.channel_id) {
       return {
         ok: false,
         error: "El comprobante de origen pertenece a otro canal.",
       };
     }
-    if (origin.numero === null) {
+    if (originRow.numero === null) {
       return {
         ok: false,
         error: "El comprobante de origen todavía no tiene número.",
       };
     }
+    if (data.kind === "nc" && originRow.kind === "nc") {
+      return {
+        ok: false,
+        error:
+          "Una nota de crédito no se puede emitir sobre otra nota de crédito.",
+      };
+    }
+    origin = {
+      letter: isInvoiceLetter(originRow.letter) ? originRow.letter : null,
+      moneda: originRow.moneda,
+    };
   }
 
-  // Every fiscal line needs an IVA rate: a null rate lands its net in ImpNeto
-  // but in no AlicIva bucket, so AFIP rejects the mismatch (ImpNeto != Σ BaseImp).
-  if (channel.is_fiscal && data.items.some((it) => it.iva_rate_id === null)) {
-    return {
-      ok: false,
-      error:
-        "En comprobantes fiscales, cada ítem debe tener una alícuota de IVA.",
-    };
+  // Fiscal-only resolution. For internal channels we don't pick a letter or
+  // a cbte_tipo_afip — the issue-invoice workflow takes the internal branch
+  // (skips AFIP entirely, numbers locally, writes a "no fiscal" PDF). An NC/ND
+  // carries its origin's letter; a factura's letter follows the receptor.
+  let letter: InvoiceLetter | null = null;
+  let cbteTipoAfip: CbteTipoCode | null = null;
+  if (channel.is_fiscal) {
+    const fiscalLetter: InvoiceLetter =
+      origin?.letter ?? data.letter ?? letterFor(client.iva_condition);
+    if (data.iva_condition_receptor === null) {
+      return {
+        ok: false,
+        error:
+          "Falta la condición de IVA del cliente para emitir el comprobante.",
+      };
+    }
+    // Every fiscal line needs an IVA rate: a null rate lands its net in ImpNeto
+    // but in no AlicIva bucket, so AFIP rejects the mismatch (ImpNeto != Σ BaseImp).
+    if (data.items.some((it) => it.iva_rate_id === null)) {
+      return {
+        ok: false,
+        error:
+          "En comprobantes fiscales, cada ítem debe tener una alícuota de IVA.",
+      };
+    }
+    const issue = fiscalVoucherIssue(
+      {
+        kind: data.kind,
+        letter: fiscalLetter,
+        receptor: data.iva_condition_receptor,
+        docTipo: data.doc_tipo,
+        docNro: data.doc_nro,
+        concepto: data.concepto,
+        fecha: data.fecha,
+        fchServDesde: data.fch_serv_desde ?? null,
+        fchServHasta: data.fch_serv_hasta ?? null,
+        fchVtoPago: data.fch_vto_pago ?? null,
+        moneda: data.moneda,
+        cotizacion: data.cotizacion,
+        origin,
+      },
+      todayInAR(),
+    );
+    if (issue) return { ok: false, error: issue };
+    letter = fiscalLetter;
+    cbteTipoAfip = cbteTipoFor(data.kind, fiscalLetter);
   }
 
   // isFiscal drives IVA computation: internal channels must not accrue IVA
@@ -252,48 +296,33 @@ export async function issueFiscalInvoiceAction(
       client_id: data.client_id,
       err: inserted.error?.message,
     });
-    return {
-      ok: false,
-      error: inserted.error?.message ?? "No se pudo crear el borrador.",
-    };
+    return { ok: false, error: "No se pudo crear el comprobante." };
   }
   const invoice_id = inserted.data.id;
 
-  const itemRows: ComprobanteItemInsert[] = data.items.map((item, index) => {
-    const lineNeto = round2(item.quantity * item.unit_price);
-    const lineIvaPct =
-      item.iva_rate_id === null
-        ? 0
-        : item.iva_rate_id === 3
-          ? 0
-          : item.iva_rate_id === 4
-            ? 10.5
-            : item.iva_rate_id === 5
-              ? 21
-              : item.iva_rate_id === 6
-                ? 27
-                : item.iva_rate_id === 8
-                  ? 5
-                  : 2.5;
-    const lineIva = round2((lineNeto * lineIvaPct) / 100);
-    return {
-      invoice_id,
-      sort_order: index,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      iva_rate_id: item.iva_rate_id,
-      line_neto: lineNeto,
-      line_iva: lineIva,
-      line_total: round2(lineNeto + lineIva),
-    };
-  });
+  const itemRows: ComprobanteItemInsert[] = data.items.map((item, index) => ({
+    invoice_id,
+    sort_order: index,
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    iva_rate_id: item.iva_rate_id,
+    ...computeLineAmounts(item, channel.is_fiscal),
+  }));
 
   const itemsRes = await supabase.from("invoice_items").insert(itemRows);
   if (itemsRes.error) {
     // Roll back the draft so a retry doesn't see a half-written row.
     await supabase.from("invoices").delete().eq("id", invoice_id);
-    return { ok: false, error: itemsRes.error.message };
+    logger.warn("issue_invoice.insert_items_failed", {
+      userId: ctx.userId,
+      invoice_id,
+      err: itemsRes.error.message,
+    });
+    return {
+      ok: false,
+      error: "No se pudieron guardar los ítems del comprobante.",
+    };
   }
 
   try {
@@ -307,19 +336,17 @@ export async function issueFiscalInvoiceAction(
       },
     });
   } catch (err) {
-    // Roll back the draft so the user can retry cleanly. The most common
-    // failure here is "Inngest dev runtime not running" — surface a hint
-    // instead of the bare "fetch failed".
+    // Roll back the draft so the user can retry cleanly.
     await supabase.from("invoices").delete().eq("id", invoice_id);
-    const message = err instanceof Error ? err.message : "Error desconocido";
-    const isFetchFailure =
-      message.toLowerCase().includes("fetch failed") ||
-      message.toLowerCase().includes("econnrefused");
+    logger.error("issue_invoice.enqueue_failed", {
+      userId: ctx.userId,
+      invoice_id,
+      err: err instanceof Error ? err.message : String(err),
+    });
     return {
       ok: false,
-      error: isFetchFailure
-        ? "No se pudo despachar el evento a Inngest. Verificá que `inngest-cli dev` esté corriendo en localhost:8288."
-        : `No se pudo despachar el evento a Inngest: ${message}`,
+      error:
+        "No se pudo poner el comprobante en cola de emisión. Probá de nuevo en unos minutos.",
     };
   }
 

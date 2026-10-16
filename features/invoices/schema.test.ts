@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { CONCEPTO, DOC_TIPO, IVA_RATE } from "@/lib/afip/codes";
+import { round2 } from "@/lib/format";
 
 import {
   CreateComprobanteSchema,
+  computeLineAmounts,
   computeTotals,
   isInvoiceKind,
   isInvoiceLetter,
@@ -44,7 +46,12 @@ describe("CreateComprobanteSchema", () => {
     doc_nro: "30714637432",
     iva_condition_receptor: 1 as const,
     items: [
-      { description: "Flete", quantity: 1, unit_price: 100, iva_rate_id: IVA_RATE.TWENTY_ONE },
+      {
+        description: "Flete",
+        quantity: 1,
+        unit_price: 100,
+        iva_rate_id: IVA_RATE.TWENTY_ONE,
+      },
     ],
   };
 
@@ -127,9 +134,7 @@ describe("computeTotals", () => {
     // 0.333 * 3 = 0.999 — naive sum would round to 1.00, AFIP expects per-line
     // rounded values to add up exactly.
     const totals = computeTotals(
-      [
-        { quantity: 3, unit_price: 0.333, iva_rate_id: IVA_RATE.TWENTY_ONE },
-      ],
+      [{ quantity: 3, unit_price: 0.333, iva_rate_id: IVA_RATE.TWENTY_ONE }],
       true,
     );
     expect(totals.imp_neto).toBe(1.0); // 0.333 * 3 → 0.999 → round → 1.00
@@ -152,5 +157,42 @@ describe("computeTotals", () => {
       base: 150,
       importe: 31.5,
     });
+  });
+});
+
+describe("computeLineAmounts", () => {
+  it("carries IVA on a fiscal line", () => {
+    expect(
+      computeLineAmounts(
+        { quantity: 2, unit_price: 100, iva_rate_id: IVA_RATE.TWENTY_ONE },
+        true,
+      ),
+    ).toEqual({ line_neto: 200, line_iva: 42, line_total: 242 });
+  });
+
+  it("carries no IVA on an internal line, so items add up to the header total", () => {
+    const items = [
+      { quantity: 1, unit_price: 1000, iva_rate_id: IVA_RATE.TWENTY_ONE },
+      { quantity: 3, unit_price: 10.5, iva_rate_id: IVA_RATE.TEN_FIVE },
+    ];
+    const lines = items.map((it) => computeLineAmounts(it, false));
+    expect(lines.every((l) => l.line_iva === 0)).toBe(true);
+    const sum = lines.reduce((s, l) => s + l.line_total, 0);
+    expect(sum).toBe(computeTotals(items, false).imp_total);
+  });
+
+  it("matches the fiscal header totals line by line", () => {
+    const items = [
+      { quantity: 3, unit_price: 33.333, iva_rate_id: IVA_RATE.TWENTY_ONE },
+      { quantity: 1, unit_price: 9.99, iva_rate_id: IVA_RATE.TWO_FIVE },
+    ];
+    const lines = items.map((it) => computeLineAmounts(it, true));
+    const totals = computeTotals(items, true);
+    expect(round2(lines.reduce((s, l) => s + l.line_iva, 0))).toBe(
+      totals.imp_iva,
+    );
+    expect(round2(lines.reduce((s, l) => s + l.line_total, 0))).toBe(
+      totals.imp_total,
+    );
   });
 });

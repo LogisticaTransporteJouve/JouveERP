@@ -6,10 +6,12 @@ import {
   IVA_RATE,
   cbteTipoFor,
   condicionIvaReceptorFor,
+  isReceptorConditionValidForLetter,
   isServiciosConcepto,
   ivaRatePercent,
   letterFor,
 } from "./codes";
+import type { IvaCondition } from "@/features/clients/schema";
 
 describe("cbteTipoFor", () => {
   it("maps factura by letter", () => {
@@ -33,8 +35,11 @@ describe("letterFor", () => {
     expect(letterFor("responsable_inscripto")).toBe("A");
   });
 
+  it("returns A for monotributo (RG 5003)", () => {
+    expect(letterFor("monotributo")).toBe("A");
+  });
+
   it("returns B for everyone else (single-CUIT, emisor RI)", () => {
-    expect(letterFor("monotributo")).toBe("B");
     expect(letterFor("exento")).toBe("B");
     expect(letterFor("consumidor_final")).toBe("B");
     expect(letterFor("no_categorizado")).toBe("B");
@@ -80,5 +85,46 @@ describe("isServiciosConcepto", () => {
 
   it("excludes pure productos", () => {
     expect(isServiciosConcepto(1)).toBe(false);
+  });
+});
+
+describe("isReceptorConditionValidForLetter", () => {
+  it("accepts the receptor condition of every letter letterFor picks", () => {
+    const conditions: IvaCondition[] = [
+      "responsable_inscripto",
+      "monotributo",
+      "exento",
+      "consumidor_final",
+      "no_categorizado",
+    ];
+    for (const c of conditions) {
+      expect(
+        isReceptorConditionValidForLetter(
+          letterFor(c),
+          condicionIvaReceptorFor(c),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects a B voucher to a monotributista and an A voucher to a consumidor final", () => {
+    expect(
+      isReceptorConditionValidForLetter(
+        "B",
+        CONDICION_IVA_RECEPTOR.MONOTRIBUTO,
+      ),
+    ).toBe(false);
+    expect(
+      isReceptorConditionValidForLetter(
+        "A",
+        CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL,
+      ),
+    ).toBe(false);
+    expect(
+      isReceptorConditionValidForLetter(
+        "B",
+        CONDICION_IVA_RECEPTOR.RESPONSABLE_INSCRIPTO,
+      ),
+    ).toBe(false);
   });
 });
