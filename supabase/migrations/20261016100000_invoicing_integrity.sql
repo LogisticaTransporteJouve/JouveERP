@@ -251,6 +251,9 @@ create or replace view public.v_aging_documents with (security_invoker = on) as
 -- 6. Receipt allocations: only to emitted facturas / NDs, within what is
 --    left after receipts and NCs.
 ------------------------------------------------------------------------------
+-- An NC counts against a receipt only if it was emitted before the receipt was
+-- created. update_receipt deletes and re-inserts its allocations, so a receipt
+-- that paid an invoice in full stays editable after a later NC credits it.
 
 create or replace function public.guard_receipt_allocation()
 returns trigger
@@ -264,6 +267,7 @@ declare
   v_status   text;
   v_kind     text;
   v_receipt_client uuid;
+  v_receipt_created timestamptz;
   v_sum      numeric;
   v_credited numeric;
 begin
@@ -278,7 +282,8 @@ begin
       using errcode = '23514';
   end if;
 
-  select client_id into v_receipt_client from public.receipts where id = new.receipt_id;
+  select client_id, created_at into v_receipt_client, v_receipt_created
+    from public.receipts where id = new.receipt_id;
   if v_receipt_client is distinct from v_client then
     raise exception 'El comprobante no pertenece al cliente del recibo'
       using errcode = '23514';
@@ -295,7 +300,9 @@ begin
     from public.invoices n
    where n.invoice_origin_id = new.invoice_id
      and n.kind = 'nc'
-     and n.status = 'emitted';
+     and n.status = 'emitted'
+     -- NCs issued after this receipt existed don't shrink what it may keep.
+     and coalesce(n.emitted_at, n.created_at) < v_receipt_created;
 
   if v_sum + v_credited + new.amount_applied > v_total + 0.01 then
     raise exception 'La imputación excede el saldo del comprobante (% + % + % > %)',

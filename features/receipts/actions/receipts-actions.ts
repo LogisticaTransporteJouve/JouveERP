@@ -351,54 +351,66 @@ export async function listPendingComprobantesForClientAction(
   // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
   // The four reads are independent → in parallel. Only facturas and NDs are
   // collected; an emitted NC reduces what its origin still owes.
-  const [comprobantesRes, allocsRes, openingAllocsRes, creditNotesRes] =
-    await Promise.all([
-      paginateRange((from, to) =>
-        supabase
-          .from("invoices")
-          .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
-          .eq("client_id", clientId)
-          .eq("status", "emitted")
-          .in("kind", ["factura", "nd"])
-          .order("fecha", { ascending: true })
-          .order("id", { ascending: true })
-          .range(from, to),
-      ),
-      // Receipt allocations: we filter by receipts.client_id (not by
-      // .in(invoice_id, thousands…)) so we don't blow up the PostgREST URL.
-      paginateRange((from, to) =>
-        supabase
-          .from("receipt_allocations")
-          .select(
-            "id, invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
-          )
-          .eq("receipts.client_id", clientId)
-          .order("id", { ascending: true })
-          .range(from, to),
-      ),
-      // Opening allocations: whatever the balance adjustment already settled
-      // must also be subtracted from outstanding, otherwise the picker offers
-      // to re-apply against already-closed invoices.
-      paginateRange((from, to) =>
-        supabase
-          .from("client_opening_balance_allocations")
-          .select("invoice_id, amount_applied")
-          .eq("client_id", clientId)
-          .order("invoice_id", { ascending: true })
-          .range(from, to),
-      ),
-      paginateRange((from, to) =>
-        supabase
-          .from("invoices")
-          .select("id, invoice_origin_id, imp_total")
-          .eq("client_id", clientId)
-          .eq("status", "emitted")
-          .eq("kind", "nc")
-          .not("invoice_origin_id", "is", null)
-          .order("id", { ascending: true })
-          .range(from, to),
-      ),
-    ]);
+  const [
+    comprobantesRes,
+    allocsRes,
+    openingAllocsRes,
+    creditNotesRes,
+    editedReceiptRes,
+  ] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("invoices")
+        .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+        .eq("client_id", clientId)
+        .eq("status", "emitted")
+        .in("kind", ["factura", "nd"])
+        .order("fecha", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // Receipt allocations: we filter by receipts.client_id (not by
+    // .in(invoice_id, thousands…)) so we don't blow up the PostgREST URL.
+    paginateRange((from, to) =>
+      supabase
+        .from("receipt_allocations")
+        .select(
+          "id, invoice_id, amount_applied, receipt_id, receipts!inner ( status, client_id )",
+        )
+        .eq("receipts.client_id", clientId)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    // Opening allocations: whatever the balance adjustment already settled
+    // must also be subtracted from outstanding, otherwise the picker offers
+    // to re-apply against already-closed invoices.
+    paginateRange((from, to) =>
+      supabase
+        .from("client_opening_balance_allocations")
+        .select("invoice_id, amount_applied")
+        .eq("client_id", clientId)
+        .order("invoice_id", { ascending: true })
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("invoices")
+        .select("id, invoice_origin_id, imp_total, emitted_at, created_at")
+        .eq("client_id", clientId)
+        .eq("status", "emitted")
+        .eq("kind", "nc")
+        .not("invoice_origin_id", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    excludeReceiptId
+      ? supabase
+          .from("receipts")
+          .select("created_at")
+          .eq("id", excludeReceiptId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
   if (comprobantesRes.error) {
     logger.error("receipts.pending.list_comprobantes_failed", {
       userId: ctx.userId,
@@ -410,11 +422,20 @@ export async function listPendingComprobantesForClientAction(
       error: "No se pudieron listar los comprobantes pendientes.",
     };
   }
-  if (allocsRes.error || openingAllocsRes.error || creditNotesRes.error) {
+  if (
+    allocsRes.error ||
+    openingAllocsRes.error ||
+    creditNotesRes.error ||
+    editedReceiptRes.error
+  ) {
     logger.error("receipts.pending.list_allocations_failed", {
       userId: ctx.userId,
       clientId,
-      error: allocsRes.error ?? openingAllocsRes.error ?? creditNotesRes.error,
+      error:
+        allocsRes.error ??
+        openingAllocsRes.error ??
+        creditNotesRes.error ??
+        editedReceiptRes.error,
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
@@ -438,9 +459,18 @@ export async function listPendingComprobantesForClientAction(
     const prev = allocatedByComprobante.get(a.invoice_id) ?? 0;
     allocatedByComprobante.set(a.invoice_id, prev + Number(a.amount_applied));
   }
+  // Same rule as guard_receipt_allocation: an NC emitted after the receipt
+  // being edited doesn't shrink what that receipt may keep applied.
+  const editedReceiptCreated = editedReceiptRes.data?.created_at ?? null;
   const creditedByComprobante = new Map<string, number>();
   for (const nc of creditNotesRes.data) {
     if (nc.invoice_origin_id === null) continue;
+    const ncAt = nc.emitted_at ?? nc.created_at;
+    if (
+      editedReceiptCreated !== null &&
+      Date.parse(ncAt) >= Date.parse(editedReceiptCreated)
+    )
+      continue;
     const prev = creditedByComprobante.get(nc.invoice_origin_id) ?? 0;
     creditedByComprobante.set(
       nc.invoice_origin_id,

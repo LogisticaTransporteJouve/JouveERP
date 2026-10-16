@@ -23,6 +23,11 @@ function from(table: string) {
       return builder;
     },
     order: () => builder,
+    maybeSingle: async () => ({
+      data:
+        (db[table] ?? []).filter((r) => filters.every((f) => f(r)))[0] ?? null,
+      error: null,
+    }),
     range: async () => ({
       data: (db[table] ?? []).filter((r) => filters.every((f) => f(r))),
       error: null,
@@ -52,8 +57,16 @@ const { listPendingComprobantesForClientAction } =
 
 const CLIENT = "c1";
 
-function invoice(id: string, kind: string, total: number, origin?: string) {
+function invoice(
+  id: string,
+  kind: string,
+  total: number,
+  origin?: string,
+  emittedAt = "2026-10-01T12:00:00+00:00",
+) {
   return {
+    emitted_at: emittedAt,
+    created_at: emittedAt,
     id,
     client_id: CLIENT,
     status: "emitted",
@@ -83,5 +96,27 @@ describe("listPendingComprobantesForClientAction", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.map((d) => [d.id, d.outstanding])).toEqual([["fa", 600]]);
+  });
+});
+
+describe("editing a receipt that paid an invoice before a credit note", () => {
+  it("keeps the invoice available to that receipt", async () => {
+    db.invoices = [
+      invoice("fa", "factura", 1000),
+      invoice("nc", "nc", 400, "fa", "2026-10-10T12:00:00+00:00"),
+    ];
+    db.receipts = [{ id: "r1", created_at: "2026-10-05T12:00:00+00:00" }];
+    db.receipt_allocations = [];
+    db.client_opening_balance_allocations = [];
+
+    const editing = await listPendingComprobantesForClientAction(CLIENT, "r1");
+    expect(
+      editing.ok && editing.data.map((d) => [d.id, d.outstanding]),
+    ).toEqual([["fa", 1000]]);
+
+    const fresh = await listPendingComprobantesForClientAction(CLIENT);
+    expect(fresh.ok && fresh.data.map((d) => [d.id, d.outstanding])).toEqual([
+      ["fa", 600],
+    ]);
   });
 });

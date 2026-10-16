@@ -115,6 +115,11 @@ describe("NCs count against their origin", () => {
     expect(definition).toMatch(
       /v_sum \+ v_credited \+ new\.amount_applied > v_total \+ 0\.01/,
     );
+    // Only NCs older than the receipt count, so editing a receipt that paid
+    // the invoice before an NC was issued is not refused.
+    expect(definition).toMatch(
+      /coalesce\(n\.emitted_at, n\.created_at\) < v_receipt_created/,
+    );
   });
 });
 
