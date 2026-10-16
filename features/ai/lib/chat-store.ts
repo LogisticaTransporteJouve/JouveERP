@@ -218,7 +218,9 @@ export type AiUsageKind =
   | "document_classify"
   | "document_extract"
   | "expense_classify"
-  | "tool_repair";
+  | "tool_repair"
+  | "workflow_run"
+  | "weekly_summary";
 
 export type AiUsageTokens = {
   /** Total input tokens (uncached + cache read + cache write). */
@@ -296,13 +298,25 @@ export async function recordAiUsage(record: AiUsageRecord): Promise<void> {
 export type DailyCapStatus = "ok" | "exceeded" | "unavailable";
 
 /**
- * Global daily token cap check, fail-closed: an RPC error reports
- * `unavailable` and callers must block.
+ * Share of the daily cap background jobs (scheduled AI tasks, the weekly
+ * summary) may use: they stop at 70% so interactive chat keeps the rest.
  */
-export async function checkAiDailyCap(): Promise<DailyCapStatus> {
+export const AI_BACKGROUND_CAP_FRACTION = 0.7;
+
+/**
+ * Global daily token cap check, fail-closed: an RPC error reports
+ * `unavailable` and callers must block. `background` checks against
+ * AI_BACKGROUND_CAP_FRACTION of the cap.
+ */
+export async function checkAiDailyCap(
+  options: { background?: boolean } = {},
+): Promise<DailyCapStatus> {
+  const cap = options.background
+    ? AI_DAILY_TOKEN_CAP * AI_BACKGROUND_CAP_FRACTION
+    : AI_DAILY_TOKEN_CAP;
   try {
     const today = await getAiUsageToday();
-    return today.totalTokens >= AI_DAILY_TOKEN_CAP ? "exceeded" : "ok";
+    return today.totalTokens >= cap ? "exceeded" : "ok";
   } catch {
     return "unavailable";
   }

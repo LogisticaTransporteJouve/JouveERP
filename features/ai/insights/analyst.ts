@@ -2,11 +2,13 @@ import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
 import { gatherFleetInsights } from "./fleet/gather";
+import { insightFingerprint } from "./lib/fingerprint";
 import {
   gatherCashFlow,
   gatherReceivablesRisk,
@@ -67,9 +69,10 @@ function cashflowInsight(projection: CashFlowProjection): InsightRow {
     };
   }
 
-  const severity = projection.lowestClosing < projection.startingBalance * 0.2
-    ? "warning"
-    : "info";
+  const severity =
+    projection.lowestClosing < projection.startingBalance * 0.2
+      ? "warning"
+      : "info";
   return {
     kind: "cashflow",
     severity,
@@ -149,13 +152,53 @@ export async function buildInsights(today: string): Promise<InsightRow[]> {
   return rows;
 }
 
+/** Drops findings the user already ignored (same fingerprint) and tags the
+ *  rest with theirs. */
+export function withoutIgnored(
+  rows: readonly InsightRow[],
+  ignored: ReadonlySet<string>,
+): (InsightRow & { fingerprint: string | null })[] {
+  return rows
+    .map((row) => ({
+      ...row,
+      fingerprint: insightFingerprint(row.kind, row.source_refs),
+    }))
+    .filter((row) => !row.fingerprint || !ignored.has(row.fingerprint));
+}
+
 /**
  * Regenerates the analyst's insights: replaces prior OPEN rows of its kinds
- * (acknowledged/dismissed are kept) with the freshly computed set.
+ * (acknowledged/dismissed are kept) with the freshly computed set, minus the
+ * findings someone ignored.
  */
 export async function regenerateInsights(today: string): Promise<number> {
-  const rows = await buildInsights(today);
+  const computed = await buildInsights(today);
   const service = getServiceClient();
+
+  // Only the fingerprints this run produced, in URL-safe chunks: a growing
+  // pile of ignored findings is never read whole (PostgREST caps responses).
+  const candidates = computed
+    .map((row) => insightFingerprint(row.kind, row.source_refs))
+    .filter((f): f is string => f !== null);
+  const dismissed = await fetchInChunks(candidates, (chunk) =>
+    service
+      .from("ai_insights")
+      .select("fingerprint")
+      .eq("status", "dismissed")
+      .in("fingerprint", chunk),
+  );
+  if (dismissed.error) {
+    logger.error("ai.insights.dismissed.failed", { error: dismissed.error });
+    throw new Error(dismissed.error.message);
+  }
+  const rows = withoutIgnored(
+    computed,
+    new Set(
+      dismissed.data
+        .map((r) => r.fingerprint)
+        .filter((f): f is string => f !== null),
+    ),
+  );
 
   const { error: delError } = await service
     .from("ai_insights")

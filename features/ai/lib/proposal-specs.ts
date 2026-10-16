@@ -16,6 +16,16 @@ import {
   parseArAmount,
 } from "@/lib/format";
 
+import {
+  AiWorkflowDraftSchema,
+  CADENCE_LABEL,
+  WEEKDAY_LABEL,
+  WEEKDAYS,
+  WORKFLOW_CADENCES,
+  describeSchedule,
+  draftSchedule,
+} from "../workflows/schema";
+
 /**
  * What a proposal card needs on both sides of the wire: the draft schema (the
  * manual form's own Zod), the fields the user may edit in the Modify dialog,
@@ -211,9 +221,56 @@ export const exchangeRateProposalSpec = defineProposalSpec({
   ],
 });
 
+export const workflowProposalSpec = defineProposalSpec({
+  title: "Programar tarea de IA",
+  draft: AiWorkflowDraftSchema,
+  fields: [
+    { key: "title", label: "Nombre", kind: "text" },
+    { key: "prompt", label: "Qué tiene que hacer", kind: "textarea" },
+    {
+      key: "cadence",
+      label: "Frecuencia",
+      kind: "select",
+      options: WORKFLOW_CADENCES.map((c) => ({
+        value: c,
+        label: CADENCE_LABEL[c],
+      })),
+    },
+    { key: "runTime", label: "Hora (HH:MM, Buenos Aires)", kind: "text" },
+    {
+      key: "weekday",
+      label: "Día de la semana (semanal)",
+      kind: "select",
+      options: WEEKDAYS.map((d) => ({ value: d, label: WEEKDAY_LABEL[d] })),
+    },
+    {
+      key: "monthDay",
+      label: "Día del mes, 1 a 28 (mensual)",
+      kind: "number",
+      decimals: 0,
+    },
+  ],
+  confirmLabel: "Programar tarea",
+  declineLabel: "Descartar",
+  summarize: (d) => [
+    { label: "Nombre", value: d.title },
+    { label: "Pedido", value: d.prompt },
+    {
+      label: "Cuándo",
+      value: `${describeSchedule(draftSchedule(d))} (hora de Buenos Aires)`,
+    },
+    {
+      label: "Cómo corre",
+      value:
+        "Solo consulta datos con tus permisos; el resultado queda en Tareas IA.",
+    },
+  ],
+});
+
 /** Every proposal action's spec, by the action (tool) name. */
 export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeLeave: leaveProposalSpec,
   proposeJournalEntry: journalEntryProposalSpec,
   proposeExchangeRate: exchangeRateProposalSpec,
+  proposeAiWorkflow: workflowProposalSpec,
 };

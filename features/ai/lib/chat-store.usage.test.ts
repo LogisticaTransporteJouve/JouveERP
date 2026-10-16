@@ -18,8 +18,12 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-const { AI_DAILY_TOKEN_CAP, checkAiDailyCap, recordAiUsage } =
-  await import("./chat-store");
+const {
+  AI_BACKGROUND_CAP_FRACTION,
+  AI_DAILY_TOKEN_CAP,
+  checkAiDailyCap,
+  recordAiUsage,
+} = await import("./chat-store");
 const { logAudit } = await import("@/lib/actions/audit");
 
 beforeEach(() => {
@@ -63,6 +67,18 @@ describe("checkAiDailyCap", () => {
     expect(await checkAiDailyCap()).toBe("exceeded");
     todayTokens = new Error("rpc down");
     expect(await checkAiDailyCap()).toBe("unavailable");
+  });
+
+  it("stops background jobs at AI_BACKGROUND_CAP_FRACTION, leaving headroom for chat", async () => {
+    expect(AI_BACKGROUND_CAP_FRACTION).toBeLessThan(1);
+    const threshold = AI_DAILY_TOKEN_CAP * AI_BACKGROUND_CAP_FRACTION;
+    todayTokens = threshold - 1;
+    expect(await checkAiDailyCap({ background: true })).toBe("ok");
+    todayTokens = threshold;
+    expect(await checkAiDailyCap({ background: true })).toBe("exceeded");
+    expect(await checkAiDailyCap()).toBe("ok");
+    todayTokens = new Error("rpc down");
+    expect(await checkAiDailyCap({ background: true })).toBe("unavailable");
   });
 });
 

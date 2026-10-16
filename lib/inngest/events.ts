@@ -45,3 +45,40 @@ export const DocumentExtractionRequestedSchema = z.object({
 export type DocumentExtractionRequested = z.infer<
   typeof DocumentExtractionRequestedSchema
 >;
+
+export const AI_WORKFLOW_RUN_REQUESTED = "ai/workflow-run.requested" as const;
+
+export const AiWorkflowRunRequestedSchema = z.object({
+  // The queued ai_workflow_runs row. Also the event id and the function's
+  // idempotency key, so a re-sent event never runs the occurrence twice.
+  run_id: z.string().uuid(),
+  // The owner, for the per-user concurrency key. The run re-reads the owner
+  // from the row; this value is never trusted for access.
+  user_id: z.string().uuid(),
+});
+
+export type AiWorkflowRunRequested = z.infer<
+  typeof AiWorkflowRunRequestedSchema
+>;
+
+export const AI_WEEKLY_SUMMARY_REQUESTED =
+  "ai/weekly-summary.requested" as const;
+
+export const AiWeeklySummaryRequestedSchema = z.object({
+  user_id: z.string().uuid(),
+  // Monday (YYYY-MM-DD, Buenos Aires) of the week being summarized.
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type AiWeeklySummaryRequested = z.infer<
+  typeof AiWeeklySummaryRequestedSchema
+>;
+
+/** The original event's `data` inside an `onFailure` payload
+ *  (`event.data.event.data`), or undefined when it is not there. */
+export function failedEventData(data: unknown): unknown {
+  if (typeof data !== "object" || data === null) return undefined;
+  const original: unknown = Reflect.get(data, "event");
+  if (typeof original !== "object" || original === null) return undefined;
+  return Reflect.get(original, "data");
+}

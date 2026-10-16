@@ -4,12 +4,16 @@ import { getMetadataString } from "../types";
 export function getNotificationHref(notif: Notification): string | null {
   const channelId = getMetadataString(notif.metadata, "channel_id");
   if (
-    channelId
-    && (notif.type === "chat_message"
-      || notif.type === "chat_reply"
-      || notif.type === "chat_mention")
+    channelId &&
+    (notif.type === "chat_message" ||
+      notif.type === "chat_reply" ||
+      notif.type === "chat_mention")
   ) {
     return `/chat/${channelId}`;
+  }
+  if (notif.type === "ai_workflow_run") {
+    const workflowId = getMetadataString(notif.metadata, "workflow_id");
+    return workflowId ? `/ai/tasks?workflow=${workflowId}` : "/ai/tasks";
   }
   return null;
 }
@@ -22,6 +26,8 @@ export function getNotificationTitle(notif: Notification): string {
       return "te mencionó";
     case "document_expiring":
       return "documento por vencer";
+    case "ai_workflow_run":
+      return "tarea de IA lista";
     case "chat_message":
     default:
       return "te mandó un mensaje";

@@ -21,7 +21,8 @@ const MONTHS_ES = [
   "dic",
 ] as const;
 
-const AR_OFFSET_MS = 3 * 60 * 60 * 1000;
+/** Argentina is UTC-3 all year (no DST since 2009): local = UTC − this. */
+export const AR_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 type CalendarDay = { year: number; monthIndex: number; day: number };
 

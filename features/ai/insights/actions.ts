@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { regenerateInsights } from "./analyst";
+import { IgnoreInsightSchema } from "./lib/ignore-schema";
 import { canSeeInsight } from "./lib/visibility";
 
 export type InsightCard = {
@@ -86,16 +87,17 @@ export async function runAnalystAction(): Promise<
   }
 }
 
-/** Acknowledge or dismiss an insight card (ai:admin; RLS update gated too). */
+/** Acknowledge an insight card (ai:admin; RLS update gated too). Ignoring
+ *  one goes through `ignoreInsightAction`, which records the reason. */
 export async function setInsightStatusAction(input: {
   id: string;
-  status: "acknowledged" | "dismissed";
+  status: "acknowledged";
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para gestionar insights." };
   }
-  if (input.status !== "acknowledged" && input.status !== "dismissed") {
+  if (input.status !== "acknowledged") {
     return { ok: false, error: "Estado inválido." };
   }
 
@@ -113,5 +115,55 @@ export async function setInsightStatusAction(input: {
     return { ok: false, error: "No se pudo actualizar el insight." };
   }
   await logAudit(`ai.insight.${input.status}`, ctx.userId, {}, input.id);
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Ignores a finding with the reason (ai:admin; the RLS update policy gates
+ * the same roles). The analyst skips findings with the same fingerprint on
+ * later runs.
+ */
+export async function ignoreInsightAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "ai:admin")) {
+    return { ok: false, error: "No tenés permiso para gestionar insights." };
+  }
+  const parsed = IgnoreInsightSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("ai_insights")
+    .update({
+      status: "dismissed",
+      dismissed_reason: parsed.data.reason,
+      dismissed_by: ctx.userId,
+      dismissed_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.id)
+    .select("id, kind");
+  if (error) {
+    logger.error("ai.insights.ignore.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return { ok: false, error: "No se pudo ignorar el insight." };
+  }
+  const row = data?.[0];
+  if (!row) return { ok: false, error: "No se encontró el insight." };
+  await logAudit(
+    "ai.insight.ignored",
+    ctx.userId,
+    { kind: row.kind, reason: parsed.data.reason },
+    row.id,
+  );
   return { ok: true, data: undefined };
 }
