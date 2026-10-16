@@ -270,7 +270,8 @@ export async function issueFiscalInvoiceAction(
       .eq("kind", data.kind)
       .eq("letter", fiscalLetter)
       .not("numero", "is", null)
-      .order("numero", { ascending: false })
+      // Walks invoices_channel_fecha_idx (channel_id, fecha desc).
+      .order("fecha", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (lastErr) {
