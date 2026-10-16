@@ -15,6 +15,7 @@ import { inngest } from "../client";
 import {
   aggregateIva,
   buildAfipInput,
+  loadOrigen,
   type DraftLoad,
   type DraftRow,
   type ItemRow,
@@ -51,7 +52,9 @@ export const caeaInform = inngest.createFunction(
     const pending = await step.run("load-pending", async () => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, fch_serv_desde, fch_serv_hasta, fch_vto_pago, concepto, doc_tipo, doc_nro, iva_condition_receptor, cbte_tipo_afip, cbte_tipo_origen_afip, imp_neto, imp_iva, imp_trib, imp_tot_conc, imp_op_ex, imp_total, moneda, cotizacion, cae, cae_vencimiento, afip_observaciones, status, invoice_origin_id, motivo_nc_nd, emitted_at, notified_at, idempotency_key, created_by, created_at, updated_at, cost_center_id, pdf_hash, emission_type, cbte_fch_hs_gen, caea_informed_at")
+        .select(
+          "id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, fch_serv_desde, fch_serv_hasta, fch_vto_pago, concepto, doc_tipo, doc_nro, iva_condition_receptor, cbte_tipo_afip, cbte_tipo_origen_afip, imp_neto, imp_iva, imp_trib, imp_tot_conc, imp_op_ex, imp_total, moneda, cotizacion, cae, cae_vencimiento, afip_observaciones, status, invoice_origin_id, motivo_nc_nd, emitted_at, notified_at, idempotency_key, created_by, created_at, updated_at, cost_center_id, pdf_hash, emission_type, cbte_fch_hs_gen, caea_informed_at",
+        )
         .eq("emission_type", "caea")
         .is("caea_informed_at", null)
         .eq("status", "emitted")
@@ -69,16 +72,20 @@ export const caeaInform = inngest.createFunction(
 
     for (const inv of pending) {
       const done = await step.run(`inform-${inv.id}`, async () => {
-        const { data: items, error: itemsErr } = await supabase
-          .from("invoice_items")
-          .select("iva_rate_id, line_neto, line_iva")
-          .eq("invoice_id", inv.id);
+        const [{ data: items, error: itemsErr }, origen] = await Promise.all([
+          supabase
+            .from("invoice_items")
+            .select("iva_rate_id, line_neto, line_iva")
+            .eq("invoice_id", inv.id),
+          // An NC/ND is informed with its CbtesAsoc, like its CAE emission.
+          loadOrigen(supabase, inv.invoice_origin_id),
+        ]);
         if (itemsErr) throw new Error(`load-items: ${itemsErr.message}`);
 
         const load: DraftLoad = {
           draft: inv,
           iva: aggregateIva((items ?? []) as ItemRow[]),
-          origenes: [],
+          origenes: origen ? [origen] : [],
           channelIsFiscal: true,
           channelKind: "",
           posEmissionType: "CAEA",
@@ -131,7 +138,9 @@ export const caeaInform = inngest.createFunction(
       const today = todayInAR();
       const { data: expired, error } = await supabase
         .from("caea_codes")
-        .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
+        .select(
+          "id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at",
+        )
         .lt("fch_vig_hasta", today)
         .gte("fch_tope_inf", today);
       if (error) throw new Error(`load-expired-caea: ${error.message}`);

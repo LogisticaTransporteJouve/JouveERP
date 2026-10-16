@@ -10,7 +10,6 @@ import {
 } from "@/lib/afip/wsfev1";
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
-import { todayInAR } from "@/lib/format";
 import { rpcAs } from "@/lib/db/rpc";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -24,7 +23,7 @@ import {
 import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
-// Two branches based on `channel.is_fiscal`:
+// Branches on `channel.is_fiscal` and, for fiscal, on the POS emission type:
 //
 // FISCAL (AFIP):
 //   load-draft       → snapshot the row + channel (status flips draft → emitting)
@@ -36,13 +35,16 @@ import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
 //   persist-cae      → store numero + CAE + flip status to emitted.
 //   generate-pdf     → render fiscal PDF (CAE + QR).
 //
+// CAEA (contingency punto de venta):
+//   load-active-caea → the fortnight code covering the voucher date.
+//   emit-caea        → number + CAEA + emitted in one RPC; informed later by
+//                      the caea-inform cron.
+//
 // INTERNAL (no AFIP):
 //   load-draft       → idem.
 //   reserve-and-persist-numero-internal → max(numero) + 1 over the same
-//                      (channel_id, punto_venta, kind) tuple, in a single
-//                      step. There's no AFIP roundtrip so a retry just
-//                      re-reads max+1 and inserts again — the unique index
-//                      rejects duplicates if the previous attempt persisted.
+//                      (channel_id, punto_venta, kind) tuple, in one RPC under
+//                      an advisory lock; a retry gets the number back.
 //   mark-emitted     → flip status to emitted (no CAE, no QR).
 //   generate-pdf     → render the "Documento no fiscal" PDF.
 //
@@ -209,7 +211,10 @@ export const issueInvoice = inngest.createFunction(
           status: "failed",
           afip_observaciones: { error: error.message } as never,
         })
-        .eq("id", parsed.data.invoice_id);
+        .eq("id", parsed.data.invoice_id)
+        // A voucher that already got its CAE (or internal number) stays
+        // emitted: only a pending emission fails.
+        .in("status", ["draft", "emitting"]);
     },
   },
   async ({ event, step }) => {
@@ -278,9 +283,6 @@ export const issueInvoice = inngest.createFunction(
       const reservedNumero: number = await step.run(
         "reserve-and-persist-numero-internal",
         async () => {
-          // B2: uses an atomic RPC with an advisory lock per (channel, pos, kind).
-          // Replaces the MAX(numero)+1 pattern that had a race condition
-          // under concurrent issuance from the same POS.
           const supabase = getServiceClient();
           const { data, error } = await supabase.rpc(
             "next_internal_invoice_numero_atomic",
@@ -343,63 +345,39 @@ export const issueInvoice = inngest.createFunction(
     // caea-inform cron reports it to AFIP afterwards (FECAEARegInformativo).
     if (load.posEmissionType?.toUpperCase().includes("CAEA")) {
       const caea = await step.run("load-active-caea", async () => {
-        const active = await getActiveCaeaForDate(todayInAR());
+        // The CAEA must cover the voucher's date (CbteFch), not the run's.
+        const active = await getActiveCaeaForDate(draft.fecha);
         if (!active) {
           throw new AfipServiceError([
             {
               code: 0,
               message:
-                "No hay CAEA vigente para la quincena — solicitalo desde AFIP admin antes de emitir por contingencia.",
+                "No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.",
             },
           ]);
         }
         return active;
       });
 
-      const caeaNumero: number = await step.run(
-        "reserve-numero-caea",
-        async () => {
-          // Local numbering: AFIP only knows CAEA numbers once informed, so
-          // the source of truth is max(local, último informado en AFIP).
-          const supabase = getServiceClient();
-          const { data: localMax, error } = await supabase
-            .from("invoices")
-            .select("numero")
-            .eq("punto_venta", draft.punto_venta)
-            .eq("cbte_tipo_afip", cbteTipo)
-            .not("numero", "is", null)
-            .order("numero", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (error) throw new Error(`reserve-numero-caea: ${error.message}`);
-          let afipLast = 0;
-          try {
-            afipLast = await getLastAuthorizedNumber(
-              draft.punto_venta,
-              cbteTipo,
-            );
-          } catch {
-            // AFIP caído — exactamente el escenario CAEA. Seguimos con lo local.
-          }
-          return Math.max(Number(localMax?.numero ?? 0), afipLast) + 1;
-        },
-      );
-
-      await step.run("persist-caea-emission", async () => {
+      const caeaNumero: number = await step.run("emit-caea", async () => {
+        // Local numbering: AFIP only knows CAEA numbers once informed, so
+        // the floor is max(local, último informado en AFIP). The RPC numbers
+        // the voucher and marks it emitted in one locked transaction.
+        let afipLast = 0;
+        try {
+          afipLast = await getLastAuthorizedNumber(draft.punto_venta, cbteTipo);
+        } catch {
+          // AFIP caído — exactamente el escenario CAEA. Seguimos con lo local.
+        }
         const supabase = getServiceClient();
-        const { error } = await supabase
-          .from("invoices")
-          .update({
-            numero: caeaNumero,
-            cae: caea.caea,
-            cae_vencimiento: caea.fch_vig_hasta,
-            emission_type: "caea",
-            cbte_fch_hs_gen: new Date().toISOString(),
-            status: "emitted",
-            emitted_at: new Date().toISOString(),
-          })
-          .eq("id", invoice_id);
-        if (error) throw new Error(`persist-caea-emission: ${error.message}`);
+        const { data, error } = await supabase.rpc("emit_caea_invoice", {
+          p_invoice_id: invoice_id,
+          p_afip_last: afipLast,
+          p_caea: caea.caea,
+          p_cae_vencimiento: caea.fch_vig_hasta,
+        });
+        if (error) throw new Error(`emit-caea: ${error.message}`);
+        return rpcAs<number>(data);
       });
 
       await step.run("hash-pdf-caea", async () => {
@@ -520,7 +498,7 @@ export const issueInvoice = inngest.createFunction(
   },
 );
 
-async function loadOrigen(
+export async function loadOrigen(
   supabase: ReturnType<typeof getServiceClient>,
   originId: string | null,
 ): Promise<{ tipo: number; ptoVta: number; nro: number } | null> {

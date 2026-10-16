@@ -109,8 +109,13 @@ const {
   createPurchaseInvoiceFromExtractionAction,
   createPurchaseNoteFromExtractionAction,
   createReceiptFromExtractionAction,
+  createSalesInvoiceFromExtractionAction,
   discardExtractionAction,
 } = await import("./actions");
+const { issueFiscalInvoiceAction } =
+  await import("@/features/invoices/actions/invoices-actions");
+const { getUsdRateForDateAction } =
+  await import("@/features/exchange-rates/actions/exchange-rates-actions");
 
 const EXTRACTION_ID = "11111111-1111-4111-8111-111111111111";
 const ACCOUNT_ID = "22222222-2222-4222-8222-222222222222";
@@ -357,5 +362,50 @@ describe("discardExtractionAction", () => {
     expect(res.ok).toBe(false);
     expect(extraction()).toMatchObject({ status: "confirmed" });
     expect(logAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe("createSalesInvoiceFromExtractionAction", () => {
+  const CLIENT_ID = "33333333-3333-4333-8333-333333333333";
+
+  function seedUsdSale() {
+    seed("sales_invoice", { client_id: CLIENT_ID });
+    const ext = extraction();
+    if (ext) {
+      ext.payload = {
+        date: "2026-10-16",
+        currency: "USD",
+        net_amount: 100,
+        iva_amount: 21,
+        total_amount: 121,
+        items: [],
+      };
+    }
+    db.invoicing_channels = [{ id: "ch1", division: "jouve", is_fiscal: true }];
+    db.clients = [
+      {
+        id: CLIENT_ID,
+        cuit: "30712345678",
+        iva_condition: "responsable_inscripto",
+      },
+    ];
+  }
+
+  it("refuses a USD invoice when there is no exchange rate for its date", async () => {
+    seedUsdSale();
+    vi.mocked(getUsdRateForDateAction).mockResolvedValue({
+      ok: true,
+      data: { rate: null },
+    });
+
+    const res = await createSalesInvoiceFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+      puntoVenta: 3,
+    });
+
+    expect(res.ok).toBe(false);
+    expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
+    expect(extraction()?.status).toBe("pending_review");
   });
 });

@@ -1127,7 +1127,14 @@ export async function createSalesInvoiceFromExtractionAction(
   let cotizacion = 1;
   if (moneda === MONEDA.DOLARES) {
     const rate = await getUsdRateForDateAction(fecha);
-    if (rate.ok && rate.data.rate) cotizacion = rate.data.rate;
+    if (!rate.ok || !rate.data.rate) {
+      return {
+        ok: false,
+        error:
+          "No hay cotización del dólar para la fecha del comprobante. Cargala antes de emitir.",
+      };
+    }
+    cotizacion = rate.data.rate;
   }
 
   const created = await createWithClaim(

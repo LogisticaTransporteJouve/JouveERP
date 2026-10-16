@@ -4792,6 +4792,7 @@ export type Database = {
       v_aging_documents: {
         Row: {
           amount_applied: number | null
+          amount_credited_by_nc: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
@@ -5664,6 +5665,15 @@ export type Database = {
           p_event_date: string
         }
         Returns: string
+      }
+      emit_caea_invoice: {
+        Args: {
+          p_afip_last: number
+          p_cae_vencimiento: string
+          p_caea: string
+          p_invoice_id: string
+        }
+        Returns: number
       }
       emit_journal_for_invoice: {
         Args: {
