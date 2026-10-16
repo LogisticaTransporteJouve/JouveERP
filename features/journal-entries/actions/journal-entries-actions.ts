@@ -2,16 +2,14 @@
 
 import { z } from "zod";
 
-import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import type { Json } from "@/lib/db/database.types";
+import { createManualJournalEntry } from "@/lib/commands/create-manual-journal-entry";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import {
-  accrualPeriodFromDate,
   ManualJournalEntryCreateSchema,
   type JournalEntryWithLines,
   type JournalFilters,
@@ -21,8 +19,7 @@ import { JOURNAL_PAGE_SIZE } from "../lib/journal-pagination";
 import type { JournalPage } from "../lib/journal-pagination";
 
 type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+  { ok: true; data: T } | { ok: false; error: string };
 
 const JournalFiltersInput = z.object({
   period: PeriodSchema.nullable().optional(),
@@ -45,7 +42,10 @@ export async function listJournalEntriesAction(
 
   const parsed = JournalFiltersInput.safeParse(filters);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   filters = parsed.data;
 
@@ -98,11 +98,7 @@ export async function listJournalEntriesAction(
   };
 }
 
-/**
- * Creates a manual journal entry (source_table null) via the same
- * create_journal_entry RPC the auto-posting triggers use. The schema validates
- * balance client-side; the DB DEFERRABLE trigger re-validates Σdebe = Σhaber.
- */
+/** Creates a manual journal entry; the write lives in lib/commands. */
 export async function createManualJournalEntryAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -118,45 +114,5 @@ export async function createManualJournalEntryAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const lines: Json = data.lines.map((l) => ({
-    account_id: l.account_id,
-    debit: l.debit,
-    credit: l.credit,
-    description: l.description ?? null,
-  }));
-
-  const supabase = await createClient();
-  const { data: entryId, error } = await supabase.rpc("create_journal_entry", {
-    p_entry_date: data.entry_date,
-    p_accrual_period: accrualPeriodFromDate(data.entry_date),
-    p_description: data.description,
-    p_lines: lines,
-    ...(data.channel_id ? { p_channel_id: data.channel_id } : {}),
-  });
-  if (error || !entryId) {
-    logger.error("journal_entries.manual_create.failed", {
-      userId: ctx.userId,
-      entry_date: data.entry_date,
-      error,
-    });
-    return {
-      ok: false,
-      error: error?.message ?? "No se pudo crear el asiento.",
-    };
-  }
-
-  await logAudit(
-    "journal_entry.manual_created",
-    ctx.userId,
-    {
-      entry_date: data.entry_date,
-      description: data.description,
-      lines: data.lines.length,
-      total_debit: data.lines.reduce((a, l) => a + l.debit, 0),
-    },
-    entryId,
-  );
-  return { ok: true, data: { id: entryId } };
+  return createManualJournalEntry(ctx.userId, parsed.data);
 }
