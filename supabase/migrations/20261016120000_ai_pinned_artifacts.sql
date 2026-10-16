@@ -28,6 +28,34 @@ comment on table public.ai_pinned_artifacts is
 create index ai_pinned_artifacts_user_idx
   on public.ai_pinned_artifacts (user_id, created_at desc);
 
+-- The same query with the same config is pinned once per user (jsonb::text
+-- is canonical, so key order does not matter).
+create unique index ai_pinned_artifacts_unique_idx
+  on public.ai_pinned_artifacts (user_id, action, md5(input::text || config::text));
+
+-- At most 30 pins per user (ARTIFACT_LIMITS.pinsPerUser). The per-user lock
+-- serializes concurrent inserts, so two requests cannot both pass the count.
+create function public.ai_pinned_artifacts_enforce_cap()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('ai_pinned_artifacts:' || new.user_id::text, 0));
+  if (select count(*) from public.ai_pinned_artifacts where user_id = new.user_id) >= 30 then
+    raise exception 'ai_pinned_artifacts: pin limit reached'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.ai_pinned_artifacts_enforce_cap() from public, anon, authenticated;
+
+create trigger ai_pinned_artifacts_enforce_cap
+  before insert on public.ai_pinned_artifacts
+  for each row execute function public.ai_pinned_artifacts_enforce_cap();
+
 alter table public.ai_pinned_artifacts enable row level security;
 
 -- Own rows only, for the roles that hold ai:chat (lib/auth/permissions.ts).

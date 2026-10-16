@@ -13,9 +13,23 @@ export const ARTIFACT_LIMITS = {
   /** Serialized size of a stored source input. */
   inputBytes: 2000,
   pinsPerUser: 30,
+  /** Serialized size of one artifact's rows, and of all a turn emits. */
+  partBytes: 100_000,
+  turnBytes: 400_000,
 } as const;
 
 export const CHART_TYPES = ["bar", "hbar", "line"] as const;
+
+/** How numbers read: money in the artifact's currency, USD, percentages,
+ *  counts (integers) or plain numbers. */
+export const VALUE_FORMATS = [
+  "money",
+  "usd",
+  "percent",
+  "count",
+  "number",
+] as const;
+export type ValueFormat = (typeof VALUE_FORMATS)[number];
 export type ChartType = (typeof CHART_TYPES)[number];
 
 const fieldName = z
@@ -49,7 +63,7 @@ export const chartConfigSchema = z.strictObject({
     .optional(),
   sort: z.enum(["none", "asc", "desc"]).optional(),
   limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
-  valueFormat: z.enum(["money", "number", "percent"]).optional(),
+  valueFormat: z.enum(VALUE_FORMATS).optional(),
 });
 export type ChartConfig = z.infer<typeof chartConfigSchema>;
 
@@ -103,7 +117,7 @@ export const resolvedChartSchema = z.strictObject({
     .max(ARTIFACT_LIMITS.series),
   sort: z.enum(["none", "asc", "desc"]),
   limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
-  valueFormat: z.enum(["money", "number", "percent"]),
+  valueFormat: z.enum(VALUE_FORMATS),
 });
 export type ResolvedChart = z.infer<typeof resolvedChartSchema>;
 
@@ -114,7 +128,7 @@ export const tableColumnSchema = z.strictObject({
   key: fieldName,
   label: z.string(),
   numeric: z.boolean(),
-  money: z.boolean(),
+  format: z.enum(["text", ...VALUE_FORMATS]),
 });
 export type TableColumn = z.infer<typeof tableColumnSchema>;
 

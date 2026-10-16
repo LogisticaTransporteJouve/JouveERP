@@ -41,7 +41,7 @@ export function downloadCsv(fileName: string, csv: string): void {
   link.href = url;
   link.download = fileName.endsWith(".csv") ? fileName : `${fileName}.csv`;
   link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** A file name from a title: lowercase ASCII words joined by dashes. */

@@ -34,7 +34,7 @@ function modelResult(artifact: Artifact): AiToolResult {
   const meta = {
     sources: artifact.meta.sources,
     asOf: artifact.meta.asOf,
-    partial: artifact.meta.partial,
+    partial: artifact.meta.partial || artifact.truncated,
     ...(artifact.meta.currency ? { currency: artifact.meta.currency } : {}),
     ...(artifact.meta.note ? { note: artifact.meta.note } : {}),
   };
@@ -68,7 +68,11 @@ async function render(
 ): Promise<AiToolResult> {
   const run = await runArtifact(ctx, request, actions);
   if (!run.ok) return errResult(run.error);
-  sink.emit(toolCallId, run.artifact);
+  if (!sink.emit(toolCallId, run.artifact)) {
+    return errResult(
+      "This answer already shows as many charts and tables as fit; say what else the user can ask for in a new message.",
+    );
+  }
   return modelResult(run.artifact);
 }
 

@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
+import {
+  PG_CHECK_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -82,21 +86,16 @@ export async function getPin(
   return data ? parsePin(data) : null;
 }
 
-export async function countPins(userId: string): Promise<number> {
-  const { count, error } = await getServiceClient()
-    .from("ai_pinned_artifacts")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if (error) throw error;
-  return count ?? 0;
-}
+export type InsertPinResult =
+  { ok: true; id: string } | { ok: false; reason: "duplicate" | "limit" };
 
 /** Stores a pin. `request.source.input` must already be the action's
- *  parsed input. */
+ *  parsed input. The database refuses a second copy of the same pin (unique
+ *  index) and a pin past the per-user cap (insert trigger). */
 export async function insertPin(
   userId: string,
   request: PinRequest,
-): Promise<{ id: string }> {
+): Promise<InsertPinResult> {
   const { data, error } = await getServiceClient()
     .from("ai_pinned_artifacts")
     .insert({
@@ -109,8 +108,12 @@ export async function insertPin(
     })
     .select("id")
     .single();
+  if (error?.code === PG_UNIQUE_VIOLATION) {
+    return { ok: false, reason: "duplicate" };
+  }
+  if (error?.code === PG_CHECK_VIOLATION) return { ok: false, reason: "limit" };
   if (error) throw error;
-  return { id: data.id };
+  return { ok: true, id: data.id };
 }
 
 /** Deletes one of the user's pins; false when there was none. */

@@ -15,7 +15,6 @@ import {
   type Artifact,
 } from "../artifacts/spec";
 import {
-  countPins,
   deletePin,
   getPin,
   insertPin,
@@ -70,13 +69,17 @@ export async function pinAiArtifactAction(
   }
 
   try {
-    if ((await countPins(ctx.userId)) >= ARTIFACT_LIMITS.pinsPerUser) {
+    const inserted = await insertPin(ctx.userId, checked.data);
+    if (!inserted.ok) {
       return {
         ok: false,
-        error: `Podés fijar hasta ${ARTIFACT_LIMITS.pinsPerUser} elementos. Quitá alguno para sumar otro.`,
+        error:
+          inserted.reason === "duplicate"
+            ? "Ya lo tenías fijado."
+            : `Podés fijar hasta ${ARTIFACT_LIMITS.pinsPerUser} elementos. Quitá alguno para sumar otro.`,
       };
     }
-    const { id } = await insertPin(ctx.userId, checked.data);
+    const { id } = inserted;
     await logAudit(
       "ai.artifact.pinned",
       ctx.userId,

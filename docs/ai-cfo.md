@@ -139,7 +139,7 @@ una consulta del registry. El modelo elige la consulta, su input y la forma; nun
 | Archivo     | Qué tiene                                                                                                                                                                                                                                                                                                                   |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `hbar`, `line`; `x`, hasta 3 series, orden, límite, formato) y de tabla (título, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                          |
-| `build.ts`  | Arma el artefacto desde las filas: copia los valores (los `numeric` de Postgres pasan a número), rechaza una `x` repetida en vez de sumar, corta en 60 puntos (30 en `hbar`) o 300 filas × 12 columnas y lo marca parcial. Un campo inexistente devuelve un error con los campos que sí sirven, para que el modelo corrija. |
+| `build.ts`  | Arma el artefacto desde las filas: copia los valores (los `numeric` de Postgres pasan a número), rechaza una `x` repetida en vez de sumar, corta en 60 puntos (30 en `hbar`) o 300 filas × 12 columnas (y ~100 KB por artefacto) y lo marca como cortado. Cada columna toma su formato del nombre, con reglas en orden (`rows.ts`): códigos e identificadores (`*_code`, `*_number`, `numero`, CUIT, CBU) quedan como texto; `*_pct` es porcentaje; `*_count`, `qty`, `cantidad`, días y `total_<sustantivo>s` son cantidades; `*_usd`/`foreign` van en US$; el resto de montos en la moneda del resultado. Un campo inexistente devuelve un error con los campos que sí sirven, para que el modelo corrija. |
 | `run.ts`    | `runArtifact(ctx, pedido)`: busca la acción entre las de lectura que el rol puede usar, valida el input con su schema y la ejecuta con el mismo gate que el tool (`requireUserContext` + `userCan` + RLS adentro).                                                                                                          |
 | `tools.ts`  | Tools `renderChart` y `renderTable`. Mandan el artefacto como data part `data-artifact` (id = toolCallId) y al modelo le devuelven un resumen con `meta` de la consulta.                                                                                                                                                    |
 | `sink.ts`   | El puerto por el que los tools escriben al stream; el route lo conecta al writer. Sin sink (p. ej. una corrida en background) estos tools no se ofrecen.                                                                                                                                                                    |
@@ -147,7 +147,8 @@ una consulta del registry. El modelo elige la consulta, su input y la forma; nun
 
 **Stream.** El route envuelve `toUIMessageStream` en `createUIMessageStream` y conecta el sink al
 writer; el mensaje persistido guarda la data part, así que el gráfico vuelve al recargar.
-`convertToModelMessages` ignora las data parts: el modelo no relee los datos en el historial.
+`convertToModelMessages` ignora las data parts: el modelo no relee los datos en el historial. Un turno
+manda hasta ~400 KB de artefactos; pasado eso el tool devuelve un error y el modelo lo explica.
 
 **Gráficos.** SVG propio y monocromo (sin librería de charts): barras con el extremo redondeado,
 líneas de 2 px, series distinguidas por intensidad y trazo, leyenda desde 2 series, tooltip por
@@ -165,7 +166,9 @@ números siguen siendo números. No hay XLSX: no hay librería en las dependenci
 filas. `pinAiArtifactAction` (`ai:chat` + permisos de la consulta) la vuelve a correr, guarda el
 input ya parseado y la configuración resuelta, y audita (`ai.artifact.pinned`). Al ver un fijado,
 `loadAiPinnedArtifactAction` la recalcula como quien mira, con los permisos de ese momento: si los
-perdió, la tarjeta dice que ya no tiene acceso y no trae datos. Hasta 30 por usuario.
+perdió, la tarjeta dice que ya no tiene acceso y no trae datos. Hasta 30 por usuario y sin duplicados,
+los dos controlados en la base (índice único por usuario + consulta + configuración, y un trigger con
+lock por usuario que cuenta antes de insertar).
 
 **`ai_pinned_artifacts`** (migración `20261016120000_ai_pinned_artifacts.sql`): `kind`, `title`,
 `action`, `input`, `config`. RLS: `authenticated` solo lee sus filas (`user_id = (select

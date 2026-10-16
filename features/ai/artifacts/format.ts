@@ -1,13 +1,12 @@
 import {
   formatArgentineDate,
   formatArgentineDateTime,
+  formatInteger,
   formatMoney,
   formatPeriod,
 } from "@/lib/format";
 
-import type { ArtifactCell, ResolvedChart, TableColumn } from "./spec";
-
-type ValueFormat = ResolvedChart["valueFormat"];
+import type { ArtifactCell, TableColumn, ValueFormat } from "./spec";
 
 const PLAIN_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T/;
@@ -33,7 +32,9 @@ export function formatValue(
 ): string {
   if (value === null) return "—";
   if (format === "money") return formatMoney(value, currency);
+  if (format === "usd") return formatMoney(value, "USD");
   if (format === "percent") return `${numberFmt.format(value)} %`;
+  if (format === "count") return formatInteger(value);
   return numberFmt.format(value);
 }
 
@@ -44,6 +45,7 @@ export function formatAxisValue(
   currency = "ARS",
 ): string {
   const n = compactFmt.format(value);
+  if (format === "usd") return `US$ ${n}`;
   if (format === "money") return `${currency === "USD" ? "US$" : "$"} ${n}`;
   if (format === "percent") return `${n} %`;
   return n;
@@ -58,7 +60,11 @@ export function formatCell(
   if (value === null) return "—";
   if (typeof value === "boolean") return value ? "Sí" : "No";
   if (typeof value === "number") {
-    return formatValue(value, column.money ? "money" : "number", currency);
+    return formatValue(
+      value,
+      column.format === "text" ? "number" : column.format,
+      currency,
+    );
   }
   return formatCategory(value);
 }

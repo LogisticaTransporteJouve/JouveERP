@@ -19,7 +19,7 @@ import { ArtifactCard } from "./artifact-card";
 
 /** The user's pinned charts and tables, each recomputed on view. */
 export function PinnedArtifacts() {
-  const { data: pins = [], isLoading, error } = useAiPins();
+  const { data: pins } = useAiPins();
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-2">
@@ -36,16 +36,7 @@ export function PinnedArtifacts() {
         Gráficos y tablas que fijaste desde el asistente. Se recalculan cada vez
         que los abrís, con los datos y los permisos de ese momento.
       </p>
-      {isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
-      ) : error ? (
-        <p className="text-muted-foreground text-sm">
-          No se pudieron cargar los fijados.
-        </p>
-      ) : pins.length === 0 ? (
+      {pins.length === 0 ? (
         <p className="text-muted-foreground rounded-lg border p-6 text-center text-sm">
           Todavía no fijaste nada. En el asistente, usá «Fijar» en un gráfico o
           una tabla.

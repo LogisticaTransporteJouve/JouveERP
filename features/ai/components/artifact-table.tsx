@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-import { formatCell, formatValue } from "../artifacts/format";
+import { formatCell } from "../artifacts/format";
 import type { Artifact, ArtifactCell, TableColumn } from "../artifacts/spec";
 
 type Grid = { columns: TableColumn[]; rows: ArtifactCell[][] };
@@ -13,20 +13,19 @@ function gridOf(artifact: Artifact): Grid {
   if (artifact.kind === "table") {
     return { columns: artifact.columns, rows: artifact.rows };
   }
-  const money = artifact.chart.valueFormat === "money";
   return {
     columns: [
       {
         key: artifact.chart.x,
         label: artifact.chart.xLabel,
         numeric: false,
-        money: false,
+        format: "text",
       },
       ...artifact.chart.series.map((s) => ({
         key: s.field,
         label: s.label,
         numeric: true,
-        money,
+        format: artifact.chart.valueFormat,
       })),
     ],
     rows: artifact.points.map((p) => [p.x, ...p.values]),
@@ -42,8 +41,6 @@ export function ArtifactTable({
 }) {
   const { columns, rows } = gridOf(artifact);
   const currency = artifact.meta.currency ?? "ARS";
-  const percent =
-    artifact.kind === "chart" && artifact.chart.valueFormat === "percent";
   return (
     <div className={cn("overflow-auto rounded-md border text-xs", maxHeight)}>
       <table className="w-full">
@@ -75,9 +72,7 @@ export function ArtifactTable({
                       c.numeric && "text-right font-mono tabular-nums",
                     )}
                   >
-                    {percent && typeof value === "number"
-                      ? formatValue(value, "percent")
-                      : formatCell(c, value, currency)}
+                    {formatCell(c, value, currency)}
                   </td>
                 );
               })}

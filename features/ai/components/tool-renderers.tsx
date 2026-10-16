@@ -4,12 +4,14 @@ import { Table2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { formatValue } from "../artifacts/format";
 import {
+  fieldFormat,
   isIdKey,
   isRecord,
-  MONEY_KEY,
   prettifyKey,
   resolveRows,
+  toNumber,
   type DataRow,
 } from "../artifacts/rows";
 
@@ -223,28 +225,23 @@ function deriveColumns(toolName: string, rows: DataRow[]): Col[] {
     .map((k) => ({ key: k, label: prettifyKey(k) }));
 }
 
-function isNumericMoneyString(key: string, value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    MONEY_KEY.test(key) &&
-    /^-?\d+(\.\d+)?$/.test(value)
-  );
+/** A cell's number, unless the column is a code (kept as written). */
+function cellNumber(key: string, value: unknown): number | null {
+  return fieldFormat(key) === "code" ? null : toNumber(value);
 }
 
 function isNumericCell(key: string, value: unknown): boolean {
-  return typeof value === "number" || isNumericMoneyString(key, value);
+  return cellNumber(key, value) !== null;
 }
 
 function formatCell(key: string, value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "number") {
-    return MONEY_KEY.test(key)
-      ? `$${Math.round(value).toLocaleString("es-AR")}`
-      : value.toLocaleString("es-AR");
-  }
-  // Some money fields (e.g. received-check amounts) arrive as numeric strings.
-  if (isNumericMoneyString(key, value)) {
-    return `$${Math.round(Number(value)).toLocaleString("es-AR")}`;
+  // Postgres numerics arrive as numeric strings; each column reads by its
+  // name (money, US$, percent, count, code).
+  const n = cellNumber(key, value);
+  if (n !== null) {
+    const format = fieldFormat(key);
+    return formatValue(n, format === "code" ? "number" : format);
   }
   if (typeof value === "boolean") return value ? "Sí" : "No";
   const s = String(value);

@@ -1,8 +1,9 @@
 import {
+  fieldFormat,
   fieldsOf,
+  isArtifactField,
   isIdKey,
   isNumericField,
-  MONEY_KEY,
   prettifyKey,
   toNumber,
   type DataRow,
@@ -18,6 +19,7 @@ import {
   type TableArtifact,
   type TableColumn,
   type TableConfig,
+  type ValueFormat,
 } from "./spec";
 
 export type BuildResult<T> =
@@ -25,18 +27,43 @@ export type BuildResult<T> =
 
 type Input = { source: ArtifactSource; rows: DataRow[]; meta: ArtifactMeta };
 
+/** Fields an artifact may name: the rows' keys that pass the spec's rule. */
+function usableFields(rows: readonly DataRow[]): string[] {
+  return fieldsOf(rows).filter(isArtifactField);
+}
+
+/** A numeric field's format; a code never reaches here (it is not numeric). */
+function numberFormat(field: string): ValueFormat {
+  const format = fieldFormat(field);
+  return format === "code" ? "number" : format;
+}
+
 /** The fields the model can use, for an error it can recover from. */
 function fieldHint(rows: readonly DataRow[]): string {
-  const fields = fieldsOf(rows).filter((f) => !isIdKey(f));
+  const fields = usableFields(rows).filter((f) => !isIdKey(f));
   const numeric = fields.filter((f) => isNumericField(rows, f));
   const labels = fields.filter((f) => !numeric.includes(f));
   return `Label fields: ${labels.join(", ") || "(none)"}. Numeric fields: ${numeric.join(", ") || "(none)"}.`;
 }
 
+const MAX_X = 80;
+
 function xValue(value: unknown): string | null {
-  if (typeof value === "string") return value.trim() || null;
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return null;
+  const text =
+    typeof value === "string"
+      ? value.trim()
+      : typeof value === "number" && Number.isFinite(value)
+        ? String(value)
+        : "";
+  if (!text) return null;
+  return text.length > MAX_X ? `${text.slice(0, MAX_X - 1)}…` : text;
+}
+
+/** The series' common format; plain numbers when they differ. */
+function sharedFormat(fields: readonly string[]): ValueFormat {
+  const formats = new Set(fields.map(numberFormat));
+  const [only] = formats;
+  return formats.size === 1 && only ? only : "number";
 }
 
 /**
@@ -49,7 +76,7 @@ export function buildChartArtifact(
   config: ChartConfig,
   { source, rows, meta }: Input,
 ): BuildResult<ChartArtifact> {
-  const fields = fieldsOf(rows);
+  const fields = usableFields(rows);
   const numeric = fields.filter((f) => !isIdKey(f) && isNumericField(rows, f));
 
   const x = config.x ?? fields.find((f) => !isIdKey(f) && !numeric.includes(f));
@@ -120,9 +147,7 @@ export function buildChartArtifact(
     series,
     sort,
     ...(config.limit ? { limit: config.limit } : {}),
-    valueFormat:
-      config.valueFormat ??
-      (series.every((s) => MONEY_KEY.test(s.field)) ? "money" : "number"),
+    valueFormat: config.valueFormat ?? sharedFormat(series.map((s) => s.field)),
   };
   return {
     ok: true,
@@ -133,7 +158,7 @@ export function buildChartArtifact(
       chart,
       points: points.slice(0, cap),
       truncated,
-      meta: { ...meta, partial: meta.partial || truncated },
+      meta,
     },
   };
 }
@@ -151,12 +176,13 @@ function toCell(value: unknown): ArtifactCell {
 }
 
 /** The table the model asked for: the chosen (or first) fields of the rows,
- *  numeric strings as numbers so the export keeps them numeric. */
+ *  numeric strings as numbers so the export keeps them numeric, codes and
+ *  identifiers as text. */
 export function buildTableArtifact(
   config: TableConfig,
   { source, rows, meta }: Input,
 ): BuildResult<TableArtifact> {
-  const fields = fieldsOf(rows);
+  const fields = usableFields(rows);
   const chosen =
     config.columns ??
     fields
@@ -180,10 +206,23 @@ export function buildTableArtifact(
       key: field,
       label: label ?? prettifyKey(field),
       numeric,
-      money: numeric && MONEY_KEY.test(field),
+      format: numeric ? numberFormat(field) : "text",
     };
   });
-  const shown = rows.slice(0, ARTIFACT_LIMITS.tableRows);
+  let shown = rows
+    .slice(0, ARTIFACT_LIMITS.tableRows)
+    .map((row) =>
+      columns.map((c) =>
+        c.numeric ? toNumber(row[c.key]) : toCell(row[c.key]),
+      ),
+    );
+  // Wide text cells can make even 300 rows heavy; the part stays bounded.
+  while (
+    shown.length > 1 &&
+    JSON.stringify(shown).length > ARTIFACT_LIMITS.partBytes
+  ) {
+    shown = shown.slice(0, Math.floor(shown.length * 0.8));
+  }
   const truncated = rows.length > shown.length;
   return {
     ok: true,
@@ -192,13 +231,9 @@ export function buildTableArtifact(
       title: config.title,
       source,
       columns,
-      rows: shown.map((row) =>
-        columns.map((c) =>
-          c.numeric ? toNumber(row[c.key]) : toCell(row[c.key]),
-        ),
-      ),
+      rows: shown,
       truncated,
-      meta: { ...meta, partial: meta.partial || truncated },
+      meta,
     },
   };
 }

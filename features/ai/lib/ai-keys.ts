@@ -11,5 +11,5 @@ export const aiKeys = {
   confirmations: (sessionId: string) =>
     [...aiKeys.all, "confirmations", sessionId] as const,
   pinned: () => [...aiKeys.all, "pinned"] as const,
-  pinnedView: (id: string) => [...aiKeys.pinned(), "view", id] as const,
+  pinnedView: (id: string) => [...aiKeys.all, "pinnedView", id] as const,
 };

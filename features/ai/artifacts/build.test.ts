@@ -37,7 +37,7 @@ describe("buildChartArtifact", () => {
     expect(res.value.meta.partial).toBe(false);
   });
 
-  it("sorts by the first series and caps with a limit, marking the cut as partial", () => {
+  it("sorts by the first series and caps with a limit, flagging the cut apart from the source's partial flag", () => {
     const res = buildChartArtifact(
       {
         type: "hbar",
@@ -53,7 +53,7 @@ describe("buildChartArtifact", () => {
       "Seguros",
     ]);
     expect(res.ok && res.value.truncated).toBe(true);
-    expect(res.ok && res.value.meta.partial).toBe(true);
+    expect(res.ok && res.value.meta.partial).toBe(false);
   });
 
   it("puts points without a value last in either order", () => {
@@ -120,8 +120,8 @@ describe("buildTableArtifact", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.value.columns).toEqual([
-      { key: "category", label: "Categoría", numeric: false, money: false },
-      { key: "total", label: "Total", numeric: true, money: true },
+      { key: "category", label: "Categoría", numeric: false, format: "text" },
+      { key: "total", label: "Total", numeric: true, format: "money" },
     ]);
     expect(res.value.rows).toEqual([
       ["Combustible", 1500.5],
@@ -153,5 +153,94 @@ describe("buildTableArtifact", () => {
     );
     expect(res.ok && res.value.rows).toHaveLength(300);
     expect(res.ok && res.value.truncated).toBe(true);
+  });
+
+  it("formats each column by its name and keeps codes as text", () => {
+    const res = buildTableArtifact(
+      { title: "T" },
+      {
+        source,
+        rows: [
+          {
+            cost_center_code: "0101",
+            check_number: "000123",
+            margin_pct: "12.5",
+            paid_usd: "100",
+            total_clients: 4,
+            total_open: "1000",
+          },
+        ],
+        meta,
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.columns.map((c) => [c.key, c.format])).toEqual([
+      ["cost_center_code", "text"],
+      ["check_number", "text"],
+      ["margin_pct", "percent"],
+      ["paid_usd", "usd"],
+      ["total_clients", "count"],
+      ["total_open", "money"],
+    ]);
+    expect(res.value.rows[0]).toEqual(["0101", "000123", 12.5, 100, 4, 1000]);
+  });
+
+  it("skips fields the spec could not name and bounds the payload", () => {
+    const res = buildTableArtifact(
+      { title: "T" },
+      {
+        source,
+        rows: Array.from({ length: 300 }, () => ({
+          "bad-key": "x",
+          note: "n".repeat(200),
+          other: "o".repeat(200),
+        })),
+        meta,
+      },
+    );
+    expect(res.ok && res.value.columns.map((c) => c.key)).toEqual([
+      "note",
+      "other",
+    ]);
+    expect(res.ok && JSON.stringify(res.value.rows).length).toBeLessThanOrEqual(
+      100_000,
+    );
+    expect(res.ok && res.value.truncated).toBe(true);
+  });
+});
+
+describe("chart formats", () => {
+  it("uses the series' shared format, and plain numbers when they differ", () => {
+    const pct = buildChartArtifact(
+      { type: "bar", title: "T", series: [{ field: "margin_pct" }] },
+      {
+        source,
+        rows: [{ name: "a", margin_pct: "10", total_clients: 3 }],
+        meta,
+      },
+    );
+    expect(pct.ok && pct.value.chart.valueFormat).toBe("percent");
+    const mixed = buildChartArtifact(
+      {
+        type: "bar",
+        title: "T",
+        series: [{ field: "margin_pct" }, { field: "total_clients" }],
+      },
+      {
+        source,
+        rows: [{ name: "a", margin_pct: "10", total_clients: 3 }],
+        meta,
+      },
+    );
+    expect(mixed.ok && mixed.value.chart.valueFormat).toBe("number");
+  });
+
+  it("clips long categories", () => {
+    const res = buildChartArtifact(
+      { type: "hbar", title: "T" },
+      { source, rows: [{ name: "x".repeat(200), total: 1 }], meta },
+    );
+    expect(res.ok && res.value.points[0]?.x).toHaveLength(80);
   });
 });

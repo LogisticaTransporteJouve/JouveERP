@@ -9,7 +9,7 @@ import { downloadCsv } from "@/lib/export/csv";
 import { formatArgentineDateTime } from "@/lib/format";
 
 import { artifactCsv } from "../artifacts/export";
-import { pinRequestOf, type Artifact } from "../artifacts/spec";
+import type { Artifact } from "../artifacts/spec";
 import { usePinAiArtifact } from "../hooks/use-ai-pins";
 
 import { ArtifactChart } from "./artifact-chart";
@@ -86,10 +86,13 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
       {meta.partial && (
         <p className="flex items-center gap-1">
           <AlertTriangle className="size-3 shrink-0" />
-          Datos parciales
-          {artifact.truncated
-            ? ": se muestra hasta el límite de filas."
-            : ": la consulta devolvió un resultado parcial."}
+          Datos parciales: la consulta devolvió un resultado parcial.
+        </p>
+      )}
+      {artifact.truncated && (
+        <p className="flex items-center gap-1">
+          <AlertTriangle className="size-3 shrink-0" />
+          Se muestra hasta el límite de filas; hay más en la consulta.
         </p>
       )}
       {meta.note && <p>{meta.note}</p>}
@@ -108,7 +111,7 @@ export function PinArtifactButton({ artifact }: { artifact: Artifact }) {
       size="sm"
       disabled={pin.isPending || pinned}
       onClick={() =>
-        pin.mutate(pinRequestOf(artifact), {
+        pin.mutate(artifact, {
           onSuccess: () => {
             setPinned(true);
             toast.success("Fijado. Lo ves en Fijados de IA.");

@@ -6,7 +6,6 @@ import type { Role } from "@/lib/auth/permissions";
 let roles: Role[] = ["finance"];
 const listPins = vi.fn();
 const getPin = vi.fn();
-const countPins = vi.fn();
 const insertPin = vi.fn();
 const deletePin = vi.fn();
 const logAudit = vi.fn();
@@ -19,7 +18,6 @@ vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("../lib/pinned-artifacts", () => ({
   listPins,
   getPin,
-  countPins,
   insertPin,
   deletePin,
 }));
@@ -90,8 +88,7 @@ const storedPin = {
 beforeEach(() => {
   vi.clearAllMocks();
   roles = ["finance"];
-  countPins.mockResolvedValue(0);
-  insertPin.mockResolvedValue({ id: ID });
+  insertPin.mockResolvedValue({ ok: true, id: ID });
   deletePin.mockResolvedValue(true);
   getPin.mockResolvedValue(storedPin);
   listPins.mockResolvedValue([storedPin]);
@@ -141,12 +138,18 @@ describe("pinAiArtifactAction", () => {
     expect(insertPin).not.toHaveBeenCalled();
   });
 
-  it("stops at the per-user cap", async () => {
-    countPins.mockResolvedValue(30);
+  it("reports the per-user cap and a duplicate the database refused", async () => {
+    insertPin.mockResolvedValue({ ok: false, reason: "limit" });
     expect(await pinAiArtifactAction(chartRequest)).toMatchObject({
       ok: false,
+      error: expect.stringContaining("hasta 30"),
     });
-    expect(insertPin).not.toHaveBeenCalled();
+    insertPin.mockResolvedValue({ ok: false, reason: "duplicate" });
+    expect(await pinAiArtifactAction(chartRequest)).toEqual({
+      ok: false,
+      error: "Ya lo tenías fijado.",
+    });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });
 
