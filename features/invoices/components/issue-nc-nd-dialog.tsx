@@ -64,6 +64,8 @@ export interface OriginInvoice {
   punto_venta: number;
   fecha: string;
   concepto: number;
+  moneda: string;
+  cotizacion: number;
   doc_nro: string; // cuit when doc_tipo=80
   client: {
     id: string;
@@ -111,6 +113,10 @@ export function NcNdForm({
 
   const [fecha, setFecha] = useState(() => todayInAR());
   const [motivo, setMotivo] = useState("");
+  // A note is in its origin's currency; a foreign one takes the cotización of
+  // the day, prefilled with the origin's.
+  const isForeign = origin.moneda !== "PES";
+  const [cotizacion, setCotizacion] = useState(() => String(origin.cotizacion));
   const [items, setItems] = useState<ItemDraft[]>(() =>
     origin.items.length === 0
       ? [
@@ -196,8 +202,8 @@ export function NcNdForm({
         iva_condition_receptor: condicionIvaReceptorFor(
           origin.client.iva_condition,
         ),
-        moneda: "PES",
-        cotizacion: 1,
+        moneda: isForeign ? "DOL" : "PES",
+        cotizacion: isForeign ? Number(cotizacion) || origin.cotizacion : 1,
         invoice_origin_id: origin.id,
         motivo_nc_nd: motivo.trim(),
         items: items.map((it) => ({
@@ -232,6 +238,17 @@ export function NcNdForm({
           <Label className="text-xs">Fecha</Label>
           <DatePicker value={fecha} onChange={setFecha} />
         </div>
+        {isForeign && (
+          <div className="space-y-1">
+            <Label className="text-xs">Cotización {origin.moneda}</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={cotizacion}
+              onChange={(e) => setCotizacion(e.target.value)}
+            />
+          </div>
+        )}
         <div className="space-y-1">
           <Label className="text-xs">Motivo</Label>
           <Input
@@ -346,10 +363,7 @@ export function NcNdForm({
 
       <div className="space-y-1">
         <Label className="text-xs">Observaciones (opcional)</Label>
-        <Textarea
-          rows={2}
-          placeholder="Notas internas; no se envían a AFIP."
-        />
+        <Textarea rows={2} placeholder="Notas internas; no se envían a AFIP." />
       </div>
 
       <div className="flex items-center justify-end gap-2">

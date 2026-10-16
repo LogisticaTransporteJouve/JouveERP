@@ -8,6 +8,7 @@ import {
   cbteTipoFor,
   isCondicionIvaReceptorCode,
   letterFor,
+  MONEDA,
   type CondicionIvaReceptorCode,
   type CbteTipoCode,
   type InvoiceLetter,
@@ -154,13 +155,14 @@ export async function issueFiscalInvoiceAction(
   let origin: {
     letter: InvoiceLetter | null;
     moneda: string;
+    cotizacion: number;
     receptor: CondicionIvaReceptorCode | null;
   } | null = null;
   if (data.invoice_origin_id) {
     const { data: originRow, error: originErr } = await supabase
       .from("invoices")
       .select(
-        "id, client_id, channel_id, status, numero, kind, letter, moneda, iva_condition_receptor",
+        "id, client_id, channel_id, status, numero, kind, letter, moneda, cotizacion, iva_condition_receptor",
       )
       .eq("id", data.invoice_origin_id)
       .maybeSingle();
@@ -206,11 +208,24 @@ export async function issueFiscalInvoiceAction(
     origin = {
       letter: isInvoiceLetter(originRow.letter) ? originRow.letter : null,
       moneda: originRow.moneda,
+      cotizacion: Number(originRow.cotizacion),
       receptor: isCondicionIvaReceptorCode(originRow.iva_condition_receptor)
         ? originRow.iva_condition_receptor
         : null,
     };
   }
+
+  // An NC/ND is in its origin's currency. A foreign-currency note takes the
+  // caller's cotización of the day when given, else the origin's.
+  const moneda = origin?.moneda ?? data.moneda;
+  const cotizacion =
+    origin === null
+      ? data.cotizacion
+      : moneda === MONEDA.PESOS
+        ? 1
+        : data.moneda === moneda && data.cotizacion > 1
+          ? data.cotizacion
+          : origin.cotizacion;
 
   // Fiscal-only resolution. For internal channels we don't pick a letter or
   // a cbte_tipo_afip — the issue-invoice workflow takes the internal branch
@@ -252,8 +267,8 @@ export async function issueFiscalInvoiceAction(
         fchServDesde: data.fch_serv_desde ?? null,
         fchServHasta: data.fch_serv_hasta ?? null,
         fchVtoPago: data.fch_vto_pago ?? null,
-        moneda: data.moneda,
-        cotizacion: data.cotizacion,
+        moneda,
+        cotizacion,
         origin,
       },
       todayInAR(),
@@ -327,8 +342,8 @@ export async function issueFiscalInvoiceAction(
     imp_tot_conc: 0,
     imp_op_ex: 0,
     imp_total: totals.imp_total,
-    moneda: data.moneda,
-    cotizacion: data.cotizacion,
+    moneda,
+    cotizacion,
     status: "draft",
     invoice_origin_id: data.invoice_origin_id ?? null,
     motivo_nc_nd: data.motivo_nc_nd ?? null,

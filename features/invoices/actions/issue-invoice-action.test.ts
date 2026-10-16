@@ -199,3 +199,41 @@ describe("issueFiscalInvoiceAction dating", () => {
     expect(h.inserts).toEqual([]);
   });
 });
+
+describe("issueFiscalInvoiceAction for a note on a USD invoice", () => {
+  function usdOrigin() {
+    const origin = h.db.invoices?.[0];
+    if (origin) {
+      origin.moneda = "DOL";
+      origin.cotizacion = "1000.0000";
+    }
+  }
+
+  it("issues the note in dollars at the origin's cotización by default", async () => {
+    usdOrigin();
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res.ok).toBe(true);
+    expect(h.inserts.find((i) => i.table === "invoices")?.values).toMatchObject(
+      {
+        moneda: "DOL",
+        cotizacion: 1000,
+      },
+    );
+  });
+
+  it("takes the cotización of the day when the caller gives one", async () => {
+    usdOrigin();
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      moneda: "DOL",
+      cotizacion: 1050.5,
+    });
+    expect(res.ok).toBe(true);
+    expect(h.inserts.find((i) => i.table === "invoices")?.values).toMatchObject(
+      {
+        moneda: "DOL",
+        cotizacion: 1050.5,
+      },
+    );
+  });
+});

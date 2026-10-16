@@ -119,6 +119,8 @@ export default async function ComprobanteDetailPage({
                 punto_venta: c.punto_venta,
                 fecha: c.fecha,
                 concepto: c.concepto,
+                moneda: c.moneda,
+                cotizacion: c.cotizacion,
                 doc_nro: c.doc_nro,
                 client: {
                   id: c.client.id,
