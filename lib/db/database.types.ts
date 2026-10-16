@@ -5601,6 +5601,15 @@ export type Database = {
         }
         Returns: string
       }
+      emit_caea_invoice: {
+        Args: {
+          p_afip_last: number
+          p_cae_vencimiento: string
+          p_caea: string
+          p_invoice_id: string
+        }
+        Returns: number
+      }
       emit_journal_for_invoice: {
         Args: {
           p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
@@ -5846,10 +5855,6 @@ export type Database = {
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
-      }
-      reserve_caea_invoice_numero: {
-        Args: { p_afip_last: number; p_invoice_id: string }
-        Returns: number
       }
       search_chat_messages: {
         Args: { p_channel?: string; p_limit?: number; p_query: string }

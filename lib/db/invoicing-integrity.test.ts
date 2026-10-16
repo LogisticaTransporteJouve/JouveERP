@@ -53,8 +53,8 @@ describe("internal and CAEA numbering", () => {
     expect(nextMax).toBeGreaterThan(reuse);
   });
 
-  it("numbers CAEA vouchers under a lock, idempotently, service-role only", () => {
-    const definition = latestDefinition("reserve_caea_invoice_numero");
+  it("numbers and emits CAEA vouchers in one locked, idempotent, service-role-only call", () => {
+    const definition = latestDefinition("emit_caea_invoice");
     const lock = definition.indexOf("pg_advisory_xact_lock");
     const reuse = definition.search(
       /if v_existing is not null then\s+return v_existing;/,
@@ -63,10 +63,13 @@ describe("internal and CAEA numbering", () => {
     expect(lock).toBeGreaterThan(0);
     expect(reuse).toBeGreaterThan(lock);
     expect(nextMax).toBeGreaterThan(reuse);
+    expect(definition).toMatch(
+      /set numero\s+= v_next,[\s\S]*status\s+= 'emitted'/,
+    );
     expect(definition).toMatch(/set search_path = public/);
     expect(
       lastStatement(
-        /revoke all on function public\.reserve_caea_invoice_numero\([^;]*;/gi,
+        /revoke all on function public\.emit_caea_invoice\([^;]*;/gi,
       ),
     ).toMatch(/from public, anon, authenticated;$/);
   });

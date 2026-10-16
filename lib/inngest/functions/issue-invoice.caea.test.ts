@@ -152,7 +152,7 @@ beforeEach(() => {
 });
 
 describe("issue-invoice CAEA branch", () => {
-  it("checks the CAEA against the voucher date and numbers through the locked RPC", async () => {
+  it("checks the CAEA against the voucher date and emits through the locked RPC", async () => {
     h.db.invoices = [draft()];
     h.db.invoice_items = [
       { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
@@ -170,12 +170,22 @@ describe("issue-invoice CAEA branch", () => {
     expect(h.caeaDates).toEqual(["2026-10-14"]);
     expect(h.rpcCalls).toEqual([
       {
-        fn: "reserve_caea_invoice_numero",
-        args: { p_invoice_id: INVOICE_ID, p_afip_last: 5 },
+        fn: "emit_caea_invoice",
+        args: {
+          p_invoice_id: INVOICE_ID,
+          p_afip_last: 5,
+          p_caea: "12345678901234",
+          p_cae_vencimiento: "2026-10-31",
+        },
       },
     ]);
-    const persisted = h.updates.find((u) => u.patch.status === "emitted");
-    expect(persisted?.patch).not.toHaveProperty("numero");
+    // Number and emission land together in the RPC; no separate write marks
+    // the voucher emitted or numbered.
+    expect(
+      h.updates.filter(
+        (u) => "numero" in u.patch || u.patch.status === "emitted",
+      ),
+    ).toEqual([]);
     expect(result).toEqual({ caea: "12345678901234", cbteNro: 8 });
   });
 });

@@ -82,17 +82,21 @@ end;
 $$;
 
 ------------------------------------------------------------------------------
--- 3. CAEA numbering: atomic per (punto de venta, comprobante type).
+-- 3. CAEA emission: numbered and emitted in one transaction.
 ------------------------------------------------------------------------------
 -- A CAEA voucher is numbered locally (AFIP learns it only when informed):
--- greatest(local max, AFIP's last informed number) + 1, written to the invoice
--- in the same transaction under an advisory lock so two contingency emissions
--- on one punto de venta never pick the same number. Idempotent like the
--- internal one.
+-- greatest(local max, AFIP's last informed number) + 1, under an advisory lock
+-- per (punto de venta, comprobante type) so two contingency emissions never
+-- pick the same number. The number, the CAEA and status `emitted` are written
+-- together: a failure leaves no consumed number behind, which would break the
+-- correlative sequence the régimen informativo reports. A retry returns the
+-- number the invoice already holds.
 
-create or replace function public.reserve_caea_invoice_numero(
+create or replace function public.emit_caea_invoice(
   p_invoice_id uuid,
-  p_afip_last int
+  p_afip_last int,
+  p_caea text,
+  p_cae_vencimiento date
 )
 returns int
 language plpgsql
@@ -102,6 +106,7 @@ as $$
 declare
   v_pv       int;
   v_tipo     int;
+  v_status   text;
   v_existing int;
   v_next     int;
 begin
@@ -117,12 +122,16 @@ begin
     hashtextextended('caea|' || v_pv::text || '|' || v_tipo::text, 0)
   );
 
-  select numero into v_existing
+  select numero, status into v_existing, v_status
     from public.invoices
    where id = p_invoice_id
      for update;
   if v_existing is not null then
     return v_existing;
+  end if;
+  if v_status not in ('draft', 'emitting') then
+    raise exception 'invoice % is %, not pending emission', p_invoice_id, v_status
+      using errcode = '22023';
   end if;
 
   select greatest(coalesce(max(numero), 0), coalesce(p_afip_last, 0)) + 1
@@ -132,18 +141,24 @@ begin
      and cbte_tipo_afip = v_tipo;
 
   update public.invoices
-     set numero = v_next
+     set numero          = v_next,
+         cae             = p_caea,
+         cae_vencimiento = p_cae_vencimiento,
+         emission_type   = 'caea',
+         cbte_fch_hs_gen = now(),
+         status          = 'emitted',
+         emitted_at      = now()
    where id = p_invoice_id;
 
   return v_next;
 end;
 $$;
 
-comment on function public.reserve_caea_invoice_numero(uuid, int) is
-  'Assigns the next CAEA number on the invoice''s (punto de venta, cbte tipo): greatest(local max, AFIP last) + 1, under an advisory lock. Returns the existing number on a retry.';
+comment on function public.emit_caea_invoice(uuid, int, text, date) is
+  'Numbers a CAEA voucher (greatest(local max, AFIP last) + 1 under an advisory lock) and marks it emitted with the CAEA in one transaction. Returns the existing number on a retry.';
 
-revoke all on function public.reserve_caea_invoice_numero(uuid, int) from public, anon, authenticated;
-grant execute on function public.reserve_caea_invoice_numero(uuid, int) to service_role;
+revoke all on function public.emit_caea_invoice(uuid, int, text, date) from public, anon, authenticated;
+grant execute on function public.emit_caea_invoice(uuid, int, text, date) to service_role;
 
 ------------------------------------------------------------------------------
 -- 4. A failed or cancelled invoice releases what it billed.
