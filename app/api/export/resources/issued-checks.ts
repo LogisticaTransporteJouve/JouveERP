@@ -9,12 +9,17 @@ import {
   isIssuedCheckStatus,
 } from "@/features/issued-checks/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import {
+  dateCell,
+  money,
+  moneyCell,
+  type Exporter,
+  type TypedCell,
+} from "../shared";
 
 const COLUMNS =
   "kind, check_number, bank_name, beneficiary_name, due_date, amount, currency, status";
@@ -30,9 +35,9 @@ const ISSUED_CHECK_COLUMNS: TableReportColumn[] = [
   { header: "Estado", width: 100 },
 ];
 
-function amountCell(amount: number, currency: string): string {
+function amountCell(amount: number, currency: string): TypedCell {
   const prefix = currency === "USD" ? "US" : "";
-  return `${prefix}${money(amount)}`;
+  return moneyCell(amount, { currency, text: `${prefix}${money(amount)}` });
 }
 
 export const issuedChecks: Exporter = {
@@ -76,19 +81,19 @@ export const issuedChecks: Exporter = {
           `#${row.check_number}`,
           ISSUED_CHECK_KIND_LABEL[row.kind],
           beneficiary,
-          formatArgentineDate(row.due_date),
+          dateCell(row.due_date),
           amountCell(amount, row.currency),
           ISSUED_CHECK_STATUS_LABEL[row.status],
         ];
       })
-      .filter((r): r is string[] => r !== null);
+      .filter((r) => r !== null);
 
     return {
       title: "Cheques propios",
       subtitle: "Cheques emitidos a proveedores",
       columns: ISSUED_CHECK_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", money(total), ""],
+      totalsRow: ["", "", "", "", "Total", moneyCell(total), ""],
       orientation: "landscape",
       fileName: "cheques-propios",
     };

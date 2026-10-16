@@ -4,7 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -203,7 +203,7 @@ export function StorageTariffsTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="storage-tariffs" label="Exportar PDF" />
+          <ExportButton resource="storage-tariffs" />
           <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
             <TrendingUp />
             Aumentar %

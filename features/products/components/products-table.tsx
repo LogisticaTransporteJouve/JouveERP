@@ -4,7 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -66,7 +66,9 @@ export function ProductsTable({
         header: "Cliente",
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="text-sm">{row.original.client?.legal_name ?? "—"}</span>
+          <span className="text-sm">
+            {row.original.client?.legal_name ?? "—"}
+          </span>
         ),
       },
       {
@@ -147,7 +149,7 @@ export function ProductsTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="products" label="Exportar PDF" />
+          <ExportButton resource="products" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo producto

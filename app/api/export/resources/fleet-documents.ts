@@ -4,12 +4,11 @@ import {
   FLEET_DOC_KIND_LABELS,
   isFleetDocKind,
 } from "@/features/fleet-documents/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { type Exporter } from "../shared";
+import { dateCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -54,12 +53,7 @@ export const fleetDocuments: Exporter = {
       const kindLabel = isFleetDocKind(row.kind)
         ? FLEET_DOC_KIND_LABELS[row.kind]
         : row.kind;
-      return [
-        kindLabel,
-        owner,
-        row.number ?? "—",
-        formatArgentineDate(row.expires_at),
-      ];
+      return [kindLabel, owner, row.number ?? "—", dateCell(row.expires_at)];
     });
 
     return {

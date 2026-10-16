@@ -6,11 +6,16 @@ import {
   type TransactionKind,
 } from "@/features/transactions/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
-import { formatArgentineDate } from "@/lib/format";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import {
+  dateCell,
+  money,
+  moneyCell,
+  type ExportCell,
+  type Exporter,
+} from "../shared";
 
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 70, mono: true },
@@ -52,19 +57,21 @@ export const transactions: Exporter = {
     if (error) throw new Error("Could not load transactions.");
 
     let net = 0;
-    const rows: string[][] = [];
+    const rows: ExportCell[][] = [];
     for (const row of data ?? []) {
       if (!isTransactionKind(row.kind)) continue;
       const amount = Number(row.amount ?? 0);
       const outflow = isOutflow(row.kind);
       net += (outflow ? -1 : 1) * amount;
       rows.push([
-        formatArgentineDate(row.transaction_date),
+        dateCell(row.transaction_date),
         TRANSACTION_KIND_LABEL[row.kind],
         row.account_name ?? "—",
         row.channel_name ?? "—",
         row.description ?? "—",
-        `${outflow ? "-" : "+"}${money(amount)}`,
+        moneyCell(outflow ? -amount : amount, {
+          text: `${outflow ? "-" : "+"}${money(amount)}`,
+        }),
       ]);
     }
 
@@ -78,7 +85,9 @@ export const transactions: Exporter = {
         "",
         "",
         "Neto",
-        `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
+        moneyCell(net, {
+          text: `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
+        }),
       ],
       orientation: "landscape",
       fileName: "caja-movimientos",

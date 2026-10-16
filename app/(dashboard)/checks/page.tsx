@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
@@ -53,7 +53,7 @@ export default async function ChequesPage() {
             depositar / endosar / rechazar → acreditar.
           </p>
         </div>
-        <ExportPdfButton resource="checks" label="Exportar PDF" />
+        <ExportButton resource="checks" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

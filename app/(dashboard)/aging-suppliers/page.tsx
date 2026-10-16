@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import { SupplierAgingTable } from "@/features/suppliers/components/supplier-aging-table";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
@@ -40,7 +40,7 @@ export default async function AgingSuppliersPage() {
             de compra menos pagos imputados de OPs emitidas.
           </p>
         </div>
-        <ExportPdfButton resource="supplier-aging" label="Exportar PDF" />
+        <ExportButton resource="supplier-aging" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

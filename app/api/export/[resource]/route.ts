@@ -2,15 +2,21 @@ import { NextResponse } from "next/server";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { buildXlsx } from "@/lib/export/xlsx";
+import { xlsxResponse } from "@/lib/export/xlsx-response";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
 import { renderTableReportPdf } from "@/lib/pdf/table-report-render";
 
 import { EXPORTERS, type ExportRange } from "../exporters";
+import { cellText, exportSheet } from "../shared";
 
-// Generic table-to-PDF export. Each table page hits
-// /api/export/<resource>?from=&to=&<params>; the exporter registry maps the
-// resource to a permission + a data loader, and we render the shared table
-// report. Date range is optional (empty = full history).
+// Generic table export. Each table page hits
+// /api/export/<resource>?from=&to=&format=&<params>; the exporter registry
+// maps the resource to a permission + a data loader, and we render the shared
+// table report as a PDF, or the same rows as Excel with `format=xlsx`. Date
+// range is optional (empty = full history).
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ resource: string }> },
@@ -37,6 +43,13 @@ export async function GET(
 
   try {
     const out = await exporter.load(url.searchParams, range);
+    const suffix = range.to && ISO_DAY.test(range.to) ? `-${range.to}` : "";
+
+    if (url.searchParams.get("format") === "xlsx") {
+      const file = await buildXlsx(exportSheet(out));
+      return xlsxResponse(file, `${out.fileName}${suffix}.xlsx`);
+    }
+
     const generatedAt = formatArgentineDateTime(new Date().toISOString());
     const dateRangeLabel =
       range.from || range.to
@@ -51,12 +64,11 @@ export async function GET(
       dateRangeLabel,
       generatedAt,
       columns: out.columns,
-      rows: out.rows,
-      totalsRow: out.totalsRow,
+      rows: out.rows.map((row) => row.map(cellText)),
+      totalsRow: out.totalsRow?.map(cellText),
       orientation: out.orientation,
     });
 
-    const suffix = range.to ? `-${range.to}` : "";
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
@@ -66,7 +78,10 @@ export async function GET(
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
+      {
+        error:
+          err instanceof Error ? err.message : "Error generando el archivo.",
+      },
       { status: 500 },
     );
   }

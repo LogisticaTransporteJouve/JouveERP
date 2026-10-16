@@ -1,16 +1,11 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import {
   computeTotals,
   groupByInvoice,
   IVA_RATES,
   KIND_LABEL,
+  libroIvaVoucherNumber,
   type LibroIvaVentasRow,
 } from "@/features/libro-iva/schema";
 
@@ -135,7 +130,9 @@ export function LibroIvaVentasDocument({
           <View style={styles.thRow}>
             <Text style={[styles.th, { width: COL_W.fecha }]}>Fecha</Text>
             <Text style={[styles.th, { width: COL_W.tipo }]}>Tipo</Text>
-            <Text style={[styles.th, { width: COL_W.numero }]}>Comprobante</Text>
+            <Text style={[styles.th, { width: COL_W.numero }]}>
+              Comprobante
+            </Text>
             <Text style={[styles.th, { width: COL_W.cliente }]}>Cliente</Text>
             <Text style={[styles.th, { width: COL_W.cuit }]}>CUIT</Text>
             {IVA_RATES.map((r) => (
@@ -146,25 +143,58 @@ export function LibroIvaVentasDocument({
                 {r.label}
               </Text>
             ))}
-            <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>Perc.</Text>
-            <Text style={[styles.th, styles.right, { width: COL_W.noGrav }]}>No grav.</Text>
-            <Text style={[styles.th, styles.right, { width: COL_W.total }]}>Total</Text>
+            <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>
+              Perc.
+            </Text>
+            <Text style={[styles.th, styles.right, { width: COL_W.noGrav }]}>
+              No grav.
+            </Text>
+            <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
+              Total
+            </Text>
             <Text style={[styles.th, { width: COL_W.cae }]}>CAE</Text>
           </View>
           {/* Subheader Neto / IVA */}
           <View style={styles.thRow}>
-            <Text style={[styles.th, { width: COL_W.fecha + COL_W.tipo + COL_W.numero + COL_W.cliente + COL_W.cuit }]} />
+            <Text
+              style={[
+                styles.th,
+                {
+                  width:
+                    COL_W.fecha +
+                    COL_W.tipo +
+                    COL_W.numero +
+                    COL_W.cliente +
+                    COL_W.cuit,
+                },
+              ]}
+            />
             {IVA_RATES.map((r) => (
               <>
-                <Text key={`${r.id}-n-h`} style={[styles.th, styles.right, { width: COL_W.rate }]}>Neto</Text>
-                <Text key={`${r.id}-i-h`} style={[styles.th, styles.right, { width: COL_W.rate }]}>IVA</Text>
+                <Text
+                  key={`${r.id}-n-h`}
+                  style={[styles.th, styles.right, { width: COL_W.rate }]}
+                >
+                  Neto
+                </Text>
+                <Text
+                  key={`${r.id}-i-h`}
+                  style={[styles.th, styles.right, { width: COL_W.rate }]}
+                >
+                  IVA
+                </Text>
               </>
             ))}
-            <Text style={[styles.th, { width: COL_W.perc + COL_W.noGrav + COL_W.total + COL_W.cae }]} />
+            <Text
+              style={[
+                styles.th,
+                { width: COL_W.perc + COL_W.noGrav + COL_W.total + COL_W.cae },
+              ]}
+            />
           </View>
 
           {grouped.map((row) => {
-            const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+            const number = libroIvaVoucherNumber(row);
             return (
               <View key={row.invoice_id} style={styles.tr} wrap={false}>
                 <Text style={[styles.td, styles.mono, { width: COL_W.fecha }]}>
@@ -186,22 +216,59 @@ export function LibroIvaVentasDocument({
                   const cell = row.per_rate[r.id];
                   return (
                     <>
-                      <Text key={`${row.invoice_id}-${r.id}-n`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                      <Text
+                        key={`${row.invoice_id}-${r.id}-n`}
+                        style={[
+                          styles.td,
+                          styles.right,
+                          styles.mono,
+                          { width: COL_W.rate },
+                        ]}
+                      >
                         {cell?.neto ? money(cell.neto) : ""}
                       </Text>
-                      <Text key={`${row.invoice_id}-${r.id}-i`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                      <Text
+                        key={`${row.invoice_id}-${r.id}-i`}
+                        style={[
+                          styles.td,
+                          styles.right,
+                          styles.mono,
+                          { width: COL_W.rate },
+                        ]}
+                      >
                         {cell?.iva ? money(cell.iva) : ""}
                       </Text>
                     </>
                   );
                 })}
-                <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.perc }]}>
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.perc },
+                  ]}
+                >
                   {row.imp_trib > 0 ? money(row.imp_trib) : ""}
                 </Text>
-                <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.noGrav }]}>
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.noGrav },
+                  ]}
+                >
                   {row.imp_op_ex > 0 ? money(row.imp_op_ex) : ""}
                 </Text>
-                <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.total }]}>
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.total },
+                  ]}
+                >
                   {money(row.imp_total)}
                 </Text>
                 <Text style={[styles.td, styles.mono, { width: COL_W.cae }]}>
@@ -212,29 +279,79 @@ export function LibroIvaVentasDocument({
           })}
 
           <View style={styles.totalRow} wrap={false}>
-            <Text style={[styles.td, styles.right, { width: COL_W.fecha + COL_W.tipo + COL_W.numero + COL_W.cliente + COL_W.cuit }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                {
+                  width:
+                    COL_W.fecha +
+                    COL_W.tipo +
+                    COL_W.numero +
+                    COL_W.cliente +
+                    COL_W.cuit,
+                },
+              ]}
+            >
               Totales ({totals.count} comprobantes)
             </Text>
             {IVA_RATES.map((r) => {
               const cell = totals.per_rate[r.id];
               return (
                 <>
-                  <Text key={`t-${r.id}-n`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                  <Text
+                    key={`t-${r.id}-n`}
+                    style={[
+                      styles.td,
+                      styles.right,
+                      styles.mono,
+                      { width: COL_W.rate },
+                    ]}
+                  >
                     {cell?.neto ? money(cell.neto) : ""}
                   </Text>
-                  <Text key={`t-${r.id}-i`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                  <Text
+                    key={`t-${r.id}-i`}
+                    style={[
+                      styles.td,
+                      styles.right,
+                      styles.mono,
+                      { width: COL_W.rate },
+                    ]}
+                  >
                     {cell?.iva ? money(cell.iva) : ""}
                   </Text>
                 </>
               );
             })}
-            <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.perc }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
+                { width: COL_W.perc },
+              ]}
+            >
               {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
             </Text>
-            <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.noGrav }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
+                { width: COL_W.noGrav },
+              ]}
+            >
               {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
             </Text>
-            <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.total }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
+                { width: COL_W.total },
+              ]}
+            >
               {money(totals.imp_total)}
             </Text>
             <Text style={[styles.td, { width: COL_W.cae }]} />

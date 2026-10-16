@@ -5,12 +5,11 @@ import {
   formatInvoiceNumero,
   isInvoiceStatus,
 } from "@/features/invoices/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, moneyCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -34,7 +33,7 @@ export const invoices: Exporter = {
       let query = supabase
         .from("invoices")
         .select(
-          "kind, letter, punto_venta, numero, fecha, imp_total, status, clients!inner(legal_name)",
+          "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, clients!inner(legal_name)",
         )
         .order("fecha", { ascending: true })
         .order("numero", { ascending: true })
@@ -56,11 +55,13 @@ export const invoices: Exporter = {
       const amount = Number(row.imp_total);
       total += amount;
       return [
-        formatArgentineDate(row.fecha),
+        dateCell(row.fecha),
         formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero),
         client.legal_name,
         INVOICE_STATUS_LABEL[status],
-        money(amount),
+        moneyCell(amount, {
+          currency: row.moneda === "PES" ? "ARS" : "USD",
+        }),
       ];
     });
 
@@ -68,7 +69,7 @@ export const invoices: Exporter = {
       title: "Comprobantes",
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total", money(total)],
+      totalsRow: ["", "", "", "Total", moneyCell(total)],
       orientation: "landscape",
       fileName: "comprobantes",
     };

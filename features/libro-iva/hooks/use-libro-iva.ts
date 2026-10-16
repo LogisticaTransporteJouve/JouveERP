@@ -32,7 +32,10 @@ export function useLibroIvaCompras(period: string, channelId: string | null) {
     queryKey: libroIvaKeys.compras(period, channelId),
     queryFn: () =>
       runAction(() =>
-        listLibroIvaComprasAction({ period, channelId: channelId ?? undefined }),
+        listLibroIvaComprasAction({
+          period,
+          channelId: channelId ?? undefined,
+        }),
       ),
   });
 }

@@ -6,12 +6,11 @@ import {
   isChequeKind,
   isChequeStatus,
 } from "@/features/checks/schema";
-import { formatArgentineDate } from "@/lib/format";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
-import { inRange, money, type Exporter } from "../shared";
+import { dateCell, inRange, moneyCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt: Tipo, Número, Banco, Firmante, Vencimiento, Monto, Estado.
 const CHECK_COLUMNS: TableReportColumn[] = [
@@ -61,8 +60,8 @@ export const checks: Exporter = {
         c.check_number,
         c.bank_name,
         c.drawer_name,
-        formatArgentineDate(c.due_date),
-        money(amount),
+        dateCell(c.due_date),
+        moneyCell(amount),
         statusLabel,
       ];
     });
@@ -71,7 +70,7 @@ export const checks: Exporter = {
       title: "Cheques en cartera",
       columns: CHECK_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", money(total), ""],
+      totalsRow: ["", "", "", "", "Total", moneyCell(total), ""],
       orientation: "landscape",
       fileName: "cheques",
     };
