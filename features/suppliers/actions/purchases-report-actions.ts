@@ -48,7 +48,11 @@ export async function getSupplierUpcomingDuesAction(
   input: unknown,
 ): Promise<ActionResult<SupplierUpcomingDueRow[]>> {
   return gatedRead({
-    permissions: ["suppliers:read", "purchase_invoices:read"],
+    permissions: [
+      "suppliers:read",
+      "purchase_invoices:read",
+      "payment_orders:read",
+    ],
     denied: DENIED,
     failure: FAILED,
     schema: SupplierUpcomingDuesInputSchema,

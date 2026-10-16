@@ -216,7 +216,11 @@ export const getSupplierPurchasesSummary = defineAiAction({
 export const getSupplierUpcomingDues = defineAiAction({
   name: "getSupplierUpcomingDues",
   domain: "compras",
-  permission: ["suppliers:read", "purchase_invoices:read"],
+  permission: [
+    "suppliers:read",
+    "purchase_invoices:read",
+    "payment_orders:read",
+  ],
   sideEffect: "read",
   sources: [
     "ai_supplier_upcoming_dues",
