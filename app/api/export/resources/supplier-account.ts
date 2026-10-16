@@ -4,13 +4,14 @@ import {
   getSupplierAccountAction,
   type SupplierAccountMovement,
 } from "@/features/suppliers/actions/account-actions";
-import { formatArgentineDate } from "@/lib/format";
 
 import {
   ACCOUNT_COLUMNS,
+  dateCell,
   inRange,
-  money,
+  moneyCell,
   type Exporter,
+  withSlug,
 } from "../shared";
 
 const SUPPLIER_KIND_LABEL: Record<string, string> = {
@@ -29,7 +30,7 @@ function supplierDoc(m: SupplierAccountMovement): string {
   if (m.source_type === "payment_order") return `OP${pos}-${num}`;
   const prefix =
     m.kind === "factura"
-      ? m.letter ?? ""
+      ? (m.letter ?? "")
       : m.kind === "nc"
         ? "NC"
         : m.kind === "nd"
@@ -56,12 +57,12 @@ export const supplierAccount: Exporter = {
       totalDebe += debe;
       totalHaber += haber;
       return [
-        formatArgentineDate(m.movement_date),
+        dateCell(m.movement_date),
         SUPPLIER_KIND_LABEL[m.kind] ?? m.kind,
         supplierDoc(m),
-        debe ? money(debe) : "",
-        haber ? money(haber) : "",
-        money(m.balance),
+        debe ? moneyCell(debe) : "",
+        haber ? moneyCell(haber) : "",
+        moneyCell(m.balance),
       ];
     });
     const finalBalance = movements.length
@@ -76,11 +77,11 @@ export const supplierAccount: Exporter = {
         "",
         "",
         "Totales",
-        money(totalDebe),
-        money(totalHaber),
-        money(finalBalance),
+        moneyCell(totalDebe),
+        moneyCell(totalHaber),
+        moneyCell(finalBalance),
       ],
-      fileName: "cuenta-corriente-proveedor",
+      fileName: withSlug("cuenta-corriente-proveedor", params.get("name")),
     };
   },
 };

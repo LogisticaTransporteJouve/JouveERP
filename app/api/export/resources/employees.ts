@@ -1,11 +1,10 @@
 import "server-only";
 
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import type { Exporter } from "../shared";
+import { dateCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -44,7 +43,7 @@ export const employees: Exporter = {
       row.cuil ?? "—",
       row.position ?? "—",
       row.is_active ? "Activo" : "Inactivo",
-      formatArgentineDate(row.hire_date),
+      dateCell(row.hire_date),
     ]);
 
     return {

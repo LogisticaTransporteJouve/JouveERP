@@ -1,13 +1,12 @@
 import "server-only";
 
 import { formatReceiptNumber } from "@/features/receipts/schema";
-import { formatArgentineDate } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, money, moneyCell, type Exporter } from "../shared";
 
 /** PostgREST embeds the related client as a single nested object. */
 function clientName(client: { legal_name: string } | null): string {
@@ -61,10 +60,15 @@ export const receipts: Exporter = {
       // tag non-ARS amounts with their code and exclude them from the total.
       const amount = Number(r.total_amount);
       if (r.currency === "ARS") total += amount;
-      const formattedTotal =
-        r.currency === "ARS" ? money(amount) : `${money(amount)} ${r.currency}`;
+      const formattedTotal = moneyCell(amount, {
+        currency: r.currency,
+        text:
+          r.currency === "ARS"
+            ? money(amount)
+            : `${money(amount)} ${r.currency}`,
+      });
       return [
-        formatArgentineDate(r.receipt_date),
+        dateCell(r.receipt_date),
         formatReceiptNumber(r.punto_venta, r.numero),
         clientName(r.clients),
         STATUS_LABEL[r.status] ?? r.status,
@@ -76,7 +80,7 @@ export const receipts: Exporter = {
       title: "Recibos",
       columns: RECEIPTS_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total (ARS)", money(total)],
+      totalsRow: ["", "", "", "Total (ARS)", moneyCell(total)],
       fileName: "recibos",
     };
   },

@@ -8,12 +8,11 @@ import {
   isPurchaseInvoiceStatus,
   type PurchaseInvoiceLetter,
 } from "@/features/purchase-invoices/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, money, moneyCell, type Exporter } from "../shared";
 
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 70, mono: true },
@@ -70,9 +69,9 @@ export const purchaseInvoices: Exporter = {
         : "received";
       const amount = Number(row.imp_total);
       total += amount;
-      const currency = row.moneda === "PES" ? "$" : "US$";
+      const symbol = row.moneda === "PES" ? "$" : "US$";
       return [
-        formatArgentineDate(row.fecha),
+        dateCell(row.fecha),
         formatInvoiceNumber({
           kind,
           letter: asLetter(row.letter),
@@ -82,7 +81,10 @@ export const purchaseInvoices: Exporter = {
         `${supplier.legal_name} (CUIT ${supplier.cuit})`,
         channel.is_fiscal ? "Fiscal" : "Interno",
         PURCHASE_INVOICE_STATUS_LABEL[status],
-        `${currency}${money(amount).slice(1)}`,
+        moneyCell(amount, {
+          currency: row.moneda === "PES" ? "ARS" : "USD",
+          text: `${symbol}${money(amount).slice(1)}`,
+        }),
       ];
     });
 
@@ -90,7 +92,7 @@ export const purchaseInvoices: Exporter = {
       title: "Facturas de compra",
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", money(total)],
+      totalsRow: ["", "", "", "", "Total", moneyCell(total)],
       orientation: "landscape",
       fileName: "facturas-de-compra",
     };

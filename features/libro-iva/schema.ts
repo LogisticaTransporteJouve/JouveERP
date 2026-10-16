@@ -190,6 +190,16 @@ export const IVA_RATES = [
   { id: 6, pct: 27, label: "27%" },
 ] as const;
 
+/** A voucher as the books print it: letter, 4-digit point of sale and
+ *  8-digit number ("A0001-00000042"). */
+export function libroIvaVoucherNumber(row: {
+  letter: string | null;
+  punto_venta: number;
+  numero: number;
+}): string {
+  return `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+}
+
 export const KIND_LABEL: Record<string, string> = {
   factura: "Factura",
   nc: "Nota de crédito",

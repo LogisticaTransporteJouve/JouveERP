@@ -1,16 +1,63 @@
 import "server-only";
 
-import {
-  AGING_BUCKETS,
-  type AgingBucket,
-  type AgingReport,
-  type CurrencyAmounts,
-} from "@/lib/aging";
+import { AGING_BUCKETS, type AgingBucket, type AgingReport } from "@/lib/aging";
 import type { Permission } from "@/lib/auth/permissions";
+import { exportSlug } from "@/lib/export/download";
+import type { XlsxCell, XlsxSheet } from "@/lib/export/xlsx";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
 export const money = (n: number) => `$${formatNumber2(n)}`;
+
+/** A cell the PDF prints as `text` and the Excel export writes as `value`. */
+export type TypedCell = { text: string; value: XlsxCell };
+
+/** Plain text (names, codes, labels), or a typed cell. */
+export type ExportCell = string | TypedCell;
+
+/** An amount: `$1.234,56` in the PDF unless `text` says otherwise, a numeric
+ *  cell in its currency in Excel. */
+export function moneyCell(
+  amount: number,
+  { currency = "ARS", text }: { currency?: string; text?: string } = {},
+): TypedCell {
+  return { text: text ?? money(amount), value: { money: amount, currency } };
+}
+
+/** A total over rows in `currencies`: an amount when they share one, and
+ *  only the PDF's text when they mix (a sum across currencies is no amount
+ *  in either). */
+export function totalCell(
+  amount: number,
+  currencies: ReadonlySet<string>,
+  text = money(amount),
+): ExportCell {
+  const [only] = currencies;
+  return currencies.size <= 1
+    ? moneyCell(amount, { currency: only ?? "ARS", text })
+    : text;
+}
+
+/** A `YYYY-MM-DD` date or timestamp: `5 jun 2026` in the PDF, a date cell in
+ *  Excel; "—" when missing. */
+export function dateCell(value: string | null | undefined): ExportCell {
+  return value
+    ? { text: formatArgentineDate(value), value: { date: value } }
+    : "—";
+}
+
+/** A plain number (liters, km, a rate) with the PDF's text. */
+export function numberCell(value: number, text: string): TypedCell {
+  return { text, value };
+}
+
+export function cellText(cell: ExportCell): string {
+  return typeof cell === "string" ? cell : cell.text;
+}
+
+export function cellValue(cell: ExportCell): XlsxCell {
+  return typeof cell === "string" ? cell : cell.value;
+}
 
 export type ExportRange = { from: string | null; to: string | null };
 
@@ -18,8 +65,8 @@ export type ExportOutput = {
   title: string;
   subtitle?: string;
   columns: TableReportColumn[];
-  rows: string[][];
-  totalsRow?: string[];
+  rows: ExportCell[][];
+  totalsRow?: ExportCell[];
   orientation?: "portrait" | "landscape";
   /** Base file name (without extension). */
   fileName: string;
@@ -29,6 +76,40 @@ export type Exporter = {
   permission: Permission;
   load: (params: URLSearchParams, range: ExportRange) => Promise<ExportOutput>;
 };
+
+/** `base`, plus a slug of `detail` (an entity or channel name) when any. */
+export function withSlug(base: string, detail: string | null | undefined) {
+  const slug = detail ? exportSlug(detail) : "";
+  return slug ? `${base}-${slug}` : base;
+}
+
+/** What the PDF prints above its table. */
+export type ExportContext = { dateRangeLabel: string; generatedAt: string };
+
+/** The exporter's rows as a spreadsheet, under the PDF's header lines: typed
+ *  cells keep their type, and a right-aligned column's numeric strings (a
+ *  year, a count) become numbers; every other string stays text. */
+export function exportSheet(
+  out: ExportOutput,
+  context: ExportContext,
+): XlsxSheet {
+  const row = (cells: readonly ExportCell[]) => cells.map(cellValue);
+  return {
+    name: out.title,
+    preamble: [
+      out.title,
+      ...(out.subtitle ? [out.subtitle] : []),
+      `Período: ${context.dateRangeLabel}`,
+      `Generado el ${context.generatedAt}`,
+    ],
+    columns: out.columns.map((c) => ({
+      header: c.header,
+      type: c.align === "right" ? "number" : "text",
+    })),
+    rows: out.rows.map(row),
+    ...(out.totalsRow ? { totals: row(out.totalsRow) } : {}),
+  };
+}
 
 /** True when `date` (YYYY-MM-DD) falls within the (optional) range bounds. */
 export function inRange(date: string, range: ExportRange): boolean {
@@ -47,15 +128,23 @@ export const ACCOUNT_COLUMNS: TableReportColumn[] = [
   { header: "Saldo", width: 88, align: "right", mono: true },
 ];
 
+const AGING_BUCKET_HEADERS: Record<AgingBucket, string> = {
+  "0_30": "0–30 días",
+  "30_60": "30–60",
+  "60_90": "60–90",
+  "90_plus": "90+",
+};
+
 const usdMoney = (n: number) => `US$${formatNumber2(n)}`;
 
-/** Pesos and dollars on separate lines; dollars only when non-zero. */
-function amountsCell(a: CurrencyAmounts): string {
-  return a.usd !== 0 ? `${money(a.ars)}\n${usdMoney(a.usd)}` : money(a.ars);
-}
-
-/** Landscape aging report (clients or suppliers): buckets per currency, the
- *  total per currency and its ARS equivalent at the latest official rate. */
+/**
+ * Landscape aging report (clients or suppliers). Pesos and dollars are never
+ * summed: a party with balances in both currencies gets one row per currency,
+ * each amount typed in its own currency. "Total en ARS" is the party's
+ * exposure with dollars at the latest official rate ("—" without a rate).
+ * With dollars present, the per-currency totals are rows of their own and the
+ * totals row carries only the peso equivalent.
+ */
 export function agingExport(
   report: AgingReport,
   meta: {
@@ -66,47 +155,90 @@ export function agingExport(
   },
 ): ExportOutput {
   const { rows, totals, usd_rate } = report;
-  const equivalent = (n: number | null) => (n === null ? "—" : money(n));
+  const amount = (n: number, currency: "ARS" | "USD") =>
+    moneyCell(n, {
+      currency,
+      text: currency === "USD" ? usdMoney(n) : money(n),
+    });
+  const equivalent = (n: number | null): ExportCell =>
+    n === null ? "—" : moneyCell(n);
   const rateNote = usd_rate
     ? `USD al dólar oficial ${money(usd_rate.rate)} (${formatArgentineDate(usd_rate.rate_date)})`
     : "Sin cotización del dólar cargada: los saldos en USD no se consolidan";
+
+  const out: ExportCell[][] = [];
+  for (const r of rows) {
+    const currencies: ("ARS" | "USD")[] =
+      r.total.usd !== 0 && r.total.ars !== 0
+        ? ["ARS", "USD"]
+        : r.total.usd !== 0
+          ? ["USD"]
+          : ["ARS"];
+    currencies.forEach((currency, i) => {
+      const key = currency === "ARS" ? "ars" : "usd";
+      out.push([
+        r.legal_name,
+        r.cuit,
+        currency,
+        ...AGING_BUCKETS.map((b) => amount(r.buckets[b][key], currency)),
+        amount(r.total[key], currency),
+        i === 0 ? equivalent(r.total_ars_equivalent) : "",
+      ]);
+    });
+  }
+
+  const hasUsd = totals.total.usd !== 0;
+  const totalsFor = (currency: "ARS" | "USD", label: string) => {
+    const key = currency === "ARS" ? "ars" : "usd";
+    return [
+      label,
+      "",
+      currency,
+      ...AGING_BUCKETS.map((b) => amount(totals.buckets[b][key], currency)),
+      amount(totals.total[key], currency),
+    ];
+  };
+  if (hasUsd) {
+    out.push(
+      [...totalsFor("ARS", "Totales en pesos"), ""],
+      [...totalsFor("USD", "Totales en dólares"), ""],
+    );
+  }
+
   return {
     title: meta.title,
     subtitle: `${meta.subtitle} · ${rateNote}`,
     columns: [
-      { header: meta.partyHeader, width: 180 },
-      { header: "CUIT", width: 84, mono: true },
+      { header: meta.partyHeader, width: 200 },
+      { header: "CUIT", width: 90, mono: true },
+      { header: "Moneda", width: 44 },
       ...AGING_BUCKETS.map((b): TableReportColumn => ({
         header: AGING_BUCKET_HEADERS[b],
-        width: 82,
+        width: 78,
         align: "right",
         mono: true,
       })),
-      { header: "Total", width: 101, align: "right", mono: true },
-      { header: "Total en ARS", width: 101, align: "right", mono: true },
+      { header: "Total", width: 74, align: "right", mono: true },
+      { header: "Total en ARS", width: 74, align: "right", mono: true },
     ],
-    rows: rows.map((r) => [
-      r.legal_name,
-      r.cuit,
-      ...AGING_BUCKETS.map((b) => amountsCell(r.buckets[b])),
-      amountsCell(r.total),
-      equivalent(r.total_ars_equivalent),
-    ]),
-    totalsRow: [
-      "Totales",
-      "",
-      ...AGING_BUCKETS.map((b) => amountsCell(totals.buckets[b])),
-      amountsCell(totals.total),
-      equivalent(totals.total_ars_equivalent),
-    ],
+    rows: out,
+    totalsRow: hasUsd
+      ? [
+          "Total en pesos",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          equivalent(totals.total_ars_equivalent),
+        ]
+      : [
+          ...totalsFor("ARS", "Totales"),
+          equivalent(totals.total_ars_equivalent),
+        ],
     orientation: "landscape",
     fileName: meta.fileName,
   };
 }
-
-const AGING_BUCKET_HEADERS: Record<AgingBucket, string> = {
-  "0_30": "0–30 días",
-  "30_60": "30–60",
-  "60_90": "60–90",
-  "90_plus": "90+",
-};

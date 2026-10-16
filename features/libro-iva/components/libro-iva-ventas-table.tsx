@@ -1,11 +1,10 @@
 "use client";
 
-import { AlertTriangle, FileDown } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 
 import { useLibroIvaVentas } from "../hooks/use-libro-iva";
@@ -14,8 +13,11 @@ import {
   groupByInvoice,
   IVA_RATES,
   KIND_LABEL,
+  libroIvaVoucherNumber,
 } from "../schema";
+
 import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
+import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaVentasTable({
   period,
@@ -129,7 +131,7 @@ export function LibroIvaVentasTable({
           </thead>
           <tbody>
             {grouped.map((row) => {
-              const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+              const number = libroIvaVoucherNumber(row);
               return (
                 <tr
                   key={row.invoice_id}
@@ -239,18 +241,11 @@ export function LibroIvaVentasTable({
         </table>
       </div>
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={`/api/accounting/libro-iva-ventas/pdf?period=${period}${channelId ? `&channel=${channelId}` : ""}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FileDown />
-            Exportar PDF
-          </a>
-        </Button>
-      </div>
+      <LibroIvaExportButtons
+        book="ventas"
+        period={period}
+        channelId={channelId}
+      />
     </div>
   );
 }

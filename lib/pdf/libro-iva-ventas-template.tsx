@@ -5,6 +5,7 @@ import {
   groupByInvoice,
   IVA_RATES,
   KIND_LABEL,
+  libroIvaVoucherNumber,
   type LibroIvaVentasRow,
 } from "@/features/libro-iva/schema";
 
@@ -194,7 +195,7 @@ export function LibroIvaVentasDocument({
           </View>
 
           {grouped.map((row) => {
-            const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+            const number = libroIvaVoucherNumber(row);
             return (
               <View key={row.invoice_id} style={styles.tr} wrap={false}>
                 <Text style={[styles.td, styles.mono, { width: COL_W.fecha }]}>

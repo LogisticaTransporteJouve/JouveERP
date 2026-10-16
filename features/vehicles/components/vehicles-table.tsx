@@ -4,7 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -157,7 +157,7 @@ export function VehiclesTable() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="vehicles" label="Exportar PDF" />
+          <ExportButton resource="vehicles" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo vehículo

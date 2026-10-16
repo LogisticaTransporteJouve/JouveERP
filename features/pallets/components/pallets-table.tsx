@@ -1,10 +1,17 @@
 "use client";
 
-import { Layers, MoreHorizontal, Pencil, Plus, Trash2, Truck } from "lucide-react";
+import {
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,18 +54,13 @@ export function PalletsTable({
 
   const filtered = useMemo(
     () =>
-      clientFilter
-        ? items.filter((p) => p.client_id === clientFilter)
-        : items,
+      clientFilter ? items.filter((p) => p.client_id === clientFilter) : items,
     [items, clientFilter],
   );
 
   // Only pallets still in deposit can be dispatched (selected).
   const selectableIds = useMemo(
-    () =>
-      filtered
-        .filter((p) => p.status === "en_deposito")
-        .map((p) => p.id),
+    () => filtered.filter((p) => p.status === "en_deposito").map((p) => p.id),
     [filtered],
   );
 
@@ -157,7 +159,11 @@ export function PalletsTable({
         accessorKey: "quantity",
         header: "Cant.",
         cell: ({ row }) => row.original.quantity ?? "—",
-        meta: { headerClassName: "w-24", cellClassName: "text-sm", mobile: "primary" },
+        meta: {
+          headerClassName: "w-24",
+          cellClassName: "text-sm",
+          mobile: "primary",
+        },
       },
       {
         id: "status",
@@ -174,13 +180,21 @@ export function PalletsTable({
         accessorKey: "entry_date",
         header: "Ingreso",
         cell: ({ row }) => row.original.entry_date,
-        meta: { headerClassName: "w-32", cellClassName: "text-sm", mobile: "secondary" },
+        meta: {
+          headerClassName: "w-32",
+          cellClassName: "text-sm",
+          mobile: "secondary",
+        },
       },
       {
         accessorKey: "exit_date",
         header: "Salida",
         cell: ({ row }) => row.original.exit_date ?? "—",
-        meta: { headerClassName: "w-32", cellClassName: "text-sm", mobile: "secondary" },
+        meta: {
+          headerClassName: "w-32",
+          cellClassName: "text-sm",
+          mobile: "secondary",
+        },
       },
       {
         id: "actions",
@@ -196,7 +210,9 @@ export function PalletsTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => setDialog({ mode: "edit", pallet: row.original })}
+                onClick={() =>
+                  setDialog({ mode: "edit", pallet: row.original })
+                }
               >
                 <Pencil className="size-4" />
                 Editar
@@ -233,7 +249,7 @@ export function PalletsTable({
               Despachar ({selectedCount})
             </Button>
           )}
-          <ExportPdfButton resource="pallets" label="Exportar PDF" />
+          <ExportButton resource="pallets" />
           <Button variant="outline" onClick={() => setBulkOpen(true)}>
             <Layers />
             Cargar varios
@@ -259,11 +275,7 @@ export function PalletsTable({
           className="w-72"
         />
         {clientFilter && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setClientFilter("")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => setClientFilter("")}>
             Limpiar
           </Button>
         )}

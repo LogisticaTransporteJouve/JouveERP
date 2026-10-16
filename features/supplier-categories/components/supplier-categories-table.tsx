@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -37,9 +37,7 @@ export function SupplierCategoriesTable() {
   const deleteMut = useDeleteSupplierCategory();
 
   const [dialogState, setDialogState] = useState<
-    | { mode: "create" }
-    | { mode: "edit"; category: SupplierCategory }
-    | null
+    { mode: "create" } | { mode: "edit"; category: SupplierCategory } | null
   >(null);
   const [confirmDelete, setConfirmDelete] = useState<SupplierCategory | null>(
     null,
@@ -138,7 +136,7 @@ export function SupplierCategoriesTable() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="supplier-categories" label="Exportar PDF" />
+          <ExportButton resource="supplier-categories" />
           <Button onClick={() => setDialogState({ mode: "create" })}>
             <Plus />
             Nueva categoría
@@ -155,7 +153,9 @@ export function SupplierCategoriesTable() {
 
       <SupplierCategoryDialog
         mode={dialogState?.mode ?? "create"}
-        category={dialogState?.mode === "edit" ? dialogState.category : undefined}
+        category={
+          dialogState?.mode === "edit" ? dialogState.category : undefined
+        }
         open={dialogState !== null}
         onOpenChange={(open) => {
           if (!open) setDialogState(null);
@@ -173,8 +173,8 @@ export function SupplierCategoriesTable() {
             <AlertDialogTitle>¿Borrar categoría?</AlertDialogTitle>
             <AlertDialogDescription>
               Se eliminará &ldquo;{confirmDelete?.name}&rdquo;. Si hay
-              proveedores asignados a esta categoría, el sistema te va a
-              avisar para que los reasignes antes.
+              proveedores asignados a esta categoría, el sistema te va a avisar
+              para que los reasignes antes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
