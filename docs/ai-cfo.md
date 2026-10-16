@@ -141,16 +141,75 @@ el claim y la escritura, la fila queda `confirmed` sin `result_id`.
 - **Exportar** una tabla a CSV/XLSX en Storage con link firmado.
 - **Insights fijados**: guardar un resultado como tarjeta del dashboard que se recalcula.
 
-## Fase 4 — trabaja solo
+## Fase 4 — trabaja solo (hecha)
 
-- **Flujos recurrentes** (cierre mensual, posición IVA, conciliación bancaria) definidos como plantillas
-  y materializados a diario por una función Inngest en tareas con vencimiento.
-- **Tareas de IA** que corren el agente con un objetivo y dejan resultado + propuestas pendientes de
-  confirmación (nunca ejecutan escrituras sin confirmación).
-- **Memoria entre corridas:** cada corrida guarda `previous_run_id` y un bloque de resumen; la tool
-  `openEarlierRun` permite al agente revisar una corrida anterior.
-- **Anomalías con precisión medida:** cada alerta se puede "arreglar" o "ignorar"; esas respuestas
-  ajustan umbrales y miden precisión por detector.
-- **Resumen semanal** redactado por el LLM sobre cifras calculadas.
-- **Skills por tema** (IVA, cierre, cobranzas) inyectadas según la consulta, y **evals** con casos
-  fijos por fase (cifras, permisos, rechazo de recomendaciones).
+**Correr como el usuario, sin sesión.** Los jobs de fondo no tienen cookie, así que
+`lib/auth/acting-user.ts` guarda en un `AsyncLocalStorage` al usuario por el que se actúa y un token
+de acceso corto (HS256, 15 min, `role: authenticated`, `sub` = el usuario) firmado con
+`SUPABASE_JWT_SECRET`. Dentro de `runAsHeadlessUser` (`lib/auth/headless-user.ts`),
+`createClient()` manda ese token en vez de leer cookies y `requireUserContext()` resuelve a ese
+usuario con los roles que su propio cliente lee: cada acción del registry conserva su `userCan` y RLS
+ve al usuario, igual que en el navegador. Antes de actuar, `resolveHeadlessUser` relee la cuenta
+(baneada, borrada, sin email) y los roles **en el momento de correr**; sin `ai:chat`, deshabilitado
+o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del proceso.
+
+**Tareas IA recurrentes** (`features/ai/workflows/`, migración
+`20261016130000_ai_workflows.sql`):
+
+- `ai_workflows`: pedido en lenguaje natural + horario (`daily | weekly | monthly`, hora en grilla de
+  15 min, día ISO o día 1–28) en hora de Buenos Aires (UTC-3 fijo, sin horario de verano) y
+  `next_run_at`. Máximo 10 activas por usuario. Se crean desde la tarjeta `proposeAiWorkflow`
+  (`defineAiProposal`, permiso `ai:chat`: "todos los lunes resumime cobranzas vencidas") o desde el
+  Dialog de **Tareas IA** (`/ai/tasks`); el mismo Zod (`AiWorkflowDraftSchema`) valida ambos.
+- `ai_workflow_runs`: una fila por ocurrencia, única por `(workflow_id, scheduled_for)`, con
+  `status` `queued | running | succeeded | failed | skipped`, `output`, `summary`, `previous_run_id`
+  y `skip_reason`.
+- RLS: `authenticated` solo lee sus filas (`user_id = (select auth.uid())` + roles con `ai:chat`);
+  toda escritura va por el service client después del gate del server action o desde Inngest,
+  filtrando por el dueño.
+- **Inngest:** `ai-workflows-materialize` (cada 15 min) toma las tareas vencidas, inserta la corrida
+  (upsert que ignora duplicados), avanza `next_run_at` con compare-and-set (ocurrencias perdidas se
+  juntan en una sola corrida) y manda un evento por corrida en cola con `id` = la corrida; cierra como
+  `expired` las que quedaron en cola más de 23 h. `ai-workflow-run` (idempotente por `run_id`,
+  concurrencia 3 y 1 por usuario): *claim* (tarea pausada, usuario sin acceso o tope diario →
+  `skipped` con motivo; si no, `queued → running`), *execute* (relee al usuario, corre el agente con
+  `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas ni
+  `askQuestions`, auditando cada tool como `ai-agent`) y *notify* (notificación in-app
+  `ai_workflow_run`). El dueño sale de la fila, nunca del evento. El uso va a `ai_usage` como
+  `workflow_run` y cuenta para el tope diario.
+- **Memoria:** la corrida guarda un `RESUMEN:` corto (última línea de la respuesta). La siguiente
+  recibe `previous_run_id`, el resumen y el comienzo de la respuesta anterior, más un índice de hasta
+  8 corridas previas (todo como dato, con `wrapUntrusted`); `openEarlierRun` abre una de esas, del
+  mismo usuario y tarea, por id.
+- **UI:** `/ai/tasks` lista las tareas (pausar/reanudar, borrar, nueva) y el historial de corridas
+  con estado, resumen y la respuesta completa.
+
+**Anomalías: ignorar o resolver.** Cada tarjeta de insight tiene **Resolver con IA** (abre el chat
+con la alerta, sus cifras y los ids de los registros) e **Ignorar** (`ai:admin`, Dialog con motivo
+obligatorio). Ignorar guarda `dismissed_reason`, `dismissed_by` y `dismissed_at` en `ai_insights`;
+el `fingerprint` (tipo + hash de los registros) hace que el analyst no vuelva a crear ese mismo
+hallazgo. Las tarjetas agregadas (caja, cobranzas) no tienen fingerprint: ignorarlas oculta solo esa
+corrida. "Visto" sigue igual; descartar sin motivo ya no se puede.
+
+**Resumen semanal** (`features/ai/weekly/`): lunes 07:50 (AR) `ai-weekly-summary-fan-out` manda un
+evento por usuario con `ai:chat` que entró en los últimos 30 días; `ai-weekly-summary` (idempotente
+por usuario + semana) corre como ese usuario las lecturas fijas que su rol permite (caja, cobrar,
+pagar, vencimientos a 14 días, ventas y margen de flota de la semana, sueldos del mes anterior,
+documentos por vencer) y una sola llamada al modelo, sin tools, redacta el resumen sobre esos
+resúmenes calculados (nunca filas). Respeta `checkAiDailyCap`, se guarda en `ai_weekly_summaries`
+(uno por usuario y semana) y se muestra arriba de los insights del dashboard.
+
+**Evals** (`features/ai/evals/`): `routing-cases.ts` tiene preguntas en es-AR con la tool y los
+argumentos esperados (sueldos de octubre 2025 → `getPayrollSummary` 2025-10; extras de choferes →
+`getDriverExtras`; vacaciones; proveedores; margen de viajes; caja; una tarea recurrente →
+`proposeAiWorkflow`) y casos de permiso (operations no ve sueldos ni caja). `routing.test.ts` corre
+sin red: un modelo guionado hace la llamada esperada y se verifica que el rol la tenga, que pase el
+schema y el gate, y que llegue al server action con esos argumentos. `pnpm eval:ai` corre
+`routing.live.test.ts` contra el modelo real (requiere `ANTHROPIC_API_KEY`; las tools devuelven un
+stub, no tocan la base).
+
+**Límites.** Sin `SUPABASE_JWT_SECRET` las tareas y el resumen semanal se saltean (`headless_unavailable`).
+Si una corrida falla a mitad del modelo, el uso de esa corrida no queda registrado. Las respuestas
+de las corridas no se exportan ni generan propuestas (solo lectura). La precisión por detector
+(cuántas alertas se ignoran por tipo) todavía no se mide, ni hay plantillas de flujos (cierre
+mensual, posición IVA, conciliación) ni evals de cifras o de rechazo de recomendaciones.
