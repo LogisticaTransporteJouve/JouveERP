@@ -6,12 +6,17 @@ import {
   isChequeKind,
   isChequeStatus,
 } from "@/features/checks/schema";
-import { formatArgentineDate } from "@/lib/format";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
-import { inRange, money, type Exporter } from "../shared";
+import {
+  dateCell,
+  inRange,
+  moneyCell,
+  totalCell,
+  type Exporter,
+} from "../shared";
 
 // Landscape A4 ≈ 794pt: Tipo, Número, Banco, Firmante, Vencimiento, Monto, Estado.
 const CHECK_COLUMNS: TableReportColumn[] = [
@@ -33,7 +38,7 @@ export const checks: Exporter = {
       let query = supabase
         .from("checks")
         .select(
-          "kind, check_number, bank_name, drawer_name, due_date, amount, status",
+          "kind, check_number, bank_name, drawer_name, due_date, amount, currency, status",
         )
         .order("due_date", { ascending: true })
         .order("id", { ascending: true });
@@ -47,9 +52,11 @@ export const checks: Exporter = {
     const filtered = (data ?? []).filter((c) => inRange(c.due_date, range));
 
     let total = 0;
+    const currencies = new Set<string>();
     const rows = filtered.map((c) => {
       const amount = Number(c.amount);
       total += amount;
+      currencies.add(c.currency);
       const kindLabel = isChequeKind(c.kind)
         ? CHECK_KIND_LABEL[c.kind]
         : c.kind;
@@ -61,8 +68,8 @@ export const checks: Exporter = {
         c.check_number,
         c.bank_name,
         c.drawer_name,
-        formatArgentineDate(c.due_date),
-        money(amount),
+        dateCell(c.due_date),
+        moneyCell(amount, { currency: c.currency }),
         statusLabel,
       ];
     });
@@ -71,7 +78,7 @@ export const checks: Exporter = {
       title: "Cheques en cartera",
       columns: CHECK_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", money(total), ""],
+      totalsRow: ["", "", "", "", "Total", totalCell(total, currencies), ""],
       orientation: "landscape",
       fileName: "cheques",
     };

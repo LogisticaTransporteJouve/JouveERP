@@ -1,3 +1,5 @@
+import { downloadBlob, exportFileName } from "./download";
+
 /** A cell a CSV export accepts; anything else is written empty. */
 export type CsvCell = string | number | boolean | null | undefined;
 
@@ -35,23 +37,13 @@ export function toCsv(
 
 /** Saves `csv` in the browser. The BOM makes Excel read it as UTF-8. */
 export function downloadCsv(fileName: string, csv: string): void {
-  const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName.endsWith(".csv") ? fileName : `${fileName}.csv`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadBlob(
+    fileName.endsWith(".csv") ? fileName : `${fileName}.csv`,
+    new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }),
+  );
 }
 
-/** A file name from a title: lowercase ASCII words joined by dashes. */
+/** A `.csv` file name from a title. */
 export function csvFileName(title: string): string {
-  const slug = title
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  return `${slug || "export"}.csv`;
+  return exportFileName(title, "csv");
 }

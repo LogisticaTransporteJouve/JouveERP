@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DateRangeSelector } from "@/components/date-range-selector";
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import {
   AlertDialog,
@@ -63,7 +63,7 @@ function formatDocumentNumber(m: SupplierAccountMovement): string {
   if (m.source_type === "payment_order") return `OP${pos}-${num}`;
   const prefix =
     m.kind === "factura"
-      ? m.letter ?? ""
+      ? (m.letter ?? "")
       : m.kind === "nc"
         ? "NC"
         : m.kind === "nd"
@@ -218,12 +218,9 @@ export function SupplierAccountTab({
           const m = row.original;
           const isFactura =
             m.source_type === "purchase_invoice" && m.kind === "factura";
-          const isND =
-            m.source_type === "purchase_invoice" && m.kind === "nd";
+          const isND = m.source_type === "purchase_invoice" && m.kind === "nd";
           const showOutstandingBadge =
-            (isFactura || isND) &&
-            m.outstanding != null &&
-            m.gross_amount > 0;
+            (isFactura || isND) && m.outstanding != null && m.gross_amount > 0;
           const href = movementHref(m);
           return (
             <span className="inline-flex items-center gap-2 font-mono text-xs">
@@ -271,12 +268,9 @@ export function SupplierAccountTab({
           const debe = m.signed_amount > 0 ? m.signed_amount : 0;
           const isFactura =
             m.source_type === "purchase_invoice" && m.kind === "factura";
-          const isND =
-            m.source_type === "purchase_invoice" && m.kind === "nd";
+          const isND = m.source_type === "purchase_invoice" && m.kind === "nd";
           const showOutstandingBadge =
-            (isFactura || isND) &&
-            m.outstanding != null &&
-            m.gross_amount > 0;
+            (isFactura || isND) && m.outstanding != null && m.gross_amount > 0;
           if (debe <= 0) return "—";
           return (
             <span className="inline-flex flex-col items-end">
@@ -416,7 +410,9 @@ export function SupplierAccountTab({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
         <div>
           <div className="text-xs text-muted-foreground">Saldo actual</div>
-          <div className={`text-2xl font-semibold font-mono ${balLabel.className}`}>
+          <div
+            className={`text-2xl font-semibold font-mono ${balLabel.className}`}
+          >
             ${amountToInput(Math.abs(balance))}
           </div>
           <div className={`text-xs ${balLabel.className}`}>{balLabel.text}</div>
@@ -428,13 +424,13 @@ export function SupplierAccountTab({
 
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeSelector />
-        <ExportPdfButton
+        <ExportButton
           resource="supplier-account"
           params={{
             supplierId,
             name: `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`,
           }}
-          label="Resumen PDF"
+          label="Exportar resumen"
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <OwnerOnly disabled={!isOwner}>

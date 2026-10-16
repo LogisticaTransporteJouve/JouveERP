@@ -4,7 +4,7 @@ import { Link2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -124,7 +124,9 @@ export function DriversTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => setDialog({ mode: "edit", driver: row.original })}
+                onClick={() =>
+                  setDialog({ mode: "edit", driver: row.original })
+                }
               >
                 <Pencil className="size-4" />
                 Editar
@@ -132,7 +134,9 @@ export function DriversTable({
               {canLink && (
                 <DropdownMenuItem onClick={() => setLinkDriver(row.original)}>
                   <Link2 className="size-4" />
-                  {row.original.user_id ? "Cambiar usuario" : "Vincular usuario"}
+                  {row.original.user_id
+                    ? "Cambiar usuario"
+                    : "Vincular usuario"}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -159,7 +163,7 @@ export function DriversTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="drivers" label="Exportar PDF" />
+          <ExportButton resource="drivers" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo chofer

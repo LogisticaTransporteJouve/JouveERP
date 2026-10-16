@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
@@ -82,7 +82,7 @@ export default async function PurchasesPage({
             gastos internos sin factura formal.
           </p>
         </div>
-        <ExportPdfButton resource="purchase-invoices" label="Exportar PDF" />
+        <ExportButton resource="purchase-invoices" />
       </div>
       <Hydrate state={dehydratedState}>
         <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>

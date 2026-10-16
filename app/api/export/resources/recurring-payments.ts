@@ -7,12 +7,11 @@ import {
   isRecurringCurrency,
   isRecurringFrequency,
 } from "@/features/recurring-payments/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, moneyCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -60,10 +59,10 @@ export const recurringPayments: Exporter = {
       return [
         row.description,
         category,
-        money(Number(row.amount)),
+        moneyCell(Number(row.amount), { currency: row.currency }),
         currency,
         frequency,
-        formatArgentineDate(row.next_due_date),
+        dateCell(row.next_due_date),
       ];
     });
 

@@ -3,7 +3,7 @@
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import {
   Suspense,
@@ -150,7 +150,12 @@ function buildInvoiceColumns(
         );
         return (
           <div className="flex items-center justify-end gap-1">
-            <Button asChild variant="ghost" size="icon" aria-label="Ver detalle">
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              aria-label="Ver detalle"
+            >
               <Link href={`/invoices/${invoice.id}`}>
                 <Eye className="size-4" />
               </Link>
@@ -278,7 +283,7 @@ export function ComprobantesTable({
         />
 
         <div className="ml-auto flex items-center gap-2">
-          <ExportPdfButton resource="invoices" label="Exportar PDF" />
+          <ExportButton resource="invoices" />
           {canIssue && <NewInvoiceDialog channels={channels} />}
         </div>
       </div>
@@ -318,9 +323,10 @@ function ComprobantesTableRows({
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  const columns = useMemo(() => buildInvoiceColumns(canSendEmail), [
-    canSendEmail,
-  ]);
+  const columns = useMemo(
+    () => buildInvoiceColumns(canSendEmail),
+    [canSendEmail],
+  );
 
   return (
     <DataTable

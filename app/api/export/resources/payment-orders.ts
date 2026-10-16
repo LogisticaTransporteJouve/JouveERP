@@ -2,14 +2,19 @@ import "server-only";
 
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
-import { formatArgentineDate, formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 
 import {
   formatPaymentOrderNumber,
   isPaymentOrderCurrency,
 } from "@/features/payment-orders/schema";
 
-import { money, type Exporter, type ExportRange } from "../shared";
+import {
+  dateCell,
+  moneyCell,
+  type Exporter,
+  type ExportRange,
+} from "../shared";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
 // Landscape A4 ≈ 794pt. Mirrors the on-screen payment-orders table
@@ -75,11 +80,11 @@ export const paymentOrders: Exporter = {
         : "ARS";
       if (currency === "ARS") totalArs += amount;
       return [
-        formatArgentineDate(op.payment_date),
+        dateCell(op.payment_date),
         formatPaymentOrderNumber(op.punto_venta, op.numero),
         op.suppliers?.legal_name ?? "—",
         currency,
-        formatMoney(amount, currency),
+        moneyCell(amount, { currency, text: formatMoney(amount, currency) }),
         statusLabel(op.status),
       ];
     });
@@ -88,7 +93,7 @@ export const paymentOrders: Exporter = {
       title: "Órdenes de pago",
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total ARS", money(totalArs), ""],
+      totalsRow: ["", "", "", "Total ARS", moneyCell(totalArs), ""],
       orientation: "landscape",
       fileName: "ordenes-de-pago",
     };

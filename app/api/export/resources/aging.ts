@@ -3,7 +3,7 @@ import "server-only";
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
-import { money, type Exporter } from "../shared";
+import { moneyCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width. Snapshot: ignores the date range.
 const COLUMNS: TableReportColumn[] = [
@@ -26,11 +26,11 @@ export const aging: Exporter = {
     const rows = clients.map((c) => [
       c.legal_name,
       c.cuit,
-      money(c.bucket_0_30),
-      money(c.bucket_30_60),
-      money(c.bucket_60_90),
-      money(c.bucket_90_plus),
-      money(c.total_open),
+      moneyCell(c.bucket_0_30),
+      moneyCell(c.bucket_30_60),
+      moneyCell(c.bucket_60_90),
+      moneyCell(c.bucket_90_plus),
+      moneyCell(c.total_open),
     ]);
 
     return {
@@ -41,11 +41,11 @@ export const aging: Exporter = {
       totalsRow: [
         "Totales",
         "",
-        money(totals.bucket_0_30),
-        money(totals.bucket_30_60),
-        money(totals.bucket_60_90),
-        money(totals.bucket_90_plus),
-        money(totals.total_open),
+        moneyCell(totals.bucket_0_30),
+        moneyCell(totals.bucket_30_60),
+        moneyCell(totals.bucket_60_90),
+        moneyCell(totals.bucket_90_plus),
+        moneyCell(totals.total_open),
       ],
       orientation: "landscape",
       fileName: "aging-clientes",

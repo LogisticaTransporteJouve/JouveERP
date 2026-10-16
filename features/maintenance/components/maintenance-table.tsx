@@ -4,7 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,7 @@ export function MaintenanceTable({
   const deleteMut = useDeleteMaintenance();
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<
-    | { mode: "create" }
-    | { mode: "edit"; record: MaintenanceRecord }
-    | null
+    { mode: "create" } | { mode: "edit"; record: MaintenanceRecord } | null
   >(null);
 
   const columns = useMemo<ColumnDef<MaintenanceRecord>[]>(() => {
@@ -151,7 +149,7 @@ export function MaintenanceTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="maintenance" label="Exportar PDF" />
+          <ExportButton resource="maintenance" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo mantenimiento

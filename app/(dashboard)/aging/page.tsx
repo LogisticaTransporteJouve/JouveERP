@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { AgingTable } from "@/features/aging/components/aging-table";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
@@ -36,12 +36,12 @@ export default async function AgingPage() {
             Aging de clientes
           </h1>
           <p className="text-sm text-muted-foreground">
-            Saldos pendientes por antigüedad (0–30 / 30–60 / 60–90 / 90+
-            días). Solo facturas y notas de débito emitidas con saldo abierto;
-            las imputaciones de recibos descuentan automáticamente.
+            Saldos pendientes por antigüedad (0–30 / 30–60 / 60–90 / 90+ días).
+            Solo facturas y notas de débito emitidas con saldo abierto; las
+            imputaciones de recibos descuentan automáticamente.
           </p>
         </div>
-        <ExportPdfButton resource="aging" label="Exportar PDF" />
+        <ExportButton resource="aging" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
