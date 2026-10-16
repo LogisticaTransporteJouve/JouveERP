@@ -1,5 +1,6 @@
 import "server-only";
 
+import { PG_CHECK_VIOLATION } from "@/lib/db/pg-error-codes";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { nextRunAt } from "./schedule";
@@ -121,7 +122,26 @@ export function toRun(row: RunDbRow): AiWorkflowRunRow {
   };
 }
 
-export class WorkflowLimitError extends Error {}
+export class WorkflowLimitError extends Error {
+  constructor() {
+    super(
+      `Llegaste al máximo de ${MAX_ACTIVE_WORKFLOWS_PER_USER} tareas activas. Pausá o borrá alguna.`,
+    );
+  }
+}
+
+/** The active-task cap is enforced by a trigger under a per-user lock
+ *  (ai_workflows_enforce_active_cap), so concurrent creates or resumes
+ *  cannot both pass it; this maps its refusal. */
+function throwWorkflowError(error: { code?: string; message?: string }): never {
+  if (
+    error.code === PG_CHECK_VIOLATION &&
+    (error.message ?? "").includes("ai_workflows: active limit")
+  ) {
+    throw new WorkflowLimitError();
+  }
+  throw error;
+}
 
 export async function listWorkflows(userId: string): Promise<AiWorkflowRow[]> {
   const { data, error } = await getServiceClient()
@@ -140,17 +160,6 @@ export async function createWorkflow(
   now: Date = new Date(),
 ): Promise<{ id: string }> {
   const service = getServiceClient();
-  const { count, error: countError } = await service
-    .from("ai_workflows")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_active", true);
-  if (countError) throw countError;
-  if ((count ?? 0) >= MAX_ACTIVE_WORKFLOWS_PER_USER) {
-    throw new WorkflowLimitError(
-      `Llegaste al máximo de ${MAX_ACTIVE_WORKFLOWS_PER_USER} tareas activas. Pausá o borrá alguna.`,
-    );
-  }
   const schedule = draftSchedule(draft);
   const { data, error } = await service
     .from("ai_workflows")
@@ -167,7 +176,7 @@ export async function createWorkflow(
     })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) throwWorkflowError(error);
   return { id: data.id };
 }
 
@@ -202,7 +211,7 @@ export async function setWorkflowActive(
     .eq("id", id)
     .eq("user_id", userId)
     .select("id");
-  if (updateError) throw updateError;
+  if (updateError) throwWorkflowError(updateError);
   return (data?.length ?? 0) > 0;
 }
 

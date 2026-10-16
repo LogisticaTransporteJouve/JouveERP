@@ -1,5 +1,9 @@
 import { checkAiDailyCap, recordAiUsage } from "@/features/ai/lib/chat-store";
-import { runWorkflowAgent } from "@/features/ai/workflows/agent";
+import {
+  allReadsFailed,
+  runWorkflowAgent,
+  type WorkflowAgentResult,
+} from "@/features/ai/workflows/agent";
 import { loadRunMemory } from "@/features/ai/workflows/memory-store";
 import {
   claimRun,
@@ -10,6 +14,7 @@ import {
 } from "@/features/ai/workflows/runs";
 import { arDate } from "@/features/ai/workflows/schedule";
 import {
+  HeadlessTokenRejectedError,
   resolveHeadlessUser,
   runAsHeadlessUser,
 } from "@/lib/auth/headless-user";
@@ -23,6 +28,8 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 const NOTIFICATION_PREVIEW_CHARS = 200;
+
+const ALL_READS_FAILED = "Ninguna consulta devolvió datos.";
 
 /**
  * Runs one occurrence of a user's AI task as that user:
@@ -78,7 +85,7 @@ export const aiWorkflowRun = inngest.createFunction(
         await skipRun(runId, eligibility.reason, now);
         return { claimed: false, skipped: eligibility.reason };
       }
-      if ((await checkAiDailyCap()) !== "ok") {
+      if ((await checkAiDailyCap({ background: true })) !== "ok") {
         await skipRun(runId, "daily_cap", now);
         return { claimed: false, skipped: "daily_cap" };
       }
@@ -101,32 +108,48 @@ export const aiWorkflowRun = inngest.createFunction(
         run.workflow.id,
         run.previousRunId,
       );
-      const answer = await runAsHeadlessUser(user, () =>
-        runWorkflowAgent({
-          user,
-          runId,
-          workflow: run.workflow,
-          runDate: arDate(new Date(run.scheduledFor)),
-          memory,
-        }),
-      );
-      await recordAiUsage({
-        kind: "workflow_run",
-        userId: user.userId,
-        model: answer.model,
-        toolNames: answer.toolNames,
-        ...answer.usage,
-      });
-      const completed = await completeRun(runId, answer, new Date());
+      let answer: WorkflowAgentResult;
+      try {
+        answer = await runAsHeadlessUser(user, () =>
+          runWorkflowAgent({
+            user,
+            runId,
+            workflow: run.workflow,
+            runDate: arDate(new Date(run.scheduledFor)),
+            memory,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof HeadlessTokenRejectedError) {
+          await skipRun(runId, "headless_unavailable", new Date());
+          return null;
+        }
+        throw error;
+      }
+      // Usage is recorded only by the attempt whose compare-and-set saved
+      // the outcome (recordAiUsage never throws, so nothing after it retries
+      // the step): a retried step does not count twice.
+      const record = () =>
+        recordAiUsage({
+          kind: "workflow_run",
+          userId: user.userId,
+          model: answer.model,
+          toolNames: answer.toolNames,
+          ...answer.usage,
+        });
+      if (allReadsFailed(answer.reads)) {
+        if (await failRun(runId, ALL_READS_FAILED, new Date())) await record();
+        return null;
+      }
+      if (!(await completeRun(runId, answer, new Date()))) return null;
+      await record();
       // Ids and the task's own title only: figures stay in the database, out
       // of Inngest's step state and of the notification.
-      return completed
-        ? {
-            userId: user.userId,
-            workflowId: run.workflow.id,
-            title: run.workflow.title,
-          }
-        : null;
+      return {
+        userId: user.userId,
+        workflowId: run.workflow.id,
+        title: run.workflow.title,
+      };
     });
     if (!result) return { claimed: true, completed: false };
 

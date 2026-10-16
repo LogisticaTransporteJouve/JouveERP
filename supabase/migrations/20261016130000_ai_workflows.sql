@@ -58,6 +58,36 @@ create index ai_workflows_due_idx
 create index ai_workflows_user_idx
   on public.ai_workflows (user_id, created_at desc);
 
+-- At most 10 active tasks per user (MAX_ACTIVE_WORKFLOWS_PER_USER in
+-- features/ai/workflows/store.ts), checked when a row is created active or
+-- resumed. The per-user lock serializes concurrent creates and resumes, so two
+-- requests cannot both pass the count.
+create function public.ai_workflows_enforce_active_cap()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.is_active and (tg_op = 'INSERT' or not old.is_active) then
+    perform pg_advisory_xact_lock(hashtextextended('ai_workflows:' || new.user_id::text, 0));
+    if (
+      select count(*) from public.ai_workflows
+      where user_id = new.user_id and is_active and id <> new.id
+    ) >= 10 then
+      raise exception 'ai_workflows: active limit reached'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.ai_workflows_enforce_active_cap() from public, anon, authenticated;
+
+create trigger ai_workflows_enforce_active_cap
+  before insert or update of is_active on public.ai_workflows
+  for each row execute function public.ai_workflows_enforce_active_cap();
+
 create trigger ai_workflows_set_updated_at
   before update on public.ai_workflows
   for each row execute function public.set_updated_at();

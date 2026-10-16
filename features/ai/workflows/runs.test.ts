@@ -169,9 +169,42 @@ describe("materializeDueRuns", () => {
       skip_reason: "expired",
     });
     expect(expire && filterValue(expire, "eq", "status")).toBe("queued");
-    expect(expire && filterValue(expire, "lt", "scheduled_for")).toBe(
+    expect(expire && filterValue(expire, "lt", "created_at")).toBe(
       "2026-10-18T12:07:00.000Z",
     );
+  });
+
+  it("queues one catch-up run after an outage longer than the re-send window, and does not expire it", async () => {
+    const twoDaysLate = { ...due, next_run_at: "2026-10-17T11:00:00+00:00" };
+    const prior = respond;
+    respond = (call) =>
+      call.table === "ai_workflows" && call.op === "select"
+        ? { data: [twoDaysLate], error: null }
+        : prior(call);
+    const queued = await materializeDueRuns(NOW);
+    const upserts = fake.calls.filter((c) => c.op === "upsert");
+    expect(upserts).toHaveLength(1);
+    expect(Reflect.get(Object(upserts[0]?.payload), "scheduled_for")).toBe(
+      "2026-10-17T11:00:00.000Z",
+    );
+    // The sweep and the re-send both key on when a run was queued, so the
+    // run just queued for an old occurrence is sent, not expired.
+    const expire = fake.calls.find(
+      (c) => c.table === "ai_workflow_runs" && c.op === "update",
+    );
+    expect(
+      expire && filterValue(expire, "lt", "scheduled_for"),
+    ).toBeUndefined();
+    const resend = fake.calls.find(
+      (c) =>
+        c.table === "ai_workflow_runs" &&
+        c.op === "select" &&
+        filterValue(c, "eq", "status") === "queued",
+    );
+    expect(resend && filterValue(resend, "gte", "created_at")).toBe(
+      "2026-10-18T12:07:00.000Z",
+    );
+    expect(queued).toEqual([{ runId: "r1", userId: "u1" }]);
   });
 
   it("produces the same writes when a retried step runs it again", async () => {

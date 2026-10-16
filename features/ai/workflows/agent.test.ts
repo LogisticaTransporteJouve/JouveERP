@@ -27,6 +27,7 @@ vi.mock("./memory-store", () => ({ loadEarlierRunOutput }));
 
 const {
   OPEN_EARLIER_RUN_TOOL,
+  allReadsFailed,
   buildWorkflowTools,
   openEarlierRunTool,
   runWorkflowAgent,
@@ -147,6 +148,7 @@ describe("runWorkflowAgent", () => {
       output: "## Cobranzas\n3 clientes deben $ 1.000.",
       summary: "3 clientes, $ 1.000 abiertos.",
       toolNames: ["getClientAging"],
+      reads: { calls: 1, ok: 1 },
       model: "claude-sonnet-5-5",
     });
     expect(res.usage.inputTokens).toBe(2_000);
@@ -166,5 +168,13 @@ describe("runWorkflowAgent", () => {
     const prompt = JSON.stringify(model.doGenerateCalls[0]?.prompt);
     expect(prompt).toContain("Esta corrida es automática");
     expect(prompt).toContain(PREV);
+  });
+});
+
+describe("allReadsFailed", () => {
+  it("is true only when the run read something and nothing came back", () => {
+    expect(allReadsFailed({ calls: 2, ok: 0 })).toBe(true);
+    expect(allReadsFailed({ calls: 2, ok: 1 })).toBe(false);
+    expect(allReadsFailed({ calls: 0, ok: 0 })).toBe(false);
   });
 });

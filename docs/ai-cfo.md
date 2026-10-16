@@ -187,14 +187,19 @@ de acceso corto (HS256, 15 min, `role: authenticated`, `sub` = el usuario) firma
 usuario con los roles que su propio cliente lee: cada acción del registry conserva su `userCan` y RLS
 ve al usuario, igual que en el navegador. Antes de actuar, `resolveHeadlessUser` relee la cuenta
 (baneada, borrada, sin email) y los roles **en el momento de correr**; sin `ai:chat`, deshabilitado
-o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del proceso.
+o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del proceso. Antes del
+trabajo real se prueba el token con una lectura mínima: si PostgREST lo rechaza (401, `PGRST30x`,
+error JWT/JWS), la corrida o el resumen quedan `skipped` con `headless_unavailable`. **Depende del
+secreto JWT legacy (HS256):** rotarlo o revocarlo, o un proyecto que solo verifique claves
+asimétricas, deshabilita estos jobs hasta configurar el secreto vigente.
 
 **Tareas IA recurrentes** (`features/ai/workflows/`, migración
 `20261016130000_ai_workflows.sql`):
 
 - `ai_workflows`: pedido en lenguaje natural + horario (`daily | weekly | monthly`, hora en grilla de
   15 min, día ISO o día 1–28) en hora de Buenos Aires (UTC-3 fijo, sin horario de verano) y
-  `next_run_at`. Máximo 10 activas por usuario. Se crean desde la tarjeta `proposeAiWorkflow`
+  `next_run_at`. Máximo 10 activas por usuario, controlado por un trigger con lock por usuario al crear
+o reanudar (dos pedidos simultáneos no pueden pasar el tope). Se crean desde la tarjeta `proposeAiWorkflow`
   (`defineAiProposal`, permiso `ai:chat`: "todos los lunes resumime cobranzas vencidas") o desde el
   Dialog de **Tareas IA** (`/ai/tasks`); el mismo Zod (`AiWorkflowDraftSchema`) valida ambos.
 - `ai_workflow_runs`: una fila por ocurrencia, única por `(workflow_id, scheduled_for)`, con
@@ -206,13 +211,19 @@ o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del 
 - **Inngest:** `ai-workflows-materialize` (cada 15 min) toma las tareas vencidas, inserta la corrida
   (upsert que ignora duplicados), avanza `next_run_at` con compare-and-set (ocurrencias perdidas se
   juntan en una sola corrida) y manda un evento por corrida en cola con `id` = la corrida; cierra como
-  `expired` las que quedaron en cola más de 23 h. `ai-workflow-run` (idempotente por `run_id`,
-  concurrencia 3 y 1 por usuario): *claim* (tarea pausada, usuario sin acceso o tope diario →
+  `expired` las que llevan más de 23 h en cola (contadas desde que se encolaron, así la corrida de
+  recuperación después de una caída larga sí corre). `ai-workflow-run` (idempotente por `run_id`,
+  concurrencia 3 y 1 por usuario): *claim* (tarea pausada, usuario sin acceso o tope de fondo →
   `skipped` con motivo; si no, `queued → running`), *execute* (relee al usuario, corre el agente con
   `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas, artefactos ni
   `askQuestions`, auditando cada tool como `ai-agent`) y *notify* (notificación in-app
-  `ai_workflow_run`). El dueño sale de la fila, nunca del evento. El uso va a `ai_usage` como
-  `workflow_run` y cuenta para el tope diario.
+  `ai_workflow_run`). Si todas las consultas de la corrida fallaron, queda `failed` ("Ninguna
+  consulta devolvió datos.") y no se notifica. Un error transitorio de Auth al releer al usuario
+  reintenta en vez de marcarlo deshabilitado. El dueño sale de la fila, nunca del evento. El uso va
+  a `ai_usage` como `workflow_run` una sola vez, después del compare-and-set que guardó el resultado.
+- **Tope para jobs de fondo:** las tareas y el resumen semanal frenan al
+  `AI_BACKGROUND_CAP_FRACTION` (70%) del tope diario de tokens (`checkAiDailyCap({ background:
+  true })`), así el chat siempre conserva margen.
 - **Memoria:** la corrida guarda un `RESUMEN:` corto (última línea de la respuesta). La siguiente
   recibe `previous_run_id`, el resumen y el comienzo de la respuesta anterior, más un índice de hasta
   8 corridas previas (todo como dato, con `wrapUntrusted`); `openEarlierRun` abre una de esas, del
@@ -224,7 +235,7 @@ o sin el secreto configurado, no corre (falla cerrado). El token nunca sale del 
 con la alerta, sus cifras y los ids de los registros) e **Ignorar** (`ai:admin`, Dialog con motivo
 obligatorio). Ignorar guarda `dismissed_reason`, `dismissed_by` y `dismissed_at` en `ai_insights`;
 el `fingerprint` (tipo + hash de los registros) hace que el analyst no vuelva a crear ese mismo
-hallazgo. Las tarjetas agregadas (caja, cobranzas) no tienen fingerprint: ignorarlas oculta solo esa
+hallazgo (busca solo los fingerprints de esa corrida, por tandas). Las tarjetas agregadas (caja, cobranzas) no tienen fingerprint: ignorarlas oculta solo esa
 corrida. "Visto" sigue igual; descartar sin motivo ya no se puede.
 
 **Resumen semanal** (`features/ai/weekly/`): lunes 07:50 (AR) `ai-weekly-summary-fan-out` manda un
@@ -232,7 +243,7 @@ evento por usuario con `ai:chat` que entró en los últimos 30 días; `ai-weekly
 por usuario + semana) corre como ese usuario las lecturas fijas que su rol permite (caja, cobrar,
 pagar, vencimientos a 14 días, ventas y margen de flota de la semana, sueldos del mes anterior,
 documentos por vencer) y una sola llamada al modelo, sin tools, redacta el resumen sobre esos
-resúmenes calculados (nunca filas). Respeta `checkAiDailyCap`, se guarda en `ai_weekly_summaries`
+resúmenes calculados (nunca filas). Respeta el tope de fondo, se guarda en `ai_weekly_summaries`
 (uno por usuario y semana) y se muestra arriba de los insights del dashboard.
 
 **Evals** (`features/ai/evals/`): `routing-cases.ts` tiene preguntas en es-AR con la tool y los
@@ -244,8 +255,9 @@ schema y el gate, y que llegue al server action con esos argumentos. `pnpm eval:
 `routing.live.test.ts` contra el modelo real (requiere `ANTHROPIC_API_KEY`; las tools devuelven un
 stub, no tocan la base).
 
-**Límites.** Sin `SUPABASE_JWT_SECRET` las tareas y el resumen semanal se saltean (`headless_unavailable`).
-Si una corrida falla a mitad del modelo, el uso de esa corrida no queda registrado. Las respuestas
+**Límites.** Sin `SUPABASE_JWT_SECRET` (o con el secreto legacy rotado) las tareas y el resumen
+semanal se saltean (`headless_unavailable`). Si una corrida falla a mitad del modelo o se reintenta,
+el uso del intento que no guardó resultado no queda registrado. Las respuestas
 de las corridas no se exportan ni generan propuestas (solo lectura). La precisión por detector
 (cuántas alertas se ignoran por tipo) todavía no se mide, ni hay plantillas de flujos (cierre
 mensual, posición IVA, conciliación) ni evals de cifras o de rechazo de recomendaciones.

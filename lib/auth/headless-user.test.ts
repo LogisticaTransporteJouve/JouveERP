@@ -16,8 +16,30 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-const { headlessEligibility, resolveHeadlessUser, runAsHeadlessUser } =
-  await import("./headless-user");
+let probe: { error: unknown; status: number } = { error: null, status: 200 };
+const probeCalls: string[] = [];
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({
+    from: (table: string) => {
+      probeCalls.push(table);
+      const b = {
+        select: () => b,
+        eq: () => b,
+        then: <T>(resolve: (v: typeof probe) => T) =>
+          Promise.resolve(resolve(probe)),
+      };
+      return b;
+    },
+  }),
+}));
+
+const {
+  HeadlessTokenRejectedError,
+  headlessEligibility,
+  isTokenRejection,
+  resolveHeadlessUser,
+  runAsHeadlessUser,
+} = await import("./headless-user");
 const { getActingUser } = await import("./acting-user");
 
 const NOW = new Date("2026-10-19T11:00:00Z");
@@ -106,20 +128,68 @@ describe("resolveHeadlessUser", () => {
     expect(roles && filterValue(roles, "eq", "user_id")).toBe("u1");
   });
 
-  it("treats an auth lookup error as a disabled user", async () => {
+  it("treats a definitive not-found as a disabled user", async () => {
     roleRows = [{ role_id: "owner" }];
     getUserById.mockResolvedValue({
       data: { user: null },
-      error: { message: "not found" },
+      error: { status: 404, code: "user_not_found", message: "User not found" },
     });
     expect(await resolveHeadlessUser("u1", "ai:chat", NOW)).toEqual({
       ok: false,
       reason: "user_disabled",
     });
   });
+
+  it("throws on a transient Auth error so the job retries", async () => {
+    roleRows = [{ role_id: "owner" }];
+    for (const error of [
+      { status: 503, message: "upstream" },
+      { status: 0, message: "fetch failed" },
+    ]) {
+      getUserById.mockResolvedValueOnce({ data: { user: null }, error });
+      await expect(resolveHeadlessUser("u1", "ai:chat", NOW)).rejects.toBe(
+        error,
+      );
+    }
+  });
+});
+
+describe("isTokenRejection", () => {
+  it("recognizes PostgREST refusing the token", () => {
+    expect(isTokenRejection(401, null)).toBe(true);
+    expect(isTokenRejection(400, { code: "PGRST301", message: "x" })).toBe(
+      true,
+    );
+    expect(
+      isTokenRejection(500, { message: "JWSError JWSInvalidSignature" }),
+    ).toBe(true);
+    expect(isTokenRejection(500, { code: "57014", message: "timeout" })).toBe(
+      false,
+    );
+    expect(isTokenRejection(200, null)).toBe(false);
+  });
 });
 
 describe("runAsHeadlessUser", () => {
+  beforeEach(() => {
+    probe = { error: null, status: 200 };
+    probeCalls.length = 0;
+  });
+
+  it("refuses before running anything when the minted token is rejected", async () => {
+    vi.stubEnv("SUPABASE_JWT_SECRET", "s".repeat(40));
+    probe = {
+      error: { code: "PGRST301", message: "JWT invalid" },
+      status: 401,
+    };
+    const fn = vi.fn(async () => 1);
+    await expect(
+      runAsHeadlessUser({ userId: "u1", email: "a@b.c", roles: [] }, fn),
+    ).rejects.toBeInstanceOf(HeadlessTokenRejectedError);
+    expect(fn).not.toHaveBeenCalled();
+    expect(probeCalls).toEqual(["user_roles"]);
+  });
+
   it("runs the callback as the user with a minted token", async () => {
     vi.stubEnv("SUPABASE_JWT_SECRET", "s".repeat(40));
     const acting = await runAsHeadlessUser(

@@ -234,7 +234,8 @@ function RunItem({ run }: { run: AiWorkflowRunRow }) {
     status === "skipped"
       ? (SKIP_REASON_LABEL[run.skipReason ?? ""] ?? run.skipReason)
       : status === "failed"
-        ? "No se pudo completar. La próxima corrida lo vuelve a intentar."
+        ? (run.error ??
+          "No se pudo completar. La próxima corrida lo vuelve a intentar.")
         : run.summary;
   return (
     <li className="space-y-2 p-3">

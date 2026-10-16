@@ -13,8 +13,8 @@ import { scheduleOf } from "./store";
 /** Workflows claimed per cron pass; the rest wait for the next pass. */
 export const MATERIALIZE_BATCH = 200;
 
-/** Queued runs older than this are not re-sent (Inngest dedupes event ids
- *  for 24 hours). */
+/** Runs queued longer ago than this are not re-sent (Inngest dedupes event
+ *  ids for 24 hours). */
 const RESEND_WINDOW_MS = 23 * 60 * 60 * 1000;
 
 export type DueWorkflow = {
@@ -107,7 +107,9 @@ export async function materializeDueRuns(now: Date): Promise<QueuedRun[]> {
   }
 
   // A run still queued past the dedupe window can no longer be re-sent
-  // safely: close it so it does not sit queued forever.
+  // safely: close it so it does not sit queued forever. Measured from when
+  // the run was queued, not from its occurrence, so the catch-up run of a
+  // long outage (an old scheduled_for, queued just now) still runs.
   const resendFrom = new Date(now.getTime() - RESEND_WINDOW_MS).toISOString();
   const { error: expireError } = await service
     .from("ai_workflow_runs")
@@ -117,14 +119,14 @@ export async function materializeDueRuns(now: Date): Promise<QueuedRun[]> {
       finished_at: now.toISOString(),
     })
     .eq("status", "queued")
-    .lt("scheduled_for", resendFrom);
+    .lt("created_at", resendFrom);
   if (expireError) throw expireError;
 
   const { data: queued, error: queuedError } = await service
     .from("ai_workflow_runs")
     .select("id, user_id")
     .eq("status", "queued")
-    .gte("scheduled_for", resendFrom)
+    .gte("created_at", resendFrom)
     .order("scheduled_for", { ascending: true })
     .limit(MATERIALIZE_BATCH);
   if (queuedError) throw queuedError;

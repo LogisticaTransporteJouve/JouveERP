@@ -59,16 +59,37 @@ describe("workflow store", () => {
     });
   });
 
-  it("caps active tasks per user", async () => {
-    respond = () => ({
-      data: null,
-      error: null,
-      count: MAX_ACTIVE_WORKFLOWS_PER_USER,
-    });
+  it("maps the trigger's active-cap refusal on create and on resume", async () => {
+    const capError = {
+      code: "23514",
+      message: "ai_workflows: active limit reached",
+    };
+    respond = (call) =>
+      call.op === "select" && call.table === "ai_workflows" && !call.payload
+        ? {
+            data: {
+              cadence: "daily",
+              run_hour: 9,
+              run_minute: 30,
+              weekday: null,
+              month_day: null,
+            },
+            error: null,
+          }
+        : { data: null, error: capError };
     await expect(createWorkflow("u1", draft, NOW)).rejects.toBeInstanceOf(
       WorkflowLimitError,
     );
-    expect(fake.calls.some((c) => c.op === "insert")).toBe(false);
+    await expect(
+      setWorkflowActive("u1", "w1", true, NOW),
+    ).rejects.toBeInstanceOf(WorkflowLimitError);
+    expect(MAX_ACTIVE_WORKFLOWS_PER_USER).toBe(10);
+  });
+
+  it("passes other database errors through", async () => {
+    const other = { code: "23514", message: "ai_workflows_schedule_shape" };
+    respond = () => ({ data: null, error: other });
+    await expect(createWorkflow("u1", draft, NOW)).rejects.toBe(other);
   });
 
   it("filters every read and write by the owner", async () => {

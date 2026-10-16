@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { gatherAnomalies } from "./anomalies/gather";
@@ -174,19 +175,26 @@ export async function regenerateInsights(today: string): Promise<number> {
   const computed = await buildInsights(today);
   const service = getServiceClient();
 
-  const { data: dismissed, error: dismissedError } = await service
-    .from("ai_insights")
-    .select("fingerprint")
-    .eq("status", "dismissed")
-    .not("fingerprint", "is", null);
-  if (dismissedError) {
-    logger.error("ai.insights.dismissed.failed", { error: dismissedError });
-    throw dismissedError;
+  // Only the fingerprints this run produced, in URL-safe chunks: a growing
+  // pile of ignored findings is never read whole (PostgREST caps responses).
+  const candidates = computed
+    .map((row) => insightFingerprint(row.kind, row.source_refs))
+    .filter((f): f is string => f !== null);
+  const dismissed = await fetchInChunks(candidates, (chunk) =>
+    service
+      .from("ai_insights")
+      .select("fingerprint")
+      .eq("status", "dismissed")
+      .in("fingerprint", chunk),
+  );
+  if (dismissed.error) {
+    logger.error("ai.insights.dismissed.failed", { error: dismissed.error });
+    throw new Error(dismissed.error.message);
   }
   const rows = withoutIgnored(
     computed,
     new Set(
-      (dismissed ?? [])
+      dismissed.data
         .map((r) => r.fingerprint)
         .filter((f): f is string => f !== null),
     ),

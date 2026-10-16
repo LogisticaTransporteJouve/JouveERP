@@ -41,9 +41,25 @@ export type WorkflowAgentResult = {
   output: string;
   summary: string;
   toolNames: string[];
+  /** Tool calls made, and how many returned data (`ok: true`). */
+  reads: { calls: number; ok: number };
   usage: AiUsageTokens;
   model: string;
 };
+
+function isOkResult(output: unknown): boolean {
+  return (
+    typeof output === "object" &&
+    output !== null &&
+    Reflect.get(output, "ok") === true
+  );
+}
+
+/** True when the run tried to read and every read failed: its answer can
+ *  only say so, and must not be reported as a finished result. */
+export function allReadsFailed(reads: { calls: number; ok: number }): boolean {
+  return reads.calls > 0 && reads.ok === 0;
+}
 
 /** Reads an earlier run of the same task, only among the runs the memory
  *  block listed (owner and workflow are fixed by the caller, not the model). */
@@ -152,11 +168,18 @@ export async function runWorkflowAgent(
   const toolNames = Array.from(
     new Set(result.steps.flatMap((s) => s.toolCalls.map((c) => c.toolName))),
   );
+  const reads = {
+    calls: result.steps.reduce((n, s) => n + s.toolCalls.length, 0),
+    ok: result.steps
+      .flatMap((s) => s.toolResults)
+      .filter((r) => isOkResult(r.output)).length,
+  };
   const { output, summary } = splitRunOutput(result.text);
   return {
     output: output || "La corrida no devolvió texto.",
     summary,
     toolNames,
+    reads,
     usage: usageTokens(result.totalUsage),
     model: servedModel(),
   };

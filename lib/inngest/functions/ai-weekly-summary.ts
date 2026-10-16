@@ -3,9 +3,11 @@ import {
   generateWeeklySummary,
   listWeeklySummaryRecipients,
   saveWeeklySummary,
+  type WeeklySummaryDraft,
 } from "@/features/ai/weekly/generate";
 import { arWeekStart } from "@/features/ai/workflows/schedule";
 import {
+  HeadlessTokenRejectedError,
   resolveHeadlessUser,
   runAsHeadlessUser,
 } from "@/lib/auth/headless-user";
@@ -81,7 +83,7 @@ export const aiWeeklySummary = inngest.createFunction(
         });
         return { skipped: eligibility.reason };
       }
-      if ((await checkAiDailyCap()) !== "ok") {
+      if ((await checkAiDailyCap({ background: true })) !== "ok") {
         logger.warn("ai.weekly_summary.skipped", {
           userId,
           reason: "daily_cap",
@@ -89,17 +91,31 @@ export const aiWeeklySummary = inngest.createFunction(
         return { skipped: "daily_cap" };
       }
       const user = eligibility.user;
-      const draft = await runAsHeadlessUser(user, () =>
-        generateWeeklySummary(user, weekStart, now),
-      );
+      let draft: WeeklySummaryDraft | null;
+      try {
+        draft = await runAsHeadlessUser(user, () =>
+          generateWeeklySummary(user, weekStart, now),
+        );
+      } catch (error) {
+        if (error instanceof HeadlessTokenRejectedError) {
+          logger.warn("ai.weekly_summary.skipped", {
+            userId,
+            reason: "headless_unavailable",
+          });
+          return { skipped: "headless_unavailable" };
+        }
+        throw error;
+      }
       if (!draft) return { skipped: "no_data" };
+      await saveWeeklySummary(userId, weekStart, draft);
+      // After the save: nothing after it can fail and retry the step, so the
+      // week's usage is recorded once.
       await recordAiUsage({
         kind: "weekly_summary",
         userId,
         model: draft.model,
         ...draft.usage,
       });
-      await saveWeeklySummary(userId, weekStart, draft);
       return { saved: true };
     });
   },

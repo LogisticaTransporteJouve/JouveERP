@@ -93,6 +93,9 @@ export async function setAiWorkflowActiveAction(
     );
     return { ok: true, data: undefined };
   } catch (error) {
+    if (error instanceof WorkflowLimitError) {
+      return { ok: false, error: error.message };
+    }
     logger.error("ai.workflows.set_active_failed", {
       userId: ctx.userId,
       error,

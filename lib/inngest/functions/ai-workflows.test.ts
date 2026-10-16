@@ -19,7 +19,9 @@ const loadRunMemory = vi.fn(async () => null);
 const insert = vi.fn(async () => ({ error: null }));
 
 vi.mock("@/features/ai/workflows/runs", () => runs);
+class HeadlessTokenRejectedError extends Error {}
 vi.mock("@/lib/auth/headless-user", () => ({
+  HeadlessTokenRejectedError,
   resolveHeadlessUser,
   runAsHeadlessUser,
 }));
@@ -27,7 +29,18 @@ vi.mock("@/features/ai/lib/chat-store", () => ({
   checkAiDailyCap,
   recordAiUsage,
 }));
-vi.mock("@/features/ai/workflows/agent", () => ({ runWorkflowAgent }));
+vi.mock("@/features/ai/workflows/agent", () => ({
+  allReadsFailed: (r: { calls: number; ok: number }) =>
+    r.calls > 0 && r.ok === 0,
+  runWorkflowAgent,
+}));
+const generateWeeklySummary = vi.fn();
+const saveWeeklySummary = vi.fn(async () => undefined);
+vi.mock("@/features/ai/weekly/generate", () => ({
+  generateWeeklySummary,
+  saveWeeklySummary,
+  listWeeklySummaryRecipients: vi.fn(),
+}));
 vi.mock("@/features/ai/workflows/memory-store", () => ({ loadRunMemory }));
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({ from: () => ({ insert }) }),
@@ -35,6 +48,7 @@ vi.mock("@/lib/supabase/service", () => ({
 
 const { aiWorkflowRun } = await import("./ai-workflow-run");
 const { aiWorkflowsMaterialize } = await import("./ai-workflows-materialize");
+const { aiWeeklySummary } = await import("./ai-weekly-summary");
 
 const RUN = "3f0c9a9e-5a51-4c55-9b0e-0b7d1c1c2a10";
 const USER = "8b5d3c7e-1f2a-4b3c-9d4e-5f6a7b8c9d0e";
@@ -92,12 +106,13 @@ describe("ai-workflow-run", () => {
     expect(runWorkflowAgent).not.toHaveBeenCalled();
   });
 
-  it("skips when the daily AI cap is reached or cannot be checked", async () => {
+  it("skips at the background share of the daily AI cap or when it cannot be checked", async () => {
     for (const cap of ["exceeded", "unavailable"]) {
       checkAiDailyCap.mockResolvedValueOnce(cap);
       const res = await invoke(aiWorkflowRun, { run_id: RUN, user_id: USER });
       expect(res).toMatchObject({ skipped: "daily_cap" });
     }
+    expect(checkAiDailyCap).toHaveBeenCalledWith({ background: true });
     expect(runWorkflowAgent).not.toHaveBeenCalled();
   });
 
@@ -124,6 +139,7 @@ describe("ai-workflow-run", () => {
       output: "o",
       summary: "s",
       toolNames: ["getClientAging"],
+      reads: { calls: 1, ok: 1 },
       usage: {
         inputTokens: 1,
         outputTokens: 1,
@@ -178,6 +194,98 @@ describe("ai-workflow-run", () => {
     );
     expect(runWorkflowAgent).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("ai-workflow-run outcomes", () => {
+  const answer = (reads: { calls: number; ok: number }) => ({
+    output: "o",
+    summary: "s",
+    toolNames: [],
+    reads,
+    usage: {
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    model: "m",
+  });
+
+  beforeEach(() => {
+    runs.loadRun
+      .mockResolvedValueOnce(queuedRun)
+      .mockResolvedValueOnce({ ...queuedRun, status: "running" });
+  });
+
+  it("fails, without the 'ready' notification, a run whose every read failed", async () => {
+    runWorkflowAgent.mockResolvedValue(answer({ calls: 3, ok: 0 }));
+    const res = await invoke(aiWorkflowRun, { run_id: RUN, user_id: USER });
+    expect(res).toEqual({ claimed: true, completed: false });
+    expect(runs.failRun).toHaveBeenCalledWith(
+      RUN,
+      "Ninguna consulta devolvió datos.",
+      expect.any(Date),
+    );
+    expect(runs.completeRun).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    expect(recordAiUsage).toHaveBeenCalledOnce();
+  });
+
+  it("skips as headless_unavailable when PostgREST rejects the minted token", async () => {
+    runAsHeadlessUser.mockRejectedValueOnce(new HeadlessTokenRejectedError());
+    const res = await invoke(aiWorkflowRun, { run_id: RUN, user_id: USER });
+    expect(res).toEqual({ claimed: true, completed: false });
+    expect(runs.skipRun).toHaveBeenCalledWith(
+      RUN,
+      "headless_unavailable",
+      expect.any(Date),
+    );
+    expect(recordAiUsage).not.toHaveBeenCalled();
+  });
+
+  it("records usage only after its own compare-and-set saved the result", async () => {
+    runWorkflowAgent.mockResolvedValue(answer({ calls: 1, ok: 1 }));
+    runs.completeRun.mockResolvedValueOnce(false);
+    await invoke(aiWorkflowRun, { run_id: RUN, user_id: USER });
+    expect(recordAiUsage).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("ai-weekly-summary", () => {
+  const data = { user_id: USER, week_start: "2026-10-19" };
+
+  it("skips as headless_unavailable when the token is rejected", async () => {
+    runAsHeadlessUser.mockRejectedValueOnce(new HeadlessTokenRejectedError());
+    expect(await invoke(aiWeeklySummary, data)).toEqual({
+      skipped: "headless_unavailable",
+    });
+    expect(saveWeeklySummary).not.toHaveBeenCalled();
+  });
+
+  it("uses the background cap and records usage after saving", async () => {
+    const order: string[] = [];
+    generateWeeklySummary.mockResolvedValue({
+      content: "c",
+      sources: [],
+      usage: {
+        inputTokens: 1,
+        outputTokens: 1,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
+      model: "m",
+    });
+    saveWeeklySummary.mockImplementationOnce(async () => {
+      order.push("save");
+    });
+    recordAiUsage.mockImplementationOnce(async () => {
+      order.push("usage");
+    });
+    expect(await invoke(aiWeeklySummary, data)).toEqual({ saved: true });
+    expect(checkAiDailyCap).toHaveBeenCalledWith({ background: true });
+    expect(order).toEqual(["save", "usage"]);
   });
 });
 

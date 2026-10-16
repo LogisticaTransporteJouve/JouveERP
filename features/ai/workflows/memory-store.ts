@@ -36,9 +36,10 @@ export async function loadRunMemory(
   if (error) throw error;
   if (!previous) return null;
 
+  // Older runs are listed by summary only; openEarlierRun reads an answer.
   const { data: earlier, error: earlierError } = await service
     .from("ai_workflow_runs")
-    .select(MEMORY_COLUMNS)
+    .select("id, scheduled_for, summary")
     .eq("workflow_id", workflowId)
     .eq("user_id", userId)
     .eq("status", "succeeded")
@@ -51,12 +52,12 @@ export async function loadRunMemory(
     id: string;
     scheduled_for: string;
     summary: string | null;
-    output: string | null;
+    output?: string | null;
   }): RememberedRun => ({
     id: r.id,
     scheduledFor: r.scheduled_for,
     summary: r.summary,
-    output: r.output,
+    output: r.output ?? null,
   });
   return renderRunMemory(
     toRemembered(previous),
