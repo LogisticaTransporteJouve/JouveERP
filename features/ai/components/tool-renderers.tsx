@@ -4,6 +4,15 @@ import { Table2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import {
+  isIdKey,
+  isRecord,
+  MONEY_KEY,
+  prettifyKey,
+  resolveRows,
+  type DataRow,
+} from "../artifacts/rows";
+
 /** Friendly label per tool name, for both the running state and the artifact. */
 const TOOL_LABELS: Record<string, string> = {
   getClientAging: "Aging de clientes",
@@ -73,14 +82,14 @@ const TOOL_LABELS: Record<string, string> = {
   proposeJournalEntry: "Propuesta de asiento",
   proposeExchangeRate: "Propuesta de cotización",
   askQuestions: "Preguntas",
+  renderChart: "Gráfico",
+  renderTable: "Tabla",
 };
 
 export function toolLabel(name: string): string {
   return TOOL_LABELS[name] ?? "datos";
 }
 
-const MONEY_KEY =
-  /total|saldo|importe|imp_|amount|monto|neto|iva|debe|haber|debit|credit|balance|running|bucket|open/i;
 const MAX_ROWS = 8;
 const MAX_COLS = 5;
 
@@ -201,36 +210,7 @@ const COLUMN_HINTS: Record<string, Col[]> = {
   ],
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Pull a row array out of a tool's `data`: either the array itself, or the
- *  first array-of-objects property (e.g. `clients`, `items`, `rows`). */
-function resolveRows(data: unknown): Record<string, unknown>[] | null {
-  if (Array.isArray(data)) {
-    const rows = data.filter(isRecord);
-    return rows.length ? rows : null;
-  }
-  if (isRecord(data)) {
-    for (const value of Object.values(data)) {
-      if (Array.isArray(value)) {
-        const rows = value.filter(isRecord);
-        if (rows.length) return rows;
-      }
-    }
-  }
-  return null;
-}
-
-function prettifyKey(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function deriveColumns(
-  toolName: string,
-  rows: Record<string, unknown>[],
-): Col[] {
+function deriveColumns(toolName: string, rows: DataRow[]): Col[] {
   const first = rows[0] ?? {};
   const hinted = COLUMN_HINTS[toolName];
   if (hinted) {
@@ -238,7 +218,7 @@ function deriveColumns(
     if (present.length) return present.slice(0, MAX_COLS);
   }
   return Object.keys(first)
-    .filter((k) => !/_id$|^id$/i.test(k))
+    .filter((k) => !isIdKey(k))
     .slice(0, MAX_COLS)
     .map((k) => ({ key: k, label: prettifyKey(k) }));
 }

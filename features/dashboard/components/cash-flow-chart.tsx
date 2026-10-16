@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { barPath, niceStep } from "@/lib/chart-geometry";
 import { formatMoney } from "@/lib/format";
 
 import type { CashFlowChartData, CashFlowChartMonth } from "../schema";
 
 const MAX_BAR_W = 28;
-const END_RADIUS = 4;
 const PAD_R = 8;
 const PAD_T = 14;
 const PAD_B = 26;
@@ -46,47 +46,6 @@ const compactArs = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 1,
 });
 
-function niceStep(rough: number): number {
-  const pow = 10 ** Math.floor(Math.log10(rough));
-  const unit = rough / pow;
-  if (unit <= 1) return pow;
-  if (unit <= 2) return 2 * pow;
-  if (unit <= 5) return 5 * pow;
-  return 10 * pow;
-}
-
-/** Bar anchored at the zero baseline, rounded only at the data end. */
-function barPath(
-  x: number,
-  yTop: number,
-  w: number,
-  h: number,
-  roundTop: boolean,
-): string {
-  const r = Math.min(END_RADIUS, w / 2, h);
-  if (h <= 0) return "";
-  if (roundTop) {
-    return [
-      `M ${x} ${yTop + h}`,
-      `V ${yTop + r}`,
-      `Q ${x} ${yTop} ${x + r} ${yTop}`,
-      `H ${x + w - r}`,
-      `Q ${x + w} ${yTop} ${x + w} ${yTop + r}`,
-      `V ${yTop + h}`,
-      "Z",
-    ].join(" ");
-  }
-  return [
-    `M ${x} ${yTop}`,
-    `V ${yTop + h - r}`,
-    `Q ${x} ${yTop + h} ${x + r} ${yTop + h}`,
-    `H ${x + w - r}`,
-    `Q ${x + w} ${yTop + h} ${x + w} ${yTop + h - r}`,
-    `V ${yTop}`,
-    "Z",
-  ].join(" ");
-}
-
 export function CashFlowChart({ data }: { data: CashFlowChartData }) {
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -114,8 +73,8 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
         <div>
           <h2 className="text-sm font-medium">Flujo de caja</h2>
           <p className="text-xs text-muted-foreground">
-            Neto mensual en ARS{data.usdRate !== null ? " (USD al TC oficial)" : ""} ·
-            saldo hoy{" "}
+            Neto mensual en ARS
+            {data.usdRate !== null ? " (USD al TC oficial)" : ""} · saldo hoy{" "}
             <span className="font-mono">{formatMoney(data.cashToday)}</span>
           </p>
         </div>
@@ -172,7 +131,8 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
           <FloatingTooltip
             month={data.months[hovered]}
             leftPct={
-              ((56 + (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
+              ((56 +
+                (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
                 720) *
               100
             }
@@ -226,8 +186,9 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
       {data.deficitMonth && (
         <div className="flex items-center gap-2 border-t p-3 text-xs text-destructive">
           <AlertTriangle className="size-4 shrink-0" />
-          Proyección en negativo desde {monthLabel(data.deficitMonth)} (mínimo{" "}
-          {formatMoney(data.lowestClosing ?? 0)}).
+          Proyección en negativo desde {monthLabel(
+            data.deficitMonth,
+          )} (mínimo {formatMoney(data.lowestClosing ?? 0)}).
         </div>
       )}
     </section>
@@ -358,7 +319,7 @@ function ChartSvg({
           <g key={m.month}>
             {h >= 0.5 && (
               <path
-                d={barPath(x, yTop, barW, h, m.net >= 0)}
+                d={barPath(x, yTop, barW, h, m.net >= 0 ? "top" : "bottom")}
                 fill={m.realized ? "currentColor" : `url(#${hatchId})`}
                 fillOpacity={m.realized ? (isActive ? 0.9 : 0.7) : 1}
                 stroke={m.realized ? "none" : "currentColor"}
