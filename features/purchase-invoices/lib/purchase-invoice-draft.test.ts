@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  documentTotalGap,
   draftToFormPatch,
   totalsGap,
   type PurchaseInvoiceDraftData,
@@ -10,6 +11,7 @@ const EMPTY: PurchaseInvoiceDraftData = {
   supplier: null,
   unmatchedSupplier: null,
   kind: "factura",
+  kind_read: false,
   letter: null,
   punto_venta: null,
   numero: null,
@@ -45,7 +47,7 @@ describe("draftToFormPatch", () => {
       with_items: false,
       items: [],
     });
-    expect(filled).toEqual(["kind", "moneda"]);
+    expect(filled).toEqual(["moneda"]);
   });
 
   it("fills and marks the fields read from the document", () => {
@@ -59,6 +61,8 @@ describe("draftToFormPatch", () => {
           cuit: "30712345678",
           iva_condition: "responsable_inscripto",
         },
+        kind: "nc",
+        kind_read: true,
         letter: "B",
         punto_venta: 4,
         numero: 99,
@@ -112,7 +116,17 @@ describe("draftToFormPatch", () => {
         "items",
       ]),
     );
+    expect(filled).toContain("kind");
     expect(filled).not.toContain("fch_vto_pago");
+  });
+
+  it("leaves the rate empty for a foreign-currency draft without one", () => {
+    const { patch, filled } = draftToFormPatch(
+      { ...EMPTY, moneda: "DOL" },
+      { fecha: "2026-10-16" },
+    );
+    expect(patch.cotizacion).toBe("");
+    expect(filled).not.toContain("cotizacion");
   });
 });
 
@@ -138,5 +152,13 @@ describe("totalsGap", () => {
   it("skips an empty or zero total", () => {
     expect(totalsGap({ ...base, imp_total: "" })).toBeNull();
     expect(totalsGap({ ...base, imp_total: "0" })).toBeNull();
+  });
+});
+
+describe("documentTotalGap", () => {
+  it("compares the computed total with the printed one", () => {
+    expect(documentTotalGap(1240, 1240)).toBeNull();
+    expect(documentTotalGap(1240, 1210)).toBe(30);
+    expect(documentTotalGap(null, 1210)).toBeNull();
   });
 });

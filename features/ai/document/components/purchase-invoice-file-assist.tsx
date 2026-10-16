@@ -177,7 +177,9 @@ function ScanToPurchaseInvoiceDraft({
         message={
           result.state === "unsupported"
             ? "El archivo no parece una factura de compra."
-            : "No se pudo leer el archivo. Cargá la factura a mano o probá con otra foto."
+            : result.state === "closed"
+              ? "Este documento ya fue procesado o descartado."
+              : "No se pudo leer el archivo. Cargá la factura a mano o probá con otra foto."
         }
         action="Probar con otro archivo"
         onAction={reset}

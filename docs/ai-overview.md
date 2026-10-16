@@ -411,7 +411,8 @@ Flujo: subir/sacar foto → spinner "Leyendo documento…" → el formulario abi
 
 Implementado para **facturas de compra** ("Completar desde archivo" en Cargar
 factura de compra, en `/purchases` y en la cuenta del proveedor): el archivo se
-escanea con tipo declarado, el formulario se llena desde el borrador
+escanea con tipo declarado (igual se clasifica: su confianza es la que se
+muestra y, si es claramente otro documento, se avisa), el formulario se llena desde el borrador
 (`getPurchaseInvoiceDraftAction`), los campos leídos llevan la marca "Completado
 por IA" hasta que se editan, y al guardar se crea la factura con
 `createPurchaseInvoiceAction`, se **adjunta el archivo** y se confirma la

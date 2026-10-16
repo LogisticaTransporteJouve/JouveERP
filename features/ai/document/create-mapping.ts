@@ -46,11 +46,21 @@ function positiveInt(value: number | null | undefined): number | null {
     : null;
 }
 
+/** Amounts are stored positive; some NC print them negative. */
 function amount(value: number | null | undefined): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? round(value, 2)
+  return typeof value === "number" && Number.isFinite(value)
+    ? round(Math.abs(value), 2)
     : null;
 }
+
+const KIND_FROM_DOCUMENT: Record<
+  NonNullable<InvoiceExtraction["kind"]>,
+  PurchaseInvoiceKind
+> = {
+  invoice: "factura",
+  credit_note: "nc",
+  debit_note: "nd",
+};
 
 /** Below this classification confidence the whole reading is flagged. */
 const LOW_CONFIDENCE = 0.8;
@@ -60,29 +70,31 @@ const AMOUNT_TOLERANCE = 0.05;
 /**
  * Maps the extracted lines to the purchase form's items (quantity × unit price
  * + alícuota). All-or-nothing: if any line lacks a usable price or rate, the
- * draft keeps only the header totals.
+ * draft keeps only the header totals. A factura C discriminates no IVA, so its
+ * lines carry no alícuota.
  */
 function draftItems(
   items: InvoiceExtraction["items"],
+  withoutIva: boolean,
 ): PurchaseInvoiceDraftItem[] | null {
   const out: PurchaseInvoiceDraftItem[] = [];
   for (const item of items) {
     const description = item.description.trim();
     const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
-    const neto = item.net_amount ?? null;
+    const neto = amount(item.net_amount);
     // The neto already carries any discount, so price = neto / qty keeps
     // quantity × price equal to the printed line.
     const unitPrice =
-      neto !== null ? round(neto / quantity, 4) : (item.unit_price ?? null);
-    const ivaAmount = item.iva_amount ?? null;
-    const rateId =
-      alicuotaToRateId(item.iva_rate) ??
-      (ivaAmount !== null ? inferRateId(neto, ivaAmount) : null);
+      neto !== null ? round(neto / quantity, 4) : amount(item.unit_price);
+    const ivaAmount = amount(item.iva_amount);
+    const rateId = withoutIva
+      ? null
+      : (alicuotaToRateId(item.iva_rate) ??
+        (ivaAmount !== null ? inferRateId(neto, ivaAmount) : null));
     if (
       !description ||
       unitPrice === null ||
-      unitPrice < 0 ||
-      rateId === null
+      (!withoutIva && rateId === null)
     ) {
       return null;
     }
@@ -122,7 +134,8 @@ function itemsTotals(items: PurchaseInvoiceDraftItem[]): {
 export function buildPurchaseInvoiceDraft(
   payload: unknown,
   opts: {
-    kind: PurchaseInvoiceKind;
+    /** Used when the document does not print its type. */
+    fallbackKind: PurchaseInvoiceKind;
     supplier: PurchaseInvoiceDraftSupplier | null;
     account: { id: string; label: string } | null;
     costCenterId: string | null;
@@ -136,6 +149,7 @@ export function buildPurchaseInvoiceDraft(
   if (!parsed.success) return null;
   const inv = parsed.data;
   const warnings: string[] = [];
+  const kind = inv.kind ? KIND_FROM_DOCUMENT[inv.kind] : opts.fallbackKind;
 
   if (opts.confidence !== null && opts.confidence < LOW_CONFIDENCE) {
     warnings.push(
@@ -146,7 +160,8 @@ export function buildPurchaseInvoiceDraft(
     warnings.push("Este comprobante parece estar ya cargado.");
   }
 
-  const mapped = inv.items.length > 0 ? draftItems(inv.items) : [];
+  const mapped =
+    inv.items.length > 0 ? draftItems(inv.items, inv.letter === "C") : [];
   const items = mapped ?? [];
   if (mapped === null) {
     warnings.push(
@@ -207,7 +222,8 @@ export function buildPurchaseInvoiceDraft(
       (counterparty.legal_name !== null || counterparty.cuit !== null)
         ? counterparty
         : null,
-    kind: opts.kind,
+    kind,
+    kind_read: inv.kind != null,
     letter: inv.letter ?? null,
     punto_venta: puntoVenta,
     numero,
@@ -221,7 +237,7 @@ export function buildPurchaseInvoiceDraft(
     imp_total: total,
     moneda,
     cotizacion: moneda === "DOL" ? opts.usdRate : null,
-    motivo_nc_nd: opts.kind === "factura" ? null : "Según documento escaneado",
+    motivo_nc_nd: kind === "factura" ? null : "Según documento escaneado",
     items,
     account: opts.account,
     cost_center_id: opts.costCenterId,

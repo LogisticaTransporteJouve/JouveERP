@@ -38,6 +38,8 @@ export type PurchaseInvoiceDraftData = {
   /** Counterparty as printed, when it did not match an existing supplier. */
   unmatchedSupplier: { legal_name: string | null; cuit: string | null } | null;
   kind: PurchaseInvoiceKind;
+  /** False when the document did not print its type (kind is a default). */
+  kind_read: boolean;
   letter: PurchaseInvoiceLetter | null;
   punto_venta: number | null;
   numero: number | null;
@@ -94,6 +96,13 @@ export const DRAFT_FIELDS = [
 ] as const;
 export type DraftField = (typeof DRAFT_FIELDS)[number];
 
+/** Header amounts the form recomputes from the lines in item mode. */
+export const ITEM_DERIVED_FIELDS: readonly DraftField[] = [
+  "imp_neto",
+  "imp_iva",
+  "imp_total",
+];
+
 export type PurchaseInvoiceDraftPatch = {
   supplier: PurchaseInvoiceDraftSupplier | null;
   kind: PurchaseInvoiceKind;
@@ -139,7 +148,7 @@ export function draftToFormPatch(
   };
 
   mark("supplier", data.supplier !== null);
-  mark("kind", true);
+  mark("kind", data.kind_read);
   mark("letter", data.letter !== null);
   mark("punto_venta", data.punto_venta !== null);
   mark("numero", data.numero !== null);
@@ -171,7 +180,8 @@ export function draftToFormPatch(
       imp_trib: str(data.imp_trib, "0"),
       imp_total: str(data.imp_total, ""),
       moneda: data.moneda,
-      cotizacion: str(data.cotizacion, "1"),
+      // A foreign-currency draft without a rate stays empty: the user types it.
+      cotizacion: str(data.cotizacion, data.moneda === "PES" ? "1" : ""),
       motivo_nc_nd: data.motivo_nc_nd ?? "",
       with_items: data.items.length > 0,
       items: data.items.map((it) => ({
@@ -205,5 +215,19 @@ export function totalsGap(values: {
   const [neto = 0, iva = 0, trib = 0, total = 0] = n;
   if (values.imp_total === "" || total === 0) return null;
   const gap = Math.round((total - (neto + iva + trib)) * 100) / 100;
+  return Math.abs(gap) > 0.01 ? gap : null;
+}
+
+/**
+ * Item mode: the total computed from the lines (+ otros tributos) against the
+ * total printed on the document. Returns the gap, or null when they match or
+ * the document had no total.
+ */
+export function documentTotalGap(
+  documentTotal: number | null,
+  computedTotal: number,
+): number | null {
+  if (documentTotal === null || !Number.isFinite(computedTotal)) return null;
+  const gap = Math.round((documentTotal - computedTotal) * 100) / 100;
   return Math.abs(gap) > 0.01 ? gap : null;
 }

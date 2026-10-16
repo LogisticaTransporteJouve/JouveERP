@@ -179,7 +179,11 @@ export const PurchaseInvoiceCreateSchema = z
       message: "El motivo es requerido para NC/ND.",
       path: ["motivo_nc_nd"],
     },
-  );
+  )
+  .refine((d) => d.moneda === "PES" || d.cotizacion > 1, {
+    message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
+    path: ["cotizacion"],
+  });
 
 export const PurchaseInvoiceUpdateSchema = z.object({
   id: z.string().uuid(),

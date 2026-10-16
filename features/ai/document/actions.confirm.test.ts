@@ -50,6 +50,10 @@ function query(table: string) {
       return builder;
     },
     limit: () => builder,
+    lt: (col: string, v: string) => {
+      filters.push((r) => typeof r[col] === "string" && String(r[col]) < v);
+      return builder;
+    },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
     single: async () => ({ data: run()[0] ?? null, error: null }),
     then: (resolve: (v: { data: Row[] | null; error: null }) => unknown) => {
@@ -147,6 +151,7 @@ function seed(detectedType: string | null, matches: Row) {
       payload: {},
       file_id: FILE_ID,
       created_entity: null,
+      updated_at: new Date().toISOString(),
     },
   ];
   db.file_attachments = [];
@@ -498,6 +503,44 @@ describe("getPurchaseInvoiceDraftAction", () => {
       ok: true,
       data: { state: "closed", status: "confirmed" },
     });
+  });
+
+  it("returns a draft left claimed by a crashed save to pending", async () => {
+    seedPurchase();
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    }
+    const res = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
+    expect(res.ok && res.data.state).toBe("ready");
+    expect(extraction()?.status).toBe("pending_review");
+  });
+
+  it("leaves a recent claim and a linked draft alone", async () => {
+    seedPurchase();
+    const row = extraction();
+    if (row) row.status = "confirmed";
+    expect(await getPurchaseInvoiceDraftAction(EXTRACTION_ID)).toEqual({
+      ok: true,
+      data: { state: "closed", status: "confirmed" },
+    });
+    if (row) {
+      row.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      row.created_entity = { table: "purchase_invoices", id: "pi-1" };
+    }
+    const linked = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
+    expect(linked.ok && linked.data.state).toBe("closed");
+    expect(extraction()?.status).toBe("confirmed");
+  });
+
+  it("reads the comprobante type printed on a scanned NC", async () => {
+    seedPurchase();
+    const row = extraction();
+    if (row) row.payload = { ...invoicePayload, kind: "credit_note" };
+    const res = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
+    if (!res.ok || res.data.state !== "ready") throw new Error("not ready");
+    expect(res.data.draft).toMatchObject({ kind: "nc", kind_read: true });
   });
 
   it("reports another document type as unsupported", async () => {

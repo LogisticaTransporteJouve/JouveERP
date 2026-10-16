@@ -45,6 +45,8 @@ import {
   useUpdatePurchaseInvoice,
 } from "../hooks/use-purchase-invoices";
 import {
+  ITEM_DERIVED_FIELDS,
+  documentTotalGap,
   draftToFormPatch,
   totalsGap,
   type DraftField,
@@ -199,6 +201,8 @@ export function PurchaseInvoiceForm({
   const dirtyFields = form.formState.dirtyFields;
   function aiMark(field: DraftField) {
     if (!initial.filled.has(field) || dirtyFields[field]) return null;
+    // With items, these are recomputed from the lines, not the document's.
+    if (watchedWithItems && ITEM_DERIVED_FIELDS.includes(field)) return null;
     return <AiFilledMark />;
   }
 
@@ -426,16 +430,19 @@ export function PurchaseInvoiceForm({
   const duplicate = usePurchaseInvoiceDuplicate(duplicateLookup).data ?? null;
 
   // Only document-filled invoices are checked: a manual header-only load may
-  // legitimately carry amounts the form has no field for.
-  const gap =
-    createDraft && !watchedWithItems
-      ? totalsGap({
+  // legitimately carry amounts the form has no field for. With items, the
+  // computed total is checked against the total printed on the document.
+  const watchedTotal = form.watch("imp_total");
+  const gap = !createDraft
+    ? null
+    : watchedWithItems
+      ? documentTotalGap(createDraft.data.imp_total, Number(watchedTotal))
+      : totalsGap({
           imp_neto: watchedNeto,
           imp_iva: watchedIva,
           imp_trib: watchedTrib,
-          imp_total: form.watch("imp_total"),
-        })
-      : null;
+          imp_total: watchedTotal,
+        });
 
   function onSubmit(values: FormValues) {
     if (!values.supplier) {
@@ -446,6 +453,12 @@ export function PurchaseInvoiceForm({
       toast.error(
         "Los importes no cierran: revisá neto, IVA, otros tributos y total.",
       );
+      return;
+    }
+    if (values.moneda !== "PES" && !(Number(values.cotizacion) > 1)) {
+      form.setError("cotizacion", {
+        message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
+      });
       return;
     }
     if (!values.channel_id) {
@@ -917,7 +930,10 @@ export function PurchaseInvoiceForm({
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                Neto + IVA + otros tributos no da el total (diferencia{" "}
+                {watchedWithItems
+                  ? "Los ítems más otros tributos no dan el total del comprobante"
+                  : "Neto + IVA + otros tributos no da el total"}{" "}
+                (diferencia{" "}
                 <span className="font-mono">
                   {gap.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, type Permission } from "@/lib/auth/permissions";
+import { ATTACHMENT_FK_COLUMN } from "@/lib/files/attachment-targets";
 import { isFileReferencedElsewhere } from "@/lib/files/references";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
@@ -44,18 +45,8 @@ const TARGET_WRITE_PERMISSION: Record<AttachmentTargetType, Permission> = {
   transaction: "transactions:write",
 };
 
-// FK column on file_attachments per target type.
-const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> = {
-  purchase_invoice: "purchase_invoice_id",
-  invoice: "invoice_id",
-  receipt: "receipt_id",
-  payment_order: "payment_order_id",
-  check: "check_id",
-  issued_check: "issued_check_id",
-  client: "client_id",
-  supplier: "supplier_id",
-  transaction: "transaction_id",
-};
+const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> =
+  ATTACHMENT_FK_COLUMN;
 
 // ─── uploadFileAction ────────────────────────────────────────────────────────
 // Storage write first (bytes), then files row, then file_attachments row.

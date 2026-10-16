@@ -17,7 +17,7 @@ const SUPPLIER = {
 };
 
 const OPTS = {
-  kind: "factura" as const,
+  fallbackKind: "factura" as const,
   supplier: SUPPLIER,
   account: null,
   costCenterId: null,
@@ -219,12 +219,72 @@ describe("buildPurchaseInvoiceDraft", () => {
     ]);
   });
 
-  it("starts a scanned NC with a default motivo", () => {
-    const draft = buildPurchaseInvoiceDraft(COMPLETE, { ...OPTS, kind: "nc" });
+  it("reads an NC from the printed type, with a default motivo", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      { ...COMPLETE, kind: "credit_note" },
+      OPTS,
+    );
     expect(draft).toMatchObject({
       kind: "nc",
+      kind_read: true,
       motivo_nc_nd: "Según documento escaneado",
     });
+  });
+
+  it("falls back to the detected kind, unread, when no type is printed", () => {
+    expect(buildPurchaseInvoiceDraft(COMPLETE, OPTS)).toMatchObject({
+      kind: "factura",
+      kind_read: false,
+    });
+    expect(
+      buildPurchaseInvoiceDraft(COMPLETE, { ...OPTS, fallbackKind: "nc" }),
+    ).toMatchObject({ kind: "nc", kind_read: false });
+  });
+
+  it("stores the amounts of an NC printed negative as positive", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      {
+        ...COMPLETE,
+        kind: "credit_note",
+        net_amount: -1000,
+        iva_amount: -210,
+        other_taxes_amount: -30,
+        total_amount: -1240,
+        items: [{ ...COMPLETE.items[0], net_amount: -1000, iva_amount: -210 }],
+      },
+      OPTS,
+    );
+    expect(draft).toMatchObject({
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_trib: 30,
+      imp_total: 1240,
+      items: [{ quantity: 2, unit_price: 500, iva_rate_id: 5 }],
+    });
+    expect(draft?.warnings).toEqual([]);
+  });
+
+  it("keeps the lines of a factura C, without alícuota", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      {
+        ...COMPLETE,
+        letter: "C",
+        iva_amount: null,
+        other_taxes_amount: 0,
+        total_amount: 1000,
+        items: [{ description: "Servicio", quantity: 1, net_amount: 1000 }],
+      },
+      OPTS,
+    );
+    expect(draft?.items).toEqual([
+      {
+        description: "Servicio",
+        quantity: 1,
+        unit_price: 1000,
+        iva_rate_id: null,
+      },
+    ]);
+    expect(draft?.warnings).toEqual([]);
   });
 
   it("passes through the suggested account and cost center", () => {

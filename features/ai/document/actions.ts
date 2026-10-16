@@ -385,7 +385,7 @@ export async function getPurchaseInvoiceDraftAction(
   const { data: ext, error } = await supabase
     .from("ai_document_extractions")
     .select(
-      "detected_type, status, confidence, matches, payload, file_id, file:files(original_filename, mime_type)",
+      "detected_type, status, confidence, matches, payload, file_id, created_entity, updated_at, file:files(original_filename, mime_type)",
     )
     .eq("id", id.data)
     .maybeSingle();
@@ -393,7 +393,11 @@ export async function getPurchaseInvoiceDraftAction(
     return { ok: false, error: "No se encontró la extracción." };
   }
   if (ext.status === "failed") return { ok: true, data: { state: "failed" } };
-  if (ext.status !== "pending_review") {
+  const stale =
+    ext.status === "confirmed" &&
+    ext.created_entity === null &&
+    (await releaseStaleClaim(supabase, id.data, ext.updated_at));
+  if (ext.status !== "pending_review" && !stale) {
     return { ok: true, data: { state: "closed", status: ext.status } };
   }
   if (ext.detected_type === null) {
@@ -420,7 +424,7 @@ export async function getPurchaseInvoiceDraftAction(
   }
 
   const draft = buildPurchaseInvoiceDraft(ext.payload, {
-    kind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
+    fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
     supplier,
     account: expense.account,
     costCenterId: expense.costCenterId,
@@ -837,6 +841,36 @@ async function claimExtraction(
   return data !== null;
 }
 
+/** A claim older than this with nothing created was left by a crashed save. */
+const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+/**
+ * Returns a draft stuck as claimed (confirmed, nothing linked) for longer than
+ * STALE_CLAIM_MS to pending_review, so it can be saved again. True if it did.
+ */
+async function releaseStaleClaim(
+  supabase: ServerSupabase,
+  extractionId: string,
+  updatedAt: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+  if (updatedAt >= cutoff) return false;
+  const { data, error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "pending_review" })
+    .eq("id", extractionId)
+    .eq("status", "confirmed")
+    .is("created_entity", null)
+    .lt("updated_at", cutoff)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    logger.error("ai.document.stale_release.failed", { extractionId, error });
+    return false;
+  }
+  return data !== null;
+}
+
 /** Undoes a claim whose creation failed, so the user can fix and retry. */
 async function releaseExtraction(
   supabase: ServerSupabase,
@@ -914,13 +948,27 @@ async function confirmExtraction(
   extraction: { id: string; fileId: string },
   entity: SourceFileTarget,
 ): Promise<void> {
-  await supabase
-    .from("ai_document_extractions")
-    .update({
-      status: "confirmed",
-      created_entity: { table: entity.table, id: entity.id },
-    })
-    .eq("id", extraction.id);
+  const link = () =>
+    supabase
+      .from("ai_document_extractions")
+      .update({
+        status: "confirmed",
+        created_entity: { table: entity.table, id: entity.id },
+      })
+      .eq("id", extraction.id);
+  const { error } = await link();
+  if (error) {
+    const retry = await link();
+    if (retry.error) {
+      // The entity exists; the draft keeps its claim (no re-create from it).
+      logger.error("ai.document.confirm.failed", {
+        extractionId: extraction.id,
+        table: entity.table,
+        entityId: entity.id,
+        error: retry.error,
+      });
+    }
+  }
   const attached = actor.canAttach
     ? await attachSourceFile(supabase, {
         fileId: extraction.fileId,

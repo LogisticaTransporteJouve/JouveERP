@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { TablesInsert } from "@/lib/db/database.types";
+import {
+  ATTACHMENT_FK_COLUMN,
+  type AttachmentFkTarget,
+} from "@/lib/files/attachment-targets";
 import { logger } from "@/lib/logger";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -13,23 +17,16 @@ export type SourceFileTarget = {
   id: string;
 };
 
-type AttachmentFk =
-  | "purchase_invoice_id"
-  | "invoice_id"
-  | "receipt_id"
-  | "payment_order_id"
-  | "check_id";
-
-/** FK column + attachment kind (per the files whitelist) for each target. */
+/** Attachment target + kind (per the files whitelist) for each table. */
 const TARGET_ATTACHMENT: Record<
   SourceFileTarget["table"],
-  { column: AttachmentFk; kind: string }
+  { target: AttachmentFkTarget; kind: string }
 > = {
-  purchase_invoices: { column: "purchase_invoice_id", kind: "comprobante" },
-  invoices: { column: "invoice_id", kind: "comprobante" },
-  receipts: { column: "receipt_id", kind: "comprobante" },
-  payment_orders: { column: "payment_order_id", kind: "comprobante_pago" },
-  checks: { column: "check_id", kind: "foto_cheque" },
+  purchase_invoices: { target: "purchase_invoice", kind: "comprobante" },
+  invoices: { target: "invoice", kind: "comprobante" },
+  receipts: { target: "receipt", kind: "comprobante" },
+  payment_orders: { target: "payment_order", kind: "comprobante_pago" },
+  checks: { target: "check", kind: "foto_cheque" },
 };
 
 export function sourceAttachmentRow(
@@ -65,7 +62,8 @@ export async function attachSourceFile(
   supabase: ServerSupabase,
   input: { fileId: string; target: SourceFileTarget; userId: string },
 ): Promise<boolean> {
-  const { column } = TARGET_ATTACHMENT[input.target.table];
+  const column =
+    ATTACHMENT_FK_COLUMN[TARGET_ATTACHMENT[input.target.table].target];
   const { data: existing, error: lookupError } = await supabase
     .from("file_attachments")
     .select("id")

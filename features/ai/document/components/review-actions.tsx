@@ -83,11 +83,14 @@ function PurchaseDraftAction({
   const submitCreate = useSubmitPurchaseInvoiceDraft(extractionId);
   const result = draftQuery.data;
 
-  if (draftQuery.isError) {
+  const problem = draftQuery.isError
+    ? draftQuery.error.message
+    : result?.state === "closed"
+      ? "Este documento ya fue procesado o descartado."
+      : null;
+  if (problem) {
     return (
-      <p className="text-muted-foreground border-t pt-3 text-xs">
-        {draftQuery.error.message}
-      </p>
+      <p className="text-muted-foreground border-t pt-3 text-xs">{problem}</p>
     );
   }
   return (
