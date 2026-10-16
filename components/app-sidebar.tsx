@@ -15,6 +15,7 @@ import {
   DatabaseBackup,
   DollarSign,
   FileText,
+  FolderOpen,
   Fuel,
   History,
   IdCard,
@@ -91,6 +92,12 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/chat", label: "Chat", icon: MessageSquare },
+      {
+        href: "/files",
+        label: "Archivos",
+        icon: FolderOpen,
+        permission: "files:read",
+      },
     ],
   },
   {

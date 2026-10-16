@@ -1773,6 +1773,7 @@ export type Database = {
       }
       file_attachments: {
         Row: {
+          ai_chat_message_id: string | null
           check_id: string | null
           client_id: string | null
           created_at: string
@@ -1789,6 +1790,7 @@ export type Database = {
           transaction_id: string | null
         }
         Insert: {
+          ai_chat_message_id?: string | null
           check_id?: string | null
           client_id?: string | null
           created_at?: string
@@ -1805,6 +1807,7 @@ export type Database = {
           transaction_id?: string | null
         }
         Update: {
+          ai_chat_message_id?: string | null
           check_id?: string | null
           client_id?: string | null
           created_at?: string
@@ -1821,6 +1824,13 @@ export type Database = {
           transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "file_attachments_ai_chat_message_id_fkey"
+            columns: ["ai_chat_message_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "file_attachments_check_id_fkey"
             columns: ["check_id"]
@@ -5186,6 +5196,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_files_hub: {
+        Row: {
+          entity_id: string | null
+          entity_type: string | null
+          file_id: string | null
+          file_size: number | null
+          kind: string | null
+          link_id: string | null
+          linked_at: string | null
+          mime_type: string | null
+          original_filename: string | null
+          owner_id: string | null
+          parent_id: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+          uploader_name: string | null
+        }
+        Relationships: []
+      }
       v_payroll_entries_resolved: {
         Row: {
           created_at: string | null
@@ -5852,6 +5881,13 @@ export type Database = {
         Args: { p_check_id: string; p_event_date: string; p_notes: string }
         Returns: string
       }
+      delete_chat_draft_file: {
+        Args: { p_file_id: string; p_user_id: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+        }[]
+      }
       deposit_check: {
         Args: {
           p_account_id: string
@@ -5974,6 +6010,10 @@ export type Database = {
       }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
+      is_employee_document_file: {
+        Args: { p_file_id: string }
+        Returns: boolean
+      }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {

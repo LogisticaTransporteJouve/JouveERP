@@ -10,7 +10,8 @@ import { inngest } from "../client";
 // the defence-in-depth that keeps the bucket from growing forever.
 //
 // Age filter (1 hour) on the RPC ensures uploads currently in flight
-// don't get killed.
+// don't get killed; unsent AI chat attachments get 24 hours (the RPC
+// applies it), and sent ones live while their message does.
 
 type OrphanRow = {
   id: string;

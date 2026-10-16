@@ -201,6 +201,18 @@ export async function getSignedFileUrlAction(
     return { ok: false, error: "Archivo no encontrado." };
   }
 
+  // HR documents: only hr:read (RLS on `files` agrees; this is the action's
+  // own check, independent of the policy).
+  if (!userCan(ctx.roles, "hr:read")) {
+    const { data: isHrFile, error: hrErr } = await supabase.rpc(
+      "is_employee_document_file",
+      { p_file_id: parsed.data },
+    );
+    if (hrErr || isHrFile) {
+      return { ok: false, error: "Archivo no encontrado." };
+    }
+  }
+
   const { data, error: signErr } = await supabase.storage
     .from(file.bucket)
     .createSignedUrl(file.bucket_path, 3600, {

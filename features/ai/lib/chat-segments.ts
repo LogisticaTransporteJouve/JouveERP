@@ -1,6 +1,7 @@
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 
 import { ARTIFACT_PART } from "../artifacts/spec";
+import { readAttachmentPart, type ChatAttachment } from "../attachments/schema";
 
 import { PROPOSAL_SPECS } from "./proposal-specs";
 import { ASK_QUESTIONS_TOOL } from "./questions";
@@ -8,12 +9,13 @@ import { ASK_QUESTIONS_TOOL } from "./questions";
 export type ChatPart = UIMessage["parts"][number];
 
 /** A run of text the assistant (or user) wrote, a standalone card the user
- *  acts on, or a chart/table artifact. Other tool calls are not segments:
- *  the turn's activity block lists them. */
+ *  acts on, a chart/table artifact, or a run of files the user attached.
+ *  Other tool calls are not segments: the turn's activity block lists them. */
 export type ChatSegment =
   | { kind: "bubble"; parts: { part: ChatPart; index: number }[] }
   | { kind: "card"; part: ChatPart; index: number }
-  | { kind: "artifact"; data: unknown; id: string; index: number };
+  | { kind: "artifact"; data: unknown; id: string; index: number }
+  | { kind: "attachments"; attachments: ChatAttachment[]; index: number };
 
 export function isCardPart(part: ChatPart): boolean {
   if (!isToolUIPart(part)) return false;
@@ -37,6 +39,18 @@ export function segmentParts(parts: readonly ChatPart[]): ChatSegment[] {
         id: part.id ?? String(index),
         index,
       });
+      return;
+    }
+    const attachment = readAttachmentPart(part);
+    if (attachment) {
+      const last = segments.at(-1);
+      if (last?.kind === "attachments") last.attachments.push(attachment);
+      else
+        segments.push({
+          kind: "attachments",
+          attachments: [attachment],
+          index,
+        });
       return;
     }
     if (part.type !== "text" || part.text.trim() === "") return;

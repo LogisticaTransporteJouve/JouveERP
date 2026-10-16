@@ -1,4 +1,6 @@
-/** file_attachments FK column for each attachable entity. */
+/** file_attachments FK column for each entity a user attaches files to.
+ *  `ai_chat_message_id` is not here on purpose: chat links are written only
+ *  by the chat route (features/ai/attachments/store.ts), never by upload. */
 export const ATTACHMENT_FK_COLUMN = {
   purchase_invoice: "purchase_invoice_id",
   invoice: "invoice_id",

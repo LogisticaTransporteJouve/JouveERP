@@ -100,6 +100,27 @@ export async function listExpiringDocumentsAction(): Promise<
 // Writes
 // ---------------------------------------------------------------------------
 
+/**
+ * A document may only point at a file the caller can see (RLS client) and
+ * that is not a private AI chat attachment, so an id guessed or copied from
+ * elsewhere can't be pulled into HR.
+ */
+async function attachmentFileError(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fileId: string | null | undefined,
+): Promise<string | null> {
+  if (!fileId) return null;
+  const { data, error } = await supabase
+    .from("files")
+    .select("id, source")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (error || !data || data.source === "chat_attachment") {
+    return "No encontramos el archivo adjunto.";
+  }
+  return null;
+}
+
 export async function createEmployeeDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -116,6 +137,11 @@ export async function createEmployeeDocumentAction(
   }
 
   const supabase = await createClient();
+  const fileError = await attachmentFileError(
+    supabase,
+    parsed.data.attachment_file_id,
+  );
+  if (fileError) return { ok: false, error: fileError };
   const { data, error } = await supabase
     .from("employee_documents")
     .insert({
@@ -187,6 +213,11 @@ export async function updateEmployeeDocumentAction(
   if (Object.keys(patch).length === 1) return { ok: true, data: undefined };
 
   const supabase = await createClient();
+  const fileError = await attachmentFileError(
+    supabase,
+    patch.attachment_file_id,
+  );
+  if (fileError) return { ok: false, error: fileError };
   const { error } = await supabase
     .from("employee_documents")
     .update(patch)

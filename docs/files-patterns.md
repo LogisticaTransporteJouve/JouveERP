@@ -14,6 +14,9 @@
 > M.4 = extender entidades atachables sobre esta misma infra (sumar FKs a
 > `file_attachments` + wire por feature).
 
+> **Estado 2026-10-16.** Se suman los adjuntos del chat de IA (FK
+> `ai_chat_message_id`) y la página central `/files` ("Archivos"). Ver §14.
+
 ---
 
 ## 0. Alcance
@@ -1066,3 +1069,108 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
 | OCR completado en background | < 30 s p95 |
 | Huérfanos detectados por el sweep diario | tendiendo a 0 |
 | Errores 500 en upload | < 0.5% |
+
+---
+
+## 14. Adjuntos del chat de IA y página `/files` (2026-10-16)
+
+Migración `20261016150000_files_hub_and_chat_attachments.sql`. Misma infra
+(bucket `files`, registry `files`, `file_attachments`): no hay storage
+paralelo.
+
+### 14.1 Adjuntos del chat
+
+- **Entidad atachable nueva:** `file_attachments.ai_chat_message_id` (FK a
+  `ai_chat_messages`, `on delete cascade`) entra al check "exactly one". Un
+  índice único parcial (`file_id where ai_chat_message_id is not null`) ata
+  cada subida del chat a un solo mensaje.
+- **Subida:** `uploadChatAttachmentAction` (`features/ai/attachments/actions.ts`,
+  `ai:chat` + `files:write`, rate limit 60/h). Valida tipo (PDF, PNG, JPG,
+  WebP, CSV, XLSX), tamaño (4 MB, porque la subida pasa por un server action
+  y Vercel corta el body en 4,5 MB; imágenes 3,7 MB, que en base64 quedan
+  bajo los 5 MB del modelo), los bytes contra el tipo declarado (`sniff.ts`),
+  PDF cifrado o con contraseña (rechazado), páginas del PDF (≤ 20, objetos
+  `/Type /Page` distintos, también dentro de object streams) y que la
+  planilla se pueda leer. Sube con el service client a `{fileId}.{ext}` y
+  registra `files` con `source = 'chat_attachment'` y en `metadata` las
+  páginas, o las filas y la tabla ya leída (si ocupa ≤ 200.000 caracteres),
+  así no se vuelve a parsear en cada turno. Queda como **borrador**: sin link
+  hasta que se manda.
+- **Envío:** el cliente manda partes `data-attachment` con el `fileId`; el
+  route (`app/api/ai/chat/route.ts`) toma solo el id, verifica que cada
+  archivo sea un borrador propio sin link (`claimDraftAttachments`), arma las
+  partes con la metadata del registry, persiste el mensaje y crea los links.
+  Si el link choca (dos envíos del mismo borrador) borra el mensaje y
+  responde 409.
+- **Al modelo:** el contenido completo va solo en el turno en que se adjunta
+  el archivo (y cuando el usuario lo nombra después), del más nuevo al más
+  viejo dentro de un presupuesto (8 archivos, 8 MB, 40 páginas de PDF,
+  60.000 caracteres de tablas). En los turnos siguientes cada adjunto va como
+  una nota (nombre, tipo, páginas o filas) y el modelo puede releerlo con el
+  tool `openAttachment` (hasta 3 por turno, dentro del mismo presupuesto; el
+  output guardado es solo un recibo, los bytes no se persisten). Solo se leen
+  archivos linkeados a mensajes de esa sesión. PDF e imágenes van como partes
+  `file`; CSV y XLSX se leen en el servidor (primera hoja, 200 filas × 30
+  columnas; el XML de la hoja se corta en la fila 201 y de `sharedStrings`
+  solo se parsean los índices usados) y van como texto, cada fila en
+  `<row>…</row>` con `wrapUntrusted`. El nombre del archivo también va
+  envuelto. Los tokens cuentan para el tope diario como el resto del chat.
+- **Archivo rechazado:** si la API del modelo responde 400 por un archivo, el
+  turno se reintenta una vez sin el adjunto más nuevo, que queda marcado
+  `metadata.unreadable` y no se vuelve a mandar; el modelo recibe una nota
+  para avisarle al usuario.
+- **Visibilidad:** la policy SELECT de `files` oculta las filas
+  `chat_attachment` a quien no las subió, salvo owner/admin (`ai:admin`, la
+  misma regla que `ai_chat_sessions`); la de `file_attachments` oculta los
+  links del chat a quien no es dueño de la sesión. Las policies del bucket
+  leen `public.files`, así que los blobs quedan igual de cerrados. Nadie con
+  `authenticated` puede crear un link de chat (el insert exige
+  `ai_chat_message_id is null`). Las URLs firmadas del chat las da
+  `getChatAttachmentUrlAction`: dueño de la sesión, `ai:admin`, o quien subió
+  un borrador todavía no enviado.
+- **Huérfanos:** un borrador nunca enviado se barre a las 24 h
+  (`find_orphan_files` le da esa gracia a `source = 'chat_attachment'`);
+  uno enviado vive mientras exista el mensaje (al borrar la sesión el link cae
+  en cascada y el archivo queda huérfano, salvo que Documentos lo tenga).
+  Quitar un borrador del composer usa `delete_chat_draft_file`: un solo
+  `delete` condicionado a que no tenga links, extracción ni documento de
+  empleado (la misma regla que `lib/files/references.ts`).
+- **UI:** clip + arrastrar y soltar + pegar en el composer; "Sacar una foto"
+  con `capture="environment"` en pantallas táctiles (`pointer-coarse:`). Las
+  fotos se achican antes de subir (`prepareImageForUpload`). Los mensajes
+  muestran chips con vista previa por URL firmada.
+
+### 14.2 Página `/files`
+
+- **Vista `v_files_hub`** (`security_invoker = on`): una fila por (archivo,
+  entidad dueña) de `file_attachments` (10 FKs), `ai_document_extractions` y
+  `employee_documents`. Aplica la RLS de cada tabla de abajo.
+- **Filtro por permiso** (`features/files/lib/hub.ts`): cada origen exige el
+  permiso de lectura de su entidad (`purchase_invoices:read`,
+  `invoices:read`, …, `hr:read` para documentos de empleados, `ai:read` para
+  documentos escaneados, `ai:chat` para adjuntos del chat). Los documentos
+  escaneados y los adjuntos del chat son de un usuario (`owner_id`): sin
+  `ai:admin` solo se listan los propios. La flota no tiene archivos todavía.
+- **Lectura:** `listHubFilesAction` con el cliente RLS del usuario, filtros
+  (nombre, origen, tipo de archivo, subido por, fechas en hora argentina) y
+  paginación keyset por `(uploaded_at, link_id)` desc, 50 por página, con
+  `useSuspenseInfiniteQuery`. `getHubFileUrlAction` firma por `link_id`
+  buscando la fila con el mismo alcance que la lista.
+- **Permiso de la página:** `files:read` (sin permiso nuevo). Warehouse tiene
+  `files:read` pero ningún origen listable: ve la lista vacía.
+
+### 14.3 Archivos de documentos de empleados
+
+La policy SELECT de `files` exige además un rol con `hr:read`
+(owner/admin/finance) para los archivos que apunta `employee_documents`
+(`public.is_employee_document_file`, SECURITY DEFINER, con índice parcial en
+`attachment_file_id`), así ningún otro rol con `files:read` puede firmarlos
+por id. `getSignedFileUrlAction` repite el chequeo y
+`create/updateEmployeeDocumentAction` solo aceptan un archivo que el usuario
+ve y que no sea un adjunto del chat.
+
+### 14.4 Pendiente
+
+- Subida directa del navegador a Storage con URL firmada, para pasar el tope
+  de 4 MB del server action.
+

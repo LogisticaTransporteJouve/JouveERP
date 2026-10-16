@@ -107,18 +107,48 @@ export async function loadAiSessionMessages(
   }
 }
 
-/** Persists one message; the DB trigger bumps message_count + updated_at. */
+/** Persists one message and returns its row id; the DB trigger bumps
+ *  message_count + updated_at. */
 export async function appendAiMessage(
   sessionId: string,
   message: UIMessage,
-): Promise<void> {
+): Promise<string> {
   const service = getServiceClient();
+  const id = crypto.randomUUID();
   const { error } = await service.from("ai_chat_messages").insert({
+    id,
     session_id: sessionId,
     role: message.role,
     content: toJson(message),
   });
   if (error) throw error;
+  return id;
+}
+
+/** Removes a message row this turn just persisted (a failed attachment
+ *  link) and recounts the session's messages, which the insert trigger
+ *  had bumped. */
+export async function deleteAiMessageRow(
+  sessionId: string,
+  rowId: string,
+): Promise<void> {
+  const service = getServiceClient();
+  const { error } = await service
+    .from("ai_chat_messages")
+    .delete()
+    .eq("id", rowId)
+    .eq("session_id", sessionId);
+  if (error) throw error;
+  const { count, error: countError } = await service
+    .from("ai_chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  const { error: updateError } = await service
+    .from("ai_chat_sessions")
+    .update({ message_count: count ?? 0 })
+    .eq("id", sessionId);
+  if (updateError) throw updateError;
 }
 
 /**
