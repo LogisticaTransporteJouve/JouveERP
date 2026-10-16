@@ -164,9 +164,10 @@ grant execute on function public.emit_caea_invoice(uuid, int, text, date) to ser
 -- 4. A failed or cancelled invoice releases what it billed.
 ------------------------------------------------------------------------------
 -- Freight (shipments.invoice_id) and storage periods (storage_billing_runs)
--- are linked to their invoice when it is queued. When the emission fails
+-- are linked to their invoice when it is queued. When a pending emission fails
 -- (AFIP rejection) or an internal invoice is cancelled, the link is cleared so
--- the shipment or period can be billed again.
+-- the shipment or period can be billed again. An emitted voucher never
+-- releases them by failing.
 
 create or replace function public.release_invoice_billing_links()
 returns trigger
@@ -192,8 +193,8 @@ drop trigger if exists invoices_release_billing_links on public.invoices;
 create trigger invoices_release_billing_links
   after update of status on public.invoices
   for each row
-  when (old.status is distinct from new.status
-        and new.status in ('failed', 'cancelled'))
+  when ((new.status = 'failed' and old.status in ('draft', 'emitting'))
+        or (new.status = 'cancelled' and old.status <> 'cancelled'))
   execute function public.release_invoice_billing_links();
 
 create index if not exists storage_billing_runs_invoice_idx

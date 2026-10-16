@@ -82,9 +82,15 @@ describe("failed and cancelled invoices release what they billed", () => {
       /update public\.shipments\s+set invoice_id = null/,
     );
     expect(definition).toMatch(/delete from public\.storage_billing_runs/);
-    expect(ALL_SQL).toMatch(
-      /create trigger invoices_release_billing_links\s+after update of status on public\.invoices[\s\S]*?new\.status in \('failed', 'cancelled'\)/,
+    const trigger = lastStatement(
+      /create trigger invoices_release_billing_links[\s\S]*?;/gi,
     );
+    expect(trigger).toMatch(/after update of status on public\.invoices/);
+    // Only a pending emission releases by failing; an emitted one never does.
+    expect(trigger).toMatch(
+      /new\.status = 'failed' and old\.status in \('draft', 'emitting'\)/,
+    );
+    expect(trigger).not.toMatch(/new\.status in \('failed', 'cancelled'\)/);
   });
 });
 

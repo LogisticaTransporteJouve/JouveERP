@@ -7,12 +7,13 @@ type Row = Record<string, unknown>;
 
 const h = vi.hoisted(() => {
   const handlers = new Map<string, (ctx: unknown) => Promise<unknown>>();
+  const onFailures = new Map<string, (ctx: unknown) => Promise<unknown>>();
   const db: Record<string, Array<Record<string, unknown>>> = {};
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
   const caeaDates: string[] = [];
   const informed: Array<Record<string, unknown>> = [];
-  return { handlers, db, rpcCalls, updates, caeaDates, informed };
+  return { handlers, onFailures, db, rpcCalls, updates, caeaDates, informed };
 });
 
 function from(table: string) {
@@ -28,6 +29,10 @@ function from(table: string) {
     },
     eq: (col: string, v: unknown) => {
       filters.push((r) => r[col] === v);
+      return builder;
+    },
+    in: (col: string, vs: unknown[]) => {
+      filters.push((r) => vs.includes(r[col]));
       return builder;
     },
     is: (col: string, v: unknown) => {
@@ -60,10 +65,11 @@ function from(table: string) {
 vi.mock("../client", () => ({
   inngest: {
     createFunction: (
-      config: { id: string },
+      config: { id: string; onFailure?: (ctx: unknown) => Promise<unknown> },
       handler: (ctx: unknown) => Promise<unknown>,
     ) => {
       h.handlers.set(config.id, handler);
+      if (config.onFailure) h.onFailures.set(config.id, config.onFailure);
       return config;
     },
   },
@@ -224,5 +230,31 @@ describe("caea-inform", () => {
 
     const nc = h.informed.find((i) => i.cbteTipo === 3);
     expect(nc?.cbtesAsoc).toEqual([{ tipo: 1, ptoVta: 9, nro: 4 }]);
+  });
+});
+
+describe("issue-invoice onFailure", () => {
+  const failure = (status: string) => {
+    h.db.invoices = [draft({ status })];
+    return h.onFailures.get("issue-invoice")?.({
+      event: {
+        data: {
+          event: {
+            data: { invoice_id: INVOICE_ID, idempotency_key: "k1" },
+          },
+        },
+      },
+      error: new Error("persist-cae: db down"),
+    });
+  };
+
+  it("never turns an emitted voucher into a failed one", async () => {
+    await failure("emitted");
+    expect(h.db.invoices?.[0]?.status).toBe("emitted");
+  });
+
+  it("fails a pending emission", async () => {
+    await failure("emitting");
+    expect(h.db.invoices?.[0]?.status).toBe("failed");
   });
 });

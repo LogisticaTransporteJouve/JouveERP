@@ -211,7 +211,10 @@ export const issueInvoice = inngest.createFunction(
           status: "failed",
           afip_observaciones: { error: error.message } as never,
         })
-        .eq("id", parsed.data.invoice_id);
+        .eq("id", parsed.data.invoice_id)
+        // A voucher that already got its CAE (or internal number) stays
+        // emitted: only a pending emission fails.
+        .in("status", ["draft", "emitting"]);
     },
   },
   async ({ event, step }) => {
