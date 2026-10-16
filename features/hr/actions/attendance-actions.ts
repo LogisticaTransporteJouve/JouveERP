@@ -5,6 +5,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -63,11 +64,15 @@ export async function getAttendanceMonthAction(
   const supabase = await createSupabaseClient();
   const [{ data: records, error: recErr }, { data: holidays, error: holErr }] =
     await Promise.all([
-      supabase
-        .from("attendance_records")
-        .select(COLS)
-        .gte("date", start)
-        .lt("date", end),
+      paginateRange((from, to) =>
+        supabase
+          .from("attendance_records")
+          .select(COLS)
+          .gte("date", start)
+          .lt("date", end)
+          .order("id")
+          .range(from, to),
+      ),
       supabase
         .from("holidays")
         .select("date, name, scope, notes, created_by, created_at")

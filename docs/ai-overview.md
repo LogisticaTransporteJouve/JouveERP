@@ -9,6 +9,10 @@
 > negocio, expuesto tanto como chat on-demand como insights proactivos que se
 > surfacean automáticamente.
 >
+> **AI CFO:** el diseño vigente del asistente (registry único de acciones, lecturas con agregados,
+> permisos por rol y el plan por fases) está en [`ai-cfo.md`](./ai-cfo.md). Los tools viven en
+> `features/ai/registry/` (antes `features/ai/tools/`).
+>
 > Se apoya estrictamente en patrones que ya están en el repo (server actions +
 > `ActionResult`, `userCan`/RLS, Inngest, TanStack Query, shadcn, Zod) y en la
 > referencia de diseño de [`docs/ai-patterns.md`](./ai-patterns.md). No agrega

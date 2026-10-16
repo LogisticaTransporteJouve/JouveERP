@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   ChartAccountCreateSchema,
@@ -32,16 +33,16 @@ export async function listChartOfAccountsAction(
   }
 
   const supabase = await createClient();
-  const query = supabase
-    .from("chart_of_accounts")
-    .select("id, parent_id, code, name, level, account_type, eerr_category, system_role, is_active, created_by, created_at, updated_at")
-    .order("code", { ascending: true });
-
-  if (options.onlyActive) {
-    query.eq("is_active", true);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("chart_of_accounts")
+      .select(
+        "id, parent_id, code, name, level, account_type, eerr_category, system_role, is_active, created_by, created_at, updated_at",
+      )
+      .order("code", { ascending: true });
+    if (options.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("chart_of_accounts.list.failed", {
       userId: ctx.userId,

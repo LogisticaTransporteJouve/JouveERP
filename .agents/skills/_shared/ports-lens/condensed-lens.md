@@ -38,7 +38,7 @@ THE FOUR CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, 
 3. FEATURE-DIRECTION — what may cross between features:
      ALLOWED cross-feature: types, Zod schemas, query keys, pickers (e.g. `accounts/schema`,
        `clients/schema`, `invoices/components/client-picker`), and a READ action consumed to feed a
-       picker/hook or wrapped by the AI tool registry (`features/ai/tools/`, which must call the
+       picker/hook or wrapped by the AI tool registry (`features/ai/registry/`, which must call the
        action so its `userCan` gate applies).
      FORBIDDEN cross-feature: a WRITE / business-logic action imported by another feature — the
        single documented exception is `issueFiscalInvoiceAction` (invoices → shipments,
@@ -68,7 +68,7 @@ FIX every violation in this change. The only deferrable is one literally unexpre
 it silently.
 
 PER-LAW VERDICT: if the change touches a boundary surface (any cross-feature import, any file in
-`lib/afip/`, `lib/inngest/`, `features/ai/model.ts`, `features/ai/tools/`, a `lib/` helper, or
+`lib/afip/`, `lib/inngest/`, `features/ai/model.ts`, `features/ai/registry/`, a `lib/` helper, or
 shared/consumer code that could branch on a provider), emit PASS|DEFECT + one line for all four laws.
 If it touches NO boundary surface, emit exactly:
   ports: N/A — no boundary surface (no cross-feature import, no seam/lib change).

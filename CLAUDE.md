@@ -65,6 +65,8 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
 - `docs/pendientes.md` — qué falta (auditoría docs vs código).
 - `docs/ai-overview.md` — feature IA: chat, insights proactivos, Document
   Intelligence (escaneo/OCR/extracción) + UI + tablas + plan AI.0–AI.8.
+- `docs/ai-cfo.md` — AI CFO: registry único de acciones (`features/ai/registry/`),
+  permisos por rol y plan por fases (ve → pregunta/actúa → muestra → trabaja solo).
 - `docs/ai-build-plan.md` — **runbook de ejecución** (orden, prompts por fase).
 - `docs/ai-patterns.md` — patrones de diseño IA (referencia).
 - `docs/accounting-patterns.md` — arquitectura contable (Fase L+D): plan de

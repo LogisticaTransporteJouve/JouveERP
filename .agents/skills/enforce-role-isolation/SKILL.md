@@ -213,7 +213,7 @@ mention is UNCHECKED, not passed.
 > **Attack question:** can the assistant, a scanned document, or a background job do something the
 > user could not do by hand?
 
-- **AI tools** (`features/ai/tools/`, registered in `registry.ts`) wrap existing READ actions so the
+- **AI tools** (`features/ai/registry/`, one `defineAiAction` per action in `actions/`, listed in `catalog.ts`) wrap existing READ actions so the
   agent inherits each action's `userCan` gate and its column selection. A tool that calls
   `getServiceClient()` itself, accepts a user id / role / channel override from the MODEL's
   arguments, or performs a write is an authorization bypass with a natural-language front door.
@@ -259,7 +259,7 @@ diff does not touch.
 CONDITIONAL, unlike the ports/DRY/perf/comment/telemetry lenses. It activates when the diff touches
 any of: `supabase/migrations/**`; a `CREATE POLICY` / `GRANT` / `REVOKE` / `SECURITY DEFINER` /
 `CREATE OR REPLACE FUNCTION`; a storage bucket or its policies; any use of `getServiceClient()`; a
-`"use server"` file; `app/**/route.ts`; `features/ai/tools/**` or the agent wiring; `lib/auth/**`.
+`"use server"` file; `app/**/route.ts`; `features/ai/registry/**` or the agent wiring; `lib/auth/**`.
 It is a **no-op otherwise** — a diff with none of that surface passes this lens clean.
 
 ## Delivery

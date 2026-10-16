@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   RecurringPaymentCreateSchema,
@@ -52,16 +53,20 @@ export async function listRecurringPaymentsAction(
   }
 
   const supabase = await createSupabaseClient();
-  let query = supabase
-    .from("recurring_payments")
-    .select(SELECT_COLUMNS)
-    .order("is_active", { ascending: false })
-    .order("next_due_date");
-  if (input.onlyActive) query = query.eq("is_active", true);
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("recurring_payments")
+      .select(SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("next_due_date");
+    if (input.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
-    logger.error("recurring_payments.list.failed", { userId: ctx.userId, error });
+    logger.error("recurring_payments.list.failed", {
+      userId: ctx.userId,
+      error,
+    });
     return { ok: false, error: "No se pudieron listar los pagos recurrentes." };
   }
 
@@ -76,7 +81,10 @@ export async function createRecurringPaymentAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "recurring_payments:write")) {
-    return { ok: false, error: "No tenés permiso para crear pagos recurrentes." };
+    return {
+      ok: false,
+      error: "No tenés permiso para crear pagos recurrentes.",
+    };
   }
 
   const parsed = RecurringPaymentCreateSchema.safeParse(input);
@@ -134,7 +142,10 @@ export async function updateRecurringPaymentAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "recurring_payments:write")) {
-    return { ok: false, error: "No tenés permiso para editar pagos recurrentes." };
+    return {
+      ok: false,
+      error: "No tenés permiso para editar pagos recurrentes.",
+    };
   }
 
   const parsed = RecurringPaymentUpdateSchema.safeParse(input);
@@ -192,7 +203,10 @@ export async function setRecurringPaymentActiveAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "recurring_payments:write")) {
-    return { ok: false, error: "No tenés permiso para editar pagos recurrentes." };
+    return {
+      ok: false,
+      error: "No tenés permiso para editar pagos recurrentes.",
+    };
   }
 
   const parsed = RecurringPaymentToggleSchema.safeParse(input);
@@ -224,12 +238,15 @@ export async function setRecurringPaymentActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteRecurringPaymentAction(
-  input: { id: string },
-): Promise<ActionResult> {
+export async function deleteRecurringPaymentAction(input: {
+  id: string;
+}): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "recurring_payments:write")) {
-    return { ok: false, error: "No tenés permiso para borrar pagos recurrentes." };
+    return {
+      ok: false,
+      error: "No tenés permiso para borrar pagos recurrentes.",
+    };
   }
 
   const supabase = await createSupabaseClient();

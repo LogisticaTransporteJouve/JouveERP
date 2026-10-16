@@ -1,4 +1,3 @@
-import { tool } from "ai";
 import { z } from "zod";
 
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
@@ -12,7 +11,14 @@ import {
   listLibroIvaVentasAction,
 } from "@/features/libro-iva/actions/libro-iva-actions";
 
-import { type AiToolResult, errResult, money, okResult } from "./result";
+import { defineAiAction } from "../define";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+} from "../result";
 
 // Tool inputs stay loose (plain strings); the underlying actions re-validate
 // strictly with their own Zod schemas (period regex, UUID, ISO date).
@@ -20,7 +26,7 @@ import { type AiToolResult, errResult, money, okResult } from "./result";
 export async function runTrialBalance(input: {
   periodEnd: string;
   periodStart?: string | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await getAccountBalancesAction({
     periodEnd: input.periodEnd,
     periodStart: input.periodStart ?? null,
@@ -29,29 +35,35 @@ export async function runTrialBalance(input: {
   return okResult(
     `${res.data.length} accounts with accumulated movement up to ${input.periodEnd}.`,
     res.data,
+    { partial: reachedCap(res.data.length) },
   );
 }
 
-export const getTrialBalance = tool({
+export const getTrialBalance = defineAiAction({
+  name: "getTrialBalance",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["get_account_balances"],
   description:
     "Trial balance (sums and balances): per ledger account, debit/credit/" +
     "accumulated balance up to a YYYY-MM period. Basis of the Income Statement " +
     "and Balance Sheet. Only reflects fiscal channels (accounting books).",
-  inputSchema: z.object({
+  input: z.object({
     periodEnd: z.string().describe("Cutoff period YYYY-MM, e.g. '2026-05'."),
     periodStart: z
       .string()
       .nullish()
       .describe("Optional start period YYYY-MM to narrow the range."),
   }),
-  execute: (input) => runTrialBalance(input),
+  run: (_ctx, input) => runTrialBalance(input),
 });
 
 export async function runLedger(input: {
   accountId: string;
   from?: string | null;
   to?: string | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await getLedgerAction({
     accountId: input.accountId,
     from: input.from ?? null,
@@ -65,26 +77,32 @@ export async function runLedger(input: {
       res.data.truncated ? " (truncated to 1000 — narrow by date)" : ""
     } · closing balance ${money(balance)}.`,
     res.data,
+    { partial: res.data.truncated },
   );
 }
 
-export const getLedger = tool({
+export const getLedger = defineAiAction({
+  name: "getLedger",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["get_ledger"],
   description:
     "General ledger of ONE ledger account: movements with running balance " +
     "between dates. Requires the account UUID (obtainable from the chart of " +
     "accounts / getTrialBalance).",
-  inputSchema: z.object({
+  input: z.object({
     accountId: z.string().describe("UUID of the chart of accounts account."),
     from: z.string().nullish().describe("Date from YYYY-MM-DD, optional."),
     to: z.string().nullish().describe("Date to YYYY-MM-DD, optional."),
   }),
-  execute: (input) => runLedger(input),
+  run: (_ctx, input) => runLedger(input),
 });
 
 export async function runLibroIvaVentas(input: {
   period: string;
   channelId?: string | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await listLibroIvaVentasAction({
     period: input.period,
     channelId: input.channelId ?? null,
@@ -96,24 +114,29 @@ export async function runLibroIvaVentas(input: {
   );
 }
 
-export const getLibroIvaVentas = tool({
+export const getLibroIvaVentas = defineAiAction({
+  name: "getLibroIvaVentas",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["libro_iva_ventas"],
   description:
     "VAT Sales book (RG 1361) for a YYYY-MM period: one row per document × rate " +
     "(net/VAT per rate), fiscal channels only. Output VAT for the period.",
-  inputSchema: z.object({
+  input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z
       .string()
       .nullish()
       .describe("Optional fiscal channel to filter."),
   }),
-  execute: (input) => runLibroIvaVentas(input),
+  run: (_ctx, input) => runLibroIvaVentas(input),
 });
 
 export async function runLibroIvaCompras(input: {
   period: string;
   channelId?: string | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await listLibroIvaComprasAction({
     period: input.period,
     channelId: input.channelId ?? null,
@@ -125,49 +148,62 @@ export async function runLibroIvaCompras(input: {
   );
 }
 
-export const getLibroIvaCompras = tool({
+export const getLibroIvaCompras = defineAiAction({
+  name: "getLibroIvaCompras",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["libro_iva_compras"],
   description:
     "VAT Purchases book (RG 1361) for a YYYY-MM period: one row per purchase " +
     "invoice × rate, fiscal channels only. Input VAT for the period.",
-  inputSchema: z.object({
+  input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z
       .string()
       .nullish()
       .describe("Optional fiscal channel to filter."),
   }),
-  execute: (input) => runLibroIvaCompras(input),
+  run: (_ctx, input) => runLibroIvaCompras(input),
 });
 
 export async function runChartOfAccounts(input: {
   onlyActive?: boolean | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await listChartOfAccountsAction({
     onlyActive: input.onlyActive ?? true,
   });
   if (!res.ok) return errResult(res.error);
-  return okResult(`${res.data.length} accounts in the chart of accounts.`, res.data);
+  return okResult(
+    `${res.data.length} accounts in the chart of accounts.`,
+    res.data,
+  );
 }
 
-export const getChartOfAccounts = tool({
+export const getChartOfAccounts = defineAiAction({
+  name: "getChartOfAccounts",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["chart_of_accounts"],
   description:
     "Chart of accounts: code, name, type (asset/liability/equity/result) and " +
     "system role of each account. Useful to find an account's UUID (e.g. for " +
     "getLedger) or to understand the accounting structure.",
-  inputSchema: z.object({
+  input: z.object({
     onlyActive: z
       .boolean()
       .nullish()
       .describe("Active accounts only (default true)."),
   }),
-  execute: (input) => runChartOfAccounts(input),
+  run: (_ctx, input) => runChartOfAccounts(input),
 });
 
 export async function runJournalEntries(input: {
   period?: string | null;
   channelId?: string | null;
   limit?: number | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await listJournalEntriesAction({
     period: input.period ?? null,
     channelId: input.channelId ?? null,
@@ -179,25 +215,31 @@ export async function runJournalEntries(input: {
       input.period ? ` for ${input.period}` : ""
     }${res.data.nextOffset !== null ? " (more available, narrow by period)" : ""}.`,
     res.data,
+    { partial: res.data.nextOffset !== null },
   );
 }
 
-export const getJournalEntries = tool({
+export const getJournalEntries = defineAiAction({
+  name: "getJournalEntries",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["journal_entries", "journal_entry_lines"],
   description:
     "General journal: journal entries with date, accrual period, description " +
     "and their lines (debit/credit per account). Filterable by period YYYY-MM " +
     "and channel. Fiscal channels only (accounting books).",
-  inputSchema: z.object({
+  input: z.object({
     period: z.string().nullish().describe("Period YYYY-MM, optional."),
     channelId: z.string().nullish().describe("Channel UUID, optional."),
     limit: z.number().nullish().describe("Max entries (default 25)."),
   }),
-  execute: (input) => runJournalEntries(input),
+  run: (_ctx, input) => runJournalEntries(input),
 });
 
 export async function runCostCenters(input: {
   onlyActive?: boolean | null;
-}): Promise<AiToolResult> {
+}): Promise<AiRunResult> {
   const res = await listCostCentersAction({
     onlyActive: input.onlyActive ?? true,
   });
@@ -205,20 +247,22 @@ export async function runCostCenters(input: {
   return okResult(`${res.data.length} cost centers.`, res.data);
 }
 
-export const getCostCenters = tool({
+export const getCostCenters = defineAiAction({
+  name: "getCostCenters",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["cost_centers"],
   description:
     "Cost centers (accounting dimensions): code, name and status. No required " +
     "parameters. For analyzing expenses/results by dimension.",
-  inputSchema: z.object({
-    onlyActive: z
-      .boolean()
-      .nullish()
-      .describe("Active only (default true)."),
+  input: z.object({
+    onlyActive: z.boolean().nullish().describe("Active only (default true)."),
   }),
-  execute: (input) => runCostCenters(input),
+  run: (_ctx, input) => runCostCenters(input),
 });
 
-export async function runInflationAdjustments(): Promise<AiToolResult> {
+export async function runInflationAdjustments(): Promise<AiRunResult> {
   const res = await listInflationAdjustmentsAction();
   if (!res.ok) return errResult(res.error);
   return okResult(
@@ -227,10 +271,15 @@ export async function runInflationAdjustments(): Promise<AiToolResult> {
   );
 }
 
-export const getInflationAdjustments = tool({
+export const getInflationAdjustments = defineAiAction({
+  name: "getInflationAdjustments",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["inflation_adjustments"],
   description:
     "Inflation adjustments (RG 4667): period, applied coefficient and whether " +
     "it was already posted. No parameters. For the accounting inflation adjustment.",
-  inputSchema: z.object({}),
-  execute: () => runInflationAdjustments(),
+  input: z.object({}),
+  run: () => runInflationAdjustments(),
 });

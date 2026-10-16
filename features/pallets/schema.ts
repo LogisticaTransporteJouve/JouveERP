@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { Database } from "@/lib/db/database.types";
+
 export const PALLET_STATUSES = ["en_deposito", "despachado"] as const;
 export type PalletStatus = (typeof PALLET_STATUSES)[number];
 
@@ -129,3 +131,6 @@ export const PalletUpdateSchema = z.object({
   exit_date: optionalDate,
   notes: optionalText(2000),
 });
+
+export type PalletsSummaryRow =
+  Database["public"]["Functions"]["ai_pallets_summary"]["Returns"][number];

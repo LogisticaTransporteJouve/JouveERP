@@ -7,7 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { fetchInChunks } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -62,10 +62,14 @@ export async function listStorageTariffsAction(): Promise<
     };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("storage_tariffs")
-    .select(SELECT_COLUMNS)
-    .order("valid_from", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("storage_tariffs")
+      .select(SELECT_COLUMNS)
+      .order("valid_from", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("storage_tariffs.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las tarifas." };

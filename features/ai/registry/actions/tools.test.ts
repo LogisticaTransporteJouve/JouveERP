@@ -25,9 +25,12 @@ vi.mock("@/features/receipts/actions/receipts-actions", () => ({
 vi.mock("@/features/clients/actions/clients-actions", () => ({
   searchClientsAction: vi.fn(),
 }));
-vi.mock("@/features/purchase-invoices/actions/purchase-invoices-actions", () => ({
-  searchPurchaseInvoicesAction: vi.fn(),
-}));
+vi.mock(
+  "@/features/purchase-invoices/actions/purchase-invoices-actions",
+  () => ({
+    searchPurchaseInvoicesAction: vi.fn(),
+  }),
+);
 vi.mock("@/features/suppliers/actions/account-actions", () => ({
   getSupplierAgingAction: vi.fn(),
 }));
@@ -49,9 +52,12 @@ vi.mock("@/features/checks/actions/checks-actions", () => ({
 vi.mock("@/features/issued-checks/actions/issued-checks-actions", () => ({
   listIssuedChecksAction: vi.fn(),
 }));
-vi.mock("@/features/chart-of-accounts/actions/chart-of-accounts-actions", () => ({
-  listChartOfAccountsAction: vi.fn(),
-}));
+vi.mock(
+  "@/features/chart-of-accounts/actions/chart-of-accounts-actions",
+  () => ({
+    listChartOfAccountsAction: vi.fn(),
+  }),
+);
 vi.mock("@/features/journal-entries/actions/journal-entries-actions", () => ({
   listJournalEntriesAction: vi.fn(),
 }));
@@ -68,9 +74,12 @@ vi.mock("@/features/hr/actions/employees-actions", () => ({
 vi.mock("@/features/hr/actions/attendance-actions", () => ({
   getAttendanceMonthAction: vi.fn(),
 }));
-vi.mock("@/features/employee-documents/actions/employee-documents-actions", () => ({
-  listExpiringDocumentsAction: vi.fn(),
-}));
+vi.mock(
+  "@/features/employee-documents/actions/employee-documents-actions",
+  () => ({
+    listExpiringDocumentsAction: vi.fn(),
+  }),
+);
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
@@ -79,47 +88,79 @@ import { listLibroIvaVentasAction } from "@/features/libro-iva/actions/libro-iva
 import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
-import { listChecksAction } from "@/features/checks/actions/checks-actions";
+import {
+  listChecksAction,
+  type CheckListItem,
+} from "@/features/checks/actions/checks-actions";
 import { getAttendanceMonthAction } from "@/features/hr/actions/attendance-actions";
 
 import { runLedger, runLibroIvaVentas, runTrialBalance } from "./accounting";
 import { runChecks } from "./cash";
 import { runAttendance } from "./hr";
-import { getPurchaseInvoices, runPurchaseInvoices, runSupplierAging } from "./purchases";
+import {
+  getPurchaseInvoices,
+  runPurchaseInvoices,
+  runSupplierAging,
+} from "./purchases";
 import { runClientAging } from "./receivables";
 import { getInvoices, runInvoices } from "./sales";
-import { AI_TOOL_NAMES, aiTools } from "./registry";
+import { AI_ACTIONS } from "../catalog";
+import { reachedCap } from "../result";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("ai tools registry", () => {
-  it("exposes 31 uniquely-named tools, each with a non-trivial description", () => {
-    expect(AI_TOOL_NAMES).toHaveLength(31);
-    expect(new Set(AI_TOOL_NAMES).size).toBe(31);
-    for (const name of AI_TOOL_NAMES) {
-      const desc = aiTools[name].description;
-      expect(typeof desc).toBe("string");
-      expect((desc ?? "").length).toBeGreaterThan(10);
+const MIGRATED_TOOLS = [
+  "getClientAging",
+  "getInvoices",
+  "getReceipts",
+  "searchClients",
+  "getSupplierAging",
+  "getPurchaseInvoices",
+  "getPaymentOrders",
+  "searchSuppliers",
+  "getTreasurySummary",
+  "getAccounts",
+  "getTransactions",
+  "getChecks",
+  "getIssuedChecks",
+  "getTrialBalance",
+  "getLedger",
+  "getLibroIvaVentas",
+  "getLibroIvaCompras",
+  "getChartOfAccounts",
+  "getJournalEntries",
+  "getCostCenters",
+  "getInflationAdjustments",
+  "getEmployees",
+  "searchEmployees",
+  "getAttendance",
+  "getExpiringDocuments",
+  "getVehicles",
+  "getTrips",
+  "getFuelLoads",
+  "getMaintenance",
+  "getFleetDocuments",
+  "getFleetProfitability",
+];
+
+describe("ai action registry", () => {
+  it("keeps every pre-registry tool, uniquely named, each with a non-trivial description", () => {
+    const names = AI_ACTIONS.map((a) => a.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of MIGRATED_TOOLS) {
+      const action = AI_ACTIONS.find((a) => a.name === name);
+      expect(action, name).toBeDefined();
+      expect(action?.description.length).toBeGreaterThan(10);
+      expect(action?.sideEffect).toBe("read");
     }
   });
 
-  it("includes the sales + payables tools added in AI.4", () => {
-    for (const name of [
-      "getInvoices",
-      "getReceipts",
-      "searchClients",
-      "getSupplierAging",
-      "getPurchaseInvoices",
-      "getPaymentOrders",
-      "searchSuppliers",
-    ]) {
-      expect(AI_TOOL_NAMES).toContain(name);
-    }
-    // tool() handles bound correctly (defensive: catches a bad re-export)
-    expect(typeof getInvoices.execute).toBe("function");
-    expect(typeof getPurchaseInvoices.execute).toBe("function");
+  it("binds the sales + payables actions to AI SDK tools", () => {
+    const ctx = { userId: "u1", roles: ["owner" as const] };
+    expect(typeof getInvoices.toTool(ctx).execute).toBe("function");
+    expect(typeof getPurchaseInvoices.toTool(ctx).execute).toBe("function");
   });
 });
 
@@ -159,7 +200,10 @@ describe("runClientAging", () => {
 
 describe("runTrialBalance", () => {
   it("forwards periodEnd (periodStart defaults to null) and reports the count", async () => {
-    vi.mocked(getAccountBalancesAction).mockResolvedValue({ ok: true, data: [] });
+    vi.mocked(getAccountBalancesAction).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
     const r = await runTrialBalance({ periodEnd: "2026-05" });
     expect(getAccountBalancesAction).toHaveBeenCalledWith({
       periodEnd: "2026-05",
@@ -189,7 +233,10 @@ describe("runLedger", () => {
 
 describe("runLibroIvaVentas", () => {
   it("reports the row count for the period", async () => {
-    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({ ok: true, data: [] });
+    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
     const r = await runLibroIvaVentas({ period: "2026-05" });
     expect(listLibroIvaVentasAction).toHaveBeenCalledWith({
       period: "2026-05",
@@ -286,6 +333,49 @@ describe("runChecks", () => {
     const r = await runChecks();
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("0 checks received");
+    expect(r.ok && r.partial).toBe(false);
+  });
+
+  it("flags the 500-check list cap as partial in the result and summary", async () => {
+    const check: CheckListItem = {
+      id: "c1",
+      amount: 100,
+      bank_name: "Banco",
+      cartera_account_id: "a1",
+      check_number: "1",
+      created_at: "2026-01-01T00:00:00Z",
+      created_by: null,
+      currency: "ARS",
+      drawer_cuit: null,
+      drawer_name: "Acme",
+      due_date: "2026-02-01",
+      issue_date: "2026-01-01",
+      kind: "fisico",
+      notes: null,
+      source_client_id: null,
+      source_kind: "receipt",
+      source_payment_line_id: null,
+      source_receipt_id: null,
+      status: "en_cartera",
+      updated_at: "2026-01-01T00:00:00Z",
+      cartera_account_name: "Cartera",
+      source_client_legal_name: null,
+    };
+    vi.mocked(listChecksAction).mockResolvedValue({
+      ok: true,
+      data: { items: Array.from({ length: 500 }, () => check) },
+    });
+    const r = await runChecks();
+    expect(r.ok && r.partial).toBe(true);
+    expect(r.summary).toContain("capped at 500");
+  });
+});
+
+describe("reachedCap", () => {
+  it("is true only when a capped read came back full", () => {
+    expect(reachedCap(999)).toBe(false);
+    expect(reachedCap(1000)).toBe(true);
+    expect(reachedCap(200, 200)).toBe(true);
   });
 });
 

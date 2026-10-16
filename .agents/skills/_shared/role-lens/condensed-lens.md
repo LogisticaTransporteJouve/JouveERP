@@ -19,7 +19,7 @@ touch a migration, a policy/grant, a DEFINER function, a storage bucket, `getSer
 FIRES ON: supabase/migrations/**; CREATE POLICY | GRANT | REVOKE | SECURITY DEFINER | CREATE OR REPLACE
 FUNCTION; a storage bucket or its policies; any call to `getServiceClient()` (lib/supabase/service.ts —
 service role, BYPASSES RLS); any `"use server"` file (features/*/actions/**); app/**/route.ts (incl.
-app/api/inngest, app/api/ai/chat, app/api/export, the PDF routes); an AI tool (features/ai/tools/**) or
+app/api/inngest, app/api/ai/chat, app/api/export, the PDF routes); an AI tool (features/ai/registry/**) or
 agent/skill wiring; lib/auth/** (permissions matrix, context). Nothing in that list touched → N/A.
 
 MODEL: single company, single tenant (one `business_units` row, `dz_sons`) — NO per-user ownership of
@@ -79,7 +79,7 @@ THE FIVE CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, 
    policy that lets `operations` write what the matrix gives only to `finance` (or the reverse) is a
    drift defect. Role assignment goes through `canAssignRole` (admins never grant `owner`). No
    role check by string compare scattered in components — UI hides by `userCan`, the server enforces.
-5. AI-AND-JOBS-GO-THROUGH-THE-GATE — AI tools (`features/ai/tools/`) wrap existing READ actions so
+5. AI-AND-JOBS-GO-THROUGH-THE-GATE — AI tools (`features/ai/registry/`) wrap existing READ actions so
    the agent inherits their `userCan` gate; a tool that queries `getServiceClient()` directly, takes a
    role/user id from the MODEL's arguments, or exposes a write without the action's gate is an
    authorization bypass with a natural-language front door. Document Intelligence writes only after

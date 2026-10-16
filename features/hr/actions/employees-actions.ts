@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   EmployeeCreateSchema,
@@ -42,10 +43,14 @@ export async function listEmployeesAction(): Promise<ActionResult<Employee[]>> {
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("employees")
-    .select(SELECT_COLS)
-    .order("legal_name");
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("employees")
+      .select(SELECT_COLS)
+      .order("legal_name")
+      .order("id")
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("employees.list.failed", { userId: ctx.userId, error });

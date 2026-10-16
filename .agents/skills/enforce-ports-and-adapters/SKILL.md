@@ -189,7 +189,7 @@ app:       app/**                    routes (server components that prefetch + H
   sideways into another feature.
 - **What may cross features** (CLAUDE.md): types, Zod schemas, query keys, pickers
   (`accounts/schema`, `clients/schema`, `invoices/components/client-picker`), and a READ action used
-  to feed a picker or hook. `features/ai/tools/` is the sanctioned consumer of read actions: each AI
+  to feed a picker or hook. `features/ai/registry/` is the sanctioned consumer of read actions: each AI
   tool wraps an existing read action so the agent inherits that action's `userCan` gate.
 - **What may NOT cross:** a write / business-logic action. The only documented exception is
   `issueFiscalInvoiceAction` (`features/invoices/actions`), called by `shipments`, `storage-billing`

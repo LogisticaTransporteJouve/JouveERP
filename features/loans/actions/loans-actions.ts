@@ -5,6 +5,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { createTransactionAction } from "@/features/transactions/actions/transactions-actions";
@@ -110,10 +111,14 @@ export async function listLoansAction(): Promise<ActionResult<LoanListItem[]>> {
     return { ok: false, error: "Sin permiso para ver préstamos." };
   }
   const supabase = await createSupabaseClient();
-  const { data: loans, error } = await supabase
-    .from("loans")
-    .select(LOAN_COLUMNS)
-    .order("created_at", { ascending: false });
+  const { data: loans, error } = await paginateRange((from, to) =>
+    supabase
+      .from("loans")
+      .select(LOAN_COLUMNS)
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("loans.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar los préstamos." };
@@ -121,11 +126,26 @@ export async function listLoansAction(): Promise<ActionResult<LoanListItem[]>> {
   const ids = (loans ?? []).map((l) => l.id);
   const byLoan = new Map<string, InstallmentAgg[]>();
   if (ids.length > 0) {
-    const { data: insts } = await supabase
-      .from("loan_installments")
-      .select("loan_id, amount, status, due_date, paid_amount")
-      .in("loan_id", ids);
-    for (const i of insts ?? []) {
+    // Every installment of every loan: a truncated set would misstate the
+    // paid / pending totals.
+    const insts = await fetchInChunks(ids, (chunkIds) =>
+      paginateRange((from, to) =>
+        supabase
+          .from("loan_installments")
+          .select("loan_id, amount, status, due_date, paid_amount")
+          .in("loan_id", chunkIds)
+          .order("id")
+          .range(from, to),
+      ),
+    );
+    if (insts.error) {
+      logger.error("loans.installments.failed", {
+        userId: ctx.userId,
+        error: insts.error,
+      });
+      return { ok: false, error: "No se pudieron cargar los préstamos." };
+    }
+    for (const i of insts.data) {
       const arr = byLoan.get(i.loan_id) ?? [];
       arr.push({
         loan_id: i.loan_id,
@@ -161,13 +181,24 @@ export async function getLoanAction(
   if (error || !loan) {
     return { ok: false, error: "No se encontró el préstamo." };
   }
-  const { data: insts } = await supabase
-    .from("loan_installments")
-    .select(
-      "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes",
-    )
-    .eq("loan_id", id)
-    .order("number");
+  const { data: insts, error: instsError } = await paginateRange((from, to) =>
+    supabase
+      .from("loan_installments")
+      .select(
+        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes",
+      )
+      .eq("loan_id", id)
+      .order("number")
+      .order("id")
+      .range(from, to),
+  );
+  if (instsError) {
+    logger.error("loans.detail.installments_failed", {
+      userId: ctx.userId,
+      error: instsError,
+    });
+    return { ok: false, error: "No se pudo cargar el préstamo." };
+  }
   const installments: LoanInstallment[] = (insts ?? []).map((i) => ({
     id: i.id,
     loan_id: i.loan_id,
@@ -390,9 +421,7 @@ export async function payInstallmentAction(
   return { ok: true, data: { transactionId: txRes.data.id } };
 }
 
-export async function cancelLoanAction(
-  input: unknown,
-): Promise<ActionResult> {
+export async function cancelLoanAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "accounting:write")) {
     return { ok: false, error: "Sin permiso para anular préstamos." };

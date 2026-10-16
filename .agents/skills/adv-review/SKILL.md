@@ -149,7 +149,7 @@ Unlike the lenses above, this one is **not always on**. It activates when the di
 `supabase/migrations/**`, an RLS policy, a `GRANT`/`REVOKE`, a `SECURITY DEFINER` function, any use of
 `getServiceClient()` (`lib/supabase/service.ts` — service role, bypasses RLS), a storage bucket or its
 policies, a `"use server"` file, an HTTP route handler (`app/api/**/route.ts` — including
-`app/api/inngest`, the AI chat route, the PDF and export routes), an AI tool (`features/ai/tools/**`),
+`app/api/inngest`, the AI chat route, the PDF and export routes), an AI tool (`features/ai/registry/**`),
 or `lib/auth/**`; on any other diff it
 is a **no-op** and no wave pays for it. When it fires: Read
 `.claude/skills/enforce-role-isolation/SKILL.md` — every line — then **paste the condensed lens from

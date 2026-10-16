@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   CostCenterCreateSchema,
@@ -23,9 +24,14 @@ export async function listCostCentersAction(
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
-  const query = supabase.from("cost_centers").select("id, code, name, description, is_active, created_at, updated_at").order("code");
-  if (options.onlyActive) query.eq("is_active", true);
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("cost_centers")
+      .select("id, code, name, description, is_active, created_at, updated_at")
+      .order("code");
+    if (options.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("cost_centers.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer los centros." };

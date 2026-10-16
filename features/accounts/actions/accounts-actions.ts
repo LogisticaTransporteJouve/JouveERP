@@ -8,6 +8,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   AccountCreateSchema,
@@ -44,11 +45,15 @@ export async function listAccountsAction(): Promise<ActionResult<Account[]>> {
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("accounts")
-    .select(SELECT_COLUMNS)
-    .order("is_active", { ascending: false })
-    .order("name");
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("accounts")
+      .select(SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("accounts.list.failed", { userId: ctx.userId, error });

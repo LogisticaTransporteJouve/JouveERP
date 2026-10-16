@@ -113,7 +113,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[authorization / role-gating / IDOR]**
 - Pattern: a `"use server"` action or route reaching `getServiceClient()` without `requireUserContext()` + the matching `userCan`; a write gated by a `:read` permission; a self-scoped row read by a client-supplied id; a DEFINER function trusting a parameter; an AI tool bypassing its action.
 - Frequency: occasional but highest severity.
-- Where: `features/*/actions/**`, `app/**/route.ts`, RLS policies and grants, `features/ai/tools/**`, Inngest event payloads, `lib/auth/permissions.ts`.
+- Where: `features/*/actions/**`, `app/**/route.ts`, RLS policies and grants, `features/ai/registry/**`, Inngest event payloads, `lib/auth/permissions.ts`.
 - Example: an action exported "for reuse" from a `"use server"` file with no gate; `cancelInvoiceAction` checking `invoices:read`; a notification marked read by id without `.eq("user_id", ctx.userId)`.
 - Fix: gate first, then service client; the permission matching the operation; Zod-parse every input; `user_id` filter on self-scoped rows; policies with `(select public.user_has_role(...))` in USING and WITH CHECK. See `enforce-role-isolation`.
 - source: house rules; adv-review.
