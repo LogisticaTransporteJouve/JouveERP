@@ -13,7 +13,10 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { PG_INVALID_PARAMETER_VALUE } from "@/lib/db/pg-error-codes";
+import {
+  PG_CHECK_VIOLATION,
+  PG_INVALID_PARAMETER_VALUE,
+} from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
@@ -858,8 +861,8 @@ export async function regeneratePdfAction(
 // ---------------------------------------------------------------------------
 
 /** Cancels an internal invoice. The DB keeps it consistent: the allocation
- *  guard refuses while an active receipt is applied to it, and the release
- *  trigger frees the shipment or storage period it billed. Internal channels
+ *  guard refuses while a receipt or the opening balance is applied to it, and
+ *  the release trigger frees the shipment or storage period it billed. Internal channels
  *  post no journal entry, so there is nothing to reverse. */
 export async function cancelInvoiceAction(
   input: unknown,
@@ -918,6 +921,13 @@ export async function cancelInvoiceAction(
         ok: false,
         error:
           "El comprobante tiene cobros imputados. Anulá esos recibos antes de anular el comprobante.",
+      };
+    }
+    if (error.code === PG_CHECK_VIOLATION) {
+      return {
+        ok: false,
+        error:
+          "El comprobante está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.",
       };
     }
     logger.error("invoices.cancel.failed", {

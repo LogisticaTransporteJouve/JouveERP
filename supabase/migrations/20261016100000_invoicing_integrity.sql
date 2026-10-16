@@ -1,7 +1,7 @@
 -- Invoicing integrity: writes only through the issue workflow, idempotent and
 -- atomic numbering for internal and CAEA vouchers, links released when an
--- invoice fails or is cancelled, and NCs counted against their origin in
--- aging and receipt allocations.
+-- invoice fails or is cancelled, NCs counted against their origin in aging
+-- and receipt allocations, and no cancellation while money is applied.
 
 set row_security = off;
 set lock_timeout = '5s';
@@ -286,6 +286,42 @@ begin
       v_sum, v_credited, new.amount_applied, v_total using errcode = '23514';
   end if;
 
+  return new;
+end;
+$$;
+
+------------------------------------------------------------------------------
+-- 7. Cancelling an internal invoice: refused while money is applied to it.
+------------------------------------------------------------------------------
+-- An active receipt allocation (22023) or a client opening-balance settlement
+-- (23514) consumed part of the invoice; cancelling it would leave that money
+-- applied to a document that no longer counts.
+
+create or replace function public.guard_cancel_invoice_with_allocations()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.status = 'emitted' and new.status = 'cancelled' then
+    if exists (
+      select 1
+        from public.receipt_allocations ra
+        join public.receipts r on r.id = ra.receipt_id
+       where ra.invoice_id = old.id
+         and r.status = 'issued'
+    ) then
+      raise exception 'El comprobante % tiene recibos imputados. Anulá esos recibos antes de anularlo.', old.id
+        using errcode = '22023';
+    end if;
+    if exists (
+      select 1
+        from public.client_opening_balance_allocations oba
+       where oba.invoice_id = old.id
+    ) then
+      raise exception 'El comprobante % está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.', old.id
+        using errcode = '23514';
+    end if;
+  end if;
   return new;
 end;
 $$;

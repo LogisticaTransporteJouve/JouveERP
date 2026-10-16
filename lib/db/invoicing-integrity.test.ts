@@ -108,3 +108,15 @@ describe("NCs count against their origin", () => {
     );
   });
 });
+
+describe("cancelling an invoice with money applied", () => {
+  it("is refused for receipts (22023) and for the opening balance (23514)", () => {
+    const definition = latestDefinition(
+      "guard_cancel_invoice_with_allocations",
+    );
+    expect(definition).toMatch(/r\.status = 'issued'[\s\S]*?errcode = '22023'/);
+    expect(definition).toMatch(
+      /client_opening_balance_allocations[\s\S]*?errcode = '23514'/,
+    );
+  });
+});

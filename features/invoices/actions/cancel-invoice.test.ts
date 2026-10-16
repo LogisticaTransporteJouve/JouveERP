@@ -142,3 +142,12 @@ describe("getInvoiceDetailAction", () => {
     if (res.ok) expect(res.data.numero).toBeNull();
   });
 });
+
+describe("cancelInvoiceAction with the opening balance applied", () => {
+  it("explains the opening-balance guard", async () => {
+    h.updateError = { code: "23514", message: "opening" };
+    const res = await cancelInvoiceAction({ id: ID });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/saldo inicial/);
+  });
+});
