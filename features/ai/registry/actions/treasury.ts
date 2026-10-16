@@ -1,11 +1,11 @@
-import { tool } from "ai";
 import { z } from "zod";
 
 import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
 
-import { type AiToolResult, errResult, okResult } from "./result";
+import { defineAiAction } from "../define";
+import { type AiRunResult, errResult, okResult } from "../result";
 
-export async function runTreasurySummary(): Promise<AiToolResult> {
+export async function runTreasurySummary(): Promise<AiRunResult> {
   const res = await getTreasurySummaryAction();
   if (!res.ok) return errResult(res.error);
   const d = res.data;
@@ -16,11 +16,16 @@ export async function runTreasurySummary(): Promise<AiToolResult> {
   );
 }
 
-export const getTreasurySummary = tool({
+export const getTreasurySummary = defineAiAction({
+  name: "getTreasurySummary",
+  domain: "tesoreria",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["accounts", "account_movement_totals", "checks"],
   description:
     "Treasury summary: balances per account and currency (ARS/USD), current " +
     "totals vs. end of previous month, and portfolio checks due soon. " +
     "No parameters. Useful for 'how's the cash doing?'.",
-  inputSchema: z.object({}),
-  execute: () => runTreasurySummary(),
+  input: z.object({}),
+  run: () => runTreasurySummary(),
 });

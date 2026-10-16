@@ -14,7 +14,7 @@ import {
   recordAiUsage,
   type AiUsageToday,
 } from "@/features/ai/lib/chat-store";
-import { aiTools } from "@/features/ai/tools";
+import { buildAiTools, buildCapabilitiesSummary } from "@/features/ai/registry";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -124,7 +124,12 @@ export async function POST(req: Request) {
   await appendAiMessage(sessionId, message);
 
   const allMessages = [...prior, message];
+  // Only the actions this user's roles may run become tools: the model never
+  // sees (or can call) the rest, and each tool re-checks the permission.
+  const tools = buildAiTools({ userId: ctx.userId, roles: ctx.roles });
   const result = await streamChat(allMessages, {
+    tools,
+    capabilities: buildCapabilitiesSummary(ctx.roles),
     userId: ctx.userId,
     sessionId,
     onUsage: (usage) =>
@@ -138,7 +143,7 @@ export async function POST(req: Request) {
 
   const stream = toUIMessageStream({
     stream: result.stream,
-    tools: aiTools,
+    tools,
     originalMessages: allMessages,
     // The last original message is the user turn, so the SDK won't auto-assign
     // an id to the assistant response — give it one so persisted messages have

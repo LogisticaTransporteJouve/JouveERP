@@ -48,7 +48,10 @@ describe("runVehicles", () => {
   });
 
   it("returns an error result when the action fails", async () => {
-    vi.mocked(listVehiclesAction).mockResolvedValue({ ok: false, error: "boom" });
+    vi.mocked(listVehiclesAction).mockResolvedValue({
+      ok: false,
+      error: "boom",
+    });
     const res = await runVehicles({});
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe("boom");
@@ -60,7 +63,10 @@ describe("runTrips / runFuelLoads / runMaintenance / runFleetDocuments", () => {
     vi.mocked(listTripsAction).mockResolvedValue({ ok: true, data: [] });
     vi.mocked(listFuelLoadsAction).mockResolvedValue({ ok: true, data: [] });
     vi.mocked(listMaintenanceAction).mockResolvedValue({ ok: true, data: [] });
-    vi.mocked(listFleetDocumentsAction).mockResolvedValue({ ok: true, data: [] });
+    vi.mocked(listFleetDocumentsAction).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
 
     expect((await runTrips()).summary).toContain("trips");
     expect((await runFuelLoads()).summary).toContain("fuel");
@@ -82,7 +88,11 @@ describe("runFleetProfitability", () => {
   it("summarizes net profitability for a valid range", async () => {
     vi.mocked(getFleetProfitabilityAction).mockResolvedValue({
       ok: true,
-      data: { trips: [], vehicles: [], totals: { revenue: 1000, cost: 400, net: 600 } },
+      data: {
+        trips: [],
+        vehicles: [],
+        totals: { revenue: 1000, cost: 400, net: 600 },
+      },
     });
     const res = await runFleetProfitability({
       periodStart: "2026-01-01",

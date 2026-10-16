@@ -55,15 +55,6 @@ vi.mock("./model", async (importOriginal) => ({
     servedModel: () => "claude-sonnet-5-5",
   }),
 }));
-vi.mock("./tools", () => ({
-  aiTools: {
-    searchClients: tool({
-      description: "search",
-      inputSchema: z.object({ query: z.string() }),
-      execute: async () => ({ rows: [] }),
-    }),
-  },
-}));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("./lib/chat-store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lib/chat-store")>()),
@@ -71,6 +62,18 @@ vi.mock("./lib/chat-store", async (importOriginal) => ({
 }));
 
 const { streamChat } = await import("./agent");
+
+const tools = {
+  searchClients: tool({
+    description: "search",
+    inputSchema: z.object({ query: z.string() }),
+    execute: async () => ({ rows: [] }),
+  }),
+};
+const base = {
+  tools,
+  capabilities: "Ventas y cobranzas:\n- searchClients: Buscar clientes",
+};
 
 const history: UIMessage[] = [
   {
@@ -110,6 +113,7 @@ describe("streamChat", () => {
   it("runs the tool loop with explicit output ceiling + effort", async () => {
     const onUsage = vi.fn();
     const result = await streamChat(history, {
+      ...base,
       userId: "u1",
       sessionId: "s1",
       onUsage,
@@ -118,6 +122,10 @@ describe("streamChat", () => {
 
     const [first] = mockModel.doStreamCalls;
     expect(first?.maxOutputTokens).toBe(16_000);
+    // The cached system block carries the caller's capabilities summary.
+    const system = first?.prompt[0];
+    expect(system?.role).toBe("system");
+    expect(system?.content).toContain("- searchClients: Buscar clientes");
     expect(first?.providerOptions?.anthropic).toMatchObject({
       effort: "medium",
     });
@@ -135,7 +143,7 @@ describe("streamChat", () => {
   });
 
   it("moves the cache breakpoint to the newest message on every step", async () => {
-    const result = await streamChat(history, { userId: "u1" });
+    const result = await streamChat(history, { ...base, userId: "u1" });
     await result.consumeStream();
     const [first, second] = mockModel.doStreamCalls;
 
@@ -168,7 +176,7 @@ describe("streamChat", () => {
   });
 
   it("does not replay reasoning from earlier turns", async () => {
-    const result = await streamChat(history, { userId: "u1" });
+    const result = await streamChat(history, { ...base, userId: "u1" });
     await result.consumeStream();
     const prompt = mockModel.doStreamCalls[0]?.prompt ?? [];
     const replayedReasoning = prompt.some(
@@ -180,7 +188,11 @@ describe("streamChat", () => {
   });
 
   it("audits every tool call as the ai-agent", async () => {
-    const result = await streamChat(history, { userId: "u1", sessionId: "s1" });
+    const result = await streamChat(history, {
+      ...base,
+      userId: "u1",
+      sessionId: "s1",
+    });
     await result.consumeStream();
     expect(logAudit).toHaveBeenCalledWith(
       "ai.tool_call",
