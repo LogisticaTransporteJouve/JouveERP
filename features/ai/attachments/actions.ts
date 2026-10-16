@@ -9,13 +9,14 @@ import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
 import { UuidSchema } from "@/lib/validation/common";
 
 import { canViewChatAttachment } from "./access";
-import { parseTable } from "./content";
+import { attachmentMetadata, parseTable } from "./content";
+import type { ParsedTable } from "./csv";
 import {
   CHAT_PDF_MAX_PAGES,
   normalizeChatAttachmentMime,
   validateChatAttachment,
 } from "./limits";
-import { countPdfPages } from "./pdf-pages";
+import { countPdfPages, isEncryptedPdf } from "./pdf-pages";
 import type { ChatAttachment } from "./schema";
 import { bytesMatchMime } from "./sniff";
 import {
@@ -74,7 +75,15 @@ export async function uploadChatAttachmentAction(
   }
 
   let pages: number | null = null;
+  let table: ParsedTable | null = null;
   if (mimeType === "application/pdf") {
+    if (isEncryptedPdf(bytes)) {
+      return {
+        ok: false,
+        error:
+          "El PDF está protegido con contraseña o cifrado y no se puede leer. Subí una copia sin protección.",
+      };
+    }
     pages = countPdfPages(bytes);
     if (pages !== null && pages > CHAT_PDF_MAX_PAGES) {
       return {
@@ -84,7 +93,7 @@ export async function uploadChatAttachmentAction(
     }
   } else if (!mimeType.startsWith("image/")) {
     try {
-      parseTable(mimeType, bytes);
+      table = parseTable(mimeType, bytes);
     } catch (error) {
       logger.warn("ai.attachments.table_rejected", {
         userId: ctx.userId,
@@ -102,7 +111,7 @@ export async function uploadChatAttachmentAction(
     filename,
     mimeType,
     bytes,
-    pages,
+    metadata: attachmentMetadata({ pages, table }),
   });
   if (!stored) return { ok: false, error: "No se pudo subir el archivo." };
 

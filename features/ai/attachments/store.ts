@@ -5,7 +5,11 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { CHAT_ATTACHMENT_SOURCE, type ChatAttachmentOwnership } from "./access";
-import type { DownloadFile, StoredAttachment } from "./content";
+import {
+  readAttachmentMetadata,
+  type DownloadFile,
+  type StoredAttachment,
+} from "./content";
 import type { ChatAttachment } from "./schema";
 
 // Chat attachment persistence. Every function runs with the service client
@@ -17,13 +21,6 @@ const BUCKET = "files";
 function one<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
   return value ?? null;
-}
-
-function pagesOf(metadata: Json): number | null {
-  if (typeof metadata !== "object" || metadata === null) return null;
-  if (Array.isArray(metadata)) return null;
-  const pages = metadata.pages;
-  return typeof pages === "number" && Number.isFinite(pages) ? pages : null;
 }
 
 export type ClaimResult =
@@ -119,7 +116,7 @@ export async function listSessionAttachments(
       fileId: row.file_id,
       mimeType: file.mime_type,
       size: file.file_size ?? 0,
-      pages: pagesOf(file.metadata),
+      ...readAttachmentMetadata(file.metadata),
       bucket: file.bucket,
       bucketPath: file.bucket_path,
     });
@@ -206,7 +203,7 @@ export async function storeDraftAttachment(input: {
   filename: string;
   mimeType: string;
   bytes: Uint8Array;
-  pages: number | null;
+  metadata: { [key: string]: Json };
 }): Promise<boolean> {
   const service = getServiceClient();
   const { error: storageError } = await service.storage
@@ -232,7 +229,7 @@ export async function storeDraftAttachment(input: {
     bucket: BUCKET,
     bucket_path: input.bucketPath,
     source: CHAT_ATTACHMENT_SOURCE,
-    metadata: input.pages === null ? {} : { pages: input.pages },
+    metadata: input.metadata,
   });
   if (error) {
     await service.storage.from(BUCKET).remove([input.bucketPath]);
@@ -246,27 +243,51 @@ export async function storeDraftAttachment(input: {
 }
 
 /**
- * Deletes the caller's unsent draft (blob + row). A file already linked to a
- * message, or someone else's, is left alone.
+ * Deletes the caller's unsent draft (row, then blob) in one conditional
+ * statement: a file linked to a message, read by Document Intelligence or
+ * someone else's is left alone (delete_chat_draft_file).
  */
 export async function deleteDraftAttachment(
   userId: string,
   fileId: string,
 ): Promise<boolean> {
-  const file = await loadChatAttachmentFile(fileId);
-  if (
-    !file ||
-    file.source !== CHAT_ATTACHMENT_SOURCE ||
-    file.uploadedBy !== userId ||
-    file.sessionOwner !== null
-  ) {
-    return false;
-  }
   const service = getServiceClient();
-  const { error } = await service.from("files").delete().eq("id", fileId);
+  const { data, error } = await service.rpc("delete_chat_draft_file", {
+    p_file_id: fileId,
+    p_user_id: userId,
+  });
   if (error) throw error;
-  await service.storage.from(file.bucket).remove([file.bucketPath]);
+  const deleted = (data ?? [])[0];
+  if (!deleted) return false;
+  await service.storage.from(deleted.bucket).remove([deleted.bucket_path]);
   return true;
+}
+
+/**
+ * Marks a chat attachment the model API refused, so later turns send a note
+ * instead of the file (files.metadata.unreadable).
+ */
+export async function markAttachmentUnreadable(fileId: string): Promise<void> {
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("files")
+    .select("metadata")
+    .eq("id", fileId)
+    .eq("source", CHAT_ATTACHMENT_SOURCE)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return;
+  const current =
+    typeof data.metadata === "object" &&
+    data.metadata !== null &&
+    !Array.isArray(data.metadata)
+      ? data.metadata
+      : {};
+  const { error: updateError } = await service
+    .from("files")
+    .update({ metadata: { ...current, unreadable: true } })
+    .eq("id", fileId);
+  if (updateError) throw updateError;
 }
 
 /**

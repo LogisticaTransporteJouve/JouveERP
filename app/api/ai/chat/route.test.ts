@@ -21,7 +21,9 @@ const store = {
     async () => new Map<string, StoredAttachment>(),
   ),
   downloadStoredFile: vi.fn(async () => new TextEncoder().encode("%PDF-1.4")),
+  markAttachmentUnreadable: vi.fn(async () => undefined),
 };
+let prior: UIMessage[] = [];
 const chatStore = {
   appendAiMessage: vi.fn<
     (sessionId: string, message: UIMessage) => Promise<string>
@@ -45,7 +47,7 @@ vi.mock("@/features/ai/lib/chat-store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/ai/lib/chat-store")>()),
   getAiUsageToday: async () => ({ totalTokens: 0, costUsd: 0 }),
   ensureAiSession: async () => ({ created: false }),
-  loadAiSessionMessages: async () => [],
+  loadAiSessionMessages: async () => prior,
   appendAiMessage: chatStore.appendAiMessage,
   deleteAiMessageRow: chatStore.deleteAiMessageRow,
   recordAiUsage: async () => undefined,
@@ -108,6 +110,9 @@ beforeEach(() => {
           mimeType: "application/pdf",
           size: 8,
           pages: 1,
+          rows: null,
+          table: null,
+          unreadable: false,
           bucket: "files",
           bucketPath: `${FILE_ID}.pdf`,
         },
@@ -186,13 +191,69 @@ describe("POST /api/ai/chat with attachments", () => {
   });
 
   it("rolls the message back when a file was linked meanwhile", async () => {
-    store.linkAttachmentsToMessage.mockRejectedValueOnce(
-      new Error("duplicate key value violates unique constraint"),
-    );
+    store.linkAttachmentsToMessage.mockRejectedValueOnce({
+      code: "23505",
+      message: "duplicate key value violates unique constraint",
+    });
     const res = await POST(post(clientMessage));
     expect(res.status).toBe(409);
     expect(chatStore.deleteAiMessageRow).toHaveBeenCalledWith(SESSION, "row-1");
     expect(model.doStreamCalls).toHaveLength(0);
+  });
+
+  it("answers 503 (not 'already sent') on a transient link failure", async () => {
+    store.linkAttachmentsToMessage.mockRejectedValueOnce(new Error("timeout"));
+    chatStore.deleteAiMessageRow.mockRejectedValueOnce(new Error("down"));
+    const res = await POST(post(clientMessage));
+    expect(res.status).toBe(503);
+    expect(chatStore.deleteAiMessageRow).toHaveBeenCalledWith(SESSION, "row-1");
+  });
+
+  it("sends an earlier attachment as a note and offers openAttachment", async () => {
+    store.claimDraftAttachments.mockResolvedValue({
+      ok: true,
+      attachments: [],
+    });
+    prior = [
+      {
+        id: "u0",
+        role: "user",
+        parts: [
+          {
+            type: "data-attachment",
+            id: FILE_ID,
+            data: {
+              fileId: FILE_ID,
+              filename: "factura.pdf",
+              mimeType: "application/pdf",
+              size: 8,
+            },
+          },
+        ],
+      },
+      { id: "a0", role: "assistant", parts: [{ type: "text", text: "ok" }] },
+    ];
+    try {
+      const res = await POST(
+        post({
+          id: "m3",
+          role: "user",
+          parts: [{ type: "text", text: "¿y el total?" }],
+        }),
+      );
+      await res.text();
+      const call = model.doStreamCalls[0];
+      const first = call?.prompt.find((m) => m.role === "user");
+      if (first?.role !== "user") throw new Error("no user message");
+      expect(first.content.map((p) => p.type)).toEqual(["text"]);
+      expect(first.content[0]).toMatchObject({
+        text: expect.stringContaining("openAttachment"),
+      });
+      expect(store.downloadStoredFile).not.toHaveBeenCalled();
+      expect(call?.tools?.some((t) => t.name === "openAttachment")).toBe(true);
+    } finally {
+      prior = [];
+    }
   });
 
   it("keeps plain text turns working without touching the registry", async () => {

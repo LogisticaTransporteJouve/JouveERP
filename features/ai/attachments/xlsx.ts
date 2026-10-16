@@ -194,6 +194,75 @@ function resolveFirstSheetPath(
   return target.startsWith("/") ? target.slice(1) : `xl/${target}`;
 }
 
+/**
+ * The sheet XML up to its `limit`-th row: the rest is never parsed. Reports
+ * whether rows were left out.
+ */
+export function truncateSheetXml(
+  xml: string,
+  limit: number,
+): { xml: string; cut: boolean } {
+  let pos = 0;
+  for (let i = 0; i < limit; i++) {
+    const next = xml.indexOf("</row>", pos);
+    if (next < 0) return { xml, cut: false };
+    pos = next + "</row>".length;
+  }
+  const cut = /<row[\s>/]/.test(xml.slice(pos));
+  return { xml: `${xml.slice(0, pos)}</sheetData></worksheet>`, cut };
+}
+
+/**
+ * Only the shared strings at `wanted` indexes: each `<si>` is located by a
+ * scan and only those are parsed, so a large string table costs a string
+ * search instead of a full DOM.
+ */
+export function readSharedStrings(
+  xml: string,
+  wanted: ReadonlySet<number>,
+): Map<number, string> {
+  const out = new Map<number, string>();
+  if (wanted.size === 0) return out;
+  if (/<!DOCTYPE/i.test(xml)) throw new XlsxReadError("DOCTYPE not allowed");
+  const max = Math.max(...wanted);
+  const open = /<si(?=[\s>/])/g;
+  let index = 0;
+  for (let m = open.exec(xml); m && index <= max; m = open.exec(xml)) {
+    const selfClosing = xml.indexOf("/>", m.index);
+    const tagEnd = xml.indexOf(">", m.index);
+    let segment: string;
+    if (selfClosing >= 0 && selfClosing + 1 === tagEnd) {
+      segment = "";
+      open.lastIndex = tagEnd + 1;
+    } else {
+      const close = xml.indexOf("</si>", tagEnd);
+      if (close < 0) break;
+      segment = xml.slice(m.index, close + "</si>".length);
+      open.lastIndex = close + "</si>".length;
+    }
+    if (wanted.has(index)) {
+      out.set(
+        index,
+        segment
+          ? richText(
+              list(get(parseXml(`<sst>${segment}</sst>`), "sst", "si"))[0],
+            )
+          : "",
+      );
+    }
+    index++;
+  }
+  return out;
+}
+
+type RawCell = {
+  col: number;
+  type: string;
+  raw: string;
+  style: number;
+  inline: unknown;
+};
+
 /** First worksheet of an .xlsx file as rows of text, capped. */
 export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
   const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -205,46 +274,60 @@ export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
 
   const workbook = read("xl/workbook.xml");
   if (!workbook) throw new XlsxReadError("missing workbook");
-  const sheetXml = read(
+  const fullSheet = read(
     resolveFirstSheetPath(workbook, read("xl/_rels/workbook.xml.rels")),
   );
-  if (!sheetXml) throw new XlsxReadError("missing worksheet");
+  if (!fullSheet) throw new XlsxReadError("missing worksheet");
 
-  const sharedXml = read("xl/sharedStrings.xml");
-  const shared = sharedXml
-    ? list(get(parseXml(sharedXml), "sst", "si")).map(richText)
-    : [];
-  const dates = dateStyles(read("xl/styles.xml"));
-
-  const rows: string[][] = [];
-  const rowNodes = list(
-    get(parseXml(sheetXml), "worksheet", "sheetData", "row"),
-  );
   const maxRows = CHAT_TABLE_LIMITS.rows + 1;
-  for (const rowNode of rowNodes.slice(0, maxRows)) {
-    const row: string[] = [];
+  const sheet = truncateSheetXml(fullSheet, maxRows);
+  const rowNodes = list(
+    get(parseXml(sheet.xml), "worksheet", "sheetData", "row"),
+  ).slice(0, maxRows);
+
+  const cells: RawCell[][] = rowNodes.map((rowNode) => {
+    const out: RawCell[] = [];
     for (const cell of list(get(rowNode, "c"))) {
       const ref = str(get(cell, "@_r"));
-      const col = ref ? columnIndex(ref) : row.length;
+      const col = ref ? columnIndex(ref) : out.length;
       if (col < 0 || col >= CHAT_TABLE_LIMITS.columns * 2) continue;
-      const type = str(get(cell, "@_t"));
-      const raw = textOf(get(cell, "v"));
-      let value: string;
-      if (type === "s") value = shared[Number(raw)] ?? "";
-      else if (type === "inlineStr") value = richText(get(cell, "is"));
-      else if (type === "b") value = raw === "1" ? "VERDADERO" : "FALSO";
-      else if (
-        type === "" &&
-        raw !== "" &&
-        dates.has(Number(str(get(cell, "@_s")))) &&
-        Number.isFinite(Number(raw))
-      ) {
-        value = excelSerialToIso(Number(raw));
-      } else value = raw;
-      while (row.length < col) row.push("");
-      row[col] = value;
+      out.push({
+        col,
+        type: str(get(cell, "@_t")),
+        raw: textOf(get(cell, "v")),
+        style: Number(str(get(cell, "@_s"))),
+        inline: get(cell, "is"),
+      });
     }
-    rows.push(row);
-  }
-  return capTable(rows, rowNodes.length > maxRows);
+    return out;
+  });
+
+  const wanted = new Set(
+    cells.flat().flatMap((c) => (c.type === "s" ? [Number(c.raw)] : [])),
+  );
+  const sharedXml = wanted.size > 0 ? read("xl/sharedStrings.xml") : null;
+  const shared = sharedXml ? readSharedStrings(sharedXml, wanted) : new Map();
+  const dates = dateStyles(read("xl/styles.xml"));
+
+  const rows = cells.map((rowCells) => {
+    const row: string[] = [];
+    for (const c of rowCells) {
+      let value: string;
+      if (c.type === "s") value = shared.get(Number(c.raw)) ?? "";
+      else if (c.type === "inlineStr") value = richText(c.inline);
+      else if (c.type === "b") value = c.raw === "1" ? "VERDADERO" : "FALSO";
+      else if (
+        c.type === "" &&
+        c.raw !== "" &&
+        dates.has(c.style) &&
+        Number.isFinite(Number(c.raw))
+      ) {
+        value = excelSerialToIso(Number(c.raw));
+      } else value = c.raw;
+      while (row.length < c.col) row.push("");
+      row[c.col] = value;
+    }
+    return row;
+  });
+  return capTable(rows, sheet.cut);
 }

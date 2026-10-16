@@ -14,6 +14,7 @@ import {
   expandAttachmentParts,
   type AttachmentContents,
 } from "./attachments/expand";
+import { withAttachmentRetry } from "./attachments/retry-model";
 
 import {
   recordAiUsage,
@@ -193,6 +194,9 @@ export type StreamChatOptions = {
   /** This turn's attachment contents (attachments/content.ts), replacing
    *  each attachment part of the history for the model. */
   attachments?: AttachmentContents;
+  /** Called when the model API refused an attachment and the turn went on
+   *  without it (attachments/retry-model.ts). */
+  onAttachmentRejected?: (fileId: string) => Promise<void>;
 };
 
 /**
@@ -234,7 +238,11 @@ export async function streamChat(
   if (notes) {
     instructions.push({ role: "system", content: notes });
   }
-  const { model, servedModel } = buildChatModel();
+  const { model: chatModel, servedModel } = buildChatModel();
+  const { onAttachmentRejected } = options;
+  const model = onAttachmentRejected
+    ? withAttachmentRetry(chatModel, onAttachmentRejected)
+    : chatModel;
   return streamText({
     model,
     instructions,

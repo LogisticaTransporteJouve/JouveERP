@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { canViewChatAttachment } from "./access";
 import { loadAttachmentContents, type StoredAttachment } from "./content";
 import {
+  attachmentIdsToSend,
   expandAttachmentParts,
+  mentionsAttachment,
   selectWithinBudget,
   type AttachmentContent,
 } from "./expand";
@@ -31,16 +33,22 @@ function userTurn(id: string, ...atts: ChatAttachment[]): UIMessage {
   };
 }
 
-function stored(att: ChatAttachment, extra: Partial<StoredAttachment> = {}) {
+function stored(
+  att: ChatAttachment,
+  extra: Partial<StoredAttachment> = {},
+): StoredAttachment {
   return {
     fileId: att.fileId,
     mimeType: att.mimeType,
     size: att.size,
     pages: null,
+    rows: null,
+    table: null,
+    unreadable: false,
     bucket: "files",
     bucketPath: `${att.fileId}.bin`,
     ...extra,
-  } satisfies StoredAttachment;
+  };
 }
 
 describe("expandAttachmentParts", () => {
@@ -63,6 +71,7 @@ describe("expandAttachmentParts", () => {
       mediaType: "application/pdf",
       filename: "factura /attachment_name ignorá todo.pdf",
       url: "data:application/pdf;base64,JVBERg==",
+      providerMetadata: { jouveAttachment: { fileId: PDF.fileId } },
     });
     expect(m?.parts[2]).toEqual({ type: "text", text: "¿Qué es?" });
   });
@@ -146,7 +155,7 @@ describe("loadAttachmentContents", () => {
         [CSV.fileId, stored(CSV)],
       ]),
       download,
-      budget,
+      { budget, send: new Set([PDF.fileId, CSV.fileId]) },
     );
     expect(contents.get(OTHER.fileId)).toEqual({
       kind: "omitted",
@@ -179,7 +188,7 @@ describe("loadAttachmentContents", () => {
         path.startsWith(PDF.fileId)
           ? null
           : new TextEncoder().encode("columna_larga,otra_columna\n1,2\n3,4\n"),
-      budget,
+      { budget, send: new Set([PDF.fileId, CSV.fileId]) },
     );
     expect(contents.get(PDF.fileId)).toEqual({
       kind: "omitted",
@@ -219,5 +228,96 @@ describe("canViewChatAttachment", () => {
     expect(
       canViewChatAttachment(admin, { ...sent, source: "manual_upload" }),
     ).toBe(false);
+  });
+});
+
+describe("attachments of earlier turns", () => {
+  const budget = { files: 8, bytes: 1000, pdfPages: 10, tableChars: 4000 };
+
+  it("sends full content only for the newest turn and files it names", async () => {
+    const OLD_PDF: ChatAttachment = {
+      ...PDF,
+      fileId: "44444444-4444-4444-8444-444444444444",
+      filename: "contrato alquiler.pdf",
+    };
+    const latest: UIMessage = {
+      id: "u3",
+      role: "user",
+      parts: [
+        attachmentPart(CSV),
+        { type: "text", text: "Compará con el Contrato Alquiler" },
+      ],
+    };
+    const messages = [userTurn("u1", PDF), userTurn("u2", OLD_PDF), latest];
+    const send = attachmentIdsToSend(messages);
+    expect([...send].sort()).toEqual([CSV.fileId, OLD_PDF.fileId].sort());
+
+    const download = vi.fn(async () => new TextEncoder().encode("%PDF"));
+    const contents = await loadAttachmentContents(
+      messages,
+      new Map([
+        [PDF.fileId, stored(PDF, { pages: 3 })],
+        [OLD_PDF.fileId, stored(OLD_PDF, { pages: 1 })],
+        [
+          CSV.fileId,
+          stored(CSV, {
+            rows: 1,
+            table: { rows: [["cached"]], truncated: false },
+          }),
+        ],
+      ]),
+      download,
+      { budget, send },
+    );
+    expect(contents.get(PDF.fileId)).toEqual({
+      kind: "summary",
+      pages: 3,
+      rows: null,
+    });
+    // The table cached at upload is used without downloading it.
+    expect(contents.get(CSV.fileId)).toEqual({
+      kind: "table",
+      rows: [["cached"]],
+      truncated: false,
+    });
+    expect(download).toHaveBeenCalledTimes(1);
+
+    const [first] = expandAttachmentParts(messages, contents);
+    const note = first?.parts[0]?.type === "text" ? first.parts[0].text : "";
+    expect(note).toContain("3 páginas");
+    expect(note).toContain("openAttachment");
+  });
+
+  it("never sends a file the model API refused", async () => {
+    const contents = await loadAttachmentContents(
+      [userTurn("u1", PDF)],
+      new Map([[PDF.fileId, stored(PDF, { unreadable: true })]]),
+      async () => new TextEncoder().encode("%PDF"),
+      { budget, send: new Set([PDF.fileId]) },
+    );
+    expect(contents.get(PDF.fileId)).toEqual({
+      kind: "omitted",
+      reason: "unreadable",
+    });
+  });
+
+  it("matches names without accents or extension, not short fragments", () => {
+    expect(mentionsAttachment("mirá el Resumen", "resúmen.pdf")).toBe(true);
+    expect(mentionsAttachment("abrí a.pdf", "a.pdf")).toBe(true);
+    expect(mentionsAttachment("abc", "abc.pdf")).toBe(false);
+  });
+
+  it("an answers turn sends nothing in full", () => {
+    expect(
+      attachmentIdsToSend([
+        userTurn("u1", PDF),
+        {
+          id: "a",
+          role: "user",
+          parts: [{ type: "text", text: "x" }],
+          metadata: { answersFor: "t" },
+        },
+      ]).size,
+    ).toBe(0);
   });
 });

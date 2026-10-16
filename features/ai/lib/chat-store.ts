@@ -125,7 +125,9 @@ export async function appendAiMessage(
   return id;
 }
 
-/** Removes a message row this turn just persisted (a failed attachment link). */
+/** Removes a message row this turn just persisted (a failed attachment
+ *  link) and recounts the session's messages, which the insert trigger
+ *  had bumped. */
 export async function deleteAiMessageRow(
   sessionId: string,
   rowId: string,
@@ -137,6 +139,16 @@ export async function deleteAiMessageRow(
     .eq("id", rowId)
     .eq("session_id", sessionId);
   if (error) throw error;
+  const { count, error: countError } = await service
+    .from("ai_chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  const { error: updateError } = await service
+    .from("ai_chat_sessions")
+    .update({ message_count: count ?? 0 })
+    .eq("id", sessionId);
+  if (updateError) throw updateError;
 }
 
 /**

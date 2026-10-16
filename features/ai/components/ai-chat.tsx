@@ -26,7 +26,10 @@ import { cn } from "@/lib/utils";
 import { getAiSessionMessagesAction } from "../actions/chat-actions";
 import { CHAT_ATTACHMENT_ACCEPT } from "../attachments/limits";
 import { attachmentPart } from "../attachments/schema";
-import { useChatAttachments } from "../hooks/use-chat-attachments";
+import {
+  useChatAttachments,
+  type ReadyDraft,
+} from "../hooks/use-chat-attachments";
 import { useAiConfirmations } from "../hooks/use-ai-confirmations";
 import { aiKeys } from "../lib/ai-keys";
 import {
@@ -123,6 +126,11 @@ export function AiChat({
   // (409: the card was already answered elsewhere), the transcript is
   // reloaded from the server instead of keeping the local answers.
   const answering = useRef(false);
+  // Attachments of the send in flight: back to the composer if it fails.
+  const sentDrafts = useRef<ReadyDraft[]>([]);
+  const attachmentsRef = useRef<ReturnType<typeof useChatAttachments> | null>(
+    null,
+  );
   const { messages, setMessages, sendMessage, addToolOutput, status } = useChat(
     {
       id: sessionId,
@@ -130,6 +138,8 @@ export function AiChat({
       transport,
       onFinish: () => {
         answering.current = false;
+        attachmentsRef.current?.release(sentDrafts.current);
+        sentDrafts.current = [];
         onPersisted(sessionId);
         void qc.invalidateQueries({
           queryKey: aiKeys.confirmations(sessionId),
@@ -138,6 +148,8 @@ export function AiChat({
       onError: (error) => {
         if (!answering.current) {
           toast.error(chatErrorMessage(error));
+          attachmentsRef.current?.restore(sentDrafts.current);
+          sentDrafts.current = [];
           return;
         }
         answering.current = false;
@@ -157,6 +169,7 @@ export function AiChat({
     [],
   );
   const attachments = useChatAttachments(notifyAttachmentError);
+  attachmentsRef.current = attachments;
   const pickerRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -180,7 +193,9 @@ export function AiChat({
     if (locked || attachments.uploading) return;
     if (!trimmed && attachments.readyCount === 0) return;
     setInput("");
-    const files = attachments.takeReady();
+    const sent = attachments.takeReady();
+    sentDrafts.current = sent;
+    const files = sent.map((d) => d.attachment);
     if (files.length === 0) {
       void sendMessage({ text: trimmed });
       return;

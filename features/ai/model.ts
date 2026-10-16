@@ -40,7 +40,7 @@ const AI_FALLBACK_GOOGLE_MODEL =
 const AI_FALLBACK_OPENAI_MODEL =
   process.env.AI_FALLBACK_OPENAI_MODEL ?? "gpt-5.2";
 
-type ChatModel = ReturnType<typeof anthropic>;
+export type ChatModel = ReturnType<typeof anthropic>;
 
 /**
  * Retryable = provider-side / transient (5xx, 429, connection). 4xx/validation

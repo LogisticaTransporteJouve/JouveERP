@@ -124,7 +124,7 @@ describe("uploadChatAttachmentAction", () => {
         userId: "u-owner",
         filename: "factura.pdf",
         mimeType: "application/pdf",
-        pages: 2,
+        metadata: { pages: 2 },
       }),
     );
   });
@@ -148,7 +148,10 @@ describe("uploadChatAttachmentAction", () => {
   });
 
   it("rejects PDFs over the page cap and unreadable spreadsheets", async () => {
-    const pages = Array.from({ length: 21 }, () => "<</Type /Page>>").join(" ");
+    const pages = Array.from(
+      { length: 21 },
+      (_, i) => `${i + 1} 0 obj <</Type /Page>> endobj`,
+    ).join("\n");
     expect(
       await uploadChatAttachmentAction(
         form("largo.pdf", "application/pdf", `%PDF-1.4 ${pages}`),
@@ -182,6 +185,46 @@ describe("uploadChatAttachmentAction", () => {
       form("a.pdf", "application/pdf", "%PDF-1.4"),
     );
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("uploadChatAttachmentAction caps", () => {
+  it("rejects encrypted PDFs and images over the model's limit", async () => {
+    expect(
+      await uploadChatAttachmentAction(
+        form(
+          "secreto.pdf",
+          "application/pdf",
+          "%PDF-1.4\n1 0 obj <</Type /Page>> endobj\ntrailer <</Root 2 0 R /Encrypt 5 0 R>>",
+        ),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("contraseña"),
+    });
+    const big = "\x89PNG\r\n\x1a\n".padEnd(3.8 * 1024 * 1024, "x");
+    expect(
+      await uploadChatAttachmentAction(form("foto.png", "image/png", big)),
+    ).toMatchObject({ ok: false, error: expect.stringContaining("3,7 MB") });
+    expect(store.storeDraftAttachment).not.toHaveBeenCalled();
+  });
+
+  it("caches a spreadsheet's table in the file metadata", async () => {
+    await uploadChatAttachmentAction(form("v.csv", "text/csv", "a;b\n1;2\n"));
+    expect(store.storeDraftAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          rows: 2,
+          table: {
+            rows: [
+              ["a", "b"],
+              ["1", "2"],
+            ],
+            truncated: false,
+          },
+        },
+      }),
+    );
   });
 });
 

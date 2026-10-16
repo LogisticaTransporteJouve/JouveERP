@@ -71,6 +71,9 @@ export const proposeDocumentScan = defineAiProposal({
     // Re-checked at confirm time: the card may be older than a session delete.
     const file = await findOwnSentAttachment(ctx.userId, draft.file_id);
     if (!file) return { ok: false, error: "El adjunto ya no está disponible." };
+    if (await hasDocumentExtraction(file.fileId)) {
+      return { ok: false, error: "Ese archivo ya se mandó a Documentos." };
+    }
     const res = await startDocumentExtraction(ctx.userId, {
       fileId: draft.file_id,
       declaredType: draft.declared_type === "auto" ? null : draft.declared_type,

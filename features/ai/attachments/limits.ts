@@ -16,11 +16,16 @@ export const XLSX_MIME =
 
 export const CHAT_ATTACHMENT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx";
 
-/** The `files` bucket's file_size_limit. */
-export const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+/**
+ * Uploads go through a server action, and Vercel caps a function request
+ * body at 4.5 MB, so the chat takes up to 4 MB per file (below the bucket's
+ * 10 MB).
+ */
+export const CHAT_ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
 
-/** The model API's cap per image (photos are downscaled before upload). */
-export const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Images travel base64-encoded and the model API takes up to 5 MB each:
+ *  3.7 MB raw stays under it. Photos are downscaled before upload. */
+export const CHAT_IMAGE_MAX_BYTES = Math.floor(3.7 * 1024 * 1024);
 
 export const CHAT_ATTACHMENTS_PER_MESSAGE = 5;
 
@@ -95,10 +100,10 @@ export function validateChatAttachment(file: {
   }
   if (file.size === 0) return "El archivo está vacío.";
   if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
-    return "El archivo supera 10 MB.";
+    return "El archivo supera 4 MB, el máximo para el chat. Probá con una versión más liviana.";
   }
   if (mime.startsWith("image/") && file.size > CHAT_IMAGE_MAX_BYTES) {
-    return "La imagen supera 5 MB.";
+    return "La imagen supera 3,7 MB. Probá con una foto de menor resolución.";
   }
   return null;
 }

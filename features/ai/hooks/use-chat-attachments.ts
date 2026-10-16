@@ -27,6 +27,8 @@ export type DraftAttachment = {
   | { status: "error"; error: string }
 );
 
+export type ReadyDraft = Extract<DraftAttachment, { status: "ready" }>;
+
 /**
  * The composer's attachments: each file is validated, photos are downscaled,
  * and it uploads as soon as it is added, so sending only references file ids.
@@ -101,16 +103,32 @@ export function useChatAttachments(onError: (message: string) => void) {
     }
   }, []);
 
-  /** Hands the uploaded files to a send and empties the composer. */
-  const takeReady = useCallback((): ChatAttachment[] => {
-    const ready = draftsRef.current.flatMap((d) =>
-      d.status === "ready" ? [d.attachment] : [],
+  /** Hands the uploaded files to a send and empties the composer. The
+   *  drafts come back with `restore` if the send fails. */
+  const takeReady = useCallback((): ReadyDraft[] => {
+    const ready = draftsRef.current.filter(
+      (d): d is ReadyDraft => d.status === "ready",
     );
     for (const d of draftsRef.current) {
-      if (d.previewUrl) URL.revokeObjectURL(d.previewUrl);
+      if (d.status !== "ready" && d.previewUrl)
+        URL.revokeObjectURL(d.previewUrl);
     }
     setDrafts([]);
     return ready;
+  }, []);
+
+  /** Puts drafts of a failed send back in the composer. */
+  const restore = useCallback((sent: readonly ReadyDraft[]) => {
+    if (sent.length === 0) return;
+    setDrafts((prev) => [
+      ...sent.filter((d) => !prev.some((p) => p.localId === d.localId)),
+      ...prev,
+    ]);
+  }, []);
+
+  /** Frees the previews of drafts that were sent. */
+  const release = useCallback((sent: readonly ReadyDraft[]) => {
+    for (const d of sent) if (d.previewUrl) URL.revokeObjectURL(d.previewUrl);
   }, []);
 
   return {
@@ -118,6 +136,8 @@ export function useChatAttachments(onError: (message: string) => void) {
     add,
     remove,
     takeReady,
+    restore,
+    release,
     uploading: drafts.some((d) => d.status === "uploading"),
     readyCount: drafts.filter((d) => d.status === "ready").length,
   };

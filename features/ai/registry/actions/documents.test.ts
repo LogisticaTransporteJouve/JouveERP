@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ActionResult } from "@/lib/query/run-action";
+
 import type { ChatAttachmentFile } from "../../attachments/store";
+import type { AiActionContext } from "../define";
 
 const FILE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -8,10 +11,9 @@ const store = {
   findOwnSentAttachment: vi.fn<() => Promise<ChatAttachmentFile | null>>(),
   hasDocumentExtraction: vi.fn(async () => false),
 };
-const startDocumentExtraction = vi.fn(async () => ({
-  ok: true as const,
-  data: { extractionId: "ext-1" },
-}));
+const startDocumentExtraction = vi.fn<
+  () => Promise<ActionResult<{ extractionId: string }>>
+>(async () => ({ ok: true, data: { extractionId: "ext-1" } }));
 
 vi.mock("../../attachments/store", () => store);
 vi.mock("../../document/start", () => ({ startDocumentExtraction }));
@@ -19,9 +21,9 @@ vi.mock("../../document/start", () => ({ startDocumentExtraction }));
 const { proposeDocumentScan } = await import("./documents");
 
 const createRevision = vi.fn(async () => ({ id: "conf-1", revision: 1 }));
-const ctx = {
+const ctx: AiActionContext = {
   userId: "u-owner",
-  roles: ["finance" as const],
+  roles: ["finance"],
   proposals: { createRevision },
 };
 
@@ -118,6 +120,14 @@ describe("proposeDocumentScan", () => {
       fileId: FILE_ID,
       declaredType: null,
     });
+
+    store.hasDocumentExtraction.mockResolvedValueOnce(true);
+    expect(
+      await proposeDocumentScan.proposal?.executeDraft(ctx, {
+        file_id: FILE_ID,
+        declared_type: "receipt",
+      }),
+    ).toEqual({ ok: false, error: "Ese archivo ya se mandó a Documentos." });
 
     store.findOwnSentAttachment.mockResolvedValue(null);
     expect(

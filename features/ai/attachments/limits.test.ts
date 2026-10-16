@@ -77,14 +77,14 @@ describe("validateChatAttachment", () => {
         type: "application/pdf",
         size: CHAT_ATTACHMENT_MAX_BYTES + 1,
       }),
-    ).toMatch(/10 MB/);
+    ).toMatch(/4 MB/);
     expect(
       validateChatAttachment({
         name: "foto.png",
         type: "image/png",
-        size: 5 * 1024 * 1024 + 1,
+        size: 3.8 * 1024 * 1024,
       }),
-    ).toMatch(/5 MB/);
+    ).toMatch(/3,7 MB/);
   });
 
   it("only PDF and images go to Document Intelligence", () => {

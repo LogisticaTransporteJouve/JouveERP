@@ -2,23 +2,32 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   toUIMessageStream,
+  type Tool,
+  type ToolSet,
   type UIMessage,
 } from "ai";
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
 import { createArtifactSink } from "@/features/ai/artifacts/sink";
-import { loadAttachmentContents } from "@/features/ai/attachments/content";
 import {
+  loadAttachmentContents,
+  usedBudget,
+} from "@/features/ai/attachments/content";
+import {
+  OPEN_ATTACHMENT_TOOL,
+  attachmentIdsToSend,
   attachmentsNewestFirst,
   type AttachmentContents,
 } from "@/features/ai/attachments/expand";
+import { buildOpenAttachmentTool } from "@/features/ai/attachments/tool";
 import { attachmentPart } from "@/features/ai/attachments/schema";
 import {
   claimDraftAttachments,
   downloadStoredFile,
   linkAttachmentsToMessage,
   listSessionAttachments,
+  markAttachmentUnreadable,
 } from "@/features/ai/attachments/store";
 import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
@@ -52,6 +61,14 @@ import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
 // In-process streaming (single Next.js app — no Redis/relay). The agent tool
 // loop can run several model turns, so allow up to 5 minutes.
 export const maxDuration = 300;
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    Reflect.get(err, "code") === "23505"
+  );
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -221,16 +238,31 @@ export async function POST(req: Request) {
     try {
       await linkAttachmentsToMessage(ctx.userId, rowId, incoming.attachmentIds);
     } catch (err) {
+      const alreadySent = isUniqueViolation(err);
       logger.warn("ai.chat.attachments.link_failed", {
         userId: ctx.userId,
         sessionId,
+        alreadySent,
         error: err,
       });
-      await deleteAiMessageRow(sessionId, rowId);
-      return NextResponse.json(
-        { error: "Ese adjunto ya se envió en otro mensaje." },
-        { status: 409 },
-      );
+      try {
+        await deleteAiMessageRow(sessionId, rowId);
+      } catch (rollbackErr) {
+        logger.error("ai.chat.attachments.rollback_failed", {
+          userId: ctx.userId,
+          sessionId,
+          error: rollbackErr,
+        });
+      }
+      return alreadySent
+        ? NextResponse.json(
+            { error: "Ese adjunto ya se envió en otro mensaje." },
+            { status: 409 },
+          )
+        : NextResponse.json(
+            { error: "No se pudieron adjuntar los archivos. Probá de nuevo." },
+            { status: 503 },
+          );
     }
     allMessages = [...prior, message];
   } else {
@@ -257,23 +289,36 @@ export async function POST(req: Request) {
   // Proposals park their drafts in this session for the user to confirm;
   // charts and tables stream to the response as `data-artifact` parts.
   const artifacts = createArtifactSink();
-  const tools = buildAiTools({
+  const registryTools = buildAiTools({
     userId: ctx.userId,
     roles: ctx.roles,
     proposals: chatProposalStore(ctx.userId, sessionId),
     artifacts,
   });
-  // Every attachment of the session reaches the model as content, newest
-  // first within the turn budget; only files linked to this session's
-  // messages are read.
+  // Attachments: files of the message just sent (and earlier ones it names)
+  // go with their content, within the turn budget; the rest as a one-line
+  // note the model can open with openAttachment. Only files linked to this
+  // session's messages are read.
   let attachments: AttachmentContents = new Map();
+  let openAttachment: Tool | null = null;
+  const sessionAttachments = attachmentsNewestFirst(allMessages);
   try {
-    if (attachmentsNewestFirst(allMessages).length > 0) {
+    if (sessionAttachments.length > 0) {
+      const stored = await listSessionAttachments(sessionId);
       attachments = await loadAttachmentContents(
         allMessages,
-        await listSessionAttachments(sessionId),
+        stored,
         downloadStoredFile,
+        { send: attachmentIdsToSend(allMessages) },
       );
+      openAttachment = buildOpenAttachmentTool({
+        stored,
+        filenames: new Map(
+          sessionAttachments.map((a) => [a.fileId, a.filename]),
+        ),
+        download: downloadStoredFile,
+        used: usedBudget(attachments, stored),
+      });
     }
   } catch (err) {
     logger.error("ai.chat.attachments.load_failed", {
@@ -282,9 +327,30 @@ export async function POST(req: Request) {
       error: err,
     });
   }
+  const tools: ToolSet = openAttachment
+    ? { ...registryTools, [OPEN_ATTACHMENT_TOOL]: openAttachment }
+    : registryTools;
 
   const result = await streamChat(allMessages, {
     attachments,
+    // A file the model API refuses is left out for the rest of the session.
+    onAttachmentRejected: async (fileId) => {
+      logger.warn("ai.chat.attachments.rejected", {
+        userId: ctx.userId,
+        sessionId,
+        fileId,
+      });
+      try {
+        await markAttachmentUnreadable(fileId);
+      } catch (err) {
+        logger.error("ai.chat.attachments.mark_failed", {
+          userId: ctx.userId,
+          sessionId,
+          fileId,
+          error: err,
+        });
+      }
+    },
     tools,
     capabilities: buildCapabilitiesSummary(ctx.roles, undefined, {
       artifacts: true,

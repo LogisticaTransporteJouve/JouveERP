@@ -4,8 +4,14 @@ import { describe, expect, it } from "vitest";
 
 import { parseCsv } from "./csv";
 import { CHAT_TABLE_LIMITS } from "./limits";
-import { countPdfPages } from "./pdf-pages";
-import { excelSerialToIso, readXlsxFirstSheet, XlsxReadError } from "./xlsx";
+import { countPdfPages, isEncryptedPdf } from "./pdf-pages";
+import {
+  excelSerialToIso,
+  readSharedStrings,
+  readXlsxFirstSheet,
+  truncateSheetXml,
+  XlsxReadError,
+} from "./xlsx";
 
 /** A minimal zip (deflated entries) — enough to stand in for an .xlsx. */
 function zip(entries: Record<string, string>): Uint8Array {
@@ -160,25 +166,78 @@ describe("countPdfPages", () => {
     expect(countPdfPages(pdf)).toBe(2);
   });
 
-  it("counts pages inside compressed object streams", () => {
-    const objects = deflateSync(
+  function objectStream(objects: [number, string][]): Buffer {
+    let offset = 0;
+    const header: string[] = [];
+    for (const [num, body] of objects) {
+      header.push(`${num} ${offset}`);
+      offset += body.length + 1;
+    }
+    const head = `${header.join(" ")} `;
+    const content = head + objects.map(([, body]) => `${body} `).join("");
+    const data = deflateSync(Buffer.from(content));
+    return Buffer.concat([
       Buffer.from(
-        "<</Type /Page /Parent 1 0 R>> <</Type /Page /Parent 1 0 R>> <</Type /Page>>",
+        `9 0 obj <</Type /ObjStm /N ${objects.length} /First ${head.length} /Filter /FlateDecode /Length ${data.length}>>\nstream\n`,
       ),
-    );
-    const pdf = Buffer.concat([
-      Buffer.from(
-        "%PDF-1.5\n4 0 obj <</Type /ObjStm /N 3 /First 10 /Filter /FlateDecode /Length " +
-          objects.length +
-          ">>\nstream\n",
-      ),
-      objects,
-      Buffer.from("\nendstream\nendobj\n%%EOF"),
+      data,
+      Buffer.from("\r\nendstream\nendobj\n"),
     ]);
-    expect(countPdfPages(new Uint8Array(pdf))).toBe(3);
+  }
+
+  it("counts pages inside compressed object streams", () => {
+    const pdf = Buffer.concat([
+      Buffer.from("%PDF-1.5\n"),
+      objectStream([
+        [3, "<</Type /Page /Parent 2 0 R>>"],
+        [4, "<</Type /Pages /Count 2>>"],
+        [5, "<</Type /Page /Parent 2 0 R>>"],
+      ]),
+      Buffer.from("%%EOF"),
+    ]);
+    expect(countPdfPages(new Uint8Array(pdf))).toBe(2);
+  });
+
+  it("counts a page rewritten by an incremental update once", () => {
+    const pdf = enc(
+      "%PDF-1.4\n2 0 obj <</Type /Page>> endobj\n3 0 obj <</Type /Page>> endobj\n%%EOF\n" +
+        "2 0 obj <</Type /Page /Rotate 90>> endobj\n%%EOF",
+    );
+    expect(countPdfPages(pdf)).toBe(2);
+  });
+
+  it("detects encrypted PDFs", () => {
+    expect(isEncryptedPdf(enc("trailer <</Encrypt 7 0 R>>"))).toBe(true);
+    expect(isEncryptedPdf(enc("<</Type /XRef /Encrypt << /V 4 >> >>"))).toBe(
+      true,
+    );
+    expect(isEncryptedPdf(enc("%PDF-1.4 trailer <</Root 1 0 R>>"))).toBe(false);
   });
 
   it("returns null when no page object is visible", () => {
     expect(countPdfPages(enc("%PDF-1.7 encrypted"))).toBeNull();
+  });
+});
+
+describe("xlsx parsing limits", () => {
+  it("cuts the sheet XML after the row cap", () => {
+    const xml = `<worksheet><sheetData>${"<row><c><v>1</v></c></row>".repeat(5)}</sheetData></worksheet>`;
+    const cut = truncateSheetXml(xml, 2);
+    expect(cut.cut).toBe(true);
+    expect(cut.xml.match(/<row>/g)).toHaveLength(2);
+    expect(cut.xml.endsWith("</sheetData></worksheet>")).toBe(true);
+    expect(truncateSheetXml(xml, 5).cut).toBe(false);
+  });
+
+  it("reads only the referenced shared strings", () => {
+    const xml =
+      "<sst><si><t>cero</t></si><si/><si><r><t>do</t></r><r><t>s</t></r></si><si><t>tres</t></si></sst>";
+    expect(readSharedStrings(xml, new Set([0, 2]))).toEqual(
+      new Map([
+        [0, "cero"],
+        [2, "dos"],
+      ]),
+    );
+    expect(readSharedStrings(xml, new Set([1]))).toEqual(new Map([[1, ""]]));
   });
 });
