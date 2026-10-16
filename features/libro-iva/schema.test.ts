@@ -4,6 +4,8 @@ import {
   IVA_RATES,
   computeComprasTotals,
   computeTotals,
+  countSuspectRates,
+  foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
   type LibroIvaComprasRow,
@@ -44,6 +46,12 @@ const baseCompraRow = (
   channel_id: "dz_fiscal",
   channel_name: "DZ Fiscal",
   has_items: true,
+  moneda: "PES",
+  cotizacion: 1,
+  neto_orig: over.neto ?? 1000,
+  iva_orig: over.iva ?? 210,
+  imp_trib_orig: over.imp_trib ?? 0,
+  imp_total_orig: over.imp_total ?? 1210,
   ...over,
 });
 
@@ -142,6 +150,14 @@ const baseRow = (over: Partial<LibroIvaVentasRow>): LibroIvaVentasRow => ({
   channel_id: "dz_fiscal",
   channel_name: "DZ Fiscal",
   has_items: true,
+  moneda: "PES",
+  cotizacion: 1,
+  neto_orig: over.neto ?? 1000,
+  iva_orig: over.iva ?? 210,
+  imp_trib_orig: over.imp_trib ?? 30,
+  imp_op_ex_orig: over.imp_op_ex ?? 0,
+  imp_tot_conc_orig: over.imp_tot_conc ?? 0,
+  imp_total_orig: over.imp_total ?? 1240,
   ...over,
 });
 
@@ -230,5 +246,96 @@ describe("computeTotals", () => {
     const totals = computeTotals(grouped);
     expect(totals.per_rate[5]).toEqual({ neto: 600, iva: 126 });
     expect(totals.imp_total).toBe(726);
+  });
+});
+
+// A USD invoice as the RPC returns it: peso columns already converted at the
+// document's cotizacion (1000), originals in *_orig.
+const usdVenta = (over: Partial<LibroIvaVentasRow> = {}): LibroIvaVentasRow =>
+  baseRow({
+    invoice_id: "usd",
+    moneda: "DOL",
+    cotizacion: "1000.0000",
+    neto: 100_000,
+    iva: 21_000,
+    imp_trib: 0,
+    imp_total: 121_000,
+    neto_orig: 100,
+    iva_orig: 21,
+    imp_trib_orig: 0,
+    imp_total_orig: 121,
+    ...over,
+  });
+
+describe("libro IVA in pesos (multicurrency)", () => {
+  it("keeps the peso figures for the book and the originals apart", () => {
+    const [g] = groupByInvoice([usdVenta()]);
+    expect(g!.per_rate[5]).toEqual({ neto: 100_000, iva: 21_000 });
+    expect(g!.imp_total).toBe(121_000);
+    expect(g!.moneda).toBe("DOL");
+    expect(g!.cotizacion).toBe(1000);
+    expect(g!.orig.per_rate[5]).toEqual({ neto: 100, iva: 21 });
+    expect(g!.orig.imp_total).toBe(121);
+  });
+
+  it("totals add pesos only: a USD invoice counts at its cotizacion", () => {
+    const totals = computeTotals(
+      groupByInvoice([
+        baseRow({ invoice_id: "ars", imp_trib: 0, imp_total: 1210 }),
+        usdVenta(),
+      ]),
+    );
+    expect(totals.per_rate[5]).toEqual({ neto: 101_000, iva: 21_210 });
+    expect(totals.imp_total).toBe(122_210);
+  });
+
+  it("groups foreign documents per currency, credit notes subtracting", () => {
+    const grouped = groupByInvoice([
+      baseRow({ invoice_id: "ars" }),
+      usdVenta(),
+      usdVenta({
+        invoice_id: "usd-nc",
+        kind: "nc",
+        imp_total: 12_100,
+        imp_total_orig: 12.1,
+      }),
+    ]);
+    expect(foreignCurrencyTotals(grouped)).toEqual([
+      {
+        moneda: "DOL",
+        count: 2,
+        imp_total_orig: 108.9,
+        imp_total_ars: 108_900,
+      },
+    ]);
+  });
+
+  it("flags foreign documents stored without a real cotizacion", () => {
+    const grouped = groupByInvoice([
+      baseRow({ invoice_id: "ars" }),
+      usdVenta(),
+      usdVenta({ invoice_id: "bad", cotizacion: 1 }),
+    ]);
+    expect(countSuspectRates(grouped)).toBe(1);
+  });
+
+  it("purchases: same split for compras", () => {
+    const [g] = groupComprasByInvoice([
+      baseCompraRow({
+        moneda: "DOL",
+        cotizacion: 950,
+        neto: 95_000,
+        iva: 19_950,
+        imp_total: 114_950,
+        neto_orig: 100,
+        iva_orig: 21,
+        imp_total_orig: 121,
+      }),
+    ]);
+    expect(g!.per_rate[5]).toEqual({ neto: 95_000, iva: 19_950 });
+    expect(g!.orig.per_rate[5]).toEqual({ neto: 100, iva: 21 });
+    expect(foreignCurrencyTotals([g!])).toEqual([
+      { moneda: "DOL", count: 1, imp_total_orig: 121, imp_total_ars: 114_950 },
+    ]);
   });
 });

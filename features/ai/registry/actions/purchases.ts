@@ -19,10 +19,12 @@ import {
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
+  agingResult,
   errResult,
   money,
   okResult,
   reachedCap,
+  totalsByCurrency,
 } from "../result";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
@@ -45,11 +47,17 @@ export async function runPurchaseInvoices(input: {
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.invoices.reduce((s, i) => s + i.imp_total, 0);
+  const total = totalsByCurrency(
+    res.data.invoices.map((i) => ({
+      amount: i.kind === "nc" ? -i.imp_total : i.imp_total,
+      currency: i.moneda,
+      counts: i.status === "received",
+    })),
+  );
   return okResult(
     `${res.data.invoices.length} purchase invoices${
       res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
-    } · total ${money(total)}.`,
+    } · received total ${total} (credit notes subtract; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );
@@ -82,13 +90,7 @@ export const getPurchaseInvoices = defineAiAction({
 export async function runSupplierAging(): Promise<AiRunResult> {
   const res = await getSupplierAgingAction();
   if (!res.ok) return errResult(res.error);
-  const totalOpen = res.data.reduce((s, r) => s + r.total_open, 0);
-  const plus90 = res.data.reduce((s, r) => s + r.bucket_90_plus, 0);
-  return okResult(
-    `${res.data.length} suppliers with balance · total payable ${money(totalOpen)} · ` +
-      `+90 days ${money(plus90)}.`,
-    res.data,
-  );
+  return agingResult(res.data, "suppliers");
 }
 
 export const getSupplierAging = defineAiAction({
@@ -99,7 +101,8 @@ export const getSupplierAging = defineAiAction({
   sources: ["v_supplier_aging"],
   description:
     "Accounts payable aging: outstanding balance with each supplier per bucket " +
-    "(0-30 / 30-60 / 60-90 / +90 days), with totals. No parameters. For " +
+    "(0-30 / 30-60 / 60-90 / +90 days), pesos and dollars separately, with " +
+    "totals and their ARS equivalent at the latest official rate. No parameters. For " +
     "'how much do I owe?', 'who do I owe the most to?' or planning payments.",
   input: z.object({}),
   run: () => runSupplierAging(),
@@ -110,11 +113,17 @@ export async function runPaymentOrders(input: {
 }): Promise<AiRunResult> {
   const res = await listPaymentOrdersAction({ limit: input.limit ?? 50 });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.items.reduce((s, o) => s + o.total_amount, 0);
+  const total = totalsByCurrency(
+    res.data.items.map((o) => ({
+      amount: o.total_amount,
+      currency: o.currency,
+      counts: o.status === "issued",
+    })),
+  );
   return okResult(
     `${res.data.items.length} payment orders${
       res.data.nextOffset !== null ? " (more available)" : ""
-    } · total paid ${money(total)}.`,
+    } · total paid ${total} (issued only; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );

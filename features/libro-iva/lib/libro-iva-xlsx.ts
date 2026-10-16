@@ -1,6 +1,10 @@
 import type { XlsxCell, XlsxColumn, XlsxSheet } from "@/lib/export/xlsx";
 
+import { formatNumber2 } from "@/lib/format";
+
 import {
+  countSuspectRates,
+  foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
   IVA_RATES,
@@ -21,6 +25,9 @@ type Voucher = {
   per_rate: Record<number, { neto: number; iva: number }>;
   imp_trib: number;
   imp_total: number;
+  moneda: string;
+  cotizacion: number;
+  orig: { imp_total: number };
 };
 
 /** One amount column: which value it reads and when the PDF prints it. */
@@ -33,6 +40,30 @@ type Amount<V> = {
 };
 
 const ars = (n: number): XlsxCell => ({ money: n, currency: "ARS" });
+
+/** Spreadsheet currency of an AFIP code: dollars as USD, others as written. */
+const sheetCurrency = (moneda: string) =>
+  moneda === "DOL" || moneda === "USD" ? "USD" : moneda;
+
+/** What the peso figures include in foreign currency, and the documents left
+ *  at rate 1 — the same notes the screen shows. */
+function currencyLines(vouchers: readonly Voucher[]): string[] {
+  const foreign = foreignCurrencyTotals(vouchers);
+  if (foreign.length === 0) return [];
+  const suspect = countSuspectRates(vouchers);
+  return [
+    "Importes en pesos, como en el asiento de cada comprobante (moneda extranjera a su cotización).",
+    ...foreign.map(
+      (f) =>
+        `${f.count} en ${f.moneda === "DOL" ? "dólares" : f.moneda}: ${sheetCurrency(f.moneda)} ${formatNumber2(f.imp_total_orig)} = $ ${formatNumber2(f.imp_total_ars)}`,
+    ),
+    ...(suspect > 0
+      ? [
+          `${suspect} comprobante(s) en moneda extranjera sin cotización (cotización 1): quedan sin convertir.`,
+        ]
+      : []),
+  ];
+}
 
 function rateAmounts<V extends Voucher>(): Amount<V>[] {
   return IVA_RATES.flatMap((r) => [
@@ -70,6 +101,7 @@ function bookSheet<V extends Voucher>(
       sums[i] = (sums[i] ?? 0) + sign * raw;
       return ars(sign * raw);
     });
+    const foreign = v.moneda !== "PES";
     return [
       { date: v.fecha },
       KIND_LABEL[v.kind] ?? v.kind,
@@ -77,6 +109,14 @@ function bookSheet<V extends Voucher>(
       lead.name(v),
       lead.cuit(v),
       ...cells,
+      v.moneda,
+      foreign
+        ? {
+            money: sign * v.orig.imp_total,
+            currency: sheetCurrency(v.moneda),
+          }
+        : null,
+      foreign ? v.cotizacion : null,
       cae.value(v),
     ];
   });
@@ -88,6 +128,7 @@ function bookSheet<V extends Voucher>(
       book.channelName,
       `${vouchers.length} comprobantes`,
       `Generado el ${book.generatedAt}`,
+      ...currencyLines(vouchers),
     ],
     columns: [
       { header: "Fecha", type: "date" },
@@ -96,6 +137,9 @@ function bookSheet<V extends Voucher>(
       { header: lead.party },
       { header: "CUIT" },
       ...amounts.map((a): XlsxColumn => ({ header: a.header, type: "money" })),
+      { header: "Moneda orig." },
+      { header: "Importe orig.", type: "money" },
+      { header: "Cotización", type: "number" },
       { header: cae.header },
     ],
     rows,
@@ -109,6 +153,10 @@ function bookSheet<V extends Voucher>(
         // A column with no value written keeps its total empty, as the PDF.
         rows.some((r) => r[5 + i] !== null) ? ars(sum) : null,
       ),
+      // Original amounts mix currencies: no total.
+      null,
+      null,
+      null,
       null,
     ],
   };
@@ -132,7 +180,7 @@ export function libroIvaVentasSheet(
       ...rateAmounts<V>(),
       { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
       { header: "No grav.", value: (v) => v.imp_op_ex, show: "positive" },
-      { header: "Total", value: (v) => v.imp_total, show: "always" },
+      { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
     { header: "CAE", value: (v) => v.cae },
   );
@@ -155,7 +203,7 @@ export function libroIvaComprasSheet(
     [
       ...rateAmounts<V>(),
       { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
-      { header: "Total", value: (v) => v.imp_total, show: "always" },
+      { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
     { header: "CAE prov.", value: (v) => v.cae_proveedor },
   );

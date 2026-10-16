@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { CurrencyAmounts } from "@/lib/aging";
 import { highestRole, type Role } from "@/lib/auth/permissions";
 
 export const DUE_DATE_KINDS = [
@@ -46,8 +47,10 @@ export interface DashboardTreasuryKpis {
 }
 
 export interface DashboardAgingKpis {
-  total_open: number;
-  bucket_90_plus: number;
+  total: CurrencyAmounts;
+  /** ARS + USD at the latest official rate; null when there is USD and no rate. */
+  total_ars_equivalent: number | null;
+  bucket_90_plus: CurrencyAmounts;
   party_count: number;
 }
 
@@ -55,7 +58,8 @@ export interface TopDebtor {
   client_id: string;
   name: string;
   cuit: string;
-  total_open: number;
+  total: CurrencyAmounts;
+  total_ars_equivalent: number | null;
   oldest_days: number;
 }
 
@@ -151,9 +155,7 @@ const WAREHOUSE_TEMPLATE: DashboardLayout = [
 const DRIVER_TEMPLATE: DashboardLayout = [{ id: "ops_kpis", size: "full" }];
 
 /** Default template when the user has no saved layout, by highest role. */
-export function defaultLayoutForRoles(
-  roles: readonly Role[],
-): DashboardLayout {
+export function defaultLayoutForRoles(roles: readonly Role[]): DashboardLayout {
   const top = highestRole(roles);
   switch (top) {
     case "owner":

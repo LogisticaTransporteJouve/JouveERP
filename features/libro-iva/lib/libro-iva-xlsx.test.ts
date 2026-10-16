@@ -28,6 +28,14 @@ const row = (over: Partial<LibroIvaVentasRow>): LibroIvaVentasRow => ({
   channel_id: "c1",
   channel_name: "DZ Instalaciones",
   has_items: true,
+  moneda: "PES",
+  cotizacion: 1,
+  neto_orig: over.neto ?? "100",
+  iva_orig: over.iva ?? "21",
+  imp_trib_orig: over.imp_trib ?? "0",
+  imp_op_ex_orig: over.imp_op_ex ?? "0",
+  imp_tot_conc_orig: over.imp_tot_conc ?? "0",
+  imp_total_orig: over.imp_total ?? "121",
   ...over,
 });
 
@@ -59,7 +67,7 @@ describe("libroIvaVentasSheet", () => {
     expect(at("Neto 21%")).toEqual({ money: 100, currency: "ARS" });
     expect(at("IVA 10.5%")).toEqual({ money: 5.25, currency: "ARS" });
     expect(at("Neto 27%")).toBeNull();
-    expect(at("Total")).toEqual({ money: 121, currency: "ARS" });
+    expect(at("Total $")).toEqual({ money: 121, currency: "ARS" });
     expect(sheet.totals?.[0]).toBe("Totales (1 comprobantes)");
   });
 
@@ -84,14 +92,14 @@ describe("libroIvaVentasSheet", () => {
     const col = (header: string) => headers.indexOf(header);
     const money = (cell: unknown) =>
       cell && typeof cell === "object" && "money" in cell ? cell.money : 0;
-    for (const header of ["Neto 21%", "IVA 21%", "Perc.", "Total"]) {
+    for (const header of ["Neto 21%", "IVA 21%", "Perc.", "Total $"]) {
       const sum = sheet.rows.reduce(
         (acc, r) => acc + Number(money(r[col(header)])),
         0,
       );
       expect(money(sheet.totals?.[col(header)])).toBeCloseTo(sum);
     }
-    expect(sheet.rows[1]?.[col("Total")]).toEqual({
+    expect(sheet.rows[1]?.[col("Total $")]).toEqual({
       money: -50.4,
       currency: "ARS",
     });
@@ -102,5 +110,66 @@ describe("libroIvaVentasSheet", () => {
     // The PDF hides a non-positive No grav.; so does the sheet.
     expect(sheet.rows[1]?.[col("No grav.")]).toBeNull();
     expect(sheet.totals?.[col("No grav.")]).toBeNull();
+  });
+
+  it("keeps pesos in the book columns and the original currency beside them", () => {
+    const usd = {
+      kind: "factura",
+      moneda: "DOL",
+      cotizacion: "1000",
+      neto: "100000",
+      iva: "21000",
+      imp_total: "121000",
+      neto_orig: "100",
+      iva_orig: "21",
+      imp_total_orig: "121",
+    };
+    const sheet = libroIvaVentasSheet({
+      ...book,
+      rows: [
+        row({}),
+        row({ ...usd, invoice_id: "u1", numero: 50 }),
+        row({
+          ...usd,
+          invoice_id: "u2",
+          numero: 51,
+          kind: "nc",
+          imp_total: "12100",
+          imp_total_orig: "12.1",
+        }),
+      ],
+    });
+    const headers = sheet.columns.map((c) => c.header);
+    const col = (header: string) => headers.indexOf(header);
+    expect(sheet.rows[1]?.[col("Total $")]).toEqual({
+      money: 121000,
+      currency: "ARS",
+    });
+    expect(sheet.rows[1]?.[col("Moneda orig.")]).toBe("DOL");
+    expect(sheet.rows[1]?.[col("Importe orig.")]).toEqual({
+      money: 121,
+      currency: "USD",
+    });
+    expect(sheet.rows[1]?.[col("Cotización")]).toBe(1000);
+    expect(sheet.rows[2]?.[col("Importe orig.")]).toEqual({
+      money: -12.1,
+      currency: "USD",
+    });
+    // Pesos: no original amount, no rate.
+    expect(sheet.rows[0]?.[col("Importe orig.")]).toBeNull();
+    expect(sheet.totals?.[col("Importe orig.")]).toBeNull();
+    expect(sheet.totals?.[col("Total $")]).toEqual({
+      money: 121 + 121000 - 12100,
+      currency: "ARS",
+    });
+    expect(sheet.preamble).toContain("2 en dólares: USD 108,90 = $ 108.900,00");
+  });
+
+  it("warns about foreign vouchers left at rate 1", () => {
+    const sheet = libroIvaVentasSheet({
+      ...book,
+      rows: [row({ moneda: "DOL", cotizacion: "1" })],
+    });
+    expect(sheet.preamble?.at(-1)).toMatch(/sin cotización \(cotización 1\)/);
   });
 });

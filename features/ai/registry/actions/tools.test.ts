@@ -85,7 +85,10 @@ import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
 import { listLibroIvaVentasAction } from "@/features/libro-iva/actions/libro-iva-actions";
-import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
+import {
+  listInvoicesAction,
+  type InvoiceListItem,
+} from "@/features/invoices/actions/invoices-actions";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import {
@@ -103,9 +106,40 @@ import {
   runSupplierAging,
 } from "./purchases";
 import { runClientAging } from "./receivables";
+import { resolveRows } from "../../artifacts/rows";
+import {
+  buildAgingReport,
+  type AgingPartyInput,
+  type AgingViewAmounts,
+} from "@/lib/aging";
+
+function agingParty(
+  id: string,
+  amounts: Partial<AgingViewAmounts>,
+): AgingPartyInput {
+  return {
+    id,
+    legal_name: id,
+    display_name: null,
+    cuit: "20-1-2",
+    ars_bucket_0_30: 0,
+    ars_bucket_30_60: 0,
+    ars_bucket_60_90: 0,
+    ars_bucket_90_plus: 0,
+    ars_total_open: 0,
+    usd_bucket_0_30: 0,
+    usd_bucket_30_60: 0,
+    usd_bucket_60_90: 0,
+    usd_bucket_90_plus: 0,
+    usd_total_open: 0,
+    document_count: 1,
+    oldest_days: 10,
+    ...amounts,
+  };
+}
 import { getInvoices, runInvoices } from "./sales";
 import { AI_ACTIONS } from "../catalog";
-import { reachedCap } from "../result";
+import { reachedCap, totalsByCurrency } from "../result";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -165,26 +199,41 @@ describe("ai action registry", () => {
 });
 
 describe("runClientAging", () => {
-  it("summarizes the aging totals on success", async () => {
+  it("summarizes the aging totals per currency on success", async () => {
     vi.mocked(getAgingSummaryAction).mockResolvedValue({
       ok: true,
-      data: {
-        clients: [],
-        totals: {
-          bucket_0_30: 100,
-          bucket_30_60: 0,
-          bucket_60_90: 0,
-          bucket_90_plus: 200,
-          total_open: 1000,
-          client_count: 3,
-          document_count: 5,
-        },
-      },
+      data: buildAgingReport(
+        [
+          agingParty("c1", { ars_bucket_90_plus: 200, ars_total_open: 1000 }),
+          agingParty("c2", { usd_bucket_0_30: 5, usd_total_open: 5 }),
+          agingParty("c3", { ars_bucket_0_30: 100, ars_total_open: 100 }),
+        ],
+        { rate: 1000, rate_date: "2026-10-15" },
+      ),
     });
     const r = await runClientAging();
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("3 clients");
+    expect(r.summary).toContain("total $1.100 + US$5");
+    expect(r.summary).toContain("≈ $6.100");
     expect(r.summary).toContain("+90");
+    if (r.ok) {
+      expect(resolveRows(r.data)?.[0]).toMatchObject({
+        legal_name: "c2",
+        total_usd: 5,
+        total_ars_equivalent: 5000,
+        bucket_0_30_ars: 0,
+        bucket_0_30_usd: 5,
+        bucket_30_60_ars: 0,
+        bucket_60_90_usd: 0,
+        bucket_90_plus_ars: 0,
+      });
+      expect(r.exchangeRate).toEqual({
+        currency: "USD",
+        rate: 1000,
+        date: "2026-10-15",
+      });
+    }
   });
 
   it("returns an error result (never throws) when the action denies", async () => {
@@ -268,29 +317,21 @@ describe("runInvoices", () => {
 });
 
 describe("runSupplierAging", () => {
-  it("summarizes total payable and +90 bucket", async () => {
-    const row = {
-      supplier_id: "s",
-      supplier_legal_name: "Prov",
-      supplier_cuit: "20-1-2",
-      bucket_0_30: 0,
-      bucket_30_60: 0,
-      bucket_60_90: 0,
-      bucket_90_plus: 0,
-      total_open: 0,
-      document_count: 1,
-      oldest_days: 10,
-    };
+  it("summarizes total payable and +90 bucket without a rate", async () => {
     vi.mocked(getSupplierAgingAction).mockResolvedValue({
       ok: true,
-      data: [
-        { ...row, total_open: 800, bucket_90_plus: 300 },
-        { ...row, total_open: 200 },
-      ],
+      data: buildAgingReport(
+        [
+          agingParty("s1", { ars_total_open: 800, ars_bucket_90_plus: 300 }),
+          agingParty("s2", { usd_total_open: 200, usd_bucket_0_30: 200 }),
+        ],
+        null,
+      ),
     });
     const r = await runSupplierAging();
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("2 suppliers");
+    expect(r.summary).toContain("not consolidated");
     expect(r.summary).toContain("+90");
   });
 
@@ -301,6 +342,56 @@ describe("runSupplierAging", () => {
     });
     const r = await runSupplierAging();
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("per-currency totals in list summaries", () => {
+  it("runInvoices sums emitted documents per currency, credit notes subtracting", async () => {
+    const item = {
+      id: "i",
+      channel_id: "f",
+      channel_name: "Fiscal",
+      channel_is_fiscal: true,
+      client_id: "c",
+      client_legal_name: "Acme",
+      kind: "factura",
+      letter: "A",
+      punto_venta: 1,
+      numero: 1,
+      fecha: "2026-05-01",
+      imp_total: 1000,
+      moneda: "PES",
+      status: "emitted",
+      cae: null,
+      emitted_at: null,
+    } satisfies InvoiceListItem;
+    vi.mocked(listInvoicesAction).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          item,
+          { ...item, id: "nc", kind: "nc", imp_total: 200 },
+          { ...item, id: "usd", moneda: "DOL", imp_total: 50 },
+          { ...item, id: "draft", status: "draft", imp_total: 9999 },
+        ],
+        nextOffset: null,
+      },
+    });
+    const r = await runInvoices({});
+    expect(r.summary).toContain("emitted total $800 + US$50");
+  });
+
+  it("totalsByCurrency keeps every currency apart and skips what does not count", () => {
+    expect(
+      totalsByCurrency([
+        { amount: 1000, currency: "ARS", counts: true },
+        { amount: 10, currency: "USD", counts: true },
+        { amount: 5, currency: "DOL", counts: true },
+        { amount: 7, currency: "060", counts: true },
+        { amount: 99, currency: "ARS", counts: false },
+      ]),
+    ).toBe("$1.000 + US$15 + 060 7");
+    expect(totalsByCurrency([])).toBe("$0");
   });
 });
 

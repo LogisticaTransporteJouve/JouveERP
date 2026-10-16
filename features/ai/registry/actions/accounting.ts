@@ -99,6 +99,9 @@ export const getLedger = defineAiAction({
   run: (_ctx, input) => runLedger(input),
 });
 
+const LIBRO_IVA_CURRENCY_NOTE =
+  "neto/iva/imp_* are pesos (amount × the document's cotizacion); *_orig are in the document's moneda.";
+
 export async function runLibroIvaVentas(input: {
   period: string;
   channelId?: string | null;
@@ -111,6 +114,7 @@ export async function runLibroIvaVentas(input: {
   return okResult(
     `${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
     res.data,
+    { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
 
@@ -122,7 +126,9 @@ export const getLibroIvaVentas = defineAiAction({
   sources: ["libro_iva_ventas"],
   description:
     "VAT Sales book (RG 1361) for a YYYY-MM period: one row per document × rate " +
-    "(net/VAT per rate), fiscal channels only. Output VAT for the period.",
+    "(net/VAT per rate), fiscal channels only. Output VAT for the period. " +
+    "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
+    "cotizacion keep the original currency.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z
@@ -145,6 +151,7 @@ export async function runLibroIvaCompras(input: {
   return okResult(
     `${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
     res.data,
+    { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
 
@@ -156,7 +163,9 @@ export const getLibroIvaCompras = defineAiAction({
   sources: ["libro_iva_compras"],
   description:
     "VAT Purchases book (RG 1361) for a YYYY-MM period: one row per purchase " +
-    "invoice × rate, fiscal channels only. Input VAT for the period.",
+    "invoice × rate, fiscal channels only. Input VAT for the period. " +
+    "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
+    "cotizacion keep the original currency.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
     channelId: z

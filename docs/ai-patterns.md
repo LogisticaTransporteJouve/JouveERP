@@ -737,34 +737,39 @@ export const agingPorCliente: SkillDefinition = {
   estimatedTokens: 240,
   content: `## Aging por cliente
 
-JouveERP tiene la vista \`v_client_aging\` que ya devuelve los buckets calculados:
+JouveERP tiene la vista \`v_client_aging\` que ya devuelve los buckets
+calculados, separados por moneda (nunca suma pesos y dólares):
 
 \`\`\`sql
 select
   client_id,
-  bucket_0_30,
-  bucket_30_60,
-  bucket_60_90,
-  bucket_90_plus,
-  total_open,
+  ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus,
+  ars_total_open,
+  usd_bucket_0_30, usd_bucket_30_60, usd_bucket_60_90, usd_bucket_90_plus,
+  usd_total_open,
   document_count,
   oldest_days
 from v_client_aging
 where client_id = $1;
 \`\`\`
 
-Buckets en pesos argentinos. \`oldest_days\` es la cantidad de días del
-comprobante más viejo sin saldar.
+\`usd_*\` = comprobantes en DOL/USD; \`ars_*\` = el resto (cualquier otra
+moneda cuenta como pesos; la app solo emite PES y DOL). \`oldest_days\` es la
+cantidad de días del comprobante más viejo sin saldar.
 
 ### Tool a usar
 
-\`getAging(clientId?)\` — devuelve los buckets como artefacto tabla.
+\`getClientAging()\` — devuelve por cliente \`total_ars\`, \`total_usd\`,
+\`total_ars_equivalent\` (USD al último dólar oficial; null si no hay
+cotización cargada) y \`bucket_<rango>_{ars,usd}\`.
 
 ### Reglas
 
-- Si el usuario pregunta "quién me debe más", usa \`getAging()\` sin filtro y
-  ordena por \`total_open\` desc.
-- Si dice "deuda vieja", filtra por \`bucket_90_plus > 0\`.
+- Si el usuario pregunta "quién me debe más", usa \`getClientAging()\`: ya viene
+  ordenado por \`total_ars_equivalent\` desc.
+- Si dice "deuda vieja", mirá \`bucket_90_plus_ars\` y \`bucket_90_plus_usd\`.
+- Nunca sumes pesos y dólares; para un total único usá el equivalente en pesos
+  y decí a qué cotización.
 - Nunca calcules aging manualmente sumando facturas — usa la vista.
 - Los importes ya son netos de NC: NO restes notas de crédito.
 `,

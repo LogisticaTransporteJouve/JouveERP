@@ -120,7 +120,8 @@ export function LibroIvaVentasDocument({
         <View style={styles.header}>
           <Text style={styles.title}>Libro IVA Ventas — {period}</Text>
           <Text style={styles.subtitle}>
-            {channelName} · {grouped.length} comprobantes · generado{" "}
+            {channelName} · {grouped.length} comprobantes · importes en pesos
+            (moneda extranjera a la cotización de cada comprobante) · generado{" "}
             {generatedAt}
           </Text>
         </View>

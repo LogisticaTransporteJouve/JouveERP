@@ -185,7 +185,7 @@ Ejemplos futuros sugeridos:
 |---|---|---|---|
 | `invoice_emitted` | Workflow Inngest `issue-invoice` post-CAE | Todos con `invoices:read` | invoice_id, cae, numero |
 | `invoice_failed` | Workflow Inngest `issue-invoice.onFailure` | Creador del draft | invoice_id, error |
-| `aging_weekly` | Cron `aging-weekly-summary` | Todos con `clients:read` | total_open, top_buckets |
+| `aging_weekly` | Cron `aging-weekly-summary` | Todos con `clients:read` | total (ARS y USD por separado), total_ars_equivalent, top_buckets |
 | `cert_expiring` | Cron (futuro) diariamente | Owners + admins | days_left, cert_serial |
 | `trip_assigned` | Server action de Fase G | Chofer | trip_id, vehicle, date |
 

@@ -100,16 +100,18 @@ type Col = { key: string; label: string };
 /** Curated columns per tool; falls back to a generic derivation when absent. */
 const COLUMN_HINTS: Record<string, Col[]> = {
   getClientAging: [
-    { key: "client_legal_name", label: "Cliente" },
-    { key: "total_open", label: "Total" },
-    { key: "bucket_90_plus", label: "+90d" },
-    { key: "document_count", label: "Comp." },
+    { key: "legal_name", label: "Cliente" },
+    { key: "total_ars", label: "Total $" },
+    { key: "total_usd", label: "Total US$" },
+    { key: "bucket_90_plus_ars", label: "+90d $" },
+    { key: "bucket_90_plus_usd", label: "+90d US$" },
   ],
   getSupplierAging: [
-    { key: "supplier_legal_name", label: "Proveedor" },
-    { key: "total_open", label: "Total" },
-    { key: "bucket_90_plus", label: "+90d" },
-    { key: "document_count", label: "Comp." },
+    { key: "legal_name", label: "Proveedor" },
+    { key: "total_ars", label: "Total $" },
+    { key: "total_usd", label: "Total US$" },
+    { key: "bucket_90_plus_ars", label: "+90d $" },
+    { key: "bucket_90_plus_usd", label: "+90d US$" },
   ],
   getInvoices: [
     { key: "numero", label: "N°" },
