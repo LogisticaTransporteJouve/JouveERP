@@ -24,6 +24,7 @@ import {
   money,
   okResult,
   reachedCap,
+  totalsByCurrency,
 } from "../result";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
@@ -46,11 +47,17 @@ export async function runPurchaseInvoices(input: {
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.invoices.reduce((s, i) => s + i.imp_total, 0);
+  const total = totalsByCurrency(
+    res.data.invoices.map((i) => ({
+      amount: i.kind === "nc" ? -i.imp_total : i.imp_total,
+      currency: i.moneda,
+      counts: i.status === "received",
+    })),
+  );
   return okResult(
     `${res.data.invoices.length} purchase invoices${
       res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
-    } · total ${money(total)}.`,
+    } · received total ${total} (credit notes subtract; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );
@@ -106,11 +113,17 @@ export async function runPaymentOrders(input: {
 }): Promise<AiRunResult> {
   const res = await listPaymentOrdersAction({ limit: input.limit ?? 50 });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.items.reduce((s, o) => s + o.total_amount, 0);
+  const total = totalsByCurrency(
+    res.data.items.map((o) => ({
+      amount: o.total_amount,
+      currency: o.currency,
+      counts: o.status === "issued",
+    })),
+  );
   return okResult(
     `${res.data.items.length} payment orders${
       res.data.nextOffset !== null ? " (more available)" : ""
-    } · total paid ${money(total)}.`,
+    } · total paid ${total} (issued only; per currency).`,
     res.data,
     { partial: res.data.nextOffset !== null },
   );

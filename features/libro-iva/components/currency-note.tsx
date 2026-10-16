@@ -43,8 +43,9 @@ export function CurrencyNote({ docs }: { docs: readonly CurrencyDoc[] }) {
       <Info className="size-4 shrink-0 text-muted-foreground" />
       <div className="space-y-1">
         <p>
-          Importes en pesos. Los comprobantes en moneda extranjera se convierten
-          con la cotización informada en cada uno:
+          Importes en pesos, como en el asiento de cada comprobante: la moneda
+          extranjera se convierte con su cotización (o el dólar oficial del día
+          si no tiene):
         </p>
         <ul className="font-mono text-xs">
           {foreign.map((f) => (

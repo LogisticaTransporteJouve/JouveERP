@@ -56,11 +56,15 @@ function amount(value: number, len = 15): string {
   return digits.padStart(len, "0").slice(-len);
 }
 
-/** Exchange rate: 4 integers + 6 implied decimals (PES → 0001000000). */
+/** Exchange rate: 4 integers + 6 implied decimals (PES → 0001000000). The
+ *  caller has already checked it fits (see `resolveCurrency`). */
 function exchangeRate(value: number): string {
   const millionths = Math.round(Math.abs(value) * 1_000_000);
-  return String(millionths).padStart(10, "0").slice(-10);
+  return String(millionths).padStart(10, "0");
 }
+
+/** Largest rate the 4+6 field can hold. */
+const MAX_EXCHANGE_RATE = 9999.999999;
 
 /** Uppercased ASCII (AFIP files are ANSI; we normalize to the safe subset). */
 function normalizeText(value: string): string {
@@ -86,10 +90,64 @@ function fecha8(iso: string): string {
   return iso.replaceAll("-", "");
 }
 
-/** AFIP currency code: ISO "USD" becomes "DOL"; AFIP codes pass through. */
-function monedaCode(moneda: string | null): string {
-  if (moneda === "USD") return "DOL";
-  return moneda && moneda.length === 3 ? moneda : "PES";
+/** AFIP currency codes (FEParamGetTiposMonedas) the TXT accepts, and the ISO
+ *  codes the app may store for them. */
+const AFIP_MONEDAS = new Set([
+  "PES", // Pesos
+  "DOL", // Dólar estadounidense
+  "002", // Dólar libre EEUU
+  "010", // Peso mexicano
+  "011", // Peso uruguayo
+  "012", // Real
+  "014", // Corona danesa
+  "018", // Dólar canadiense
+  "019", // Yen
+  "021", // Libra esterlina
+  "060", // Euro
+]);
+const ISO_TO_AFIP: Record<string, string> = {
+  ARS: "PES",
+  USD: "DOL",
+  EUR: "060",
+  BRL: "012",
+  UYU: "011",
+  GBP: "021",
+};
+
+type CurrencyResult =
+  | { ok: true; moneda: string; rate: number; warning: string | null }
+  | { ok: false; reason: string };
+
+/**
+ * Currency code and exchange rate for the TXT. An unknown code or a rate the
+ * field cannot hold excludes the document (an invalid record would reject the
+ * whole import); a foreign currency at rate 1 or less is kept but flagged.
+ */
+export function resolveCurrency(
+  moneda: string | null,
+  cotizacion: number,
+): CurrencyResult {
+  const raw = (moneda ?? "PES").trim().toUpperCase();
+  const code = ISO_TO_AFIP[raw] ?? raw;
+  if (!AFIP_MONEDAS.has(code)) {
+    return { ok: false, reason: `moneda desconocida "${raw}"` };
+  }
+  if (code === "PES") return { ok: true, moneda: code, rate: 1, warning: null };
+  if (!Number.isFinite(cotizacion) || cotizacion > MAX_EXCHANGE_RATE) {
+    return {
+      ok: false,
+      reason: `tipo de cambio ${cotizacion} fuera del formato (máximo 9999,999999)`,
+    };
+  }
+  return {
+    ok: true,
+    moneda: code,
+    rate: cotizacion,
+    warning:
+      cotizacion <= 1
+        ? `en ${code} con tipo de cambio ${cotizacion}: revisá la cotización`
+        : null,
+  };
 }
 
 /** Resolves per_rate buckets to AFIP alícuota entries, inferring the rate of
@@ -149,8 +207,13 @@ export function buildVentasTxt(
       );
       continue;
     }
-    const moneda = monedaCode(doc.moneda);
-    const cotiz = moneda === "PES" ? 1 : doc.cotizacion;
+    const currency = resolveCurrency(doc.moneda, doc.cotizacion);
+    if (!currency.ok) {
+      warnings.push(`Venta ${label}: ${currency.reason} — excluida.`);
+      continue;
+    }
+    if (currency.warning) warnings.push(`Venta ${label}: ${currency.warning}.`);
+    const { moneda, rate: cotiz } = currency;
     const ivaTotal = alicuotas.reduce((s, a) => s + a.iva, 0);
     const codOperacion =
       ivaTotal === 0
@@ -261,8 +324,15 @@ export function buildComprasTxt(
       alicuotas = resolved;
     }
     const ivaComputable = alicuotas.reduce((s, a) => s + a.iva, 0);
-    const moneda = monedaCode(doc.moneda);
-    const cotiz = moneda === "PES" ? 1 : doc.cotizacion;
+    const currency = resolveCurrency(doc.moneda, doc.cotizacion);
+    if (!currency.ok) {
+      warnings.push(`Compra ${label}: ${currency.reason} — excluida.`);
+      continue;
+    }
+    if (currency.warning) {
+      warnings.push(`Compra ${label}: ${currency.warning}.`);
+    }
+    const { moneda, rate: cotiz } = currency;
 
     cbteLines.push(
       fecha8(doc.fecha) +

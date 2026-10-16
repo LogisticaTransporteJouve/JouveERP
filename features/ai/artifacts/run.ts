@@ -10,8 +10,9 @@ import {
   buildTableArtifact,
   type BuildResult,
 } from "./build";
+import { LEGACY_FIELDS_NOTE, upgradeLegacyFields } from "./legacy-fields";
 import { resolveRows } from "./rows";
-import type { Artifact, PinRequest } from "./spec";
+import type { Artifact, ArtifactMeta, PinRequest } from "./spec";
 
 /** The read actions an artifact may be built from, for these roles. The
  *  artifact tools themselves never appear here (they are not registry
@@ -69,7 +70,11 @@ export async function runArtifact(
       denied: false,
     };
   }
-  const input = {
+  const input: {
+    source: PinRequest["source"];
+    rows: typeof rows;
+    meta: ArtifactMeta;
+  } = {
     source: request.source,
     rows,
     meta: {
@@ -80,10 +85,17 @@ export async function runArtifact(
       ...(res.meta.note ? { note: res.meta.note } : {}),
     },
   };
+  const present = new Set(rows.flatMap((r) => Object.keys(r)));
+  const { request: current, upgraded } = upgradeLegacyFields(request, present);
+  if (upgraded) {
+    input.meta.note = input.meta.note
+      ? `${input.meta.note} ${LEGACY_FIELDS_NOTE}`
+      : LEGACY_FIELDS_NOTE;
+  }
   const built: BuildResult<Artifact> =
-    request.kind === "chart"
-      ? buildChartArtifact(request.config, input)
-      : buildTableArtifact(request.config, input);
+    current.kind === "chart"
+      ? buildChartArtifact(current.config, input)
+      : buildTableArtifact(current.config, input);
   if (!built.ok) return { ok: false, error: built.error, denied: false };
   return { ok: true, artifact: built.value, input: parsedInput.data };
 }

@@ -522,6 +522,7 @@ export interface InvoiceListItem {
   numero: number;
   fecha: string;
   imp_total: number;
+  moneda: string;
   status: InvoiceRow["status"];
   cae: string | null;
   emitted_at: string | null;
@@ -550,7 +551,7 @@ export async function listInvoicesAction(
   let query = supabase
     .from("invoices")
     .select(
-      `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, status, cae, emitted_at,
+      `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, cae, emitted_at,
        channel:invoicing_channels(name, is_fiscal),
        client:clients!inner(legal_name)`,
     )
@@ -595,6 +596,7 @@ export async function listInvoicesAction(
     numero: number;
     fecha: string;
     imp_total: number | string;
+    moneda: string;
     status: string;
     cae: string | null;
     emitted_at: string | null;
@@ -618,6 +620,7 @@ export async function listInvoicesAction(
     numero: row.numero,
     fecha: row.fecha,
     imp_total: Number(row.imp_total),
+    moneda: row.moneda,
     status: row.status as InvoiceRow["status"],
     cae: row.cae,
     emitted_at: row.emitted_at,

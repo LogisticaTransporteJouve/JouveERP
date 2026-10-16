@@ -1,17 +1,33 @@
 -- Multicurrency reports: the libro IVA in pesos and the aging split by currency.
 --
--- 1. libro_iva_ventas / libro_iva_compras. The libro IVA is kept in pesos: every
---    amount column (neto, iva, imp_*) is now the document's amount × its own
---    cotizacion (the one reported to AFIP), rounded to 2 decimals per field.
+-- 1. libro_iva_ventas / libro_iva_compras. The libro IVA is kept in pesos, with
+--    the same conversion and rounding as the journal entry of each document
+--    (build_invoice_journal_lines / build_purchase_invoice_journal_lines in
+--    20260701130000), so the book ties to the IVA and revenue/purchase ledger
+--    accounts to the cent:
+--      * rate: 1 for PES (or no moneda); else the stored cotizacion (the one
+--        reported to AFIP), falling back to get_exchange_rate('USD', fecha)
+--        and then 1 when it is 0;
+--      * per document, each header component is converted and rounded once:
+--        IVA = round(imp_iva × rate, 2), percepciones = round(imp_trib × rate,
+--        2); in sales the revenue round((imp_neto + imp_op_ex + imp_tot_conc) ×
+--        rate, 2) is split into op_ex and tot_conc (each rounded) and neto (the
+--        remainder); in purchases neto = round(imp_neto × rate, 2);
+--      * imp_total (ARS) = the sum of those rounded components, which is what
+--        the journal posts to clientes / proveedores;
+--      * the per-alícuota rows are each rounded and the cent difference against
+--        the document's neto / IVA goes to its largest alícuota row, so the
+--        rows of a document always add up to the journal figures.
 --    Before, a USD comprobante entered the book and its totals at face value.
 --    The original-currency amounts stay available as *_orig, with moneda and
---    cotizacion, for traceability and for the Libro IVA Digital TXT, which
---    reports amounts in the comprobante's currency plus the exchange rate.
+--    cotizacion (the rate used), for traceability and for the Libro IVA Digital
+--    TXT, which reports amounts in the comprobante's currency plus the rate.
 --    The return type changes, so each function is dropped and recreated.
 --
 -- 2. v_client_aging / v_supplier_aging. The buckets summed open_amount across
 --    currencies (a USD invoice counted as pesos). They now expose ARS and USD
---    separately (usd_* = moneda DOL/USD, ars_* = the rest; the app only issues
+--    separately (usd_* = moneda DOL/USD, ars_* = everything else, so a
+--    document in any other currency is bucketed as pesos; the app only issues
 --    PES and DOL); the caller converts USD at the latest official rate when it
 --    needs a single figure. Column names change, so both views are
 --    dropped and recreated (nothing in the database depends on them).
@@ -85,8 +101,12 @@ begin
       i.cae_vencimiento, i.imp_neto, i.imp_iva, i.imp_trib, i.imp_op_ex,
       i.imp_tot_conc, i.imp_total, i.channel_id, i.moneda,
       case
-        when i.moneda = 'PES' then 1::numeric
-        else coalesce(nullif(i.cotizacion, 0), 1)
+        when i.moneda is null or i.moneda = 'PES' then 1::numeric
+        else coalesce(
+          nullif(i.cotizacion, 0),
+          public.get_exchange_rate('USD', i.fecha),
+          1
+        )
       end as fx
       from public.invoices i
       join public.invoicing_channels c on c.id = i.channel_id
@@ -94,6 +114,17 @@ begin
        and i.status = 'emitted'
        and i.fecha between (select desde from periodo) and (select hasta from periodo)
        and (p_channel_id is null or i.channel_id = p_channel_id)
+  ),
+  -- Document totals in pesos, rounded like the journal entry.
+  doc_ars as (
+    select
+      f.id,
+      round((f.imp_neto + f.imp_op_ex + f.imp_tot_conc) * f.fx, 2) as revenue,
+      round(f.imp_op_ex * f.fx, 2)    as op_ex,
+      round(f.imp_tot_conc * f.fx, 2) as tot_conc,
+      round(f.imp_iva * f.fx, 2)      as iva,
+      round(f.imp_trib * f.fx, 2)     as trib
+    from fiscal_invs f
   ),
   -- Items grouped per (invoice, iva_rate_id). An invoice without items yields
   -- one row with iva_rate_id null and the header neto/iva.
@@ -126,6 +157,21 @@ begin
       isi.imp_neto, isi.imp_iva,
       false
     from invs_sin_items isi
+  ),
+  -- Each alícuota row rounded on its own; the largest row of the document
+  -- takes the cent difference against the document total.
+  rounded as (
+    select
+      cb.*,
+      round(cb.neto * i.fx, 2) as neto_r,
+      round(cb.iva * i.fx, 2)  as iva_r,
+      sum(round(cb.neto * i.fx, 2)) over w as neto_r_sum,
+      sum(round(cb.iva * i.fx, 2)) over w  as iva_r_sum,
+      row_number() over (w order by abs(cb.neto) desc, cb.iva_rate_id nulls last) as neto_rank,
+      row_number() over (w order by abs(cb.iva) desc, cb.iva_rate_id nulls last)  as iva_rank
+    from combined cb
+    join fiscal_invs i on i.id = cb.invoice_id
+    window w as (partition by cb.invoice_id)
   )
   select
     i.id,
@@ -150,12 +196,13 @@ begin
       when 9 then 2.5
       else null
     end::numeric                                  as iva_rate_pct,
-    round(cb.neto * i.fx, 2),
-    round(cb.iva * i.fx, 2),
-    round(i.imp_trib * i.fx, 2),
-    round(i.imp_op_ex * i.fx, 2),
-    round(i.imp_tot_conc * i.fx, 2),
-    round(i.imp_total * i.fx, 2),
+    cb.neto_r + case when cb.neto_rank = 1
+      then (d.revenue - d.op_ex - d.tot_conc) - cb.neto_r_sum else 0 end,
+    cb.iva_r + case when cb.iva_rank = 1 then d.iva - cb.iva_r_sum else 0 end,
+    d.trib,
+    d.op_ex,
+    d.tot_conc,
+    d.revenue + d.iva + d.trib,
     i.channel_id,
     ch.name                                       as channel_name,
     cb.has_items,
@@ -167,8 +214,9 @@ begin
     i.imp_op_ex,
     i.imp_tot_conc,
     i.imp_total
-  from combined cb
+  from rounded cb
   join fiscal_invs i on i.id = cb.invoice_id
+  join doc_ars d on d.id = cb.invoice_id
   left join public.clients cl on cl.id = i.client_id
   join public.invoicing_channels ch on ch.id = i.channel_id
   order by i.fecha asc, i.cbte_tipo_afip asc, i.numero asc, cb.iva_rate_id asc nulls last;
@@ -176,7 +224,7 @@ end;
 $$;
 
 comment on function public.libro_iva_ventas(text, text) is
-  'Libro IVA Ventas RG 1361, en pesos. Una fila por (comprobante × alícuota) para un período YYYY-MM, opcionalmente filtrado por canal; solo fiscal + emitted. Importes en ARS (importe × cotizacion del comprobante, redondeado a 2 decimales); *_orig en la moneda del comprobante.';
+  'Libro IVA Ventas RG 1361, en pesos. Una fila por (comprobante × alícuota) para un período YYYY-MM, opcionalmente filtrado por canal; solo fiscal + emitted. Importes en ARS con la misma conversión y redondeo que el asiento del comprobante (imp_total = suma de componentes redondeados); *_orig en la moneda del comprobante.';
 
 revoke all on function public.libro_iva_ventas(text, text) from public, anon, authenticated;
 grant execute on function public.libro_iva_ventas(text, text) to authenticated;
@@ -241,8 +289,12 @@ begin
       p.cae_proveedor, p.cae_vto_proveedor, p.imp_neto, p.imp_iva, p.imp_trib,
       p.imp_total, p.channel_id, p.moneda,
       case
-        when p.moneda = 'PES' then 1::numeric
-        else coalesce(nullif(p.cotizacion, 0), 1)
+        when p.moneda is null or p.moneda = 'PES' then 1::numeric
+        else coalesce(
+          nullif(p.cotizacion, 0),
+          public.get_exchange_rate('USD', p.fecha),
+          1
+        )
       end as fx
       from public.purchase_invoices p
       join public.invoicing_channels c on c.id = p.channel_id
@@ -250,6 +302,15 @@ begin
        and p.status = 'received'
        and p.fecha between (select desde from periodo) and (select hasta from periodo)
        and (p_channel_id is null or p.channel_id = p_channel_id)
+  ),
+  -- Document totals in pesos, rounded like the journal entry.
+  doc_ars as (
+    select
+      f.id,
+      round(f.imp_neto * f.fx, 2) as neto,
+      round(f.imp_iva * f.fx, 2)  as iva,
+      round(f.imp_trib * f.fx, 2) as trib
+    from fiscal_pis f
   ),
   per_pi_rate as (
     select
@@ -274,6 +335,21 @@ begin
     union all
     select psi.id, null::int, psi.imp_neto, psi.imp_iva, false
       from pis_sin_items psi
+  ),
+  -- Each alícuota row rounded on its own; the largest row of the document
+  -- takes the cent difference against the document total.
+  rounded as (
+    select
+      cb.*,
+      round(cb.neto * p.fx, 2) as neto_r,
+      round(cb.iva * p.fx, 2)  as iva_r,
+      sum(round(cb.neto * p.fx, 2)) over w as neto_r_sum,
+      sum(round(cb.iva * p.fx, 2)) over w  as iva_r_sum,
+      row_number() over (w order by abs(cb.neto) desc, cb.iva_rate_id nulls last) as neto_rank,
+      row_number() over (w order by abs(cb.iva) desc, cb.iva_rate_id nulls last)  as iva_rank
+    from combined cb
+    join fiscal_pis p on p.id = cb.pi_id
+    window w as (partition by cb.pi_id)
   )
   select
     p.id,
@@ -296,10 +372,10 @@ begin
       when 9 then 2.5
       else null
     end::numeric                                  as iva_rate_pct,
-    round(cb.neto * p.fx, 2),
-    round(cb.iva * p.fx, 2),
-    round(p.imp_trib * p.fx, 2),
-    round(p.imp_total * p.fx, 2),
+    cb.neto_r + case when cb.neto_rank = 1 then d.neto - cb.neto_r_sum else 0 end,
+    cb.iva_r + case when cb.iva_rank = 1 then d.iva - cb.iva_r_sum else 0 end,
+    d.trib,
+    d.neto + d.iva + d.trib,
     p.channel_id,
     ch.name                                       as channel_name,
     cb.has_items,
@@ -309,8 +385,9 @@ begin
     cb.iva,
     p.imp_trib,
     p.imp_total
-  from combined cb
+  from rounded cb
   join fiscal_pis p on p.id = cb.pi_id
+  join doc_ars d on d.id = cb.pi_id
   left join public.suppliers s on s.id = p.supplier_id
   join public.invoicing_channels ch on ch.id = p.channel_id
   order by p.fecha asc, p.letter nulls last, p.numero asc, cb.iva_rate_id asc nulls last;
@@ -318,7 +395,7 @@ end;
 $$;
 
 comment on function public.libro_iva_compras(text, text) is
-  'Libro IVA Compras RG 1361, en pesos. Una fila por (purchase_invoice × alícuota); solo fiscal + status received. Importes en ARS (importe × cotizacion del comprobante, redondeado a 2 decimales); *_orig en la moneda del comprobante.';
+  'Libro IVA Compras RG 1361, en pesos. Una fila por (purchase_invoice × alícuota); solo fiscal + status received. Importes en ARS con la misma conversión y redondeo que el asiento del comprobante (imp_total = suma de componentes redondeados); *_orig en la moneda del comprobante.';
 
 revoke all on function public.libro_iva_compras(text, text) from public, anon, authenticated;
 grant execute on function public.libro_iva_compras(text, text) to authenticated;

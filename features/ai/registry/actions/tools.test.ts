@@ -85,7 +85,10 @@ import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
 import { listLibroIvaVentasAction } from "@/features/libro-iva/actions/libro-iva-actions";
-import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
+import {
+  listInvoicesAction,
+  type InvoiceListItem,
+} from "@/features/invoices/actions/invoices-actions";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import {
@@ -103,6 +106,7 @@ import {
   runSupplierAging,
 } from "./purchases";
 import { runClientAging } from "./receivables";
+import { resolveRows } from "../../artifacts/rows";
 import {
   buildAgingReport,
   type AgingPartyInput,
@@ -135,7 +139,7 @@ function agingParty(
 }
 import { getInvoices, runInvoices } from "./sales";
 import { AI_ACTIONS } from "../catalog";
-import { reachedCap } from "../result";
+import { reachedCap, totalsByCurrency } from "../result";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -214,6 +218,16 @@ describe("runClientAging", () => {
     expect(r.summary).toContain("≈ $6.100");
     expect(r.summary).toContain("+90");
     if (r.ok) {
+      expect(resolveRows(r.data)?.[0]).toMatchObject({
+        legal_name: "c2",
+        total_usd: 5,
+        total_ars_equivalent: 5000,
+        bucket_0_30_ars: 0,
+        bucket_0_30_usd: 5,
+        bucket_30_60_ars: 0,
+        bucket_60_90_usd: 0,
+        bucket_90_plus_ars: 0,
+      });
       expect(r.exchangeRate).toEqual({
         currency: "USD",
         rate: 1000,
@@ -328,6 +342,56 @@ describe("runSupplierAging", () => {
     });
     const r = await runSupplierAging();
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("per-currency totals in list summaries", () => {
+  it("runInvoices sums emitted documents per currency, credit notes subtracting", async () => {
+    const item = {
+      id: "i",
+      channel_id: "f",
+      channel_name: "Fiscal",
+      channel_is_fiscal: true,
+      client_id: "c",
+      client_legal_name: "Acme",
+      kind: "factura",
+      letter: "A",
+      punto_venta: 1,
+      numero: 1,
+      fecha: "2026-05-01",
+      imp_total: 1000,
+      moneda: "PES",
+      status: "emitted",
+      cae: null,
+      emitted_at: null,
+    } satisfies InvoiceListItem;
+    vi.mocked(listInvoicesAction).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          item,
+          { ...item, id: "nc", kind: "nc", imp_total: 200 },
+          { ...item, id: "usd", moneda: "DOL", imp_total: 50 },
+          { ...item, id: "draft", status: "draft", imp_total: 9999 },
+        ],
+        nextOffset: null,
+      },
+    });
+    const r = await runInvoices({});
+    expect(r.summary).toContain("emitted total $800 + US$50");
+  });
+
+  it("totalsByCurrency keeps every currency apart and skips what does not count", () => {
+    expect(
+      totalsByCurrency([
+        { amount: 1000, currency: "ARS", counts: true },
+        { amount: 10, currency: "USD", counts: true },
+        { amount: 5, currency: "DOL", counts: true },
+        { amount: 7, currency: "060", counts: true },
+        { amount: 99, currency: "ARS", counts: false },
+      ]),
+    ).toBe("$1.000 + US$15 + 060 7");
+    expect(totalsByCurrency([])).toBe("$0");
   });
 });
 

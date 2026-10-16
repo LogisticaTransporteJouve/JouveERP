@@ -5,7 +5,7 @@ import type {
   LibroIvaVentasGroupedRow,
 } from "../schema";
 
-import { buildComprasTxt, buildVentasTxt } from "./citi";
+import { buildComprasTxt, buildVentasTxt, resolveCurrency } from "./citi";
 
 /** Peso document by default: `orig` mirrors the peso figures unless given. */
 function ventaDoc(
@@ -257,5 +257,70 @@ describe("buildComprasTxt", () => {
     );
     expect(r.documents).toBe(0);
     expect(r.warnings).toHaveLength(2);
+  });
+});
+
+describe("resolveCurrency", () => {
+  it("normalizes case and ISO codes to AFIP codes", () => {
+    expect(resolveCurrency(" dol ", 1000)).toMatchObject({
+      ok: true,
+      moneda: "DOL",
+    });
+    expect(resolveCurrency("USD", 1000)).toMatchObject({
+      ok: true,
+      moneda: "DOL",
+    });
+    expect(resolveCurrency("EUR", 1100)).toMatchObject({
+      ok: true,
+      moneda: "060",
+    });
+    expect(resolveCurrency("060", 1100)).toMatchObject({
+      ok: true,
+      moneda: "060",
+    });
+    expect(resolveCurrency(null, 0)).toEqual({
+      ok: true,
+      moneda: "PES",
+      rate: 1,
+      warning: null,
+    });
+  });
+
+  it("refuses unknown codes and rates the 4+6 field cannot hold", () => {
+    expect(resolveCurrency("XYZ", 1).ok).toBe(false);
+    expect(resolveCurrency("DOL", 10_000).ok).toBe(false);
+    expect(resolveCurrency("DOL", 9999.999999).ok).toBe(true);
+  });
+
+  it("flags a foreign currency at rate 1 or less", () => {
+    const r = resolveCurrency("DOL", 1);
+    expect(r.ok && r.warning).toMatch(/revisá la cotización/);
+  });
+});
+
+describe("currency checks in the export", () => {
+  it("excludes a sale in an unknown currency and reports it", () => {
+    const r = buildVentasTxt([ventaDoc({ moneda: "XYZ" })], "2026-06");
+    expect(r.documents).toBe(0);
+    expect(r.warnings[0]).toMatch(/moneda desconocida "XYZ" — excluida/);
+  });
+
+  it("excludes a purchase whose rate overflows the field", () => {
+    const r = buildComprasTxt(
+      [compraDoc({ moneda: "DOL", cotizacion: 12_000 })],
+      "2026-06",
+    );
+    expect(r.documents).toBe(0);
+    expect(r.warnings[0]).toMatch(/fuera del formato/);
+  });
+
+  it("keeps a foreign document at rate 1 but warns", () => {
+    const r = buildVentasTxt(
+      [ventaDoc({ moneda: "DOL", cotizacion: 1 })],
+      "2026-06",
+    );
+    expect(r.documents).toBe(1);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toMatch(/tipo de cambio 1/);
   });
 });

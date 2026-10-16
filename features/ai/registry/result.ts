@@ -1,4 +1,8 @@
-import type { AgingReport, CurrencyAmounts } from "@/lib/aging";
+import {
+  AGING_BUCKETS,
+  type AgingReport,
+  type CurrencyAmounts,
+} from "@/lib/aging";
 
 /**
  * What an action's `run` returns: a compact, human-readable `summary`
@@ -105,8 +109,12 @@ export function agingResult(
     total_ars: r.total.ars,
     total_usd: r.total.usd,
     total_ars_equivalent: r.total_ars_equivalent,
-    bucket_90_plus_ars: r.buckets["90_plus"].ars,
-    bucket_90_plus_usd: r.buckets["90_plus"].usd,
+    ...Object.fromEntries(
+      AGING_BUCKETS.flatMap((b) => [
+        [`bucket_${b}_ars`, r.buckets[b].ars],
+        [`bucket_${b}_usd`, r.buckets[b].usd],
+      ]),
+    ),
     document_count: r.document_count,
     oldest_days: r.oldest_days,
   }));
@@ -128,4 +136,36 @@ export function agingResult(
         : {}),
     },
   );
+}
+
+/** What a listed document adds to a per-currency total: its amount, its
+ *  currency (AFIP or ISO code) and whether it counts (cancelled ones do not;
+ *  credit notes pass a negative amount). */
+export type CurrencyEntry = {
+  amount: number;
+  currency: string | null;
+  counts: boolean;
+};
+
+/** "$1.000 + US$500" over the entries that count, one sum per currency —
+ *  never added across currencies. Codes other than pesos and dollars get their
+ *  own "<code> n" term. */
+export function totalsByCurrency(entries: readonly CurrencyEntry[]): string {
+  const sums = new Map<string, number>();
+  for (const e of entries) {
+    if (!e.counts) continue;
+    const raw = (e.currency ?? "ARS").toUpperCase();
+    const code = raw === "PES" ? "ARS" : raw === "DOL" ? "USD" : raw;
+    sums.set(code, (sums.get(code) ?? 0) + e.amount);
+  }
+  const ars = sums.get("ARS") ?? 0;
+  sums.delete("ARS");
+  const parts = [money(ars)];
+  const usd = sums.get("USD");
+  sums.delete("USD");
+  if (usd !== undefined) parts.push(usdMoney(usd));
+  for (const [code, n] of [...sums].sort(([a], [b]) => a.localeCompare(b))) {
+    parts.push(`${code} ${Math.round(n).toLocaleString("es-AR")}`);
+  }
+  return parts.join(" + ");
 }

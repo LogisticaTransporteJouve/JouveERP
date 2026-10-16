@@ -2,8 +2,10 @@ import { formatMoney, round2 } from "@/lib/format";
 import { arsEquivalent, type UsdRate } from "@/lib/fx";
 
 // Aging (clients and suppliers) split by currency. The views return pesos and
-// dollars in separate columns; this builds the per-party rows and the totals,
-// and adds a single ARS-equivalent figure at the latest official rate.
+// dollars in separate columns (dollars = moneda DOL/USD; any other currency is
+// counted as pesos, as the app only issues PES and DOL). This builds the
+// per-party rows and the totals, and adds a single ARS-equivalent figure at
+// the latest official rate.
 
 export type AgingBucket = "0_30" | "30_60" | "60_90" | "90_plus";
 export const AGING_BUCKETS: readonly AgingBucket[] = [
