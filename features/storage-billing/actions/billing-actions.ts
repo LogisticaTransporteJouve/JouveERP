@@ -10,7 +10,7 @@ import {
 } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { round2 } from "@/lib/format";
+import { round2, todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -322,7 +322,7 @@ export async function invoiceStorageAction(
     });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
   const result = await issueFiscalInvoiceAction({
     channel_id,
     client_id,
