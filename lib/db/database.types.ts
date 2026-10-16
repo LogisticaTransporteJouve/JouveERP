@@ -364,6 +364,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_pinned_artifacts: {
+        Row: {
+          action: string
+          config: Json
+          created_at: string
+          id: string
+          input: Json
+          kind: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          config: Json
+          created_at?: string
+          id?: string
+          input?: Json
+          kind: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          input?: Json
+          kind?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_usage: {
         Row: {
           cached_tokens: number | null

@@ -2,6 +2,11 @@ import type { ToolSet } from "ai";
 
 import type { Role } from "@/lib/auth/permissions";
 
+import {
+  buildArtifactTools,
+  RENDER_CHART_TOOL,
+  RENDER_TABLE_TOOL,
+} from "../artifacts/tools";
 import { ASK_QUESTIONS_TOOL } from "../lib/questions";
 
 import { askQuestionsTool } from "./ask-questions";
@@ -36,14 +41,19 @@ export function visibleAiActions(
 }
 
 /** The chat tools for one user, generated from the registry, plus the
- *  question card every chat user may get. */
+ *  question card every chat user may get and, when the context carries an
+ *  artifact sink and the user has a read query, the chart and table tools. */
 export function buildAiTools(
   ctx: AiActionContext,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): ToolSet {
   const tools: ToolSet = { [ASK_QUESTIONS_TOOL]: askQuestionsTool };
-  for (const action of visibleAiActions(ctx.roles, actions)) {
+  const visible = visibleAiActions(ctx.roles, actions);
+  for (const action of visible) {
     tools[action.name] = action.toTool(ctx);
+  }
+  if (ctx.artifacts && visible.some((a) => a.sideEffect === "read")) {
+    Object.assign(tools, buildArtifactTools(ctx, ctx.artifacts, actions));
   }
   return tools;
 }
@@ -58,6 +68,7 @@ function firstSentence(text: string): string {
 export function buildCapabilitiesSummary(
   roles: readonly Role[],
   actions: readonly AiAction[] = AI_ACTIONS,
+  options: { artifacts?: boolean } = {},
 ): string {
   const visible = visibleAiActions(roles, actions);
   const sections: string[] = [];
@@ -71,6 +82,11 @@ export function buildCapabilitiesSummary(
     if (lines.length > 0) {
       sections.push(`${DOMAIN_LABEL[domain]}:\n${lines.join("\n")}`);
     }
+  }
+  if (options.artifacts && visible.some((a) => a.sideEffect === "read")) {
+    sections.push(
+      `Gráficos y tablas:\n- ${RENDER_CHART_TOOL}: mostrá un gráfico armado por el servidor con el resultado de una de tus consultas; usalo cuando una comparación o una evolución se entiende mejor vista.\n- ${RENDER_TABLE_TOOL}: mostrá una tabla exportable a CSV con el resultado de una de tus consultas, cuando piden un listado o exportar.`,
+    );
   }
   return sections.length > 0
     ? sections.join("\n\n")

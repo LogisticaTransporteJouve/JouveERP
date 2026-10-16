@@ -131,15 +131,51 @@ asistente.
 cotización); las líneas de un asiento se cambian pidiéndoselo al asistente. Si el servidor cae entre
 el claim y la escritura, la fila queda `confirmed` sin `result_id`.
 
-## Fase 3 — muestra
+## Fase 3 — muestra (hecha)
 
-- **Data parts en streaming** para gráficos y tablas: el servidor arma el spec Vega-Lite con los datos
-  de las RPC y lo valida con Ajv contra el schema antes de mandarlo; el modelo elige el tipo de
-  gráfico, nunca los números.
-- **Bloque de actividad** (qué consultó, con qué filtros, cuánto tardó) plegable en cada respuesta.
-- **Adjuntos** en el chat (reusa Document Intelligence para leerlos).
-- **Exportar** una tabla a CSV/XLSX en Storage con link firmado.
-- **Insights fijados**: guardar un resultado como tarjeta del dashboard que se recalcula.
+**Artefactos** (`features/ai/artifacts/`): gráficos y tablas que el servidor arma con los datos de
+una consulta del registry. El modelo elige la consulta, su input y la forma; nunca los números.
+
+| Archivo     | Qué tiene                                                                                                                                                                                                                                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `hbar`, `line`; `x`, hasta 3 series, orden, límite, formato) y de tabla (título, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                          |
+| `build.ts`  | Arma el artefacto desde las filas: copia los valores (los `numeric` de Postgres pasan a número), rechaza una `x` repetida en vez de sumar, corta en 60 puntos (30 en `hbar`) o 300 filas × 12 columnas (y ~100 KB por artefacto) y lo marca como cortado. Cada columna toma su formato del nombre, con reglas en orden (`rows.ts`): códigos e identificadores (`*_code`, `*_number`, `numero`, CUIT, CBU) quedan como texto; `*_pct` es porcentaje; `*_count`, `qty`, `cantidad`, días y `total_<sustantivo>s` son cantidades; `*_usd`/`foreign` van en US$; el resto de montos en la moneda del resultado. Un campo inexistente devuelve un error con los campos que sí sirven, para que el modelo corrija. |
+| `run.ts`    | `runArtifact(ctx, pedido)`: busca la acción entre las de lectura que el rol puede usar, valida el input con su schema y la ejecuta con el mismo gate que el tool (`requireUserContext` + `userCan` + RLS adentro).                                                                                                          |
+| `tools.ts`  | Tools `renderChart` y `renderTable`. Mandan el artefacto como data part `data-artifact` (id = toolCallId) y al modelo le devuelven un resumen con `meta` de la consulta.                                                                                                                                                    |
+| `sink.ts`   | El puerto por el que los tools escriben al stream; el route lo conecta al writer. Sin sink (p. ej. una corrida en background) estos tools no se ofrecen.                                                                                                                                                                    |
+| `export.ts` | CSV del artefacto desde las filas que ya están en pantalla (`lib/export/csv.ts`).                                                                                                                                                                                                                                           |
+
+**Stream.** El route envuelve `toUIMessageStream` en `createUIMessageStream` y conecta el sink al
+writer; el mensaje persistido guarda la data part, así que el gráfico vuelve al recargar.
+`convertToModelMessages` ignora las data parts: el modelo no relee los datos en el historial. Un turno
+manda hasta ~400 KB de artefactos; pasado eso el tool devuelve un error y el modelo lo explica.
+
+**Gráficos.** SVG propio y monocromo (sin librería de charts): barras con el extremo redondeado,
+líneas de 2 px, series distinguidas por intensidad y trazo, leyenda desde 2 series, tooltip por
+punto y vista de tabla. Números en es-AR.
+
+**Bloque de actividad.** Las consultas de cada respuesta ya no van como texto suelto: un bloque
+plegable lista cada tool (estado, filas, fecha de cálculo, parcial o con error) y cada paso abre la
+vista previa con las fuentes (`features/ai/lib/activity.ts`, `components/activity-block.tsx`).
+
+**Exportar.** CSV en el cliente con las filas ya cargadas: comillas RFC 4180 y prefijo `'` en
+celdas de texto que empiezan con `=`, `+`, `-`, `@`, tab o retorno (inyección de fórmulas); los
+números siguen siendo números. No hay XLSX: no hay librería en las dependencias.
+
+**Fijados** (`/ai/pinned`). "Fijar" manda solo la consulta, su input y la configuración, nunca
+filas. `pinAiArtifactAction` (`ai:chat` + permisos de la consulta) la vuelve a correr, guarda el
+input ya parseado y la configuración resuelta, y audita (`ai.artifact.pinned`). Al ver un fijado,
+`loadAiPinnedArtifactAction` la recalcula como quien mira, con los permisos de ese momento: si los
+perdió, la tarjeta dice que ya no tiene acceso y no trae datos. Hasta 30 por usuario y sin duplicados,
+los dos controlados en la base (índice único por usuario + consulta + configuración, y un trigger con
+lock por usuario que cuenta antes de insertar).
+
+**`ai_pinned_artifacts`** (migración `20261016120000_ai_pinned_artifacts.sql`): `kind`, `title`,
+`action`, `input`, `config`. RLS: `authenticated` solo lee sus filas (`user_id = (select
+auth.uid())` y rol con `ai:chat`); las escrituras van por el service client después del gate y
+filtrando por el usuario (`features/ai/lib/pinned-artifacts.ts`).
+
+**Pendiente de esta fase.** Adjuntos en el chat (reusar Document Intelligence) y XLSX.
 
 ## Fase 4 — trabaja solo
 

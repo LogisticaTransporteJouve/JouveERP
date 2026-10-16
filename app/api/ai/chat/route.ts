@@ -1,4 +1,5 @@
 import {
+  createUIMessageStream,
   createUIMessageStreamResponse,
   toUIMessageStream,
   type UIMessage,
@@ -6,6 +7,7 @@ import {
 import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
+import { createArtifactSink } from "@/features/ai/artifacts/sink";
 import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
   AI_DAILY_TOKEN_CAP,
@@ -203,15 +205,20 @@ export async function POST(req: Request) {
 
   // Only the actions this user's roles may run become tools: the model never
   // sees (or can call) the rest, and each tool re-checks the permission.
-  // Proposals park their drafts in this session for the user to confirm.
+  // Proposals park their drafts in this session for the user to confirm;
+  // charts and tables stream to the response as `data-artifact` parts.
+  const artifacts = createArtifactSink();
   const tools = buildAiTools({
     userId: ctx.userId,
     roles: ctx.roles,
     proposals: chatProposalStore(ctx.userId, sessionId),
+    artifacts,
   });
   const result = await streamChat(allMessages, {
     tools,
-    capabilities: buildCapabilitiesSummary(ctx.roles),
+    capabilities: buildCapabilitiesSummary(ctx.roles, undefined, {
+      artifacts: true,
+    }),
     notes: proposalNote,
     userId: ctx.userId,
     sessionId,
@@ -224,14 +231,16 @@ export async function POST(req: Request) {
       }),
   });
 
-  const stream = toUIMessageStream({
-    stream: result.stream,
-    tools,
+  const stream = createUIMessageStream({
     originalMessages: allMessages,
     // The last original message is the user turn, so the SDK won't auto-assign
     // an id to the assistant response — give it one so persisted messages have
     // stable ids on resume.
-    generateMessageId: () => crypto.randomUUID(),
+    generateId: () => crypto.randomUUID(),
+    execute: ({ writer }) => {
+      artifacts.attach((chunk) => writer.write(chunk));
+      writer.merge(toUIMessageStream({ stream: result.stream, tools }));
+    },
     onEnd: async ({ responseMessage }) => {
       try {
         await appendAiMessage(sessionId, responseMessage);
