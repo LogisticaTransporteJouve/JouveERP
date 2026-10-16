@@ -18,7 +18,7 @@ import {
 } from "@/features/hr/reports-schema";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult } from "../result";
+import { errResult, money, okResult, reachedCap } from "../result";
 
 // Payroll and HR aggregates. Each run calls a gated hr:read action over a
 // security-invoker RPC; totals are summed in SQL, never over listed rows.
@@ -78,7 +78,7 @@ export const getPayrollConcepts = defineAiAction({
       { rows: res.data },
       {
         currency: "ARS",
-        partial: res.data.length >= 200,
+        partial: reachedCap(res.data.length, 200),
         note: PAYROLL_NOTE,
       },
     );
@@ -103,7 +103,11 @@ export const getDriverExtras = defineAiAction({
         sumBy(res.data, (r) => r.extras_total),
       )} en ${input.fromPeriod}→${input.toPeriod}.`,
       { rows: res.data },
-      { currency: "ARS", partial: res.data.length >= 1000, note: PAYROLL_NOTE },
+      {
+        currency: "ARS",
+        partial: reachedCap(res.data.length),
+        note: PAYROLL_NOTE,
+      },
     );
   },
 });

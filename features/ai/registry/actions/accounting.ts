@@ -12,7 +12,13 @@ import {
 } from "@/features/libro-iva/actions/libro-iva-actions";
 
 import { defineAiAction } from "../define";
-import { type AiRunResult, errResult, money, okResult } from "../result";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+} from "../result";
 
 // Tool inputs stay loose (plain strings); the underlying actions re-validate
 // strictly with their own Zod schemas (period regex, UUID, ISO date).
@@ -29,6 +35,7 @@ export async function runTrialBalance(input: {
   return okResult(
     `${res.data.length} accounts with accumulated movement up to ${input.periodEnd}.`,
     res.data,
+    { partial: reachedCap(res.data.length) },
   );
 }
 

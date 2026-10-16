@@ -7,7 +7,13 @@ import { listRecurringPaymentsAction } from "@/features/recurring-payments/actio
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 
 import { defineAiAction } from "../define";
-import { type AiRunResult, errResult, money, okResult } from "../result";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+} from "../result";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`accounts:read` / `transactions:read` / `cheques:read` /
@@ -83,6 +89,10 @@ export const getTransactions = defineAiAction({
   run: (_ctx, input) => runTransactions(input),
 });
 
+const CHECKS_LIST_CAP = 500;
+const CAPPED_NOTE =
+  " (list capped at 500 by due date: count and total cover only these).";
+
 export async function runChecks(): Promise<AiRunResult> {
   const res = await listChecksAction();
   if (!res.ok) return errResult(res.error);
@@ -90,10 +100,13 @@ export async function runChecks(): Promise<AiRunResult> {
   const enCartera = res.data.items.filter(
     (c) => c.status === "en_cartera",
   ).length;
+  // The list action returns at most CHECKS_LIST_CAP checks (soonest due).
+  const capped = reachedCap(res.data.items.length, CHECKS_LIST_CAP);
   return okResult(
     `${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
-      `total ${money(total)}.`,
+      `total ${money(total)}${capped ? CAPPED_NOTE : "."}`,
     res.data,
+    { partial: capped },
   );
 }
 
@@ -115,9 +128,13 @@ export async function runIssuedChecks(): Promise<AiRunResult> {
   const res = await listIssuedChecksAction();
   if (!res.ok) return errResult(res.error);
   const total = res.data.reduce((s, c) => s + c.amount, 0);
+  const capped = reachedCap(res.data.length, CHECKS_LIST_CAP);
   return okResult(
-    `${res.data.length} own checks issued · total ${money(total)}.`,
+    `${res.data.length} own checks issued · total ${money(total)}${
+      capped ? CAPPED_NOTE : "."
+    }`,
     res.data,
+    { partial: capped },
   );
 }
 

@@ -17,7 +17,13 @@ import {
 } from "@/features/suppliers/reports-schema";
 
 import { defineAiAction } from "../define";
-import { type AiRunResult, errResult, money, okResult } from "../result";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+} from "../result";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`purchase_invoices:read` / `suppliers:read` / `payment_orders:read`) + RLS.
@@ -257,7 +263,7 @@ export const getSupplierPriceEvolution = defineAiAction({
     return okResult(
       `${res.data.length} filas mes×${input.groupBy ?? "supplier"} entre ${input.from} y ${input.to}.`,
       { rows: res.data },
-      { currency: "ARS", partial: res.data.length >= limit },
+      { currency: "ARS", partial: reachedCap(res.data.length, limit) },
     );
   },
 });

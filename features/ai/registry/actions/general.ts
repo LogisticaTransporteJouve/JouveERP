@@ -6,7 +6,7 @@ import { searchGlobalAction } from "@/features/search/actions/search-actions";
 import { UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, okResult } from "../result";
+import { errResult, okResult, reachedCap } from "../result";
 
 export const searchGlobal = defineAiAction({
   name: "searchGlobal",
@@ -37,6 +37,7 @@ export const searchGlobal = defineAiAction({
     return okResult(
       `${res.data.length} resultados para "${input.query}".`,
       res.data,
+      { partial: reachedCap(res.data.length, input.limit ?? 20) },
     );
   },
 });
@@ -56,6 +57,8 @@ export const getAttachments = defineAiAction({
   run: async (_ctx, input) => {
     const res = await listAttachmentsAction(input);
     if (!res.ok) return errResult(res.error);
-    return okResult(`${res.data.length} adjuntos.`, res.data);
+    return okResult(`${res.data.length} adjuntos.`, res.data, {
+      partial: reachedCap(res.data.length),
+    });
   },
 });

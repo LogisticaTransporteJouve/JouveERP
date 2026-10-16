@@ -56,6 +56,18 @@ export function errResult(error: string): AiErrorResult {
   return { ok: false, summary: `Failed: ${error}`, error };
 }
 
+/** PostgREST `max_rows` (supabase/config.toml). A single read that is not
+ *  drained page by page and returns this many rows may have been cut. */
+export const POSTGREST_MAX_ROWS = 1000;
+
+/** True when a capped read came back full, so rows beyond it may exist. */
+export function reachedCap(
+  rows: number,
+  cap: number = POSTGREST_MAX_ROWS,
+): boolean {
+  return rows >= cap;
+}
+
 /** Money formatter for tool summaries (es-AR, no decimals). */
 export function money(n: number): string {
   return `$${Math.round(n).toLocaleString("es-AR")}`;

@@ -24,7 +24,13 @@ import {
 } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult, type AiRunResult } from "../result";
+import {
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+  type AiRunResult,
+} from "../result";
 
 // Financial statements built from ai_account_type_totals (one SQL aggregate
 // per period, grouped by account type and EERR category), plus loans and
@@ -275,7 +281,11 @@ export const getExpenseByCategory = defineAiAction({
         new Set(res.data.map((r) => r.category)).size
       } categorías.`,
       { rows: res.data },
-      { currency: "ARS", partial: res.data.length >= 1000, note: FISCAL_NOTE },
+      {
+        currency: "ARS",
+        partial: reachedCap(res.data.length),
+        note: FISCAL_NOTE,
+      },
     );
   },
 });
@@ -368,7 +378,7 @@ export const getExchangeRates = defineAiAction({
           : ""
       }.`,
       res.data,
-      { partial: res.data.length >= 500 },
+      { partial: reachedCap(res.data.length, 500) },
     );
   },
 });

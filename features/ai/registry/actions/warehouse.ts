@@ -69,9 +69,7 @@ export const getProducts = defineAiAction({
   run: async () => {
     const res = await listProductsAction();
     if (!res.ok) return errResult(res.error);
-    return okResult(`${res.data.length} productos.`, res.data, {
-      partial: res.data.length >= 1000,
-    });
+    return okResult(`${res.data.length} productos.`, res.data);
   },
 });
 
@@ -147,7 +145,7 @@ export const getStorageBillingRuns = defineAiAction({
     return okResult(
       `${res.data.length} liquidaciones de almacenaje (${pending} sin facturar).`,
       res.data,
-      { currency: "ARS", partial: res.data.length >= 1000 },
+      { currency: "ARS" },
     );
   },
 });
