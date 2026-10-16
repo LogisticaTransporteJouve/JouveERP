@@ -254,6 +254,17 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   3,8,9,4,5,6).
 - **Sin-desglose fallback:** comprobantes sin items (legacy AFIP, ~1313 de K.2) →
   fila sintética `iva_rate_id=NULL` con `imp_neto/imp_iva` del header.
+- **En pesos** (mig `20261016140000_multicurrency_reports`): `neto`, `iva` e `imp_*`
+  son el importe × la `cotizacion` del propio comprobante (la informada a AFIP),
+  redondeado a 2 decimales por campo; `PES` va a 1. `moneda`, `cotizacion` y
+  `*_orig` (importes en la moneda del comprobante) quedan para trazabilidad. La
+  pantalla lista los comprobantes en moneda extranjera y avisa los que tienen
+  cotización 1. El TXT de Libro IVA Digital (`lib/citi.ts`) usa `*_orig` + código
+  de moneda + tipo de cambio, como lo espera ARCA.
+- **Aging por moneda:** `v_client_aging`/`v_supplier_aging` exponen `ars_*` y
+  `usd_*` por separado; el total único (pantallas, dashboard, PDF, IA) es el
+  equivalente en pesos al último dólar oficial (`lib/fx.ts`, `lib/aging.ts`), o
+  ninguno si hay USD y no hay cotización cargada.
 - **Validación pre-presentación advisoria** (no bloquea): banner ámbar con "N sin
   CAE" / "N sin desglose". El **export PDF no está gateado** por estas alertas.
 - **Export:** solo **PDF** (`@react-pdf`, A4 landscape), rutas

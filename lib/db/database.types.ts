@@ -5060,14 +5060,19 @@ export type Database = {
       }
       v_client_aging: {
         Row: {
-          bucket_0_30: number | null
-          bucket_30_60: number | null
-          bucket_60_90: number | null
-          bucket_90_plus: number | null
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
           client_id: string | null
           document_count: number | null
           oldest_days: number | null
-          total_open: number | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
         }
         Relationships: [
           {
@@ -5273,14 +5278,19 @@ export type Database = {
       }
       v_supplier_aging: {
         Row: {
-          bucket_0_30: number | null
-          bucket_30_60: number | null
-          bucket_60_90: number | null
-          bucket_90_plus: number | null
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
           document_count: number | null
           oldest_days: number | null
           supplier_id: string | null
-          total_open: number | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
         }
         Relationships: [
           {
@@ -5971,16 +5981,22 @@ export type Database = {
           cae_vto_proveedor: string
           channel_id: string
           channel_name: string
+          cotizacion: number
           fecha: string
           has_items: boolean
           imp_total: number
+          imp_total_orig: number
           imp_trib: number
+          imp_trib_orig: number
           iva: number
+          iva_orig: number
           iva_rate_id: number
           iva_rate_pct: number
           kind: string
           letter: string
+          moneda: string
           neto: number
+          neto_orig: number
           numero: number
           punto_venta: number
           purchase_invoice_id: string
@@ -5997,21 +6013,29 @@ export type Database = {
           channel_id: string
           channel_name: string
           client_legal_name: string
+          cotizacion: number
           doc_nro: string
           doc_tipo: number
           fecha: string
           has_items: boolean
           imp_op_ex: number
+          imp_op_ex_orig: number
           imp_tot_conc: number
+          imp_tot_conc_orig: number
           imp_total: number
+          imp_total_orig: number
           imp_trib: number
+          imp_trib_orig: number
           invoice_id: string
           iva: number
+          iva_orig: number
           iva_rate_id: number
           iva_rate_pct: number
           kind: string
           letter: string
+          moneda: string
           neto: number
+          neto_orig: number
           numero: number
           punto_venta: number
         }[]

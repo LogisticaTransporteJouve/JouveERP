@@ -3,6 +3,7 @@
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
+import { fetchLatestUsdRate, toArs } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -93,23 +94,10 @@ export async function getCashFlowAction(input: {
 
   // Latest official USD rate — everything USD is valued at this rate (it's a
   // projection tool, not accounting; the ledger converts per-document).
-  const { data: rateRow } = await supabase
-    .from("exchange_rates")
-    .select("rate")
-    .eq("currency", "USD")
-    .order("rate_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const usdRate = rateRow ? Number(rateRow.rate) : null;
-
-  /** ARS value of an amount in the given currency (PES/ARS pass through).
-   *  Returns null when it's USD and there's no rate loaded → caller skips. */
-  function toArs(amount: number, currency: string | null): number | null {
-    if (currency === "USD" || currency === "DOL") {
-      return usdRate === null ? null : amount * usdRate;
-    }
-    return amount;
-  }
+  const usdRate = (await fetchLatestUsdRate(supabase))?.rate ?? null;
+  /** null = USD without a loaded rate → caller skips. */
+  const arsAtRate = (amount: number, currency: string | null) =>
+    toArs(amount, currency, usdRate);
 
   const { data: accounts, error: accErr } = await supabase
     .from("accounts")
@@ -124,7 +112,7 @@ export async function getCashFlowAction(input: {
   const accountCurrency = new Map<string, string>();
   let cashToday = 0;
   for (const a of accounts ?? []) {
-    const opening = toArs(Number(a.opening_balance), a.currency);
+    const opening = arsAtRate(Number(a.opening_balance), a.currency);
     if (opening === null) continue; // USD sin cotización → afuera, como antes
     accountCurrency.set(a.id, a.currency);
     cashToday += opening;
@@ -164,13 +152,13 @@ export async function getCashFlowAction(input: {
     for (const t of totalsRes.data) {
       const currency = accountCurrency.get(t.account_id);
       if (currency === undefined) continue; // excluded above (USD sin cotización)
-      const net = toArs(Number(t.net_until), currency);
+      const net = arsAtRate(Number(t.net_until), currency);
       if (net !== null) cashToday += net;
     }
     events.push(
       ...monthlyFlowsToEvents(flowsRes.data, {
         accountCurrency,
-        toArs,
+        toArs: arsAtRate,
         monthSet,
       }),
     );
@@ -185,7 +173,7 @@ export async function getCashFlowAction(input: {
     )
     .eq("is_active", true);
   for (const rp of recurring ?? []) {
-    const amount = toArs(Math.abs(Number(rp.amount)), rp.currency);
+    const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
     if (amount === null) continue;
     let occ = rp.next_due_date;
     let guard = 0;
@@ -217,7 +205,7 @@ export async function getCashFlowAction(input: {
       .range(from, to),
   );
   for (const r of recv ?? []) {
-    const amt = toArs(Number(r.open_amount), r.moneda);
+    const amt = arsAtRate(Number(r.open_amount), r.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
     if (monthSet.has(m)) {
@@ -240,7 +228,7 @@ export async function getCashFlowAction(input: {
       .range(from, to),
   );
   for (const p of pay ?? []) {
-    const amt = toArs(Number(p.open_amount), p.moneda);
+    const amt = arsAtRate(Number(p.open_amount), p.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(p.fch_vto_pago, p.fecha, firstFwd);
     if (monthSet.has(m)) {
@@ -264,7 +252,7 @@ export async function getCashFlowAction(input: {
       .range(from, to),
   );
   for (const c of checks ?? []) {
-    const amt = toArs(Math.abs(Number(c.amount)), c.currency);
+    const amt = arsAtRate(Math.abs(Number(c.amount)), c.currency);
     if (amt === null) continue;
     const m = monthKey(c.due_date);
     if (monthSet.has(m)) {
@@ -297,7 +285,7 @@ export async function getCashFlowAction(input: {
     for (const li of loanInst ?? []) {
       const loan = loanInfo.get(li.loan_id);
       if (!loan) continue;
-      const amt = toArs(Math.abs(Number(li.amount)), loan.currency);
+      const amt = arsAtRate(Math.abs(Number(li.amount)), loan.currency);
       if (amt === null) continue;
       const m = monthKey(li.due_date);
       if (monthSet.has(m)) {

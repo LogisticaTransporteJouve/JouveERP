@@ -33,11 +33,14 @@ export function LibroIvaVentasPageContent({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Libro IVA Ventas</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Libro IVA Ventas
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Comprobantes emitidos fiscales del período, agrupados por alícuota
-          (RG 1361). Solo se listan canales fiscales — los internos no van al
-          libro IVA.
+          Comprobantes emitidos fiscales del período, agrupados por alícuota (RG
+          1361), en pesos: los comprobantes en moneda extranjera se convierten
+          con la cotización informada a AFIP. Solo se listan canales fiscales —
+          los internos no van al libro IVA.
         </p>
       </div>
 

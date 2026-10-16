@@ -15,6 +15,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
 } from "../schema";
+import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
 
 export function LibroIvaVentasTable({
   period,
@@ -63,7 +64,10 @@ export function LibroIvaVentasTable({
             {sinItems > 0 && (
               <p>
                 <span className="font-medium">{sinItems}</span> comprobante(s)
-                <span className="font-medium"> sin desglose por alícuota</span>{" "}
+                <span className="font-medium">
+                  {" "}
+                  sin desglose por alícuota
+                </span>{" "}
                 (probablemente legacy AFIP imports). El IVA total se muestra
                 pero sin separar por tasa.
               </p>
@@ -71,6 +75,8 @@ export function LibroIvaVentasTable({
           </div>
         </div>
       )}
+
+      <CurrencyNote docs={grouped} />
 
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full text-sm">
@@ -84,13 +90,20 @@ export function LibroIvaVentasTable({
               <th className="px-2 py-2 font-medium">Cliente</th>
               <th className="px-2 py-2 font-medium">CUIT</th>
               {IVA_RATES.map((r) => (
-                <th key={r.id} colSpan={2} className="border-l px-2 py-2 text-center font-medium">
+                <th
+                  key={r.id}
+                  colSpan={2}
+                  className="border-l px-2 py-2 text-center font-medium"
+                >
                   {r.label}
                 </th>
               ))}
-              <th className="border-l px-2 py-2 text-right font-medium">Perc.</th>
+              <th className="border-l px-2 py-2 text-right font-medium">
+                Perc.
+              </th>
               <th className="px-2 py-2 text-right font-medium">No grav.</th>
-              <th className="px-2 py-2 text-right font-medium">Total</th>
+              <th className="px-2 py-2 text-right font-medium">Total $</th>
+              <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
               <th className="px-2 py-2 font-medium">CAE</th>
             </tr>
             <tr className="border-b text-xs text-muted-foreground">
@@ -104,12 +117,11 @@ export function LibroIvaVentasTable({
                   <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
                   </th>
-                  <th className="px-2 py-1 text-right font-normal">
-                    IVA
-                  </th>
+                  <th className="px-2 py-1 text-right font-normal">IVA</th>
                 </Fragment>
               ))}
               <th className="border-l" />
+              <th />
               <th />
               <th />
               <th />
@@ -119,7 +131,10 @@ export function LibroIvaVentasTable({
             {grouped.map((row) => {
               const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
               return (
-                <tr key={row.invoice_id} className="group border-b last:border-b-0 hover:bg-muted/20">
+                <tr
+                  key={row.invoice_id}
+                  className="group border-b last:border-b-0 hover:bg-muted/20"
+                >
                   <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
                     {formatArgentineDate(row.fecha)}
                   </td>
@@ -129,11 +144,17 @@ export function LibroIvaVentasTable({
                     </Badge>
                   </td>
                   <td className="px-2 py-1 font-mono text-xs">
-                    <Link href={`/invoices/${row.invoice_id}`} className="hover:underline">
+                    <Link
+                      href={`/invoices/${row.invoice_id}`}
+                      className="hover:underline"
+                    >
                       {number}
                     </Link>
                   </td>
-                  <td className="px-2 py-1 max-w-[200px] truncate" title={row.client_legal_name}>
+                  <td
+                    className="px-2 py-1 max-w-[200px] truncate"
+                    title={row.client_legal_name}
+                  >
                     {row.client_legal_name}
                   </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -161,9 +182,18 @@ export function LibroIvaVentasTable({
                   <td className="px-2 py-1 text-right font-mono text-xs font-medium">
                     {money(row.imp_total)}
                   </td>
+                  <td className="px-2 py-1 text-right font-mono text-xs">
+                    <OriginalCurrencyCell
+                      moneda={row.moneda}
+                      cotizacion={row.cotizacion}
+                      impTotal={row.orig.imp_total}
+                    />
+                  </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.cae ? (
-                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>{row.cae}</span>
+                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>
+                        {row.cae}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -174,7 +204,10 @@ export function LibroIvaVentasTable({
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
             <tr>
-              <td colSpan={5} className="sticky left-0 z-10 bg-card px-2 py-2 text-right">
+              <td
+                colSpan={5}
+                className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
+              >
                 Totales ({totals.count} comprobantes)
               </td>
               {IVA_RATES.map((r) => {
@@ -196,7 +229,10 @@ export function LibroIvaVentasTable({
               <td className="px-2 py-2 text-right font-mono">
                 {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
               </td>
-              <td className="px-2 py-2 text-right font-mono">{money(totals.imp_total)}</td>
+              <td className="px-2 py-2 text-right font-mono">
+                {money(totals.imp_total)}
+              </td>
+              <td />
               <td />
             </tr>
           </tfoot>

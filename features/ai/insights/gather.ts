@@ -1,5 +1,7 @@
 import "server-only";
 
+import { arsEquivalent, fetchLatestUsdRate } from "@/lib/fx";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -112,31 +114,36 @@ export async function gatherCashFlow(
     });
   }
 
-  // Client aging → expected collections (coarse timing: overdue sooner).
+  // Client aging in pesos → expected collections (coarse timing: overdue
+  // sooner). Dollar balances stay out, like the USD accounts.
   const { data: clientAging } = await service
     .from("v_client_aging")
-    .select("bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus");
+    .select(
+      "ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+    );
   const ca = (clientAging ?? []).reduce(
     (acc, r) => ({
-      b0: acc.b0 + Number(r.bucket_0_30 ?? 0),
-      b1: acc.b1 + Number(r.bucket_30_60 ?? 0),
-      b2: acc.b2 + Number(r.bucket_60_90 ?? 0),
-      b3: acc.b3 + Number(r.bucket_90_plus ?? 0),
+      b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),
+      b1: acc.b1 + Number(r.ars_bucket_30_60 ?? 0),
+      b2: acc.b2 + Number(r.ars_bucket_60_90 ?? 0),
+      b3: acc.b3 + Number(r.ars_bucket_90_plus ?? 0),
     }),
     { b0: 0, b1: 0, b2: 0, b3: 0 },
   );
   pushAging(events, today, ca, 1, "Cobranzas esperadas");
 
-  // Supplier aging → expected payments (same coarse timing).
+  // Supplier aging in pesos → expected payments (same coarse timing).
   const { data: supplierAging } = await service
     .from("v_supplier_aging")
-    .select("bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus");
+    .select(
+      "ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+    );
   const sa = (supplierAging ?? []).reduce(
     (acc, r) => ({
-      b0: acc.b0 + Number(r.bucket_0_30 ?? 0),
-      b1: acc.b1 + Number(r.bucket_30_60 ?? 0),
-      b2: acc.b2 + Number(r.bucket_60_90 ?? 0),
-      b3: acc.b3 + Number(r.bucket_90_plus ?? 0),
+      b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),
+      b1: acc.b1 + Number(r.ars_bucket_30_60 ?? 0),
+      b2: acc.b2 + Number(r.ars_bucket_60_90 ?? 0),
+      b3: acc.b3 + Number(r.ars_bucket_90_plus ?? 0),
     }),
     { b0: 0, b1: 0, b2: 0, b3: 0 },
   );
@@ -174,26 +181,37 @@ export type ReceivablesRisk = {
   top: { name: string; amount: number }[];
 };
 
-/** Clients with material 90+ overdue balance, for the receivables-risk card. */
+/** Clients with a 90+ overdue balance, for the receivables-risk card. Dollars
+ *  count at the latest official rate; without one, only pesos are counted. */
 export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
   const service = getServiceClient();
-  const { data } = await service
-    .from("v_client_aging")
-    .select("bucket_90_plus, clients!inner(legal_name)")
-    .gt("bucket_90_plus", 0)
-    .order("bucket_90_plus", { ascending: false })
-    .limit(50);
+  const [{ data }, usdRate] = await Promise.all([
+    paginateRange((from, to) =>
+      service
+        .from("v_client_aging")
+        .select(
+          "client_id, ars_bucket_90_plus, usd_bucket_90_plus, clients!inner(legal_name)",
+        )
+        .or("ars_bucket_90_plus.gt.0,usd_bucket_90_plus.gt.0")
+        .order("client_id", { ascending: true })
+        .range(from, to),
+    ),
+    fetchLatestUsdRate(service),
+  ]);
 
-  const rows = (data ?? []).map((r) => {
-    const client = Array.isArray(r.clients) ? r.clients[0] : r.clients;
-    return {
-      name: client?.legal_name ?? "—",
-      amount: Number(r.bucket_90_plus ?? 0),
-    };
-  });
+  const rows = (data ?? [])
+    .map((r) => {
+      const ars = Number(r.ars_bucket_90_plus ?? 0);
+      const usd = Number(r.usd_bucket_90_plus ?? 0);
+      return {
+        name: r.clients.legal_name,
+        amount: arsEquivalent(ars, usd, usdRate?.rate ?? null) ?? ars,
+      };
+    })
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
   return {
-    total90Plus:
-      Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100,
+    total90Plus: Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100,
     clientCount: rows.length,
     top: rows.slice(0, 5),
   };

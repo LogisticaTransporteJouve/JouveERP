@@ -1,10 +1,4 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import {
   computeComprasTotals,
@@ -22,15 +16,46 @@ const money = (n: number) => fmt.format(n);
 
 const styles = StyleSheet.create({
   page: { padding: 24, fontSize: 7, fontFamily: "Helvetica", color: "#111" },
-  header: { marginBottom: 12, borderBottomWidth: 1, borderBottomColor: "#000", paddingBottom: 6 },
+  header: {
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
+    paddingBottom: 6,
+  },
   title: { fontSize: 13, fontWeight: "bold" },
   subtitle: { fontSize: 9, color: "#555", marginTop: 2 },
   table: { flexDirection: "column", borderTopWidth: 1, borderTopColor: "#000" },
-  thRow: { flexDirection: "row", backgroundColor: "#f1f1f1", borderBottomWidth: 1, borderBottomColor: "#000" },
-  th: { padding: 3, fontWeight: "bold", fontSize: 6, borderRightWidth: 0.5, borderRightColor: "#999" },
-  tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#ddd" },
-  td: { padding: 2, fontSize: 6, borderRightWidth: 0.5, borderRightColor: "#eee" },
-  totalRow: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#000", backgroundColor: "#f1f1f1", fontWeight: "bold" },
+  thRow: {
+    flexDirection: "row",
+    backgroundColor: "#f1f1f1",
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
+  },
+  th: {
+    padding: 3,
+    fontWeight: "bold",
+    fontSize: 6,
+    borderRightWidth: 0.5,
+    borderRightColor: "#999",
+  },
+  tr: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#ddd",
+  },
+  td: {
+    padding: 2,
+    fontSize: 6,
+    borderRightWidth: 0.5,
+    borderRightColor: "#eee",
+  },
+  totalRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#000",
+    backgroundColor: "#f1f1f1",
+    fontWeight: "bold",
+  },
   right: { textAlign: "right" },
   center: { textAlign: "center" },
   mono: { fontFamily: "Courier" },
@@ -71,7 +96,8 @@ export function LibroIvaComprasDocument({
         <View style={styles.header}>
           <Text style={styles.title}>Libro IVA Compras — {period}</Text>
           <Text style={styles.subtitle}>
-            {channelName} · {grouped.length} comprobantes · generado{" "}
+            {channelName} · {grouped.length} comprobantes · importes en pesos
+            (moneda extranjera a la cotización de cada comprobante) · generado{" "}
             {generatedAt}
           </Text>
         </View>
@@ -80,8 +106,12 @@ export function LibroIvaComprasDocument({
           <View style={styles.thRow}>
             <Text style={[styles.th, { width: COL_W.fecha }]}>Fecha</Text>
             <Text style={[styles.th, { width: COL_W.tipo }]}>Tipo</Text>
-            <Text style={[styles.th, { width: COL_W.numero }]}>Comprobante</Text>
-            <Text style={[styles.th, { width: COL_W.proveedor }]}>Proveedor</Text>
+            <Text style={[styles.th, { width: COL_W.numero }]}>
+              Comprobante
+            </Text>
+            <Text style={[styles.th, { width: COL_W.proveedor }]}>
+              Proveedor
+            </Text>
             <Text style={[styles.th, { width: COL_W.cuit }]}>CUIT</Text>
             {IVA_RATES.map((r) => (
               <Text
@@ -91,47 +121,122 @@ export function LibroIvaComprasDocument({
                 {r.label}
               </Text>
             ))}
-            <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>Perc.</Text>
-            <Text style={[styles.th, styles.right, { width: COL_W.total }]}>Total</Text>
+            <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>
+              Perc.
+            </Text>
+            <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
+              Total
+            </Text>
             <Text style={[styles.th, { width: COL_W.cae }]}>CAE prov.</Text>
           </View>
           <View style={styles.thRow}>
-            <Text style={[styles.th, { width: COL_W.fecha + COL_W.tipo + COL_W.numero + COL_W.proveedor + COL_W.cuit }]} />
+            <Text
+              style={[
+                styles.th,
+                {
+                  width:
+                    COL_W.fecha +
+                    COL_W.tipo +
+                    COL_W.numero +
+                    COL_W.proveedor +
+                    COL_W.cuit,
+                },
+              ]}
+            />
             {IVA_RATES.map((r) => (
               <>
-                <Text key={`${r.id}-n-h`} style={[styles.th, styles.right, { width: COL_W.rate }]}>Neto</Text>
-                <Text key={`${r.id}-i-h`} style={[styles.th, styles.right, { width: COL_W.rate }]}>IVA</Text>
+                <Text
+                  key={`${r.id}-n-h`}
+                  style={[styles.th, styles.right, { width: COL_W.rate }]}
+                >
+                  Neto
+                </Text>
+                <Text
+                  key={`${r.id}-i-h`}
+                  style={[styles.th, styles.right, { width: COL_W.rate }]}
+                >
+                  IVA
+                </Text>
               </>
             ))}
-            <Text style={[styles.th, { width: COL_W.perc + COL_W.total + COL_W.cae }]} />
+            <Text
+              style={[
+                styles.th,
+                { width: COL_W.perc + COL_W.total + COL_W.cae },
+              ]}
+            />
           </View>
 
           {grouped.map((row) => {
             const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
             return (
-              <View key={row.purchase_invoice_id} style={styles.tr} wrap={false}>
-                <Text style={[styles.td, styles.mono, { width: COL_W.fecha }]}>{row.fecha}</Text>
-                <Text style={[styles.td, { width: COL_W.tipo }]}>{KIND_LABEL[row.kind] ?? row.kind}</Text>
-                <Text style={[styles.td, styles.mono, { width: COL_W.numero }]}>{number}</Text>
-                <Text style={[styles.td, { width: COL_W.proveedor }]}>{row.supplier_legal_name}</Text>
-                <Text style={[styles.td, styles.mono, { width: COL_W.cuit }]}>{row.supplier_cuit ?? "—"}</Text>
+              <View
+                key={row.purchase_invoice_id}
+                style={styles.tr}
+                wrap={false}
+              >
+                <Text style={[styles.td, styles.mono, { width: COL_W.fecha }]}>
+                  {row.fecha}
+                </Text>
+                <Text style={[styles.td, { width: COL_W.tipo }]}>
+                  {KIND_LABEL[row.kind] ?? row.kind}
+                </Text>
+                <Text style={[styles.td, styles.mono, { width: COL_W.numero }]}>
+                  {number}
+                </Text>
+                <Text style={[styles.td, { width: COL_W.proveedor }]}>
+                  {row.supplier_legal_name}
+                </Text>
+                <Text style={[styles.td, styles.mono, { width: COL_W.cuit }]}>
+                  {row.supplier_cuit ?? "—"}
+                </Text>
                 {IVA_RATES.map((r) => {
                   const cell = row.per_rate[r.id];
                   return (
                     <>
-                      <Text key={`${row.purchase_invoice_id}-${r.id}-n`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                      <Text
+                        key={`${row.purchase_invoice_id}-${r.id}-n`}
+                        style={[
+                          styles.td,
+                          styles.right,
+                          styles.mono,
+                          { width: COL_W.rate },
+                        ]}
+                      >
                         {cell?.neto ? money(cell.neto) : ""}
                       </Text>
-                      <Text key={`${row.purchase_invoice_id}-${r.id}-i`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                      <Text
+                        key={`${row.purchase_invoice_id}-${r.id}-i`}
+                        style={[
+                          styles.td,
+                          styles.right,
+                          styles.mono,
+                          { width: COL_W.rate },
+                        ]}
+                      >
                         {cell?.iva ? money(cell.iva) : ""}
                       </Text>
                     </>
                   );
                 })}
-                <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.perc }]}>
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.perc },
+                  ]}
+                >
                   {row.imp_trib > 0 ? money(row.imp_trib) : ""}
                 </Text>
-                <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.total }]}>
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.total },
+                  ]}
+                >
                   {money(row.imp_total)}
                 </Text>
                 <Text style={[styles.td, styles.mono, { width: COL_W.cae }]}>
@@ -142,26 +247,69 @@ export function LibroIvaComprasDocument({
           })}
 
           <View style={styles.totalRow} wrap={false}>
-            <Text style={[styles.td, styles.right, { width: COL_W.fecha + COL_W.tipo + COL_W.numero + COL_W.proveedor + COL_W.cuit }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                {
+                  width:
+                    COL_W.fecha +
+                    COL_W.tipo +
+                    COL_W.numero +
+                    COL_W.proveedor +
+                    COL_W.cuit,
+                },
+              ]}
+            >
               Totales ({totals.count} comprobantes)
             </Text>
             {IVA_RATES.map((r) => {
               const cell = totals.per_rate[r.id];
               return (
                 <>
-                  <Text key={`t-${r.id}-n`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                  <Text
+                    key={`t-${r.id}-n`}
+                    style={[
+                      styles.td,
+                      styles.right,
+                      styles.mono,
+                      { width: COL_W.rate },
+                    ]}
+                  >
                     {cell?.neto ? money(cell.neto) : ""}
                   </Text>
-                  <Text key={`t-${r.id}-i`} style={[styles.td, styles.right, styles.mono, { width: COL_W.rate }]}>
+                  <Text
+                    key={`t-${r.id}-i`}
+                    style={[
+                      styles.td,
+                      styles.right,
+                      styles.mono,
+                      { width: COL_W.rate },
+                    ]}
+                  >
                     {cell?.iva ? money(cell.iva) : ""}
                   </Text>
                 </>
               );
             })}
-            <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.perc }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
+                { width: COL_W.perc },
+              ]}
+            >
               {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
             </Text>
-            <Text style={[styles.td, styles.right, styles.mono, { width: COL_W.total }]}>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
+                { width: COL_W.total },
+              ]}
+            >
               {money(totals.imp_total)}
             </Text>
             <Text style={[styles.td, { width: COL_W.cae }]} />

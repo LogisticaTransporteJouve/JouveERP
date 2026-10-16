@@ -7,17 +7,10 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
-import { fetchInChunks } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
-import {
-  buildComprasTxt,
-  buildVentasTxt,
-  type CitiExport,
-  type ComprasDocExtra,
-  type VentasDocExtra,
-} from "../lib/citi";
+import { buildComprasTxt, buildVentasTxt, type CitiExport } from "../lib/citi";
 import {
   fetchLibroIvaComprasRows,
   fetchLibroIvaVentasRows,
@@ -114,8 +107,9 @@ const ExportTxtInput = z.object({
 /**
  * Positional TXT files for ARCA's Libro IVA Digital / Portal IVA import
  * (RG 3685 record design): comprobantes + alícuotas for the period, built from
- * the same RPCs the on-screen books use (fiscal channels only). Returns the
- * file contents — the client downloads them; nothing is stored.
+ * the same RPCs the on-screen books use (fiscal channels only), with amounts in
+ * each document's currency plus its moneda and cotizacion. Returns the file
+ * contents — the client downloads them; nothing is stored.
  */
 export async function exportLibroIvaTxtAction(input: {
   period: string;
@@ -151,36 +145,7 @@ export async function exportLibroIvaTxtAction(input: {
       return { ok: false, error: "No se pudo leer el libro IVA Ventas." };
     }
     const grouped = groupByInvoice(data);
-
-    // Currency per document, looked up in chunks (a month can have thousands
-    // of comprobantes; one `.in()` would overflow the URL). A failed lookup
-    // aborts the export: without it every foreign-currency document would be
-    // written as PES at 1, a silently wrong fiscal file.
-    const monedas = await fetchInChunks(
-      grouped.map((g) => g.invoice_id),
-      (ids) =>
-        supabase
-          .from("invoices")
-          .select("id, moneda, cotizacion")
-          .in("id", ids),
-    );
-    if (monedas.error) {
-      logger.error("libro_iva.export.ventas_currency_failed", {
-        userId: ctx.userId,
-        period,
-        error: monedas.error,
-      });
-      return {
-        ok: false,
-        error: "No se pudo leer la moneda de los comprobantes.",
-      };
-    }
-    const extras = new Map<string, VentasDocExtra>();
-    for (const m of monedas.data) {
-      extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
-    }
-
-    const result = buildVentasTxt(grouped, extras, period);
+    const result = buildVentasTxt(grouped, period);
     await logAudit("libro_iva.txt_exported", ctx.userId, {
       book,
       period,
@@ -204,32 +169,7 @@ export async function exportLibroIvaTxtAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
   const grouped = groupComprasByInvoice(data);
-
-  const monedas = await fetchInChunks(
-    grouped.map((g) => g.purchase_invoice_id),
-    (ids) =>
-      supabase
-        .from("purchase_invoices")
-        .select("id, moneda, cotizacion")
-        .in("id", ids),
-  );
-  if (monedas.error) {
-    logger.error("libro_iva.export.compras_currency_failed", {
-      userId: ctx.userId,
-      period,
-      error: monedas.error,
-    });
-    return {
-      ok: false,
-      error: "No se pudo leer la moneda de los comprobantes.",
-    };
-  }
-  const extras = new Map<string, ComprasDocExtra>();
-  for (const m of monedas.data) {
-    extras.set(m.id, { moneda: m.moneda, cotizacion: Number(m.cotizacion) });
-  }
-
-  const result = buildComprasTxt(grouped, extras, period);
+  const result = buildComprasTxt(grouped, period);
   await logAudit("libro_iva.txt_exported", ctx.userId, {
     book,
     period,

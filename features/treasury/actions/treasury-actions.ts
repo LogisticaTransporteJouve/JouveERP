@@ -4,6 +4,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { round2, todayInAR } from "@/lib/format";
+import { fetchLatestUsdRate } from "@/lib/fx";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
@@ -174,16 +175,7 @@ export async function getTreasurySummaryAction(): Promise<
 
   // 5. Latest USD→ARS exchange rate to show the ARS equivalent of dollar
   // balances (M.2). "Current value" → the most recent exchange rate.
-  const { data: rateRow } = await supabase
-    .from("exchange_rates")
-    .select("rate, rate_date")
-    .eq("currency", "USD")
-    .order("rate_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const usd_rate = rateRow
-    ? { rate: Number(rateRow.rate), rate_date: rateRow.rate_date }
-    : null;
+  const usd_rate = await fetchLatestUsdRate(supabase);
 
   const summary: TreasurySummary = {
     as_of: today,

@@ -7,10 +7,11 @@ import type {
 
 import { buildComprasTxt, buildVentasTxt } from "./citi";
 
+/** Peso document by default: `orig` mirrors the peso figures unless given. */
 function ventaDoc(
   overrides: Partial<LibroIvaVentasGroupedRow> = {},
 ): LibroIvaVentasGroupedRow {
-  return {
+  const base = {
     invoice_id: "inv-1",
     fecha: "2026-06-15",
     kind: "factura",
@@ -31,14 +32,26 @@ function ventaDoc(
     channel_id: "jouve_fiscal",
     has_items: true,
     per_rate: { 5: { neto: 1000, iva: 210 } },
+    moneda: "PES",
+    cotizacion: 1,
     ...overrides,
+  };
+  return {
+    ...base,
+    orig: overrides.orig ?? {
+      per_rate: base.per_rate,
+      imp_trib: base.imp_trib,
+      imp_op_ex: base.imp_op_ex,
+      imp_tot_conc: base.imp_tot_conc,
+      imp_total: base.imp_total,
+    },
   };
 }
 
 function compraDoc(
   overrides: Partial<LibroIvaComprasGroupedRow> = {},
 ): LibroIvaComprasGroupedRow {
-  return {
+  const base = {
     purchase_invoice_id: "pi-1",
     fecha: "2026-06-20",
     kind: "factura",
@@ -55,15 +68,23 @@ function compraDoc(
     channel_id: "jouve_fiscal",
     has_items: true,
     per_rate: { 5: { neto: 1000, iva: 210 } },
+    moneda: "PES",
+    cotizacion: 1,
     ...overrides,
+  };
+  return {
+    ...base,
+    orig: overrides.orig ?? {
+      per_rate: base.per_rate,
+      imp_trib: base.imp_trib,
+      imp_total: base.imp_total,
+    },
   };
 }
 
-const NO_EXTRAS = new Map();
-
 describe("buildVentasTxt", () => {
   it("emits a 266-char cbte line and a 62-char alícuota line", () => {
-    const r = buildVentasTxt([ventaDoc()], NO_EXTRAS, "2026-06");
+    const r = buildVentasTxt([ventaDoc()], "2026-06");
     const [cbteFile, alicFile] = r.files;
     const cbte = cbteFile!.content.split("\r\n")[0]!;
     const alic = alicFile!.content.split("\r\n")[0]!;
@@ -95,18 +116,44 @@ describe("buildVentasTxt", () => {
     expect(alic.slice(47, 62)).toBe("000000000021000"); // iva 210.00
   });
 
-  it("uses the document exchange rate for USD invoices", () => {
-    const extras = new Map([["inv-1", { moneda: "DOL", cotizacion: 1234.5 }]]);
-    const r = buildVentasTxt([ventaDoc()], extras, "2026-06");
+  it("reports USD invoices in dollars with their own exchange rate", () => {
+    const r = buildVentasTxt(
+      [
+        ventaDoc({
+          moneda: "DOL",
+          cotizacion: 1234.5,
+          // Peso figures (the book) — must NOT reach the TXT.
+          imp_total: 149_374.5,
+          per_rate: { 5: { neto: 123_450, iva: 25_924.5 } },
+          orig: {
+            per_rate: { 5: { neto: 100, iva: 21 } },
+            imp_trib: 0,
+            imp_op_ex: 0,
+            imp_tot_conc: 0,
+            imp_total: 121,
+          },
+        }),
+      ],
+      "2026-06",
+    );
     const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    const alic = r.files[1]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(108, 123)).toBe("000000000012100"); // total US$ 121.00
     expect(cbte.slice(228, 231)).toBe("DOL");
     expect(cbte.slice(231, 241)).toBe("1234500000"); // 1234.500000
+    expect(alic.slice(28, 43)).toBe("000000000010000"); // neto US$ 100.00
+    expect(alic.slice(47, 62)).toBe("000000000002100"); // iva US$ 21.00
+  });
+
+  it("writes pesos at rate 1 regardless of the stored cotizacion", () => {
+    const r = buildVentasTxt([ventaDoc({ cotizacion: 0 })], "2026-06");
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(228, 241)).toBe("PES0001000000");
   });
 
   it("infers the alícuota from amounts when there's no breakdown", () => {
     const r = buildVentasTxt(
       [ventaDoc({ per_rate: { [-1]: { neto: 1000, iva: 105 } } })],
-      NO_EXTRAS,
       "2026-06",
     );
     const alic = r.files[1]!.content.split("\r\n")[0]!;
@@ -114,18 +161,14 @@ describe("buildVentasTxt", () => {
   });
 
   it("excludes documents without an AFIP voucher type and reports it", () => {
-    const r = buildVentasTxt(
-      [ventaDoc({ cbte_tipo_afip: null })],
-      NO_EXTRAS,
-      "2026-06",
-    );
+    const r = buildVentasTxt([ventaDoc({ cbte_tipo_afip: null })], "2026-06");
     expect(r.documents).toBe(0);
     expect(r.warnings).toHaveLength(1);
     expect(r.files[0]!.content).toBe("");
   });
 
   it("names files after the period", () => {
-    const r = buildVentasTxt([], NO_EXTRAS, "2026-06");
+    const r = buildVentasTxt([], "2026-06");
     expect(r.files.map((f) => f.name)).toEqual([
       "LIBRO_IVA_DIGITAL_VENTAS_CBTE_202606.txt",
       "LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS_202606.txt",
@@ -135,7 +178,7 @@ describe("buildVentasTxt", () => {
 
 describe("buildComprasTxt", () => {
   it("emits a 325-char cbte line and an 84-char alícuota line for letter A", () => {
-    const r = buildComprasTxt([compraDoc()], NO_EXTRAS, "2026-06");
+    const r = buildComprasTxt([compraDoc()], "2026-06");
     const cbte = r.files[0]!.content.split("\r\n")[0]!;
     const alic = r.files[1]!.content.split("\r\n")[0]!;
 
@@ -162,7 +205,6 @@ describe("buildComprasTxt", () => {
   it("reports B vouchers with zero alícuotas and no alícuota record", () => {
     const r = buildComprasTxt(
       [compraDoc({ letter: "B", kind: "factura", per_rate: {} })],
-      NO_EXTRAS,
       "2026-06",
     );
     const cbte = r.files[0]!.content.split("\r\n")[0]!;
@@ -172,10 +214,34 @@ describe("buildComprasTxt", () => {
     expect(r.files[1]!.content).toBe("");
   });
 
+  it("reports USD purchases in dollars with their own exchange rate", () => {
+    const r = buildComprasTxt(
+      [
+        compraDoc({
+          moneda: "DOL",
+          cotizacion: 1000,
+          imp_total: 126_000,
+          imp_trib: 5000,
+          per_rate: { 5: { neto: 100_000, iva: 21_000 } },
+          orig: {
+            per_rate: { 5: { neto: 100, iva: 21 } },
+            imp_trib: 5,
+            imp_total: 126,
+          },
+        }),
+      ],
+      "2026-06",
+    );
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(104, 119)).toBe("000000000012600"); // total US$ 126.00
+    expect(cbte.slice(224, 237)).toBe("DOL1000000000");
+    expect(cbte.slice(239, 254)).toBe("000000000002100"); // crédito fiscal US$ 21
+    expect(cbte.slice(254, 269)).toBe("000000000000500"); // otros tributos US$ 5
+  });
+
   it("maps NC/ND kinds to their voucher codes", () => {
     const r = buildComprasTxt(
       [compraDoc({ kind: "nc", letter: "A" })],
-      NO_EXTRAS,
       "2026-06",
     );
     expect(r.files[0]!.content.slice(8, 11)).toBe("003");
@@ -187,7 +253,6 @@ describe("buildComprasTxt", () => {
         compraDoc({ letter: null }),
         compraDoc({ supplier_cuit: null, numero: 99 }),
       ],
-      NO_EXTRAS,
       "2026-06",
     );
     expect(r.documents).toBe(0);

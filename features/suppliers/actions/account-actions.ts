@@ -3,9 +3,15 @@
 import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
+import {
+  AGING_VIEW_AMOUNT_COLUMNS,
+  aggregateSupplierAging,
+  type AgingReport,
+} from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
+import { fetchLatestUsdRate } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -16,8 +22,6 @@ import {
   NotesSchema,
   UuidSchema,
 } from "@/lib/validation/common";
-
-import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
 const SetSupplierOpeningInput = z.object({
   supplier_id: UuidSchema,
@@ -153,9 +157,7 @@ export async function clearSupplierOpeningBalanceAction(
 }
 
 export type SupplierAccountSourceType =
-  | "purchase_invoice"
-  | "payment_order"
-  | "opening_balance";
+  "purchase_invoice" | "payment_order" | "opening_balance";
 
 export interface SupplierAccountMovement {
   source_type: SupplierAccountSourceType;
@@ -358,21 +360,8 @@ export type SupplierAgingDocument = {
   channel_is_fiscal: boolean;
 };
 
-export type SupplierAgingSummary = {
-  supplier_id: string;
-  supplier_legal_name: string;
-  supplier_cuit: string;
-  bucket_0_30: number;
-  bucket_30_60: number;
-  bucket_60_90: number;
-  bucket_90_plus: number;
-  total_open: number;
-  document_count: number;
-  oldest_days: number;
-};
-
 export async function getSupplierAgingAction(): Promise<
-  ActionResult<SupplierAgingSummary[]>
+  ActionResult<AgingReport>
 > {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "suppliers:read")) {
@@ -381,43 +370,24 @@ export async function getSupplierAgingAction(): Promise<
 
   const supabase = await createSupabaseClient();
 
-  // The aging view returns only numerics per supplier — we join with
-  // suppliers for name/CUIT.
   // Drained past max_rows (1000) — one row per supplier with open documents.
-  const { data: agingRows, error } = await paginateRange((from, to) =>
-    supabase
-      .from("v_supplier_aging")
-      .select(
-        "supplier_id, bucket_0_30, bucket_30_60, bucket_60_90, bucket_90_plus, total_open, document_count, oldest_days, suppliers!inner(legal_name, cuit)",
-      )
-      .order("supplier_id", { ascending: true })
-      .range(from, to),
-  );
+  const [{ data: agingRows, error }, usdRate] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("v_supplier_aging")
+        .select(
+          `supplier_id, ${AGING_VIEW_AMOUNT_COLUMNS}, suppliers!inner(legal_name, cuit)`,
+        )
+        .order("supplier_id", { ascending: true })
+        .range(from, to),
+    ),
+    fetchLatestUsdRate(supabase),
+  ]);
 
   if (error) {
     logger.error("suppliers.aging.list_failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el aging de proveedores." };
   }
 
-  const summaries: SupplierAgingSummary[] = (agingRows ?? [])
-    .filter(
-      (r): r is typeof r & { supplier_id: string } => r.supplier_id !== null,
-    )
-    .map((r) => {
-      const sup = (r as unknown as SupplierIdentityJoin).suppliers;
-      return {
-        supplier_id: r.supplier_id,
-        supplier_legal_name: sup.legal_name,
-        supplier_cuit: sup.cuit,
-        bucket_0_30: Number(r.bucket_0_30),
-        bucket_30_60: Number(r.bucket_30_60),
-        bucket_60_90: Number(r.bucket_60_90),
-        bucket_90_plus: Number(r.bucket_90_plus),
-        total_open: Number(r.total_open),
-        document_count: Number(r.document_count),
-        oldest_days: Number(r.oldest_days),
-      };
-    });
-
-  return { ok: true, data: summaries };
+  return { ok: true, data: aggregateSupplierAging(agingRows, usdRate) };
 }

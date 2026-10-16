@@ -1,3 +1,5 @@
+import type { AgingReport, CurrencyAmounts } from "@/lib/aging";
+
 /**
  * What an action's `run` returns: a compact, human-readable `summary`
  * (token-disciplined) plus the structured `data` the UI can render as an
@@ -71,4 +73,59 @@ export function reachedCap(
 /** Money formatter for tool summaries (es-AR, no decimals). */
 export function money(n: number): string {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+function usdMoney(n: number): string {
+  return `US$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+/** "$1.000 + US$500" — pesos always, dollars only when non-zero. */
+function amounts(a: CurrencyAmounts): string {
+  return a.usd !== 0 ? `${money(a.ars)} + ${usdMoney(a.usd)}` : money(a.ars);
+}
+
+/** Aging tool result: totals per currency (never summed) plus the ARS
+ *  equivalent at the latest official rate, which travels as exchangeRate. */
+export function agingResult(
+  report: AgingReport,
+  partyPlural: string,
+): AiRunResult {
+  const t = report.totals;
+  const eq =
+    t.total.usd === 0
+      ? ""
+      : t.total_ars_equivalent === null
+        ? " (no USD rate loaded: not consolidated)"
+        : ` (≈ ${money(t.total_ars_equivalent)} at the official rate)`;
+  const rate = report.usd_rate;
+  // Flat rows so the inline table and the model read one value per column.
+  const rows = report.rows.map((r) => ({
+    legal_name: r.legal_name,
+    cuit: r.cuit,
+    total_ars: r.total.ars,
+    total_usd: r.total.usd,
+    total_ars_equivalent: r.total_ars_equivalent,
+    bucket_90_plus_ars: r.buckets["90_plus"].ars,
+    bucket_90_plus_usd: r.buckets["90_plus"].usd,
+    document_count: r.document_count,
+    oldest_days: r.oldest_days,
+  }));
+  return okResult(
+    `${t.party_count} ${partyPlural} with balance · total ${amounts(t.total)}${eq} · ` +
+      `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents). ` +
+      "Amounts per currency: *_ars in pesos, *_usd in dollars.",
+    { totals: t, usd_rate: rate, rows },
+    {
+      currency: "ARS",
+      ...(rate
+        ? {
+            exchangeRate: {
+              currency: "USD",
+              rate: rate.rate,
+              date: rate.rate_date,
+            },
+          }
+        : {}),
+    },
+  );
 }

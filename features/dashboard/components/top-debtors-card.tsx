@@ -42,8 +42,18 @@ export function TopDebtorsCard({ debtors }: { debtors: TopDebtor[] }) {
                     {d.oldest_days} días
                   </Badge>
                 )}
-                <span className="shrink-0 font-mono text-sm">
-                  {formatMoneyWithCode(d.total_open, "ARS")}
+                <span className="flex shrink-0 flex-col items-end font-mono text-sm">
+                  {d.total.ars !== 0 && (
+                    <span>{formatMoneyWithCode(d.total.ars, "ARS")}</span>
+                  )}
+                  {d.total.usd !== 0 && (
+                    <span>{formatMoneyWithCode(d.total.usd, "USD")}</span>
+                  )}
+                  {d.total.usd !== 0 && d.total_ars_equivalent !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      ≈ {formatMoneyWithCode(d.total_ars_equivalent, "ARS")}
+                    </span>
+                  )}
                 </span>
               </Link>
             </li>

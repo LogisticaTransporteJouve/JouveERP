@@ -103,6 +103,36 @@ import {
   runSupplierAging,
 } from "./purchases";
 import { runClientAging } from "./receivables";
+import {
+  buildAgingReport,
+  type AgingPartyInput,
+  type AgingViewAmounts,
+} from "@/lib/aging";
+
+function agingParty(
+  id: string,
+  amounts: Partial<AgingViewAmounts>,
+): AgingPartyInput {
+  return {
+    id,
+    legal_name: id,
+    display_name: null,
+    cuit: "20-1-2",
+    ars_bucket_0_30: 0,
+    ars_bucket_30_60: 0,
+    ars_bucket_60_90: 0,
+    ars_bucket_90_plus: 0,
+    ars_total_open: 0,
+    usd_bucket_0_30: 0,
+    usd_bucket_30_60: 0,
+    usd_bucket_60_90: 0,
+    usd_bucket_90_plus: 0,
+    usd_total_open: 0,
+    document_count: 1,
+    oldest_days: 10,
+    ...amounts,
+  };
+}
 import { getInvoices, runInvoices } from "./sales";
 import { AI_ACTIONS } from "../catalog";
 import { reachedCap } from "../result";
@@ -165,26 +195,31 @@ describe("ai action registry", () => {
 });
 
 describe("runClientAging", () => {
-  it("summarizes the aging totals on success", async () => {
+  it("summarizes the aging totals per currency on success", async () => {
     vi.mocked(getAgingSummaryAction).mockResolvedValue({
       ok: true,
-      data: {
-        clients: [],
-        totals: {
-          bucket_0_30: 100,
-          bucket_30_60: 0,
-          bucket_60_90: 0,
-          bucket_90_plus: 200,
-          total_open: 1000,
-          client_count: 3,
-          document_count: 5,
-        },
-      },
+      data: buildAgingReport(
+        [
+          agingParty("c1", { ars_bucket_90_plus: 200, ars_total_open: 1000 }),
+          agingParty("c2", { usd_bucket_0_30: 5, usd_total_open: 5 }),
+          agingParty("c3", { ars_bucket_0_30: 100, ars_total_open: 100 }),
+        ],
+        { rate: 1000, rate_date: "2026-10-15" },
+      ),
     });
     const r = await runClientAging();
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("3 clients");
+    expect(r.summary).toContain("total $1.100 + US$5");
+    expect(r.summary).toContain("≈ $6.100");
     expect(r.summary).toContain("+90");
+    if (r.ok) {
+      expect(r.exchangeRate).toEqual({
+        currency: "USD",
+        rate: 1000,
+        date: "2026-10-15",
+      });
+    }
   });
 
   it("returns an error result (never throws) when the action denies", async () => {
@@ -268,29 +303,21 @@ describe("runInvoices", () => {
 });
 
 describe("runSupplierAging", () => {
-  it("summarizes total payable and +90 bucket", async () => {
-    const row = {
-      supplier_id: "s",
-      supplier_legal_name: "Prov",
-      supplier_cuit: "20-1-2",
-      bucket_0_30: 0,
-      bucket_30_60: 0,
-      bucket_60_90: 0,
-      bucket_90_plus: 0,
-      total_open: 0,
-      document_count: 1,
-      oldest_days: 10,
-    };
+  it("summarizes total payable and +90 bucket without a rate", async () => {
     vi.mocked(getSupplierAgingAction).mockResolvedValue({
       ok: true,
-      data: [
-        { ...row, total_open: 800, bucket_90_plus: 300 },
-        { ...row, total_open: 200 },
-      ],
+      data: buildAgingReport(
+        [
+          agingParty("s1", { ars_total_open: 800, ars_bucket_90_plus: 300 }),
+          agingParty("s2", { usd_total_open: 200, usd_bucket_0_30: 200 }),
+        ],
+        null,
+      ),
     });
     const r = await runSupplierAging();
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("2 suppliers");
+    expect(r.summary).toContain("not consolidated");
     expect(r.summary).toContain("+90");
   });
 

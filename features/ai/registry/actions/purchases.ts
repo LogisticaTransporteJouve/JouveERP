@@ -19,6 +19,7 @@ import {
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
+  agingResult,
   errResult,
   money,
   okResult,
@@ -82,13 +83,7 @@ export const getPurchaseInvoices = defineAiAction({
 export async function runSupplierAging(): Promise<AiRunResult> {
   const res = await getSupplierAgingAction();
   if (!res.ok) return errResult(res.error);
-  const totalOpen = res.data.reduce((s, r) => s + r.total_open, 0);
-  const plus90 = res.data.reduce((s, r) => s + r.bucket_90_plus, 0);
-  return okResult(
-    `${res.data.length} suppliers with balance · total payable ${money(totalOpen)} · ` +
-      `+90 days ${money(plus90)}.`,
-    res.data,
-  );
+  return agingResult(res.data, "suppliers");
 }
 
 export const getSupplierAging = defineAiAction({
@@ -99,7 +94,8 @@ export const getSupplierAging = defineAiAction({
   sources: ["v_supplier_aging"],
   description:
     "Accounts payable aging: outstanding balance with each supplier per bucket " +
-    "(0-30 / 30-60 / 60-90 / +90 days), with totals. No parameters. For " +
+    "(0-30 / 30-60 / 60-90 / +90 days), pesos and dollars separately, with " +
+    "totals and their ARS equivalent at the latest official rate. No parameters. For " +
     "'how much do I owe?', 'who do I owe the most to?' or planning payments.",
   input: z.object({}),
   run: () => runSupplierAging(),
