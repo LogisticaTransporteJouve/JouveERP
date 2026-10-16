@@ -38,7 +38,9 @@ const RATE_PCT: Record<number, number> = {
 
 /** Integer, zero-padded left. */
 function num(value: number, len: number): string {
-  return String(Math.trunc(Math.abs(value))).padStart(len, "0").slice(-len);
+  return String(Math.trunc(Math.abs(value)))
+    .padStart(len, "0")
+    .slice(-len);
 }
 
 /** Amount with 2 implied decimals (13+2). Negatives carry "-" up front. */
@@ -142,7 +144,9 @@ export function buildVentasTxt(
     }
     const alicuotas = resolveAlicuotas(doc.per_rate);
     if (alicuotas === null || alicuotas.length === 0) {
-      warnings.push(`Venta ${label}: no se pudo derivar la alícuota — excluida.`);
+      warnings.push(
+        `Venta ${label}: no se pudo derivar la alícuota — excluida.`,
+      );
       continue;
     }
     const extra = extras.get(doc.invoice_id);
@@ -256,7 +260,9 @@ export function buildComprasTxt(
     if (discriminated) {
       const resolved = resolveAlicuotas(doc.per_rate);
       if (resolved === null || resolved.length === 0) {
-        warnings.push(`Compra ${label}: no se pudo derivar la alícuota — excluida.`);
+        warnings.push(
+          `Compra ${label}: no se pudo derivar la alícuota — excluida.`,
+        );
         continue;
       }
       alicuotas = resolved;

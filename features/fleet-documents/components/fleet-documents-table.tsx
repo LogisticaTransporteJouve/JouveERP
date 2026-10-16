@@ -4,7 +4,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,9 @@ export function FleetDocumentsTable({
         accessorKey: "number",
         header: "N°",
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.number ?? "—"}</span>
+          <span className="font-mono text-xs">
+            {row.original.number ?? "—"}
+          </span>
         ),
         meta: { headerClassName: "w-32" },
       },
@@ -121,9 +123,7 @@ export function FleetDocumentsTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", doc: row.original })
-                }
+                onClick={() => setDialog({ mode: "edit", doc: row.original })}
               >
                 <Pencil className="size-4" />
                 Editar
@@ -155,7 +155,7 @@ export function FleetDocumentsTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="fleet-documents" label="Exportar PDF" />
+          <ExportButton resource="fleet-documents" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nuevo documento

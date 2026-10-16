@@ -1,11 +1,11 @@
 import "server-only";
 
-import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import { formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, moneyCell, numberCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -50,11 +50,16 @@ export const fuel: Exporter = {
       const amount = Number(row.amount);
       total += amount;
       return [
-        formatArgentineDate(row.load_date),
+        dateCell(row.load_date),
         vehicle.patente,
-        formatNumber2(Number(row.liters)),
-        money(amount),
-        row.odometer_km === null ? "—" : formatNumber2(Number(row.odometer_km)),
+        numberCell(Number(row.liters), formatNumber2(Number(row.liters))),
+        moneyCell(amount),
+        row.odometer_km === null
+          ? "—"
+          : numberCell(
+              Number(row.odometer_km),
+              formatNumber2(Number(row.odometer_km)),
+            ),
         row.station ?? "—",
       ];
     });
@@ -63,7 +68,7 @@ export const fuel: Exporter = {
       title: "Cargas de combustible",
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", money(total), "", ""],
+      totalsRow: ["", "", "", moneyCell(total), "", ""],
       fileName: "cargas-combustible",
     };
   },

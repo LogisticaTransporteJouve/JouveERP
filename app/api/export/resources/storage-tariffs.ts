@@ -5,12 +5,11 @@ import {
   isTariffPeriod,
   type TariffPeriod,
 } from "@/features/storage-tariffs/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import { dateCell, moneyCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -56,10 +55,10 @@ export const storageTariffs: Exporter = {
         : "monthly";
       return [
         client?.legal_name ?? "General",
-        money(Number(row.rate_per_pallet)),
+        moneyCell(Number(row.rate_per_pallet)),
         TARIFF_PERIOD_LABELS[period],
-        formatArgentineDate(row.valid_from),
-        row.valid_to ? formatArgentineDate(row.valid_to) : "—",
+        dateCell(row.valid_from),
+        dateCell(row.valid_to),
         row.is_active ? "Activo" : "Inactivo",
       ];
     });

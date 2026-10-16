@@ -1,11 +1,10 @@
 import "server-only";
 
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { type Exporter } from "../shared";
+import { dateCell, numberCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt: Fecha, ARS por USD, Fuente, Notas.
 const COLUMNS: TableReportColumn[] = [
@@ -45,8 +44,8 @@ export const exchangeRates: Exporter = {
     if (error) throw new Error("Could not load exchange rates.");
 
     const rows = (data ?? []).map((r) => [
-      formatArgentineDate(r.rate_date),
-      rateFmt.format(Number(r.rate)),
+      dateCell(r.rate_date),
+      numberCell(Number(r.rate), rateFmt.format(Number(r.rate))),
       r.source === "manual" ? "Manual" : "BCRA",
       r.notes ?? "—",
     ]);

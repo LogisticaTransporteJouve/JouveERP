@@ -1,14 +1,22 @@
 "use client";
 
-import { AlertTriangle, BarChart3, Download, Pin, Table2 } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Download,
+  FileSpreadsheet,
+  Pin,
+  Table2,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export/csv";
+import { downloadBlob } from "@/lib/export/download";
 import { formatArgentineDateTime } from "@/lib/format";
 
-import { artifactCsv } from "../artifacts/export";
+import { artifactCsv, artifactXlsx } from "../artifacts/export";
 import type { Artifact } from "../artifacts/spec";
 import { usePinAiArtifact } from "../hooks/use-ai-pins";
 
@@ -17,7 +25,7 @@ import { ArtifactTable } from "./artifact-table";
 import { toolLabel } from "./tool-renderers";
 
 /** A chart or table the assistant built from a server query: provenance
- *  line, chart/table toggle, CSV export of the rows on screen, and a slot
+ *  line, chart/table toggle, CSV and Excel export of the rows on screen, and a slot
  *  for the pin or unpin control. */
 export function ArtifactCard({
   artifact,
@@ -32,6 +40,17 @@ export function ArtifactCard({
   function exportCsv() {
     const { fileName, csv } = artifactCsv(artifact);
     downloadCsv(fileName, csv);
+  }
+
+  async function exportXlsx() {
+    try {
+      // Loaded on demand: the writer stays out of the chat's bundle.
+      const { buildXlsx } = await import("@/lib/export/xlsx");
+      const { fileName, sheet } = artifactXlsx(artifact);
+      downloadBlob(fileName, await buildXlsx(sheet));
+    } catch {
+      toast.error("No se pudo generar el Excel.");
+    }
   }
 
   return (
@@ -60,6 +79,10 @@ export function ArtifactCard({
           <Button variant="ghost" size="sm" onClick={exportCsv}>
             <Download className="size-3.5" />
             CSV
+          </Button>
+          <Button variant="ghost" size="sm" onClick={exportXlsx}>
+            <FileSpreadsheet className="size-3.5" />
+            Excel
           </Button>
           {control}
         </div>

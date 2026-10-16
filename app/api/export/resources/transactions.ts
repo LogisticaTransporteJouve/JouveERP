@@ -6,11 +6,17 @@ import {
   type TransactionKind,
 } from "@/features/transactions/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
-import { formatArgentineDate } from "@/lib/format";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { money, type Exporter } from "../shared";
+import {
+  dateCell,
+  money,
+  moneyCell,
+  totalCell,
+  type ExportCell,
+  type Exporter,
+} from "../shared";
 
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 70, mono: true },
@@ -36,7 +42,7 @@ export const transactions: Exporter = {
       let query = supabase
         .from("v_transactions_tagged")
         .select(
-          "kind, amount, transaction_date, description, account_name, channel_name",
+          "kind, amount, currency, transaction_date, description, account_name, channel_name",
         )
         .order("transaction_date", { ascending: true })
         .order("created_at", { ascending: true })
@@ -52,19 +58,25 @@ export const transactions: Exporter = {
     if (error) throw new Error("Could not load transactions.");
 
     let net = 0;
-    const rows: string[][] = [];
+    const currencies = new Set<string>();
+    const rows: ExportCell[][] = [];
     for (const row of data ?? []) {
       if (!isTransactionKind(row.kind)) continue;
       const amount = Number(row.amount ?? 0);
       const outflow = isOutflow(row.kind);
+      const currency = row.currency ?? "ARS";
+      currencies.add(currency);
       net += (outflow ? -1 : 1) * amount;
       rows.push([
-        formatArgentineDate(row.transaction_date),
+        dateCell(row.transaction_date),
         TRANSACTION_KIND_LABEL[row.kind],
         row.account_name ?? "—",
         row.channel_name ?? "—",
         row.description ?? "—",
-        `${outflow ? "-" : "+"}${money(amount)}`,
+        moneyCell(outflow ? -amount : amount, {
+          currency,
+          text: `${outflow ? "-" : "+"}${money(amount)}`,
+        }),
       ]);
     }
 
@@ -78,7 +90,11 @@ export const transactions: Exporter = {
         "",
         "",
         "Neto",
-        `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
+        totalCell(
+          net,
+          currencies,
+          `${net < 0 ? "-" : "+"}${money(Math.abs(net))}`,
+        ),
       ],
       orientation: "landscape",
       fileName: "caja-movimientos",

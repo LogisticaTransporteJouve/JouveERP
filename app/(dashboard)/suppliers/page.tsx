@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { listSupplierCategoriesAction } from "@/features/supplier-categories/actions/supplier-categories-actions";
 import { supplierCategoriesKeys } from "@/features/supplier-categories/lib/supplier-categories-keys";
 import { searchSuppliersAction } from "@/features/suppliers/actions/suppliers-actions";
@@ -53,7 +53,8 @@ export default async function SuppliersPage({
     },
     {
       queryKey: supplierCategoriesKeys.list(false),
-      queryFn: () => runAction(() => listSupplierCategoriesAction({ onlyActive: false })),
+      queryFn: () =>
+        runAction(() => listSupplierCategoriesAction({ onlyActive: false })),
     },
   ]);
 
@@ -67,7 +68,7 @@ export default async function SuppliersPage({
             Instalaciones.
           </p>
         </div>
-        <ExportPdfButton resource="suppliers" label="Exportar PDF" />
+        <ExportButton resource="suppliers" />
       </div>
       <Hydrate state={dehydratedState}>
         <SuppliersTable

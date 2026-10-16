@@ -3,7 +3,7 @@ import "server-only";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 
-import { money, type Exporter } from "../shared";
+import { moneyCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -44,11 +44,11 @@ export const supplierAging: Exporter = {
       return [
         s.supplier_legal_name,
         s.supplier_cuit,
-        money(s.bucket_0_30),
-        money(s.bucket_30_60),
-        money(s.bucket_60_90),
-        money(s.bucket_90_plus),
-        money(s.total_open),
+        moneyCell(s.bucket_0_30),
+        moneyCell(s.bucket_30_60),
+        moneyCell(s.bucket_60_90),
+        moneyCell(s.bucket_90_plus),
+        moneyCell(s.total_open),
       ];
     });
 
@@ -60,11 +60,11 @@ export const supplierAging: Exporter = {
       totalsRow: [
         "Totales",
         "",
-        money(totals.bucket_0_30),
-        money(totals.bucket_30_60),
-        money(totals.bucket_60_90),
-        money(totals.bucket_90_plus),
-        money(totals.total_open),
+        moneyCell(totals.bucket_0_30),
+        moneyCell(totals.bucket_30_60),
+        moneyCell(totals.bucket_60_90),
+        moneyCell(totals.bucket_90_plus),
+        moneyCell(totals.total_open),
       ],
       orientation: "landscape",
       fileName: "aging-proveedores",

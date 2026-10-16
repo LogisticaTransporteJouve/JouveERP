@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,9 @@ export function ExchangeRatesPage() {
         accessorKey: "rate",
         header: "ARS por USD",
         cell: ({ row }) => (
-          <span className="font-mono">{rateFmt.format(Number(row.original.rate))}</span>
+          <span className="font-mono">
+            {rateFmt.format(Number(row.original.rate))}
+          </span>
         ),
         meta: { headerClassName: "w-40", align: "right" },
       },
@@ -88,7 +90,9 @@ export function ExchangeRatesPage() {
         accessorKey: "source",
         header: "Fuente",
         cell: ({ row }) => (
-          <Badge variant={row.original.source === "manual" ? "default" : "secondary"}>
+          <Badge
+            variant={row.original.source === "manual" ? "default" : "secondary"}
+          >
             {row.original.source === "manual" ? "Manual" : "BCRA"}
           </Badge>
         ),
@@ -133,7 +137,7 @@ export function ExchangeRatesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPdfButton resource="exchange-rates" label="Exportar PDF" />
+          <ExportButton resource="exchange-rates" />
           <Button onClick={() => setDialogOpen(true)}>
             <Plus />
             Cargar cotización
@@ -222,7 +226,11 @@ function ExchangeRateDialog({
                 <FormItem>
                   <FormLabel>ARS por USD</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="1180,50" className="font-mono" />
+                    <Input
+                      {...field}
+                      placeholder="1180,50"
+                      className="font-mono"
+                    />
                   </FormControl>
                   <FormDescription className="text-xs">
                     Cotización oficial. Ejemplo: 1180,50 = $1.180,50 por USD.
