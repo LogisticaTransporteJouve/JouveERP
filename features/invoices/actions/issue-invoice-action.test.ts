@@ -30,6 +30,12 @@ function from(table: string) {
       filters.push((r) => r[col] === v);
       return builder;
     },
+    not: (col: string, _op: string, v: unknown) => {
+      filters.push((r) => (r[col] ?? null) !== v);
+      return builder;
+    },
+    order: () => builder,
+    limit: () => builder,
     maybeSingle: async () =>
       insertValues
         ? { data: { id: "new-invoice" }, error: null }
@@ -167,5 +173,29 @@ describe("issueFiscalInvoiceAction on an internal channel", () => {
     expect(h.inserts.find((i) => i.table === "invoice_items")?.values).toEqual([
       expect.objectContaining({ line_iva: 0, line_total: 100 }),
     ]);
+  });
+});
+
+describe("issueFiscalInvoiceAction dating", () => {
+  it("refuses a date earlier than the last voucher of the same type", async () => {
+    h.db.invoices = [
+      {
+        id: "prev",
+        channel_id: "jouve_fiscal",
+        punto_venta: 3,
+        kind: "factura",
+        letter: "A",
+        numero: 20,
+        fecha: "2999-01-01",
+      },
+    ];
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      kind: "factura",
+      invoice_origin_id: null,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/último comprobante/);
+    expect(h.inserts).toEqual([]);
   });
 });

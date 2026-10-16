@@ -259,6 +259,38 @@ export async function issueFiscalInvoiceAction(
       todayInAR(),
     );
     if (issue) return { ok: false, error: issue };
+
+    // AFIP refuses a CbteFch earlier than the last voucher of the same type on
+    // this punto de venta.
+    const { data: last, error: lastErr } = await supabase
+      .from("invoices")
+      .select("fecha")
+      .eq("channel_id", data.channel_id)
+      .eq("punto_venta", data.punto_venta)
+      .eq("kind", data.kind)
+      .eq("letter", fiscalLetter)
+      .not("numero", "is", null)
+      .order("numero", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastErr) {
+      logger.error("issue_invoice.load_last_fecha_failed", {
+        userId: ctx.userId,
+        channel_id: data.channel_id,
+        error: lastErr,
+      });
+      return {
+        ok: false,
+        error: "No se pudo validar la fecha del comprobante.",
+      };
+    }
+    if (last && data.fecha < last.fecha) {
+      return {
+        ok: false,
+        error: `La fecha no puede ser anterior a la del último comprobante de este tipo en el punto de venta (${last.fecha}).`,
+      };
+    }
+
     letter = fiscalLetter;
     cbteTipoAfip = cbteTipoFor(data.kind, fiscalLetter);
     receptor = fiscalReceptor;

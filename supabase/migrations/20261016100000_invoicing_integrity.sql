@@ -315,6 +315,7 @@ $$;
 create or replace function public.guard_cancel_invoice_with_allocations()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if old.status = 'emitted' and new.status = 'cancelled' then
