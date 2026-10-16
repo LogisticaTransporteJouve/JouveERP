@@ -16,7 +16,10 @@
 --    RLS of every underlying table applies; the server action also filters
 --    the entity types by the caller's permissions.
 -- 4. find_orphan_files: a chat upload that was never sent gets a 24 h grace
---    instead of 1 h, so a draft message keeps its files for the day.
+--    instead of 1 h, so a draft message keeps its files for the day;
+--    delete_chat_draft_file removes an unsent draft in one statement.
+-- 5. Employee-document files are readable only by hr:read roles, so any
+--    files:read role can no longer sign an HR document by its id.
 
 set row_security = off;
 
@@ -61,6 +64,28 @@ alter table public.file_attachments
 ------------------------------------------------------------------------------
 -- files:read roles (lib/auth/permissions.ts): owner, admin, finance,
 -- operations, warehouse. ai:admin: owner, admin.
+-- True when an employee document points at the file. SECURITY DEFINER so the
+-- files policy can ask without the caller seeing employee_documents.
+create or replace function public.is_employee_document_file(p_file_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.employee_documents d where d.attachment_file_id = p_file_id
+  );
+$$;
+
+revoke all on function public.is_employee_document_file(uuid) from public, anon, authenticated;
+grant execute on function public.is_employee_document_file(uuid) to authenticated;
+
+create index if not exists employee_documents_attachment_file_idx
+  on public.employee_documents (attachment_file_id)
+  where attachment_file_id is not null;
+
+-- hr:read roles: owner, admin, finance.
 drop policy if exists "Roles with files:read can view files" on public.files;
 create policy "Roles with files:read can view files"
   on public.files for select to authenticated
@@ -70,6 +95,10 @@ create policy "Roles with files:read can view files"
       source <> 'chat_attachment'
       or uploaded_by = (select auth.uid())
       or (select public.user_has_role(array['owner', 'admin']))
+    )
+    and (
+      (select public.user_has_role(array['owner', 'admin', 'finance']))
+      or not public.is_employee_document_file(id)
     )
   );
 
@@ -219,5 +248,32 @@ $$;
 
 revoke all on function public.find_orphan_files(interval) from public, anon, authenticated;
 grant execute on function public.find_orphan_files(interval) to service_role;
+
+-- Deletes the caller's unsent chat draft in one statement: never a file that
+-- is linked to anything or that Document Intelligence reads (both FKs would
+-- cascade). Returns the blob to remove. Service role only: the server action
+-- passes the user id after its own gate.
+create or replace function public.delete_chat_draft_file(
+  p_file_id uuid,
+  p_user_id uuid
+)
+returns table (bucket text, bucket_path text)
+language sql
+volatile
+security definer
+set search_path = public
+as $$
+  delete from public.files f
+  where f.id = p_file_id
+    and f.uploaded_by = p_user_id
+    and f.source = 'chat_attachment'
+    and not exists (select 1 from public.file_attachments fa where fa.file_id = f.id)
+    and not exists (select 1 from public.ai_document_extractions e where e.file_id = f.id)
+    and not exists (select 1 from public.employee_documents d where d.attachment_file_id = f.id)
+  returning f.bucket, f.bucket_path;
+$$;
+
+revoke all on function public.delete_chat_draft_file(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.delete_chat_draft_file(uuid, uuid) to service_role;
 
 set row_security = on;

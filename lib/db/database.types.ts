@@ -5871,6 +5871,13 @@ export type Database = {
         Args: { p_check_id: string; p_event_date: string; p_notes: string }
         Returns: string
       }
+      delete_chat_draft_file: {
+        Args: { p_file_id: string; p_user_id: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+        }[]
+      }
       deposit_check: {
         Args: {
           p_account_id: string
@@ -5993,6 +6000,10 @@ export type Database = {
       }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
+      is_employee_document_file: {
+        Args: { p_file_id: string }
+        Returns: boolean
+      }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {
