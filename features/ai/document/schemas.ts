@@ -71,12 +71,18 @@ export const InvoiceHeaderSchema = z.object({
   sales_point: z.number().nullish(),
   number: z.number().nullish(),
   letter: z.enum(["A", "B", "C"]).nullish(),
+  /** Comprobante type as printed: factura, nota de crédito or nota de débito. */
+  kind: z.enum(["invoice", "credit_note", "debit_note"]).nullish(),
   date: z.string().nullish(),
   payment_terms: z.string().nullish(),
   due_date: z.string().nullish(),
+  /** CAE / CAI printed by the issuer, and its expiry date. */
+  cae: z.string().nullish(),
+  cae_due_date: z.string().nullish(),
   currency: z.enum(["ARS", "USD"]).nullish(),
   net_amount: z.number().nullish(),
   iva_amount: z.number().nullish(),
+  /** Perceptions, withholdings and other taxes (everything besides IVA). */
   other_taxes_amount: z.number().nullish(),
   total_amount: z.number().nullish(),
 });

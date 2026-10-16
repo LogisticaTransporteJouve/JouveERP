@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 
+import type { PurchaseInvoiceDraft } from "../lib/purchase-invoice-draft";
+import { usePurchaseInvoiceFileAssist } from "./file-assist-context";
+import { PurchaseInvoiceDraftDialogContent } from "./purchase-invoice-draft-dialog";
 import { PurchaseInvoiceForm } from "./purchase-invoice-form";
 
 export function NewPurchaseInvoiceDialog({
@@ -24,9 +27,16 @@ export function NewPurchaseInvoiceDialog({
   trigger?: React.ReactNode;
 } = {}) {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<PurchaseInvoiceDraft | null>(null);
+  const fileAssist = usePurchaseInvoiceFileAssist();
+
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setDraft(null);
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button>
@@ -35,21 +45,31 @@ export function NewPurchaseInvoiceDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Cargar factura de compra</DialogTitle>
-          <DialogDescription>
-            Cargá manualmente los datos de la factura que te envió el proveedor.
-            Para nota de crédito o débito elegí el tipo correspondiente.
-          </DialogDescription>
-        </DialogHeader>
-        <PurchaseInvoiceForm
-          mode="create"
-          initialSupplier={initialSupplier}
-          onSuccess={() => setOpen(false)}
-          onCancel={() => setOpen(false)}
+      {draft ? (
+        <PurchaseInvoiceDraftDialogContent
+          draft={draft}
+          onCreated={() => onOpenChange(false)}
+          onClose={() => onOpenChange(false)}
         />
-      </DialogContent>
+      ) : (
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Cargar factura de compra</DialogTitle>
+            <DialogDescription>
+              Cargá los datos de la factura que te envió el proveedor
+              {fileAssist ? " o completalos desde el PDF o una foto" : ""}. Para
+              nota de crédito o débito elegí el tipo correspondiente.
+            </DialogDescription>
+          </DialogHeader>
+          {fileAssist?.(setDraft)}
+          <PurchaseInvoiceForm
+            mode="create"
+            initialSupplier={initialSupplier}
+            onSuccess={() => onOpenChange(false)}
+            onCancel={() => onOpenChange(false)}
+          />
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

@@ -39,14 +39,22 @@ export interface PickedSupplier {
 
 const RESULT_LIMIT = 8;
 
+export type SuggestedNewSupplier = {
+  legal_name: string | null;
+  cuit: string | null;
+};
+
 export function SupplierPicker({
   value,
   onChange,
   autoFocus,
+  suggestedNew,
 }: {
   value: PickedSupplier | null;
   onChange: (supplier: PickedSupplier | null) => void;
   autoFocus?: boolean;
+  /** A counterparty that is not loaded yet: offers creating it prefilled. */
+  suggestedNew?: SuggestedNewSupplier | null;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -156,6 +164,31 @@ export function SupplierPicker({
         </div>
       )}
 
+      {!value && suggestedNew && (
+        <div className="mt-2 flex flex-col gap-2 rounded-md border border-dashed px-3 py-2 text-xs sm:flex-row sm:items-center">
+          <p className="min-w-0 flex-1">
+            <span className="text-muted-foreground">
+              El proveedor del comprobante no está cargado:{" "}
+            </span>
+            <span className="font-medium">
+              {suggestedNew.legal_name ?? "sin razón social"}
+            </span>
+            {suggestedNew.cuit && (
+              <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
+            )}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus />
+            Crear proveedor
+          </Button>
+        </div>
+      )}
+
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
@@ -166,6 +199,7 @@ export function SupplierPicker({
           </DialogHeader>
           <SupplierForm
             mode="create"
+            initialValues={suggestedNew ?? undefined}
             onSuccess={onCreateSuccess}
             onCancel={() => setShowCreate(false)}
           />

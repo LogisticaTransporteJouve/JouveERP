@@ -1,25 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PurchaseInvoiceDraftDialog } from "@/features/purchase-invoices/components/purchase-invoice-draft-dialog";
 
 import type { ExtractionDetail } from "../actions";
-import { useCreatePurchaseInvoice } from "../hooks/use-documents";
+import {
+  usePurchaseInvoiceDraft,
+  useSubmitPurchaseInvoiceDraft,
+} from "../hooks/use-documents";
 import { ChequeBatchExtractionSchema } from "../schemas";
 
 import { CreateChequesDialog } from "./create-cheques-dialog";
 import { CreatePaymentDocDialog } from "./create-payment-doc-dialog";
-import { CreatePurchaseNoteDialog } from "./create-purchase-note-dialog";
 import { CreateSalesInvoiceDialog } from "./create-sales-invoice-dialog";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,10 +63,63 @@ function MissingMatchHint({ entity }: { entity: "cliente" | "proveedor" }) {
 }
 
 /**
+ * Purchase invoice / supplier NC-ND: opens the regular purchase-invoice form
+ * prefilled from the extraction (editable), next to the scanned file.
+ */
+function PurchaseDraftAction({
+  extractionId,
+  label,
+  open,
+  setOpen,
+  onCreated,
+}: {
+  extractionId: string;
+  label: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const draftQuery = usePurchaseInvoiceDraft(extractionId);
+  const submitCreate = useSubmitPurchaseInvoiceDraft(extractionId);
+  const result = draftQuery.data;
+
+  const problem = draftQuery.isError
+    ? draftQuery.error.message
+    : result?.state === "closed"
+      ? "Este documento ya fue procesado o descartado."
+      : null;
+  if (problem) {
+    return (
+      <p className="text-muted-foreground border-t pt-3 text-xs">{problem}</p>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 border-t pt-3">
+      <Button
+        className="ml-auto"
+        disabled={result?.state !== "ready"}
+        onClick={() => setOpen(true)}
+      >
+        {label}
+      </Button>
+      {result?.state === "ready" && (
+        <PurchaseInvoiceDraftDialog
+          draft={{ data: result.draft, source: result.source, submitCreate }}
+          open={open}
+          onOpenChange={setOpen}
+          onCreated={onCreated}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
  * Create-from-extraction footer for the review dialog. Every extractable kind
- * with a create target is wired: purchase invoice, cheques, recibo, orden de
- * pago, factura de venta and NC/ND de compra. Remitos and extractos stay
- * read-only (no entity to create / reconciliation handles them).
+ * with a create target is wired: purchase invoice and NC/ND de compra (through
+ * the editable purchase form), cheques, recibo, orden de pago and factura de
+ * venta. Remitos and extractos stay read-only (no entity to create /
+ * reconciliation handles them).
  */
 export function ReviewActions({
   extraction,
@@ -84,11 +131,7 @@ export function ReviewActions({
   /** Signals when a nested action dialog opens/closes (to hide the sidecar). */
   onNestedOpenChange?: (open: boolean) => void;
 }) {
-  const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
-  const [channelId, setChannelId] = useState(activeChannels[0]?.id ?? "");
   const [nestedOpen, setNestedOpenState] = useState(false);
-  const create = useCreatePurchaseInvoice();
 
   function setNested(nextOpen: boolean) {
     setNestedOpenState(nextOpen);
@@ -132,7 +175,9 @@ export function ReviewActions({
   if (kind === "receipt" || kind === "payment_order") {
     const needsClient = kind === "receipt";
     if (needsClient ? !clientId : !supplierId) {
-      return <MissingMatchHint entity={needsClient ? "cliente" : "proveedor"} />;
+      return (
+        <MissingMatchHint entity={needsClient ? "cliente" : "proveedor"} />
+      );
     }
     return (
       <DialogTrigger
@@ -174,67 +219,21 @@ export function ReviewActions({
     );
   }
 
-  if (kind === "credit_debit_note") {
-    if (!supplierId) return <MissingMatchHint entity="proveedor" />;
+  if (kind === "purchase_invoice" || kind === "credit_debit_note") {
     return (
-      <DialogTrigger
-        label="Crear NC/ND de compra"
+      <PurchaseDraftAction
+        extractionId={extraction.id}
+        label={
+          kind === "purchase_invoice"
+            ? "Revisar y cargar factura de compra"
+            : "Revisar y cargar NC/ND de compra"
+        }
         open={nestedOpen}
         setOpen={setNested}
-      >
-        <CreatePurchaseNoteDialog
-          extractionId={extraction.id}
-          payload={extraction.payload}
-          supplierName={supplierName}
-          open={nestedOpen}
-          onOpenChange={setNested}
-          onCreated={handleCreated}
-        />
-      </DialogTrigger>
+        onCreated={handleCreated}
+      />
     );
   }
 
-  if (kind !== "purchase_invoice") return null;
-
-  if (!supplierId) return <MissingMatchHint entity="proveedor" />;
-
-  function handleCreate() {
-    create.mutate(
-      { extractionId: extraction.id, channelId },
-      {
-        onSuccess: () => {
-          toast.success("Factura de compra creada.");
-          onCreated();
-        },
-        onError: (err) =>
-          toast.error(
-            err instanceof Error ? err.message : "No se pudo crear la factura.",
-          ),
-      },
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center">
-      <Select value={channelId} onValueChange={setChannelId}>
-        <SelectTrigger className="sm:w-48">
-          <SelectValue placeholder="Canal" />
-        </SelectTrigger>
-        <SelectContent>
-          {activeChannels.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        className="sm:ml-auto"
-        disabled={!channelId || create.isPending}
-        onClick={handleCreate}
-      >
-        Crear factura de compra
-      </Button>
-    </div>
-  );
+  return null;
 }

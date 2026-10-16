@@ -98,7 +98,8 @@ const CLASSIFY_SYSTEM = `You are a classifier of Argentine accounting/commercial
 const EXTRACT_SYSTEM = `You are a data extractor for Argentine accounting documents. COPY EXACTLY what appears in the document; if a value does not appear, return null (do not invent or compute it: missing values are filled in afterwards deterministically). Amounts as numbers, without thousands separators or symbol (1234.56). Dates in YYYY-MM-DD format.
 Line rules (invoices/delivery notes): one row per visible line; do not group or merge; skip subtotal/total rows and rows that are only an IVA label.
 Amount rules: if the column says "con IVA" use total_amount; if it says "sin IVA" use net_amount; when ambiguous cross-check against the totals. On tickets and receipts prices usually include IVA.
-Counterparty: DZ & Sons S.A. is the own company; the counterparty (counterparty_name/counterparty_cuit) is ALWAYS the other party.`;
+Counterparty: DZ & Sons S.A. is the own company; the counterparty (counterparty_name/counterparty_cuit) is ALWAYS the other party.
+Invoice kind: "invoice", "credit_note" or "debit_note", from the title printed on the document (FACTURA / NOTA DE CRÉDITO / NOTA DE DÉBITO); null if no title is printed.`;
 
 /** Stage 1 — classify an unknown document (generic-tray mode). */
 export async function classifyDocument(

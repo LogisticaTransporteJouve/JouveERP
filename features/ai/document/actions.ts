@@ -11,6 +11,11 @@ import {
   createPurchaseInvoiceAction,
   type PartialCreateFailure,
 } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import type {
+  PurchaseInvoiceDraftData,
+  PurchaseInvoiceDraftSource,
+  PurchaseInvoiceDraftSupplier,
+} from "@/features/purchase-invoices/lib/purchase-invoice-draft";
 import { createReceiptAction } from "@/features/receipts/actions/receipts-actions";
 import {
   CONCEPTO,
@@ -22,7 +27,7 @@ import {
 } from "@/lib/afip/codes";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, type Role } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
@@ -30,8 +35,9 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { isScannableMime } from "../attachments/limits";
+import { attachSourceFile, type SourceFileTarget } from "./attach-source";
 import {
-  buildPurchaseInvoiceInput,
+  buildPurchaseInvoiceDraft,
   buildSalesInvoiceItems,
 } from "./create-mapping";
 import { InvoiceExtractionSchema } from "./schemas";
@@ -40,6 +46,15 @@ import { DOCUMENT_KINDS } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+type ServerSupabase = Awaited<ReturnType<typeof createSupabaseClient>>;
+
+/** Who confirms a draft, and whether they may attach its file to the result. */
+type Actor = { userId: string; canAttach: boolean };
+
+function actorOf(ctx: { userId: string; roles: readonly Role[] }): Actor {
+  return { userId: ctx.userId, canAttach: userCan(ctx.roles, "files:write") };
 }
 
 const BUCKET = "files";
@@ -73,9 +88,8 @@ const LIST_COLUMNS =
 
 /**
  * Uploads a standalone document (not attached to any entity yet) and kicks off
- * extraction — the entry point for the generic Documentos tray. The document
- * type is inferred (classification); contextual flows pass a fileId straight to
- * extractDocumentAction.
+ * extraction. The Documentos tray leaves the type to classification; a form
+ * that already knows it (e.g. a new purchase invoice) sends `declaredType`.
  */
 export async function scanDocumentAction(
   formData: FormData,
@@ -84,6 +98,12 @@ export async function scanDocumentAction(
   if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "files:write")) {
     return { ok: false, error: "No tenés permiso para escanear documentos." };
   }
+
+  const declared = z
+    .enum(DOCUMENT_KINDS)
+    .nullable()
+    .safeParse(formData.get("declaredType"));
+  if (!declared.success) return { ok: false, error: "Datos inválidos." };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -137,7 +157,10 @@ export async function scanDocumentAction(
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
-  return startExtraction(ctx.userId, { fileId });
+  return startExtraction(ctx.userId, {
+    fileId,
+    declaredType: declared.data,
+  });
 }
 
 /**
@@ -231,18 +254,182 @@ export async function getExtractionAction(
   return { ok: true, data: data ?? null };
 }
 
-const CreateFromExtractionSchema = z.object({
+const PURCHASE_DRAFT_KINDS = ["purchase_invoice", "credit_debit_note"];
+
+export type PurchaseInvoiceDraftState =
+  | { state: "processing" }
+  | { state: "failed" }
+  | { state: "closed"; status: string }
+  | { state: "unsupported"; detectedType: string }
+  | {
+      state: "ready";
+      draft: PurchaseInvoiceDraftData;
+      source: PurchaseInvoiceDraftSource;
+    };
+
+/**
+ * The editable purchase-invoice draft for a scanned purchase invoice or
+ * supplier NC/ND: the extraction mapped to the form, with the matched supplier
+ * and the suggested expense account resolved. Polled while the pipeline runs.
+ */
+export async function getPurchaseInvoiceDraftAction(
+  extractionId: string,
+): Promise<ActionResult<PurchaseInvoiceDraftState>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.roles, "ai:read") ||
+    !userCan(ctx.roles, "purchase_invoices:write")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para cargar facturas de compra.",
+    };
+  }
+  const id = z.string().uuid().safeParse(extractionId);
+  if (!id.success) return { ok: false, error: "Datos inválidos." };
+
+  const supabase = await createSupabaseClient();
+  const { data: ext, error } = await supabase
+    .from("ai_document_extractions")
+    .select(
+      "detected_type, status, confidence, matches, payload, file_id, created_entity, updated_at, file:files(original_filename, mime_type)",
+    )
+    .eq("id", id.data)
+    .maybeSingle();
+  if (error || !ext) {
+    return { ok: false, error: "No se encontró la extracción." };
+  }
+  if (ext.status === "failed") return { ok: true, data: { state: "failed" } };
+  const stale =
+    ext.status === "confirmed" &&
+    ext.created_entity === null &&
+    (await releaseStaleClaim(supabase, id.data, ext.updated_at));
+  if (ext.status !== "pending_review" && !stale) {
+    return { ok: true, data: { state: "closed", status: ext.status } };
+  }
+  if (ext.detected_type === null) {
+    return { ok: true, data: { state: "processing" } };
+  }
+  if (!PURCHASE_DRAFT_KINDS.includes(ext.detected_type)) {
+    return {
+      ok: true,
+      data: { state: "unsupported", detectedType: ext.detected_type },
+    };
+  }
+
+  const supplierId = matchedId(ext.matches, "supplier_id");
+  const [supplier, expense] = await Promise.all([
+    supplierId ? loadDraftSupplier(supabase, supplierId) : null,
+    resolveExpenseSuggestion(supabase, ext.matches),
+  ]);
+
+  const header = InvoiceExtractionSchema.safeParse(ext.payload);
+  let usdRate: number | null = null;
+  if (header.success && header.data.currency === "USD" && header.data.date) {
+    const rate = await getUsdRateForDateAction(header.data.date);
+    usdRate = rate.ok ? rate.data.rate : null;
+  }
+
+  const draft = buildPurchaseInvoiceDraft(ext.payload, {
+    fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
+    supplier,
+    account: expense.account,
+    costCenterId: expense.costCenterId,
+    usdRate,
+    confidence: ext.confidence,
+    duplicate: isRecord(ext.matches) && Boolean(ext.matches.duplicate_of),
+  });
+  if (!draft) return { ok: false, error: "No se pudieron mapear los datos." };
+
+  const file = Array.isArray(ext.file) ? ext.file[0] : ext.file;
+  return {
+    ok: true,
+    data: {
+      state: "ready",
+      draft,
+      source: {
+        fileId: ext.file_id,
+        filename: file?.original_filename ?? "documento",
+        mimeType: file?.mime_type ?? null,
+      },
+    },
+  };
+}
+
+async function loadDraftSupplier(
+  supabase: ServerSupabase,
+  supplierId: string,
+): Promise<PurchaseInvoiceDraftSupplier | null> {
+  const { data } = await supabase
+    .from("suppliers")
+    .select("id, legal_name, display_name, cuit, iva_condition")
+    .eq("id", supplierId)
+    .maybeSingle();
+  if (!data || !isIvaCondition(data.iva_condition)) return null;
+  return {
+    id: data.id,
+    legal_name: data.legal_name,
+    display_name: data.display_name,
+    cuit: data.cuit,
+    iva_condition: data.iva_condition,
+  };
+}
+
+/**
+ * The expense suggestion (account/cost-center codes) → ids. Only a confident
+ * suggestion carries an account; otherwise posting falls back to the compras
+ * role.
+ */
+async function resolveExpenseSuggestion(
+  supabase: ServerSupabase,
+  matches: Json,
+): Promise<{
+  account: { id: string; label: string } | null;
+  costCenterId: string | null;
+}> {
+  const expense =
+    isRecord(matches) && isRecord(matches.expense) ? matches.expense : null;
+  if (!expense) return { account: null, costCenterId: null };
+  const accCode =
+    typeof expense.accountCode === "string" ? expense.accountCode : null;
+  const ccCode =
+    typeof expense.costCenterCode === "string" ? expense.costCenterCode : null;
+
+  const [acc, cc] = await Promise.all([
+    accCode && accCode !== "UNMAPPED"
+      ? supabase
+          .from("chart_of_accounts")
+          .select("id, code, name")
+          .eq("code", accCode)
+          .maybeSingle()
+      : null,
+    ccCode
+      ? supabase
+          .from("cost_centers")
+          .select("id")
+          .eq("code", ccCode)
+          .maybeSingle()
+      : null,
+  ]);
+  const account = acc?.data
+    ? { id: acc.data.id, label: `${acc.data.code} — ${acc.data.name}` }
+    : null;
+  return { account, costCenterId: cc?.data?.id ?? null };
+}
+
+const CreatePurchaseInvoiceFromDraftSchema = z.object({
   extractionId: z.string().uuid(),
-  channelId: z.string().min(1),
+  // Validated by createPurchaseInvoiceAction, like a manual load.
+  invoice: z.unknown(),
 });
 
 /**
- * Creates a purchase invoice from a reviewed `purchase_invoice` extraction,
- * reusing the existing create action (which re-validates everything). Requires
- * a matched supplier and a chosen channel. On success the draft is marked
- * confirmed with a link to the created entity.
+ * Saves the reviewed purchase-invoice form of a scanned purchase invoice or
+ * NC/ND: claims the draft, creates the invoice through the normal create
+ * action (same validation and permission), attaches the scanned file to it
+ * and confirms the draft. A failed create releases the draft for a retry.
  */
-export async function createPurchaseInvoiceFromExtractionAction(
+export async function createPurchaseInvoiceFromDraftAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
@@ -252,121 +439,38 @@ export async function createPurchaseInvoiceFromExtractionAction(
   ) {
     return {
       ok: false,
-      error: "No tenés permiso para crear facturas de compra.",
+      error: "No tenés permiso para cargar facturas de compra.",
     };
   }
-
-  const parsed = CreateFromExtractionSchema.safeParse(input);
+  const parsed = CreatePurchaseInvoiceFromDraftSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { data: ext, error } = await supabase
-    .from("ai_document_extractions")
-    .select("detected_type, status, matches, payload")
-    .eq("id", parsed.data.extractionId)
-    .maybeSingle();
-  if (error || !ext)
-    return { ok: false, error: "No se encontró la extracción." };
-  if (ext.status !== "pending_review") {
-    return { ok: false, error: "La extracción ya fue procesada." };
-  }
-  if (ext.detected_type !== "purchase_invoice") {
-    return {
-      ok: false,
-      error: "Solo se puede crear factura de compra desde acá.",
-    };
-  }
-
-  const supplierId =
-    isRecord(ext.matches) && typeof ext.matches.supplier_id === "string"
-      ? ext.matches.supplier_id
-      : null;
-  if (!supplierId) {
-    return {
-      ok: false,
-      error: "Asociá un proveedor antes de crear la factura.",
-    };
-  }
-
-  // Resolve the confirmed expense suggestion (codes) → ids so the invoice posts
-  // to the suggested account/cost center. Only confident suggestions carry an
-  // account (else UNMAPPED → no account → posting falls back to the compras role).
-  let accountId: string | null = null;
-  let costCenterId: string | null = null;
-  const expense =
-    isRecord(ext.matches) && isRecord(ext.matches.expense)
-      ? ext.matches.expense
-      : null;
-  if (expense) {
-    const accCode =
-      typeof expense.accountCode === "string" ? expense.accountCode : null;
-    const ccCode =
-      typeof expense.costCenterCode === "string"
-        ? expense.costCenterCode
-        : null;
-    if (accCode && accCode !== "UNMAPPED") {
-      const { data: acc } = await supabase
-        .from("chart_of_accounts")
-        .select("id")
-        .eq("code", accCode)
-        .maybeSingle();
-      accountId = acc?.id ?? null;
-    }
-    if (ccCode) {
-      const { data: cc } = await supabase
-        .from("cost_centers")
-        .select("id")
-        .eq("code", ccCode)
-        .maybeSingle();
-      costCenterId = cc?.id ?? null;
-    }
-  }
-
-  const built = buildPurchaseInvoiceInput(ext.payload, {
-    channelId: parsed.data.channelId,
-    supplierId,
-    accountId,
-    costCenterId,
-  });
-  if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
-
-  // USD invoice: pre-fill the exchange rate for the invoice date so the ledger
-  // posts ARS (the emitter converts by cotizacion). Left at 1 if no rate is
-  // configured — the human confirms before creating.
-  if (built.moneda === "DOL" && built.fecha) {
-    const rate = await getUsdRateForDateAction(built.fecha);
-    if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
-  }
-
-  const created = await createWithClaim(
+  const loaded = await loadPendingForCreate(
     supabase,
     parsed.data.extractionId,
-    () => createPurchaseInvoiceAction(built),
+    PURCHASE_DRAFT_KINDS,
+  );
+  if ("error" in loaded) return { ok: false, error: loaded.error };
+
+  const extraction = {
+    id: parsed.data.extractionId,
+    fileId: loaded.ext.file_id,
+  };
+  const created = await createWithClaim(supabase, extraction.id, () =>
+    createPurchaseInvoiceAction(parsed.data.invoice),
   );
   if (!created.ok) {
-    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
+    return linkPartialCreate(supabase, actorOf(ctx), extraction, {
       table: "purchase_invoices",
       failure: created,
     });
   }
 
-  await supabase
-    .from("ai_document_extractions")
-    .update({
-      status: "confirmed",
-      created_entity: { table: "purchase_invoices", id: created.data.id },
-    })
-    .eq("id", parsed.data.extractionId);
-
-  await logAudit(
-    "ai.document.confirmed",
-    ctx.userId,
-    {
-      extraction_id: parsed.data.extractionId,
-      purchase_invoice_id: created.data.id,
-    },
-    created.data.id,
-  );
+  await confirmExtraction(supabase, actorOf(ctx), extraction, {
+    table: "purchase_invoices",
+    id: created.data.id,
+  });
   return { ok: true, data: { id: created.data.id } };
 }
 
@@ -453,7 +557,7 @@ export async function createChecksFromExtractionAction(
   const supabase = await createSupabaseClient();
   const { data: ext, error } = await supabase
     .from("ai_document_extractions")
-    .select("detected_type, status")
+    .select("detected_type, status, file_id")
     .eq("id", extractionId)
     .maybeSingle();
   if (error || !ext)
@@ -484,7 +588,7 @@ export async function createChecksFromExtractionAction(
   }
 
   const errors: { index: number; error: string }[] = [];
-  let created = 0;
+  const createdIds: string[] = [];
 
   for (const [i, row] of cheques.entries()) {
     const candidate = {
@@ -510,33 +614,38 @@ export async function createChecksFromExtractionAction(
       });
       continue;
     }
-    const { error: insErr } = await supabase.from("checks").insert({
-      kind: v.data.kind,
-      check_number: v.data.check_number,
-      bank_name: v.data.bank_name,
-      drawer_name: v.data.drawer_name,
-      drawer_cuit: v.data.drawer_cuit ?? null,
-      issue_date: v.data.issue_date,
-      due_date: v.data.due_date,
-      amount: v.data.amount,
-      currency: v.data.currency,
-      cartera_account_id: v.data.cartera_account_id,
-      status: "en_cartera",
-      source_kind: v.data.source_kind,
-      source_client_id: v.data.source_client_id ?? null,
-      notes: v.data.notes ?? null,
-      created_by: ctx.userId,
-    });
-    if (insErr) {
+    const { data: inserted, error: insErr } = await supabase
+      .from("checks")
+      .insert({
+        kind: v.data.kind,
+        check_number: v.data.check_number,
+        bank_name: v.data.bank_name,
+        drawer_name: v.data.drawer_name,
+        drawer_cuit: v.data.drawer_cuit ?? null,
+        issue_date: v.data.issue_date,
+        due_date: v.data.due_date,
+        amount: v.data.amount,
+        currency: v.data.currency,
+        cartera_account_id: v.data.cartera_account_id,
+        status: "en_cartera",
+        source_kind: v.data.source_kind,
+        source_client_id: v.data.source_client_id ?? null,
+        notes: v.data.notes ?? null,
+        created_by: ctx.userId,
+      })
+      .select("id")
+      .single();
+    if (insErr || !inserted) {
       errors.push({
         index: i,
         error: "No se pudo guardar (¿número repetido?).",
       });
       continue;
     }
-    created += 1;
+    createdIds.push(inserted.id);
   }
 
+  const created = createdIds.length;
   if (created === 0) {
     await releaseExtraction(supabase, extractionId);
   } else {
@@ -545,6 +654,16 @@ export async function createChecksFromExtractionAction(
       .from("ai_document_extractions")
       .update({ status: "confirmed", created_entity: createdEntity })
       .eq("id", extractionId);
+    const actor = actorOf(ctx);
+    if (actor.canAttach) {
+      for (const id of createdIds) {
+        await attachSourceFile(supabase, {
+          fileId: ext.file_id,
+          target: { table: "checks", id },
+          userId: ctx.userId,
+        });
+      }
+    }
     await logAudit(
       "ai.document.confirmed",
       ctx.userId,
@@ -557,10 +676,10 @@ export async function createChecksFromExtractionAction(
 }
 
 // ---------------------------------------------------------------------------
-// Create-from-extraction: receipt, payment order, sales invoice, NC/ND compra.
-// Same shape as the purchase-invoice flow: load + guard the draft, map to the
-// existing create action (which re-validates and enforces its own permission),
-// then mark the extraction confirmed and audit.
+// Create-from-extraction: receipt, payment order, sales invoice. Same shape as
+// the purchase-invoice flow: load + guard the draft, map to the existing create
+// action (which re-validates and enforces its own permission), then mark the
+// extraction confirmed, attach its file to the entity and audit.
 // ---------------------------------------------------------------------------
 
 type PendingExtractionRow = {
@@ -568,24 +687,28 @@ type PendingExtractionRow = {
   status: string;
   matches: Json;
   payload: Json;
+  file_id: string;
 };
 
 /** Loads a draft and guards status + detected type. Returns an error string on failure. */
 async function loadPendingForCreate(
-  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  supabase: ServerSupabase,
   extractionId: string,
-  expectedType: string,
+  expectedTypes: readonly string[],
 ): Promise<{ ext: PendingExtractionRow } | { error: string }> {
   const { data: ext, error } = await supabase
     .from("ai_document_extractions")
-    .select("detected_type, status, matches, payload")
+    .select("detected_type, status, matches, payload, file_id")
     .eq("id", extractionId)
     .maybeSingle();
   if (error || !ext) return { error: "No se encontró la extracción." };
   if (ext.status !== "pending_review") {
     return { error: "La extracción ya fue procesada." };
   }
-  if (ext.detected_type !== expectedType) {
+  if (
+    ext.detected_type === null ||
+    !expectedTypes.includes(ext.detected_type)
+  ) {
     return { error: "El tipo de documento no coincide con esta acción." };
   }
   return { ext };
@@ -599,8 +722,6 @@ function matchedId(
     ? matches[key]
     : null;
 }
-
-type ServerSupabase = Awaited<ReturnType<typeof createSupabaseClient>>;
 
 const ALREADY_PROCESSED = "La extracción ya fue procesada.";
 
@@ -622,6 +743,36 @@ async function claimExtraction(
     .maybeSingle();
   if (error) {
     logger.error("ai.document.claim.failed", { extractionId, error });
+    return false;
+  }
+  return data !== null;
+}
+
+/** A claim older than this with nothing created was left by a crashed save. */
+const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+/**
+ * Returns a draft stuck as claimed (confirmed, nothing linked) for longer than
+ * STALE_CLAIM_MS to pending_review, so it can be saved again. True if it did.
+ */
+async function releaseStaleClaim(
+  supabase: ServerSupabase,
+  extractionId: string,
+  updatedAt: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+  if (updatedAt >= cutoff) return false;
+  const { data, error } = await supabase
+    .from("ai_document_extractions")
+    .update({ status: "pending_review" })
+    .eq("id", extractionId)
+    .eq("status", "confirmed")
+    .is("created_entity", null)
+    .lt("updated_at", cutoff)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    logger.error("ai.document.stale_release.failed", { extractionId, error });
     return false;
   }
   return data !== null;
@@ -678,15 +829,15 @@ async function createWithClaim<T>(
  */
 async function linkPartialCreate(
   supabase: ServerSupabase,
-  userId: string,
-  extractionId: string,
+  actor: Actor,
+  extraction: { id: string; fileId: string },
   opts: {
-    table: string;
+    table: SourceFileTarget["table"];
     failure: { ok: false; error: string } | PartialCreateFailure;
   },
 ): Promise<{ ok: false; error: string }> {
   if ("createdId" in opts.failure) {
-    await confirmExtraction(supabase, userId, extractionId, {
+    await confirmExtraction(supabase, actor, extraction, {
       table: opts.table,
       id: opts.failure.createdId,
     });
@@ -694,24 +845,52 @@ async function linkPartialCreate(
   return { ok: false, error: opts.failure.error };
 }
 
-/** Links the created entity to the (already claimed) draft + audits. */
+/**
+ * Links the created entity to the (already claimed) draft, attaches the
+ * scanned file to the entity and audits.
+ */
 async function confirmExtraction(
   supabase: ServerSupabase,
-  userId: string,
-  extractionId: string,
-  entity: { table: string; id: string },
+  actor: Actor,
+  extraction: { id: string; fileId: string },
+  entity: SourceFileTarget,
 ): Promise<void> {
-  await supabase
-    .from("ai_document_extractions")
-    .update({
-      status: "confirmed",
-      created_entity: { table: entity.table, id: entity.id },
-    })
-    .eq("id", extractionId);
+  const link = () =>
+    supabase
+      .from("ai_document_extractions")
+      .update({
+        status: "confirmed",
+        created_entity: { table: entity.table, id: entity.id },
+      })
+      .eq("id", extraction.id);
+  const { error } = await link();
+  if (error) {
+    const retry = await link();
+    if (retry.error) {
+      // The entity exists; the draft keeps its claim (no re-create from it).
+      logger.error("ai.document.confirm.failed", {
+        extractionId: extraction.id,
+        table: entity.table,
+        entityId: entity.id,
+        error: retry.error,
+      });
+    }
+  }
+  const attached = actor.canAttach
+    ? await attachSourceFile(supabase, {
+        fileId: extraction.fileId,
+        target: entity,
+        userId: actor.userId,
+      })
+    : false;
   await logAudit(
     "ai.document.confirmed",
-    userId,
-    { extraction_id: extractionId, [`${entity.table}_id`]: entity.id },
+    actor.userId,
+    {
+      extraction_id: extraction.id,
+      [`${entity.table}_id`]: entity.id,
+      file_attached: attached,
+    },
     entity.id,
   );
 }
@@ -751,7 +930,7 @@ export async function createReceiptFromExtractionAction(
   const loaded = await loadPendingForCreate(
     supabase,
     parsed.data.extractionId,
-    "receipt",
+    ["receipt"],
   );
   if ("error" in loaded) return { ok: false, error: loaded.error };
 
@@ -784,10 +963,12 @@ export async function createReceiptFromExtractionAction(
   );
   if (!created.ok) return created;
 
-  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
-    table: "receipts",
-    id: created.data.id,
-  });
+  await confirmExtraction(
+    supabase,
+    actorOf(ctx),
+    { id: parsed.data.extractionId, fileId: loaded.ext.file_id },
+    { table: "receipts", id: created.data.id },
+  );
   return { ok: true, data: { id: created.data.id } };
 }
 
@@ -827,7 +1008,7 @@ export async function createPaymentOrderFromExtractionAction(
   const loaded = await loadPendingForCreate(
     supabase,
     parsed.data.extractionId,
-    "payment_order",
+    ["payment_order"],
   );
   if ("error" in loaded) return { ok: false, error: loaded.error };
 
@@ -860,85 +1041,12 @@ export async function createPaymentOrderFromExtractionAction(
   );
   if (!created.ok) return created;
 
-  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
-    table: "payment_orders",
-    id: created.data.id,
-  });
-  return { ok: true, data: { id: created.data.id } };
-}
-
-const CreatePurchaseNoteFromExtractionSchema = z.object({
-  extractionId: z.string().uuid(),
-  channelId: z.string().min(1, "Canal requerido."),
-  kind: z.enum(["nc", "nd"]),
-  motivo: z.string().trim().min(1, "El motivo es requerido.").max(500),
-});
-
-/**
- * Creates a purchase NC/ND from a reviewed `credit_debit_note` extraction.
- * Scanned notes are received from suppliers, so they land on the purchase
- * side (kind nc/nd) — the sales side emits its own notes via AFIP.
- */
-export async function createPurchaseNoteFromExtractionAction(
-  input: unknown,
-): Promise<ActionResult<{ id: string }>> {
-  const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.roles, "ai:read") ||
-    !userCan(ctx.roles, "purchase_invoices:write")
-  ) {
-    return { ok: false, error: "No tenés permiso para crear NC/ND de compra." };
-  }
-  const parsed = CreatePurchaseNoteFromExtractionSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-
-  const supabase = await createSupabaseClient();
-  const loaded = await loadPendingForCreate(
+  await confirmExtraction(
     supabase,
-    parsed.data.extractionId,
-    "credit_debit_note",
+    actorOf(ctx),
+    { id: parsed.data.extractionId, fileId: loaded.ext.file_id },
+    { table: "payment_orders", id: created.data.id },
   );
-  if ("error" in loaded) return { ok: false, error: loaded.error };
-
-  const supplierId = matchedId(loaded.ext.matches, "supplier_id");
-  if (!supplierId) {
-    return { ok: false, error: "Asociá un proveedor antes de crear la nota." };
-  }
-
-  const built = buildPurchaseInvoiceInput(loaded.ext.payload, {
-    channelId: parsed.data.channelId,
-    supplierId,
-    kind: parsed.data.kind,
-    motivo: parsed.data.motivo,
-  });
-  if (!built) return { ok: false, error: "No se pudieron mapear los datos." };
-
-  if (built.moneda === "DOL" && built.fecha) {
-    const rate = await getUsdRateForDateAction(built.fecha);
-    if (rate.ok && rate.data.rate) built.cotizacion = rate.data.rate;
-  }
-
-  const created = await createWithClaim(
-    supabase,
-    parsed.data.extractionId,
-    () => createPurchaseInvoiceAction(built),
-  );
-  if (!created.ok) {
-    return linkPartialCreate(supabase, ctx.userId, parsed.data.extractionId, {
-      table: "purchase_invoices",
-      failure: created,
-    });
-  }
-
-  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
-    table: "purchase_invoices",
-    id: created.data.id,
-  });
   return { ok: true, data: { id: created.data.id } };
 }
 
@@ -973,7 +1081,7 @@ export async function createSalesInvoiceFromExtractionAction(
   const loaded = await loadPendingForCreate(
     supabase,
     parsed.data.extractionId,
-    "sales_invoice",
+    ["sales_invoice"],
   );
   if ("error" in loaded) return { ok: false, error: loaded.error };
 
@@ -1073,9 +1181,11 @@ export async function createSalesInvoiceFromExtractionAction(
   );
   if (!created.ok) return created;
 
-  await confirmExtraction(supabase, ctx.userId, parsed.data.extractionId, {
-    table: "invoices",
-    id: created.data.id,
-  });
+  await confirmExtraction(
+    supabase,
+    actorOf(ctx),
+    { id: parsed.data.extractionId, fileId: loaded.ext.file_id },
+    { table: "invoices", id: created.data.id },
+  );
   return { ok: true, data: { id: created.data.id } };
 }

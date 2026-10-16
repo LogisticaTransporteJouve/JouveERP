@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, type Permission } from "@/lib/auth/permissions";
+import { ATTACHMENT_FK_COLUMN } from "@/lib/files/attachment-targets";
+import { isFileReferencedElsewhere } from "@/lib/files/references";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -15,9 +17,7 @@ import {
   type FileAttachmentRow,
 } from "../schema";
 
-type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 const BUCKET = "files";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -35,28 +35,18 @@ const ALLOWED_MIME = new Set([
 // plus this — attach is gated by the user's right to write the target.
 const TARGET_WRITE_PERMISSION: Record<AttachmentTargetType, Permission> = {
   purchase_invoice: "purchase_invoices:write",
-  invoice:          "invoices:issue",
-  receipt:          "receipts:write",
-  payment_order:    "payment_orders:write",
-  check:            "cheques:write",
-  issued_check:     "issued_checks:write",
-  client:           "clients:write",
-  supplier:         "suppliers:write",
-  transaction:      "transactions:write",
+  invoice: "invoices:issue",
+  receipt: "receipts:write",
+  payment_order: "payment_orders:write",
+  check: "cheques:write",
+  issued_check: "issued_checks:write",
+  client: "clients:write",
+  supplier: "suppliers:write",
+  transaction: "transactions:write",
 };
 
-// FK column on file_attachments per target type.
-const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> = {
-  purchase_invoice: "purchase_invoice_id",
-  invoice:          "invoice_id",
-  receipt:          "receipt_id",
-  payment_order:    "payment_order_id",
-  check:            "check_id",
-  issued_check:     "issued_check_id",
-  client:           "client_id",
-  supplier:         "supplier_id",
-  transaction:      "transaction_id",
-};
+const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> =
+  ATTACHMENT_FK_COLUMN;
 
 // ─── uploadFileAction ────────────────────────────────────────────────────────
 // Storage write first (bytes), then files row, then file_attachments row.
@@ -65,9 +55,7 @@ const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> = {
 
 export async function uploadFileAction(
   formData: FormData,
-): Promise<
-  ActionResult<{ fileId: string; attachmentId: string }>
-> {
+): Promise<ActionResult<{ fileId: string; attachmentId: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "files:write")) {
     return { ok: false, error: "Sin permiso para subir archivos." };
@@ -102,7 +90,10 @@ export async function uploadFileAction(
     return { ok: false, error: "El archivo supera 10 MB." };
   }
   if (!ALLOWED_MIME.has(file.type)) {
-    return { ok: false, error: `Tipo no permitido (${file.type || "desconocido"}).` };
+    return {
+      ok: false,
+      error: `Tipo no permitido (${file.type || "desconocido"}).`,
+    };
   }
 
   const supabase = await createClient();
@@ -113,7 +104,10 @@ export async function uploadFileAction(
     .from(BUCKET)
     .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
   if (storageErr) {
-    logger.warn("files.upload.storage_failed", { userId: ctx.userId, error: storageErr.message });
+    logger.warn("files.upload.storage_failed", {
+      userId: ctx.userId,
+      error: storageErr.message,
+    });
     return { ok: false, error: "No se pudo subir el archivo." };
   }
 
@@ -129,7 +123,10 @@ export async function uploadFileAction(
   });
   if (registryErr) {
     await supabase.storage.from(BUCKET).remove([bucketPath]);
-    logger.warn("files.upload.registry_failed", { userId: ctx.userId, error: registryErr.message });
+    logger.warn("files.upload.registry_failed", {
+      userId: ctx.userId,
+      error: registryErr.message,
+    });
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
@@ -280,7 +277,11 @@ export async function detachFileAction(
     .select("id", { count: "exact", head: true })
     .eq("file_id", attRow.file_id);
 
-  if (count === 0 && fileRow) {
+  if (
+    count === 0 &&
+    fileRow &&
+    !(await isFileReferencedElsewhere(attRow.file_id))
+  ) {
     await supabase.storage.from(fileRow.bucket).remove([fileRow.bucket_path]);
     await supabase.from("files").delete().eq("id", attRow.file_id);
     return { ok: true, data: { deletedBlob: true } };

@@ -7,6 +7,7 @@ import {
   extractDocument,
   type UsageSink,
 } from "@/features/ai/document/engine";
+import { resolveDeclaredKind } from "@/features/ai/document/declared-kind";
 import { applyInvoicePostInference } from "@/features/ai/document/post-inference";
 import {
   InvoiceExtractionSchema,
@@ -58,8 +59,8 @@ function usageMeter(userId: string | null): {
 }
 
 /**
- * Document Intelligence pipeline (docs/ai-overview.md §5-bis): classify (Haiku,
- * skipped in contextual mode) → extract (Sonnet, structured output) →
+ * Document Intelligence pipeline (docs/ai-overview.md §5-bis): classify (Haiku;
+ * reconciled with a declared type) → extract (Sonnet, structured output) →
  * deterministic post-inference → match counterparty/duplicate → save the draft
  * as `pending_review`. The file bytes never cross a step boundary (they'd be
  * serialized): download + both vision calls run inside one step.
@@ -154,16 +155,12 @@ async function classifyAndExtract(
 ): Promise<{ kind: string; confidence: number | null; payload: unknown }> {
   const doc = await downloadFileBytes(fileId);
 
-  let kind: string;
-  let confidence: number | null;
-  if (declaredType) {
-    kind = declaredType;
-    confidence = 1;
-  } else {
-    const classification = await classifyDocument(doc, { onUsage });
-    kind = classification.type;
-    confidence = classification.confidence;
-  }
+  // Classified even when the type was declared: its confidence is what the
+  // review shows, and a confident "this is something else" is reported.
+  const classification = await classifyDocument(doc, { onUsage });
+  const { kind, confidence } = declaredType
+    ? resolveDeclaredKind(declaredType, classification)
+    : { kind: classification.type, confidence: classification.confidence };
 
   let payload: unknown = {};
   if (isExtractableKind(kind)) {
