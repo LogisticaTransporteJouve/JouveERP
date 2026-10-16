@@ -175,7 +175,16 @@ lock por usuario que cuenta antes de insertar).
 auth.uid())` y rol con `ai:chat`); las escrituras van por el service client después del gate y
 filtrando por el usuario (`features/ai/lib/pinned-artifacts.ts`).
 
-**Pendiente de esta fase.** Adjuntos en el chat (reusar Document Intelligence) y XLSX.
+**Adjuntos.** El usuario adjunta PDF, imágenes, CSV o XLSX a un mensaje (clip, arrastrar, pegar o
+cámara en el celular). El modelo recibe PDF e imágenes como archivos y las planillas como filas de
+texto, todo como dato no confiable y dentro de un presupuesto por turno; los mensajes guardados
+muestran chips con vista previa. Si un adjunto parece un comprobante, `proposeDocumentScan`
+(`ai:chat` + `ai:read` + `files:write`) propone mandarlo a Documentos: al confirmar corre el mismo
+pipeline de Document Intelligence (`features/ai/document/start.ts`) y el borrador se revisa en
+`/documentos`. Detalle de storage, RLS y límites en
+[`files-patterns.md` §14](./files-patterns.md#14-adjuntos-del-chat-de-ia-y-página-files-2026-10-16).
+
+**Pendiente de esta fase.** Exportar artefactos a XLSX.
 
 ## Fase 4 — trabaja solo (hecha)
 
