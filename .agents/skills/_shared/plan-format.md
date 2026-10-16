@@ -37,7 +37,7 @@ but the writer MUST NOT invent new top-level sections outside this list.
 
 Each `### N.M <Work Item Title>` MUST carry these labeled fields, in this order:
 
-- **Files:** exact paths to create/modify (never "the registry file" — `features/ai/tools/registry.ts`).
+- **Files:** exact paths to create/modify (never "the registry file" — `features/ai/registry/catalog.ts`).
 - **Problem:** what's wrong / missing — specific, WITH line numbers.
 - **Current:** the ACTUAL current code (paste it, fenced) if modifying existing code.
 - **Target:** the target code (fenced) or an unambiguous description of the target state.
