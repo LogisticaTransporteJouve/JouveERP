@@ -4,12 +4,11 @@ import {
   PALLET_STATUS_LABELS,
   isPalletStatus,
 } from "@/features/pallets/schema";
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import type { Exporter } from "../shared";
+import { dateCell, type Exporter } from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -65,7 +64,7 @@ export const pallets: Exporter = {
         product?.name ?? "—",
         quantity,
         PALLET_STATUS_LABELS[status],
-        formatArgentineDate(row.entry_date),
+        dateCell(row.entry_date),
       ];
     });
 

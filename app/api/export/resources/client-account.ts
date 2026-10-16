@@ -4,13 +4,14 @@ import {
   getClientAccountAction,
   type AccountMovement,
 } from "@/features/clients/actions/account-actions";
-import { formatArgentineDate } from "@/lib/format";
 
 import {
   ACCOUNT_COLUMNS,
+  dateCell,
   inRange,
-  money,
+  moneyCell,
   type Exporter,
+  withSlug,
 } from "../shared";
 
 function clientType(m: AccountMovement): string {
@@ -51,12 +52,12 @@ export const clientAccount: Exporter = {
       if (isDebit) totalDebe += m.gross_amount;
       else totalHaber += m.gross_amount;
       return [
-        formatArgentineDate(m.movement_date),
+        dateCell(m.movement_date),
         clientType(m),
         clientDoc(m),
-        isDebit ? money(m.gross_amount) : "",
-        isDebit ? "" : money(m.gross_amount),
-        money(m.balance),
+        isDebit ? moneyCell(m.gross_amount) : "",
+        isDebit ? "" : moneyCell(m.gross_amount),
+        moneyCell(m.balance),
       ];
     });
     const finalBalance = movements.length
@@ -71,11 +72,11 @@ export const clientAccount: Exporter = {
         "",
         "",
         "Totales",
-        money(totalDebe),
-        money(totalHaber),
-        money(finalBalance),
+        moneyCell(totalDebe),
+        moneyCell(totalHaber),
+        moneyCell(finalBalance),
       ],
-      fileName: "cuenta-corriente-cliente",
+      fileName: withSlug("cuenta-corriente-cliente", params.get("name")),
     };
   },
 };

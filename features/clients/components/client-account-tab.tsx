@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { DateRangeSelector } from "@/components/date-range-selector";
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { useDateRange } from "@/components/providers/date-range-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -56,7 +56,6 @@ interface InvoiceChannelOption {
   is_fiscal: boolean;
 }
 
-
 // es-AR currency style inserts a space between $ and the number; we want
 // the `$` flush against the number in this table, so we build a custom
 // formatter with the helper.
@@ -85,9 +84,7 @@ function movementTypeLabel(m: AccountMovement): string {
 }
 
 function movementHref(m: AccountMovement): string {
-  return m.source_type === "receipt"
-    ? "/receipts"
-    : `/invoices/${m.source_id}`;
+  return m.source_type === "receipt" ? "/receipts" : `/invoices/${m.source_id}`;
 }
 
 export function ClientAccountTab({
@@ -454,13 +451,13 @@ export function ClientAccountTab({
 
       <div className="flex flex-wrap items-center gap-2">
         <DateRangeSelector />
-        <ExportPdfButton
+        <ExportButton
           resource="client-account"
           params={{
             clientId,
             name: `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`,
           }}
-          label="Resumen PDF"
+          label="Exportar resumen"
         />
         {(canIssueInvoice || canWriteReceipt) && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -469,11 +466,7 @@ export function ClientAccountTab({
                 <OpeningBalanceDialog
                   clientId={clientId}
                   trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!isOwner}
-                    >
+                    <Button variant="outline" size="sm" disabled={!isOwner}>
                       <Wallet />
                       Ajustar saldo
                     </Button>
@@ -562,13 +555,7 @@ function OwnerOnly({
   );
 }
 
-function BalanceHeader({
-  balance,
-  count,
-}: {
-  balance: number;
-  count: number;
-}) {
+function BalanceHeader({ balance, count }: { balance: number; count: number }) {
   const tone =
     balance > 0
       ? "text-muted-foreground dark:text-muted-foreground"

@@ -1,11 +1,10 @@
 import "server-only";
 
-import { formatArgentineDate } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { type Exporter } from "../shared";
+import { dateCell, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -54,7 +53,7 @@ export const products: Exporter = {
         row.sku ?? "—",
         row.unit ?? "—",
         row.is_active ? "Activo" : "Inactivo",
-        formatArgentineDate(row.created_at),
+        dateCell(row.created_at),
       ];
     });
 

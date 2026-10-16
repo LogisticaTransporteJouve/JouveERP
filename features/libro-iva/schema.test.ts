@@ -50,9 +50,24 @@ const baseCompraRow = (
 describe("groupComprasByInvoice", () => {
   it("agrupa filas por purchase_invoice_id con per_rate", () => {
     const rows: LibroIvaComprasRow[] = [
-      baseCompraRow({ purchase_invoice_id: "a", iva_rate_id: 5, neto: 1500, iva: 315 }),
-      baseCompraRow({ purchase_invoice_id: "a", iva_rate_id: 4, neto: 500, iva: 52.5 }),
-      baseCompraRow({ purchase_invoice_id: "b", iva_rate_id: 5, neto: 800, iva: 168 }),
+      baseCompraRow({
+        purchase_invoice_id: "a",
+        iva_rate_id: 5,
+        neto: 1500,
+        iva: 315,
+      }),
+      baseCompraRow({
+        purchase_invoice_id: "a",
+        iva_rate_id: 4,
+        neto: 500,
+        iva: 52.5,
+      }),
+      baseCompraRow({
+        purchase_invoice_id: "b",
+        iva_rate_id: 5,
+        neto: 800,
+        iva: 168,
+      }),
     ];
     const grouped = groupComprasByInvoice(rows);
     expect(grouped).toHaveLength(2);
@@ -62,7 +77,13 @@ describe("groupComprasByInvoice", () => {
 
   it("usa key -1 cuando iva_rate_id es null", () => {
     const grouped = groupComprasByInvoice([
-      baseCompraRow({ purchase_invoice_id: "x", iva_rate_id: null, neto: 1000, iva: 210, has_items: false }),
+      baseCompraRow({
+        purchase_invoice_id: "x",
+        iva_rate_id: null,
+        neto: 1000,
+        iva: 210,
+        has_items: false,
+      }),
     ]);
     expect(grouped[0]!.per_rate[-1]).toEqual({ neto: 1000, iva: 210 });
     expect(grouped[0]!.has_items).toBe(false);
@@ -72,8 +93,21 @@ describe("groupComprasByInvoice", () => {
 describe("computeComprasTotals", () => {
   it("acumula neto/iva por alícuota y totales del header", () => {
     const grouped = groupComprasByInvoice([
-      baseCompraRow({ purchase_invoice_id: "a", iva_rate_id: 5, neto: 1000, iva: 210, imp_total: 1210 }),
-      baseCompraRow({ purchase_invoice_id: "b", iva_rate_id: 4, neto: 500, iva: 52.5, imp_trib: 30, imp_total: 582.5 }),
+      baseCompraRow({
+        purchase_invoice_id: "a",
+        iva_rate_id: 5,
+        neto: 1000,
+        iva: 210,
+        imp_total: 1210,
+      }),
+      baseCompraRow({
+        purchase_invoice_id: "b",
+        iva_rate_id: 4,
+        neto: 500,
+        iva: 52.5,
+        imp_trib: 30,
+        imp_total: 582.5,
+      }),
     ]);
     const totals = computeComprasTotals(grouped);
     expect(totals.count).toBe(2);
@@ -147,8 +181,22 @@ describe("groupByInvoice", () => {
 describe("computeTotals", () => {
   it("acumula por alícuota y agrega totales del header", () => {
     const grouped = groupByInvoice([
-      baseRow({ invoice_id: "a", iva_rate_id: 5, neto: 1000, iva: 210, imp_trib: 30, imp_total: 1240 }),
-      baseRow({ invoice_id: "b", iva_rate_id: 4, neto: 200, iva: 21, imp_trib: 0, imp_total: 221 }),
+      baseRow({
+        invoice_id: "a",
+        iva_rate_id: 5,
+        neto: 1000,
+        iva: 210,
+        imp_trib: 30,
+        imp_total: 1240,
+      }),
+      baseRow({
+        invoice_id: "b",
+        iva_rate_id: 4,
+        neto: 200,
+        iva: 21,
+        imp_trib: 0,
+        imp_total: 221,
+      }),
     ]);
     const totals = computeTotals(grouped);
     expect(totals.count).toBe(2);
@@ -160,8 +208,24 @@ describe("computeTotals", () => {
 
   it("resta las notas de crédito (kind=nc) del IVA débito", () => {
     const grouped = groupByInvoice([
-      baseRow({ invoice_id: "a", kind: "factura", iva_rate_id: 5, neto: 1000, iva: 210, imp_trib: 0, imp_total: 1210 }),
-      baseRow({ invoice_id: "b", kind: "nc", iva_rate_id: 5, neto: 400, iva: 84, imp_trib: 0, imp_total: 484 }),
+      baseRow({
+        invoice_id: "a",
+        kind: "factura",
+        iva_rate_id: 5,
+        neto: 1000,
+        iva: 210,
+        imp_trib: 0,
+        imp_total: 1210,
+      }),
+      baseRow({
+        invoice_id: "b",
+        kind: "nc",
+        iva_rate_id: 5,
+        neto: 400,
+        iva: 84,
+        imp_trib: 0,
+        imp_total: 484,
+      }),
     ]);
     const totals = computeTotals(grouped);
     expect(totals.per_rate[5]).toEqual({ neto: 600, iva: 126 });

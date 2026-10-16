@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { ExportButton } from "@/components/export-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
@@ -53,7 +53,7 @@ export default async function RecibosPage() {
             independiente por canal: <span className="font-mono">R0003-…</span>.
           </p>
         </div>
-        <ExportPdfButton resource="receipts" label="Exportar PDF" />
+        <ExportButton resource="receipts" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

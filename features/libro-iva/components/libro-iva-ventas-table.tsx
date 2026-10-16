@@ -1,11 +1,10 @@
 "use client";
 
-import { AlertTriangle, FileDown } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 
 import { useLibroIvaVentas } from "../hooks/use-libro-iva";
@@ -14,7 +13,10 @@ import {
   groupByInvoice,
   IVA_RATES,
   KIND_LABEL,
+  libroIvaVoucherNumber,
 } from "../schema";
+
+import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaVentasTable({
   period,
@@ -63,7 +65,10 @@ export function LibroIvaVentasTable({
             {sinItems > 0 && (
               <p>
                 <span className="font-medium">{sinItems}</span> comprobante(s)
-                <span className="font-medium"> sin desglose por alícuota</span>{" "}
+                <span className="font-medium">
+                  {" "}
+                  sin desglose por alícuota
+                </span>{" "}
                 (probablemente legacy AFIP imports). El IVA total se muestra
                 pero sin separar por tasa.
               </p>
@@ -84,11 +89,17 @@ export function LibroIvaVentasTable({
               <th className="px-2 py-2 font-medium">Cliente</th>
               <th className="px-2 py-2 font-medium">CUIT</th>
               {IVA_RATES.map((r) => (
-                <th key={r.id} colSpan={2} className="border-l px-2 py-2 text-center font-medium">
+                <th
+                  key={r.id}
+                  colSpan={2}
+                  className="border-l px-2 py-2 text-center font-medium"
+                >
                   {r.label}
                 </th>
               ))}
-              <th className="border-l px-2 py-2 text-right font-medium">Perc.</th>
+              <th className="border-l px-2 py-2 text-right font-medium">
+                Perc.
+              </th>
               <th className="px-2 py-2 text-right font-medium">No grav.</th>
               <th className="px-2 py-2 text-right font-medium">Total</th>
               <th className="px-2 py-2 font-medium">CAE</th>
@@ -104,9 +115,7 @@ export function LibroIvaVentasTable({
                   <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
                   </th>
-                  <th className="px-2 py-1 text-right font-normal">
-                    IVA
-                  </th>
+                  <th className="px-2 py-1 text-right font-normal">IVA</th>
                 </Fragment>
               ))}
               <th className="border-l" />
@@ -117,9 +126,12 @@ export function LibroIvaVentasTable({
           </thead>
           <tbody>
             {grouped.map((row) => {
-              const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+              const number = libroIvaVoucherNumber(row);
               return (
-                <tr key={row.invoice_id} className="group border-b last:border-b-0 hover:bg-muted/20">
+                <tr
+                  key={row.invoice_id}
+                  className="group border-b last:border-b-0 hover:bg-muted/20"
+                >
                   <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
                     {formatArgentineDate(row.fecha)}
                   </td>
@@ -129,11 +141,17 @@ export function LibroIvaVentasTable({
                     </Badge>
                   </td>
                   <td className="px-2 py-1 font-mono text-xs">
-                    <Link href={`/invoices/${row.invoice_id}`} className="hover:underline">
+                    <Link
+                      href={`/invoices/${row.invoice_id}`}
+                      className="hover:underline"
+                    >
                       {number}
                     </Link>
                   </td>
-                  <td className="px-2 py-1 max-w-[200px] truncate" title={row.client_legal_name}>
+                  <td
+                    className="px-2 py-1 max-w-[200px] truncate"
+                    title={row.client_legal_name}
+                  >
                     {row.client_legal_name}
                   </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -163,7 +181,9 @@ export function LibroIvaVentasTable({
                   </td>
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.cae ? (
-                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>{row.cae}</span>
+                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>
+                        {row.cae}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -174,7 +194,10 @@ export function LibroIvaVentasTable({
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
             <tr>
-              <td colSpan={5} className="sticky left-0 z-10 bg-card px-2 py-2 text-right">
+              <td
+                colSpan={5}
+                className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
+              >
                 Totales ({totals.count} comprobantes)
               </td>
               {IVA_RATES.map((r) => {
@@ -196,25 +219,20 @@ export function LibroIvaVentasTable({
               <td className="px-2 py-2 text-right font-mono">
                 {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
               </td>
-              <td className="px-2 py-2 text-right font-mono">{money(totals.imp_total)}</td>
+              <td className="px-2 py-2 text-right font-mono">
+                {money(totals.imp_total)}
+              </td>
               <td />
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={`/api/accounting/libro-iva-ventas/pdf?period=${period}${channelId ? `&channel=${channelId}` : ""}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FileDown />
-            Exportar PDF
-          </a>
-        </Button>
-      </div>
+      <LibroIvaExportButtons
+        book="ventas"
+        period={period}
+        channelId={channelId}
+      />
     </div>
   );
 }

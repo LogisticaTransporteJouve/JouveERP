@@ -1,11 +1,10 @@
 "use client";
 
-import { AlertTriangle, FileDown } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 
 import { useLibroIvaCompras } from "../hooks/use-libro-iva";
@@ -14,7 +13,10 @@ import {
   groupComprasByInvoice,
   IVA_RATES,
   KIND_LABEL,
+  libroIvaVoucherNumber,
 } from "../schema";
+
+import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaComprasTable({
   period,
@@ -125,7 +127,7 @@ export function LibroIvaComprasTable({
           </thead>
           <tbody>
             {grouped.map((row) => {
-              const number = `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
+              const number = libroIvaVoucherNumber(row);
               return (
                 <tr
                   key={row.purchase_invoice_id}
@@ -196,7 +198,10 @@ export function LibroIvaComprasTable({
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
             <tr>
-              <td colSpan={5} className="sticky left-0 z-10 bg-card px-2 py-2 text-right">
+              <td
+                colSpan={5}
+                className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
+              >
                 Totales ({totals.count} comprobantes)
               </td>
               {IVA_RATES.map((r) => {
@@ -224,18 +229,11 @@ export function LibroIvaComprasTable({
         </table>
       </div>
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={`/api/accounting/libro-iva-compras/pdf?period=${period}${channelId ? `&channel=${channelId}` : ""}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FileDown />
-            Exportar PDF
-          </a>
-        </Button>
-      </div>
+      <LibroIvaExportButtons
+        book="compras"
+        period={period}
+        channelId={channelId}
+      />
     </div>
   );
 }
