@@ -1,14 +1,22 @@
 "use client";
 
-import { Info, MessageSquarePlus, OctagonAlert, TriangleAlert } from "lucide-react";
+import { Info, OctagonAlert, Sparkles, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import type { InsightCard as Insight } from "../actions";
 import { useSetInsightStatus } from "../hooks/use-insights";
+import { buildResolvePrompt } from "../lib/resolve-prompt";
+import { IgnoreInsightDialog } from "./ignore-insight-dialog";
 
 const SEVERITY_ICON = {
   info: Info,
@@ -40,7 +48,9 @@ function formatMetric(key: string, value: number): string {
     : value.toLocaleString("es-AR");
 }
 
-function metricChips(metrics: unknown): { key: string; label: string; value: string }[] {
+function metricChips(
+  metrics: unknown,
+): { key: string; label: string; value: string }[] {
   if (!isRecord(metrics)) return [];
   return Object.entries(metrics)
     .filter(([key, v]) => typeof v === "number" && key in METRIC_LABELS)
@@ -62,13 +72,14 @@ export function InsightCard({
   onAsk: (question: string) => void;
 }) {
   const setStatus = useSetInsightStatus();
+  const [ignoreOpen, setIgnoreOpen] = useState(false);
   const Icon =
     SEVERITY_ICON[insight.severity as keyof typeof SEVERITY_ICON] ?? Info;
   const chips = metricChips(insight.metrics);
 
-  function handleStatus(status: "acknowledged" | "dismissed") {
+  function handleAcknowledge() {
     setStatus.mutate(
-      { id: insight.id, status },
+      { id: insight.id, status: "acknowledged" },
       {
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : "No se pudo."),
@@ -103,19 +114,17 @@ export function InsightCard({
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            onAsk(`Sobre "${insight.title}": ${insight.finding} ¿Qué conviene hacer?`)
-          }
+          onClick={() => onAsk(buildResolvePrompt(insight))}
         >
-          <MessageSquarePlus className="size-3.5" />
-          Preguntar sobre esto
+          <Sparkles className="size-3.5" />
+          Resolver con IA
         </Button>
         {canManage && insight.status === "open" && (
           <Button
             variant="ghost"
             size="sm"
             disabled={setStatus.isPending}
-            onClick={() => handleStatus("acknowledged")}
+            onClick={handleAcknowledge}
           >
             Visto
           </Button>
@@ -125,13 +134,20 @@ export function InsightCard({
             variant="ghost"
             size="sm"
             className="text-muted-foreground ml-auto"
-            disabled={setStatus.isPending}
-            onClick={() => handleStatus("dismissed")}
+            onClick={() => setIgnoreOpen(true)}
           >
-            Descartar
+            Ignorar
           </Button>
         )}
       </CardFooter>
+      {canManage && (
+        <IgnoreInsightDialog
+          open={ignoreOpen}
+          onOpenChange={setIgnoreOpen}
+          insightId={insight.id}
+          title={insight.title}
+        />
+      )}
     </Card>
   );
 }

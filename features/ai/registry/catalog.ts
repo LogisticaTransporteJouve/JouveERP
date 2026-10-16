@@ -83,6 +83,7 @@ import {
   getStorageTariffs,
   getWarehouses,
 } from "./actions/warehouse";
+import { proposeAiWorkflow } from "./actions/workflows";
 import type { AiAction } from "./define";
 
 /** Every action the assistant knows, one definition each. The chat tools,
@@ -164,4 +165,5 @@ export const AI_ACTIONS: readonly AiAction[] = [
   // General
   searchGlobal,
   getAttachments,
+  proposeAiWorkflow,
 ];

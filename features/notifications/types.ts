@@ -2,7 +2,8 @@ export type NotificationType =
   | "chat_message"
   | "chat_reply"
   | "chat_mention"
-  | "document_expiring";
+  | "document_expiring"
+  | "ai_workflow_run";
 
 export type Notification = {
   id: string;

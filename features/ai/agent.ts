@@ -69,7 +69,7 @@ ${capabilities}`;
 type ProviderOptions = NonNullable<ModelMessage["providerOptions"]>;
 
 /** Anthropic ephemeral cache breakpoint (5-min TTL). Ignored by other providers. */
-const CACHE_BREAKPOINT: ProviderOptions = {
+export const CACHE_BREAKPOINT: ProviderOptions = {
   anthropic: { cacheControl: { type: "ephemeral" } },
 };
 
@@ -157,7 +157,7 @@ export function withTailCacheBreakpoint(
   ];
 }
 
-function toJsonValue(value: unknown): JsonValue {
+export function toJsonValue(value: unknown): JsonValue {
   try {
     return JSON.parse(JSON.stringify(value ?? null));
   } catch {

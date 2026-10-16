@@ -218,7 +218,9 @@ export type AiUsageKind =
   | "document_classify"
   | "document_extract"
   | "expense_classify"
-  | "tool_repair";
+  | "tool_repair"
+  | "workflow_run"
+  | "weekly_summary";
 
 export type AiUsageTokens = {
   /** Total input tokens (uncached + cache read + cache write). */

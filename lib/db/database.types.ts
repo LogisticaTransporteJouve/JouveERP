@@ -325,7 +325,11 @@ export type Database = {
       ai_insights: {
         Row: {
           created_at: string
+          dismissed_at: string | null
+          dismissed_by: string | null
+          dismissed_reason: string | null
           finding: string
+          fingerprint: string | null
           generated_at: string
           id: string
           kind: string
@@ -338,7 +342,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          dismissed_reason?: string | null
           finding: string
+          fingerprint?: string | null
           generated_at?: string
           id?: string
           kind: string
@@ -351,7 +359,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          dismissed_reason?: string | null
           finding?: string
+          fingerprint?: string | null
           generated_at?: string
           id?: string
           kind?: string
@@ -413,6 +425,147 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_weekly_summaries: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sources: string[]
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sources?: string[]
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sources?: string[]
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      ai_workflow_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          output: string | null
+          previous_run_id: string | null
+          scheduled_for: string
+          skip_reason: string | null
+          started_at: string | null
+          status: string
+          summary: string | null
+          tool_names: string[] | null
+          user_id: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          output?: string | null
+          previous_run_id?: string | null
+          scheduled_for: string
+          skip_reason?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          tool_names?: string[] | null
+          user_id: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          output?: string | null
+          previous_run_id?: string | null
+          scheduled_for?: string
+          skip_reason?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          tool_names?: string[] | null
+          user_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_runs_previous_run_id_fkey"
+            columns: ["previous_run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflow_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_runs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_workflows: {
+        Row: {
+          cadence: string
+          created_at: string
+          id: string
+          is_active: boolean
+          month_day: number | null
+          next_run_at: string
+          prompt: string
+          run_hour: number
+          run_minute: number
+          title: string
+          updated_at: string
+          user_id: string
+          weekday: number | null
+        }
+        Insert: {
+          cadence: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          month_day?: number | null
+          next_run_at: string
+          prompt: string
+          run_hour: number
+          run_minute: number
+          title: string
+          updated_at?: string
+          user_id: string
+          weekday?: number | null
+        }
+        Update: {
+          cadence?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          month_day?: number | null
+          next_run_at?: string
+          prompt?: string
+          run_hour?: number
+          run_minute?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+          weekday?: number | null
+        }
+        Relationships: []
       }
       attendance_records: {
         Row: {
