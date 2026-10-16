@@ -181,10 +181,10 @@ texto, todo como dato no confiable y dentro de un presupuesto por turno; los men
 muestran chips con vista previa. Si un adjunto parece un comprobante, `proposeDocumentScan`
 (`ai:chat` + `ai:read` + `files:write`) propone mandarlo a Documentos: al confirmar corre el mismo
 pipeline de Document Intelligence (`features/ai/document/start.ts`) y el borrador se revisa en
-`/documentos`. Detalle de storage, RLS y límites en
+`/documentos`. El contenido completo va en el turno en que se adjunta; después el modelo lo relee
+con `openAttachment` si lo necesita, y un archivo que la API rechaza se deja afuera con un aviso.
+Detalle de storage, RLS y límites en
 [`files-patterns.md` §14](./files-patterns.md#14-adjuntos-del-chat-de-ia-y-página-files-2026-10-16).
-
-**Pendiente de esta fase.** Exportar artefactos a XLSX.
 
 ## Fase 4 — trabaja solo (hecha)
 

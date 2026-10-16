@@ -1086,24 +1086,39 @@ paralelo.
   cada subida del chat a un solo mensaje.
 - **Subida:** `uploadChatAttachmentAction` (`features/ai/attachments/actions.ts`,
   `ai:chat` + `files:write`, rate limit 60/h). Valida tipo (PDF, PNG, JPG,
-  WebP, CSV, XLSX), tamaño (10 MB; imágenes 5 MB, el tope del modelo), los
-  bytes contra el tipo declarado (`sniff.ts`), páginas del PDF (≤ 20,
-  `pdf-pages.ts`) y que la planilla se pueda leer. Sube con el service client
-  a `{fileId}.{ext}` y registra `files` con `source = 'chat_attachment'` y
-  `metadata.pages`. Queda como **borrador**: sin link hasta que se manda.
+  WebP, CSV, XLSX), tamaño (4 MB, porque la subida pasa por un server action
+  y Vercel corta el body en 4,5 MB; imágenes 3,7 MB, que en base64 quedan
+  bajo los 5 MB del modelo), los bytes contra el tipo declarado (`sniff.ts`),
+  PDF cifrado o con contraseña (rechazado), páginas del PDF (≤ 20, objetos
+  `/Type /Page` distintos, también dentro de object streams) y que la
+  planilla se pueda leer. Sube con el service client a `{fileId}.{ext}` y
+  registra `files` con `source = 'chat_attachment'` y en `metadata` las
+  páginas, o las filas y la tabla ya leída (si ocupa ≤ 200.000 caracteres),
+  así no se vuelve a parsear en cada turno. Queda como **borrador**: sin link
+  hasta que se manda.
 - **Envío:** el cliente manda partes `data-attachment` con el `fileId`; el
   route (`app/api/ai/chat/route.ts`) toma solo el id, verifica que cada
   archivo sea un borrador propio sin link (`claimDraftAttachments`), arma las
   partes con la metadata del registry, persiste el mensaje y crea los links.
   Si el link choca (dos envíos del mismo borrador) borra el mensaje y
   responde 409.
-- **Al modelo:** en cada turno se cargan los adjuntos de la sesión (solo los
-  linkeados a mensajes de esa sesión), del más nuevo al más viejo dentro de
-  un presupuesto (8 archivos, 8 MB, 40 páginas de PDF, 60.000 caracteres de
-  tablas). PDF e imágenes van como partes `file`; CSV y XLSX se leen en el
-  servidor (primera hoja, 200 filas × 30 columnas) y van como texto, cada fila
-  en `<row>…</row>` con `wrapUntrusted`. El nombre del archivo también va
-  envuelto. Lo que no entra llega como una nota de una línea.
+- **Al modelo:** el contenido completo va solo en el turno en que se adjunta
+  el archivo (y cuando el usuario lo nombra después), del más nuevo al más
+  viejo dentro de un presupuesto (8 archivos, 8 MB, 40 páginas de PDF,
+  60.000 caracteres de tablas). En los turnos siguientes cada adjunto va como
+  una nota (nombre, tipo, páginas o filas) y el modelo puede releerlo con el
+  tool `openAttachment` (hasta 3 por turno, dentro del mismo presupuesto; el
+  output guardado es solo un recibo, los bytes no se persisten). Solo se leen
+  archivos linkeados a mensajes de esa sesión. PDF e imágenes van como partes
+  `file`; CSV y XLSX se leen en el servidor (primera hoja, 200 filas × 30
+  columnas; el XML de la hoja se corta en la fila 201 y de `sharedStrings`
+  solo se parsean los índices usados) y van como texto, cada fila en
+  `<row>…</row>` con `wrapUntrusted`. El nombre del archivo también va
+  envuelto. Los tokens cuentan para el tope diario como el resto del chat.
+- **Archivo rechazado:** si la API del modelo responde 400 por un archivo, el
+  turno se reintenta una vez sin el adjunto más nuevo, que queda marcado
+  `metadata.unreadable` y no se vuelve a mandar; el modelo recibe una nota
+  para avisarle al usuario.
 - **Visibilidad:** la policy SELECT de `files` oculta las filas
   `chat_attachment` a quien no las subió, salvo owner/admin (`ai:admin`, la
   misma regla que `ai_chat_sessions`); la de `file_attachments` oculta los
@@ -1117,6 +1132,9 @@ paralelo.
   (`find_orphan_files` le da esa gracia a `source = 'chat_attachment'`);
   uno enviado vive mientras exista el mensaje (al borrar la sesión el link cae
   en cascada y el archivo queda huérfano, salvo que Documentos lo tenga).
+  Quitar un borrador del composer usa `delete_chat_draft_file`: un solo
+  `delete` condicionado a que no tenga links, extracción ni documento de
+  empleado (la misma regla que `lib/files/references.ts`).
 - **UI:** clip + arrastrar y soltar + pegar en el composer; "Sacar una foto"
   con `capture="environment"` en pantallas táctiles (`pointer-coarse:`). Las
   fotos se achican antes de subir (`prepareImageForUpload`). Los mensajes
@@ -1140,4 +1158,19 @@ paralelo.
   buscando la fila con el mismo alcance que la lista.
 - **Permiso de la página:** `files:read` (sin permiso nuevo). Warehouse tiene
   `files:read` pero ningún origen listable: ve la lista vacía.
+
+### 14.3 Archivos de documentos de empleados
+
+La policy SELECT de `files` exige además un rol con `hr:read`
+(owner/admin/finance) para los archivos que apunta `employee_documents`
+(`public.is_employee_document_file`, SECURITY DEFINER, con índice parcial en
+`attachment_file_id`), así ningún otro rol con `files:read` puede firmarlos
+por id. `getSignedFileUrlAction` repite el chequeo y
+`create/updateEmployeeDocumentAction` solo aceptan un archivo que el usuario
+ve y que no sea un adjunto del chat.
+
+### 14.4 Pendiente
+
+- Subida directa del navegador a Storage con URL firmada, para pasar el tope
+  de 4 MB del server action.
 
