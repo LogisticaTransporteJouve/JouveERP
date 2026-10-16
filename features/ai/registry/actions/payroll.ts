@@ -157,6 +157,7 @@ export const getLeavesSummary = defineAiAction({
         (r) => r.days,
       )} días de licencia entre ${input.from} y ${input.to}.`,
       { rows: res.data },
+      { partial: reachedCap(res.data.length) },
     );
   },
 });
@@ -179,6 +180,7 @@ export const getAttendanceSummary = defineAiAction({
         (r) => r.hours_lost,
       )} horas perdidas entre ${input.from} y ${input.to}.`,
       { rows: res.data },
+      { partial: reachedCap(res.data.length) },
     );
   },
 });

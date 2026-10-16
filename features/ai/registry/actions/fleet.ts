@@ -13,7 +13,13 @@ import { listTripsAction } from "@/features/trips/actions/trips-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 
 import { defineAiAction } from "../define";
-import { type AiRunResult, errResult, money, okResult } from "../result";
+import {
+  type AiRunResult,
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+} from "../result";
 
 // Fleet read tools. Each wraps an existing read action, inheriting its
 // `userCan` gate (trips/vehicles/fuel/maintenance/fleet_documents :read) + RLS,
@@ -258,7 +264,7 @@ export const getShipmentsSummary = defineAiAction({
     return okResult(
       `${count} cargas entre ${input.from} y ${input.to} · flete ${money(freight)}.`,
       { rows: res.data },
-      { currency: "ARS" },
+      { currency: "ARS", partial: reachedCap(res.data.length) },
     );
   },
 });

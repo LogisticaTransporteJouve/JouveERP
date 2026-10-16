@@ -11,7 +11,7 @@ import { listWarehousesAction } from "@/features/warehouses/actions/warehouses-a
 import { IsoDateSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult } from "../result";
+import { errResult, money, okResult, reachedCap } from "../result";
 
 // Warehouse / storage reads. Each wraps a gated read action
 // (warehouses / products / pallets / storage_billing :read).
@@ -34,6 +34,7 @@ export const getPalletsSummary = defineAiAction({
         new Set(res.data.map((r) => r.warehouse_id)).size
       } depósitos.`,
       { rows: res.data },
+      { partial: reachedCap(res.data.length) },
     );
   },
 });
