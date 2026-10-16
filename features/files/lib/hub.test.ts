@@ -102,6 +102,7 @@ describe("buildHubOrFilter", () => {
 describe("helpers", () => {
   it("escapes LIKE wildcards in a search", () => {
     expect(containsPattern("100%_a\\b")).toBe("%100\\%\\_a\\\\b%");
+    expect(containsPattern("a*b")).toBe("%a_b%");
   });
 
   it("computes the exclusive day bound across months", () => {
