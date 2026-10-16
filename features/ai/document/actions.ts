@@ -25,19 +25,17 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
-import { inngest } from "@/lib/inngest/client";
-import { DOCUMENT_EXTRACTION_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { checkAiDailyCap } from "../lib/chat-store";
+import { isScannableMime } from "../attachments/limits";
 import {
   buildPurchaseInvoiceInput,
   buildSalesInvoiceItems,
 } from "./create-mapping";
 import { InvoiceExtractionSchema } from "./schemas";
+import { guardExtractionQuota, startExtraction } from "./start";
 import { DOCUMENT_KINDS } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -46,12 +44,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const BUCKET = "files";
 const MAX_BYTES = 10 * 1024 * 1024;
-const SCAN_ALLOWED_MIME = new Set([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-]);
 
 const ExtractInputSchema = z.object({
   fileId: z.string().uuid(),
@@ -79,37 +71,6 @@ export type ExtractionDetail = PendingExtraction & { payload: Json };
 const LIST_COLUMNS =
   "id, file_id, detected_type, confidence, status, matches, created_at, file:files(original_filename, mime_type)";
 
-/** Per-user extraction budget (each one = 1–3 vision calls). */
-const EXTRACTION_RATE_LIMITS = {
-  hourly: { key: "ai:document:hourly", max: 30, windowMs: 60 * 60 * 1000 },
-  daily: { key: "ai:document:daily", max: 200, windowMs: 24 * 60 * 60 * 1000 },
-} as const;
-
-/**
- * Spend guards for Document Intelligence, same style as the chat route:
- * per-user hourly/daily rate limit (Postgres-backed, fail-closed) + the global
- * daily AI token cap (fail-closed). Returns a user-facing error, or null.
- */
-async function guardExtractionQuota(userId: string): Promise<string | null> {
-  try {
-    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.hourly });
-    await enforceRateLimit({ userId, ...EXTRACTION_RATE_LIMITS.daily });
-  } catch (err) {
-    if (err instanceof RateLimitError) {
-      return "Alcanzaste el límite de escaneos con IA. Probá más tarde.";
-    }
-    throw err;
-  }
-  const cap = await checkAiDailyCap();
-  if (cap === "exceeded") {
-    return "Se alcanzó el límite diario de IA. Probá de nuevo mañana.";
-  }
-  if (cap === "unavailable") {
-    return "No se pudo verificar el límite de IA. Probá de nuevo.";
-  }
-  return null;
-}
-
 /**
  * Uploads a standalone document (not attached to any entity yet) and kicks off
  * extraction — the entry point for the generic Documentos tray. The document
@@ -131,7 +92,7 @@ export async function scanDocumentAction(
   if (file.size > MAX_BYTES) {
     return { ok: false, error: "El archivo supera 10 MB." };
   }
-  if (!SCAN_ALLOWED_MIME.has(file.type)) {
+  if (!isScannableMime(file.type)) {
     return {
       ok: false,
       error: `Tipo no permitido (${file.type || "desconocido"}).`,
@@ -198,60 +159,6 @@ export async function extractDocumentAction(
   if (quotaError) return { ok: false, error: quotaError };
 
   return startExtraction(ctx.userId, parsed.data);
-}
-
-/** Creates the draft + dispatches the pipeline. Callers did auth + quota. */
-async function startExtraction(
-  userId: string,
-  input: z.infer<typeof ExtractInputSchema>,
-): Promise<ActionResult<{ extractionId: string }>> {
-  const supabase = await createSupabaseClient();
-
-  // Verify the caller can actually see this file (RLS client) before kicking
-  // off a service-role download + vision calls — the file_id is user-supplied
-  // and the pipeline bypasses RLS.
-  const { data: file } = await supabase
-    .from("files")
-    .select("id")
-    .eq("id", input.fileId)
-    .maybeSingle();
-  if (!file) return { ok: false, error: "No encontramos el archivo." };
-
-  const { data, error } = await supabase
-    .from("ai_document_extractions")
-    .insert({ file_id: input.fileId, created_by: userId })
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("ai.document.create_draft.failed", {
-      userId,
-      error,
-    });
-    return { ok: false, error: "No se pudo iniciar la extracción." };
-  }
-
-  try {
-    await inngest.send({
-      name: DOCUMENT_EXTRACTION_REQUESTED,
-      data: {
-        extraction_id: data.id,
-        file_id: input.fileId,
-        declared_type: input.declaredType ?? null,
-      },
-    });
-  } catch (err) {
-    logger.error("ai.document.dispatch.failed", { userId, error: err });
-    await supabase.from("ai_document_extractions").delete().eq("id", data.id);
-    return { ok: false, error: "No se pudo iniciar la extracción." };
-  }
-
-  await logAudit(
-    "ai.document.extraction_requested",
-    userId,
-    { file_id: input.fileId, declared_type: input.declaredType ?? null },
-    data.id,
-  );
-  return { ok: true, data: { extractionId: data.id } };
 }
 
 const LIST_STATUSES = [

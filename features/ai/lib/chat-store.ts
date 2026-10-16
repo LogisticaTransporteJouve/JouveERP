@@ -107,17 +107,35 @@ export async function loadAiSessionMessages(
   }
 }
 
-/** Persists one message; the DB trigger bumps message_count + updated_at. */
+/** Persists one message and returns its row id; the DB trigger bumps
+ *  message_count + updated_at. */
 export async function appendAiMessage(
   sessionId: string,
   message: UIMessage,
-): Promise<void> {
+): Promise<string> {
   const service = getServiceClient();
+  const id = crypto.randomUUID();
   const { error } = await service.from("ai_chat_messages").insert({
+    id,
     session_id: sessionId,
     role: message.role,
     content: toJson(message),
   });
+  if (error) throw error;
+  return id;
+}
+
+/** Removes a message row this turn just persisted (a failed attachment link). */
+export async function deleteAiMessageRow(
+  sessionId: string,
+  rowId: string,
+): Promise<void> {
+  const service = getServiceClient();
+  const { error } = await service
+    .from("ai_chat_messages")
+    .delete()
+    .eq("id", rowId)
+    .eq("session_id", sessionId);
   if (error) throw error;
 }
 

@@ -16,6 +16,8 @@ import {
   parseArAmount,
 } from "@/lib/format";
 
+import { DOCUMENT_TYPE_LABELS } from "../document/lib/document-config";
+import { DOCUMENT_KINDS } from "../document/types";
 import {
   AiWorkflowDraftSchema,
   CADENCE_LABEL,
@@ -267,10 +269,52 @@ export const workflowProposalSpec = defineProposalSpec({
   ],
 });
 
+/** "Auto" lets Document Intelligence classify the file itself. */
+export const DOCUMENT_SCAN_TYPES = ["auto", ...DOCUMENT_KINDS] as const;
+
+export const DocumentScanDraftSchema = z.object({
+  file_id: z.string().uuid(),
+  declared_type: z.enum(DOCUMENT_SCAN_TYPES),
+});
+
+function scanTypeLabel(type: (typeof DOCUMENT_SCAN_TYPES)[number]): string {
+  return type === "auto"
+    ? "Detectar automáticamente"
+    : (DOCUMENT_TYPE_LABELS[type] ?? type);
+}
+
+export const documentScanProposalSpec = defineProposalSpec({
+  title: "Mandar a Documentos",
+  draft: DocumentScanDraftSchema,
+  fields: [
+    {
+      key: "declared_type",
+      label: "Tipo de documento",
+      kind: "select",
+      options: DOCUMENT_SCAN_TYPES.map((t) => ({
+        value: t,
+        label: scanTypeLabel(t),
+      })),
+    },
+  ],
+  confirmLabel: "Mandar a Documentos",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Archivo", value: labels[d.file_id] ?? "Adjunto del chat" },
+    { label: "Tipo", value: scanTypeLabel(d.declared_type) },
+    {
+      label: "Qué pasa",
+      value:
+        "Document Intelligence lee el archivo y deja un borrador en Documentos para que lo revises; no se carga nada sin tu confirmación.",
+    },
+  ],
+});
+
 /** Every proposal action's spec, by the action (tool) name. */
 export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeLeave: leaveProposalSpec,
   proposeJournalEntry: journalEntryProposalSpec,
   proposeExchangeRate: exchangeRateProposalSpec,
   proposeAiWorkflow: workflowProposalSpec,
+  proposeDocumentScan: documentScanProposalSpec,
 };

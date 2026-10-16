@@ -8,8 +8,14 @@ import {
   isToolUIPart,
   type UIMessage,
 } from "ai";
-import { Send, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Camera, Paperclip, Send, Sparkles } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +24,9 @@ import { runAction } from "@/lib/query/run-action";
 import { cn } from "@/lib/utils";
 
 import { getAiSessionMessagesAction } from "../actions/chat-actions";
+import { CHAT_ATTACHMENT_ACCEPT } from "../attachments/limits";
+import { attachmentPart } from "../attachments/schema";
+import { useChatAttachments } from "../hooks/use-chat-attachments";
 import { useAiConfirmations } from "../hooks/use-ai-confirmations";
 import { aiKeys } from "../lib/ai-keys";
 import {
@@ -39,6 +48,7 @@ import {
 
 import { ActivityBlock } from "./activity-block";
 import { ArtifactCard, PinArtifactButton } from "./artifact-card";
+import { ComposerAttachments, MessageAttachments } from "./chat-attachments";
 import { ProposalCard } from "./proposal-card";
 import { QuestionsCard } from "./questions-card";
 import { toolLabel } from "./tool-renderers";
@@ -60,6 +70,22 @@ function toolCallIds(messages: UIMessage[]): Set<string> {
 
 function readBody(body: object | undefined, key: string): unknown {
   return body && key in body ? Reflect.get(body, key) : undefined;
+}
+
+/** The route answers errors as `{ error }` JSON; the transport surfaces the
+ *  body as the message. */
+function chatErrorMessage(error: Error): string {
+  try {
+    const body: unknown = JSON.parse(error.message);
+    const text = readBody(
+      typeof body === "object" && body !== null ? body : undefined,
+      "error",
+    );
+    if (typeof text === "string") return text;
+  } catch {
+    // Not JSON: a network or stream error.
+  }
+  return "No se pudo enviar el mensaje. Probá de nuevo.";
 }
 
 export function AiChat({
@@ -109,8 +135,11 @@ export function AiChat({
           queryKey: aiKeys.confirmations(sessionId),
         });
       },
-      onError: () => {
-        if (!answering.current) return;
+      onError: (error) => {
+        if (!answering.current) {
+          toast.error(chatErrorMessage(error));
+          return;
+        }
         answering.current = false;
         toast.info(
           "Esas preguntas ya estaban respondidas. Actualicé la conversación.",
@@ -123,6 +152,14 @@ export function AiChat({
     },
   );
   const { data: confirmations } = useAiConfirmations(sessionId);
+  const notifyAttachmentError = useCallback(
+    (message: string) => toast.error(message),
+    [],
+  );
+  const attachments = useChatAttachments(notifyAttachmentError);
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   const busy = status === "submitted" || status === "streaming";
   const waitingQuestion = pendingQuestionCall(messages);
@@ -140,9 +177,22 @@ export function AiChat({
 
   function submit(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || locked) return;
+    if (locked || attachments.uploading) return;
+    if (!trimmed && attachments.readyCount === 0) return;
     setInput("");
-    void sendMessage({ text: trimmed });
+    const files = attachments.takeReady();
+    if (files.length === 0) {
+      void sendMessage({ text: trimmed });
+      return;
+    }
+    const parts: UIMessage["parts"] = files.map(attachmentPart);
+    if (trimmed) parts.push({ type: "text", text: trimmed });
+    void sendMessage({ parts });
+  }
+
+  function addFiles(list: FileList | null | undefined) {
+    if (!list || list.length === 0 || locked) return;
+    void attachments.add(Array.from(list));
   }
 
   async function answer(toolCallId: string, answers: QuestionAnswers) {
@@ -226,8 +276,32 @@ export function AiChat({
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-card p-4">
+    <div
+      className="flex h-full flex-col gap-4"
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files") || locked) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        const related = e.relatedTarget;
+        if (related instanceof Node && e.currentTarget.contains(related))
+          return;
+        setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDragging(false);
+        addFiles(e.dataTransfer.files);
+      }}
+    >
+      <div
+        className={cn(
+          "flex-1 space-y-4 overflow-y-auto rounded-lg border bg-card p-4",
+          dragging && "border-dashed border-foreground/40",
+        )}
+      >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <p className="text-muted-foreground text-sm">
@@ -275,6 +349,11 @@ export function AiChat({
                   {segmentParts(m.parts).map((seg) =>
                     seg.kind === "card" ? (
                       renderCard(seg.part, seg.index)
+                    ) : seg.kind === "attachments" ? (
+                      <MessageAttachments
+                        key={`a-${seg.index}`}
+                        attachments={seg.attachments}
+                      />
                     ) : seg.kind === "artifact" ? (
                       <ArtifactPart key={seg.id} data={seg.data} />
                     ) : (
@@ -306,6 +385,11 @@ export function AiChat({
         <p className="text-muted-foreground text-center text-xs">{hint}</p>
       )}
 
+      <ComposerAttachments
+        drafts={attachments.drafts}
+        onRemove={attachments.remove}
+      />
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -313,15 +397,66 @@ export function AiChat({
         }}
         className="flex items-center gap-2"
       >
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          disabled={locked}
+          onClick={() => pickerRef.current?.click()}
+          className="size-11 shrink-0 rounded-lg"
+          title="Adjuntar PDF, imagen o planilla"
+        >
+          <Paperclip className="size-5" />
+          <span className="sr-only">Adjuntar archivo</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          disabled={locked}
+          onClick={() => cameraRef.current?.click()}
+          className="hidden size-11 shrink-0 rounded-lg pointer-coarse:inline-flex"
+          title="Sacar una foto"
+        >
+          <Camera className="size-5" />
+          <span className="sr-only">Sacar una foto</span>
+        </Button>
+        <input
+          ref={pickerRef}
+          type="file"
+          multiple
+          accept={CHAT_ATTACHMENT_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onPaste={(e) => {
+            if (e.clipboardData.files.length === 0) return;
+            e.preventDefault();
+            addFiles(e.clipboardData.files);
+          }}
           placeholder={
             atCap
               ? "Límite diario alcanzado"
               : waitingQuestion
                 ? "Esperando tus respuestas en la tarjeta…"
-                : "Escribí tu pregunta…"
+                : "Escribí tu pregunta o adjuntá un archivo…"
           }
           disabled={locked}
           autoFocus
@@ -330,7 +465,11 @@ export function AiChat({
         <Button
           type="submit"
           size="icon"
-          disabled={locked || !input.trim()}
+          disabled={
+            locked ||
+            attachments.uploading ||
+            (!input.trim() && attachments.readyCount === 0)
+          }
           className="size-11 shrink-0 rounded-lg"
         >
           <Send className="size-5" />

@@ -16,6 +16,7 @@ import {
   getRecurringPayments,
   getTransactions,
 } from "./actions/cash";
+import { proposeDocumentScan } from "./actions/documents";
 import {
   getDrivers,
   getFleetDocuments,
@@ -166,4 +167,5 @@ export const AI_ACTIONS: readonly AiAction[] = [
   searchGlobal,
   getAttachments,
   proposeAiWorkflow,
+  proposeDocumentScan,
 ];

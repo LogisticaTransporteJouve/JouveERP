@@ -8,10 +8,23 @@ import { NextResponse } from "next/server";
 
 import { streamChat } from "@/features/ai/agent";
 import { createArtifactSink } from "@/features/ai/artifacts/sink";
+import { loadAttachmentContents } from "@/features/ai/attachments/content";
+import {
+  attachmentsNewestFirst,
+  type AttachmentContents,
+} from "@/features/ai/attachments/expand";
+import { attachmentPart } from "@/features/ai/attachments/schema";
+import {
+  claimDraftAttachments,
+  downloadStoredFile,
+  linkAttachmentsToMessage,
+  listSessionAttachments,
+} from "@/features/ai/attachments/store";
 import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
   AI_DAILY_TOKEN_CAP,
   appendAiMessage,
+  deleteAiMessageRow,
   ensureAiSession,
   getAiUsageToday,
   loadAiSessionMessages,
@@ -126,10 +139,10 @@ export async function POST(req: Request) {
           answers: Reflect.get(rawAnswers, "answers"),
         }
       : null;
-  const message = answers
+  const incoming = answers
     ? null
     : await parseIncomingUserMessage(field("message"));
-  if (!answers && !message) {
+  if (!answers && !incoming) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
@@ -150,6 +163,8 @@ export async function POST(req: Request) {
   const prior = await loadAiSessionMessages(ctx.userId, sessionId);
   const isFirstTurn = prior.length === 0;
   let allMessages: UIMessage[];
+  // The first turn names the session: its text, or its file names.
+  let titleSource = "";
   if (answers) {
     if (typeof answers.toolCallId !== "string") {
       return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
@@ -181,8 +196,42 @@ export async function POST(req: Request) {
     const turn = answersTurnMessage(answers.toolCallId);
     await appendAiMessage(sessionId, turn);
     allMessages = [...applied.messages, turn];
-  } else if (message) {
-    await appendAiMessage(sessionId, message);
+  } else if (incoming) {
+    // Attachments: the caller's own unsent uploads, with metadata from the
+    // registry; the persisted message carries them as data parts and the
+    // files are linked to its row (a lost race rolls the message back).
+    const claimed = await claimDraftAttachments(
+      ctx.userId,
+      incoming.attachmentIds,
+    );
+    if (!claimed.ok) {
+      return NextResponse.json({ error: claimed.error }, { status: 409 });
+    }
+    const message: UIMessage = {
+      ...incoming.message,
+      parts: [
+        ...claimed.attachments.map(attachmentPart),
+        ...incoming.message.parts,
+      ],
+    };
+    titleSource =
+      messageText(message) ||
+      claimed.attachments.map((a) => a.filename).join(", ");
+    const rowId = await appendAiMessage(sessionId, message);
+    try {
+      await linkAttachmentsToMessage(ctx.userId, rowId, incoming.attachmentIds);
+    } catch (err) {
+      logger.warn("ai.chat.attachments.link_failed", {
+        userId: ctx.userId,
+        sessionId,
+        error: err,
+      });
+      await deleteAiMessageRow(sessionId, rowId);
+      return NextResponse.json(
+        { error: "Ese adjunto ya se envió en otro mensaje." },
+        { status: 409 },
+      );
+    }
     allMessages = [...prior, message];
   } else {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
@@ -214,7 +263,28 @@ export async function POST(req: Request) {
     proposals: chatProposalStore(ctx.userId, sessionId),
     artifacts,
   });
+  // Every attachment of the session reaches the model as content, newest
+  // first within the turn budget; only files linked to this session's
+  // messages are read.
+  let attachments: AttachmentContents = new Map();
+  try {
+    if (attachmentsNewestFirst(allMessages).length > 0) {
+      attachments = await loadAttachmentContents(
+        allMessages,
+        await listSessionAttachments(sessionId),
+        downloadStoredFile,
+      );
+    }
+  } catch (err) {
+    logger.error("ai.chat.attachments.load_failed", {
+      userId: ctx.userId,
+      sessionId,
+      error: err,
+    });
+  }
+
   const result = await streamChat(allMessages, {
+    attachments,
     tools,
     capabilities: buildCapabilitiesSummary(ctx.roles, undefined, {
       artifacts: true,
@@ -244,12 +314,8 @@ export async function POST(req: Request) {
     onEnd: async ({ responseMessage }) => {
       try {
         await appendAiMessage(sessionId, responseMessage);
-        if (isFirstTurn && message) {
-          await maybeTitleAiSession(
-            ctx.userId,
-            sessionId,
-            messageText(message),
-          );
+        if (isFirstTurn && titleSource) {
+          await maybeTitleAiSession(ctx.userId, sessionId, titleSource);
         }
       } catch (err) {
         logger.error("ai.chat.persist.failed", {

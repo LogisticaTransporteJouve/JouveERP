@@ -24,9 +24,12 @@ import { aiKeys } from "../lib/ai-keys";
 export function AiWorkspace({
   canManageInsights = false,
   initialAsk,
+  initialSessionId,
 }: {
   canManageInsights?: boolean;
   initialAsk?: string;
+  /** Open this conversation from history (e.g. a link from /files). */
+  initialSessionId?: string;
 }) {
   const qc = useQueryClient();
   // Live (not-yet-loaded-from-history) chat id. Generated after mount to avoid
@@ -42,9 +45,11 @@ export function AiWorkspace({
   useEffect(() => {
     const id = crypto.randomUUID();
     setLiveNewId(id);
-    setActiveSessionId(id);
-    if (initialAsk) setSeed({ sessionId: id, prompt: initialAsk });
-  }, [initialAsk]);
+    setActiveSessionId(initialSessionId ?? id);
+    if (initialAsk && !initialSessionId) {
+      setSeed({ sessionId: id, prompt: initialAsk });
+    }
+  }, [initialAsk, initialSessionId]);
 
   const sessions = useAiSessions();
   const usage = useAiUsageToday();

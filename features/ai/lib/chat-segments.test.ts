@@ -1,9 +1,36 @@
 import { describe, expect, it } from "vitest";
 
+import { attachmentPart } from "../attachments/schema";
+
 import { activitySteps } from "./activity";
 import { isCardPart, segmentParts, type ChatPart } from "./chat-segments";
 
 describe("segmentParts", () => {
+  it("groups a user's attachments into one segment and skips bad ones", () => {
+    const att = (fileId: string) =>
+      attachmentPart({
+        fileId,
+        filename: "factura.pdf",
+        mimeType: "application/pdf",
+        size: 10,
+      });
+    const parts: ChatPart[] = [
+      att("11111111-1111-4111-8111-111111111111"),
+      att("22222222-2222-4222-8222-222222222222"),
+      { type: "data-attachment", data: { fileId: "no-uuid" } },
+      { type: "text", text: "¿Qué es?" },
+    ];
+    const segments = segmentParts(parts);
+    expect(segments.map((s) => s.kind)).toEqual(["attachments", "bubble"]);
+    expect(segments[0]).toMatchObject({
+      kind: "attachments",
+      attachments: [
+        { fileId: "11111111-1111-4111-8111-111111111111" },
+        { fileId: "22222222-2222-4222-8222-222222222222" },
+      ],
+    });
+  });
+
   it("keeps transcript order: text after a card renders after it", () => {
     const parts: ChatPart[] = [
       { type: "text", text: "Te armo la propuesta." },

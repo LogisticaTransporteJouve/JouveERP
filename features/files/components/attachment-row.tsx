@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Eye,
-  FileIcon,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  Loader2,
-  Trash2,
-} from "lucide-react";
+import { Eye, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -23,15 +15,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { MimeIcon } from "@/components/file-preview/mime-icon";
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/files/format-file-size";
-import { isImage, isPdf, isSpreadsheet } from "@/lib/files/preview";
 import { formatArDateShort } from "@/lib/format";
 
-import {
-  ATTACHMENT_KIND_LABELS,
-  type FileAttachmentRow,
-} from "../schema";
+import { ATTACHMENT_KIND_LABELS, type FileAttachmentRow } from "../schema";
 
 type Props = {
   row: FileAttachmentRow;
@@ -39,22 +28,6 @@ type Props = {
   onDelete: (attachmentId: string) => Promise<void>;
   canDelete: boolean;
 };
-
-// Local component instead of `const Icon = iconForMimeType(...)` to avoid
-// triggering the react-hooks/incompatible-library lint "Cannot create components
-// during render" from the React Compiler.
-function MimeIcon({
-  mimeType,
-  className,
-}: {
-  mimeType: string | null | undefined;
-  className?: string;
-}) {
-  if (isImage(mimeType)) return <FileImage className={className} />;
-  if (isPdf(mimeType)) return <FileText className={className} />;
-  if (isSpreadsheet(mimeType)) return <FileSpreadsheet className={className} />;
-  return <FileIcon className={className} />;
-}
 
 export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -81,8 +54,7 @@ export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
         <p className="truncate text-sm font-medium">{row.filename}</p>
         <p className="text-xs text-muted-foreground">
           {ATTACHMENT_KIND_LABELS[row.kind] ?? row.kind} ·{" "}
-          {formatFileSize(row.fileSize)} ·{" "}
-          {formatArDateShort(row.attachedAt)}
+          {formatFileSize(row.fileSize)} · {formatArDateShort(row.attachedAt)}
         </p>
       </div>
       <Button
@@ -115,8 +87,9 @@ export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
             <AlertDialogHeader>
               <AlertDialogTitle>Borrar este adjunto</AlertDialogTitle>
               <AlertDialogDescription>
-                Vas a eliminar <span className="font-medium">{row.filename}</span>{" "}
-                de este registro. No se puede deshacer.
+                Vas a eliminar{" "}
+                <span className="font-medium">{row.filename}</span> de este
+                registro. No se puede deshacer.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
