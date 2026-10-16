@@ -1,7 +1,7 @@
 -- AI CFO phase 1: read-only business aggregates behind the assistant's action
 -- registry (features/ai/registry) and the gated read actions that wrap them.
 --
--- Every function is LANGUAGE sql, STABLE, SECURITY INVOKER with a pinned
+-- Every aggregate is LANGUAGE sql, STABLE, SECURITY INVOKER with a pinned
 -- search_path: the caller's RLS applies exactly as on a direct PostgREST read,
 -- so an aggregate never exposes a row the caller could not already select.
 -- Callers are server actions that run requireUserContext() + userCan() and use
@@ -21,6 +21,26 @@ set row_security = off;
 ------------------------------------------------------------------------------
 -- 1. Payroll / HR
 ------------------------------------------------------------------------------
+
+-- Whether an employee is linked to a drivers row. SECURITY DEFINER because
+-- drivers RLS hides other rows from roles with hr:read but no fleet access
+-- (finance), which would silently drop drivers from the payroll aggregates
+-- below. It returns one boolean per employee id and exposes no driver column.
+create or replace function public.is_driver_employee(p_employee_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.drivers d where d.employee_id = p_employee_id);
+$$;
+
+revoke all on function public.is_driver_employee(uuid) from public, anon, authenticated;
+grant execute on function public.is_driver_employee(uuid) to authenticated;
+
+comment on function public.is_driver_employee(uuid) is
+  'True when the employee is linked to a drivers row, regardless of drivers RLS. Security definer.';
 
 -- Payroll totals per month (YYYY-MM) or per employee over [p_from_period,
 -- p_to_period]. Concepts are the columns payroll_entries stores: net salary
@@ -108,7 +128,7 @@ comment on function public.ai_payroll_summary(text, text, text, uuid) is
 -- Payroll amounts per concept over [p_from_period, p_to_period]: the fixed
 -- columns (deductions negative) plus every free-text extra grouped by its
 -- normalized description. p_drivers_only keeps employees paid weekly or linked
--- to a drivers row the caller can see.
+-- to a drivers row.
 create or replace function public.ai_payroll_concepts(
   p_from_period text,
   p_to_period text,
@@ -135,7 +155,7 @@ as $$
       and (
         not p_drivers_only
         or e.pay_frequency = 'semanal'
-        or exists (select 1 from public.drivers d where d.employee_id = e.id)
+        or public.is_driver_employee(e.id)
       )
   ),
   concept_lines as (
@@ -173,7 +193,7 @@ grant execute on function public.ai_payroll_concepts(text, text, boolean) to aut
 comment on function public.ai_payroll_concepts(text, text, boolean) is
   'Payroll amounts per concept (fixed columns + normalized free-text extras), optionally drivers only. Security invoker.';
 
--- Extras per driver (employee paid weekly or linked to a visible drivers row)
+-- Extras per driver (employee paid weekly or linked to a drivers row)
 -- and month over [p_from_period, p_to_period].
 create or replace function public.ai_driver_extras(
   p_from_period text,
@@ -209,7 +229,7 @@ as $$
   where to_char(make_date(pp.year, pp.month, 1), 'YYYY-MM') between p_from_period and p_to_period
     and (
       e.pay_frequency = 'semanal'
-      or exists (select 1 from public.drivers d where d.employee_id = e.id)
+      or public.is_driver_employee(e.id)
     )
   order by 3, 4 desc, 2
   limit 1000;
@@ -219,12 +239,13 @@ revoke all on function public.ai_driver_extras(text, text) from public, anon, au
 grant execute on function public.ai_driver_extras(text, text) to authenticated;
 
 comment on function public.ai_driver_extras(text, text) is
-  'Payroll extras per driver and month (weekly-paid employees or employees linked to a visible drivers row). Security invoker.';
+  'Payroll extras per driver and month (weekly-paid employees or employees linked to a drivers row). Security invoker.';
 
 -- Vacation position per active employee at p_as_of: days entitled (entitled +
 -- bonus + carryover), used and remaining over the non-expired balances, the
 -- remaining days that expire within p_expiring_days, the next expiry, and the
--- vacation days taken in p_as_of's calendar year (employee_leaves).
+-- vacation days taken from January 1 of p_as_of's year through p_as_of
+-- (employee_leaves; scheduled days after p_as_of are not counted).
 create or replace function public.ai_vacation_overview(
   p_as_of date default current_date,
   p_expiring_days integer default 90
@@ -265,14 +286,14 @@ as $$
    and b.expires_at >= p_as_of
   left join lateral (
     select sum(
-      least(l.end_date, make_date(extract(year from p_as_of)::integer, 12, 31))
+      least(l.end_date, p_as_of)
       - greatest(l.start_date, make_date(extract(year from p_as_of)::integer, 1, 1))
       + 1
     ) as days
     from public.employee_leaves l
     where l.employee_id = e.id
       and l.kind = 'vacaciones'
-      and l.start_date <= make_date(extract(year from p_as_of)::integer, 12, 31)
+      and l.start_date <= p_as_of
       and l.end_date >= make_date(extract(year from p_as_of)::integer, 1, 1)
   ) taken on true
   where e.is_active
@@ -284,7 +305,7 @@ revoke all on function public.ai_vacation_overview(date, integer) from public, a
 grant execute on function public.ai_vacation_overview(date, integer) to authenticated;
 
 comment on function public.ai_vacation_overview(date, integer) is
-  'Vacation entitled/used/remaining/expiring days per active employee plus days taken this year. Security invoker.';
+  'Vacation entitled/used/remaining/expiring days per active employee plus vacation days taken so far this year (up to p_as_of). Security invoker.';
 
 -- Leaves per employee and kind overlapping [p_from, p_to]; days are the
 -- calendar days of each leave that fall inside the range.
@@ -1093,9 +1114,12 @@ comment on function public.ai_supplier_price_evolution(date, date, text, uuid, u
 -- 6. AFIP numbering status
 ------------------------------------------------------------------------------
 
--- Last number and date AFIP accepted (emitted, or emitted and later
--- cancelled) per sales point × voucher kind × letter, read through the
--- invoices_unique_numbering index (one probe per combination).
+-- Highest number the app recorded per sales point × voucher kind × letter,
+-- with its date, among invoices that hold a number (status emitted or
+-- cancelled). On fiscal channels it is the last number AFIP authorized
+-- through this app; internal channels (letter '') are the app's own sequence,
+-- unrelated to AFIP. Read through the invoices_unique_numbering index (one
+-- probe per combination).
 create or replace function public.ai_afip_last_numbers()
 returns table(
   channel_id text,
@@ -1144,7 +1168,7 @@ revoke all on function public.ai_afip_last_numbers() from public, anon, authenti
 grant execute on function public.ai_afip_last_numbers() to authenticated;
 
 comment on function public.ai_afip_last_numbers() is
-  'Last emitted voucher number and date per sales point, kind and letter. Security invoker.';
+  'Highest recorded voucher number and date per sales point, kind and letter (fiscal channels mirror AFIP, internal ones are the app sequence). Security invoker.';
 
 ------------------------------------------------------------------------------
 -- 7. Warehouse and shipments

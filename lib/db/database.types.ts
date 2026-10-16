@@ -5702,6 +5702,7 @@ export type Database = {
         }[]
       }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
+      is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {
