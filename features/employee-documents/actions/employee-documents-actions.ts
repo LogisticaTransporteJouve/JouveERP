@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -42,7 +43,9 @@ export async function listEmployeeDocumentsAction(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("employee_documents")
-    .select("id, employee_id, kind, number, issued_at, expires_at, issuing_authority, notes, attachment_file_id, notified_at, created_by, created_at, updated_at")
+    .select(
+      "id, employee_id, kind, number, issued_at, expires_at, issuing_authority, notes, attachment_file_id, notified_at, created_by, created_at, updated_at",
+    )
     .eq("employee_id", employeeId)
     .order("expires_at", { ascending: true })
     .order("id", { ascending: false });
@@ -72,10 +75,16 @@ export async function listExpiringDocumentsAction(): Promise<
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("v_documents_expiring")
-    .select("id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry")
-    .order("days_until_expiry", { ascending: true });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("v_documents_expiring")
+      .select(
+        "id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry",
+      )
+      .order("days_until_expiry", { ascending: true })
+      .order("id")
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("employee_documents.expiring.failed", {

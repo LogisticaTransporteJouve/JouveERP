@@ -8,6 +8,7 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   MaintenanceCreateSchema,
@@ -58,10 +59,14 @@ export async function listMaintenanceAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver mantenimientos." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("maintenance_records")
-    .select(SELECT_COLUMNS)
-    .order("service_date", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("maintenance_records")
+      .select(SELECT_COLUMNS)
+      .order("service_date", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("maintenance.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los mantenimientos." };

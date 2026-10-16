@@ -8,6 +8,7 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   FuelLoadCreateSchema,
@@ -45,13 +46,20 @@ const SELECT_COLUMNS =
 export async function listFuelLoadsAction(): Promise<ActionResult<FuelLoad[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "fuel:read")) {
-    return { ok: false, error: "No tenés permiso para ver cargas de combustible." };
+    return {
+      ok: false,
+      error: "No tenés permiso para ver cargas de combustible.",
+    };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("fuel_loads")
-    .select(SELECT_COLUMNS)
-    .order("load_date", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("fuel_loads")
+      .select(SELECT_COLUMNS)
+      .order("load_date", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("fuel.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };

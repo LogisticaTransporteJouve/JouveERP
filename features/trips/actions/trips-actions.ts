@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   TripCreateSchema,
@@ -43,10 +44,14 @@ export async function listTripsAction(): Promise<ActionResult<Trip[]>> {
     return { ok: false, error: "No tenés permiso para ver viajes." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("trips")
-    .select(SELECT_COLUMNS)
-    .order("trip_date", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("trips")
+      .select(SELECT_COLUMNS)
+      .order("trip_date", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("trips.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los viajes." };

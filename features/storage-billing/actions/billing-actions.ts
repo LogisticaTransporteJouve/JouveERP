@@ -13,6 +13,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { isIvaCondition } from "@/features/clients/schema";
@@ -50,19 +51,35 @@ export async function getStorageBillingAction(
 
   const supabase = await createSupabaseClient();
 
+  // Drained past max_rows: a truncated pallet, tariff or client list would
+  // under-bill silently.
   const [palletsRes, tariffsRes, clientsRes] = await Promise.all([
-    supabase
-      .from("pallets")
-      .select("id, client_id, code, entry_date, exit_date")
-      .lte("entry_date", input.periodEnd)
-      .or(`exit_date.is.null,exit_date.gte.${input.periodStart}`),
-    supabase
-      .from("storage_tariffs")
-      .select(
-        "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
-      )
-      .eq("is_active", true),
-    supabase.from("clients").select("id, legal_name"),
+    paginateRange((from, to) =>
+      supabase
+        .from("pallets")
+        .select("id, client_id, code, entry_date, exit_date")
+        .lte("entry_date", input.periodEnd)
+        .or(`exit_date.is.null,exit_date.gte.${input.periodStart}`)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("storage_tariffs")
+        .select(
+          "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
+        )
+        .eq("is_active", true)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("clients")
+        .select("id, legal_name")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const firstError = palletsRes.error ?? tariffsRes.error ?? clientsRes.error;
@@ -125,12 +142,16 @@ export async function listStorageBillingRunsAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver la facturación." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("storage_billing_runs")
-    .select(
-      "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, created_at, client:clients(legal_name)",
-    )
-    .order("period_end", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("storage_billing_runs")
+      .select(
+        "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, created_at, client:clients(legal_name)",
+      )
+      .order("period_end", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("storage.billing.runs.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el historial." };

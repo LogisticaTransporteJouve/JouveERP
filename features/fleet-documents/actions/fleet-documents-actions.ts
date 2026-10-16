@@ -8,6 +8,7 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   FleetDocumentCreateSchema,
@@ -55,10 +56,14 @@ export async function listFleetDocumentsAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver la documentación." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("fleet_documents")
-    .select(SELECT_COLUMNS)
-    .order("expires_at", { ascending: true });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("fleet_documents")
+      .select(SELECT_COLUMNS)
+      .order("expires_at", { ascending: true })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("fleet_documents.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo listar la documentación." };

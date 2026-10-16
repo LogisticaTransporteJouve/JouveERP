@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   InflationAdjustmentCreateSchema,
@@ -24,10 +25,16 @@ export async function listInflationAdjustmentsAction(): Promise<
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("inflation_adjustments")
-    .select("id, period, coefficient, index_source, notes, journal_entry_id, applied_at, applied_by, created_at, updated_at")
-    .order("period", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("inflation_adjustments")
+      .select(
+        "id, period, coefficient, index_source, notes, journal_entry_id, applied_at, applied_by, created_at, updated_at",
+      )
+      .order("period", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("inflation_adjustments.list.failed", {
       userId: ctx.userId,

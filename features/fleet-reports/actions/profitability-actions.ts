@@ -4,6 +4,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -21,7 +22,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * Fleet profitability over a date range: per-trip net (revenue − cost − fuel)
  * and per-vehicle net (revenue − costs − fuel − maintenance). Aggregated in TS
- * (computeProfitability); no view/RPC. Gated on trips:read (the fleet read).
+ * (computeProfitability) over fully drained reads. Gated on trips:read (the
+ * fleet read).
  */
 export async function getFleetProfitabilityAction(
   input: RangeInput,
@@ -36,25 +38,45 @@ export async function getFleetProfitabilityAction(
 
   const supabase = await createSupabaseClient();
 
+  // Every read is drained past max_rows: the totals are summed in
+  // computeProfitability, so a truncated page would be a wrong number.
   const [tripsRes, fuelRes, maintRes, vehiclesRes] = await Promise.all([
-    supabase
-      .from("trips")
-      .select(
-        "id, trip_date, vehicle_id, origin, destination, revenue, cost, vehicle:vehicles(patente), driver:drivers(full_name)",
-      )
-      .gte("trip_date", input.periodStart)
-      .lte("trip_date", input.periodEnd),
-    supabase
-      .from("fuel_loads")
-      .select("vehicle_id, trip_id, amount")
-      .gte("load_date", input.periodStart)
-      .lte("load_date", input.periodEnd),
-    supabase
-      .from("maintenance_records")
-      .select("vehicle_id, cost")
-      .gte("service_date", input.periodStart)
-      .lte("service_date", input.periodEnd),
-    supabase.from("vehicles").select("id, patente"),
+    paginateRange((from, to) =>
+      supabase
+        .from("trips")
+        .select(
+          "id, trip_date, vehicle_id, origin, destination, revenue, cost, vehicle:vehicles(patente), driver:drivers(full_name)",
+        )
+        .gte("trip_date", input.periodStart)
+        .lte("trip_date", input.periodEnd)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("fuel_loads")
+        .select("vehicle_id, trip_id, amount")
+        .gte("load_date", input.periodStart)
+        .lte("load_date", input.periodEnd)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("maintenance_records")
+        .select("vehicle_id, cost")
+        .gte("service_date", input.periodStart)
+        .lte("service_date", input.periodEnd)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("vehicles")
+        .select("id, patente")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const firstError =

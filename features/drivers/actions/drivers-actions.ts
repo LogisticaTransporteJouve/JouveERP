@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   DriverCreateSchema,
@@ -29,14 +30,15 @@ export async function listDriversAction(
     return { ok: false, error: "No tenés permiso para ver choferes." };
   }
   const supabase = await createSupabaseClient();
-  let query = supabase
-    .from("drivers")
-    .select(SELECT_COLUMNS)
-    .order("is_active", { ascending: false })
-    .order("full_name");
-  if (input.onlyActive) query = query.eq("is_active", true);
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("drivers")
+      .select(SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("full_name");
+    if (input.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("drivers.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los choferes." };
@@ -165,9 +167,9 @@ export async function setDriverActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteDriverAction(
-  input: { id: string },
-): Promise<ActionResult> {
+export async function deleteDriverAction(input: {
+  id: string;
+}): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para borrar choferes." };

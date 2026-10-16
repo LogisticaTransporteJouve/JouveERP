@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   AddPayrollEntryExtraSchema,
@@ -47,11 +48,15 @@ export async function listPayrollPeriodsAction(): Promise<
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("payroll_periods")
-    .select(PERIOD_COLS)
-    .order("year", { ascending: false })
-    .order("month", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("payroll_periods")
+      .select(PERIOD_COLS)
+      .order("year", { ascending: false })
+      .order("month", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("payroll.list_periods.failed", { userId: ctx.userId, error });

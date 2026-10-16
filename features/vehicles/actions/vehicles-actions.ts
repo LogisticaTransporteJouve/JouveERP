@@ -9,6 +9,7 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   VehicleCreateSchema,
@@ -58,14 +59,15 @@ export async function listVehiclesAction(
     return { ok: false, error: "No tenés permiso para ver vehículos." };
   }
   const supabase = await createSupabaseClient();
-  let query = supabase
-    .from("vehicles")
-    .select(SELECT_COLUMNS)
-    .order("is_active", { ascending: false })
-    .order("patente");
-  if (input.onlyActive) query = query.eq("is_active", true);
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("vehicles")
+      .select(SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("patente");
+    if (input.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("vehicles.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los vehículos." };
@@ -213,9 +215,9 @@ export async function setVehicleActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteVehicleAction(
-  input: { id: string },
-): Promise<ActionResult> {
+export async function deleteVehicleAction(input: {
+  id: string;
+}): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "vehicles:write")) {
     return { ok: false, error: "No tenés permiso para borrar vehículos." };

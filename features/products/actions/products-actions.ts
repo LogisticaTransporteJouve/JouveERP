@@ -8,6 +8,7 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   ProductCreateSchema,
@@ -42,10 +43,14 @@ export async function listProductsAction(): Promise<ActionResult<Product[]>> {
     return { ok: false, error: "No tenés permiso para ver productos." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(SELECT_COLUMNS)
-    .order("name");
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("products")
+      .select(SELECT_COLUMNS)
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("products.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los productos." };
@@ -168,9 +173,9 @@ export async function setProductActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteProductAction(
-  input: { id: string },
-): Promise<ActionResult> {
+export async function deleteProductAction(input: {
+  id: string;
+}): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "products:write")) {
     return { ok: false, error: "No tenés permiso para borrar productos." };

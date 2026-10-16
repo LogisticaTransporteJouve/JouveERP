@@ -50,11 +50,15 @@ export async function getTreasurySummaryAction(): Promise<
   const sevenDays = addDaysIso(today, 7);
 
   // 1. All active accounts (inactive ones don't show up).
-  const { data: accountsRaw, error: accErr } = await supabase
-    .from("accounts")
-    .select("id, name, type, currency, is_active, opening_balance")
-    .eq("is_active", true)
-    .order("name");
+  const { data: accountsRaw, error: accErr } = await paginateRange((from, to) =>
+    supabase
+      .from("accounts")
+      .select("id, name, type, currency, is_active, opening_balance")
+      .eq("is_active", true)
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
 
   if (accErr) {
     logger.error("treasury.summary.accounts_failed", {
@@ -142,13 +146,17 @@ export async function getTreasurySummaryAction(): Promise<
   checks_prev_eom = round2(checks_prev_eom);
 
   // 4. ARS checks in portfolio due in ≤ 7 days: how many and for how much.
-  const { data: chequesRaw, error: chErr } = await supabase
-    .from("checks")
-    .select("amount")
-    .eq("status", "en_cartera")
-    .eq("currency", "ARS")
-    .gte("due_date", today)
-    .lte("due_date", sevenDays);
+  const { data: chequesRaw, error: chErr } = await paginateRange((from, to) =>
+    supabase
+      .from("checks")
+      .select("amount")
+      .eq("status", "en_cartera")
+      .eq("currency", "ARS")
+      .gte("due_date", today)
+      .lte("due_date", sevenDays)
+      .order("id")
+      .range(from, to),
+  );
 
   if (chErr) {
     logger.warn("treasury.summary.checks_failed", {

@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   SupplierCategoryCreateSchema,
@@ -27,16 +28,14 @@ export async function listSupplierCategoriesAction(
   }
 
   const supabase = await createClient();
-  const query = supabase
-    .from("supplier_categories")
-    .select("id, name, slug, is_active, created_at, updated_at")
-    .order("name", { ascending: true });
-
-  if (options.onlyActive) {
-    query.eq("is_active", true);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("supplier_categories")
+      .select("id, name, slug, is_active, created_at, updated_at")
+      .order("name", { ascending: true });
+    if (options.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("supplier_categories.list.failed", {
       userId: ctx.userId,

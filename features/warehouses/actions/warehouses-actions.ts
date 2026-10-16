@@ -8,6 +8,7 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   WarehouseCreateSchema,
@@ -47,14 +48,15 @@ export async function listWarehousesAction(
     return { ok: false, error: "No tenés permiso para ver depósitos." };
   }
   const supabase = await createSupabaseClient();
-  let query = supabase
-    .from("warehouses")
-    .select(SELECT_COLUMNS)
-    .order("is_active", { ascending: false })
-    .order("name");
-  if (input.onlyActive) query = query.eq("is_active", true);
-
-  const { data, error } = await query;
+  const { data, error } = await paginateRange((from, to) => {
+    let query = supabase
+      .from("warehouses")
+      .select(SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("name");
+    if (input.onlyActive) query = query.eq("is_active", true);
+    return query.order("id").range(from, to);
+  });
   if (error) {
     logger.error("warehouses.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los depósitos." };
@@ -178,9 +180,9 @@ export async function setWarehouseActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteWarehouseAction(
-  input: { id: string },
-): Promise<ActionResult> {
+export async function deleteWarehouseAction(input: {
+  id: string;
+}): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.roles, "warehouses:write")) {
     return { ok: false, error: "No tenés permiso para borrar depósitos." };
