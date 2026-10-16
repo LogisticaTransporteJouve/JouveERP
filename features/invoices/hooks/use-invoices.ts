@@ -9,9 +9,14 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { agingKeys } from "@/features/aging/lib/aging-keys";
+import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
+import { shipmentsKeys } from "@/features/shipments/lib/shipments-keys";
+import { storageBillingKeys } from "@/features/storage-billing/lib/storage-billing-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  cancelInvoiceAction,
   getInvoiceDetailAction,
   getInvoiceStatusAction,
   issueFiscalInvoiceAction,
@@ -26,11 +31,7 @@ import type { InvoiceStatus } from "../schema";
 
 export { INVOICES_PAGE_SIZE };
 
-const TERMINAL_STATES: InvoiceStatus[] = [
-  "emitted",
-  "failed",
-  "cancelled",
-];
+const TERMINAL_STATES: InvoiceStatus[] = ["emitted", "failed", "cancelled"];
 
 export function useInvoicesSearchInfinite(filters: {
   channel: string | null;
@@ -78,10 +79,7 @@ export function useInvoiceDetail(id: string) {
  * useInvoiceDetail) is invalidated on terminal transitions so CAE,
  * pdf_hash and observaciones reload.
  */
-export function useInvoiceStatusPoll(
-  id: string,
-  initialStatus: InvoiceStatus,
-) {
+export function useInvoiceStatusPoll(id: string, initialStatus: InvoiceStatus) {
   const qc = useQueryClient();
   const initialDataRef = useMemo<InvoiceStatusSnapshot>(
     () => ({
@@ -115,8 +113,7 @@ export function useInvoiceStatusPoll(
       const oldStatus = (oldData as InvoiceStatusSnapshot | undefined)
         ?.status as InvoiceStatus | undefined;
       const newStatus = (newData as InvoiceStatusSnapshot).status as
-        | InvoiceStatus
-        | undefined;
+        InvoiceStatus | undefined;
       if (
         oldStatus &&
         newStatus &&
@@ -202,6 +199,26 @@ export function useRegeneratePdf() {
     mutationFn: (id: string) => runAction(() => regeneratePdfAction(id)),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
+    },
+  });
+}
+
+export function useCancelInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => runAction(() => cancelInvoiceAction({ id })),
+    onSettled: () => {
+      // The cancellation frees the shipment / storage period it billed and
+      // drops the invoice from aging and from the receipts picker.
+      for (const key of [
+        invoicesKeys.all,
+        agingKeys.all,
+        receiptsKeys.all,
+        shipmentsKeys.all,
+        storageBillingKeys.all,
+      ]) {
+        qc.invalidateQueries({ queryKey: key });
+      }
     },
   });
 }

@@ -8,3 +8,4 @@
  */
 export const PG_UNIQUE_VIOLATION = "23505";
 export const PG_FOREIGN_KEY_VIOLATION = "23503";
+export const PG_INVALID_PARAMETER_VALUE = "22023";

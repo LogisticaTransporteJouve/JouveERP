@@ -13,6 +13,7 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+import { PG_INVALID_PARAMETER_VALUE } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
@@ -21,7 +22,9 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
+  CancelInvoiceSchema,
   CreateComprobanteSchema,
+  INTERNAL_CANCELLABLE_STATUSES,
   computeLineAmounts,
   computeTotals,
   isInvoiceLetter,
@@ -576,7 +579,8 @@ export interface ComprobanteDetail {
   kind: InvoiceRow["kind"];
   letter: InvoiceRow["letter"];
   punto_venta: number;
-  numero: number;
+  /** null until the issue workflow assigns it (draft / emitting / failed). */
+  numero: number | null;
   fecha: string;
   fch_serv_desde: string | null;
   fch_serv_hasta: string | null;
@@ -677,10 +681,6 @@ export async function getInvoiceDetailAction(
   if (!row.channel || !row.client) {
     return { ok: false, error: "Comprobante con relaciones inválidas." };
   }
-  if (row.numero == null) {
-    return { ok: false, error: "Comprobante sin número asignado." };
-  }
-
   return {
     ok: true,
     data: {
@@ -851,4 +851,94 @@ export async function regeneratePdfAction(
       error: err instanceof Error ? err.message : "Error generando PDF.",
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cancellation (internal channels only)
+// ---------------------------------------------------------------------------
+
+/** Cancels an internal invoice. The DB keeps it consistent: the allocation
+ *  guard refuses while an active receipt is applied to it, and the release
+ *  trigger frees the shipment or storage period it billed. Internal channels
+ *  post no journal entry, so there is nothing to reverse. */
+export async function cancelInvoiceAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "invoices:cancel")) {
+    return { ok: false, error: "No tenés permiso para anular comprobantes." };
+  }
+  const parsed = CancelInvoiceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const { id } = parsed.data;
+
+  const supabase = getServiceClient();
+  const { data: invoice, error: readErr } = await supabase
+    .from("invoices")
+    .select("id, status, channel:invoicing_channels(is_fiscal)")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) {
+    logger.error("invoices.cancel.read_failed", {
+      userId: ctx.userId,
+      id,
+      error: readErr,
+    });
+    return { ok: false, error: "No se pudo leer el comprobante." };
+  }
+  if (!invoice || !invoice.channel) {
+    return { ok: false, error: "Comprobante no encontrado." };
+  }
+  if (invoice.channel.is_fiscal) {
+    return {
+      ok: false,
+      error:
+        "Un comprobante fiscal no se anula: emití una nota de crédito para compensarlo.",
+    };
+  }
+  if (
+    !isInvoiceStatus(invoice.status) ||
+    !INTERNAL_CANCELLABLE_STATUSES.includes(invoice.status)
+  ) {
+    return {
+      ok: false,
+      error: "Solo se puede anular un comprobante emitido o fallido.",
+    };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("invoices")
+    .update({ status: "cancelled" })
+    .eq("id", id)
+    .eq("status", invoice.status)
+    .select("id");
+  if (error) {
+    if (error.code === PG_INVALID_PARAMETER_VALUE) {
+      return {
+        ok: false,
+        error:
+          "El comprobante tiene cobros imputados. Anulá esos recibos antes de anular el comprobante.",
+      };
+    }
+    logger.error("invoices.cancel.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return { ok: false, error: "No se pudo anular el comprobante." };
+  }
+  if (!updated || updated.length === 0) {
+    return {
+      ok: false,
+      error: "El comprobante cambió mientras lo anulabas. Recargá la página.",
+    };
+  }
+
+  await logAudit(
+    "invoice.cancelled",
+    ctx.userId,
+    { from_status: invoice.status },
+    id,
+  );
+  return { ok: true, data: { id } };
 }

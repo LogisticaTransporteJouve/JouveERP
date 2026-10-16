@@ -213,6 +213,15 @@ export const CreateComprobanteSchema = z
 
 export type CreateComprobanteInput = z.infer<typeof CreateComprobanteSchema>;
 
+export const CancelInvoiceSchema = z.object({ id: z.string().uuid() });
+
+/** Statuses an internal invoice can be cancelled from. A fiscal voucher with
+ *  CAE is never cancelled: an NC compensates it. */
+export const INTERNAL_CANCELLABLE_STATUSES: readonly InvoiceStatus[] = [
+  "emitted",
+  "failed",
+];
+
 // --------------------------------------------------------------------------
 // Total computation helpers (server-side reuse).
 //
