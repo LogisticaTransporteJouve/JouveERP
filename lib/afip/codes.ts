@@ -93,6 +93,12 @@ export const CONDICION_IVA_RECEPTOR = {
 export type CondicionIvaReceptorCode =
   (typeof CONDICION_IVA_RECEPTOR)[keyof typeof CONDICION_IVA_RECEPTOR];
 
+export function isCondicionIvaReceptorCode(
+  value: unknown,
+): value is CondicionIvaReceptorCode {
+  return Object.values(CONDICION_IVA_RECEPTOR).some((code) => code === value);
+}
+
 // Maps our internal `clients.iva_condition` to AFIP's CondicionIVAReceptorId.
 const IVA_CONDITION_TO_RECEPTOR: Record<
   IvaCondition,

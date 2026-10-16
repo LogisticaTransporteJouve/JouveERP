@@ -6,7 +6,9 @@ import { randomUUID } from "node:crypto";
 import { logAudit } from "@/lib/actions/audit";
 import {
   cbteTipoFor,
+  isCondicionIvaReceptorCode,
   letterFor,
+  type CondicionIvaReceptorCode,
   type CbteTipoCode,
   type InvoiceLetter,
 } from "@/lib/afip/codes";
@@ -149,11 +151,17 @@ export async function issueFiscalInvoiceAction(
   // NC/ND origin must be a real, emitted invoice of the same client and channel
   // with a number already assigned. Otherwise: NC against another client's
   // invoice (aging corruption), or CbtesAsoc with Nro=null (AFIP rejection).
-  let origin: { letter: InvoiceLetter | null; moneda: string } | null = null;
+  let origin: {
+    letter: InvoiceLetter | null;
+    moneda: string;
+    receptor: CondicionIvaReceptorCode | null;
+  } | null = null;
   if (data.invoice_origin_id) {
     const { data: originRow, error: originErr } = await supabase
       .from("invoices")
-      .select("id, client_id, channel_id, status, numero, kind, letter, moneda")
+      .select(
+        "id, client_id, channel_id, status, numero, kind, letter, moneda, iva_condition_receptor",
+      )
       .eq("id", data.invoice_origin_id)
       .maybeSingle();
     if (originErr) {
@@ -198,19 +206,25 @@ export async function issueFiscalInvoiceAction(
     origin = {
       letter: isInvoiceLetter(originRow.letter) ? originRow.letter : null,
       moneda: originRow.moneda,
+      receptor: isCondicionIvaReceptorCode(originRow.iva_condition_receptor)
+        ? originRow.iva_condition_receptor
+        : null,
     };
   }
 
   // Fiscal-only resolution. For internal channels we don't pick a letter or
   // a cbte_tipo_afip — the issue-invoice workflow takes the internal branch
   // (skips AFIP entirely, numbers locally, writes a "no fiscal" PDF). An NC/ND
-  // carries its origin's letter; a factura's letter follows the receptor.
+  // carries its origin's letter and receptor condition (the client's
+  // condition may have changed since); a factura's letter follows the receptor.
   let letter: InvoiceLetter | null = null;
   let cbteTipoAfip: CbteTipoCode | null = null;
+  let receptor: CondicionIvaReceptorCode | null = null;
   if (channel.is_fiscal) {
     const fiscalLetter: InvoiceLetter =
       origin?.letter ?? data.letter ?? letterFor(client.iva_condition);
-    if (data.iva_condition_receptor === null) {
+    const fiscalReceptor = origin?.receptor ?? data.iva_condition_receptor;
+    if (fiscalReceptor === null) {
       return {
         ok: false,
         error:
@@ -230,7 +244,7 @@ export async function issueFiscalInvoiceAction(
       {
         kind: data.kind,
         letter: fiscalLetter,
-        receptor: data.iva_condition_receptor,
+        receptor: fiscalReceptor,
         docTipo: data.doc_tipo,
         docNro: data.doc_nro,
         concepto: data.concepto,
@@ -247,6 +261,7 @@ export async function issueFiscalInvoiceAction(
     if (issue) return { ok: false, error: issue };
     letter = fiscalLetter;
     cbteTipoAfip = cbteTipoFor(data.kind, fiscalLetter);
+    receptor = fiscalReceptor;
   }
 
   // isFiscal drives IVA computation: internal channels must not accrue IVA
@@ -272,9 +287,7 @@ export async function issueFiscalInvoiceAction(
     concepto: data.concepto,
     doc_tipo: data.doc_tipo,
     doc_nro: data.doc_nro,
-    iva_condition_receptor: channel.is_fiscal
-      ? data.iva_condition_receptor
-      : null,
+    iva_condition_receptor: receptor,
     imp_neto: totals.imp_neto,
     imp_iva: totals.imp_iva,
     imp_trib: 0,
