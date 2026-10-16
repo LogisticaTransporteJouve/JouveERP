@@ -122,6 +122,40 @@ export async function appendAiMessage(
 }
 
 /**
+ * Rewrites a persisted message in place, matched by its UIMessage id among the
+ * session's latest rows (the answered question card: its tool part gets the
+ * answers as output). Returns false when no such message is persisted.
+ */
+export async function replaceAiMessage(
+  sessionId: string,
+  message: UIMessage,
+): Promise<boolean> {
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("ai_chat_messages")
+    .select("id, content")
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) throw error;
+  const row = (data ?? []).find(
+    (r) =>
+      typeof r.content === "object" &&
+      r.content !== null &&
+      !Array.isArray(r.content) &&
+      r.content.id === message.id,
+  );
+  if (!row) return false;
+  const { error: updateError } = await service
+    .from("ai_chat_messages")
+    .update({ content: toJson(message) })
+    .eq("id", row.id)
+    .eq("session_id", sessionId);
+  if (updateError) throw updateError;
+  return true;
+}
+
+/**
  * Generates a short title from the first user message (Haiku) if the session
  * doesn't have one yet. Best-effort: falls back to a truncation of the user's
  * text and never throws, so a title failure can't break persistence.

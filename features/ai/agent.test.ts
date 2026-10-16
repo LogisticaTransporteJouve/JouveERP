@@ -29,10 +29,12 @@ describe("ai agent config", () => {
 });
 
 describe("system prompt guardrails", () => {
-  it("is the read-only AI CFO persona, in Rioplatense Spanish", () => {
+  it("is the AI CFO persona that writes only through confirmed proposals, in Rioplatense Spanish", () => {
     expect(CFO_BASE_PROMPT).toContain("AI CFO de Jouve");
     expect(CFO_BASE_PROMPT).toContain("JouveERP");
-    expect(CFO_BASE_PROMPT).toContain("READ-ONLY");
+    expect(CFO_BASE_PROMPT).toContain("NO WRITES WITHOUT CONFIRMATION");
+    expect(CFO_BASE_PROMPT).toContain("askQuestions");
+    expect(CFO_BASE_PROMPT).toContain("revisionKey");
     expect(CFO_BASE_PROMPT.toLowerCase()).toContain("rioplatense");
     expect(CFO_BASE_PROMPT).toContain("voseo");
   });

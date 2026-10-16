@@ -15,6 +15,7 @@ import {
   usageTokens,
   type AiUsageTokens,
 } from "./lib/chat-store";
+import { isAnswersTurn } from "./lib/questions";
 import { haikuRegenerator, makeRepairToolCall } from "./lib/repair-tool-call";
 import {
   AI_CHAT_MAX_OUTPUT_TOKENS,
@@ -41,7 +42,10 @@ Qué hacés:
 - Cada herramienta corre con los permisos del usuario que pregunta; nunca ves datos que esa persona no podría ver en la app. Si algo no está entre tus consultas, decilo: no tenés acceso a esa información para este usuario.
 
 Reglas:
-- En esta fase sos de SOLO LECTURA (READ-ONLY): no creás, editás ni borrás nada. Si te piden una acción, explicá que todavía no está habilitada y ofrecé la consulta equivalente.
+- Nunca escribís datos por tu cuenta (NO WRITES WITHOUT CONFIRMATION). Para registrar algo usás solo las herramientas marcadas "propuesta": arman un borrador y el usuario lo confirma, modifica o descarta en una tarjeta. Mientras la propuesta espera, no digas que está hecho: decí que quedó para confirmar. Si una acción no tiene propuesta disponible, decí que todavía no está habilitada y ofrecé la consulta equivalente.
+- Si una propuesta devuelve issues o candidates (falta un dato o un nombre coincide con varios registros), preguntá con askQuestions ofreciendo esos candidatos; nunca elijas ni inventes un dato.
+- askQuestions: usala cuando necesitás una elección o un dato que ninguna herramienta puede buscar (1 a 8 preguntas cortas). El turno termina con esa llamada; las respuestas llegan como su resultado.
+- Para cambiar una propuesta pendiente, volvé a llamar a la misma herramienta con su revisionKey: la nueva versión reemplaza a la anterior. El estado de las propuestas (confirmada, descartada, editada por el usuario) está en "Propuestas en esta conversación"; tomalo como cierto y no lo contradigas.
 - Nunca inventes cifras. Cada número sale del resultado de una herramienta; si no lo tenés, decilo. No hagas cuentas propias sobre listados parciales.
 - Citá la fuente y la fecha: cada resultado trae meta.sources y meta.asOf; mencioná de qué se obtuvo la cifra y a qué fecha o período corresponde.
 - Si un resultado es parcial (meta.partial = true, o el resumen dice que hay más filas), decilo explícitamente y sugerí cómo acotar la consulta.
@@ -69,11 +73,12 @@ const CACHE_BREAKPOINT: ProviderOptions = {
   anthropic: { cacheControl: { type: "ephemeral" } },
 };
 
-/** Text of the most recent user message (for skill selection). */
+/** Text of the most recent user message (for skill selection), skipping the
+ *  fixed turn that follows an answered question card. */
 function lastUserText(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
-    if (m?.role !== "user") continue;
+    if (m?.role !== "user" || isAnswersTurn(m)) continue;
     return m.parts
       .filter((p): p is { type: "text"; text: string } => p.type === "text")
       .map((p) => p.text)
@@ -171,6 +176,9 @@ export type StreamChatOptions = {
   tools: ToolSet;
   /** One line per tool the caller can use (registry capabilities summary). */
   capabilities: string;
+  /** Per-turn server facts for the model (the session's proposal states);
+   *  uncached, after the static block. */
+  notes?: string;
   /** Caller — attributed in audit rows and repair usage. */
   userId?: string;
   sessionId?: string;
@@ -189,7 +197,7 @@ export async function streamChat(
   messages: UIMessage[],
   options: StreamChatOptions,
 ) {
-  const { tools, capabilities, onUsage, userId, sessionId } = options;
+  const { tools, capabilities, notes, onUsage, userId, sessionId } = options;
   const modelMessages = await convertToModelMessages(
     stripReasoningParts(messages),
     { tools, ignoreIncompleteToolCalls: true },
@@ -210,6 +218,9 @@ export async function streamChat(
   ];
   if (skills) {
     instructions.push({ role: "system", content: skills });
+  }
+  if (notes) {
+    instructions.push({ role: "system", content: notes });
   }
   const { model, servedModel } = buildChatModel();
   return streamText({

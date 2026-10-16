@@ -2,6 +2,9 @@ import type { ToolSet } from "ai";
 
 import type { Role } from "@/lib/auth/permissions";
 
+import { ASK_QUESTIONS_TOOL } from "../lib/questions";
+
+import { askQuestionsTool } from "./ask-questions";
 import { AI_ACTIONS } from "./catalog";
 import {
   AI_DOMAINS,
@@ -32,12 +35,13 @@ export function visibleAiActions(
   return actions.filter((a) => canRunAiAction(roles, a.permissions));
 }
 
-/** The chat tools for one user, generated from the registry. */
+/** The chat tools for one user, generated from the registry, plus the
+ *  question card every chat user may get. */
 export function buildAiTools(
   ctx: AiActionContext,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): ToolSet {
-  const tools: ToolSet = {};
+  const tools: ToolSet = { [ASK_QUESTIONS_TOOL]: askQuestionsTool };
   for (const action of visibleAiActions(ctx.roles, actions)) {
     tools[action.name] = action.toTool(ctx);
   }
@@ -49,7 +53,8 @@ function firstSentence(text: string): string {
   return (end === -1 ? text : text.slice(0, end)).trim();
 }
 
-/** One line per visible action, grouped by domain, for the system prompt. */
+/** One line per visible action, grouped by domain, for the system prompt.
+ *  Proposals are marked so the model knows they only draft. */
 export function buildCapabilitiesSummary(
   roles: readonly Role[],
   actions: readonly AiAction[] = AI_ACTIONS,
@@ -59,7 +64,10 @@ export function buildCapabilitiesSummary(
   for (const domain of AI_DOMAINS) {
     const lines = visible
       .filter((a) => a.domain === domain)
-      .map((a) => `- ${a.name}: ${firstSentence(a.description)}`);
+      .map(
+        (a) =>
+          `- ${a.name}${a.sideEffect === "propose" ? " (propuesta, requiere confirmación)" : ""}: ${firstSentence(a.description)}`,
+      );
     if (lines.length > 0) {
       sections.push(`${DOMAIN_LABEL[domain]}:\n${lines.join("\n")}`);
     }
