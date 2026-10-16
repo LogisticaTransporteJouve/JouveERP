@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import type { Database } from "@/lib/db/database.types";
+import { IsoDateSchema } from "@/lib/validation/common";
+
 export const SHIPMENT_STATUSES = [
   "not_started",
   "in_progress",
@@ -84,7 +87,10 @@ const optionalAmount = z
   .optional();
 
 const optionalDate = z
-  .union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.")])
+  .union([
+    z.literal(""),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  ])
   .transform((v) => (v === "" ? null : v))
   .nullable()
   .optional();
@@ -136,3 +142,18 @@ export const FreightInvoiceSchema = z.object({
   punto_venta: z.coerce.number().int().min(1).max(99999),
 });
 export type FreightInvoiceInput = z.infer<typeof FreightInvoiceSchema>;
+
+/** Input of the shipments summary read; `.describe()` doubles as the
+ *  assistant's tool parameter docs. */
+export const ShipmentsSummaryInputSchema = z
+  .object({
+    from: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
+    to: IsoDateSchema.describe("Fecha hasta, YYYY-MM-DD (inclusive)."),
+  })
+  .refine(
+    (v) => v.from <= v.to,
+    "La fecha desde es posterior a la fecha hasta.",
+  );
+
+export type ShipmentsSummaryRow =
+  Database["public"]["Functions"]["ai_shipments_summary"]["Returns"][number];
