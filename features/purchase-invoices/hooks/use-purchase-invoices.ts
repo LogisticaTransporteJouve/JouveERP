@@ -16,6 +16,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   cancelPurchaseInvoiceAction,
   createPurchaseInvoiceAction,
+  findPurchaseInvoiceDuplicateAction,
   getPurchaseInvoiceByIdAction,
   getPurchaseInvoiceItemsAction,
   searchPurchaseInvoicesAction,
@@ -25,9 +26,14 @@ import {
 import {
   PURCHASE_INVOICES_PAGE_SIZE,
   purchaseInvoicesKeys,
+  type PurchaseInvoiceDuplicateLookup,
   type PurchaseInvoicesFilters,
   type PurchaseInvoicesPickerFilters,
 } from "../lib/purchase-invoices-keys";
+import type {
+  PurchaseInvoiceCreateRawInput,
+  PurchaseInvoiceDraft,
+} from "../lib/purchase-invoice-draft";
 import type { PurchaseInvoice } from "../schema";
 
 export { PURCHASE_INVOICES_PAGE_SIZE };
@@ -116,16 +122,38 @@ export function usePurchaseInvoicesSearch(
   });
 }
 
+/** Same supplier + type + PV + número already loaded (null lookup = skip). */
+export function usePurchaseInvoiceDuplicate(
+  lookup: PurchaseInvoiceDuplicateLookup | null,
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.duplicate(
+      lookup ?? { supplier_id: "", kind: "", punto_venta: 0, numero: 0 },
+    ),
+    queryFn: () => runAction(() => findPurchaseInvoiceDuplicateAction(lookup)),
+    enabled: lookup !== null,
+    staleTime: 30_000,
+  });
+}
+
 function invalidatePurchaseEffects(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
   qc.invalidateQueries({ queryKey: suppliersKeys.all });
 }
 
-export function useCreatePurchaseInvoice() {
+/**
+ * Creates a purchase invoice. `submit` replaces the default save (a draft from
+ * a document saves through its own path); invalidation is the same.
+ */
+export function useCreatePurchaseInvoice(
+  submit?: PurchaseInvoiceDraft["submitCreate"],
+) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) =>
-      runAction(() => createPurchaseInvoiceAction(input)),
+    mutationFn: (input: PurchaseInvoiceCreateRawInput) =>
+      submit
+        ? submit(input)
+        : runAction(() => createPurchaseInvoiceAction(input)),
     onSuccess: () => {
       invalidatePurchaseEffects(qc);
     },

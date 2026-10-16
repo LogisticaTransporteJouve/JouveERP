@@ -86,11 +86,14 @@ function supplierToValues(
 export function SupplierForm({
   mode,
   supplier,
+  initialValues,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   supplier?: Supplier;
+  /** Create mode: CUIT / razón social to start from (e.g. read from a document). */
+  initialValues?: { cuit: string | null; legal_name: string | null };
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -114,7 +117,15 @@ export function SupplierForm({
   const categories = categoriesQuery.data ?? [];
 
   const form = useForm<FormValues>({
-    defaultValues: supplierToValues(supplier),
+    defaultValues: {
+      ...supplierToValues(supplier),
+      ...(initialValues?.cuit
+        ? { cuit: initialValues.cuit.replace(/\D/g, "") }
+        : {}),
+      ...(initialValues?.legal_name
+        ? { legal_name: initialValues.legal_name }
+        : {}),
+    },
   });
 
   async function onVerifyCuit() {

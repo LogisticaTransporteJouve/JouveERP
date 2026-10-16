@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { ExportButton } from "@/components/export-button";
+import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
 import {
@@ -84,12 +85,14 @@ export default async function PurchasesPage({
         <ExportButton resource="purchase-invoices" />
       </div>
       <Hydrate state={dehydratedState}>
-        <PurchaseInvoicesTable
-          actorRoles={ctx.roles}
-          initialQuery={initialQuery}
-          initialStatus={initialStatus}
-          initialFiscalFilter={initialFiscalFilter}
-        />
+        <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>
+          <PurchaseInvoicesTable
+            actorRoles={ctx.roles}
+            initialQuery={initialQuery}
+            initialStatus={initialStatus}
+            initialFiscalFilter={initialFiscalFilter}
+          />
+        </PurchaseInvoiceFileAssistBinding>
       </Hydrate>
     </div>
   );

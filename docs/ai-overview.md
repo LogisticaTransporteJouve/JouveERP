@@ -409,6 +409,17 @@ de compra, Nuevo recibo, Nueva OP) se suma una zona **"Escanear / adjuntar"**
 Flujo: subir/sacar foto → spinner "Leyendo documento…" → el formulario abierto se
 **autocompleta**. Tipo ya conocido → sin clasificación.
 
+Implementado para **facturas de compra** ("Completar desde archivo" en Cargar
+factura de compra, en `/purchases` y en la cuenta del proveedor): el archivo se
+escanea con tipo declarado (igual se clasifica: su confianza es la que se
+muestra y, si es claramente otro documento, se avisa), el formulario se llena desde el borrador
+(`getPurchaseInvoiceDraftAction`), los campos leídos llevan la marca "Completado
+por IA" hasta que se editan, y al guardar se crea la factura con
+`createPurchaseInvoiceAction`, se **adjunta el archivo** y se confirma la
+extracción (`createPurchaseInvoiceFromDraftAction`). La factura de compra y la
+NC/ND de compra de `/documentos` abren el mismo formulario editable. Toda alta
+desde una extracción adjunta el archivo a la entidad creada.
+
 **Entrada (b) — bandeja / escaneo genérico.** Ruta `app/(dashboard)/documentos/`
 (o pestaña en `/files`): subir N o escanear → lista de extracciones pendientes.
 

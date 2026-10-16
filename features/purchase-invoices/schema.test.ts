@@ -147,3 +147,38 @@ describe("PurchaseInvoiceCancelSchema", () => {
     );
   });
 });
+
+describe("PurchaseInvoiceCreateSchema — foreign currency", () => {
+  const base = {
+    channel_id: "ch1",
+    supplier_id: "11111111-1111-4111-8111-111111111111",
+    kind: "factura",
+    punto_venta: 1,
+    numero: 1,
+    fecha: "2026-10-16",
+    imp_total: 121,
+  };
+
+  it("requires a rate above 1 for a dollar invoice", () => {
+    const res = PurchaseInvoiceCreateSchema.safeParse({
+      ...base,
+      moneda: "DOL",
+      cotizacion: 1,
+    });
+    expect(res.success).toBe(false);
+    expect(res.error?.issues[0]?.message).toBe(
+      "Cargá la cotización del dólar (tiene que ser mayor a 1).",
+    );
+    expect(
+      PurchaseInvoiceCreateSchema.safeParse({
+        ...base,
+        moneda: "DOL",
+        cotizacion: 1200,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("keeps pesos at rate 1", () => {
+    expect(PurchaseInvoiceCreateSchema.safeParse(base).success).toBe(true);
+  });
+});

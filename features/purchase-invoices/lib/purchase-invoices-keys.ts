@@ -19,6 +19,13 @@ export type PurchaseInvoicesPickerFilters = {
   limit: number;
 };
 
+export type PurchaseInvoiceDuplicateLookup = {
+  supplier_id: string;
+  kind: string;
+  punto_venta: number;
+  numero: number;
+};
+
 export const purchaseInvoicesKeys = {
   all: ["purchase_invoices"] as const,
   searchInfinite: (filters: PurchaseInvoicesFilters) =>
@@ -27,4 +34,6 @@ export const purchaseInvoicesKeys = {
     [...purchaseInvoicesKeys.all, "search", filters] as const,
   byId: (id: string) => [...purchaseInvoicesKeys.all, "byId", id] as const,
   items: (id: string) => [...purchaseInvoicesKeys.all, "items", id] as const,
+  duplicate: (lookup: PurchaseInvoiceDuplicateLookup) =>
+    [...purchaseInvoicesKeys.all, "duplicate", lookup] as const,
 };

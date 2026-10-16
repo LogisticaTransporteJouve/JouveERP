@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -12,13 +14,16 @@ import { createClient } from "@/lib/supabase/server";
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
 import {
+  PURCHASE_INVOICE_KINDS,
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceUpdateSchema,
   isPurchaseInvoiceKind,
+  isPurchaseInvoiceLetter,
   isPurchaseInvoiceStatus,
   isPurchaseIvaRateId,
   type PurchaseInvoice,
+  type PurchaseInvoiceKind,
   type PurchaseInvoiceItem,
   type PurchaseInvoiceItemInput,
   type PurchaseInvoiceLetter,
@@ -247,6 +252,71 @@ export async function getPurchaseInvoiceAllocationsAction(
   });
 
   return { ok: true, data: out };
+}
+
+const DuplicateLookupSchema = z.object({
+  supplier_id: z.string().uuid(),
+  kind: z.enum(PURCHASE_INVOICE_KINDS),
+  punto_venta: z.number().int().min(1),
+  numero: z.number().int().min(1),
+});
+
+export type PurchaseInvoiceDuplicate = {
+  id: string;
+  kind: PurchaseInvoiceKind;
+  letter: PurchaseInvoiceLetter | null;
+  punto_venta: number;
+  numero: number;
+  status: string;
+};
+
+/**
+ * An already-loaded purchase invoice of the same supplier with the same type,
+ * punto de venta and número (any letter, any status), or null.
+ */
+export async function findPurchaseInvoiceDuplicateAction(
+  input: unknown,
+): Promise<ActionResult<PurchaseInvoiceDuplicate | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para ver facturas de compra.",
+    };
+  }
+  const parsed = DuplicateLookupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("purchase_invoices")
+    .select("id, kind, letter, punto_venta, numero, status")
+    .eq("supplier_id", parsed.data.supplier_id)
+    .eq("kind", parsed.data.kind)
+    .eq("punto_venta", parsed.data.punto_venta)
+    .eq("numero", parsed.data.numero)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    logger.error("purchase_invoices.duplicate_lookup.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return { ok: false, error: "No se pudo verificar si la factura existe." };
+  }
+  if (!data || !isPurchaseInvoiceKind(data.kind))
+    return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      id: data.id,
+      kind: data.kind,
+      letter: isPurchaseInvoiceLetter(data.letter) ? data.letter : null,
+      punto_venta: data.punto_venta,
+      numero: data.numero,
+      status: data.status,
+    },
+  };
 }
 
 /**
