@@ -1,7 +1,9 @@
 "use client";
 
+import { AlertTriangle, Sparkles, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { todayIsoLocal } from "@/lib/date-range";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
@@ -38,16 +41,27 @@ import {
   usePurchaseInvoiceByIdOptional,
   usePurchaseInvoiceItems,
   useCreatePurchaseInvoice,
+  usePurchaseInvoiceDuplicate,
   useUpdatePurchaseInvoice,
 } from "../hooks/use-purchase-invoices";
+import {
+  draftToFormPatch,
+  totalsGap,
+  type DraftField,
+  type PurchaseInvoiceCreateRawInput,
+  type PurchaseInvoiceDraft,
+} from "../lib/purchase-invoice-draft";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
   PURCHASE_INVOICE_LETTERS,
+  PURCHASE_INVOICES_PATH,
+  formatInvoiceNumber,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
   type PurchaseInvoiceLetter,
 } from "../schema";
+import { AiFilledMark } from "./ai-filled-mark";
 import {
   PurchaseInvoicePicker,
   type PickedPurchaseInvoice,
@@ -125,35 +139,73 @@ function invoiceToValues(
   };
 }
 
+function initialValues(
+  invoice: PurchaseInvoice | undefined,
+  defaultChannelId: string,
+  initialSupplier: PickedSupplier | null | undefined,
+  draft: PurchaseInvoiceDraft | null | undefined,
+): { values: FormValues; filled: ReadonlySet<DraftField> } {
+  const base = invoiceToValues(invoice, defaultChannelId);
+  if (invoice) return { values: base, filled: new Set() };
+  if (!draft) {
+    return {
+      values: { ...base, supplier: initialSupplier ?? null },
+      filled: new Set(),
+    };
+  }
+  const { patch, filled } = draftToFormPatch(draft.data, { fecha: base.fecha });
+  return {
+    values: {
+      ...base,
+      ...patch,
+      supplier: patch.supplier ?? initialSupplier ?? null,
+    },
+    filled: new Set(filled),
+  };
+}
+
 export function PurchaseInvoiceForm({
   mode,
   invoice,
   initialSupplier,
+  draft,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   invoice?: PurchaseInvoice;
   initialSupplier?: PickedSupplier | null;
+  /** Create mode only: values read from a document, saved via its own submit. */
+  draft?: PurchaseInvoiceDraft | null;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
   const router = useRouter();
   const { channels } = useScope();
   const activeChannels = channels.filter((c) => c.is_active);
-  const defaultChannelId =
-    invoice?.channel_id ?? activeChannels[0]?.id ?? "";
+  const defaultChannelId = invoice?.channel_id ?? activeChannels[0]?.id ?? "";
 
-  const createMut = useCreatePurchaseInvoice();
+  const createDraft = mode === "create" ? (draft ?? null) : null;
+  const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);
   const updateMut = useUpdatePurchaseInvoice();
   const isSaving = createMut.isPending || updateMut.isPending;
 
-  const form = useForm<FormValues>({
-    defaultValues: {
-      ...invoiceToValues(invoice, defaultChannelId),
-      supplier: invoice ? invoiceToValues(invoice, defaultChannelId).supplier : initialSupplier ?? null,
-    },
-  });
+  const [initial] = useState(() =>
+    initialValues(invoice, defaultChannelId, initialSupplier, createDraft),
+  );
+  const form = useForm<FormValues>({ defaultValues: initial.values });
+
+  // A field read from the document keeps its mark until the user edits it.
+  const dirtyFields = form.formState.dirtyFields;
+  function aiMark(field: DraftField) {
+    if (!initial.filled.has(field) || dirtyFields[field]) return null;
+    return <AiFilledMark />;
+  }
+
+  const [suggestedAccount, setSuggestedAccount] = useState(
+    createDraft?.data.account ?? null,
+  );
+  const [acceptTotalsGap, setAcceptTotalsGap] = useState(false);
 
   const watchedKind = form.watch("kind");
   const watchedMoneda = form.watch("moneda");
@@ -203,7 +255,11 @@ export function PurchaseInvoiceForm({
     }
     const neto = Number(watchedNeto || 0);
     const iva = Number(watchedIva || 0);
-    if (!Number.isFinite(neto) || !Number.isFinite(iva) || !Number.isFinite(trib)) {
+    if (
+      !Number.isFinite(neto) ||
+      !Number.isFinite(iva) ||
+      !Number.isFinite(trib)
+    ) {
       return null;
     }
     return {
@@ -350,17 +406,46 @@ export function PurchaseInvoiceForm({
     return () => {
       cancelled = true;
     };
-  }, [
-    mode,
-    isInternalChannel,
-    watchedSupplierId,
-    watchedChannelId,
-    form,
-  ]);
+  }, [mode, isInternalChannel, watchedSupplierId, watchedChannelId, form]);
+
+  const debouncedPv = useDebouncedValue(form.watch("punto_venta"), 300);
+  const debouncedNumero = useDebouncedValue(form.watch("numero"), 300);
+  const duplicateLookup = useMemo(() => {
+    const pv = Number(debouncedPv);
+    const numero = Number(debouncedNumero);
+    if (mode !== "create" || !watchedSupplierId) return null;
+    if (!Number.isInteger(pv) || pv < 1) return null;
+    if (!Number.isInteger(numero) || numero < 1) return null;
+    return {
+      supplier_id: watchedSupplierId,
+      kind: watchedKind,
+      punto_venta: pv,
+      numero,
+    };
+  }, [mode, watchedSupplierId, watchedKind, debouncedPv, debouncedNumero]);
+  const duplicate = usePurchaseInvoiceDuplicate(duplicateLookup).data ?? null;
+
+  // Only document-filled invoices are checked: a manual header-only load may
+  // legitimately carry amounts the form has no field for.
+  const gap =
+    createDraft && !watchedWithItems
+      ? totalsGap({
+          imp_neto: watchedNeto,
+          imp_iva: watchedIva,
+          imp_trib: watchedTrib,
+          imp_total: form.watch("imp_total"),
+        })
+      : null;
 
   function onSubmit(values: FormValues) {
     if (!values.supplier) {
       toast.error("Seleccioná un proveedor.");
+      return;
+    }
+    if (gap !== null && !acceptTotalsGap) {
+      toast.error(
+        "Los importes no cierran: revisá neto, IVA, otros tributos y total.",
+      );
       return;
     }
     if (!values.channel_id) {
@@ -396,7 +481,7 @@ export function PurchaseInvoiceForm({
     const isInternal = !activeChannels.find((c) => c.id === values.channel_id)
       ?.is_fiscal;
 
-    const payload = {
+    const payload: PurchaseInvoiceCreateRawInput = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
       kind: values.kind,
@@ -414,16 +499,27 @@ export function PurchaseInvoiceForm({
       cae_proveedor: isInternal ? null : values.cae_proveedor || null,
       cae_vto_proveedor: isInternal ? null : values.cae_vto_proveedor || null,
       invoice_origin_id:
-        values.kind === "factura" ? null : values.origin_invoice?.id ?? null,
+        values.kind === "factura" ? null : (values.origin_invoice?.id ?? null),
       motivo_nc_nd: values.motivo_nc_nd || null,
       notes: values.notes || null,
       items: itemsPayload,
     };
 
     if (mode === "create") {
-      createMut.mutate(payload, {
+      const createPayload: PurchaseInvoiceCreateRawInput = createDraft
+        ? {
+            ...payload,
+            account_id: suggestedAccount?.id ?? null,
+            cost_center_id: createDraft.data.cost_center_id,
+          }
+        : payload;
+      createMut.mutate(createPayload, {
         onSuccess: (data) => {
-          toast.success("Factura cargada.");
+          toast.success(
+            createDraft
+              ? "Factura cargada con el archivo adjunto."
+              : "Factura cargada.",
+          );
           if (onSuccess) onSuccess(data.id);
           else router.push("/purchases");
         },
@@ -449,16 +545,18 @@ export function PurchaseInvoiceForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {createDraft && <DraftNotice warnings={createDraft.data.warnings} />}
         <FormField
           control={form.control}
           name="supplier"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Proveedor</FormLabel>
+              <FormLabel>Proveedor{aiMark("supplier")}</FormLabel>
               <FormControl>
                 <SupplierPicker
                   value={field.value}
                   onChange={field.onChange}
+                  suggestedNew={createDraft?.data.unmatchedSupplier ?? null}
                 />
               </FormControl>
               <FormMessage />
@@ -474,10 +572,7 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Canal</FormLabel>
                 <FormControl>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Elegí canal" />
                     </SelectTrigger>
@@ -500,7 +595,7 @@ export function PurchaseInvoiceForm({
             name="kind"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tipo</FormLabel>
+                <FormLabel>Tipo{aiMark("kind")}</FormLabel>
                 <FormControl>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
@@ -523,24 +618,30 @@ export function PurchaseInvoiceForm({
 
         {isInternalChannel && (
           <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <strong className="font-medium text-foreground">Gasto interno.</strong>{" "}
-            Sin letra fiscal ni CAE. Número auto-asignado por proveedor.
-            Pagable con OP interna; no va al libro IVA Compras.
+            <strong className="font-medium text-foreground">
+              Gasto interno.
+            </strong>{" "}
+            Sin letra fiscal ni CAE. Número auto-asignado por proveedor. Pagable
+            con OP interna; no va al libro IVA Compras.
           </div>
         )}
 
-        <div className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+        <div
+          className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+        >
           {!isInternalChannel && (
             <FormField
               control={form.control}
               name="letter"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Letra</FormLabel>
+                  <FormLabel>Letra{aiMark("letter")}</FormLabel>
                   <FormControl>
                     <Select
                       value={field.value || "__none"}
-                      onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none" ? "" : v)
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="—" />
@@ -565,7 +666,7 @@ export function PurchaseInvoiceForm({
             name="punto_venta"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Punto de venta</FormLabel>
+                <FormLabel>Punto de venta{aiMark("punto_venta")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -583,7 +684,7 @@ export function PurchaseInvoiceForm({
             name="numero"
             render={({ field }) => (
               <FormItem className="sm:col-span-2">
-                <FormLabel>Número</FormLabel>
+                <FormLabel>Número{aiMark("numero")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -598,13 +699,31 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
+        {duplicate && (
+          <p className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Ya cargaste{" "}
+              <Link
+                href={`${PURCHASE_INVOICES_PATH}/${duplicate.id}`}
+                className="font-mono underline underline-offset-2"
+              >
+                {formatInvoiceNumber(duplicate)}
+              </Link>{" "}
+              de este proveedor
+              {duplicate.status === "cancelled" ? " (anulada)" : ""}. Revisá que
+              no sea la misma factura.
+            </span>
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="fecha"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Fecha</FormLabel>
+                <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
                 <FormControl>
                   <DatePicker value={field.value} onChange={field.onChange} />
                 </FormControl>
@@ -617,7 +736,9 @@ export function PurchaseInvoiceForm({
             name="fch_vto_pago"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Vencimiento de pago</FormLabel>
+                <FormLabel>
+                  Vencimiento de pago{aiMark("fch_vto_pago")}
+                </FormLabel>
                 <FormControl>
                   <DatePicker
                     value={field.value}
@@ -643,7 +764,10 @@ export function PurchaseInvoiceForm({
                     checked={field.value}
                     onChange={(e) => {
                       field.onChange(e.target.checked);
-                      if (e.target.checked && form.getValues("items").length === 0) {
+                      if (
+                        e.target.checked &&
+                        form.getValues("items").length === 0
+                      ) {
                         form.setValue("items", [emptyItem()]);
                       }
                     }}
@@ -652,11 +776,12 @@ export function PurchaseInvoiceForm({
                 </FormControl>
                 <div className="space-y-1">
                   <FormLabel className="cursor-pointer">
-                    Cargar con detalle por ítem
+                    Cargar con detalle por ítem{aiMark("items")}
                   </FormLabel>
                   <p className="text-xs text-muted-foreground">
-                    Discrimina IVA por alícuota (necesario para libro IVA Compras).
-                    Si lo dejás apagado, cargás solo los totales del header.
+                    Discrimina IVA por alícuota (necesario para libro IVA
+                    Compras). Si lo dejás apagado, cargás solo los totales del
+                    header.
                   </p>
                 </div>
               </FormItem>
@@ -688,7 +813,8 @@ export function PurchaseInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Neto{watchedWithItems && (
+                  Neto{aiMark("imp_neto")}
+                  {watchedWithItems && (
                     <span className="ml-1 text-xs font-normal text-muted-foreground">
                       (auto)
                     </span>
@@ -714,7 +840,8 @@ export function PurchaseInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  IVA{watchedWithItems && (
+                  IVA{aiMark("imp_iva")}
+                  {watchedWithItems && (
                     <span className="ml-1 text-xs font-normal text-muted-foreground">
                       (auto)
                     </span>
@@ -739,7 +866,7 @@ export function PurchaseInvoiceForm({
             name="imp_trib"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Otros tributos</FormLabel>
+                <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -758,7 +885,8 @@ export function PurchaseInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Total{watchedWithItems && (
+                  Total{aiMark("imp_total")}
+                  {watchedWithItems && (
                     <span className="ml-1 text-xs font-normal text-muted-foreground">
                       (auto)
                     </span>
@@ -784,13 +912,59 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
+        {gap !== null && (
+          <div className="space-y-2 rounded-md border border-dashed px-3 py-2 text-xs">
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                Neto + IVA + otros tributos no da el total (diferencia{" "}
+                <span className="font-mono">
+                  {gap.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                </span>
+                ). Revisá los importes contra el comprobante.
+              </span>
+            </p>
+            <label className="flex items-center gap-2 text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={acceptTotalsGap}
+                onChange={(e) => setAcceptTotalsGap(e.target.checked)}
+                className="size-3.5 accent-foreground"
+              />
+              Los importes son correctos, guardar igual
+            </label>
+          </div>
+        )}
+
+        {suggestedAccount && (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs">
+            <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">
+              <span className="text-muted-foreground">
+                Cuenta de gasto sugerida por IA:{" "}
+              </span>
+              {suggestedAccount.label}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              aria-label="Quitar cuenta sugerida"
+              onClick={() => setSuggestedAccount(null)}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField
             control={form.control}
             name="moneda"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Moneda</FormLabel>
+                <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
                 <FormControl>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
@@ -812,7 +986,7 @@ export function PurchaseInvoiceForm({
               name="cotizacion"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cotización</FormLabel>
+                  <FormLabel>Cotización{aiMark("cotizacion")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -835,7 +1009,9 @@ export function PurchaseInvoiceForm({
               name="cae_proveedor"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>CAE proveedor (opcional)</FormLabel>
+                  <FormLabel>
+                    CAE proveedor (opcional){aiMark("cae_proveedor")}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -852,7 +1028,9 @@ export function PurchaseInvoiceForm({
               name="cae_vto_proveedor"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vto. CAE proveedor</FormLabel>
+                  <FormLabel>
+                    Vto. CAE proveedor{aiMark("cae_vto_proveedor")}
+                  </FormLabel>
                   <FormControl>
                     <DatePicker
                       value={field.value}
@@ -937,9 +1115,7 @@ export function PurchaseInvoiceForm({
           </Button>
           <Button
             type="submit"
-            disabled={
-              isSaving || (mode === "edit" && !form.formState.isDirty)
-            }
+            disabled={isSaving || (mode === "edit" && !form.formState.isDirty)}
           >
             {isSaving
               ? "Guardando…"
@@ -950,5 +1126,23 @@ export function PurchaseInvoiceForm({
         </div>
       </form>
     </Form>
+  );
+}
+
+function DraftNotice({ warnings }: { warnings: string[] }) {
+  return (
+    <div className="space-y-1 rounded-md border bg-muted/20 px-3 py-2 text-xs">
+      <p className="flex items-center gap-2">
+        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+        Revisá los datos leídos del archivo antes de guardar. Los marcados con
+        el ícono los completó la IA.
+      </p>
+      {warnings.map((w) => (
+        <p key={w} className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          {w}
+        </p>
+      ))}
+    </div>
   );
 }

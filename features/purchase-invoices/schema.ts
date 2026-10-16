@@ -3,11 +3,12 @@ import { z } from "zod";
 export const PURCHASE_INVOICE_KINDS = ["factura", "nc", "nd"] as const;
 export type PurchaseInvoiceKind = (typeof PURCHASE_INVOICE_KINDS)[number];
 
-export const PURCHASE_INVOICE_KIND_LABEL: Record<PurchaseInvoiceKind, string> = {
-  factura: "Factura",
-  nc: "Nota de Crédito",
-  nd: "Nota de Débito",
-};
+export const PURCHASE_INVOICE_KIND_LABEL: Record<PurchaseInvoiceKind, string> =
+  {
+    factura: "Factura",
+    nc: "Nota de Crédito",
+    nd: "Nota de Débito",
+  };
 
 export const PURCHASE_INVOICE_LETTERS = ["A", "B", "C"] as const;
 export type PurchaseInvoiceLetter = (typeof PURCHASE_INVOICE_LETTERS)[number];
@@ -15,7 +16,10 @@ export type PurchaseInvoiceLetter = (typeof PURCHASE_INVOICE_LETTERS)[number];
 export const PURCHASE_INVOICE_STATUSES = ["received", "cancelled"] as const;
 export type PurchaseInvoiceStatus = (typeof PURCHASE_INVOICE_STATUSES)[number];
 
-export const PURCHASE_INVOICE_STATUS_LABEL: Record<PurchaseInvoiceStatus, string> = {
+export const PURCHASE_INVOICE_STATUS_LABEL: Record<
+  PurchaseInvoiceStatus,
+  string
+> = {
   received: "Recibida",
   cancelled: "Anulada",
 };
@@ -63,7 +67,10 @@ const amount = z
   .union([z.number(), z.string()])
   .transform((v) => {
     if (typeof v === "number") return v;
-    const cleaned = v.replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
+    const cleaned = v
+      .replace(/[^0-9.,-]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
     const n = Number(cleaned);
     return Number.isFinite(n) ? n : 0;
   })
@@ -118,7 +125,9 @@ export const PurchaseInvoiceItemSchema = z.object({
   sort_order: z.coerce.number().int().default(0),
 });
 
-export type PurchaseInvoiceItemInput = z.infer<typeof PurchaseInvoiceItemSchema>;
+export type PurchaseInvoiceItemInput = z.infer<
+  typeof PurchaseInvoiceItemSchema
+>;
 
 const itemsArray = z.array(PurchaseInvoiceItemSchema).default([]);
 
@@ -164,7 +173,8 @@ const baseFields = {
 export const PurchaseInvoiceCreateSchema = z
   .object(baseFields)
   .refine(
-    (d) => d.kind === "factura" || (d.motivo_nc_nd && d.motivo_nc_nd.length > 0),
+    (d) =>
+      d.kind === "factura" || (d.motivo_nc_nd && d.motivo_nc_nd.length > 0),
     {
       message: "El motivo es requerido para NC/ND.",
       path: ["motivo_nc_nd"],
@@ -199,8 +209,12 @@ export const PurchaseInvoiceCancelSchema = z.object({
   id: z.string().uuid(),
 });
 
-export type PurchaseInvoiceCreateInput = z.infer<typeof PurchaseInvoiceCreateSchema>;
-export type PurchaseInvoiceUpdateInput = z.infer<typeof PurchaseInvoiceUpdateSchema>;
+export type PurchaseInvoiceCreateInput = z.infer<
+  typeof PurchaseInvoiceCreateSchema
+>;
+export type PurchaseInvoiceUpdateInput = z.infer<
+  typeof PurchaseInvoiceUpdateSchema
+>;
 
 export type PurchaseInvoice = {
   id: string;
@@ -248,11 +262,28 @@ export type PurchaseInvoiceItem = {
 };
 
 export function isPurchaseInvoiceKind(v: unknown): v is PurchaseInvoiceKind {
-  return typeof v === "string" && (PURCHASE_INVOICE_KINDS as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (PURCHASE_INVOICE_KINDS as readonly string[]).includes(v)
+  );
 }
 
-export function isPurchaseInvoiceStatus(v: unknown): v is PurchaseInvoiceStatus {
-  return typeof v === "string" && (PURCHASE_INVOICE_STATUSES as readonly string[]).includes(v);
+export function isPurchaseInvoiceLetter(
+  v: unknown,
+): v is PurchaseInvoiceLetter {
+  return (
+    typeof v === "string" &&
+    (PURCHASE_INVOICE_LETTERS as readonly string[]).includes(v)
+  );
+}
+
+export function isPurchaseInvoiceStatus(
+  v: unknown,
+): v is PurchaseInvoiceStatus {
+  return (
+    typeof v === "string" &&
+    (PURCHASE_INVOICE_STATUSES as readonly string[]).includes(v)
+  );
 }
 
 /** Embedded `purchase_invoice ( letter, kind, punto_venta, numero, fecha )` join. */

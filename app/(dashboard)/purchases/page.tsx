@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
+import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
 import {
@@ -84,12 +85,14 @@ export default async function PurchasesPage({
         <ExportPdfButton resource="purchase-invoices" label="Exportar PDF" />
       </div>
       <Hydrate state={dehydratedState}>
-        <PurchaseInvoicesTable
-          actorRoles={ctx.roles}
-          initialQuery={initialQuery}
-          initialStatus={initialStatus}
-          initialFiscalFilter={initialFiscalFilter}
-        />
+        <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>
+          <PurchaseInvoicesTable
+            actorRoles={ctx.roles}
+            initialQuery={initialQuery}
+            initialStatus={initialStatus}
+            initialFiscalFilter={initialFiscalFilter}
+          />
+        </PurchaseInvoiceFileAssistBinding>
       </Hydrate>
     </div>
   );

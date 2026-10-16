@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
+import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { getSupplierAccountAction } from "@/features/suppliers/actions/account-actions";
 import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-actions";
@@ -99,19 +100,21 @@ export default async function SupplierDetailPage({
         <TabsContent value="account" className="mt-4">
           <Hydrate state={dehydratedState}>
             <Suspense fallback={<Loading />}>
-              <SupplierAccountTab
-                supplierId={id}
-                supplier={{
-                  id: supplier.id,
-                  legal_name: supplier.legal_name,
-                  display_name: supplier.display_name,
-                  cuit: supplier.cuit,
-                  iva_condition: supplier.iva_condition,
-                }}
-                channels={channels}
-                accounts={accounts}
-                actorRoles={ctx.roles}
-              />
+              <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>
+                <SupplierAccountTab
+                  supplierId={id}
+                  supplier={{
+                    id: supplier.id,
+                    legal_name: supplier.legal_name,
+                    display_name: supplier.display_name,
+                    cuit: supplier.cuit,
+                    iva_condition: supplier.iva_condition,
+                  }}
+                  channels={channels}
+                  accounts={accounts}
+                  actorRoles={ctx.roles}
+                />
+              </PurchaseInvoiceFileAssistBinding>
             </Suspense>
           </Hydrate>
         </TabsContent>

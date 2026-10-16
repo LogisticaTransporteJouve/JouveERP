@@ -1,128 +1,248 @@
 import { describe, expect, it } from "vitest";
 
+import { draftToFormPatch } from "@/features/purchase-invoices/lib/purchase-invoice-draft";
 import { PurchaseInvoiceCreateSchema } from "@/features/purchase-invoices/schema";
 
 import {
-  buildPurchaseInvoiceInput,
+  buildPurchaseInvoiceDraft,
   buildSalesInvoiceItems,
 } from "./create-mapping";
 
-const OPTS = {
-  channelId: "chan-1",
-  supplierId: "11111111-1111-4111-8111-111111111111",
+const SUPPLIER = {
+  id: "11111111-1111-4111-8111-111111111111",
+  legal_name: "ACME SA",
+  display_name: null,
+  cuit: "30712345678",
+  iva_condition: "responsable_inscripto" as const,
 };
 
-describe("buildPurchaseInvoiceInput", () => {
-  it("threads account_id / cost_center_id from opts (null by default)", () => {
-    const payload = { number: 1, date: "2026-03-12", total_amount: 100 };
-    const base = buildPurchaseInvoiceInput(payload, OPTS);
-    expect(base?.account_id).toBeNull();
-    expect(base?.cost_center_id).toBeNull();
-    const withIds = buildPurchaseInvoiceInput(payload, {
-      ...OPTS,
-      accountId: "22222222-2222-4222-8222-222222222222",
-      costCenterId: "33333333-3333-4333-8333-333333333333",
-    });
-    expect(withIds?.account_id).toBe("22222222-2222-4222-8222-222222222222");
-    expect(withIds?.cost_center_id).toBe("33333333-3333-4333-8333-333333333333");
-  });
+const OPTS = {
+  kind: "factura" as const,
+  supplier: SUPPLIER,
+  account: null,
+  costCenterId: null,
+  usdRate: null,
+  confidence: 1,
+  duplicate: false,
+};
 
-  it("maps a complete invoice with items that pass the create schema", () => {
-    const payload = {
-      counterparty_cuit: "30-12345678-9",
-      sales_point: 1,
-      number: 12345,
-      letter: "A",
-      date: "2026-03-12",
-      currency: "ARS",
+const COMPLETE = {
+  counterparty_name: "ACME SA",
+  counterparty_cuit: "30-71234567-8",
+  sales_point: 3,
+  number: 12345,
+  letter: "A",
+  date: "2026-03-12",
+  due_date: "2026-04-11",
+  cae: "7412 3456 7890 12",
+  cae_due_date: "2026-03-22",
+  currency: "ARS",
+  net_amount: 1000,
+  iva_amount: 210,
+  other_taxes_amount: 30,
+  total_amount: 1240,
+  items: [
+    {
+      description: "Servicio",
+      quantity: 2,
+      unit_price: 500,
+      iva_rate: 21,
       net_amount: 1000,
       iva_amount: 210,
       total_amount: 1210,
+    },
+  ],
+};
+
+describe("buildPurchaseInvoiceDraft", () => {
+  it("maps every header field, the items and no warnings for a clean invoice", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, OPTS);
+    expect(draft).toMatchObject({
+      supplier: SUPPLIER,
+      unmatchedSupplier: null,
+      kind: "factura",
+      letter: "A",
+      punto_venta: 3,
+      numero: 12345,
+      fecha: "2026-03-12",
+      fch_vto_pago: "2026-04-11",
+      cae_proveedor: "74123456789012",
+      cae_vto_proveedor: "2026-03-22",
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_trib: 30,
+      imp_total: 1240,
+      moneda: "PES",
+      cotizacion: null,
+      motivo_nc_nd: null,
       items: [
         {
           description: "Servicio",
           quantity: 2,
           unit_price: 500,
-          iva_rate: 21,
-          net_amount: 1000,
-          iva_amount: 210,
-          total_amount: 1210,
+          iva_rate_id: 5,
         },
       ],
-    };
-    const input = buildPurchaseInvoiceInput(payload, OPTS);
-    expect(input).not.toBeNull();
-    expect(input?.kind).toBe("factura");
-    expect(input?.moneda).toBe("PES");
-    expect(input?.items).toHaveLength(1);
-    // The whole thing must be accepted by the real create schema.
-    expect(PurchaseInvoiceCreateSchema.safeParse(input).success).toBe(true);
+    });
+    expect(draft?.warnings).toEqual([]);
   });
 
-  it("maps USD → DOL and a single 10.5% line to rate id 4", () => {
-    const input = buildPurchaseInvoiceInput(
+  it("produces form values the create schema accepts once channel is chosen", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, OPTS);
+    if (!draft) throw new Error("expected a draft");
+    const { patch } = draftToFormPatch(draft, { fecha: "2026-01-01" });
+    const result = PurchaseInvoiceCreateSchema.safeParse({
+      ...patch,
+      supplier_id: patch.supplier?.id,
+      channel_id: "ch1",
+      items: patch.items.map((it, i) => ({
+        ...it,
+        line_neto: Number(it.quantity) * Number(it.unit_price),
+        line_iva: 0,
+        line_total: Number(it.quantity) * Number(it.unit_price),
+        sort_order: i,
+      })),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("derives the unit price from the line neto, so discounts keep qty × price", () => {
+    const draft = buildPurchaseInvoiceDraft(
       {
-        sales_point: 2,
-        number: 7,
-        date: "2026-02-01",
-        currency: "USD",
-        total_amount: 110.5,
+        ...COMPLETE,
         items: [
           {
-            description: "X",
-            quantity: 1,
+            description: "Con bonificación",
+            quantity: 3,
             unit_price: 100,
-            iva_rate: 10.5,
-            net_amount: 100,
-            iva_amount: 10.5,
-            total_amount: 110.5,
+            discount_pct: 10,
+            iva_rate: 21,
+            net_amount: 270,
           },
         ],
+        net_amount: 270,
+        iva_amount: 56.7,
+        other_taxes_amount: 0,
+        total_amount: 326.7,
       },
       OPTS,
     );
-    expect(input?.moneda).toBe("DOL");
-    const item = input?.items[0] as { iva_rate_id: number } | undefined;
-    expect(item?.iva_rate_id).toBe(4);
+    expect(draft?.items[0]).toMatchObject({ quantity: 3, unit_price: 90 });
+    expect(draft?.warnings).toEqual([]);
   });
 
-  it("falls back to header-only when a line can't be mapped", () => {
-    const input = buildPurchaseInvoiceInput(
+  it("maps USD to DOL with the loaded rate, and warns without one", () => {
+    const usd = { ...COMPLETE, currency: "USD" };
+    expect(
+      buildPurchaseInvoiceDraft(usd, { ...OPTS, usdRate: 1200 }),
+    ).toMatchObject({ moneda: "DOL", cotizacion: 1200 });
+    const noRate = buildPurchaseInvoiceDraft(usd, OPTS);
+    expect(noRate?.cotizacion).toBeNull();
+    expect(noRate?.warnings).toContain(
+      "No hay cotización del dólar cargada para la fecha: completala.",
+    );
+  });
+
+  it("keeps the printed counterparty when no supplier matched", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, {
+      ...OPTS,
+      supplier: null,
+    });
+    expect(draft?.supplier).toBeNull();
+    expect(draft?.unmatchedSupplier).toEqual({
+      legal_name: "ACME SA",
+      cuit: "30-71234567-8",
+    });
+  });
+
+  it("drops all items (header only) when one line has no price or rate", () => {
+    const draft = buildPurchaseInvoiceDraft(
       {
-        sales_point: 1,
-        number: 1,
-        date: "2026-01-01",
-        total_amount: 500,
-        // line has neither neto nor unit price → unit_price null → invalid
-        items: [{ description: "Sin precio", iva_rate: 21 }],
+        ...COMPLETE,
+        items: [COMPLETE.items[0], { description: "Sin precio", iva_rate: 21 }],
       },
       OPTS,
     );
-    expect(input?.items).toHaveLength(0);
-    expect(PurchaseInvoiceCreateSchema.safeParse(input).success).toBe(true);
+    expect(draft?.items).toEqual([]);
+    expect(draft?.imp_total).toBe(1240);
+    expect(draft?.warnings).toContain(
+      "No se pudieron leer bien los ítems: se completaron solo los totales.",
+    );
+  });
+
+  it("does not guess a 0% rate for a line without alícuota nor IVA amount", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      {
+        ...COMPLETE,
+        items: [{ description: "X", quantity: 1, net_amount: 1000 }],
+      },
+      OPTS,
+    );
+    expect(draft?.items).toEqual([]);
+  });
+
+  it("warns when the items do not add up to the header neto", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      { ...COMPLETE, net_amount: 900, total_amount: 1140 },
+      OPTS,
+    );
+    expect(draft?.warnings).toContain(
+      "La suma de los ítems no coincide con el neto del comprobante.",
+    );
+  });
+
+  it("lists the essentials the document did not show", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      { total_amount: 100, date: "12/03/2026" },
+      OPTS,
+    );
+    expect(draft).toMatchObject({
+      punto_venta: null,
+      numero: null,
+      fecha: null,
+      letter: null,
+    });
+    expect(draft?.warnings).toContain(
+      "No se encontró en el archivo: punto de venta, número, fecha.",
+    );
+  });
+
+  it("flags a low-confidence reading and a likely duplicate", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, {
+      ...OPTS,
+      confidence: 0.55,
+      duplicate: true,
+    });
+    expect(draft?.warnings).toEqual([
+      "La lectura tiene confianza baja: revisá todos los campos contra el archivo.",
+      "Este comprobante parece estar ya cargado.",
+    ]);
+  });
+
+  it("starts a scanned NC with a default motivo", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, { ...OPTS, kind: "nc" });
+    expect(draft).toMatchObject({
+      kind: "nc",
+      motivo_nc_nd: "Según documento escaneado",
+    });
+  });
+
+  it("passes through the suggested account and cost center", () => {
+    const account = {
+      id: "22222222-2222-4222-8222-222222222222",
+      label: "5.1 — Fletes",
+    };
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, {
+      ...OPTS,
+      account,
+      costCenterId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(draft?.account).toEqual(account);
+    expect(draft?.cost_center_id).toBe("33333333-3333-4333-8333-333333333333");
   });
 
   it("returns null for a non-invoice payload", () => {
-    expect(buildPurchaseInvoiceInput("nope", OPTS)).toBeNull();
-  });
-
-  it("maps a scanned NC with kind + motivo that pass the create schema", () => {
-    const input = buildPurchaseInvoiceInput(
-      { sales_point: 1, number: 9, date: "2026-05-01", total_amount: 121 },
-      { ...OPTS, kind: "nc", motivo: "Devolución de mercadería" },
-    );
-    expect(input?.kind).toBe("nc");
-    expect(input?.motivo_nc_nd).toBe("Devolución de mercadería");
-    expect(PurchaseInvoiceCreateSchema.safeParse(input).success).toBe(true);
-  });
-
-  it("defaults kind to factura with null motivo", () => {
-    const input = buildPurchaseInvoiceInput(
-      { number: 1, date: "2026-03-12", total_amount: 100 },
-      OPTS,
-    );
-    expect(input?.kind).toBe("factura");
-    expect(input?.motivo_nc_nd).toBeNull();
+    expect(buildPurchaseInvoiceDraft("nope", OPTS)).toBeNull();
   });
 });
 
