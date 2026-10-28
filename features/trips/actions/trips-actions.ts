@@ -40,7 +40,7 @@ function narrow(row: {
 
 export async function listTripsAction(): Promise<ActionResult<Trip[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     return { ok: false, error: "No tenés permiso para ver viajes." };
   }
   const supabase = await createSupabaseClient();
@@ -67,7 +67,7 @@ export async function getTripAction(
   id: string,
 ): Promise<ActionResult<Trip | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     return { ok: false, error: "No tenés permiso para ver viajes." };
   }
   const supabase = await createSupabaseClient();
@@ -87,7 +87,7 @@ export async function createTripAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:write")) {
+  if (!userCan(ctx.access, "trips:write")) {
     return { ok: false, error: "No tenés permiso para crear viajes." };
   }
   const parsed = TripCreateSchema.safeParse(input);
@@ -134,7 +134,7 @@ export async function createTripAction(
 
 export async function updateTripAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:write")) {
+  if (!userCan(ctx.access, "trips:write")) {
     return { ok: false, error: "No tenés permiso para editar viajes." };
   }
   const parsed = TripUpdateSchema.safeParse(input);
@@ -184,7 +184,7 @@ export async function deleteTripAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:write")) {
+  if (!userCan(ctx.access, "trips:write")) {
     return { ok: false, error: "No tenés permiso para borrar viajes." };
   }
   const supabase = await createSupabaseClient();

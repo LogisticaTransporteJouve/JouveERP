@@ -38,7 +38,7 @@ export default async function ClientDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     redirect("/dashboard");
   }
 
@@ -70,7 +70,7 @@ export default async function ClientDetailPage({
   }
 
   const client = result.data;
-  const canWrite = userCan(ctx.roles, "clients:write");
+  const canWrite = userCan(ctx.access, "clients:write");
 
   // Channels + accounts so the cuenta-corriente tab can render the
   // New invoice / New receipt dialogs with this client pre-selected.
@@ -126,7 +126,7 @@ export default async function ClientDetailPage({
                 }}
                 channels={channels}
                 accounts={accounts}
-                actorRoles={ctx.roles}
+                actorAccess={ctx.access}
               />
             </Suspense>
           </Hydrate>
@@ -152,8 +152,8 @@ export default async function ClientDetailPage({
               <AttachmentsZone
                 targetType="client"
                 targetId={client.id}
-                canWrite={userCan(ctx.roles, "files:write") && canWrite}
-                canDelete={userCan(ctx.roles, "files:write") && canWrite}
+                canWrite={userCan(ctx.access, "files:write") && canWrite}
+                canDelete={userCan(ctx.access, "files:write") && canWrite}
               />
             </div>
           </div>

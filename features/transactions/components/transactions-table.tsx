@@ -11,10 +11,7 @@ import {
 } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  DataTable,
-  type ColumnDef,
-} from "@/components/ui/data-table";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -28,7 +25,7 @@ import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
@@ -124,7 +121,10 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "description",
         header: "Descripción",
         enableSorting: false,
-        meta: { cellClassName: "max-w-[260px] truncate text-sm", mobile: "primary" },
+        meta: {
+          cellClassName: "max-w-[260px] truncate text-sm",
+          mobile: "primary",
+        },
         cell: ({ row }) => (
           <>
             {row.original.description ?? (
@@ -142,7 +142,11 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
         id: "amount",
         header: "Monto",
         enableSorting: false,
-        meta: { align: "right", cellClassName: "font-mono text-sm", mobile: "primary" },
+        meta: {
+          align: "right",
+          cellClassName: "font-mono text-sm",
+          mobile: "primary",
+        },
         cell: ({ row }) => {
           const isOutflow =
             row.original.kind === "expense" ||
@@ -169,7 +173,7 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
 
 export function TransactionsTable({
   channels,
-  actorRoles,
+  actorAccess,
   initialChannel,
   initialAccount,
   initialKind,
@@ -177,7 +181,7 @@ export function TransactionsTable({
   initialDateTo,
 }: {
   channels: ChannelOption[];
-  actorRoles: Role[];
+  actorAccess: Access;
   initialChannel: string | null;
   initialAccount: string | null;
   initialKind: TransactionKind | null;
@@ -198,8 +202,7 @@ export function TransactionsTable({
 
   const channel = channelInput === ANY_CHANNEL ? null : channelInput;
   const account = accountInput === ANY_ACCOUNT ? null : accountInput;
-  const kind =
-    kindInput === ANY_KIND ? null : (kindInput as TransactionKind);
+  const kind = kindInput === ANY_KIND ? null : (kindInput as TransactionKind);
 
   const deferredChannel = useDeferredValue(channel);
   const deferredAccount = useDeferredValue(account);
@@ -207,7 +210,7 @@ export function TransactionsTable({
   const deferredDateFrom = useDeferredValue(dateFrom);
   const deferredDateTo = useDeferredValue(dateTo);
 
-  const canWrite = userCan(actorRoles, "transactions:write");
+  const canWrite = userCan(actorAccess, "transactions:write");
 
   const columns = useTransactionColumns();
 

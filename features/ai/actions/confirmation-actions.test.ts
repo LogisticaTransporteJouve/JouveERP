@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 import type { AiConfirmation } from "../lib/confirmation-schema";
 
@@ -14,7 +14,10 @@ const createLeave = vi.fn();
 const upsertManualExchangeRate = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("@/lib/commands/create-leave", () => ({ createLeave }));

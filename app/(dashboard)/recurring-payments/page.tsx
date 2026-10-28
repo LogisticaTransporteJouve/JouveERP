@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RecurringPaymentsPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:read")) {
+  if (!userCan(ctx.access, "recurring_payments:read")) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([

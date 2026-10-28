@@ -1,7 +1,7 @@
 import { tool, type Tool } from "ai";
 import type { z } from "zod";
 
-import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
+import { userCan, type Permission, type Access } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
@@ -56,7 +56,7 @@ export interface AiProposalStore {
 /** Who the assistant is acting for, from the chat route's session. */
 export type AiActionContext = {
   userId: string;
-  roles: readonly Role[];
+  access: Access;
   /** Present in a chat session; `propose` actions refuse to run without it. */
   proposals?: AiProposalStore;
   /** Present in a chat session; the artifact tools are offered only with it. */
@@ -119,10 +119,10 @@ export type AiProposal = {
 };
 
 export function canRunAiAction(
-  roles: readonly Role[],
+  access: Access,
   permissions: readonly Permission[],
 ): boolean {
-  return permissions.every((p) => userCan(roles, p));
+  return permissions.every((p) => userCan(access, p));
 }
 
 export function toPermissions(
@@ -140,7 +140,7 @@ export function defineAiAction<S extends z.ZodType>(
     ctx: AiActionContext,
     input: unknown,
   ): Promise<AiToolResult> {
-    if (!canRunAiAction(ctx.roles, permissions)) {
+    if (!canRunAiAction(ctx.access, permissions)) {
       return errResult("No tenés permiso para esta consulta.");
     }
     const parsed = def.input.safeParse(input);

@@ -16,7 +16,7 @@ export async function readLibroIvaRequest(
   | { ok: false; response: NextResponse }
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return {
       ok: false,
       response: NextResponse.json(

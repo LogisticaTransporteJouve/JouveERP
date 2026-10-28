@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 
 import { CFO_BASE_PROMPT, buildSystemPrompt } from "./agent";
 import {
@@ -11,13 +11,13 @@ import {
 /**
  * Background runs (scheduled tasks, the weekly summary) act for a user who is
  * not there: only `read` actions, never a proposal or the question card, and
- * only those the user's roles allow right now.
+ * only those the user's access allows right now.
  */
 export function headlessReadActions(
-  roles: readonly Role[],
+  access: Access,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): AiAction[] {
-  return visibleAiActions(roles, actions).filter(
+  return visibleAiActions(access, actions).filter(
     (a) => a.sideEffect === "read",
   );
 }
@@ -28,11 +28,11 @@ export const HEADLESS_RULES = `Esta corrida es automática: el usuario no está 
 - Si un dato no está disponible con tus consultas, decilo en una línea y seguí con el resto.
 - Escribí el resultado listo para leer: un título corto, los hallazgos con cifras, fuente y fecha, y qué cambió respecto de la corrida anterior si la hay.`;
 
-/** The CFO prompt with the read-only capabilities of `roles`, plus the
+/** The CFO prompt with the read-only capabilities of `access`, plus the
  *  background-run rules. */
-export function buildHeadlessSystemPrompt(roles: readonly Role[]): string {
+export function buildHeadlessSystemPrompt(access: Access): string {
   return `${buildSystemPrompt(
-    buildCapabilitiesSummary(roles, headlessReadActions(roles)),
+    buildCapabilitiesSummary(access, headlessReadActions(access)),
   )}
 
 ${HEADLESS_RULES}`;

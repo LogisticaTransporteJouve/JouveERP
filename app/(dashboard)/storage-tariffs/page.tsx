@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StorageTariffsPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:read")) {
+  if (!userCan(ctx.access, "storage_billing:read")) {
     redirect("/dashboard");
   }
 

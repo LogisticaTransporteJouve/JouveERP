@@ -29,7 +29,7 @@ export async function listAiWorkflowsAction(): Promise<
   ActionResult<AiWorkflowRow[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: DENIED };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: DENIED };
   try {
     return { ok: true, data: await listWorkflows(ctx.userId) };
   } catch (error) {
@@ -44,7 +44,7 @@ export async function createAiWorkflowAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: DENIED };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: DENIED };
   const parsed = AiWorkflowDraftSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -75,7 +75,7 @@ export async function setAiWorkflowActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: DENIED };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: DENIED };
   const parsed = SetWorkflowActiveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {
@@ -109,7 +109,7 @@ export async function deleteAiWorkflowAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: DENIED };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: DENIED };
   const parsed = WorkflowIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {
@@ -128,7 +128,7 @@ export async function listAiWorkflowRunsAction(
   input: unknown,
 ): Promise<ActionResult<AiWorkflowRunRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: DENIED };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: DENIED };
   const parsed = WorkflowIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {

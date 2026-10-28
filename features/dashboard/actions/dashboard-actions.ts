@@ -40,7 +40,7 @@ export async function getDashboardDueDatesAction(): Promise<
   ActionResult<DueDateItem[]>
 > {
   const ctx = await requireUserContext();
-  if (!SECTION_PERMISSIONS.some((p) => userCan(ctx.roles, p))) {
+  if (!SECTION_PERMISSIONS.some((p) => userCan(ctx.access, p))) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -52,7 +52,7 @@ export async function getDashboardDueDatesAction(): Promise<
   // the original section order so the (stable) date sort is unchanged.
   const sections = await Promise.all([
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "cheques:read")) return [];
+      if (!userCan(ctx.access, "cheques:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("checks")
@@ -82,7 +82,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "issued_checks:read")) return [];
+      if (!userCan(ctx.access, "issued_checks:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("issued_checks")
@@ -114,7 +114,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "accounting:read")) return [];
+      if (!userCan(ctx.access, "accounting:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("loan_installments")
@@ -149,7 +149,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "recurring_payments:read")) return [];
+      if (!userCan(ctx.access, "recurring_payments:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("recurring_payments")
@@ -179,7 +179,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "fleet_documents:read")) return [];
+      if (!userCan(ctx.access, "fleet_documents:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("fleet_documents")
@@ -212,7 +212,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.roles, "hr:read")) return [];
+      if (!userCan(ctx.access, "hr:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("v_documents_expiring")
@@ -252,9 +252,9 @@ export async function getDashboardDueDatesAction(): Promise<
 // caller lacks that section's read permission, so the component can hide it.
 export async function getDashboardOpsAction(): Promise<ActionResult<OpsKpis>> {
   const ctx = await requireUserContext();
-  const canTrips = userCan(ctx.roles, "trips:read");
-  const canShipments = userCan(ctx.roles, "shipments:read");
-  const canPallets = userCan(ctx.roles, "pallets:read");
+  const canTrips = userCan(ctx.access, "trips:read");
+  const canShipments = userCan(ctx.access, "shipments:read");
+  const canPallets = userCan(ctx.access, "pallets:read");
   if (!canTrips && !canShipments && !canPallets) {
     return { ok: false, error: "No tenés permiso." };
   }

@@ -43,7 +43,7 @@ export async function uploadChatAttachmentAction(
   formData: FormData,
 ): Promise<ActionResult<ChatAttachment>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat") || !userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "ai:chat") || !userCan(ctx.access, "files:write")) {
     return { ok: false, error: NO_CHAT };
   }
 
@@ -132,7 +132,7 @@ export async function getChatAttachmentUrlAction(
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   const parsed = UuidSchema.safeParse(fileId);
   if (!parsed.success) return { ok: false, error: "ID inválido." };
 
@@ -140,7 +140,7 @@ export async function getChatAttachmentUrlAction(
   if (
     !file ||
     !canViewChatAttachment(
-      { userId: ctx.userId, isAiAdmin: userCan(ctx.roles, "ai:admin") },
+      { userId: ctx.userId, isAiAdmin: userCan(ctx.access, "ai:admin") },
       file,
     )
   ) {
@@ -159,7 +159,7 @@ export async function discardChatAttachmentAction(
   fileId: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   const parsed = UuidSchema.safeParse(fileId);
   if (!parsed.success) return { ok: false, error: "ID inválido." };
   await deleteDraftAttachment(ctx.userId, parsed.data);

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = ["finance"];
 const listPins = vi.fn();
@@ -12,7 +12,10 @@ const logAudit = vi.fn();
 const sueldosRun = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("../lib/pinned-artifacts", () => ({

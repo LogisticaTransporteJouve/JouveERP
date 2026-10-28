@@ -71,7 +71,7 @@ export async function getCashFlowAction(input: {
   monthsFwd?: number;
 }): Promise<ActionResult<CashFlowResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver el flujo de caja." };
   }
   const monthsBack = Math.min(Math.max(input.monthsBack ?? 3, 0), 24);

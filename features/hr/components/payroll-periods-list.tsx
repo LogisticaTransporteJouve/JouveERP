@@ -5,7 +5,7 @@ import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
@@ -18,9 +18,9 @@ import {
 
 import { NewPayrollPeriodDialog } from "./new-payroll-period-dialog";
 
-export function PayrollPeriodsList({ actorRoles }: { actorRoles: Role[] }) {
+export function PayrollPeriodsList({ actorAccess }: { actorAccess: Access }) {
   const { data: periods } = usePayrollPeriods();
-  const canWrite = userCan(actorRoles, "hr:write");
+  const canWrite = userCan(actorAccess, "hr:write");
 
   const columns = useMemo<ColumnDef<PayrollPeriod>[]>(
     () => [

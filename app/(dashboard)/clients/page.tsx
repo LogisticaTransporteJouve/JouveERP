@@ -21,7 +21,7 @@ export default async function ClientesPage({
   searchParams: Promise<{ q?: string; inactive?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     redirect("/dashboard");
   }
 
@@ -60,7 +60,7 @@ export default async function ClientesPage({
       </div>
       <Hydrate state={dehydratedState}>
         <ClientsTable
-          actorRoles={ctx.roles}
+          actorAccess={ctx.access}
           initialQuery={initialQuery}
           initialOnlyActive={initialOnlyActive}
         />

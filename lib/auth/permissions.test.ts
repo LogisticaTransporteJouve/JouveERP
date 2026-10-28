@@ -4,9 +4,12 @@ import {
   PERMISSIONS,
   ROLES,
   ROLE_PERMISSIONS,
-  canAssignRole,
+  assignableRoles,
+  effectivePermissions,
   highestRole,
   isRole,
+  removableRoles,
+  resolveAccess,
   userCan,
   type Permission,
   type Role,
@@ -37,116 +40,189 @@ describe("permission matrix coverage", () => {
     }
   });
 
-  it("admin holds every permission too — separation lives in canAssignRole", () => {
+  it("admin holds every permission except managing per-user access", () => {
     for (const permission of PERMISSIONS) {
-      expect(ROLE_PERMISSIONS.admin.includes(permission)).toBe(true);
+      expect(ROLE_PERMISSIONS.admin.includes(permission)).toBe(
+        permission !== "users:manage_access",
+      );
     }
   });
 });
 
 describe("userCan", () => {
   it("returns false for empty or missing role list", () => {
-    expect(userCan([], "clients:read")).toBe(false);
+    expect(userCan(resolveAccess([]), "clients:read")).toBe(false);
     expect(userCan(null, "clients:read")).toBe(false);
     expect(userCan(undefined, "clients:read")).toBe(false);
   });
 
   it("union of roles inherits the union of permissions", () => {
-    expect(userCan(["finance"], "vehicles:write")).toBe(false);
-    expect(userCan(["operations"], "invoices:issue")).toBe(false);
+    expect(userCan(resolveAccess(["finance"]), "vehicles:write")).toBe(false);
+    expect(userCan(resolveAccess(["operations"]), "invoices:issue")).toBe(
+      false,
+    );
 
-    expect(userCan(["finance", "operations"], "vehicles:write")).toBe(true);
-    expect(userCan(["finance", "operations"], "invoices:issue")).toBe(true);
+    expect(
+      userCan(resolveAccess(["finance", "operations"]), "vehicles:write"),
+    ).toBe(true);
+    expect(
+      userCan(resolveAccess(["finance", "operations"]), "invoices:issue"),
+    ).toBe(true);
   });
 
   it("driver's surface is intentionally minimal until G.3", () => {
-    expect(userCan(["driver"], "trips:read")).toBe(true);
-    expect(userCan(["driver"], "trips:write")).toBe(false);
-    expect(userCan(["driver"], "fuel:read")).toBe(false);
+    expect(userCan(resolveAccess(["driver"]), "trips:read")).toBe(true);
+    expect(userCan(resolveAccess(["driver"]), "trips:write")).toBe(false);
+    expect(userCan(resolveAccess(["driver"]), "fuel:read")).toBe(false);
   });
 
   it("warehouse cannot write products (read-only by design)", () => {
-    expect(userCan(["warehouse"], "products:read")).toBe(true);
-    expect(userCan(["warehouse"], "products:write")).toBe(false);
+    expect(userCan(resolveAccess(["warehouse"]), "products:read")).toBe(true);
+    expect(userCan(resolveAccess(["warehouse"]), "products:write")).toBe(false);
   });
 
   it("finance can read clients but cannot manage drivers", () => {
-    expect(userCan(["finance"], "clients:write")).toBe(true);
-    expect(userCan(["finance"], "drivers:write")).toBe(false);
+    expect(userCan(resolveAccess(["finance"]), "clients:write")).toBe(true);
+    expect(userCan(resolveAccess(["finance"]), "drivers:write")).toBe(false);
   });
 
   it("fleet (incl. fleet_documents) is managed by owner/admin/operations", () => {
     for (const role of ["owner", "admin", "operations"] as const) {
-      expect(userCan([role], "fleet_documents:read")).toBe(true);
-      expect(userCan([role], "fleet_documents:write")).toBe(true);
+      expect(userCan(resolveAccess([role]), "fleet_documents:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "fleet_documents:write")).toBe(
+        true,
+      );
     }
-    expect(userCan(["finance"], "fleet_documents:write")).toBe(false);
-    expect(userCan(["driver"], "fleet_documents:read")).toBe(false);
+    expect(userCan(resolveAccess(["finance"]), "fleet_documents:write")).toBe(
+      false,
+    );
+    expect(userCan(resolveAccess(["driver"]), "fleet_documents:read")).toBe(
+      false,
+    );
   });
 
   it("recurring_payments is managed by owner/admin/finance only", () => {
     for (const role of ["owner", "admin", "finance"] as const) {
-      expect(userCan([role], "recurring_payments:read")).toBe(true);
-      expect(userCan([role], "recurring_payments:write")).toBe(true);
+      expect(userCan(resolveAccess([role]), "recurring_payments:read")).toBe(
+        true,
+      );
+      expect(userCan(resolveAccess([role]), "recurring_payments:write")).toBe(
+        true,
+      );
     }
-    expect(userCan(["operations"], "recurring_payments:read")).toBe(false);
-    expect(userCan(["warehouse"], "recurring_payments:write")).toBe(false);
+    expect(
+      userCan(resolveAccess(["operations"]), "recurring_payments:read"),
+    ).toBe(false);
+    expect(
+      userCan(resolveAccess(["warehouse"]), "recurring_payments:write"),
+    ).toBe(false);
   });
 
   it("audit:read is restricted to owner and admin", () => {
-    expect(userCan(["owner"], "audit:read")).toBe(true);
-    expect(userCan(["admin"], "audit:read")).toBe(true);
-    expect(userCan(["finance"], "audit:read")).toBe(false);
-    expect(userCan(["operations"], "audit:read")).toBe(false);
-    expect(userCan(["warehouse"], "audit:read")).toBe(false);
-    expect(userCan(["driver"], "audit:read")).toBe(false);
+    expect(userCan(resolveAccess(["owner"]), "audit:read")).toBe(true);
+    expect(userCan(resolveAccess(["admin"]), "audit:read")).toBe(true);
+    expect(userCan(resolveAccess(["finance"]), "audit:read")).toBe(false);
+    expect(userCan(resolveAccess(["operations"]), "audit:read")).toBe(false);
+    expect(userCan(resolveAccess(["warehouse"]), "audit:read")).toBe(false);
+    expect(userCan(resolveAccess(["driver"]), "audit:read")).toBe(false);
   });
 
   it("ai:chat and ai:read reach owner/admin/finance/operations, not warehouse/driver", () => {
     for (const role of ["owner", "admin", "finance", "operations"] as const) {
-      expect(userCan([role], "ai:chat")).toBe(true);
-      expect(userCan([role], "ai:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "ai:chat")).toBe(true);
+      expect(userCan(resolveAccess([role]), "ai:read")).toBe(true);
     }
-    expect(userCan(["warehouse"], "ai:chat")).toBe(false);
-    expect(userCan(["warehouse"], "ai:read")).toBe(false);
-    expect(userCan(["driver"], "ai:read")).toBe(false);
+    expect(userCan(resolveAccess(["warehouse"]), "ai:chat")).toBe(false);
+    expect(userCan(resolveAccess(["warehouse"]), "ai:read")).toBe(false);
+    expect(userCan(resolveAccess(["driver"]), "ai:read")).toBe(false);
   });
 
   it("ai:admin is restricted to owner and admin", () => {
-    expect(userCan(["owner"], "ai:admin")).toBe(true);
-    expect(userCan(["admin"], "ai:admin")).toBe(true);
-    expect(userCan(["finance"], "ai:admin")).toBe(false);
-    expect(userCan(["operations"], "ai:admin")).toBe(false);
+    expect(userCan(resolveAccess(["owner"]), "ai:admin")).toBe(true);
+    expect(userCan(resolveAccess(["admin"]), "ai:admin")).toBe(true);
+    expect(userCan(resolveAccess(["finance"]), "ai:admin")).toBe(false);
+    expect(userCan(resolveAccess(["operations"]), "ai:admin")).toBe(false);
   });
 });
 
-describe("canAssignRole", () => {
-  it("owner can grant any role, including owner", () => {
-    for (const target of ROLES) {
-      expect(canAssignRole(["owner"], target)).toBe(true);
-    }
+describe("per-user denies", () => {
+  it("a denied permission is refused even though a role grants it", () => {
+    const access = resolveAccess(["finance"], ["invoices:issue"]);
+    expect(userCan(access, "invoices:issue")).toBe(false);
+    expect(userCan(access, "invoices:read")).toBe(true);
   });
 
-  it("admin can grant any role except owner", () => {
-    expect(canAssignRole(["admin"], "owner")).toBe(false);
-    for (const target of ROLES.filter((r) => r !== "owner")) {
-      expect(canAssignRole(["admin"], target)).toBe(true);
+  it("denying a resource's read takes every action of that resource", () => {
+    const access = resolveAccess(["finance"], ["accounts:read"]);
+    expect(userCan(access, "accounts:read")).toBe(false);
+    expect(userCan(access, "accounts:write")).toBe(false);
+    expect(userCan(access, "transactions:read")).toBe(true);
+  });
+
+  it("an owner cannot be denied anything", () => {
+    const access = resolveAccess(["owner"], ["accounts:read", "users:read"]);
+    expect(access.denied).toEqual([]);
+    expect(userCan(access, "accounts:write")).toBe(true);
+  });
+
+  it("drops deny strings that are not permissions", () => {
+    expect(
+      resolveAccess(["finance"], ["nope:read", "accounts"]).denied,
+    ).toEqual([]);
+  });
+
+  it("effectivePermissions counts what userCan allows", () => {
+    for (const [roles, denied] of [
+      [["finance"], ["accounts:read", "invoices:cancel"]],
+      [["owner"], ["accounts:read"]],
+      [["operations", "warehouse"], ["pallets:write"]],
+      [[], []],
+    ] as const) {
+      const access = resolveAccess(roles, denied);
+      expect([...effectivePermissions(roles, denied)].sort()).toEqual(
+        PERMISSIONS.filter((p) => userCan(access, p)).sort(),
+      );
     }
+  });
+});
+
+describe("assignableRoles / removableRoles", () => {
+  it("owner can give and take any role, including owner", () => {
+    expect(assignableRoles(resolveAccess(["owner"]))).toEqual([...ROLES]);
+    expect(removableRoles(resolveAccess(["owner"]))).toEqual([...ROLES]);
+  });
+
+  it("admin can give and take any role except owner", () => {
+    const admin = resolveAccess(["admin"]);
+    expect(assignableRoles(admin)).toEqual(ROLES.filter((r) => r !== "owner"));
+    expect(removableRoles(admin)).toEqual(ROLES.filter((r) => r !== "owner"));
   });
 
   it("non-admin roles cannot assign anything", () => {
-    const nonPrivileged: Role[] = ["finance", "operations", "warehouse", "driver"];
+    const nonPrivileged: Role[] = [
+      "finance",
+      "operations",
+      "warehouse",
+      "driver",
+    ];
     for (const actor of nonPrivileged) {
-      for (const target of ROLES) {
-        expect(canAssignRole([actor], target)).toBe(false);
-      }
+      expect(assignableRoles(resolveAccess([actor]))).toEqual([]);
+      expect(removableRoles(resolveAccess([actor]))).toEqual([]);
     }
   });
 
-  it("returns false for empty actor roles", () => {
-    expect(canAssignRole([], "finance")).toBe(false);
-    expect(canAssignRole(null, "finance")).toBe(false);
-    expect(canAssignRole(undefined, "finance")).toBe(false);
+  it("an actor denied users:assign_role assigns and removes nothing", () => {
+    const admin = resolveAccess(["admin"], ["users:assign_role"]);
+    expect(assignableRoles(admin)).toEqual([]);
+    expect(removableRoles(admin)).toEqual([]);
+  });
+
+  it("an admin cannot give a role that carries a permission denied to them", () => {
+    const admin = resolveAccess(["admin"], ["invoices:issue"]);
+    expect(assignableRoles(admin)).not.toContain("finance");
+    expect(assignableRoles(admin)).not.toContain("admin");
+    expect(assignableRoles(admin)).toContain("operations");
+    expect(removableRoles(admin)).toContain("finance");
   });
 });
 
@@ -175,9 +251,11 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
   // Pins the entire role → permissions grid. Any added/removed grant — e.g.
   // giving `operations` accounting:write — fails this test until the snapshot is
   // consciously updated. Replaces the old spot-checks that let creep through.
-  it("owner and admin hold every permission", () => {
+  it("owner holds every permission; admin all but users:manage_access", () => {
     expect([...ROLE_PERMISSIONS.owner].sort()).toEqual([...PERMISSIONS].sort());
-    expect([...ROLE_PERMISSIONS.admin].sort()).toEqual([...PERMISSIONS].sort());
+    expect([...ROLE_PERMISSIONS.admin].sort()).toEqual(
+      PERMISSIONS.filter((p) => p !== "users:manage_access").sort(),
+    );
   });
 
   it("pins the exact permission set of every restricted role", () => {

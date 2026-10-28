@@ -4,6 +4,7 @@ import {
   filterValue,
   recordingSupabase,
 } from "@/tests/helpers/recording-supabase";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const getUserById = vi.fn();
 let roleRows: { role_id: string }[] = [];
@@ -50,6 +51,7 @@ function decide(overrides: Partial<Parameters<typeof headlessEligibility>[0]>) {
     userId: "u1",
     authUser: active,
     roles: ["finance"],
+    denied: [],
     permission: "ai:chat",
     hasSecret: true,
     now: NOW,
@@ -61,7 +63,11 @@ describe("headlessEligibility", () => {
   it("acts as an active user who holds the permission, with their roles", () => {
     expect(decide({ roles: ["finance", "not-a-role"] })).toEqual({
       ok: true,
-      user: { userId: "u1", email: "a@b.c", roles: ["finance"] },
+      user: {
+        userId: "u1",
+        email: "a@b.c",
+        access: resolveAccess(["finance"]),
+      },
     });
   });
 
@@ -73,6 +79,21 @@ describe("headlessEligibility", () => {
     expect(decide({ roles: [] })).toEqual({
       ok: false,
       reason: "permission_revoked",
+    });
+  });
+
+  it("skips a user denied the permission, and carries other denies", () => {
+    expect(decide({ denied: ["ai:chat"] })).toEqual({
+      ok: false,
+      reason: "permission_revoked",
+    });
+    expect(decide({ denied: ["invoices:read"] })).toEqual({
+      ok: true,
+      user: {
+        userId: "u1",
+        email: "a@b.c",
+        access: resolveAccess(["finance"], ["invoices:read"]),
+      },
     });
   });
 
@@ -121,7 +142,7 @@ describe("resolveHeadlessUser", () => {
     const res = await resolveHeadlessUser("u1", "ai:chat", NOW);
     expect(res).toEqual({
       ok: true,
-      user: { userId: "u1", email: "a@b.c", roles: ["admin"] },
+      user: { userId: "u1", email: "a@b.c", access: resolveAccess(["admin"]) },
     });
     expect(getUserById).toHaveBeenCalledWith("u1");
     const roles = fake.calls.find((c) => c.table === "user_roles");
@@ -184,7 +205,10 @@ describe("runAsHeadlessUser", () => {
     };
     const fn = vi.fn(async () => 1);
     await expect(
-      runAsHeadlessUser({ userId: "u1", email: "a@b.c", roles: [] }, fn),
+      runAsHeadlessUser(
+        { userId: "u1", email: "a@b.c", access: resolveAccess([]) },
+        fn,
+      ),
     ).rejects.toBeInstanceOf(HeadlessTokenRejectedError);
     expect(fn).not.toHaveBeenCalled();
     expect(probeCalls).toEqual(["user_roles"]);
@@ -193,7 +217,7 @@ describe("runAsHeadlessUser", () => {
   it("runs the callback as the user with a minted token", async () => {
     vi.stubEnv("SUPABASE_JWT_SECRET", "s".repeat(40));
     const acting = await runAsHeadlessUser(
-      { userId: "u1", email: "a@b.c", roles: ["finance"] },
+      { userId: "u1", email: "a@b.c", access: resolveAccess(["finance"]) },
       async () => getActingUser(),
     );
     expect(acting?.userId).toBe("u1");
@@ -204,7 +228,7 @@ describe("runAsHeadlessUser", () => {
     vi.stubEnv("SUPABASE_JWT_SECRET", "");
     expect(() =>
       runAsHeadlessUser(
-        { userId: "u1", email: "a@b.c", roles: [] },
+        { userId: "u1", email: "a@b.c", access: resolveAccess([]) },
         async () => 1,
       ),
     ).toThrow(/SUPABASE_JWT_SECRET/);

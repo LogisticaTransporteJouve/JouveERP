@@ -29,7 +29,7 @@ export async function getFleetProfitabilityAction(
   input: RangeInput,
 ): Promise<ActionResult<FleetProfitability>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
   }
   if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {

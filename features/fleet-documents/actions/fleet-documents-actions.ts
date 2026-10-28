@@ -52,7 +52,7 @@ export async function listFleetDocumentsAction(): Promise<
   ActionResult<FleetDocument[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fleet_documents:read")) {
+  if (!userCan(ctx.access, "fleet_documents:read")) {
     return { ok: false, error: "No tenés permiso para ver la documentación." };
   }
   const supabase = await createSupabaseClient();
@@ -79,7 +79,7 @@ export async function createFleetDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fleet_documents:write")) {
+  if (!userCan(ctx.access, "fleet_documents:write")) {
     return { ok: false, error: "No tenés permiso para crear documentación." };
   }
   const parsed = FleetDocumentCreateSchema.safeParse(input);
@@ -126,7 +126,7 @@ export async function updateFleetDocumentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fleet_documents:write")) {
+  if (!userCan(ctx.access, "fleet_documents:write")) {
     return { ok: false, error: "No tenés permiso para editar documentación." };
   }
   const parsed = FleetDocumentUpdateSchema.safeParse(input);
@@ -173,7 +173,7 @@ export async function deleteFleetDocumentAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fleet_documents:write")) {
+  if (!userCan(ctx.access, "fleet_documents:write")) {
     return { ok: false, error: "No tenés permiso para borrar documentación." };
   }
   const supabase = await createSupabaseClient();

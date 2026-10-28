@@ -6371,12 +6371,12 @@ export type Database = {
       set_user_access: {
         Args: {
           p_actor: string
-          p_addable_roles: string[]
-          p_denied: string[]
-          p_expected_denied: string[]
-          p_expected_roles: string[]
-          p_removable_roles: string[]
-          p_roles: string[]
+          p_addable_roles?: string[]
+          p_denied?: string[]
+          p_expected_denied?: string[]
+          p_expected_roles?: string[]
+          p_removable_roles?: string[]
+          p_roles?: string[]
           p_user_id: string
         }
         Returns: undefined

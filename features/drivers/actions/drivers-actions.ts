@@ -26,7 +26,7 @@ export async function listDriversAction(
   input: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<Driver[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:read")) {
+  if (!userCan(ctx.access, "drivers:read")) {
     return { ok: false, error: "No tenés permiso para ver choferes." };
   }
   const supabase = await createSupabaseClient();
@@ -50,7 +50,7 @@ export async function createDriverAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:write")) {
+  if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para crear choferes." };
   }
   const parsed = DriverCreateSchema.safeParse(input);
@@ -94,7 +94,7 @@ export async function updateDriverAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:write")) {
+  if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para editar choferes." };
   }
   const parsed = DriverUpdateSchema.safeParse(input);
@@ -142,7 +142,7 @@ export async function setDriverActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:write")) {
+  if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para editar choferes." };
   }
   const parsed = DriverToggleSchema.safeParse(input);
@@ -171,7 +171,7 @@ export async function deleteDriverAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:write")) {
+  if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para borrar choferes." };
   }
   const supabase = await createSupabaseClient();
@@ -193,7 +193,7 @@ export async function linkDriverUserAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "users:assign_role")) {
+  if (!userCan(ctx.access, "users:assign_role")) {
     return { ok: false, error: "No tenés permiso para vincular usuarios." };
   }
   const parsed = DriverLinkUserSchema.safeParse(input);

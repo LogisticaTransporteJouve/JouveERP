@@ -34,7 +34,7 @@ const TOP_DEBTORS = 5;
 export default async function DashboardPage() {
   const ctx = await requireUserContext();
 
-  const canAccounting = userCan(ctx.roles, "accounting:read");
+  const canAccounting = userCan(ctx.access, "accounting:read");
   const [
     treasuryRes,
     agingRes,
@@ -45,8 +45,8 @@ export default async function DashboardPage() {
     layoutRes,
   ] = await Promise.all([
     canAccounting ? getTreasurySummaryAction() : null,
-    userCan(ctx.roles, "clients:read") ? getAgingSummaryAction() : null,
-    userCan(ctx.roles, "suppliers:read") ? getSupplierAgingAction() : null,
+    userCan(ctx.access, "clients:read") ? getAgingSummaryAction() : null,
+    userCan(ctx.access, "suppliers:read") ? getSupplierAgingAction() : null,
     getDashboardDueDatesAction(),
     canAccounting ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
     getDashboardOpsAction(),
@@ -125,9 +125,9 @@ export default async function DashboardPage() {
       />
     );
   }
-  if (userCan(ctx.roles, "ai:read")) {
+  if (userCan(ctx.access, "ai:read")) {
     widgets.insights = (
-      <DashboardInsights canManage={userCan(ctx.roles, "ai:admin")} />
+      <DashboardInsights canManage={userCan(ctx.access, "ai:admin")} />
     );
   }
   if (dueDatesRes.ok) {
@@ -137,7 +137,7 @@ export default async function DashboardPage() {
     widgets.top_debtors = <TopDebtorsCard debtors={topDebtors} />;
   }
 
-  const template = defaultLayoutForRoles(ctx.roles).filter(
+  const template = defaultLayoutForRoles(ctx.access.roles).filter(
     (item) => widgets[item.id] != null,
   );
   const resolvedLayout = (savedLayout ?? template).filter(
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
             Resumen de caja, cobranzas, pagos y vencimientos de DZ &amp; Sons.
           </p>
         </div>
-        <QuickActions roles={ctx.roles} />
+        <QuickActions access={ctx.access} />
       </div>
 
       {Object.keys(widgets).length === 0 ? (

@@ -37,7 +37,7 @@ const SELECT_COLS =
 
 export async function listSuppliersAction(): Promise<ActionResult<Supplier[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
@@ -76,7 +76,7 @@ export async function searchSuppliersAction(
   input: SearchSuppliersInput = {},
 ): Promise<ActionResult<SearchSuppliersPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
@@ -118,7 +118,7 @@ export async function getSupplierByIdAction(
   id: string,
 ): Promise<ActionResult<Supplier | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
@@ -141,7 +141,7 @@ export async function findSupplierByCuitAction(
   cuit: string,
 ): Promise<ActionResult<Supplier | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
@@ -173,7 +173,7 @@ export async function createSupplierAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para crear proveedores." };
   }
 
@@ -229,7 +229,7 @@ export async function updateSupplierAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para editar proveedores." };
   }
 
@@ -300,7 +300,7 @@ export async function getSupplierReferencesAction(
   id: string,
 ): Promise<ActionResult<SupplierReferences>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
@@ -354,7 +354,7 @@ export async function getSupplierReferencesAction(
 
 export async function deleteSupplierAction(id: string): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para eliminar proveedores." };
   }
 
@@ -385,7 +385,7 @@ export async function setSupplierActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para editar proveedores." };
   }
 

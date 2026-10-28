@@ -56,7 +56,7 @@ const SELECT_COLUMNS =
 
 export async function listPalletsAction(): Promise<ActionResult<Pallet[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:read")) {
+  if (!userCan(ctx.access, "pallets:read")) {
     return { ok: false, error: "No tenés permiso para ver pallets." };
   }
   const supabase = await createSupabaseClient();
@@ -79,7 +79,7 @@ export async function createPalletAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:write")) {
+  if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para crear pallets." };
   }
   const parsed = PalletCreateSchema.safeParse(input);
@@ -115,7 +115,12 @@ export async function createPalletAction(
     return { ok: false, error: "No se pudo crear el pallet." };
   }
 
-  await logAudit("pallet.created", ctx.userId, { code: parsed.data.code }, data.id);
+  await logAudit(
+    "pallet.created",
+    ctx.userId,
+    { code: parsed.data.code },
+    data.id,
+  );
   return { ok: true, data: { id: data.id } };
 }
 
@@ -124,7 +129,7 @@ export async function createPalletsBulkAction(
   input: unknown,
 ): Promise<ActionResult<{ created: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:write")) {
+  if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para crear pallets." };
   }
   const parsed = PalletBulkCreateSchema.safeParse(input);
@@ -203,7 +208,7 @@ export async function dispatchPalletsBulkAction(
   input: unknown,
 ): Promise<ActionResult<{ dispatched: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:write")) {
+  if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para despachar pallets." };
   }
   const parsed = PalletBulkDispatchSchema.safeParse(input);
@@ -235,7 +240,7 @@ export async function updatePalletAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:write")) {
+  if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para editar pallets." };
   }
   const parsed = PalletUpdateSchema.safeParse(input);
@@ -285,7 +290,7 @@ export async function deletePalletAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:write")) {
+  if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para borrar pallets." };
   }
   const supabase = await createSupabaseClient();

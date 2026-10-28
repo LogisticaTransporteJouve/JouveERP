@@ -35,7 +35,7 @@ export async function gatedRead<S extends z.ZodType, T>(options: {
   ) => PromiseLike<RowsResponse<T>>;
 }): Promise<ActionResult<T[]>> {
   const ctx = await requireUserContext();
-  if (!options.permissions.every((p) => userCan(ctx.roles, p))) {
+  if (!options.permissions.every((p) => userCan(ctx.access, p))) {
     return { ok: false, error: options.denied };
   }
   const parsed = options.schema.safeParse(options.input);

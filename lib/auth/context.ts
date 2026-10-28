@@ -3,7 +3,8 @@ import "server-only";
 import { cache } from "react";
 
 import { getActingUser } from "@/lib/auth/acting-user";
-import { isRole, type Role } from "@/lib/auth/permissions";
+import { loadDenies } from "@/lib/auth/denies";
+import { isRole, resolveAccess, type Access } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type UserProfile = {
@@ -16,7 +17,8 @@ export type UserProfile = {
 export type UserContext = {
   userId: string;
   email: string;
-  roles: Role[];
+  /** Roles minus this user's denies: what every gate checks with userCan. */
+  access: Access;
   profile: UserProfile;
 };
 
@@ -27,8 +29,9 @@ async function loadUserContext(
   userId: string,
   email: string,
 ): Promise<UserContext> {
-  const [rolesResult, profileResult] = await Promise.all([
+  const [rolesResult, denies, profileResult] = await Promise.all([
     supabase.from("user_roles").select("role_id").eq("user_id", userId),
+    loadDenies(supabase, [userId]),
     supabase
       .from("user_profiles")
       .select("first_name, last_name, avatar_path, avatar_color")
@@ -59,7 +62,8 @@ async function loadUserContext(
         avatarColor: "gray",
       };
 
-  return { userId, email, roles, profile };
+  const access = resolveAccess(roles, denies.get(userId) ?? []);
+  return { userId, email, access, profile };
 }
 
 /**
@@ -78,8 +82,8 @@ const getCookieUserContext = cache(async (): Promise<UserContext | null> => {
 /**
  * Single point of entry for "who is calling this server action / RSC": the
  * session cookie's user, or the user a background job is acting as
- * (lib/auth/acting-user.ts). Roles are read with that user's own client, so
- * they are the ones RLS sees.
+ * (lib/auth/acting-user.ts). Roles and denies are read with that user's own
+ * client, so the roles are the ones RLS sees.
  */
 export async function getCurrentUserContext(): Promise<UserContext | null> {
   const acting = getActingUser();

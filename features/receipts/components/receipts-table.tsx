@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
@@ -35,17 +35,17 @@ import type { ChannelOption } from "./receipt-form";
 
 export function ReceiptsTable({
   channels,
-  actorRoles,
+  actorAccess,
 }: {
   channels: ChannelOption[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = useReceiptsList();
   const { data: accounts } = useAccountsList();
   const receipts = data.items;
   const truncated = data.nextOffset !== null;
-  const canWrite = userCan(actorRoles, "receipts:write");
-  const canSendEmail = userCan(actorRoles, "email:send");
+  const canWrite = userCan(actorAccess, "receipts:write");
+  const canSendEmail = userCan(actorAccess, "email:send");
 
   // Realtime: invalidate the list (and aging, since allocations live on
   // the parent's updated_at) whenever any receipt changes server-side.

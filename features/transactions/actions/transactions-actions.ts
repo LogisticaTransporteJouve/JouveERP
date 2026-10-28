@@ -61,7 +61,7 @@ export async function listTransactionsAction(
   rawFilters: unknown = {},
 ): Promise<ActionResult<TransactionListPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:read")) {
+  if (!userCan(ctx.access, "transactions:read")) {
     return { ok: false, error: "No tenés permiso para ver movimientos." };
   }
 
@@ -152,7 +152,7 @@ export async function getTransactionByIdAction(
   id: string,
 ): Promise<ActionResult<Transaction | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:read")) {
+  if (!userCan(ctx.access, "transactions:read")) {
     return { ok: false, error: "No tenés permiso para ver movimientos." };
   }
 
@@ -178,7 +178,7 @@ export async function createTransactionAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:write")) {
+  if (!userCan(ctx.access, "transactions:write")) {
     return { ok: false, error: "No tenés permiso para registrar movimientos." };
   }
 
@@ -254,7 +254,7 @@ export async function createTransferAction(
   input: unknown,
 ): Promise<ActionResult<{ transfer_out_id: string; transfer_in_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:write")) {
+  if (!userCan(ctx.access, "transactions:write")) {
     return { ok: false, error: "No tenés permiso para registrar movimientos." };
   }
 
@@ -320,7 +320,7 @@ export async function updateTransactionAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:write")) {
+  if (!userCan(ctx.access, "transactions:write")) {
     return { ok: false, error: "No tenés permiso para editar movimientos." };
   }
 
@@ -395,7 +395,7 @@ export async function deleteTransactionAction(
   const ctx = await requireUserContext();
   // Aligned with the transactions DELETE RLS (owner only); finance/operations
   // have transactions:write but the policy blocks them — clean gate here.
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return { ok: false, error: "Solo owner puede borrar movimientos." };
   }
 

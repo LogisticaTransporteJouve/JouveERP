@@ -1,25 +1,17 @@
-import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
+import {
+  ENTITY_READ_PERMISSION,
+  ENTITY_TYPES,
+  type EntityType,
+} from "@/lib/auth/entity-permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 // The /files hub: which owning entities a role may list, how a row links back
 // to its entity, and the PostgREST filters the list action composes. The view
 // (v_files_hub) is SECURITY INVOKER, so RLS applies underneath as well.
 
-export const HUB_ENTITY_TYPES = [
-  "purchase_invoice",
-  "invoice",
-  "receipt",
-  "payment_order",
-  "check",
-  "issued_check",
-  "client",
-  "supplier",
-  "transaction",
-  "ai_document",
-  "ai_chat_message",
-  "employee_document",
-] as const;
+export const HUB_ENTITY_TYPES = ENTITY_TYPES;
 
-export type HubEntityType = (typeof HUB_ENTITY_TYPES)[number];
+export type HubEntityType = EntityType;
 
 export const HUB_ENTITY_LABEL: Record<HubEntityType, string> = {
   purchase_invoice: "Factura de compra",
@@ -36,23 +28,6 @@ export const HUB_ENTITY_LABEL: Record<HubEntityType, string> = {
   employee_document: "Documento de empleado",
 };
 
-/** The read permission of the owning entity: a file is listed only to whom
- *  can see what it is attached to. */
-export const HUB_ENTITY_PERMISSION: Record<HubEntityType, Permission> = {
-  purchase_invoice: "purchase_invoices:read",
-  invoice: "invoices:read",
-  receipt: "receipts:read",
-  payment_order: "payment_orders:read",
-  check: "cheques:read",
-  issued_check: "issued_checks:read",
-  client: "clients:read",
-  supplier: "suppliers:read",
-  transaction: "transactions:read",
-  ai_document: "ai:read",
-  ai_chat_message: "ai:chat",
-  employee_document: "hr:read",
-};
-
 /** Entities that belong to one user (owner_id): only ai:admin sees others'. */
 const OWNER_SCOPED: ReadonlySet<HubEntityType> = new Set([
   "ai_document",
@@ -65,12 +40,13 @@ export type HubScope = {
   ownOnly: boolean;
 };
 
-export function hubScope(roles: readonly Role[]): HubScope {
+export function hubScope(access: Access): HubScope {
   const entityTypes = HUB_ENTITY_TYPES.filter((t) =>
-    userCan(roles, HUB_ENTITY_PERMISSION[t]),
+    userCan(access, ENTITY_READ_PERMISSION[t]),
   );
   const ownOnly =
-    entityTypes.some((t) => OWNER_SCOPED.has(t)) && !userCan(roles, "ai:admin");
+    entityTypes.some((t) => OWNER_SCOPED.has(t)) &&
+    !userCan(access, "ai:admin");
   return { entityTypes, ownOnly };
 }
 

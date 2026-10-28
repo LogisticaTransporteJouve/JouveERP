@@ -62,7 +62,7 @@ export async function searchPurchaseInvoicesAction(
   input: SearchPurchaseInvoicesInput = {},
 ): Promise<ActionResult<SearchPurchaseInvoicesPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver facturas de compra.",
@@ -116,7 +116,7 @@ export async function getPurchaseInvoiceByIdAction(
   id: string,
 ): Promise<ActionResult<PurchaseInvoice | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver facturas de compra.",
@@ -155,7 +155,7 @@ export async function getPurchaseInvoiceItemsAction(
   invoiceId: string,
 ): Promise<ActionResult<PurchaseInvoiceItem[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
@@ -208,7 +208,7 @@ export async function getPurchaseInvoiceAllocationsAction(
   invoiceId: string,
 ): Promise<ActionResult<PurchaseInvoiceAllocation[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
@@ -278,7 +278,7 @@ export async function findPurchaseInvoiceDuplicateAction(
   input: unknown,
 ): Promise<ActionResult<PurchaseInvoiceDuplicate | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver facturas de compra.",
@@ -334,7 +334,7 @@ export async function createPurchaseInvoiceAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }> | PartialCreateFailure> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:write")) {
+  if (!userCan(ctx.access, "purchase_invoices:write")) {
     return {
       ok: false,
       error: "No tenés permiso para cargar facturas de compra.",
@@ -482,7 +482,7 @@ export async function updatePurchaseInvoiceAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:write")) {
+  if (!userCan(ctx.access, "purchase_invoices:write")) {
     return {
       ok: false,
       error: "No tenés permiso para editar facturas de compra.",
@@ -579,7 +579,7 @@ export async function cancelPurchaseInvoiceAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:cancel")) {
+  if (!userCan(ctx.access, "purchase_invoices:cancel")) {
     return {
       ok: false,
       error: "No tenés permiso para anular facturas de compra.",

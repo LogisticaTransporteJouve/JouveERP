@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = [];
 
@@ -34,7 +34,10 @@ const chain = {
 };
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ from: () => chain }),

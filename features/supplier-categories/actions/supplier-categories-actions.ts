@@ -23,7 +23,7 @@ export async function listSupplierCategoriesAction(
   options: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<SupplierCategory[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver categorías." };
   }
 
@@ -51,7 +51,7 @@ export async function createSupplierCategoryAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para crear categorías." };
   }
 
@@ -96,7 +96,7 @@ export async function updateSupplierCategoryAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para editar categorías." };
   }
 
@@ -141,7 +141,7 @@ export async function deleteSupplierCategoryAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:write")) {
+  if (!userCan(ctx.access, "suppliers:write")) {
     return { ok: false, error: "No tenés permiso para borrar categorías." };
   }
 

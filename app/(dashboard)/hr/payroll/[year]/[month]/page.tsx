@@ -26,7 +26,7 @@ export default async function PayrollPeriodPage({
   params: Promise<{ year: string; month: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
 
@@ -66,7 +66,7 @@ export default async function PayrollPeriodPage({
       </Breadcrumb>
 
       <Hydrate state={dehydratedState}>
-        <PayrollPeriodGrid year={year} month={month} actorRoles={ctx.roles} />
+        <PayrollPeriodGrid year={year} month={month} actorAccess={ctx.access} />
       </Hydrate>
     </div>
   );

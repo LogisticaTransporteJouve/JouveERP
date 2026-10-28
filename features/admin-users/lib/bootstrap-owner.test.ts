@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 
@@ -11,7 +12,10 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u-driver", roles: ["driver"] }),
+  requireUserContext: async () => ({
+    userId: "u-driver",
+    access: resolveAccess(["driver"]),
+  }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -32,7 +36,7 @@ describe("bootstrapOwnerIfNeeded", () => {
   it("delegates the check-and-insert to the atomic RPC for the session user", async () => {
     const promoted = await bootstrapOwnerIfNeeded({
       userId: "u-first",
-      roles: [],
+      access: resolveAccess([]),
     });
     expect(promoted).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -44,21 +48,30 @@ describe("bootstrapOwnerIfNeeded", () => {
   it("reports no promotion when the RPC declines (owner exists / not first user)", async () => {
     rpc.mockResolvedValueOnce({ data: false, error: null });
     expect(
-      await bootstrapOwnerIfNeeded({ userId: "u-late", roles: ["driver"] }),
+      await bootstrapOwnerIfNeeded({
+        userId: "u-late",
+        access: resolveAccess(["driver"]),
+      }),
     ).toBe(false);
   });
 
   it("skips the RPC for an existing owner", async () => {
     expect(
-      await bootstrapOwnerIfNeeded({ userId: "u-owner", roles: ["owner"] }),
+      await bootstrapOwnerIfNeeded({
+        userId: "u-owner",
+        access: resolveAccess(["owner"]),
+      }),
     ).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("fails closed when the RPC errors", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
-    expect(await bootstrapOwnerIfNeeded({ userId: "u-first", roles: [] })).toBe(
-      false,
-    );
+    expect(
+      await bootstrapOwnerIfNeeded({
+        userId: "u-first",
+        access: resolveAccess([]),
+      }),
+    ).toBe(false);
   });
 });

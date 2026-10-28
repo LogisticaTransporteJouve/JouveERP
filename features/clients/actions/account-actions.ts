@@ -25,9 +25,7 @@ const SetOpeningInput = z.object({
 });
 
 export type AccountMovementSourceType =
-  | "invoice"
-  | "receipt"
-  | "opening_balance";
+  "invoice" | "receipt" | "opening_balance";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;
@@ -77,7 +75,7 @@ export async function getClientAccountAction(
   clientId: string,
 ): Promise<ActionResult<ClientAccountResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
   const idParsed = UuidSchema.safeParse(clientId);
@@ -257,7 +255,7 @@ export async function getClientOpeningBalanceAction(
   clientId: string,
 ): Promise<ActionResult<ClientOpeningBalance | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
   const idParsed = UuidSchema.safeParse(clientId);
@@ -309,7 +307,7 @@ export async function setClientOpeningBalanceAction(input: {
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
   // The balance adjustment rewrites the client's aging — owner only.
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return {
       ok: false,
       error: "No tenés permiso para ajustar saldos de cliente.",
@@ -349,7 +347,7 @@ export async function clearClientOpeningBalanceAction(
   clientId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return {
       ok: false,
       error: "Solo el owner puede borrar el ajuste de saldo.",

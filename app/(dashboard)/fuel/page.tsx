@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function FuelPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fuel:read")) {
+  if (!userCan(ctx.access, "fuel:read")) {
     redirect("/dashboard");
   }
 

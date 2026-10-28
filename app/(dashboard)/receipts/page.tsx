@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RecibosPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     redirect("/dashboard");
   }
 
@@ -57,7 +57,7 @@ export default async function RecibosPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <ReceiptsTable channels={channels} actorRoles={ctx.roles} />
+          <ReceiptsTable channels={channels} actorAccess={ctx.access} />
         </Suspense>
       </Hydrate>
     </div>

@@ -55,7 +55,7 @@ export async function listVehiclesAction(
   input: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<Vehicle[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:read")) {
+  if (!userCan(ctx.access, "vehicles:read")) {
     return { ok: false, error: "No tenés permiso para ver vehículos." };
   }
   const supabase = await createSupabaseClient();
@@ -84,7 +84,7 @@ export async function createVehicleAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:write")) {
+  if (!userCan(ctx.access, "vehicles:write")) {
     return { ok: false, error: "No tenés permiso para crear vehículos." };
   }
   const parsed = VehicleCreateSchema.safeParse(input);
@@ -136,7 +136,7 @@ export async function updateVehicleAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:write")) {
+  if (!userCan(ctx.access, "vehicles:write")) {
     return { ok: false, error: "No tenés permiso para editar vehículos." };
   }
   const parsed = VehicleUpdateSchema.safeParse(input);
@@ -190,7 +190,7 @@ export async function setVehicleActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:write")) {
+  if (!userCan(ctx.access, "vehicles:write")) {
     return { ok: false, error: "No tenés permiso para editar vehículos." };
   }
   const parsed = VehicleToggleSchema.safeParse(input);
@@ -219,7 +219,7 @@ export async function deleteVehicleAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:write")) {
+  if (!userCan(ctx.access, "vehicles:write")) {
     return { ok: false, error: "No tenés permiso para borrar vehículos." };
   }
   const supabase = await createSupabaseClient();

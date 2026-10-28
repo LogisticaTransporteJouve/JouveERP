@@ -41,7 +41,7 @@ export async function listEmployeeLeavesAction(
   employeeId: string,
 ): Promise<ActionResult<EmployeeLeave[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver licencias." };
   }
 
@@ -65,7 +65,7 @@ export async function createLeaveAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = CreateLeaveSchema.safeParse(input);
@@ -81,7 +81,7 @@ export async function createLeaveAction(
 
 export async function updateLeaveAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = UpdateLeaveSchema.safeParse(input);
@@ -119,7 +119,7 @@ export async function updateLeaveAction(input: unknown): Promise<ActionResult> {
 
 export async function deleteLeaveAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = DeleteLeaveSchema.safeParse(input);
@@ -153,7 +153,7 @@ export async function listVacationBalancesAction(
   employeeId: string,
 ): Promise<ActionResult<VacationBalance[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso." };
   }
 
@@ -183,7 +183,7 @@ export async function grantVacationBalancesAction(
 ): Promise<ActionResult<{ count: number }>> {
   const ctx = await requireUserContext();
   // Granting balances is admin-level — it affects all employees.
-  if (!userCan(ctx.roles, "hr:admin")) {
+  if (!userCan(ctx.access, "hr:admin")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = GrantVacationBalancesSchema.safeParse(input);
@@ -214,7 +214,7 @@ export async function adjustVacationBalanceAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:admin")) {
+  if (!userCan(ctx.access, "hr:admin")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = AdjustVacationBalanceSchema.safeParse(input);

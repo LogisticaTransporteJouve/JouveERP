@@ -36,7 +36,7 @@ export async function listIssuedChecksAction(): Promise<
   ActionResult<IssuedCheck[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "issued_checks:read")) {
+  if (!userCan(ctx.access, "issued_checks:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques propios." };
   }
 
@@ -76,7 +76,7 @@ export async function createIssuedCheckAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "issued_checks:write")) {
+  if (!userCan(ctx.access, "issued_checks:write")) {
     return {
       ok: false,
       error: "No tenés permiso para cargar cheques propios.",
@@ -140,7 +140,7 @@ export async function updateIssuedCheckAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "issued_checks:write")) {
+  if (!userCan(ctx.access, "issued_checks:write")) {
     return { ok: false, error: "No tenés permiso para editar cheques." };
   }
 
@@ -209,7 +209,7 @@ export async function transitionIssuedCheckAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "issued_checks:write")) {
+  if (!userCan(ctx.access, "issued_checks:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
 

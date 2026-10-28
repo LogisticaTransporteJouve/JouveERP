@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
 
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 
 import {
   buildArtifactTools,
@@ -31,13 +31,13 @@ const DOMAIN_LABEL: Record<AiDomain, string> = {
   general: "General",
 };
 
-/** The actions these roles may run: anything else is never shown to the
+/** The actions this access may run: anything else is never shown to the
  *  model, so it cannot even name a tool the user lacks permission for. */
 export function visibleAiActions(
-  roles: readonly Role[],
+  access: Access,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): AiAction[] {
-  return actions.filter((a) => canRunAiAction(roles, a.permissions));
+  return actions.filter((a) => canRunAiAction(access, a.permissions));
 }
 
 /** The chat tools for one user, generated from the registry, plus the
@@ -48,7 +48,7 @@ export function buildAiTools(
   actions: readonly AiAction[] = AI_ACTIONS,
 ): ToolSet {
   const tools: ToolSet = { [ASK_QUESTIONS_TOOL]: askQuestionsTool };
-  const visible = visibleAiActions(ctx.roles, actions);
+  const visible = visibleAiActions(ctx.access, actions);
   for (const action of visible) {
     tools[action.name] = action.toTool(ctx);
   }
@@ -66,11 +66,11 @@ function firstSentence(text: string): string {
 /** One line per visible action, grouped by domain, for the system prompt.
  *  Proposals are marked so the model knows they only draft. */
 export function buildCapabilitiesSummary(
-  roles: readonly Role[],
+  access: Access,
   actions: readonly AiAction[] = AI_ACTIONS,
   options: { artifacts?: boolean } = {},
 ): string {
-  const visible = visibleAiActions(roles, actions);
+  const visible = visibleAiActions(access, actions);
   const sections: string[] = [];
   for (const domain of AI_DOMAINS) {
     const lines = visible

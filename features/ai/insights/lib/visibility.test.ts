@@ -3,7 +3,11 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { ROLE_PERMISSIONS, type Role } from "@/lib/auth/permissions";
+import {
+  ROLE_PERMISSIONS,
+  type Role,
+  resolveAccess,
+} from "@/lib/auth/permissions";
 
 import { INSIGHT_KIND_PERMISSION, canSeeInsight } from "./visibility";
 
@@ -18,37 +22,43 @@ const FLEET_KINDS = ["fleet_doc_expiry", "trip_margin"];
 describe("canSeeInsight", () => {
   it("hides treasury / AR / AP cards from operations", () => {
     for (const kind of FINANCE_KINDS) {
-      expect(canSeeInsight(["operations"], kind)).toBe(false);
+      expect(canSeeInsight(resolveAccess(["operations"]), kind)).toBe(false);
     }
   });
 
   it("shows fleet cards to operations, not to finance", () => {
     for (const kind of FLEET_KINDS) {
-      expect(canSeeInsight(["operations"], kind)).toBe(true);
-      expect(canSeeInsight(["finance"], kind)).toBe(false);
+      expect(canSeeInsight(resolveAccess(["operations"]), kind)).toBe(true);
+      expect(canSeeInsight(resolveAccess(["finance"]), kind)).toBe(false);
     }
   });
 
   it("shows finance cards to finance", () => {
     for (const kind of FINANCE_KINDS) {
-      expect(canSeeInsight(["finance"], kind)).toBe(true);
+      expect(canSeeInsight(resolveAccess(["finance"]), kind)).toBe(true);
     }
   });
 
   it("shows everything to owner/admin, including unmapped kinds", () => {
     for (const role of ["owner", "admin"] satisfies Role[]) {
       for (const kind of [...FINANCE_KINDS, ...FLEET_KINDS, "future_kind"]) {
-        expect(canSeeInsight([role], kind)).toBe(true);
+        expect(canSeeInsight(resolveAccess([role]), kind)).toBe(true);
       }
     }
   });
 
   it("fails closed for unmapped kinds and for roles without ai:read", () => {
-    expect(canSeeInsight(["finance"], "future_kind")).toBe(false);
-    expect(canSeeInsight(["operations"], "future_kind")).toBe(false);
-    expect(canSeeInsight(["warehouse"], "fleet_doc_expiry")).toBe(false);
-    expect(canSeeInsight(["driver"], "trip_margin")).toBe(false);
-    expect(canSeeInsight([], "cashflow")).toBe(false);
+    expect(canSeeInsight(resolveAccess(["finance"]), "future_kind")).toBe(
+      false,
+    );
+    expect(canSeeInsight(resolveAccess(["operations"]), "future_kind")).toBe(
+      false,
+    );
+    expect(
+      canSeeInsight(resolveAccess(["warehouse"]), "fleet_doc_expiry"),
+    ).toBe(false);
+    expect(canSeeInsight(resolveAccess(["driver"]), "trip_margin")).toBe(false);
+    expect(canSeeInsight(resolveAccess([]), "cashflow")).toBe(false);
   });
 });
 

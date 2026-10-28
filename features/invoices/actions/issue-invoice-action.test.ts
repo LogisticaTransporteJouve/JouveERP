@@ -4,6 +4,7 @@ import { CONCEPTO, CONDICION_IVA_RECEPTOR, IVA_RATE } from "@/lib/afip/codes";
 import { todayInAR } from "@/lib/format";
 
 import type { CreateComprobanteInput } from "../schema";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 type Row = Record<string, unknown>;
 
@@ -47,7 +48,10 @@ function from(table: string) {
 }
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: ["finance"] }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(["finance"]),
+  }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({ from }),

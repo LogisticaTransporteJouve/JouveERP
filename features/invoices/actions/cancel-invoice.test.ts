@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type Access, resolveAccess } from "@/lib/auth/permissions";
 
 type Row = Record<string, unknown>;
 
-const h = vi.hoisted(() => {
+const h = await vi.hoisted(async () => {
+  const { resolveAccess } = await import("@/lib/auth/permissions");
   const state: {
-    roles: string[];
+    access: Access;
     invoice: Record<string, unknown> | null;
     updateError: { code: string; message: string } | null;
     updates: Array<Record<string, unknown>>;
     audits: unknown[][];
   } = {
-    roles: ["finance"],
+    access: resolveAccess(["finance"]),
     invoice: null,
     updateError: null,
     updates: [],
@@ -51,7 +53,7 @@ function from() {
 }
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: h.roles }),
+  requireUserContext: async () => ({ userId: "u1", access: h.access }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({ from }),
@@ -71,7 +73,7 @@ const { cancelInvoiceAction } = await import("./invoices-actions");
 const ID = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
-  h.roles = ["finance"];
+  h.access = resolveAccess(["finance"]);
   h.updateError = null;
   h.updates = [];
   h.audits = [];
@@ -111,7 +113,7 @@ describe("cancelInvoiceAction", () => {
   });
 
   it("is denied to roles without invoices:cancel", async () => {
-    h.roles = ["operations"];
+    h.access = resolveAccess(["operations"]);
     const res = await cancelInvoiceAction({ id: ID });
     expect(res.ok).toBe(false);
     expect(h.updates).toEqual([]);

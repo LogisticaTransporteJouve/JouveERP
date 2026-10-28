@@ -48,7 +48,7 @@ export async function listRecurringPaymentsAction(
   input: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<RecurringPayment[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:read")) {
+  if (!userCan(ctx.access, "recurring_payments:read")) {
     return { ok: false, error: "No tenés permiso para ver pagos recurrentes." };
   }
 
@@ -80,7 +80,7 @@ export async function createRecurringPaymentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:write")) {
+  if (!userCan(ctx.access, "recurring_payments:write")) {
     return {
       ok: false,
       error: "No tenés permiso para crear pagos recurrentes.",
@@ -141,7 +141,7 @@ export async function updateRecurringPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:write")) {
+  if (!userCan(ctx.access, "recurring_payments:write")) {
     return {
       ok: false,
       error: "No tenés permiso para editar pagos recurrentes.",
@@ -202,7 +202,7 @@ export async function setRecurringPaymentActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:write")) {
+  if (!userCan(ctx.access, "recurring_payments:write")) {
     return {
       ok: false,
       error: "No tenés permiso para editar pagos recurrentes.",
@@ -242,7 +242,7 @@ export async function deleteRecurringPaymentAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "recurring_payments:write")) {
+  if (!userCan(ctx.access, "recurring_payments:write")) {
     return {
       ok: false,
       error: "No tenés permiso para borrar pagos recurrentes.",

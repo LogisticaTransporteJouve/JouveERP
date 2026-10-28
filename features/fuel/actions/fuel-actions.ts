@@ -45,7 +45,7 @@ const SELECT_COLUMNS =
 
 export async function listFuelLoadsAction(): Promise<ActionResult<FuelLoad[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fuel:read")) {
+  if (!userCan(ctx.access, "fuel:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver cargas de combustible.",
@@ -73,7 +73,7 @@ export async function createFuelLoadAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fuel:write")) {
+  if (!userCan(ctx.access, "fuel:write")) {
     return { ok: false, error: "No tenés permiso para crear cargas." };
   }
   const parsed = FuelLoadCreateSchema.safeParse(input);
@@ -119,7 +119,7 @@ export async function updateFuelLoadAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fuel:write")) {
+  if (!userCan(ctx.access, "fuel:write")) {
     return { ok: false, error: "No tenés permiso para editar cargas." };
   }
   const parsed = FuelLoadUpdateSchema.safeParse(input);
@@ -164,7 +164,7 @@ export async function deleteFuelLoadAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "fuel:write")) {
+  if (!userCan(ctx.access, "fuel:write")) {
     return { ok: false, error: "No tenés permiso para borrar cargas." };
   }
   const supabase = await createSupabaseClient();

@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
 import { JournalList } from "@/features/journal-entries/components/journal-list";
 import { journalEntriesKeys } from "@/features/journal-entries/lib/journal-entries-keys";
-import { currentPeriod, type JournalFilters } from "@/features/journal-entries/schema";
+import {
+  currentPeriod,
+  type JournalFilters,
+} from "@/features/journal-entries/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -15,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function JournalPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     redirect("/dashboard");
   }
 

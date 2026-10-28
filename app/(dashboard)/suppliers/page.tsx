@@ -23,7 +23,7 @@ export default async function SuppliersPage({
   searchParams: Promise<{ q?: string; inactive?: string; category?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     redirect("/dashboard");
   }
 
@@ -72,7 +72,7 @@ export default async function SuppliersPage({
       </div>
       <Hydrate state={dehydratedState}>
         <SuppliersTable
-          actorRoles={ctx.roles}
+          actorAccess={ctx.access}
           initialQuery={initialQuery}
           initialOnlyActive={initialOnlyActive}
           initialCategoryId={initialCategoryId}

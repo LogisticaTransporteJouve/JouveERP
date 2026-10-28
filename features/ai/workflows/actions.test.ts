@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = ["finance"];
 const store = {
@@ -17,7 +17,10 @@ const store = {
 const logAudit = vi.fn(async () => undefined);
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "me", roles }),
+  requireUserContext: async () => ({
+    userId: "me",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("./store", async (importOriginal) => ({

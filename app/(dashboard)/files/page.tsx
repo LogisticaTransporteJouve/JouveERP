@@ -23,7 +23,7 @@ export default async function FilesPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) {
+  if (!userCan(ctx.access, "files:read")) {
     redirect("/dashboard");
   }
 
@@ -37,7 +37,7 @@ export default async function FilesPage({
     dateTo: params.hasta || null,
   });
   const filters: HubFilters = parsed.success ? parsed.data : {};
-  const { entityTypes } = hubScope(ctx.roles);
+  const { entityTypes } = hubScope(ctx.access);
 
   const dehydratedState = await prefetchQueries([
     { infinite: true, ...hubFilesQuery(filters) },

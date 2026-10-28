@@ -17,16 +17,12 @@ import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useClientsSearchInfinite } from "../hooks/use-clients";
-import {
-  IVA_CONDITION_LABEL,
-  type Client,
-  type IvaCondition,
-} from "../schema";
+import { IVA_CONDITION_LABEL, type Client, type IvaCondition } from "../schema";
 import { DeleteClientDialog } from "./delete-client-dialog";
 import { EditClientDialog } from "./edit-client-dialog";
 import { NewClientDialog } from "./new-client-dialog";
@@ -123,11 +119,11 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
 }
 
 export function ClientsTable({
-  actorRoles,
+  actorAccess,
   initialQuery,
   initialOnlyActive,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   initialQuery: string;
   initialOnlyActive: boolean;
 }) {
@@ -142,7 +138,7 @@ export function ClientsTable({
   const deferredOnlyActive = useDeferredValue(onlyActive);
   const setUrlFilters = useUrlFilter();
 
-  const canWrite = userCan(actorRoles, "clients:write");
+  const canWrite = userCan(actorAccess, "clients:write");
 
   useEffect(() => {
     setUrlFilters({

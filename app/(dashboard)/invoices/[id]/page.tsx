@@ -42,7 +42,7 @@ export default async function ComprobanteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     redirect("/dashboard");
   }
 
@@ -50,9 +50,9 @@ export default async function ComprobanteDetailPage({
   const res = await getInvoiceDetailAction(id);
   if (!res.ok) notFound();
   const c = res.data;
-  const canIssue = userCan(ctx.roles, "invoices:issue");
+  const canIssue = userCan(ctx.access, "invoices:issue");
   const canCancel =
-    userCan(ctx.roles, "invoices:cancel") &&
+    userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
     INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
 
@@ -341,8 +341,8 @@ export default async function ComprobanteDetailPage({
             <AttachmentsZone
               targetType="invoice"
               targetId={c.id}
-              canWrite={userCan(ctx.roles, "files:write")}
-              canDelete={userCan(ctx.roles, "files:write")}
+              canWrite={userCan(ctx.access, "files:write")}
+              canDelete={userCan(ctx.access, "files:write")}
             />
           </div>
         </div>

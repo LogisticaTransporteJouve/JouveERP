@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DocumentosRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read")) {
+  if (!userCan(ctx.access, "ai:read")) {
     redirect("/dashboard");
   }
   return <DocumentsTray />;

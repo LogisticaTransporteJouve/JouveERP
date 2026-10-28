@@ -46,10 +46,10 @@ export async function sendReceiptByEmailAction(
   rawInput: SendReceiptEmailInput,
 ): Promise<ActionResult<{ log_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "email:send")) {
+  if (!userCan(ctx.access, "email:send")) {
     return { ok: false, error: "No tenés permiso para enviar emails." };
   }
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
@@ -137,7 +137,7 @@ export async function getReceiptEmailDefaultsAction(receiptId: string): Promise<
   }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 

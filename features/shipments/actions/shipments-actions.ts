@@ -51,7 +51,7 @@ function narrow(row: {
 
 export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:read")) {
+  if (!userCan(ctx.access, "shipments:read")) {
     return { ok: false, error: "No tenés permiso para ver cargas." };
   }
   const supabase = await createSupabaseClient();
@@ -81,7 +81,7 @@ export async function listShipmentOptionsAction(): Promise<
   ActionResult<ShipmentOptions>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:read")) {
+  if (!userCan(ctx.access, "shipments:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createSupabaseClient();
@@ -115,7 +115,7 @@ export async function listShipmentHistoryAction(
   shipmentId: string,
 ): Promise<ActionResult<ShipmentHistoryEntry[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:read")) {
+  if (!userCan(ctx.access, "shipments:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createSupabaseClient();
@@ -135,7 +135,7 @@ export async function createShipmentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:write")) {
+  if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para crear cargas." };
   }
   const parsed = ShipmentCreateSchema.safeParse(input);
@@ -174,7 +174,7 @@ export async function updateShipmentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:write")) {
+  if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para editar cargas." };
   }
   const parsed = ShipmentUpdateSchema.safeParse(input);
@@ -226,7 +226,7 @@ export async function changeShipmentStatusAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:write")) {
+  if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para cambiar el estado." };
   }
   const parsed = ShipmentStatusChangeSchema.safeParse(input);
@@ -307,7 +307,7 @@ export async function deleteShipmentAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:write")) {
+  if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para borrar cargas." };
   }
   const supabase = await createSupabaseClient();
@@ -328,7 +328,7 @@ export async function listShipmentsByTripAction(
   tripId: string,
 ): Promise<ActionResult<Shipment[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:read")) {
+  if (!userCan(ctx.access, "shipments:read")) {
     return { ok: false, error: "No tenés permiso para ver cargas." };
   }
   const supabase = await createSupabaseClient();
@@ -358,8 +358,8 @@ export async function invoiceFreightAction(
 ): Promise<ActionResult<{ invoiceId: string }>> {
   const ctx = await requireUserContext();
   if (
-    !userCan(ctx.roles, "shipments:write") ||
-    !userCan(ctx.roles, "invoices:issue")
+    !userCan(ctx.access, "shipments:write") ||
+    !userCan(ctx.access, "invoices:issue")
   ) {
     return { ok: false, error: "No tenés permiso para facturar el flete." };
   }

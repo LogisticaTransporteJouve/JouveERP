@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
@@ -58,12 +58,12 @@ type FormValues = {
 
 export function EmployeeVacationsCard({
   employeeId,
-  actorRoles,
+  actorAccess,
 }: {
   employeeId: string;
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
-  const canWrite = userCan(actorRoles, "hr:write");
+  const canWrite = userCan(actorAccess, "hr:write");
   const { data: balances = [], isLoading: balancesLoading } =
     useVacationBalances(employeeId);
   const { data: leaves = [], isLoading: leavesLoading } =
@@ -75,10 +75,7 @@ export function EmployeeVacationsCard({
 
   return (
     <div className="space-y-6">
-      <BalancesSection
-        balances={balances}
-        loading={balancesLoading}
-      />
+      <BalancesSection balances={balances} loading={balancesLoading} />
 
       <LeavesSection
         leaves={leaves}
@@ -103,7 +100,11 @@ export function EmployeeVacationsCard({
           submitting={createMut.isPending}
           onCreate={(values) =>
             createMut.mutate(
-              { employee_id: employeeId, ...values, notes: values.notes || null },
+              {
+                employee_id: employeeId,
+                ...values,
+                notes: values.notes || null,
+              },
               {
                 onSuccess: () => toast.success("Licencia registrada."),
                 onError: (err) => toast.error(err.message),

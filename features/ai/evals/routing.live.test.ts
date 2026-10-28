@@ -10,6 +10,7 @@ import {
 } from "../registry";
 import { buildSkillsBlock } from "../skills/registry";
 import { ROUTING_CASES, inputMatches } from "./routing-cases";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 // Live routing eval: asks the real model (Anthropic, plus any configured
 // fallback) each case's question with the role's real tool list and checks
@@ -24,8 +25,8 @@ const proposals = {
 };
 
 /** The role's real tools (schemas and descriptions) with stub executors. */
-function stubbedTools(roles: Parameters<typeof buildAiTools>[0]["roles"]) {
-  const real = buildAiTools({ userId: "eval", roles, proposals }, AI_ACTIONS);
+function stubbedTools(access: Parameters<typeof buildAiTools>[0]["access"]) {
+  const real = buildAiTools({ userId: "eval", access, proposals }, AI_ACTIONS);
   const tools: ToolSet = {};
   for (const [name, t] of Object.entries(real)) {
     tools[name] = {
@@ -47,12 +48,14 @@ describe.skipIf(!LIVE)("AI CFO tool routing (live model)", () => {
         instructions: [
           {
             role: "system",
-            content: buildSystemPrompt(buildCapabilitiesSummary(c.roles)),
+            content: buildSystemPrompt(
+              buildCapabilitiesSummary(resolveAccess(c.roles)),
+            ),
           },
           ...(skills ? [{ role: "system" as const, content: skills }] : []),
         ],
         prompt: c.question,
-        tools: stubbedTools(c.roles),
+        tools: stubbedTools(resolveAccess(c.roles)),
         stopWhen: isStepCount(1),
         maxOutputTokens: 4_000,
         providerOptions: { anthropic: { effort: "low" } },

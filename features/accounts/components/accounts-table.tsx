@@ -5,13 +5,17 @@ import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 
 import { formatMoney } from "@/lib/format";
 
 import { useAccountsList } from "../hooks/use-accounts";
-import { ACCOUNT_TYPE_LABEL, type Account, type AccountCurrency } from "../schema";
+import {
+  ACCOUNT_TYPE_LABEL,
+  type Account,
+  type AccountCurrency,
+} from "../schema";
 import { AccountOpeningBalanceDialog } from "./account-opening-balance-dialog";
 import { EditAccountDialog } from "./edit-account-dialog";
 import { NewAccountDialog } from "./new-account-dialog";
@@ -22,18 +26,18 @@ function formatBalance(amount: number, currency: AccountCurrency) {
 }
 
 export function AccountsTable({
-  actorRoles,
+  actorAccess,
   channels,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   channels: Array<{ id: string; name: string }>;
 }) {
   const { data: accounts } = useAccountsList();
-  const canWrite = userCan(actorRoles, "accounts:write");
+  const canWrite = userCan(actorAccess, "accounts:write");
   // Only the owner can touch the balance adjustment (matching the client
   // flow). It stays invisible in the UI for finance/admin; the RPC
   // also blocks it just in case.
-  const canAdjust = actorRoles.includes("owner");
+  const canAdjust = actorAccess.roles.includes("owner");
 
   const columns = useMemo<ColumnDef<Account>[]>(
     () => [
@@ -133,9 +137,7 @@ export function AccountsTable({
               />
             )}
             {canWrite && <EditAccountDialog account={row.original} />}
-            {canWrite && (
-              <ToggleAccountActiveButton account={row.original} />
-            )}
+            {canWrite && <ToggleAccountActiveButton account={row.original} />}
           </div>
         ),
       },

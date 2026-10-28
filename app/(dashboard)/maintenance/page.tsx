@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MaintenancePageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "maintenance:read")) {
+  if (!userCan(ctx.access, "maintenance:read")) {
     redirect("/dashboard");
   }
 

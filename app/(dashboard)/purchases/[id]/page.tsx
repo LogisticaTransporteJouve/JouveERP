@@ -41,7 +41,7 @@ export default async function PurchaseInvoiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     redirect("/dashboard");
   }
 
@@ -184,13 +184,23 @@ export default async function PurchaseInvoiceDetailPage({
             <table className="w-full text-sm">
               <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-2 py-2 text-left font-medium">Descripción</th>
-                  <th className="px-2 py-2 text-right font-medium w-20">Cant.</th>
-                  <th className="px-2 py-2 text-right font-medium w-28">P. unit</th>
+                  <th className="px-2 py-2 text-left font-medium">
+                    Descripción
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium w-20">
+                    Cant.
+                  </th>
+                  <th className="px-2 py-2 text-right font-medium w-28">
+                    P. unit
+                  </th>
                   <th className="px-2 py-2 text-left font-medium w-20">IVA</th>
-                  <th className="px-2 py-2 text-right font-medium w-28">Neto</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">
+                    Neto
+                  </th>
                   <th className="px-2 py-2 text-right font-medium w-28">IVA</th>
-                  <th className="px-2 py-2 text-right font-medium w-28">Total</th>
+                  <th className="px-2 py-2 text-right font-medium w-28">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -307,8 +317,8 @@ export default async function PurchaseInvoiceDetailPage({
           <AttachmentsZone
             targetType="purchase_invoice"
             targetId={invoice.id}
-            canWrite={userCan(ctx.roles, "files:write") && !isCancelled}
-            canDelete={userCan(ctx.roles, "files:write")}
+            canWrite={userCan(ctx.access, "files:write") && !isCancelled}
+            canDelete={userCan(ctx.access, "files:write")}
           />
         </div>
       </div>

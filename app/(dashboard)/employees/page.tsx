@@ -21,7 +21,7 @@ export default async function EmployeesPage({
   searchParams: Promise<{ q?: string; inactive?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
 
@@ -63,7 +63,7 @@ export default async function EmployeesPage({
       </div>
       <Hydrate state={dehydratedState}>
         <EmployeesTable
-          actorRoles={ctx.roles}
+          actorAccess={ctx.access}
           initialQuery={initialQuery}
           initialOnlyActive={initialOnlyActive}
         />

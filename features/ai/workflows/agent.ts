@@ -91,9 +91,9 @@ export function openEarlierRunTool(
 export function buildWorkflowTools(
   input: Pick<WorkflowAgentInput, "user" | "workflow" | "memory">,
 ): ToolSet {
-  const ctx = { userId: input.user.userId, roles: input.user.roles };
+  const ctx = { userId: input.user.userId, access: input.user.access };
   const tools: ToolSet = {};
-  for (const action of headlessReadActions(input.user.roles)) {
+  for (const action of headlessReadActions(input.user.access)) {
     tools[action.name] = action.toTool(ctx);
   }
   if (input.memory) {
@@ -119,7 +119,7 @@ export async function runWorkflowAgent(
   const instructions: SystemModelMessage[] = [
     {
       role: "system",
-      content: `${buildHeadlessSystemPrompt(input.user.roles)}\n\n${RUN_OUTPUT_RULES}`,
+      content: `${buildHeadlessSystemPrompt(input.user.access)}\n\n${RUN_OUTPUT_RULES}`,
       providerOptions: CACHE_BREAKPOINT,
     },
   ];

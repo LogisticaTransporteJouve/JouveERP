@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function IssuedChecksPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "issued_checks:read")) {
+  if (!userCan(ctx.access, "issued_checks:read")) {
     redirect("/dashboard");
   }
 
@@ -53,7 +53,7 @@ export default async function IssuedChecksPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <IssuedChecksTable accounts={accounts} actorRoles={ctx.roles} />
+          <IssuedChecksTable accounts={accounts} actorAccess={ctx.access} />
         </Suspense>
       </Hydrate>
     </div>

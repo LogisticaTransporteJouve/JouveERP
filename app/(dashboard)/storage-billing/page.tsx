@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StorageBillingRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:read")) {
+  if (!userCan(ctx.access, "storage_billing:read")) {
     redirect("/dashboard");
   }
   return <StorageBillingReport />;

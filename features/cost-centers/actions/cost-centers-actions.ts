@@ -20,7 +20,7 @@ export async function listCostCentersAction(
   options: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<CostCenter[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export async function createCostCenterAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = CostCenterCreateSchema.safeParse(input);
@@ -80,7 +80,7 @@ export async function updateCostCenterAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = CostCenterUpdateSchema.safeParse(input);
@@ -111,7 +111,7 @@ export async function deleteCostCenterAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = CostCenterDeleteSchema.safeParse(input);

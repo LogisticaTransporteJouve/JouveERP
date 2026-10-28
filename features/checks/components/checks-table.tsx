@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
@@ -41,14 +41,14 @@ interface ChannelOption {
 
 export function ChequesTable({
   channels,
-  actorRoles,
+  actorAccess,
 }: {
   channels: ChannelOption[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = useChecksList();
   const items = data.items;
-  const canWrite = userCan(actorRoles, "cheques:write");
+  const canWrite = userCan(actorAccess, "cheques:write");
 
   // Realtime: any check change (status flips: depositado, acreditado,
   // endosado, rechazado) refreshes the list for everyone watching.
@@ -143,7 +143,10 @@ export function ChequesTable({
         header: "Estado",
         meta: { mobile: "primary" },
         cell: ({ row }) => (
-          <Badge variant="secondary" className={STATUS_TONE[row.original.status]}>
+          <Badge
+            variant="secondary"
+            className={STATUS_TONE[row.original.status]}
+          >
             {CHECK_STATUS_LABEL[row.original.status]}
           </Badge>
         ),
@@ -152,7 +155,11 @@ export function ChequesTable({
         id: "actions",
         header: "Acciones",
         enableSorting: false,
-        meta: { align: "right", headerClassName: "w-[280px]", mobile: "primary" },
+        meta: {
+          align: "right",
+          headerClassName: "w-[280px]",
+          mobile: "primary",
+        },
         cell: ({ row }) => {
           const c = row.original;
           return (

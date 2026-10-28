@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TripsPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     redirect("/dashboard");
   }
 

@@ -21,7 +21,7 @@ export async function listInflationAdjustmentsAction(): Promise<
   ActionResult<InflationAdjustment[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
@@ -49,7 +49,7 @@ export async function createInflationAdjustmentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = InflationAdjustmentCreateSchema.safeParse(input);
@@ -85,7 +85,7 @@ export async function deleteInflationAdjustmentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = InflationAdjustmentDeleteSchema.safeParse(input);
@@ -111,7 +111,7 @@ export async function applyInflationAdjustmentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = InflationApplySchema.safeParse(input);
@@ -160,7 +160,7 @@ export async function revertInflationApplicationAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = InflationRevertSchema.safeParse(input);

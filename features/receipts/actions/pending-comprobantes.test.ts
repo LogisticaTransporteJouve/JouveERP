@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 // listPendingComprobantesForClientAction over an in-memory client: the reads
 // are plain filtered selects, so a minimal query builder covers them.
@@ -37,7 +38,10 @@ function from(table: string) {
 }
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: ["finance"] }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(["finance"]),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ from }),

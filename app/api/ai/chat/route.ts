@@ -75,7 +75,7 @@ const UUID_RE =
 
 export async function POST(req: Request) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     return NextResponse.json(
       { error: "Sin permiso para usar el chat de IA." },
       { status: 403 },
@@ -291,7 +291,7 @@ export async function POST(req: Request) {
   const artifacts = createArtifactSink();
   const registryTools = buildAiTools({
     userId: ctx.userId,
-    roles: ctx.roles,
+    access: ctx.access,
     proposals: chatProposalStore(ctx.userId, sessionId),
     artifacts,
   });
@@ -352,7 +352,7 @@ export async function POST(req: Request) {
       }
     },
     tools,
-    capabilities: buildCapabilitiesSummary(ctx.roles, undefined, {
+    capabilities: buildCapabilitiesSummary(ctx.access, undefined, {
       artifacts: true,
     }),
     notes: proposalNote,

@@ -1,3 +1,4 @@
+import { listUserIdsWithPermission } from "@/lib/auth/users";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -46,7 +47,9 @@ export const documentExpiryAlerts = inngest.createFunction(
     const docs = await step.run("load-expiring-docs", async () => {
       const { data, error } = await supabase
         .from("v_documents_expiring")
-        .select("id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry")
+        .select(
+          "id, employee_id, kind, number, expires_at, notified_at, employee_name, employee_is_active, days_until_expiry",
+        )
         .order("days_until_expiry", { ascending: true });
       if (error) throw new Error(`load-expiring-docs: ${error.message}`);
       const cutoff = new Date(
@@ -65,16 +68,10 @@ export const documentExpiryAlerts = inngest.createFunction(
       return { notified: 0, recipients: 0, docs: 0 };
     }
 
-    const recipientIds = await step.run("load-recipients", async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .in("role_id", ["owner", "admin", "finance"]);
-      if (error) throw new Error(`load-recipients: ${error.message}`);
-      const ids = new Set<string>();
-      for (const r of data ?? []) ids.add(r.user_id);
-      return [...ids];
-    });
+    // Whoever can read the documents, per-user denies included.
+    const recipientIds = await step.run("load-recipients", () =>
+      listUserIdsWithPermission("hr:read"),
+    );
 
     if (recipientIds.length === 0) {
       logger.warn("hr.document_expiry_alerts.no_recipients", {

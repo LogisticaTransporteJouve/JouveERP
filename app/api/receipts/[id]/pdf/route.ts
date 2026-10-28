@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return NextResponse.json(
       { error: "No tenés permiso para ver recibos." },
       { status: 403 },

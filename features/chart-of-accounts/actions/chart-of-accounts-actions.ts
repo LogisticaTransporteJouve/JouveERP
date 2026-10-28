@@ -25,7 +25,7 @@ export async function listChartOfAccountsAction(
   options: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<ChartAccount[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver el plan de cuentas.",
@@ -58,7 +58,7 @@ export async function createChartAccountAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso para crear cuentas." };
   }
 
@@ -149,7 +149,7 @@ export async function updateChartAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso para editar cuentas." };
   }
 
@@ -208,9 +208,12 @@ export async function deleteChartAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Aligned with the chart_of_accounts DELETE RLS (owner/admin); finance
-  // has accounting:write but the policy blocks it — clean gate here.
-  if (!ctx.roles.includes("owner") && !ctx.roles.includes("admin")) {
+  // The chart_of_accounts DELETE RLS admits owner/admin only; finance holds
+  // accounting:write but the policy blocks it, so both conditions gate here.
+  if (
+    !userCan(ctx.access, "accounting:write") ||
+    (!ctx.access.roles.includes("owner") && !ctx.access.roles.includes("admin"))
+  ) {
     return { ok: false, error: "Solo owner o admin pueden borrar cuentas." };
   }
 

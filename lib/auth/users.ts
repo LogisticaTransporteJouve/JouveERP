@@ -1,6 +1,16 @@
 import "server-only";
 
-import { isRole, type Role } from "@/lib/auth/permissions";
+import { loadDenies } from "@/lib/auth/denies";
+import {
+  isRole,
+  permissionResource,
+  resolveAccess,
+  roleGrants,
+  ROLES,
+  userCan,
+  type Permission,
+  type Role,
+} from "@/lib/auth/permissions";
 import { getServiceClient } from "@/lib/supabase/service";
 
 export type UserWithRoles = {
@@ -47,4 +57,40 @@ export async function listUsersWithRoles(): Promise<UserWithRoles[]> {
     createdAt: user.created_at,
     roles: rolesByUser.get(user.id) ?? [],
   }));
+}
+
+/**
+ * The users whose effective access includes `permission`, for notifications a
+ * job fans out. Candidates come from the roles that grant it; each one's
+ * denies of that permission or of its resource's `:read` then drop them.
+ */
+export async function listUserIdsWithPermission(
+  permission: Permission,
+): Promise<string[]> {
+  const service = getServiceClient();
+  const holderRoles = ROLES.filter((role) => roleGrants(role, permission));
+  const { data, error } = await service
+    .from("user_roles")
+    .select("user_id, role_id")
+    .in("role_id", holderRoles);
+  if (error) throw error;
+
+  const rolesByUser = new Map<string, Role[]>();
+  for (const row of data ?? []) {
+    if (!isRole(row.role_id)) continue;
+    rolesByUser.set(row.user_id, [
+      ...(rolesByUser.get(row.user_id) ?? []),
+      row.role_id,
+    ]);
+  }
+  const userIds = [...rolesByUser.keys()];
+  const denies = await loadDenies(service, userIds, [
+    ...new Set([permission, `${permissionResource(permission)}:read`]),
+  ]);
+  return userIds.filter((id) =>
+    userCan(
+      resolveAccess(rolesByUser.get(id) ?? [], denies.get(id) ?? []),
+      permission,
+    ),
+  );
 }
