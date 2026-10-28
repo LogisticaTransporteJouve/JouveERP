@@ -62,6 +62,33 @@ jobs:
     environment: production
 """, "names its environment dynamically"),
 
+    ("environment_url_expression_allowed", OK, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    needs: approve
+    environment: production
+  preview:
+    environment:
+      name: vercel-preview
+      url: ${{ steps.deploy.outputs.url }}
+""", ""),
+
+    ("environment_mapping_name_expression", VIOLATION, """
+jobs:
+  approve:
+    environment: production-gate
+  deploy:
+    needs: approve
+    environment:
+      name: ${{ inputs.env }}
+      url: https://x
+  other:
+    needs: approve
+    environment: production
+""", "names its environment dynamically"),
+
     ("gated", OK, """
 jobs:
   approve:
