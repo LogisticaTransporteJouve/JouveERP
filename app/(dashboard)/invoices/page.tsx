@@ -36,7 +36,7 @@ export default async function ComprobantesPage({
   }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     redirect("/dashboard");
   }
 
@@ -82,7 +82,7 @@ export default async function ComprobantesPage({
       </div>
       <Hydrate state={dehydratedState}>
         <ComprobantesTable
-          actorRoles={ctx.roles}
+          actorAccess={ctx.access}
           channels={(channels ?? []).map((c) => ({
             id: c.id,
             name: c.name,

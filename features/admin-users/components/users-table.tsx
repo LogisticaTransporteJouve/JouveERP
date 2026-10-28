@@ -13,36 +13,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { highestRole, type Role } from "@/lib/auth/permissions";
+import { highestRole, userCan, type Access } from "@/lib/auth/permissions";
 import type { UserWithRoles } from "@/lib/auth/users";
 
 import { useUsersList } from "../hooks/use-admin-users";
-import { AssignRolesDialog } from "./assign-roles-dialog";
+import { ROLE_LABELS } from "../lib/role-labels";
+import { AccessDialog } from "./access-dialog";
 import { InviteUserDialog } from "./invite-user-dialog";
-
-const ROLE_LABEL: Record<Role, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  finance: "Finanzas",
-  operations: "Operaciones",
-  warehouse: "Depósito",
-  driver: "Chofer",
-};
 
 import { formatArgentineDateTime } from "@/lib/format";
 
 const formatDate = formatArgentineDateTime;
 
 export function UsersTable({
-  actorRoles,
+  actorAccess,
   currentUserId,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   currentUserId: string;
 }) {
   const { data: users } = useUsersList();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<UserWithRoles | null>(null);
+  const canEditAccess =
+    userCan(actorAccess, "users:assign_role") ||
+    userCan(actorAccess, "users:manage_access");
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -89,7 +84,7 @@ export function UsersTable({
                     {role === "owner" ? (
                       <ShieldCheck className="size-3" />
                     ) : null}
-                    {ROLE_LABEL[role]}
+                    {ROLE_LABELS[role]}
                   </Badge>
                 ))
               )}
@@ -114,23 +109,25 @@ export function UsersTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-10", align: "right" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditing(row.original)}>
-                Editar roles
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          // Nobody edits their own access (set_user_access refuses it too).
+          canEditAccess && row.original.id !== currentUserId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditing(row.original)}>
+                  Accesos
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null,
       },
     ],
-    [currentUserId],
+    [currentUserId, canEditAccess],
   );
 
   return (
@@ -143,7 +140,7 @@ export function UsersTable({
           className="max-w-xs"
         />
         <div className="ml-auto">
-          <InviteUserDialog actorRoles={actorRoles} />
+          <InviteUserDialog actorAccess={actorAccess} />
         </div>
       </div>
 
@@ -156,17 +153,13 @@ export function UsersTable({
       />
 
       {editing ? (
-        <AssignRolesDialog
+        <AccessDialog
           open
           onOpenChange={(next) => {
             if (!next) setEditing(null);
           }}
-          user={{
-            id: editing.id,
-            email: editing.email,
-            roles: editing.roles,
-          }}
-          actorRoles={actorRoles}
+          user={{ id: editing.id, email: editing.email }}
+          actorAccess={actorAccess}
         />
       ) : null}
     </>

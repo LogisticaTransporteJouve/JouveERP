@@ -7,7 +7,7 @@ import { FileDropzone } from "@/components/file-upload/file-dropzone";
 import { Button } from "@/components/ui/button";
 import { PurchaseInvoiceFileAssistProvider } from "@/features/purchase-invoices/components/file-assist-context";
 import type { PurchaseInvoiceDraft } from "@/features/purchase-invoices/lib/purchase-invoice-draft";
-import { userCan, type Role } from "@/lib/auth/permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   DRAFT_POLL_TIMEOUT_MS,
@@ -199,16 +199,16 @@ function renderScanAssist(onDraft: (draft: PurchaseInvoiceDraft) => void) {
  * who can scan documents and load purchase invoices.
  */
 export function PurchaseInvoiceFileAssistBinding({
-  roles,
+  access,
   children,
 }: {
-  roles: readonly Role[];
+  access: Access;
   children: React.ReactNode;
 }) {
   const enabled =
-    userCan(roles, "ai:read") &&
-    userCan(roles, "files:write") &&
-    userCan(roles, "purchase_invoices:write");
+    userCan(access, "ai:read") &&
+    userCan(access, "files:write") &&
+    userCan(access, "purchase_invoices:write");
   return (
     <PurchaseInvoiceFileAssistProvider
       assist={enabled ? renderScanAssist : null}

@@ -13,13 +13,13 @@ export default async function AiRoute({
   searchParams: Promise<{ ask?: string; session?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     redirect("/dashboard");
   }
   const { ask, session } = await searchParams;
   return (
     <AiWorkspace
-      canManageInsights={userCan(ctx.roles, "ai:admin")}
+      canManageInsights={userCan(ctx.access, "ai:admin")}
       initialAsk={ask && ask.trim().length > 0 ? ask : undefined}
       initialSessionId={
         session && UuidSchema.safeParse(session).success ? session : undefined

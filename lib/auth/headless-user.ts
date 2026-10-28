@@ -1,10 +1,12 @@
 import "server-only";
 
+import { loadDenies } from "@/lib/auth/denies";
 import {
   isRole,
+  resolveAccess,
   userCan,
+  type Access,
   type Permission,
-  type Role,
 } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -12,8 +14,8 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { mintAccessToken, runAsUser } from "./acting-user";
 
-/** A user a background job may act as, with the roles they hold right now. */
-export type HeadlessUser = { userId: string; email: string; roles: Role[] };
+/** A user a background job may act as, with the access they hold right now. */
+export type HeadlessUser = { userId: string; email: string; access: Access };
 
 /** Why a job did not run as its user. */
 export type HeadlessSkipReason =
@@ -31,13 +33,14 @@ export type AuthUserState = {
 
 /**
  * Whether a job may act as this user now. Fails closed: a missing, banned or
- * deleted user, a user with no email, a role set without `permission`, or a
+ * deleted user, a user with no email, an access without `permission`, or a
  * server without the JWT secret all refuse.
  */
 export function headlessEligibility(input: {
   userId: string;
   authUser: AuthUserState | null;
   roles: readonly string[];
+  denied: readonly string[];
   permission: Permission;
   hasSecret: boolean;
   now: Date;
@@ -50,11 +53,14 @@ export function headlessEligibility(input: {
   if (auth.bannedUntil && Date.parse(auth.bannedUntil) > input.now.getTime()) {
     return { ok: false, reason: "user_disabled" };
   }
-  const roles = input.roles.filter(isRole);
-  if (!userCan(roles, input.permission)) {
+  const access = resolveAccess(input.roles.filter(isRole), input.denied);
+  if (!userCan(access, input.permission)) {
     return { ok: false, reason: "permission_revoked" };
   }
-  return { ok: true, user: { userId: input.userId, email: auth.email, roles } };
+  return {
+    ok: true,
+    user: { userId: input.userId, email: auth.email, access },
+  };
 }
 
 function jwtSecret(): string | undefined {
@@ -62,7 +68,7 @@ function jwtSecret(): string | undefined {
 }
 
 /**
- * Re-reads the user's account state and roles at run time (never trusts
+ * Re-reads the user's account state, roles and denies at run time (never trusts
  * what was true when the job was scheduled) and decides with
  * `headlessEligibility`.
  */
@@ -72,9 +78,10 @@ export async function resolveHeadlessUser(
   now: Date = new Date(),
 ): Promise<HeadlessUserResult> {
   const service = getServiceClient();
-  const [authRes, rolesRes] = await Promise.all([
+  const [authRes, rolesRes, denies] = await Promise.all([
     service.auth.admin.getUserById(userId),
     service.from("user_roles").select("role_id").eq("user_id", userId),
+    loadDenies(service, [userId]),
   ]);
   if (rolesRes.error) throw rolesRes.error;
   // Only a definitive "no such user" means disabled; an Auth outage (5xx,
@@ -91,6 +98,7 @@ export async function resolveHeadlessUser(
         }
       : null,
     roles: (rolesRes.data ?? []).map((r) => r.role_id),
+    denied: denies.get(userId) ?? [],
     permission,
     hasSecret: Boolean(jwtSecret()),
     now,

@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 import { XLSX_MIME } from "@/lib/export/xlsx";
 
 let roles: Role[] = ["finance"];
 const buildData = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/pdf/libro-iva-ventas-render", () => ({
   buildLibroIvaVentasTemplateData: buildData,

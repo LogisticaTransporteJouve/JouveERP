@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VehiclesPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "vehicles:read")) {
+  if (!userCan(ctx.access, "vehicles:read")) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([

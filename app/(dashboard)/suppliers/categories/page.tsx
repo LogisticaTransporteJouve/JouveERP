@@ -13,14 +13,15 @@ export const dynamic = "force-dynamic";
 
 export default async function SupplierCategoriesPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     redirect("/dashboard");
   }
 
   const dehydratedState = await prefetchQueries([
     {
       queryKey: supplierCategoriesKeys.list(false),
-      queryFn: () => runAction(() => listSupplierCategoriesAction({ onlyActive: false })),
+      queryFn: () =>
+        runAction(() => listSupplierCategoriesAction({ onlyActive: false })),
     },
   ]);
 

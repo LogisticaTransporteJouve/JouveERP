@@ -38,8 +38,9 @@ import {
   getIncomeStatement,
   incomeStatementLines,
 } from "./statements";
+import { resolveAccess } from "@/lib/auth/permissions";
 
-const owner = { userId: "u1", roles: ["owner" as const] };
+const owner = { userId: "u1", access: resolveAccess(["owner" as const]) };
 
 function totals(
   account_type: string,
@@ -250,7 +251,7 @@ describe("getPayrollSummary", () => {
       data: [row("2026-01", 1000, 1000), row("2026-02", 1200, 900)],
     });
     const res = await getPayrollSummary.execute(
-      { userId: "u1", roles: ["finance"] },
+      { userId: "u1", access: resolveAccess(["finance"]) },
       { fromPeriod: "2026-01", toPeriod: "2026-02" },
     );
     expect(res.ok).toBe(true);

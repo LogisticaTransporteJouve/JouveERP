@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
@@ -53,16 +53,16 @@ type CellSel = {
 export function AttendanceGrid({
   year,
   month,
-  actorRoles,
+  actorAccess,
 }: {
   year: number;
   month: number;
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const router = useRouter();
   const { data } = useAttendanceMonth(year, month);
   const { data: employees } = useAttendanceEmployees();
-  const canWrite = userCan(actorRoles, "hr:write");
+  const canWrite = userCan(actorAccess, "hr:write");
   const [selectedCell, setSelectedCell] = useState<CellSel>(null);
 
   const recordsByEmpDate = useMemo(() => {
@@ -272,7 +272,9 @@ function Legend() {
             ATTENDANCE_KIND_TONE[k],
           )}
         >
-          <span className="font-mono font-bold">{ATTENDANCE_KIND_SHORT[k]}</span>
+          <span className="font-mono font-bold">
+            {ATTENDANCE_KIND_SHORT[k]}
+          </span>
           {ATTENDANCE_KIND_LABEL[k]}
         </span>
       ))}

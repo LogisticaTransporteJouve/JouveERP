@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -48,11 +48,11 @@ function formatMoney(value: number | string | null): string {
 }
 
 export function EmployeesTable({
-  actorRoles,
+  actorAccess,
   initialQuery,
   initialOnlyActive,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   initialQuery: string;
   initialOnlyActive: boolean;
 }) {
@@ -64,7 +64,7 @@ export function EmployeesTable({
   const deferredOnlyActive = useDeferredValue(onlyActive);
   const setUrlFilters = useUrlFilter();
 
-  const canWrite = userCan(actorRoles, "hr:write");
+  const canWrite = userCan(actorAccess, "hr:write");
 
   useEffect(() => {
     setUrlFilters({

@@ -26,7 +26,7 @@ import { useScope } from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -217,12 +217,12 @@ function usePurchaseInvoiceColumns({
 }
 
 export function PurchaseInvoicesTable({
-  actorRoles,
+  actorAccess,
   initialQuery,
   initialStatus,
   initialFiscalFilter,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   initialQuery: string;
   initialStatus: string | null;
   initialFiscalFilter?: string | null;
@@ -236,13 +236,11 @@ export function PurchaseInvoicesTable({
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const setUrlFilters = useUrlFilter();
 
-  const canWrite = userCan(actorRoles, "purchase_invoices:write");
-  const canCancel = userCan(actorRoles, "purchase_invoices:cancel");
+  const canWrite = userCan(actorAccess, "purchase_invoices:write");
+  const canCancel = userCan(actorAccess, "purchase_invoices:cancel");
 
   const { channels } = useScope();
-  const channelsById = Object.fromEntries(
-    channels.map((c) => [c.id, c]),
-  );
+  const channelsById = Object.fromEntries(channels.map((c) => [c.id, c]));
 
   useEffect(() => {
     setUrlFilters({

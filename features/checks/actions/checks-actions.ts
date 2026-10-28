@@ -64,7 +64,7 @@ export async function listChecksAction(): Promise<
   ActionResult<{ items: CheckListItem[] }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:read")) {
+  if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques." };
   }
 
@@ -118,7 +118,7 @@ export async function listEnCarteraChecksAction(filters?: {
   currency?: "ARS" | "USD";
 }): Promise<ActionResult<EnCarteraCheck[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:read")) {
+  if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques." };
   }
   const supabase = await createSupabaseClient();
@@ -176,7 +176,7 @@ export async function getChequeByIdAction(
   id: string,
 ): Promise<ActionResult<ChequeDetail | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:read")) {
+  if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques." };
   }
 
@@ -200,7 +200,9 @@ export async function getChequeByIdAction(
 
   const { data: movements, error: movErr } = await supabase
     .from("check_movements")
-    .select("id, check_id, event, event_date, destination_account_id, endorsed_to_name, endorsed_to_cuit, transaction_id, notes, created_by, created_at")
+    .select(
+      "id, check_id, event, event_date, destination_account_id, endorsed_to_name, endorsed_to_cuit, transaction_id, notes, created_by, created_at",
+    )
     .eq("check_id", id)
     .order("event_date", { ascending: true });
 
@@ -227,7 +229,7 @@ export async function createCheckAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:write")) {
+  if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para registrar cheques." };
   }
 
@@ -310,7 +312,7 @@ export async function depositCheckAction(
   input: unknown,
 ): Promise<ActionResult<{ movement_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:write")) {
+  if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para depositar cheques." };
   }
 
@@ -357,7 +359,7 @@ export async function creditCheckAction(
   input: unknown,
 ): Promise<ActionResult<{ movement_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:write")) {
+  if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para acreditar cheques." };
   }
 
@@ -396,7 +398,7 @@ export async function rejectCheckAction(
   input: unknown,
 ): Promise<ActionResult<{ movement_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "cheques:write")) {
+  if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para rechazar cheques." };
   }
 

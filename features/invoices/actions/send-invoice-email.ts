@@ -46,10 +46,10 @@ export async function sendInvoiceByEmailAction(
   rawInput: SendInvoiceEmailInput,
 ): Promise<ActionResult<{ log_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "email:send")) {
+  if (!userCan(ctx.access, "email:send")) {
     return { ok: false, error: "No tenés permiso para enviar emails." };
   }
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso para ver facturas." };
   }
 
@@ -148,7 +148,7 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
   }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 

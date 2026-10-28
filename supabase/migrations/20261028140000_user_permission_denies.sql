@@ -52,12 +52,12 @@ grant select, insert, delete on public.user_permission_denies to service_role;
 create function public.set_user_access(
   p_actor uuid,
   p_user_id uuid,
-  p_roles text[],
-  p_denied text[],
-  p_addable_roles text[],
-  p_removable_roles text[],
-  p_expected_roles text[],
-  p_expected_denied text[]
+  p_roles text[] default null,
+  p_denied text[] default null,
+  p_addable_roles text[] default '{}',
+  p_removable_roles text[] default '{}',
+  p_expected_roles text[] default null,
+  p_expected_denied text[] default null
 )
 returns void
 language plpgsql

@@ -55,7 +55,7 @@ export async function listMaintenanceAction(): Promise<
   ActionResult<MaintenanceRecord[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "maintenance:read")) {
+  if (!userCan(ctx.access, "maintenance:read")) {
     return { ok: false, error: "No tenés permiso para ver mantenimientos." };
   }
   const supabase = await createSupabaseClient();
@@ -82,7 +82,7 @@ export async function createMaintenanceAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "maintenance:write")) {
+  if (!userCan(ctx.access, "maintenance:write")) {
     return { ok: false, error: "No tenés permiso para crear mantenimientos." };
   }
   const parsed = MaintenanceCreateSchema.safeParse(input);
@@ -129,7 +129,7 @@ export async function updateMaintenanceAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "maintenance:write")) {
+  if (!userCan(ctx.access, "maintenance:write")) {
     return { ok: false, error: "No tenés permiso para editar mantenimientos." };
   }
   const parsed = MaintenanceUpdateSchema.safeParse(input);
@@ -185,7 +185,7 @@ export async function deleteMaintenanceAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "maintenance:write")) {
+  if (!userCan(ctx.access, "maintenance:write")) {
     return { ok: false, error: "No tenés permiso para borrar mantenimientos." };
   }
   const supabase = await createSupabaseClient();

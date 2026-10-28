@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DENIED_CASES, ROUTING_CASES, inputMatches } from "./routing-cases";
 import { scriptedModel, textTurn, toolCallTurn } from "./scripted-model";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 // Offline routing eval: no network, no model. For each case the scripted model
 // makes the expected call; the suite checks that the asking role is offered
@@ -65,9 +66,15 @@ beforeEach(() => {
 
 describe("AI CFO tool routing (offline)", () => {
   it.each(ROUTING_CASES)("$id: $question", async (c) => {
-    const tools = buildAiTools({ userId: "u1", roles: c.roles, proposals });
+    const tools = buildAiTools({
+      userId: "u1",
+      access: resolveAccess(c.roles),
+      proposals,
+    });
     expect(Object.keys(tools), "offered to the role").toContain(c.expect.tool);
-    expect(buildCapabilitiesSummary(c.roles)).toContain(`- ${c.expect.tool}`);
+    expect(buildCapabilitiesSummary(resolveAccess(c.roles))).toContain(
+      `- ${c.expect.tool}`,
+    );
 
     const model = scriptedModel([
       toolCallTurn(c.expect.tool, c.scriptedInput ?? c.expect.input),
@@ -99,8 +106,10 @@ describe("AI CFO tool routing (offline)", () => {
   });
 
   it.each(DENIED_CASES)("$id: never offers $forbiddenTools", (c) => {
-    const tools = Object.keys(buildAiTools({ userId: "u1", roles: c.roles }));
-    const summary = buildCapabilitiesSummary(c.roles);
+    const tools = Object.keys(
+      buildAiTools({ userId: "u1", access: resolveAccess(c.roles) }),
+    );
+    const summary = buildCapabilitiesSummary(resolveAccess(c.roles));
     for (const name of c.forbiddenTools) {
       expect(tools).not.toContain(name);
       expect(summary).not.toContain(`- ${name}:`);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ROLES } from "@/lib/auth/permissions";
+import { ROLES, resolveAccess } from "@/lib/auth/permissions";
 
 import {
   HUB_ENTITY_TYPES,
@@ -14,7 +14,7 @@ import {
 describe("hubScope", () => {
   it("owner and admin see every origin, including others' AI files", () => {
     for (const role of ["owner", "admin"] as const) {
-      expect(hubScope([role])).toEqual({
+      expect(hubScope(resolveAccess([role]))).toEqual({
         entityTypes: [...HUB_ENTITY_TYPES],
         ownOnly: false,
       });
@@ -22,7 +22,7 @@ describe("hubScope", () => {
   });
 
   it("finance sees money documents, HR documents and only its own AI files", () => {
-    const scope = hubScope(["finance"]);
+    const scope = hubScope(resolveAccess(["finance"]));
     expect(scope.entityTypes).toEqual([
       "purchase_invoice",
       "invoice",
@@ -41,7 +41,7 @@ describe("hubScope", () => {
   });
 
   it("operations never sees HR documents nor finance attachments", () => {
-    const scope = hubScope(["operations"]);
+    const scope = hubScope(resolveAccess(["operations"]));
     expect(scope.entityTypes).toEqual([
       "client",
       "supplier",
@@ -54,17 +54,23 @@ describe("hubScope", () => {
   });
 
   it("warehouse and driver list nothing", () => {
-    expect(hubScope(["warehouse"])).toEqual({
+    expect(hubScope(resolveAccess(["warehouse"]))).toEqual({
       entityTypes: [],
       ownOnly: false,
     });
-    expect(hubScope(["driver"])).toEqual({ entityTypes: [], ownOnly: false });
-    expect(hubScope([])).toEqual({ entityTypes: [], ownOnly: false });
+    expect(hubScope(resolveAccess(["driver"]))).toEqual({
+      entityTypes: [],
+      ownOnly: false,
+    });
+    expect(hubScope(resolveAccess([]))).toEqual({
+      entityTypes: [],
+      ownOnly: false,
+    });
   });
 
   it("a type is never listed without its owning entity's read permission", () => {
     for (const role of ROLES) {
-      const { entityTypes } = hubScope([role]);
+      const { entityTypes } = hubScope(resolveAccess([role]));
       if (entityTypes.includes("employee_document")) {
         expect(["owner", "admin", "finance"]).toContain(role);
       }

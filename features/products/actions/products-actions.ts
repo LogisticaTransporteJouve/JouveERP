@@ -39,7 +39,7 @@ const SELECT_COLUMNS =
 
 export async function listProductsAction(): Promise<ActionResult<Product[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:read")) {
+  if (!userCan(ctx.access, "products:read")) {
     return { ok: false, error: "No tenés permiso para ver productos." };
   }
   const supabase = await createSupabaseClient();
@@ -64,7 +64,7 @@ export async function createProductAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:write")) {
+  if (!userCan(ctx.access, "products:write")) {
     return { ok: false, error: "No tenés permiso para crear productos." };
   }
   const parsed = ProductCreateSchema.safeParse(input);
@@ -106,7 +106,7 @@ export async function updateProductAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:write")) {
+  if (!userCan(ctx.access, "products:write")) {
     return { ok: false, error: "No tenés permiso para editar productos." };
   }
   const parsed = ProductUpdateSchema.safeParse(input);
@@ -148,7 +148,7 @@ export async function setProductActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:write")) {
+  if (!userCan(ctx.access, "products:write")) {
     return { ok: false, error: "No tenés permiso para editar productos." };
   }
   const parsed = ProductToggleSchema.safeParse(input);
@@ -177,7 +177,7 @@ export async function deleteProductAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:write")) {
+  if (!userCan(ctx.access, "products:write")) {
     return { ok: false, error: "No tenés permiso para borrar productos." };
   }
   const supabase = await createSupabaseClient();

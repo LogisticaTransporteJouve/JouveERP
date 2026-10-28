@@ -4,6 +4,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 
 import type { ChatAttachmentFile } from "../../attachments/store";
 import type { AiActionContext } from "../define";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const FILE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -23,7 +24,7 @@ const { proposeDocumentScan } = await import("./documents");
 const createRevision = vi.fn(async () => ({ id: "conf-1", revision: 1 }));
 const ctx: AiActionContext = {
   userId: "u-owner",
-  roles: ["finance"],
+  access: resolveAccess(["finance"]),
   proposals: { createRevision },
 };
 
@@ -102,7 +103,7 @@ describe("proposeDocumentScan", () => {
 
   it("is not offered without ai:read + files:write", async () => {
     const res = await proposeDocumentScan.execute(
-      { ...ctx, roles: ["warehouse"] },
+      { ...ctx, access: resolveAccess(["warehouse"]) },
       { fileId: FILE_ID },
       { toolCallId: "c" },
     );

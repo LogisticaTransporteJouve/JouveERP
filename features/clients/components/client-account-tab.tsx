@@ -35,7 +35,7 @@ import { NewInvoiceDialog } from "@/features/invoices/components/new-invoice-dia
 import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
 import { NewReceiptDialog } from "@/features/receipts/components/new-receipt-dialog";
 import type { ChannelOption } from "@/features/receipts/components/receipt-form";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
@@ -92,23 +92,23 @@ export function ClientAccountTab({
   client,
   channels,
   accounts,
-  actorRoles,
+  actorAccess,
 }: {
   clientId: string;
   client: PickedClient;
   channels: InvoiceChannelOption[];
   accounts: Account[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
   const balance = data.balance;
-  const canIssueInvoice = userCan(actorRoles, "invoices:issue");
-  const canWriteReceipt = userCan(actorRoles, "receipts:write");
+  const canIssueInvoice = userCan(actorAccess, "invoices:issue");
+  const canWriteReceipt = userCan(actorAccess, "receipts:write");
   // Only the owner can touch the balance adjustment (the backend actions
   // check the same thing). For the other roles we show the buttons
   // disabled with a tooltip that explains the restriction.
-  const isOwner = actorRoles.includes("owner");
+  const isOwner = actorAccess.roles.includes("owner");
   const clearOpeningMut = useClearClientOpeningBalance();
 
   // Global date filter (topbar). We apply it over the movements that

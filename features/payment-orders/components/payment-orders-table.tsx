@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
@@ -32,16 +32,16 @@ import type { ChannelOption } from "./payment-order-form";
 
 export function PaymentOrdersTable({
   channels,
-  actorRoles,
+  actorAccess,
 }: {
   channels: ChannelOption[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = usePaymentOrdersList();
   const { data: accounts } = useAccountsList();
   const paymentOrders = data.items;
   const truncated = data.nextOffset !== null;
-  const canWrite = userCan(actorRoles, "payment_orders:write");
+  const canWrite = userCan(actorAccess, "payment_orders:write");
 
   useRealtimeInvalidate([
     {

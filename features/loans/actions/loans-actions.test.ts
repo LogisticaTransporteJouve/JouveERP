@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 import { pagedSupabase } from "@/tests/helpers/paged-supabase";
 
 let roles: Role[] = ["finance"];
 let fake = pagedSupabase({});
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,

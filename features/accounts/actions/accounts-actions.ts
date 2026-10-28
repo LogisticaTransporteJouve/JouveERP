@@ -40,7 +40,7 @@ const SELECT_COLUMNS =
 
 export async function listAccountsAction(): Promise<ActionResult<Account[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:read")) {
+  if (!userCan(ctx.access, "accounts:read")) {
     return { ok: false, error: "No tenés permiso para ver cuentas." };
   }
 
@@ -71,7 +71,7 @@ export async function createAccountAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:write")) {
+  if (!userCan(ctx.access, "accounts:write")) {
     return { ok: false, error: "No tenés permiso para crear cuentas." };
   }
 
@@ -128,7 +128,7 @@ export async function updateAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:write")) {
+  if (!userCan(ctx.access, "accounts:write")) {
     return { ok: false, error: "No tenés permiso para editar cuentas." };
   }
 
@@ -178,7 +178,7 @@ export async function setAccountActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:write")) {
+  if (!userCan(ctx.access, "accounts:write")) {
     return { ok: false, error: "No tenés permiso para editar cuentas." };
   }
 
@@ -230,7 +230,7 @@ export async function getAccountOpeningBalanceAction(
   accountId: string,
 ): Promise<ActionResult<AccountOpeningBalance | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:read")) {
+  if (!userCan(ctx.access, "accounts:read")) {
     return { ok: false, error: "No tenés permiso para ver cuentas." };
   }
   const supabase = await createSupabaseClient();
@@ -274,7 +274,7 @@ export async function setAccountOpeningBalanceAction(input: {
   const ctx = await requireUserContext();
   // The adjustment rewrites the historical balance — owner only, same as the
   // client adjustment.
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return {
       ok: false,
       error: "No tenés permiso para ajustar saldos de cuentas.",
@@ -319,7 +319,7 @@ export async function clearAccountOpeningBalanceAction(
   accountId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return { ok: false, error: "No tenés permiso para borrar saldos." };
   }
   const supabase = await createSupabaseClient();

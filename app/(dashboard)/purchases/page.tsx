@@ -22,7 +22,7 @@ export default async function PurchasesPage({
   searchParams: Promise<{ q?: string; status?: string; type?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "purchase_invoices:read")) {
+  if (!userCan(ctx.access, "purchase_invoices:read")) {
     redirect("/dashboard");
   }
 
@@ -85,9 +85,9 @@ export default async function PurchasesPage({
         <ExportButton resource="purchase-invoices" />
       </div>
       <Hydrate state={dehydratedState}>
-        <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>
+        <PurchaseInvoiceFileAssistBinding access={ctx.access}>
           <PurchaseInvoicesTable
-            actorRoles={ctx.roles}
+            actorAccess={ctx.access}
             initialQuery={initialQuery}
             initialStatus={initialStatus}
             initialFiscalFilter={initialFiscalFilter}

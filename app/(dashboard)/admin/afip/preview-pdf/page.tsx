@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PreviewPdfPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "afip:admin")) {
+  if (!userCan(ctx.access, "afip:admin")) {
     redirect("/dashboard");
   }
 

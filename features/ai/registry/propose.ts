@@ -145,7 +145,7 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
     raw: unknown,
     call?: AiToolCall,
   ): Promise<AiToolResult> {
-    if (!canRunAiAction(ctx.roles, permissions)) {
+    if (!canRunAiAction(ctx.access, permissions)) {
       return errResult("No tenés permiso para esta acción.");
     }
     if (!ctx.proposals || !call) {

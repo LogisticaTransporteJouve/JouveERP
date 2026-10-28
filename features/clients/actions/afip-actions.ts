@@ -25,7 +25,7 @@ export async function verifyCuitAction(
   input: unknown,
 ): Promise<VerifyCuitResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "padron:lookup")) {
+  if (!userCan(ctx.access, "padron:lookup")) {
     return { ok: false, error: "No tenés permiso para consultar el padrón." };
   }
 
@@ -87,16 +87,14 @@ export async function verifyCuitAction(
   try {
     const data = await consultarPadron(cuit);
 
-    const { error: upsertErr } = await supabase
-      .from("padron_cache")
-      .upsert(
-        {
-          cuit,
-          data: data as unknown as Json,
-          cached_at: new Date().toISOString(),
-        },
-        { onConflict: "cuit" },
-      );
+    const { error: upsertErr } = await supabase.from("padron_cache").upsert(
+      {
+        cuit,
+        data: data as unknown as Json,
+        cached_at: new Date().toISOString(),
+      },
+      { onConflict: "cuit" },
+    );
     if (upsertErr) {
       logger.warn("padron_cache.write_failed", {
         userId: ctx.userId,
@@ -127,8 +125,7 @@ export async function verifyCuitAction(
     });
     return {
       ok: false,
-      error:
-        err instanceof Error ? err.message : "Error consultando padrón.",
+      error: err instanceof Error ? err.message : "Error consultando padrón.",
     };
   }
 }

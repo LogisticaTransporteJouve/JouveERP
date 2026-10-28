@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CuentasPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounts:read")) {
+  if (!userCan(ctx.access, "accounts:read")) {
     redirect("/dashboard");
   }
 
@@ -47,7 +47,7 @@ export default async function CuentasPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <AccountsTable actorRoles={ctx.roles} channels={channels} />
+          <AccountsTable actorAccess={ctx.access} channels={channels} />
         </Suspense>
       </Hydrate>
     </div>

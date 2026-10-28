@@ -42,14 +42,14 @@ export async function pinAiArtifactAction(
   request: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   const parsed = pinRequestSchema.safeParse(request);
   if (!parsed.success) {
     return { ok: false, error: "No se pudo fijar: datos inválidos." };
   }
 
   const run = await runArtifact(
-    { userId: ctx.userId, roles: ctx.roles },
+    { userId: ctx.userId, access: ctx.access },
     parsed.data,
   );
   if (!run.ok) {
@@ -97,7 +97,7 @@ export async function unpinAiArtifactAction(
   id: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!UuidSchema.safeParse(id).success) return { ok: false, error: GONE };
   try {
     if (!(await deletePin(ctx.userId, id))) return { ok: false, error: GONE };
@@ -114,7 +114,7 @@ export async function listAiPinnedArtifactsAction(): Promise<
   ActionResult<AiPinnedArtifact[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   try {
     return { ok: true, data: await listPins(ctx.userId) };
   } catch (error) {
@@ -131,7 +131,7 @@ export async function loadAiPinnedArtifactAction(
   id: string,
 ): Promise<ActionResult<AiPinnedView>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!UuidSchema.safeParse(id).success) return { ok: false, error: GONE };
 
   let pin: AiPinnedArtifact | null;
@@ -144,7 +144,7 @@ export async function loadAiPinnedArtifactAction(
   if (!pin) return { ok: false, error: GONE };
 
   const run = await runArtifact(
-    { userId: ctx.userId, roles: ctx.roles },
+    { userId: ctx.userId, access: ctx.access },
     pin.request,
   );
   if (run.ok)

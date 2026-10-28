@@ -36,7 +36,7 @@ export default async function SupplierDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     redirect("/dashboard");
   }
 
@@ -62,7 +62,7 @@ export default async function SupplierDetailPage({
   }
 
   const supplier = result.data;
-  const canWrite = userCan(ctx.roles, "suppliers:write");
+  const canWrite = userCan(ctx.access, "suppliers:write");
 
   const channels = activeChannels.map((c) => ({ id: c.id, name: c.name }));
   const accounts = accountsResult.ok ? accountsResult.data : [];
@@ -100,7 +100,7 @@ export default async function SupplierDetailPage({
         <TabsContent value="account" className="mt-4">
           <Hydrate state={dehydratedState}>
             <Suspense fallback={<Loading />}>
-              <PurchaseInvoiceFileAssistBinding roles={ctx.roles}>
+              <PurchaseInvoiceFileAssistBinding access={ctx.access}>
                 <SupplierAccountTab
                   supplierId={id}
                   supplier={{
@@ -112,7 +112,7 @@ export default async function SupplierDetailPage({
                   }}
                   channels={channels}
                   accounts={accounts}
-                  actorRoles={ctx.roles}
+                  actorAccess={ctx.access}
                 />
               </PurchaseInvoiceFileAssistBinding>
             </Suspense>
@@ -139,8 +139,8 @@ export default async function SupplierDetailPage({
               <AttachmentsZone
                 targetType="supplier"
                 targetId={supplier.id}
-                canWrite={userCan(ctx.roles, "files:write") && canWrite}
-                canDelete={userCan(ctx.roles, "files:write") && canWrite}
+                canWrite={userCan(ctx.access, "files:write") && canWrite}
+                canDelete={userCan(ctx.access, "files:write") && canWrite}
               />
             </div>
           </div>

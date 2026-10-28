@@ -63,7 +63,7 @@ export async function listReceiptsAction(input?: {
   }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
@@ -163,7 +163,7 @@ export async function getReceiptByIdAction(
   id: string,
 ): Promise<ActionResult<ReceiptDetail | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
@@ -270,7 +270,7 @@ export async function getNextReceiptNumeroAction(input: {
   channel_id: string;
 }): Promise<ActionResult<{ next: number; isFirst: boolean }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
@@ -331,7 +331,7 @@ export async function listPendingComprobantesForClientAction(
   excludeReceiptId?: string,
 ): Promise<ActionResult<PendingComprobante[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
@@ -525,7 +525,7 @@ export async function createReceiptAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string; numero: number; punto_venta: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:write")) {
+  if (!userCan(ctx.access, "receipts:write")) {
     return { ok: false, error: "No tenés permiso para emitir recibos." };
   }
 
@@ -665,7 +665,7 @@ export async function updateReceiptAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:write")) {
+  if (!userCan(ctx.access, "receipts:write")) {
     return { ok: false, error: "No tenés permiso para editar recibos." };
   }
 
@@ -740,7 +740,7 @@ export async function cancelReceiptAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:write")) {
+  if (!userCan(ctx.access, "receipts:write")) {
     return { ok: false, error: "No tenés permiso para anular recibos." };
   }
 

@@ -11,7 +11,7 @@ import {
   resolveHeadlessUser,
   runAsHeadlessUser,
 } from "@/lib/auth/headless-user";
-import { ROLES, userCan } from "@/lib/auth/permissions";
+import { ROLES, roleGrants } from "@/lib/auth/permissions";
 import { inngest } from "@/lib/inngest/client";
 import {
   AI_WEEKLY_SUMMARY_REQUESTED,
@@ -19,7 +19,9 @@ import {
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 
-const AI_CHAT_ROLES = ROLES.filter((role) => userCan([role], "ai:chat"));
+// Candidates by role; each user's run re-checks their own access, denies
+// included (resolveHeadlessUser).
+const AI_CHAT_ROLES = ROLES.filter((role) => roleGrants(role, "ai:chat"));
 
 /**
  * Monday 07:50 Buenos Aires: one weekly-summary event per active user who

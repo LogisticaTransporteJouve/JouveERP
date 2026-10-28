@@ -18,14 +18,16 @@ export type AuditActorType = "user" | "ai-agent" | "system";
  * Inserts an audit event using the service-role client. Failures are logged
  * but never thrown, so audit logging can't break the calling action.
  * `actorType` defaults to the column default ('user'); AI-originated events
- * pass 'ai-agent' (actor_id stays the user the agent acted for).
+ * pass 'ai-agent' (actor_id stays the user the agent acted for). An event
+ * about a user (invited, roles changed) passes `targetUserId`, stored in the
+ * `target_user_id` foreign key.
  */
 export async function logAudit(
   eventType: string,
   actorId: string,
   payload: { [k: string]: JsonValue | undefined },
   targetResourceId?: string,
-  opts: { actorType?: AuditActorType } = {},
+  opts: { actorType?: AuditActorType; targetUserId?: string } = {},
 ) {
   const service = getServiceClient();
   const { error } = await service.from("audit_events").insert({
@@ -33,6 +35,7 @@ export async function logAudit(
     ...(opts.actorType ? { actor_type: opts.actorType } : {}),
     event_type: eventType,
     target_resource_id: targetResourceId ?? null,
+    ...(opts.targetUserId ? { target_user_id: opts.targetUserId } : {}),
     payload,
   });
   if (error) {

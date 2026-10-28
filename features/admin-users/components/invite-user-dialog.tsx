@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Role } from "@/lib/auth/permissions";
+import type { Role, Access } from "@/lib/auth/permissions";
 
 import { useInviteUser } from "../hooks/use-admin-users";
 import { RoleCheckboxGrid } from "./role-checkbox-grid";
 
-export function InviteUserDialog({ actorRoles }: { actorRoles: Role[] }) {
+export function InviteUserDialog({ actorAccess }: { actorAccess: Access }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
@@ -86,7 +86,7 @@ export function InviteUserDialog({ actorRoles }: { actorRoles: Role[] }) {
             <Label>Roles iniciales</Label>
             <RoleCheckboxGrid
               selected={roles}
-              actorRoles={actorRoles}
+              actorAccess={actorAccess}
               onChange={setRoles}
               idPrefix="invite"
               disabled={pending}

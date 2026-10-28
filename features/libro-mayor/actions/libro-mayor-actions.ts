@@ -15,8 +15,7 @@ import {
 } from "../lib/libro-mayor-pagination";
 
 type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+  { ok: true; data: T } | { ok: false; error: string };
 
 const GetLedgerInput = z.object({
   accountId: UuidSchema,
@@ -30,12 +29,15 @@ export async function getLedgerAction(input: {
   to?: string | null;
 }): Promise<ActionResult<LedgerResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = GetLedgerInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const supabase = await createClient();

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DriversPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "drivers:read")) {
+  if (!userCan(ctx.access, "drivers:read")) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([
@@ -28,7 +28,7 @@ export default async function DriversPageRoute() {
   // The driver→login link is an admin action; only fetch the user list (and
   // expose the link UI) when the caller can assign roles.
   let linkableUsers: LinkableUser[] | undefined;
-  if (userCan(ctx.roles, "users:assign_role")) {
+  if (userCan(ctx.access, "users:assign_role")) {
     const res = await listUsersAction();
     if (res.ok) {
       linkableUsers = res.data.map((u) => ({ id: u.id, email: u.email }));

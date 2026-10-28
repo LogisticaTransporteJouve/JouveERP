@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function FleetReportsRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     redirect("/dashboard");
   }
   return <ProfitabilityReport />;

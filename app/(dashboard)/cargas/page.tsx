@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CargasPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "shipments:read")) {
+  if (!userCan(ctx.access, "shipments:read")) {
     redirect("/dashboard");
   }
 

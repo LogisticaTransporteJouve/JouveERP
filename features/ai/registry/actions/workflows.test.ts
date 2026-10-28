@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 import type { AiProposalStore } from "../define";
 
@@ -25,7 +25,7 @@ const store = (): AiProposalStore & {
 } => ({ createRevision: vi.fn(async () => ({ id: "conf-1", revision: 1 })) });
 const ctx = (roles: Role[], proposals?: AiProposalStore) => ({
   userId: "u1",
-  roles,
+  access: resolveAccess(roles),
   ...(proposals ? { proposals } : {}),
 });
 

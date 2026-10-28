@@ -15,9 +15,9 @@ import { getServiceClient } from "@/lib/supabase/service";
  * public.bootstrap_first_owner (advisory lock), which is service-role only.
  */
 export async function bootstrapOwnerIfNeeded(
-  ctx: Pick<UserContext, "userId" | "roles">,
+  ctx: Pick<UserContext, "userId" | "access">,
 ): Promise<boolean> {
-  if (ctx.roles.includes("owner")) return false;
+  if (ctx.access.roles.includes("owner")) return false;
 
   const service = getServiceClient();
   const { data, error } = await service.rpc("bootstrap_first_owner", {

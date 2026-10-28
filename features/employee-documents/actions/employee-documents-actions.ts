@@ -36,7 +36,7 @@ export async function listEmployeeDocumentsAction(
   employeeId: string,
 ): Promise<ActionResult<EmployeeDocument[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver documentos." };
   }
 
@@ -70,7 +70,7 @@ export async function listExpiringDocumentsAction(): Promise<
   ActionResult<ExpiringDocumentRow[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver documentos." };
   }
 
@@ -125,7 +125,7 @@ export async function createEmployeeDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para cargar documentos." };
   }
   const parsed = EmployeeDocumentCreateSchema.safeParse(input);
@@ -183,7 +183,7 @@ export async function updateEmployeeDocumentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para editar documentos." };
   }
   const parsed = EmployeeDocumentUpdateSchema.safeParse(input);
@@ -239,7 +239,7 @@ export async function deleteEmployeeDocumentAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para borrar documentos." };
   }
 

@@ -36,7 +36,7 @@ export async function listJournalEntriesAction(
   filters: JournalFilters & { offset?: number; limit?: number },
 ): Promise<ActionResult<JournalPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro diario." };
   }
 
@@ -103,7 +103,7 @@ export async function createManualJournalEntryAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso para cargar asientos." };
   }
 

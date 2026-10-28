@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PalletsPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "pallets:read")) {
+  if (!userCan(ctx.access, "pallets:read")) {
     redirect("/dashboard");
   }
 

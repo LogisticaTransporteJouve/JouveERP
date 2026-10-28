@@ -43,7 +43,9 @@ describe("SearchGlobalInputSchema", () => {
   });
 
   it("limit es opcional", () => {
-    expect(SearchGlobalInputSchema.safeParse({ query: "a" }).success).toBe(true);
+    expect(SearchGlobalInputSchema.safeParse({ query: "a" }).success).toBe(
+      true,
+    );
   });
 });
 

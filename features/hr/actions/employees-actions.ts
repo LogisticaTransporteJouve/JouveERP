@@ -38,7 +38,7 @@ const SELECT_COLS =
 
 export async function listEmployeesAction(): Promise<ActionResult<Employee[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "No tenés permiso para ver empleados." };
   }
 
@@ -80,7 +80,7 @@ export async function searchEmployeesAction(
   input: SearchEmployeesInput = {},
 ): Promise<ActionResult<SearchEmployeesPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "No tenés permiso para ver empleados." };
   }
 
@@ -121,7 +121,7 @@ export async function getEmployeeByIdAction(
   id: string,
 ): Promise<ActionResult<Employee | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "No tenés permiso para ver empleados." };
   }
 
@@ -146,7 +146,7 @@ export async function createEmployeeAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "No tenés permiso para crear empleados." };
   }
 
@@ -201,7 +201,7 @@ export async function updateEmployeeAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "No tenés permiso para editar empleados." };
   }
 
@@ -288,7 +288,7 @@ export async function terminateEmployeeAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "No tenés permiso para dar de baja empleados." };
   }
 
@@ -333,7 +333,7 @@ export async function reactivateEmployeeAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "No tenés permiso para reactivar empleados." };
   }
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
 const EMPLOYEE_ID = "55555555-5555-4555-8555-555555555555";
@@ -10,7 +11,10 @@ const insert = vi.fn(() => ({
 }));
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: ["finance"] }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(["finance"]),
+  }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: async () => undefined }));
 vi.mock("@/lib/supabase/server", () => ({

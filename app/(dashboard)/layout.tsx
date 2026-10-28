@@ -90,7 +90,7 @@ export default async function DashboardLayout({
         <SidebarProvider defaultOpen={defaultOpen}>
           <AppSidebar
             userEmail={ctx.email}
-            userRoles={ctx.roles}
+            userAccess={ctx.access}
             profile={{
               firstName: ctx.profile.firstName,
               lastName: ctx.profile.lastName,
@@ -110,7 +110,7 @@ export default async function DashboardLayout({
             <main className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
               {children}
             </main>
-            <MobileTabBar userRoles={ctx.roles} />
+            <MobileTabBar userAccess={ctx.access} />
             <BrowserNotifier currentUserId={ctx.userId} />
           </SidebarInset>
         </SidebarProvider>

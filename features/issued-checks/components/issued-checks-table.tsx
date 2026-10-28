@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import type { Account } from "@/features/accounts/schema";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
@@ -35,15 +35,15 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function IssuedChecksTable({
   accounts,
-  actorRoles,
+  actorAccess,
 }: {
   accounts: Account[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data: checks } = useIssuedChecksList();
   const transitionMut = useTransitionIssuedCheck();
   const confirm = useConfirm();
-  const canWrite = userCan(actorRoles, "issued_checks:write");
+  const canWrite = userCan(actorAccess, "issued_checks:write");
 
   const columns = useMemo<ColumnDef<IssuedCheck>[]>(() => {
     async function transition(
@@ -120,7 +120,10 @@ export function IssuedChecksTable({
         accessorKey: "due_date",
         header: "Vence",
         cell: ({ row }) => formatArgentineDate(row.original.due_date),
-        meta: { cellClassName: "text-sm text-muted-foreground", mobile: "secondary" },
+        meta: {
+          cellClassName: "text-sm text-muted-foreground",
+          mobile: "secondary",
+        },
       },
       {
         accessorKey: "amount",
@@ -137,7 +140,10 @@ export function IssuedChecksTable({
         accessorKey: "status",
         header: "Estado",
         cell: ({ row }) => (
-          <Badge variant="secondary" className={STATUS_BADGE[row.original.status]}>
+          <Badge
+            variant="secondary"
+            className={STATUS_BADGE[row.original.status]}
+          >
             {ISSUED_CHECK_STATUS_LABEL[row.original.status]}
           </Badge>
         ),

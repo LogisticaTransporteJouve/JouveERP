@@ -33,7 +33,7 @@ function narrowClient(row: {
 
 export async function listClientsAction(): Promise<ActionResult<Client[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
 
@@ -73,7 +73,7 @@ export async function searchClientsAction(
   input: SearchClientsInput = {},
 ): Promise<ActionResult<SearchClientsPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
 
@@ -116,7 +116,7 @@ export async function getClientByIdAction(
   id: string,
 ): Promise<ActionResult<Client | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
 
@@ -141,7 +141,7 @@ export async function findClientByCuitAction(
   cuit: string,
 ): Promise<ActionResult<Client | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
 
@@ -175,7 +175,7 @@ export async function createClientAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
+  if (!userCan(ctx.access, "clients:write")) {
     return { ok: false, error: "No tenés permiso para crear clientes." };
   }
 
@@ -228,7 +228,7 @@ export async function updateClientAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
+  if (!userCan(ctx.access, "clients:write")) {
     return { ok: false, error: "No tenés permiso para editar clientes." };
   }
 
@@ -294,7 +294,7 @@ export async function getClientReferencesAction(
   id: string,
 ): Promise<ActionResult<ClientReferences>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver clientes." };
   }
 
@@ -353,7 +353,7 @@ export async function getClientReferencesAction(
 
 export async function deleteClientAction(id: string): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
+  if (!userCan(ctx.access, "clients:write")) {
     return { ok: false, error: "No tenés permiso para eliminar clientes." };
   }
 
@@ -385,7 +385,7 @@ export async function setClientActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:write")) {
+  if (!userCan(ctx.access, "clients:write")) {
     return { ok: false, error: "No tenés permiso para editar clientes." };
   }
 

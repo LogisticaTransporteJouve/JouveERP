@@ -38,7 +38,7 @@ export async function listAiConfirmationsAction(
   sessionId: string,
 ): Promise<ActionResult<AiConfirmation[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(sessionId)) return { ok: true, data: [] };
   try {
     return {
@@ -66,7 +66,7 @@ export async function confirmAiProposalAction(
   id: string,
 ): Promise<ActionResult<{ resultId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
 
   let row: AiConfirmation | null;
@@ -83,7 +83,7 @@ export async function confirmAiProposalAction(
   if (!row || row.status !== "pending") return { ok: false, error: GONE };
   const action = proposalAction(row.action);
   if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.roles, action.permissions)) {
+  if (!canRunAiAction(ctx.access, action.permissions)) {
     return { ok: false, error: NO_ACTION };
   }
   const valid = action.proposal.spec.validate(row.draft, row.labels);
@@ -110,7 +110,7 @@ export async function confirmAiProposalAction(
   let res: ActionResult<{ id: string }>;
   try {
     res = await action.proposal.executeDraft(
-      { userId: ctx.userId, roles: ctx.roles },
+      { userId: ctx.userId, access: ctx.access },
       valid.draft,
     );
   } catch (error) {
@@ -148,7 +148,7 @@ export async function declineAiProposalAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
   let claimed: AiConfirmation | null;
   try {
@@ -189,7 +189,7 @@ export async function reviseAiProposalAction(
   draft: unknown,
 ): Promise<ActionResult<AiConfirmation>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return { ok: false, error: NO_CHAT };
+  if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
 
   let row: AiConfirmation | null;
@@ -206,7 +206,7 @@ export async function reviseAiProposalAction(
   if (!row || row.status !== "pending") return { ok: false, error: GONE };
   const action = proposalAction(row.action);
   if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.roles, action.permissions)) {
+  if (!canRunAiAction(ctx.access, action.permissions)) {
     return { ok: false, error: NO_ACTION };
   }
   const { spec } = action.proposal;

@@ -28,7 +28,7 @@ export default async function AttendanceMonthPage({
   params: Promise<{ year: string; month: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
 
@@ -74,7 +74,7 @@ export default async function AttendanceMonthPage({
       </Breadcrumb>
 
       <Hydrate state={dehydratedState}>
-        <AttendanceGrid year={year} month={month} actorRoles={ctx.roles} />
+        <AttendanceGrid year={year} month={month} actorAccess={ctx.access} />
       </Hydrate>
     </div>
   );

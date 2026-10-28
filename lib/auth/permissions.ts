@@ -18,6 +18,7 @@ export type Role = (typeof ROLES)[number];
 export const PERMISSIONS = [
   // RBAC
   "users:read",
+  "users:manage_access",
   "users:invite",
   "users:assign_role",
   "audit:read",
@@ -129,8 +130,7 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-// Roles ordered by privilege (most → least). Used to enforce that admins
-// cannot grant the owner role while owners can grant anything.
+// Roles ordered by privilege (most → least), for highestRole.
 const ROLE_PRIVILEGE: Record<Role, number> = {
   owner: 0,
   admin: 1,
@@ -141,10 +141,11 @@ const ROLE_PRIVILEGE: Record<Role, number> = {
 };
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  // Owner: everything. Admins differ only in role-assignment scope.
   owner: PERMISSIONS,
 
-  admin: PERMISSIONS,
+  // Admins differ from the owner in role-assignment scope and in not
+  // managing per-user access.
+  admin: PERMISSIONS.filter((p) => p !== "users:manage_access"),
 
   finance: [
     "clients:read",
@@ -230,27 +231,118 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   driver: ["trips:read"],
 };
 
-export function userCan(
-  roles: readonly Role[] | null | undefined,
-  permission: Permission,
-): boolean {
-  if (!roles || roles.length === 0) return false;
-  return roles.some((role) => ROLE_PERMISSIONS[role].includes(permission));
+// What a user may do: the union of their roles' permissions minus the
+// permissions denied to them one by one (user_permission_denies). Gates take
+// an Access, never a bare role list, so no gate can skip the denies. The brand
+// is type-only: an Access is a plain object at runtime (it crosses from server
+// components to client components as props) and only resolveAccess builds one.
+declare const accessBrand: unique symbol;
+export type Access = {
+  readonly roles: readonly Role[];
+  readonly denied: readonly Permission[];
+} & { readonly [accessBrand]: true };
+
+export type Resource = Permission extends `${infer R}:${string}` ? R : never;
+
+const PERMISSIONS_BY_RESOURCE = new Map<string, Permission[]>();
+for (const permission of PERMISSIONS) {
+  const resource = permissionResource(permission);
+  PERMISSIONS_BY_RESOURCE.set(resource, [
+    ...(PERMISSIONS_BY_RESOURCE.get(resource) ?? []),
+    permission,
+  ]);
 }
 
-export function canAssignRole(
-  actorRoles: readonly Role[] | null | undefined,
-  targetRole: Role,
+export function permissionResource(permission: Permission): Resource {
+  return permission.slice(0, permission.indexOf(":")) as Resource;
+}
+
+export function isPermission(value: string): value is Permission {
+  return (PERMISSIONS as readonly string[]).includes(value);
+}
+
+/**
+ * The effective access for `roles` with `deniedRaw` taken away. An owner keeps
+ * every permission (the owner cannot be denied anything, and set_user_access
+ * clears an owner's denies). A deny of `<resource>:read` takes the whole
+ * resource: writing what you cannot read is not offered. Unknown strings (a
+ * permission removed from the matrix) are dropped.
+ */
+export function resolveAccess(
+  roles: readonly Role[],
+  deniedRaw: readonly string[] = [],
+): Access {
+  const denied = new Set<Permission>();
+  if (!roles.includes("owner")) {
+    for (const raw of deniedRaw) {
+      if (!isPermission(raw)) continue;
+      denied.add(raw);
+      if (raw.endsWith(":read")) {
+        for (const p of PERMISSIONS_BY_RESOURCE.get(permissionResource(raw)) ??
+          []) {
+          denied.add(p);
+        }
+      }
+    }
+  }
+  // The one place an Access is made: the brand has no runtime value to set.
+  return { roles: [...roles], denied: [...denied] } as unknown as Access;
+}
+
+/** Every permission the roles grant, before any per-user deny. */
+export function rolePermissions(
+  roles: readonly Role[],
+): ReadonlySet<Permission> {
+  return new Set(roles.flatMap((role) => ROLE_PERMISSIONS[role]));
+}
+
+export function roleGrants(role: Role, permission: Permission): boolean {
+  return ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/** The permissions `roles` minus `denied` leave, as resolveAccess counts them. */
+export function effectivePermissions(
+  roles: readonly Role[],
+  denied: readonly string[],
+): ReadonlySet<Permission> {
+  const access = resolveAccess(roles, denied);
+  return new Set(PERMISSIONS.filter((p) => userCan(access, p)));
+}
+
+export function userCan(
+  access: Access | null | undefined,
+  permission: Permission,
 ): boolean {
-  if (!actorRoles || actorRoles.length === 0) return false;
+  if (!access || access.denied.includes(permission)) return false;
+  return access.roles.some((role) => roleGrants(role, permission));
+}
 
-  // Owners can assign any role, including granting and revoking owner.
+// Owners can assign any role, including granting and revoking owner; admins
+// any role except owner; nobody else.
+function roleLevelAssignable(actorRoles: readonly Role[], role: Role): boolean {
   if (actorRoles.includes("owner")) return true;
-
-  // Admins can assign any role except owner. Anyone else cannot assign roles.
-  if (actorRoles.includes("admin")) return targetRole !== "owner";
-
+  if (actorRoles.includes("admin")) return role !== "owner";
   return false;
+}
+
+/**
+ * Roles the actor may give someone: within their role-level scope, and none
+ * that carries a permission denied to the actor (an admin could otherwise mint
+ * a second account without their denies).
+ */
+export function assignableRoles(actor: Access): Role[] {
+  if (!userCan(actor, "users:assign_role")) return [];
+  return ROLES.filter(
+    (role) =>
+      roleLevelAssignable(actor.roles, role) &&
+      !ROLE_PERMISSIONS[role].some((p) => actor.denied.includes(p)),
+  );
+}
+
+/** Roles the actor may take away; removing a role only narrows access. */
+export function removableRoles(actor: Access): Role[] {
+  if (!userCan(actor, "users:assign_role")) return [];
+  return ROLES.filter((role) => roleLevelAssignable(actor.roles, role));
 }
 
 export function highestRole(roles: readonly Role[]): Role | null {
@@ -263,5 +355,7 @@ export function highestRole(roles: readonly Role[]): Role | null {
 }
 
 export function isRole(value: unknown): value is Role {
-  return typeof value === "string" && (ROLES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" && (ROLES as readonly string[]).includes(value)
+  );
 }

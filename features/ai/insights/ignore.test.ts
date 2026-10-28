@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 import {
   filterValue,
   recordingSupabase,
@@ -22,7 +22,10 @@ const fake = recordingSupabase((call) => respond(call));
 const logAudit = vi.fn(async () => undefined);
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,

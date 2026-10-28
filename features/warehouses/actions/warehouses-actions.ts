@@ -44,7 +44,7 @@ export async function listWarehousesAction(
   input: { onlyActive?: boolean } = {},
 ): Promise<ActionResult<Warehouse[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "warehouses:read")) {
+  if (!userCan(ctx.access, "warehouses:read")) {
     return { ok: false, error: "No tenés permiso para ver depósitos." };
   }
   const supabase = await createSupabaseClient();
@@ -71,7 +71,7 @@ export async function createWarehouseAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "warehouses:write")) {
+  if (!userCan(ctx.access, "warehouses:write")) {
     return { ok: false, error: "No tenés permiso para crear depósitos." };
   }
   const parsed = WarehouseCreateSchema.safeParse(input);
@@ -112,7 +112,7 @@ export async function updateWarehouseAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "warehouses:write")) {
+  if (!userCan(ctx.access, "warehouses:write")) {
     return { ok: false, error: "No tenés permiso para editar depósitos." };
   }
   const parsed = WarehouseUpdateSchema.safeParse(input);
@@ -155,7 +155,7 @@ export async function setWarehouseActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "warehouses:write")) {
+  if (!userCan(ctx.access, "warehouses:write")) {
     return { ok: false, error: "No tenés permiso para editar depósitos." };
   }
   const parsed = WarehouseToggleSchema.safeParse(input);
@@ -184,7 +184,7 @@ export async function deleteWarehouseAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "warehouses:write")) {
+  if (!userCan(ctx.access, "warehouses:write")) {
     return { ok: false, error: "No tenés permiso para borrar depósitos." };
   }
   const supabase = await createSupabaseClient();

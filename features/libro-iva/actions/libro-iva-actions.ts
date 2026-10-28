@@ -32,7 +32,7 @@ export async function listLibroIvaVentasAction(input: {
   channelId?: string | null;
 }): Promise<ActionResult<LibroIvaVentasRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro IVA." };
   }
   const parsed = LibroIvaInput.safeParse(input);
@@ -68,7 +68,7 @@ export async function listLibroIvaComprasAction(input: {
   channelId?: string | null;
 }): Promise<ActionResult<LibroIvaComprasRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para ver el libro IVA." };
   }
   const parsed = LibroIvaInput.safeParse(input);
@@ -116,7 +116,7 @@ export async function exportLibroIvaTxtAction(input: {
   book: "ventas" | "compras";
 }): Promise<ActionResult<CitiExport>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso para exportar el libro IVA." };
   }
   const parsed = ExportTxtInput.safeParse(input);

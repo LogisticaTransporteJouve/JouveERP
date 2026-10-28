@@ -21,7 +21,7 @@ export async function listAiSessionsAction(): Promise<
   ActionResult<AiSessionSummary[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     return { ok: false, error: "No tenés permiso para usar el chat de IA." };
   }
 
@@ -45,7 +45,7 @@ export async function getAiSessionMessagesAction(
   sessionId: string,
 ): Promise<ActionResult<UIMessage[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     return { ok: false, error: "No tenés permiso para usar el chat de IA." };
   }
 
@@ -81,7 +81,7 @@ export async function deleteAiSessionAction(
   sessionId: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     return { ok: false, error: "No tenés permiso para usar el chat de IA." };
   }
 

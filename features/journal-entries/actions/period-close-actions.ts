@@ -9,8 +9,7 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+  { ok: true; data: T } | { ok: false; error: string };
 
 const PeriodSchema = z
   .string()
@@ -26,7 +25,7 @@ export async function listClosedPeriodsAction(): Promise<
   ActionResult<ClosedPeriod[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = getServiceClient();
@@ -44,7 +43,10 @@ export async function closeAccountingPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write") || ctx.roles.every((r) => r !== "owner" && r !== "admin")) {
+  if (
+    !userCan(ctx.access, "accounting:write") ||
+    ctx.access.roles.every((r) => r !== "owner" && r !== "admin")
+  ) {
     return { ok: false, error: "Solo owner/admin pueden cerrar períodos." };
   }
   const parsed = PeriodSchema.safeParse(input);
@@ -59,10 +61,16 @@ export async function closeAccountingPeriodAction(
     if (error.code === "23505") {
       return { ok: false, error: "El período ya está cerrado." };
     }
-    logger.error("period.close.failed", { userId: ctx.userId, period: parsed.data, error });
+    logger.error("period.close.failed", {
+      userId: ctx.userId,
+      period: parsed.data,
+      error,
+    });
     return { ok: false, error: "No se pudo cerrar el período." };
   }
-  await logAudit("accounting_period.closed", ctx.userId, { period: parsed.data });
+  await logAudit("accounting_period.closed", ctx.userId, {
+    period: parsed.data,
+  });
   return { ok: true, data: undefined };
 }
 
@@ -70,7 +78,10 @@ export async function reopenAccountingPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write") || ctx.roles.every((r) => r !== "owner" && r !== "admin")) {
+  if (
+    !userCan(ctx.access, "accounting:write") ||
+    ctx.access.roles.every((r) => r !== "owner" && r !== "admin")
+  ) {
     return { ok: false, error: "Solo owner/admin pueden reabrir períodos." };
   }
   const parsed = PeriodSchema.safeParse(input);
@@ -83,9 +94,15 @@ export async function reopenAccountingPeriodAction(
     .delete()
     .eq("period", parsed.data);
   if (error) {
-    logger.error("period.reopen.failed", { userId: ctx.userId, period: parsed.data, error });
+    logger.error("period.reopen.failed", {
+      userId: ctx.userId,
+      period: parsed.data,
+      error,
+    });
     return { ok: false, error: "No se pudo reabrir el período." };
   }
-  await logAudit("accounting_period.reopened", ctx.userId, { period: parsed.data });
+  await logAudit("accounting_period.reopened", ctx.userId, {
+    period: parsed.data,
+  });
   return { ok: true, data: undefined };
 }

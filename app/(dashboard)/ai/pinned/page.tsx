@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AiPinnedRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([

@@ -34,7 +34,7 @@ export default async function EmployeeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
 
@@ -48,7 +48,7 @@ export default async function EmployeeDetailPage({
   }
 
   const employee = result.data;
-  const canWrite = userCan(ctx.roles, "hr:write");
+  const canWrite = userCan(ctx.access, "hr:write");
 
   return (
     <div className="space-y-6">
@@ -144,7 +144,7 @@ export default async function EmployeeDetailPage({
         <div className="mt-3">
           <EmployeeVacationsCard
             employeeId={employee.id}
-            actorRoles={ctx.roles}
+            actorAccess={ctx.access}
           />
         </div>
       </div>

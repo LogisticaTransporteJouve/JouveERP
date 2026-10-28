@@ -51,7 +51,7 @@ export async function getAttendanceMonthAction(
   month: number,
 ): Promise<ActionResult<AttendanceMonthData>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver asistencia." };
   }
 
@@ -100,7 +100,7 @@ export async function upsertAttendanceRecordAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = UpsertAttendanceSchema.safeParse(input);
@@ -149,7 +149,7 @@ export async function deleteAttendanceRecordAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = DeleteAttendanceSchema.safeParse(input);
@@ -180,7 +180,7 @@ export async function listAttendanceEmployeesAction(): Promise<
   ActionResult<AttendanceEmployee[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso." };
   }
   const supabase = await createSupabaseClient();

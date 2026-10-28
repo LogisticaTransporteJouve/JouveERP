@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { scriptedModel, textTurn } from "../evals/scripted-model";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 let model = scriptedModel([]);
 
@@ -36,7 +37,7 @@ describe("weeklyReads", () => {
       expect(action?.sideEffect, read.action).toBe("read");
       const schema = action?.toTool({
         userId: "u",
-        roles: ["owner"],
+        access: resolveAccess(["owner"]),
       }).inputSchema;
       const parsed =
         schema && "safeParse" in schema ? schema.safeParse(read.input) : null;
@@ -88,7 +89,7 @@ describe("generateWeeklySummary", () => {
     );
     model = scriptedModel([textTurn("- Flota: margen positivo.")]);
     const draft = await generateWeeklySummary(
-      { userId: "u1", email: "", roles: ["operations"] },
+      { userId: "u1", email: "", access: resolveAccess(["operations"]) },
       "2026-10-19",
       NOW,
     );
@@ -112,7 +113,7 @@ describe("generateWeeklySummary", () => {
     }
     model = scriptedModel([]);
     const draft = await generateWeeklySummary(
-      { userId: "u1", email: "", roles: ["owner"] },
+      { userId: "u1", email: "", access: resolveAccess(["owner"]) },
       "2026-10-19",
       NOW,
     );

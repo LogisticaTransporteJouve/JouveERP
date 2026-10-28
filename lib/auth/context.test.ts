@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveAccess, userCan } from "@/lib/auth/permissions";
 
 const getUser = vi.fn();
 let roleRows: { role_id: string }[] = [];
+let denyRows: { user_id: string; permission: string }[] = [];
 
 function query(table: string) {
   const result =
     table === "user_roles"
       ? { data: roleRows, error: null }
-      : { data: null, error: null };
+      : table === "user_permission_denies"
+        ? { data: denyRows, error: null }
+        : { data: null, error: null };
   const b = {
     select: () => b,
     eq: () => b,
+    in: () => b,
     maybeSingle: async () => result,
     then: <T>(resolve: (v: typeof result) => T) =>
       Promise.resolve(resolve(result)),
@@ -28,6 +33,7 @@ const { runAsUser } = await import("./acting-user");
 beforeEach(() => {
   getUser.mockReset();
   roleRows = [];
+  denyRows = [];
 });
 
 describe("getCurrentUserContext", () => {
@@ -36,7 +42,7 @@ describe("getCurrentUserContext", () => {
     roleRows = [{ role_id: "finance" }];
     const ctx = await getCurrentUserContext();
     expect(ctx?.userId).toBe("u1");
-    expect(ctx?.roles).toEqual(["finance"]);
+    expect(ctx?.access.roles).toEqual(["finance"]);
   });
 
   it("resolves the acting user, with the roles their own client reads, without a session", async () => {
@@ -49,8 +55,18 @@ describe("getCurrentUserContext", () => {
     expect(ctx).toMatchObject({
       userId: "u2",
       email: "x@y.z",
-      roles: ["operations"],
+      access: resolveAccess(["operations"]),
     });
+  });
+
+  it("applies the user's own permission denies", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", email: "a@b.c" } } });
+    roleRows = [{ role_id: "finance" }];
+    denyRows = [{ user_id: "u1", permission: "invoices:read" }];
+    const ctx = await getCurrentUserContext();
+    expect(ctx?.access).toEqual(resolveAccess(["finance"], ["invoices:read"]));
+    expect(ctx && userCan(ctx.access, "invoices:read")).toBe(false);
+    expect(ctx && userCan(ctx.access, "receipts:read")).toBe(true);
   });
 
   it("returns null without a session or an acting user", async () => {

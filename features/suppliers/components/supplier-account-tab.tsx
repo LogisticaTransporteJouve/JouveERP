@@ -35,7 +35,7 @@ import { NewPurchaseInvoiceDialog } from "@/features/purchase-invoices/component
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { amountToInput, formatArgentineDate } from "@/lib/format";
 
@@ -104,20 +104,20 @@ export function SupplierAccountTab({
   supplier,
   channels,
   accounts,
-  actorRoles,
+  actorAccess,
 }: {
   supplierId: string;
   supplier: PickedSupplier;
   channels: ChannelOption[];
   accounts: Account[];
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = useSupplierAccount(supplierId);
   const movements = data.movements;
   const balance = data.balance;
-  const canWriteOP = userCan(actorRoles, "payment_orders:write");
-  const canWritePI = userCan(actorRoles, "purchase_invoices:write");
-  const isOwner = actorRoles.includes("owner");
+  const canWriteOP = userCan(actorAccess, "payment_orders:write");
+  const canWritePI = userCan(actorAccess, "purchase_invoices:write");
+  const isOwner = actorAccess.roles.includes("owner");
   const clearOpeningMut = useClearSupplierOpeningBalance();
 
   const balLabel = balanceLabel(balance);

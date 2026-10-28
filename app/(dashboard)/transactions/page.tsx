@@ -47,7 +47,7 @@ export default async function CajaPage({
   }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "transactions:read")) {
+  if (!userCan(ctx.access, "transactions:read")) {
     redirect("/dashboard");
   }
 
@@ -104,7 +104,7 @@ export default async function CajaPage({
         <Suspense fallback={<Loading />}>
           <TransactionsTable
             channels={channels}
-            actorRoles={ctx.roles}
+            actorAccess={ctx.access}
             initialChannel={filters.channel_id}
             initialAccount={filters.account_id}
             initialKind={filters.kind}

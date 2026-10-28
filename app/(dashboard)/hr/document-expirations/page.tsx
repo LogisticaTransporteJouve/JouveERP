@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HrDocumentExpirationsPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
   return <DocumentExpirationsPage />;

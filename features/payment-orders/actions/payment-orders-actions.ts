@@ -85,7 +85,7 @@ export async function listPaymentOrdersAction(input?: {
   }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
   }
 
@@ -133,7 +133,7 @@ export async function getPaymentOrderByIdAction(
   id: string,
 ): Promise<ActionResult<PaymentOrderDetail | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
   }
 
@@ -204,7 +204,7 @@ export async function getNextPaymentOrderNumeroAction(input: {
   channel_id: string;
 }): Promise<ActionResult<{ next: number; isFirst: boolean }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -259,7 +259,7 @@ export async function listPendingInvoicesForSupplierAction(
   excludePaymentOrderId?: string,
 ): Promise<ActionResult<PendingPurchaseInvoice[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -382,7 +382,7 @@ export async function createPaymentOrderAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string; numero: number; punto_venta: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:write")) {
+  if (!userCan(ctx.access, "payment_orders:write")) {
     return {
       ok: false,
       error: "No tenés permiso para emitir órdenes de pago.",
@@ -494,7 +494,7 @@ export async function updatePaymentOrderAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:write")) {
+  if (!userCan(ctx.access, "payment_orders:write")) {
     return {
       ok: false,
       error: "No tenés permiso para editar órdenes de pago.",
@@ -548,7 +548,7 @@ export async function cancelPaymentOrderAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:write")) {
+  if (!userCan(ctx.access, "payment_orders:write")) {
     return {
       ok: false,
       error: "No tenés permiso para anular órdenes de pago.",

@@ -50,12 +50,12 @@ export async function listHubFilesAction(
   input: unknown,
 ): Promise<ActionResult<HubFilesPage>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) return { ok: false, error: NO_FILES };
+  if (!userCan(ctx.access, "files:read")) return { ok: false, error: NO_FILES };
   const parsed = HubPageInputSchema.safeParse(input ?? {});
   if (!parsed.success) return { ok: false, error: "Filtros inválidos." };
   const filters = parsed.data;
 
-  const scope = hubScope(ctx.roles);
+  const scope = hubScope(ctx.access);
   const entityTypes = filters.entityType
     ? scope.entityTypes.filter((t) => t === filters.entityType)
     : scope.entityTypes;
@@ -158,10 +158,10 @@ export async function getHubFileUrlAction(
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) return { ok: false, error: NO_FILES };
+  if (!userCan(ctx.access, "files:read")) return { ok: false, error: NO_FILES };
   const parsed = UuidSchema.safeParse(linkId);
   if (!parsed.success) return { ok: false, error: "ID inválido." };
-  const scope = hubScope(ctx.roles);
+  const scope = hubScope(ctx.access);
   if (scope.entityTypes.length === 0) {
     return { ok: false, error: "Archivo no encontrado." };
   }
@@ -218,7 +218,7 @@ export async function listHubUploadersAction(): Promise<
   ActionResult<HubUploader[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) return { ok: false, error: NO_FILES };
+  if (!userCan(ctx.access, "files:read")) return { ok: false, error: NO_FILES };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("user_profiles")

@@ -25,12 +25,16 @@ import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import { useSuppliersSearchInfinite } from "../hooks/use-suppliers";
-import { IVA_CONDITION_LABEL, type IvaCondition, type Supplier } from "../schema";
+import {
+  IVA_CONDITION_LABEL,
+  type IvaCondition,
+  type Supplier,
+} from "../schema";
 import { DeleteSupplierDialog } from "./delete-supplier-dialog";
 import { EditSupplierDialog } from "./edit-supplier-dialog";
 import { NewSupplierDialog } from "./new-supplier-dialog";
@@ -44,19 +48,21 @@ const IVA_BADGE_TONE: Record<IvaCondition, string> = {
 };
 
 export function SuppliersTable({
-  actorRoles,
+  actorAccess,
   initialQuery,
   initialOnlyActive,
   initialCategoryId,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   initialQuery: string;
   initialOnlyActive: boolean;
   initialCategoryId: string | null;
 }) {
   const [queryInput, setQueryInput] = useState(initialQuery);
   const [onlyActive, setOnlyActive] = useState(initialOnlyActive);
-  const [categoryId, setCategoryId] = useState<string | null>(initialCategoryId);
+  const [categoryId, setCategoryId] = useState<string | null>(
+    initialCategoryId,
+  );
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const deferredQuery = useDeferredValue(debouncedQuery);
@@ -64,7 +70,7 @@ export function SuppliersTable({
   const deferredCategoryId = useDeferredValue(categoryId);
   const setUrlFilters = useUrlFilter();
 
-  const canWrite = userCan(actorRoles, "suppliers:write");
+  const canWrite = userCan(actorAccess, "suppliers:write");
   const categoriesQuery = useSupplierCategoriesList({ onlyActive: false });
   const categories = categoriesQuery.data ?? [];
 
