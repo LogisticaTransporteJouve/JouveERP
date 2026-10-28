@@ -52,7 +52,7 @@ asignación de roles (`canAssignRole`), no en permisos. `finance` tiene
 `lib/auth/permissions.test.ts`.
 
 Patrón estándar del repo: el server action gatea con
-`userCan(ctx.roles, "hr:<x>")`, y **RLS es defensa en profundidad** en cada
+`userCan(ctx.access, "hr:<x>")`, y **RLS es defensa en profundidad** en cada
 tabla vía el helper `public.user_has_role(text[])`.
 
 > ✅ **Permisos de documentos alineados a `finance` (resuelto 2026-06-16).** Antes
@@ -407,7 +407,7 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
 ## 8. Convenciones transversales (heredadas del repo)
 
 - **Server actions:** `"use server"` → `requireUserContext()` →
-  `userCan(ctx.roles, "hr:<x>")` → `getServiceClient()` → `ActionResult<T>`
+  `userCan(ctx.access, "hr:<x>")` → `getServiceClient()` → `ActionResult<T>`
   (`lib/query/run-action.ts`). Sin `select *`. Audit vía `logAudit()` →
   `audit_events`.
 - **Narrowing:** las reads narrowan enums (`isAttendanceKind`, `isLeaveKind`,

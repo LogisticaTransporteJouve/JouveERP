@@ -39,7 +39,7 @@ la app — no hay actions de alta/edición. Los asientos los generan triggers
 `transactions:read` (Fase D) → owner/admin/finance; `transactions:write` →
 **owner, finance**. `operations`/`warehouse`/`driver` no tienen `accounting:*` ni
 `transactions:*`. Todas las páginas `/accounting/*` y `/transactions` gatean con
-`userCan(ctx.roles, …)` y redirigen a `/dashboard` si falta.
+`userCan(ctx.access, …)` y redirigen a `/dashboard` si falta.
 
 > ✅ **Asimetría action vs RLS en DELETE — corregido** (`deleteChartAccountAction`
 > y `deleteTransactionAction`). Antes chequeaban solo el permiso de escritura y la
@@ -371,7 +371,7 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 ## 10. Convenciones transversales
 
 - **Server actions:** `"use server"` → `requireUserContext()` →
-  `userCan(ctx.roles, "<perm>")` → query → `ActionResult<T>`. Reads narrowan enums y
+  `userCan(ctx.access, "<perm>")` → query → `ActionResult<T>`. Reads narrowan enums y
   descartan filas desconocidas. Sin `select *` salvo en reads de tablas chicas.
 - **RPCs:** lecturas `SECURITY INVOKER` (heredan RLS del caller); escrituras de
   asientos/aperturas `SECURITY DEFINER` con `set search_path=public` y

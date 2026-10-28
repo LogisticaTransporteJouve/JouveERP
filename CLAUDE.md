@@ -25,22 +25,41 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 ## Convenciones (no negociables)
 
 - **Server actions:** `"use server"` → `requireUserContext()` +
-  `userCan(ctx.roles, "<perm>")` → `getServiceClient()` → devolver
+  `userCan(ctx.access, "<perm>")` → `getServiceClient()` → devolver
   `ActionResult<T>` (`lib/query/run-action.ts`). Sin `select *`.
 - **Cliente:** `runAction(() => xAction(..))` dentro de `useSuspenseQuery` /
   `useSuspenseInfiniteQuery`; query keys en `features/<f>/lib/<f>-keys.ts`.
 - **RBAC:** roles + matriz en `lib/auth/permissions.ts`; cobertura **100%** en
   `lib/auth/permissions.test.ts`. **RLS en cada tabla.**
+- **Accesos por usuario:** `ctx.access` = roles + denegaciones del usuario
+  (`user_permission_denies`), armado solo por `resolveAccess` (cercado por
+  ESLint). Todo gate usa `userCan(ctx.access, …)`; denegar `<x>:read` oculta el
+  módulo entero. Las denegaciones se aplican en la app; la DB aplica el techo
+  del rol (RLS). Solo el owner las edita (`users:manage_access`), en
+  `/admin/users` vía el RPC `set_user_access`; un owner no se puede denegar.
 - **Migraciones:** `YYYYMMDDHHMMSS_<scope>.sql`, **RLS en la misma migración**
-  (helper `public.user_has_role(text[])`), regenerar `lib/db/database.types.ts`
-  (CI diff-ea). Timestamp > el máximo en `main`. **Nunca editar una mergeada.**
+  (helper `public.user_has_role(text[])`), timeouts con `SET LOCAL` al inicio
+  (nunca `SET` pelado ni `row_security`), `SECURITY DEFINER` con
+  `search_path = ''` + `REVOKE` de `public`/`anon`/`authenticated`; regenerar
+  `lib/db/database.types.ts` con `pnpm db:types:generate` (CI diff-ea);
+  `pnpm check:migrations` (squawk + gates) corre en pre-push y CI. Timestamp > el máximo en `main`. **Nunca editar una mergeada.**
 - **Background/cron:** Inngest (no Temporal). Registrar en `app/api/inngest/route.ts`.
 - **Auditoría:** `logAudit()` → `audit_events` (`lib/actions/audit.ts`).
 - **UI:** CRUD en `Dialog` centrado (no Sheet). **100% monocromo** (sin color de
   marca; peligro = copy + iconos). `lucide-react`, Geist Sans/Mono.
 - **Git:** conventional commits en **inglés**; **sin** `Co-Authored-By` ni footer;
   PRs **siempre draft** (`gh pr create --draft`); no commitear a `main`.
-- ESLint: `no-explicit-any` error; sin `as`.
+- ESLint: `no-explicit-any` error; cercas de seams en `eslint.fences.mjs`
+  (proveedores IA, Sentry, `lib/`→feature, actions cross-feature, `Access`,
+  `parseFloat` en dinero). Evitar `as` (no hay regla general; sí está
+  prohibido hacia `Access`): narrowing con type guards / Zod.
+- **Deploy:** Vercel publica `main` antes de que se apruebe la migración; el
+  código nuevo tiene que tolerar el schema viejo durante esa ventana.
+
+## Idioma
+
+Código, commits, nombres y comentarios en **inglés**; copy de UI, mensajes de
+error al usuario y docs en **español (Argentina)**.
 
 ## Skills de desarrollo
 
@@ -54,14 +73,20 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
   (la cadena completa).
 - **Lentes:** `/enforce-ports-and-adapters` (slices y seams), `/enforce-clean-code` (DRY),
   `/enforce-comment-value`, `/enforce-role-isolation` (`userCan` + RLS por rol);
-  perf/telemetry/identity en `.agents/skills/_shared/`.
-- **Otros:** `/nav-github`, `/nav-linear` (opcional), `supabase-postgres-best-practices`, `/tighten`.
+  `/enforce-reach`, `/enforce-outcomes`, `/enforce-effects`, `/enforce-claims`,
+  `/enforce-data-integrity`, `/enforce-deploy-safety`, `/enforce-ui-state`;
+  perf/telemetry en `.agents/skills/_shared/`.
+- **Otros:** `/verify`, `/restamp-migrations`, `/nav-github`, `/nav-linear` (opcional),
+  `supabase-postgres-best-practices`, `/tighten`.
 
 `.claude/settings.json` bloquea `supabase db push`/`link`, push a `main`, force-push y leer `.env*`.
 
 ## Docs
 
-- `docs/roadmap.md` — plan maestro. ⚠️ **Hoy desactualizado** — ver `docs/pendientes.md`.
+Índice en [`docs/README.md`](docs/README.md); decisiones en `docs/decisions.md`;
+flujo de trabajo en [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+- `docs/roadmap.md` — plan maestro histórico; el estado vigente está en `docs/pendientes.md`.
 - `docs/pendientes.md` — qué falta (auditoría docs vs código).
 - `docs/ai-overview.md` — feature IA: chat, insights proactivos, Document
   Intelligence (escaneo/OCR/extracción) + UI + tablas + plan AI.0–AI.8.
@@ -79,6 +104,6 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
 
 ## Comandos
 
-Ver `README.md`. Esenciales: `pnpm dev` (Next), `pnpm test` (Vitest),
-`pnpm dlx supabase gen types typescript --local --schema public > lib/db/database.types.ts`
-(regen tipos tras una migración).
+Tabla completa en `README.md`. Esenciales: `pnpm dev:up` (stack), `pnpm lint`,
+`pnpm typecheck`, `pnpm test`, `pnpm db:types:generate` (tras una migración),
+`pnpm check:migrations`.
