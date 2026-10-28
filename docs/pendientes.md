@@ -73,3 +73,20 @@
       (exchange_rates + cron BCRA + asientos multimoneda).
 - [x] Tests: 47/47 dominios con `schema.test.ts`; matriz de permisos con
       cobertura 100%.
+
+---
+
+## Accesos por usuario — follow-ups (2026-10-28)
+
+- [ ] **Aprobar la migración `20261028140000_user_permission_denies`** apenas
+      mergea el PR; después quitar las tolerancias de ventana de deploy en
+      `lib/auth/denies.ts` (tabla faltante) y `features/search/actions/search-actions.ts`
+      (firma vieja de `search_global`).
+- [ ] **Denegaciones en la DB** (overlays RESTRICTIVE por tabla + storage + RPC
+      DEFINER). Hoy la DB aplica solo el techo del rol; ver `docs/decisions.md`.
+- [ ] Suite pgTAP rol × tabla contra `ROLE_PERMISSIONS` (y auditar el desvío
+      `['owner','finance']` en RLS vs admin en TS).
+- [ ] `issue-invoice.ts`: `AfipServiceError` fuera de `NonRetriableError` se
+      reintenta.
+- [ ] `issueFiscalInvoiceAction`: un doble submit crea dos borradores (una
+      `idempotency_key` nueva por llamada).

@@ -1924,25 +1924,23 @@ function parseExtraSources(envValue: string | undefined): string[] {
 
 Timestamp `YYYYMMDDHHMMSS`. CLI de Supabase genera el formato.
 
-Header estándar:
+Header estándar (lo verifican `pnpm check:migrations` y CI):
 ```sql
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET idle_in_transaction_session_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET row_security = off;   -- temporal durante la migration
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '15min';
 
 -- ... DDL ...
 
-ALTER TABLE "public"."<table>" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY ... ON "<table>" ...;
+ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ... ON public.<table> ...;
 ```
 
-> **Detalle:** `SET row_security = off` permite a la migration setear data con seed sin que las RLS policies bloqueen el INSERT inicial. Al final del archivo se habilita RLS.
+> **Detalle:** `SET LOCAL` vale solo dentro de la transacción de la migración;
+> un `SET` pelado queda pegado a la sesión del runner. Nunca `SET row_security`:
+> la migración corre como owner de las tablas y un seed no necesita apagar RLS.
+> Todo `SECURITY DEFINER` lleva `SET search_path = ''` y `REVOKE` de
+> `public`, `anon` y `authenticated` (lo chequea
+> `.github/scripts/check-migration-definer-revoke.mjs`).
 
 ### 19.2 RLS policies — naming en inglés con verbo ✅
 
@@ -2299,7 +2297,7 @@ const AnomaliesCountBadge = dynamic(() => import("...").then((m) => m.AnomaliesC
 26. **PostHog reverse proxy + posthog-js** + identify pattern
 27. **WebVitals via `useReportWebVitals`**
 28. **next.config security headers**
-29. **Naming de migrations** + `SET row_security = off` durante DDL
+29. **Naming de migrations** + header `SET LOCAL` de timeouts (sin `row_security`)
 30. **RLS policies con verbo + entity + condición** en human-readable name
 31. **Pentest tests** un spec por tabla sensible
 32. **Playwright** con setup project + storage state

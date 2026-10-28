@@ -99,7 +99,7 @@ LLM tool call ── features/ai/tools/<domain>/<tool>.ts
                    │  Zod inputSchema  (.describe() legible por el modelo)
                    ▼
                  action de lectura existente (ej. listInvoicesAction)
-                   │  requireUserContext() + userCan(ctx.roles, "invoices:read")
+                   │  requireUserContext() + userCan(ctx.access, "invoices:read")
                    │  getServiceClient() query → ActionResult<T>
                    ▼
                  el tool devuelve { ok, summary, data } al modelo
@@ -109,7 +109,7 @@ LLM tool call ── features/ai/tools/<domain>/<tool>.ts
 Por qué esta forma:
 
 - **Permisos gratis.** Cada action de lectura ya gatea con
-  `userCan(ctx.roles, "<perm>:read")` y devuelve el envelope `ActionResult`.
+  `userCan(ctx.access, "<perm>:read")` y devuelve el envelope `ActionResult`.
   Envolverlos significa que el agente nunca puede leer lo que el usuario que
   llama no puede. Los tools se ejecutan bajo el `UserContext` del que llama,
   nunca con una identidad de servicio privilegiada propia.
