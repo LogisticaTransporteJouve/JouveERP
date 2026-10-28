@@ -62,6 +62,19 @@ def jobs(text: str):
         yield name, keys
 
 
+ENV_NAME = re.compile(r"^\s+name:\s*(.*)$", re.MULTILINE)
+
+
+def environment_name(value: str) -> str:
+    """The environment a job enters: the scalar, or a mapping's `name:`.
+
+    The mapping's other keys (`url:` carries a step output) do not choose the
+    environment, so only the name is checked for expressions.
+    """
+    m = ENV_NAME.search(value)
+    return m.group(1) if m else value
+
+
 def main() -> int:
     if not WORKFLOWS.is_dir():
         print(f"error: {WORKFLOWS} not found — run from the repo root", file=sys.stderr)
@@ -73,7 +86,7 @@ def main() -> int:
         found = dict(jobs(path.read_text(encoding="utf-8", errors="replace")))
         enters = []
         for n, k in found.items():
-            env = k.get("environment", "")
+            env = environment_name(k.get("environment", ""))
             # GitHub matches environment names case-insensitively, and an
             # expression or alias could resolve to `production` at runtime.
             if "${{" in env or re.search(r"(^|\s)\*", env):
@@ -83,7 +96,7 @@ def main() -> int:
         if not enters:
             continue
         gated += len(enters)
-        approve_env = [w.lower() for w in WORD.findall(found.get("approve", {}).get("environment", ""))]
+        approve_env = [w.lower() for w in WORD.findall(environment_name(found.get("approve", {}).get("environment", "")))]
         if "production-gate" not in approve_env:
             violations.append(f"{path}: no `approve` job on `environment: production-gate`")
         for n in enters:
