@@ -51,12 +51,12 @@ Pagination is a false-NEGATIVE risk: without `--limit` gh stops at 30 PRs, and `
 across open PRs.
 
 ## A4 — PR conventions                [BLOCKING, auto-remedy]
-PR is a **draft** against `main`; body starts with `## Intent` (2–4 sentences, whole body <~25
+PR is a **draft** against `main`; body follows `.github/pull_request_template.md` and starts with `## Resumen` (2–4 sentences, whole body <~25
 lines plus `## Follow-ups`); title <70 chars, conventional in English (`fix:`/`feat:`/`chore:`…),
 `[DESTRUCTIVE]` prefix for a destructive migration, `(N/X)` prefix for a stacked set. Commits are
 conventional, English, with NO `Co-Authored-By` or other trailer/footer. Full rules are
 single-sourced in the `nav-github` skill's conventions section — Read it, do not restate. Missing
-Intent → draft it from the diff, run it through `tighten`, and PREPEND it preserving the rest of the
+Resumen → draft it from the diff, run it through `tighten`, and PREPEND it preserving the rest of the
 body (do it — additive, draft-safe). A PR that is not draft is SURFACED, not flipped back silently.
 
 ## A5 — Migration apply + DB quality  [BLOCKING, only if `supabase/migrations/` changed]

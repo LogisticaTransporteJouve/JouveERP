@@ -19,6 +19,10 @@ a RESULT, never a question and never a request for direction.
 - Hit a fork (naming, ordering, scope within your item, which of two workable designs)? Pick the
   option best supported by the evidence in front of you, RECORD the call + the reasoning + the
   alternative you rejected in your output, and keep going.
+- A fork that is a one-way door (`adv-review` Step 2: a persisted shape, an external contract such as
+  an AFIP-issued voucher, a persisted name such as an Inngest event, audit event type or permission
+  string, production data): take the reversible shape where one exists, and mark the call
+  `ONE-WAY DOOR` in your output so the orchestrator records it as `AWAITING-HUMAN`.
 - **Never commit research or spec `.md`** — not your notes, not a plan, not a findings file. Scratch
   work goes in the scratchpad. Stage by explicit path; never `git add -A`. The one exception is a log
   or state file the skill you are running names as committed state.

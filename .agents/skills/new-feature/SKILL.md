@@ -38,7 +38,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 
 export async function getXAction(input: GetXInput): Promise<ActionResult<X>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "<perm>:read")) {
+  if (!userCan(ctx.access, "<perm>:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = getServiceClient();
@@ -63,13 +63,17 @@ export async function getXAction(input: GetXInput): Promise<ActionResult<X>> {
 
 - Permisos nuevos → `lib/auth/permissions.ts` (`PERMISSIONS` + `ROLE_PERMISSIONS`)
   y **cubrir en `lib/auth/permissions.test.ts`** (matriz 100%).
+- Todo gate es `userCan(ctx.access, "<perm>")` (`ctx.access` lo arma solo `resolveAccess` en
+  `lib/auth/`; incluye las denegaciones por usuario). Nunca construyas un `Access` a mano ni chequees
+  un rol literal salvo `"owner"` (`ctx.access.roles.includes("owner")`); en tests,
+  `resolveAccess([...])`. En la UI, ocultá con `userCan(access, …)` — el server igual valida.
 - Mutaciones sensibles → `logAudit()` (`lib/actions/audit.ts`).
 - Zod en `schema.ts` + `schema.test.ts` (archivos planos en la raíz del feature).
 
 ## Checklist
 
 - [ ] Slice completo; ninguna action de negocio importada de otra feature.
-- [ ] Actions devuelven `ActionResult<T>`, con `userCan` + sin `select *`.
+- [ ] Actions devuelven `ActionResult<T>`, con `userCan(ctx.access, …)` + sin `select *`.
 - [ ] Permisos en matriz + test.
 - [ ] Zod + schema.test.ts.
 - [ ] Si hay tabla nueva → usar `/new-migration` (RLS + types).

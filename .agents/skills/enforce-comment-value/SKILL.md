@@ -75,6 +75,22 @@ the PR body, never the code. `// this was in ARS, now USD (MEP)` → `// USD (ME
 already says it); `// keyset-paginate, rather than OFFSET` → `// keyset-paginate`. When the whole
 comment is contrast → DELETE; when only a clause is → REWRITE to the load-bearing clause.
 
+## Step 2b — the common defects (each maps to a verdict below)
+- **A rewording.** An edited comment that says what the old one said, in as many words or more.
+  Verdict: restore the old text — the rewording costs a review and tells the reader nothing new.
+- **Facts that drift**: hard-coded counts ("12 of the 77 permissions"), a ticket id standing in for
+  the reason, section or line numbers, file names, values restated from a constant. REWRITE:
+  reference the constant by name, state the reason instead of the ticket.
+- **Length beyond the why.** A comment longer than the code it explains is cut to the reason.
+- **A doc block split from its declaration** — a function or constant inserted between a JSDoc and
+  the symbol it documents, so the doc now sits on the wrong thing. Move it back.
+- **A nullable or union field's doc that misses a producer.** The doc lists every meaning `NULL` (or
+  each union member) can carry, including the one this diff's new writer produces.
+- **A deleted contract on an exported symbol** (its JSDoc, an invariant, a units/nullability note).
+  **Restore it by default**; deleting one needs the bug-filing test to say no, stated in one line.
+- **A law stated without its condition** ("do NOT retry this") when it holds only sometimes — add
+  the condition.
+
 ## Step 3 — the five verdicts (record one, act now)
 - **DELETE** — Q1 = derivable. No ceremony, no replacement.
 - **KEEP + ANCHOR** — Q2 = unrecoverable. Anchoring is mandatory, not optional polish. Name the
@@ -117,7 +133,8 @@ them only during a deliberate full-file pass, and leave them in large registry-s
 are genuine navigation.
 
 ## Scope — this lens is never loose on the whole repo
-- **Default: diff-scoped.** `git diff` + `git diff --cached`, changed hunks only.
+- **Default: diff-scoped.** `git diff` + `git diff --cached`: changed hunks, plus the comments the
+  diff DELETED (a removed comment is in scope — it may be a destroyed contract).
 - **Campaign: path-scoped**, and only when a path is named explicitly. State the file count before
   starting.
 - **Completeness rule.** Every comment in scope gets a recorded verdict — none skipped silently. A pass
@@ -125,6 +142,7 @@ are genuine navigation.
 - **Comments only.** Never change behaviour, names, or control flow in a comment pass. REFACTOR-INSTEAD
   is a *proposal* unless the invocation explicitly authorised refactoring.
 - **Report** as a verdict tally plus every KEEP that was rewritten, so the diff is reviewable.
+- **Verdicts only** when the caller asks for them: report and edit nothing.
 
 ## Delivery
 Reviews/builds Read this guide, then paste the condensed block from

@@ -33,7 +33,7 @@ THE FOUR CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, 
    own `features/<domain>/actions` (+ pure helpers in its `lib/`); logic two features need goes UP to
    `lib/`, never sideways. Query keys in `features/<f>/lib/<f>-keys.ts`. Inngest functions in
    `lib/inngest/functions/`, registered in `app/api/inngest/route.ts`. `@ai-sdk/<provider>` is
-   imported only by `features/ai/model.ts`; `lib/afip/wsfev1`/`wsaa` only by the invoice-issuing
+   imported only by `features/ai/model.ts`; `lib/afip/wsfev1.ts`/`wsaa.ts` only by the invoice-issuing
    path (`lib/inngest/functions/issue-invoice.ts`, `caea-*`) and `features/afip-admin`.
 3. FEATURE-DIRECTION — what may cross between features:
      ALLOWED cross-feature: types, Zod schemas, query keys, pickers (e.g. `accounts/schema`,
@@ -47,6 +47,12 @@ THE FOUR CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, 
        pre-existing). Nothing imports from `app/`. No cycles.
    A new forbidden edge = defect. A pre-existing one the diff copies (e.g. `loans` →
    `createTransactionAction`) is not a licence — the new copy is a defect; the old one is a follow-up.
+   MACHINE-ENFORCED SUBSET (`eslint.fences.mjs`, run by `pnpm lint`): AI-provider, Sentry, service-key,
+   lib→feature (actions/components/hooks) and cross-feature-actions fences — read actions matching the
+   name pattern (list*/get*/search*/lookup*/find*, not getOrCreate*) and `issueFiscalInvoiceAction` may
+   cross, type imports may cross, any dynamic `import()` of another feature's actions is banned. A green
+   lint is NOT a pass: a write action named like a read slips through, and PLACEMENT, NO-BRANCH and
+   CONTRACT-VOCAB are not linted — check them here. Never add an eslint-disable to cross a fence.
 4. CONTRACT-VOCAB — shared code (`lib/`, a feature's public `index.ts`, shared types) speaks the
    domain's words (comprobante, CAE, asiento, canal, recibo). A provider name (anthropic, gemini,
    openai, wsfev1, sentry, inngest) leaked into a consumer identifier, shared type, or comment

@@ -53,21 +53,25 @@ producing no code at all.
 
 ## Phase 2 — Implement  (invoke `/auto-implement`)
 Hand it the `plan.md` path. The build engine (read-before-write, rails, diff-time ports self-check,
-the prove-it-runs cold+large gate) all live INSIDE that skill. Your ONE
+the `/verify` cold+large gate) all live INSIDE that skill. Your ONE
 decision here — the only orchestration choice this conductor makes:
 - **Single context** (default): plan is ≤ ~8 files/items, or items share files / are tightly coupled
   → `/auto-implement` builds it all in one context.
 - **Fan-out**: plan has ≥3 independent work items on disjoint files with a clean DAG → tell
   `/auto-implement` to run its wave engine with parallel WRITER subagents (it owns wave
-  ordering, per-wave validation, and pasting its rails + the ports lens + the dry-lens + the comment-lens + the telemetry-lens + the working-location orientation into every writer prompt).
+  ordering, per-wave validation, and pasting its rails + the ports, dry, comment, telemetry and reach lenses + each triggered lens + the working-location orientation into every writer prompt).
 Decide from the plan's DAG + sizing; when in doubt, single context.
 
-⚠️ **If Phase 2 returns `FAILED: prove-it-runs`, do NOT enter Phase 3.** An unverified change is a dead
+⚠️ **If Phase 2 returns `FAILED: /verify`, do NOT enter Phase 3.** An unverified change is a dead
 track — do not hand a broken tree to review. But still leave the morning something: **open a DRAFT PR
-from the pushed branch** — that write only, no gate, so the work is reviewable and traceable rather
-than a bare branch nobody will find. Say in the body that the
-prove-it-runs gate failed and it must not be merged, and label the PR `do-not-merge`: a draft's
-skipped checks render as `skipping` rows that read like passes. Then clear the mode and report.
+from the pushed branch** (`gh pr create --draft --base main`) — that write, plus the label below, and
+nothing else: no gate. Its body starts with `## Resumen`, whose first sentence says `/verify` failed
+(what was tried) and the PR must not be merged. **Label it `do-not-merge`**
+(`gh pr edit <n> --add-label do-not-merge`; the repo has no such label yet, so on a "not found" error
+create it once with `gh label create do-not-merge --description "Unverified: do not merge"` and retry
+— both writes are mandated here by name). Every JouveERP PR is a draft, so draft state alone marks
+nothing, and a draft's skipped checks render as `skipping` rows that read like passes; the label is
+the marker. Never invoke `/auto-ship-gate` on a PR carrying it. Then clear the mode and report.
 
 ## Phase 3 — Review  (invoke `/adv-review`, converge path)
 Run over Phase 2's changes. auto-implement builds in the WORKING TREE and does not commit (Phase 4 commits), so review the working tree, not just `git diff <base>...HEAD`. Multi-wave, fix-as-you-go, to ≥3 consecutive clean waves on
@@ -84,8 +88,9 @@ if the user asked.
 Then commit (conventional commits in English, NO `Co-Authored-By` or any trailer/footer — CLAUDE.md
 overrides any tool's default attribution) and push the feature branch (create one first if you are on
 `main` — never push to `main`), open the PR against `main` **as a draft**
-(`gh pr create --draft --base main`; title per CLAUDE.md and `nav-github`; body starting with
-`## Intent`, with `## Follow-ups` for everything routed out), write `phase: 4 | gate: not-started`
+(`gh pr create --draft --base main`; title per CLAUDE.md and `nav-github`; body following
+`.github/pull_request_template.md`, so it starts with the template's first section `## Resumen`, with
+`## Follow-ups` for everything routed out), write `phase: 4 | gate: not-started`
 into the master plan (a PR now exists, so it is materialized — never a separate `auto-build.state`),
 and **invoke `/auto-ship-gate` via the `Skill` tool.** Nothing else. This conductor does not know
 what the gate does and must not act as though it does — migration checks, the Phase-A manifest, the
