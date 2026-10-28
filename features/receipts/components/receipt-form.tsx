@@ -40,6 +40,7 @@ import {
 } from "@/lib/format";
 import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
+import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
   useCreateReceipt,
@@ -51,18 +52,12 @@ import {
   RECEIPT_CURRENCIES,
   type ReceiptCurrency,
 } from "../schema";
-import {
-  AllocationsPicker,
-  type AllocationDraft,
-} from "./allocations-picker";
+import { AllocationsPicker, type AllocationDraft } from "./allocations-picker";
 import {
   PaymentLinesEditor,
   type PaymentLineDraft,
 } from "./payment-lines-editor";
-import {
-  RetentionsEditor,
-  type RetentionDraft,
-} from "./retentions-editor";
+import { RetentionsEditor, type RetentionDraft } from "./retentions-editor";
 
 export interface ChannelOption {
   id: string;
@@ -185,17 +180,14 @@ export function ReceiptForm({
   const allocations = form.watch("allocations");
   const retentions = form.watch("retentions");
 
-  const nextNumero = useNextReceiptNumero(
-    mode === "create" ? channelId : null,
-  );
+  const nextNumero = useNextReceiptNumero(mode === "create" ? channelId : null);
   const isFirst = nextNumero.isFirst;
 
   // Pre-load the picked client when editing.
   useEffect(() => {
     if (!receipt) return;
     void (async () => {
-      const mod = await import("@/features/clients/actions/clients-actions");
-      const res = await mod.getClientByIdAction(receipt.receipt.client_id);
+      const res = await getClientByIdAction(receipt.receipt.client_id);
       if (res.ok && res.data) {
         form.setValue("client", {
           id: res.data.id,
@@ -448,9 +440,9 @@ export function ReceiptForm({
 
         {mode === "create" && isFirst && (
           <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">
-            Es el primer recibo de este canal. Si ya tenías una numeración previa
-            en otro sistema, podés escribir el siguiente número manualmente.
-            Después queda fijado.
+            Es el primer recibo de este canal. Si ya tenías una numeración
+            previa en otro sistema, podés escribir el siguiente número
+            manualmente. Después queda fijado.
           </div>
         )}
 
@@ -462,10 +454,7 @@ export function ReceiptForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Cliente</FormLabel>
               <FormControl>
-                <ClientPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                />
+                <ClientPicker value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
