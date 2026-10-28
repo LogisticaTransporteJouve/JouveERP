@@ -74,9 +74,17 @@ Run `sequences` independent attack sequences, each with up to `rounds` rounds of
 - Confirm the emitted signal actually DETECTS, LOCALIZES, or EXPLAINS a failure — a signal that does none is not worth emitting
 
 **"A user without the permission can reach this"** (MANDATORY when the target touches migrations, RLS policies, grants, `SECURITY DEFINER` functions, `getServiceClient()`, `"use server"` files, route handlers, AI tools, or `lib/auth/permissions.ts`)
-- Attack via the role-isolation lens — Read `.claude/skills/enforce-role-isolation/SKILL.md` and paste `.claude/skills/_shared/role-lens/condensed-lens.md` into the agent: a `"use server"` export or route reaching `getServiceClient()` without `requireUserContext()` + `userCan(ctx.roles, "<perm>")`, a write gated by a `:read` permission, a new table without RLS in its creating migration, an UPDATE policy with no `WITH CHECK` (Postgres silently reuses `USING`), a bare `user_has_role()` in a new policy, a `SECURITY DEFINER` function without `SET search_path` or an internal role check, a `REVOKE ... FROM PUBLIC` that leaves the explicit `anon`/`authenticated` grants standing, any grant to `anon`, a self-scoped row (notifications, AI chat, driver trips) without its `user_id` filter, an AI tool that bypasses its read action or takes an identity from the model, a permission missing from the matrix or its test
+- Attack via the role-isolation lens — Read `.claude/skills/enforce-role-isolation/SKILL.md` and paste `.claude/skills/_shared/role-lens/condensed-lens.md` into the agent: a `"use server"` export or route reaching `getServiceClient()` without `requireUserContext()` + `userCan(ctx.access, "<perm>")`, a gate a per-user deny does not reach, a write gated by a `:read` permission, a new table without RLS in its creating migration, an UPDATE policy with no `WITH CHECK` (Postgres silently reuses `USING`), a bare `user_has_role()` in a new policy, a `SECURITY DEFINER` function without `SET search_path` or an internal role check, a `REVOKE ... FROM PUBLIC` that leaves the explicit `anon`/`authenticated` grants standing, any grant to `anon`, a self-scoped row (notifications, AI chat, driver trips) without its `user_id` filter, an AI tool that bypasses its read action or takes an identity from the model, a permission missing from the matrix or its test
 - Check both halves of the PostgREST gate: a policy without a grant is unreachable, a grant without a constraining policy is open
 - A proposed fix with no test observed to FAIL against the pre-fix state is not a fix — action-level Vitest tests with a role lacking the permission, the matrix test in `lib/auth/permissions.test.ts`, and pgTAP in `supabase/tests/` once it exists
+
+**"This misses a place it must reach"** (MANDATORY every round when the target is a code change, a design for one, or a codebase area)
+- Attack via the reach lens — Read and paste `.claude/skills/_shared/reach-lens/condensed-lens.md` into the agent: every writer, reader, entry point, exit, variant (4 channels, CAE/CAEA, ARS/USD, NC/ND) and surface (server action ↔ AI CFO tool ↔ hook/query keys ↔ page; money ↔ RPC/view ↔ PDF ↔ libro IVA/exports; permission ↔ matrix + test + RLS arrays + UI) the target changes, every other piece of code answering the same question, and every registry a new unit must join (`app/api/inngest/route.ts`, `features/ai/registry/`, `lib/auth/permissions.ts`)
+- Search outside the target with `git grep`; a "nothing else reads it" that names no grep is not a finding
+
+**"A routed review lens would catch it"** (MANDATORY when the target is a code change or a design for one)
+- Run one attacker per lens the routing table in `.claude/skills/adv-review/SKILL.md` Step 3 routes for the target and that no premise above already covers: `enforce-outcomes`, `enforce-effects`, `enforce-claims`, and each conditional lens whose trigger fires (`enforce-data-integrity`, `enforce-deploy-safety`, `enforce-ui-state`). The attacker Reads that lens's `SKILL.md` in full and fills its coverage table.
+- **Lens attackers never crowd the floor.** They are added on top of the general premises: every round still runs at least two general falsifiers (the premises above and below that name no lens), and never fewer than `agents_per_round` in total.
 
 **"The assumptions are wrong"**
 - Challenge unstated assumptions about users, data, environment
@@ -93,6 +101,9 @@ Each round's agents should:
 2. Provide specific evidence (data, code paths, research, analogies)
 3. Rate severity: cosmetic / serious / fatal
 4. Propose what would replace the killed component (if fatal)
+5. Flag any one-way door the target adds (`adv-review` Step 2, check 7: a persisted shape, an external contract such as an AFIP-issued voucher, a persisted name such as an Inngest event, audit event type or permission string, a change to existing production data)
+
+Before counting a kill, check its premise at the source (`adv-review` Step 5 and the **Before you raise** rules in `.claude/skills/_shared/review-calibration/defect-catalog.md`); agreement between attackers is not evidence.
 
 ### Phase 3: Convergence
 
@@ -139,6 +150,7 @@ The single output document should have:
 3. "What We Tried and Killed" section (~30% of document) with full reasoning for each
 4. Honest impact estimates with explicit assumptions
 5. Ship order (what to build first, what to defer, what might never ship)
+6. One-way doors: each one the converged design keeps, the alternative it rejected and why, and whether an additive or flag-gated shape would make it two-way
 
 ## Usage
 

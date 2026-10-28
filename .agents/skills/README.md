@@ -32,6 +32,9 @@ Common entry points:
 - Check a DB/authz change for a path around the role gate (RLS policies, grants, `SECURITY DEFINER`,
   `getServiceClient()` in `lib/supabase/service.ts`, `"use server"` actions, route handlers, AI tools,
   `lib/auth/permissions.ts`) → `/enforce-role-isolation`
+- Prove a change works at a real local surface → `/verify`; write a Playwright spec → `/create-e2e-test`
+- Fix an out-of-order migration timestamp → `/restamp-migrations` (`pnpm db:restamp`)
+- Run a resumable campaign over many items → `/long-loop`; clean up a markdown doc → `/improve-text-md`
 - Write or review SQL → `supabase-postgres-best-practices`
 - Make text shorter without losing meaning → `/tighten`
 
@@ -58,8 +61,8 @@ Prerequisites:
 
 Single Next.js app (`features/<domain>/{actions,components,hooks,lib,schemas,types}`, `lib/`, `app/`,
 `supabase/migrations/`). Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`; plus
-`pnpm db:types:check` and `supabase test db` (once `supabase/tests/` exists) only when `supabase/` changes and a local stack is
-running. Conventional commits in English with no `Co-Authored-By`/footer; PRs always draft against
+`pnpm db:types:check` and `supabase test db` (pgTAP in `supabase/tests/`) only when `supabase/` changes and a local stack is
+running; `pnpm test:scripts` and `pnpm check:migrations` for the tooling gates. Conventional commits in English with no `Co-Authored-By`/footer; PRs always draft against
 `main`. No `any`, no `as`. The full list is in the root `CLAUDE.md`.
 
 ## Plan / build / review / ship
@@ -83,16 +86,34 @@ running. Conventional commits in English with no `Co-Authored-By`/footer; PRs al
 
 ## Lenses
 
-| Skill                                      | Shared condensed lens                                                     |
-| ------------------------------------------ | ------------------------------------------------------------------------- |
-| `enforce-ports-and-adapters`               | `_shared/ports-lens/condensed-lens.md`                                    |
-| `enforce-clean-code`                       | `_shared/dry-lens/condensed-lens.md`                                      |
-| `enforce-comment-value`                    | `_shared/comment-lens/condensed-lens.md`                                  |
-| `enforce-role-isolation`                   | `_shared/role-lens/condensed-lens.md`                                     |
-| — (read by the review and planning skills) | `_shared/perf-lens/`, `_shared/telemetry-lens/`, `_shared/identity-lens/` |
+`adv-review` Step 3 is the ONE routing table that says which lenses run on a change; the other
+orchestrators point at it.
 
-The orchestrators paste the condensed lens into each sub-agent's prompt; the full skill is the
-orchestrator's reference.
+| Skill                                      | Delivered to a review seat as                         | When          |
+| ------------------------------------------ | ----------------------------------------------------- | ------------- |
+| `enforce-ports-and-adapters`               | paste of `_shared/ports-lens/condensed-lens.md`       | always        |
+| `enforce-clean-code`                       | paste of `_shared/dry-lens/condensed-lens.md`         | always        |
+| `enforce-comment-value`                    | paste of `_shared/comment-lens/condensed-lens.md`     | always        |
+| `enforce-reach`                            | paste of `_shared/reach-lens/condensed-lens.md`       | always        |
+| — (perf, telemetry)                        | paste of `_shared/perf-lens/`, `_shared/telemetry-lens/` | always     |
+| `enforce-outcomes`, `enforce-effects`, `enforce-claims` | the seat Reads the `SKILL.md`            | always        |
+| `enforce-role-isolation`                   | paste of `_shared/role-lens/condensed-lens.md`        | DB/authz diff |
+| `enforce-data-integrity`                   | the seat Reads the `SKILL.md`                         | money/entities |
+| `enforce-deploy-safety`                    | the seat Reads the `SKILL.md`                         | migration/Inngest/env/CI |
+| `enforce-ui-state`                         | the seat Reads the `SKILL.md`                         | UI diff       |
+
+A pasted lens carries a load-proof line the seat must echo; a Read-delivered lens ends with a
+coverage table the seat must fill. Either missing makes the wave NON-CLEAN.
+
+## Utilities
+
+| Skill                | What it does                                                                   |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `verify`             | The JouveERP recipe for driving a change at a real local surface              |
+| `create-e2e-test`    | Playwright spec conventions for `tests/e2e/`                                   |
+| `restamp-migrations` | Fresh UTC timestamps for this branch's migrations (`pnpm db:restamp`)          |
+| `long-loop`          | A resumable, disk-backed campaign over hundreds of items                       |
+| `improve-text-md`    | Contradiction, dedupe and anchoring pass over a markdown document              |
 
 ## Reusable references
 

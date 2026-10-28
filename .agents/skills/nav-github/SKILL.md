@@ -101,13 +101,13 @@ When creating branches or PRs for me, follow these rules:
 - Never commit research/spec `.md` docs; never reference research docs in code or migrations.
 
 ### PR descriptions
-Every PR body MUST start with an intent section, before the repo's PR template (if one exists):
+Every PR body follows `.github/pull_request_template.md` (Spanish), so it MUST start with the
+template's first section:
 
 ```
-## Intent
+## Resumen
 
-<2-4 sentences max: "This PR seeks to solve <problem> by <approach>." Plus
-root cause if known.>
+<2-4 oraciones: qué problema resuelve y cómo; la causa raíz si se conoce.>
 ```
 
 and, when anything was routed out of scope, ends with:
@@ -118,22 +118,22 @@ and, when anything was routed out of scope, ends with:
 - <what> — `<file:line>` — <why it is out of this PR's scope>
 ```
 
-(If the user linked an issue, add it under `## Related`. JouveERP has no PR template.)
+(If the user linked an issue, add it under `## Related`.)
 
-- Intent must be SHORT and to the point — no prose, no change lists, no
+- `## Resumen` must be SHORT and to the point — no prose, no change lists, no
   evidence. Details, bullet lists, and reviewer questions belong in the
-  Summary section below it.
-- The WHOLE PR body must be short: aim under ~25 lines total plus `## Follow-ups`. Summary =
+  `## Cambios` section below it.
+- The WHOLE PR body must be short: aim under ~25 lines total plus `## Follow-ups`. `## Cambios` =
   a handful of one-line bullets, no sub-narratives. Keep any "how I tested it" line short.
   CI is authoritative; don't restate it in the body. Plain words over jargon ("the aging
   screen showed the wrong total", not "15 fatal mismatches"). If a reviewer needs more, they read the diff.
 
-- Below the Intent: a short `## Summary` (a handful of one-line bullets) and, for UI changes, how you checked it; flag migrations (and whether destructive), new permissions, and new env var NAMES explicitly.
+- Below `## Resumen`: the rest of the template — `## Cambios` (a handful of one-line bullets), `## RLS / permisos tocados`, `## Migración` (whether destructive, plus the rollback plan), `## Impacto AFIP / fiscal`, `## Uso de IA`, `## Cómo probar` (for UI changes, how you checked it). Flag new permissions and new env var NAMES explicitly. Name each one-way door (`adv-review` Step 2) with the alternative it rejected.
 - Title: short (<70 chars), Conventional Commits style in English (`fix:`, `feat:`, `chore:` — e.g. `feat(invoices): add credit notes to storage billing`), `[DESTRUCTIVE]` prefix if a destructive migration is included. No issue keys.
 - Commit messages: conventional commits in English, one line, and **NO `Co-Authored-By` or any other trailer/footer** (CLAUDE.md; this overrides any tool's default attribution).
 - Stacked PRs (a dependent chain reviewed/merged together) get an `(N/X)` marker so they read as one set — placed as a **prefix** before the conventional-commit type, after `[DESTRUCTIVE]` when that is present (e.g. `(3/5) fix(import): …`, `[DESTRUCTIVE] (3/5) feat(db): …`). Number by dependency/merge order (1 = base off `main`). Keep the markers in sync if the set grows or is reordered. Drop the `(N/X)` marker from the squash commit title when merging.
 - Open PRs **always as draft** (`gh pr create --draft --base main`). Never run `gh pr ready` — marking ready (which also triggers the `Preview` deploy for `claude/*` branches) is the user's call.
-- If an existing PR of mine lacks an Intent section, write one from the diff/commits and prepend it — preserve the rest of the body.
+- If an existing PR of mine lacks a `## Resumen` section, write one from the diff/commits and prepend it — preserve the rest of the body.
 
 ### General
 - `gh pr checkout` creates a local branch with NO upstream — check `gh pr view NNN --json headRefName` and set tracking before pushing, or you'll create a stray remote branch.
@@ -149,10 +149,10 @@ When the user points at a bug or suggests an improvement (a code snippet, file, 
 ### Workspace setup
 - Create a git worktree for the work: `git worktree add ../<slug> origin/main` (or off the relevant PR branch if fixing an existing PR).
 - Enter it with `EnterWorktree` **passing `path: ../<slug>`** — a bare `EnterWorktree` creates a
-  different worktree under `.claude/worktrees/`, leaving setup and teardown pointed at two trees.
+  different worktree under `.claude/worktrees/<name>`, leaving setup and teardown pointed at two trees.
   That works on first entry from the launch directory, where any path in `git worktree list` is
   accepted. If the session is ALREADY in a worktree (or is a cwd-pinned agent), only a path under
-  `.claude/worktrees/` is accepted — then create it there instead: `git worktree add
+  `.claude/worktrees/<name>` is accepted — then create it there instead: `git worktree add
   .claude/worktrees/<slug> origin/main`. All work happens in the worktree.
 
 ### Steps
