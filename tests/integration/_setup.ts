@@ -27,8 +27,8 @@ function loadEnv(): Record<string, string> {
       const key = trimmed.slice(0, idx).trim();
       let value = trimmed.slice(idx + 1).trim();
       if (
-        (value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith("'") && value.endsWith("'"))
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
       ) {
         value = value.slice(1, -1);
       }
@@ -42,25 +42,41 @@ function loadEnv(): Record<string, string> {
 
 const env = loadEnv();
 export const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL
-    ?? env.NEXT_PUBLIC_SUPABASE_URL
-    ?? "http://127.0.0.1:54321";
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  env.NEXT_PUBLIC_SUPABASE_URL ??
+  "http://127.0.0.1:54321";
 export const SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 export const ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ?? env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ?? "";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "";
 
 export const RUN_INTEGRATION = process.env.RUN_INTEGRATION === "1";
 
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+// The service client creates and deletes auth users, so a URL pointing at a
+// cloud project would write there. Checked when a client is built (not at
+// import) because plain `pnpm test` collects these files with the suites
+// skipped.
+function assertLocalSupabase(url: string): void {
+  if (!LOCAL_HOSTS.has(new URL(url).hostname)) {
+    throw new Error(
+      "Integration tests run only against a local Supabase (127.0.0.1/localhost).",
+    );
+  }
+}
+
 export function makeServiceClient(): SupabaseClient {
+  assertLocalSupabase(SUPABASE_URL);
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
 export function makeAuthedClient(accessToken: string): SupabaseClient {
+  assertLocalSupabase(SUPABASE_URL);
   return createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
