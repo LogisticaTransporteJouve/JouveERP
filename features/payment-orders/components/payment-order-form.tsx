@@ -28,6 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { Account, AccountNameJoin } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
+import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-actions";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import {
   SupplierPicker,
@@ -57,10 +58,7 @@ import {
   type IssuedCheckJoin,
   type PaymentOrderCurrency,
 } from "../schema";
-import {
-  AllocationsPicker,
-  type AllocationDraft,
-} from "./allocations-picker";
+import { AllocationsPicker, type AllocationDraft } from "./allocations-picker";
 import {
   PaymentLinesEditor,
   type PaymentLineDraft,
@@ -186,8 +184,7 @@ export function PaymentOrderForm({
       paymentDate: paymentOrder?.paymentOrder.payment_date ?? todayInAR(),
       currency:
         (paymentOrder?.paymentOrder.currency as
-          | PaymentOrderCurrency
-          | undefined) ?? "ARS",
+          PaymentOrderCurrency | undefined) ?? "ARS",
       supplier: initialSupplier ?? null,
       notes: paymentOrder?.paymentOrder.notes ?? "",
       paymentLines: initialPaymentLines,
@@ -218,10 +215,7 @@ export function PaymentOrderForm({
   useEffect(() => {
     if (!paymentOrder) return;
     void (async () => {
-      const mod = await import(
-        "@/features/suppliers/actions/suppliers-actions"
-      );
-      const res = await mod.getSupplierByIdAction(
+      const res = await getSupplierByIdAction(
         paymentOrder.paymentOrder.supplier_id,
       );
       if (res.ok && res.data) {
@@ -490,9 +484,9 @@ export function PaymentOrderForm({
 
         {mode === "create" && isFirst && (
           <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">
-            Es la primera OP de este canal. Si ya tenías una numeración previa en
-            otro sistema, podés escribir el siguiente número manualmente. Después
-            queda fijado.
+            Es la primera OP de este canal. Si ya tenías una numeración previa
+            en otro sistema, podés escribir el siguiente número manualmente.
+            Después queda fijado.
           </div>
         )}
 
@@ -503,10 +497,7 @@ export function PaymentOrderForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Proveedor</FormLabel>
               <FormControl>
-                <SupplierPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                />
+                <SupplierPicker value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

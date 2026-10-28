@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
+import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import { ClientForm } from "@/features/clients/components/client-form";
 import { useClientsSearch } from "@/features/clients/hooks/use-clients";
 import {
@@ -79,12 +80,8 @@ export function ClientPicker({
 
   async function onCreateSuccess(id: string) {
     setShowCreate(false);
-    // Hit the action directly to fetch the created client. We could go via
-    // queryClient.fetchQuery(useClientByIdQueryOptions(id)) but the indirection
-    // doesn't buy anything for a one-shot read post-creation.
-    const { getClientByIdAction } = await import(
-      "@/features/clients/actions/clients-actions"
-    );
+    // A one-shot read of the client just created; a query cache entry would
+    // buy nothing here.
     const res = await getClientByIdAction(id);
     if (!res.ok || !res.data) return;
     const c = res.data;
