@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 
 # Prettier + ESLint --fix on the staged files (package.json "lint-staged").
-npx lint-staged
+pnpm exec lint-staged
 bash "$ROOT/scripts/check-forbidden-words.sh"
 
 # Optional extra net before the push protection on GitHub.

@@ -5,7 +5,7 @@ import { STORAGE_STATE_PATH } from "./tests/e2e/constants";
 // E2E tests run against an already-running dev stack:
 //   pnpm dlx supabase start
 //   pnpm dev
-//   pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest  (only for the AFIP-emit suite)
+//   pnpm dev:inngest  (only for the AFIP-emit suite)
 //
 // We do NOT spawn the dev server from here on purpose — Next.js takes a
 // while to compile on first hit and we'd rather fail fast if the dev

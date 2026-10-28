@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pre-push: forbidden words in every pushed ref, migrations need regenerated
-# types, then typecheck + tests. Skipped in CI (and with HUSKY=0, handled by
+# Pre-push: forbidden words in every pushed ref, the new-migration checks and
+# regenerated types, then lint + typecheck + tests. Skipped in CI (and with HUSKY=0, handled by
 # husky itself).
 set -euo pipefail
 
@@ -55,7 +55,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "If the migration really does not change the public schema types, push with --no-verify." >&2
     exit 1
   fi
+
+  # check-migrations.sh reads base...HEAD, so it only describes this ref when
+  # the ref is what is checked out.
+  if printf '%s\n' "$changed" | grep -q '^supabase/migrations/' \
+    && [ "$local_sha" = "$(git rev-parse HEAD)" ]; then
+    bash "$ROOT/scripts/check-migrations.sh" "$base"
+  fi
 done
 
+pnpm lint
 pnpm typecheck
 pnpm test

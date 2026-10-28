@@ -33,3 +33,9 @@ awk -v cut="$scissors" '
   | "${strip[@]}" > "$message"
 
 FORBIDDEN_WORDS_MESSAGE_FILE="$message" bash "$ROOT/scripts/check-forbidden-words.sh"
+
+# CLAUDE.md: commits carry no Co-Authored-By trailer.
+if grep -qiE '^co-authored-by:' "$message"; then
+  echo "commit-msg: remove the Co-Authored-By trailer (CLAUDE.md: sin Co-Authored-By)." >&2
+  exit 1
+fi
