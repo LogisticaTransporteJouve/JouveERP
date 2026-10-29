@@ -34,7 +34,7 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
 - **Accesos por usuario:** `ctx.access` = roles + denegaciones del usuario
   (`user_permission_denies`), armado solo por `resolveAccess` (cercado por
   ESLint). Todo gate usa `userCan(ctx.access, …)`; denegar `<x>:read` oculta el
-  módulo entero. Las denegaciones se aplican en la app; la DB aplica el techo
+  módulo entero (salvo `ai`), no los datos que otro módulo muestra con su permiso. Las denegaciones se aplican en la app; la DB aplica el techo
   del rol (RLS). Solo el owner las edita (`users:manage_access`), en
   `/admin/users` vía el RPC `set_user_access`; un owner no se puede denegar.
 - **Migraciones:** `YYYYMMDDHHMMSS_<scope>.sql`, **RLS en la misma migración**

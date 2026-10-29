@@ -268,6 +268,15 @@ export function isPermission(value: string): value is Permission {
  * resource: writing what you cannot read is not offered. Unknown strings (a
  * permission removed from the matrix) are dropped.
  */
+/**
+ * Whether denying `<resource>:read` hides the whole module (every action of
+ * the resource). Not for `ai`: `ai:read` (documents, insights) and `ai:chat`
+ * (the assistant) are separate features an owner denies one by one.
+ */
+export function readDenyHidesModule(resource: Resource): boolean {
+  return resource !== "ai";
+}
+
 export function resolveAccess(
   roles: readonly Role[],
   deniedRaw: readonly string[] = [],
@@ -277,9 +286,9 @@ export function resolveAccess(
     for (const raw of deniedRaw) {
       if (!isPermission(raw)) continue;
       denied.add(raw);
-      if (raw.endsWith(":read")) {
-        for (const p of PERMISSIONS_BY_RESOURCE.get(permissionResource(raw)) ??
-          []) {
+      const resource = permissionResource(raw);
+      if (raw.endsWith(":read") && readDenyHidesModule(resource)) {
+        for (const p of PERMISSIONS_BY_RESOURCE.get(resource) ?? []) {
           denied.add(p);
         }
       }

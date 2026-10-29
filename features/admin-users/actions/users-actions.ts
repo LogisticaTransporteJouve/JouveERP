@@ -53,8 +53,12 @@ export async function getUserAccessAction(
   const service = getServiceClient();
   const [rolesRes, denies] = await Promise.all([
     service.from("user_roles").select("role_id").eq("user_id", parsed.data),
-    loadDenies(service, [parsed.data]),
+    // loadDenies reports and rethrows; here a failure is an error result.
+    loadDenies(service, [parsed.data]).catch(() => null),
   ]);
+  if (denies === null) {
+    return { ok: false, error: "No se pudieron leer los accesos." };
+  }
   if (rolesRes.error) {
     captureException(rolesRes.error, {
       op: "user.access.load_failed",

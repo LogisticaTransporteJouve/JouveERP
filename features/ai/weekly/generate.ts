@@ -3,6 +3,7 @@ import "server-only";
 import { generateText } from "ai";
 
 import type { HeadlessUser } from "@/lib/auth/headless-user";
+import { listUserIdsWithPermission } from "@/lib/auth/users";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { HEADLESS_WRITER_PROMPT, headlessReadActions } from "../headless";
@@ -96,23 +97,17 @@ export async function saveWeeklySummary(
 }
 
 /**
- * Who gets a weekly summary: users holding `ai:chat` roles who signed in
- * within the last WEEKLY_ACTIVE_DAYS. The per-user run re-checks the account
- * and roles before acting.
+ * Who gets a weekly summary: users whose access holds `ai:chat` (denies
+ * included) and who signed in within the last WEEKLY_ACTIVE_DAYS. The
+ * per-user run re-checks the account and access before acting.
  */
 export async function listWeeklySummaryRecipients(
-  aiChatRoles: readonly string[],
   now: Date,
 ): Promise<string[]> {
-  const service = getServiceClient();
-  const { data: roleRows, error } = await service
-    .from("user_roles")
-    .select("user_id")
-    .in("role_id", [...aiChatRoles]);
-  if (error) throw error;
-  const candidates = new Set((roleRows ?? []).map((r) => r.user_id));
+  const candidates = new Set(await listUserIdsWithPermission("ai:chat"));
   if (candidates.size === 0) return [];
 
+  const service = getServiceClient();
   const { data: users, error: usersError } = await service.auth.admin.listUsers(
     { perPage: 1000 },
   );

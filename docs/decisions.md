@@ -8,7 +8,11 @@ y qué se descartó.
 **Decisión.** Cada usuario tiene roles más una lista de permisos denegados
 (`user_permission_denies`). `resolveAccess(roles, denied)` arma el `Access`
 (tipo marcado, solo se construye ahí — cercado por ESLint) y todo gate usa
-`userCan(ctx.access, …)`. Denegar `<recurso>:read` oculta el módulo entero. El
+`userCan(ctx.access, …)`. Denegar `<recurso>:read` oculta el módulo entero
+(sus pantallas, acciones, búsqueda, IA y adjuntos); datos de ese recurso que
+otro módulo muestra con su propio permiso (p. ej. facturas en la cuenta del
+cliente, saldos en tesorería) siguen visibles. Excepción: en `ai`, `ai:read`
+y `ai:chat` se deniegan por separado. El
 owner no se puede denegar. Solo `users:manage_access` (owner) edita
 denegaciones; `users:assign_role` (owner y admin) edita roles. Roles y
 denegaciones se guardan juntos con `set_user_access` (SECURITY DEFINER,
@@ -31,6 +35,8 @@ Queda como follow-up.
 sin la tabla, `loadDenies` lee "sin denegaciones"; la búsqueda reintenta la
 firma vieja de `search_global`; editar accesos responde "Actualización
 pendiente". Esas tolerancias se quitan cuando la migración esté en producción.
+Un rollback de Vercel a un build anterior ignora las denegaciones guardadas
+(siguen en la tabla y vuelven a regir al volver a desplegar).
 
 ## 2026-10-28 — Tooling importado de las apps de referencia
 

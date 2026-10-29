@@ -1,5 +1,6 @@
+import { NonRetriableError } from "inngest";
+
 import { getActiveCaeaForDate } from "@/lib/afip/caea";
-import { AfipServiceError } from "@/lib/afip/errors";
 import {
   getLastAuthorizedNumber,
   getVoucherInfo,
@@ -328,14 +329,12 @@ export const issueInvoice = inngest.createFunction(
     }
 
     // Fiscal branch follows.
+    // Deterministic: a retry replays the same data and keeps the invoice in
+    // "emitting" for the whole retry schedule.
     if (draft.cbte_tipo_afip === null) {
-      throw new AfipServiceError([
-        {
-          code: 0,
-          message:
-            "Comprobante fiscal sin cbte_tipo_afip — datos inconsistentes.",
-        },
-      ]);
+      throw new NonRetriableError(
+        "Comprobante fiscal sin cbte_tipo_afip — datos inconsistentes.",
+      );
     }
     const cbteTipo = draft.cbte_tipo_afip;
 
@@ -348,13 +347,9 @@ export const issueInvoice = inngest.createFunction(
         // The CAEA must cover the voucher's date (CbteFch), not the run's.
         const active = await getActiveCaeaForDate(draft.fecha);
         if (!active) {
-          throw new AfipServiceError([
-            {
-              code: 0,
-              message:
-                "No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.",
-            },
-          ]);
+          throw new NonRetriableError(
+            "No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.",
+          );
         }
         return active;
       });

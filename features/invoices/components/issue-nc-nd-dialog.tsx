@@ -110,6 +110,8 @@ export function NcNdForm({
 }) {
   const router = useRouter();
   const issueMut = useIssueFiscalInvoice();
+  // One key per note being written: a double submit returns the same draft.
+  const [issueKey] = useState(() => crypto.randomUUID());
 
   const [fecha, setFecha] = useState(() => todayInAR());
   const [motivo, setMotivo] = useState("");
@@ -212,6 +214,7 @@ export function NcNdForm({
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
         })),
+        idempotency_key: issueKey,
       },
       {
         onSuccess: (data) => {

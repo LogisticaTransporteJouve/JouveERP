@@ -11,17 +11,12 @@ import {
   resolveHeadlessUser,
   runAsHeadlessUser,
 } from "@/lib/auth/headless-user";
-import { ROLES, roleGrants } from "@/lib/auth/permissions";
 import { inngest } from "@/lib/inngest/client";
 import {
   AI_WEEKLY_SUMMARY_REQUESTED,
   AiWeeklySummaryRequestedSchema,
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
-
-// Candidates by role; each user's run re-checks their own access, denies
-// included (resolveHeadlessUser).
-const AI_CHAT_ROLES = ROLES.filter((role) => roleGrants(role, "ai:chat"));
 
 /**
  * Monday 07:50 Buenos Aires: one weekly-summary event per active user who
@@ -40,7 +35,7 @@ export const aiWeeklySummaryFanOut = inngest.createFunction(
       const now = new Date();
       return {
         weekStart: arWeekStart(now),
-        userIds: await listWeeklySummaryRecipients(AI_CHAT_ROLES, now),
+        userIds: await listWeeklySummaryRecipients(now),
       };
     });
     if (userIds.length > 0) {

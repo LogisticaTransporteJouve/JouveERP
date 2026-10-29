@@ -200,6 +200,8 @@ export const CreateComprobanteSchema = z
     items: z
       .array(ComprobanteItemInputSchema)
       .min(1, "Agregá al menos un ítem"),
+    /** One per form attempt: a repeated submit returns the first draft. */
+    idempotency_key: z.string().uuid().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.kind !== "factura" && !value.invoice_origin_id) {

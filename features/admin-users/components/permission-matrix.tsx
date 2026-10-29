@@ -77,7 +77,9 @@ export function PermissionMatrix({
         );
         const canHide = MODULE_RESOURCES.includes(resource);
         const hidden =
-          readPermission !== undefined && denied.includes(readPermission);
+          canHide &&
+          readPermission !== undefined &&
+          denied.includes(readPermission);
         const hideId = `${idPrefix}-${resource}-hide`;
         return (
           <div key={resource} className="rounded-md border bg-background p-3">
@@ -91,6 +93,7 @@ export function PermissionMatrix({
                     id={hideId}
                     checked={hidden}
                     disabled={disabled}
+                    aria-label={`Ocultar el módulo ${PERMISSION_GROUPS[resource]}`}
                     onCheckedChange={(value) => {
                       if (readPermission) set(readPermission, value === true);
                     }}
@@ -136,6 +139,7 @@ export function PermissionMatrix({
                             id={id}
                             checked={implied || denied.includes(permission)}
                             disabled={disabled || implied}
+                            aria-label={`Denegar ${permissionLabel(permission)} en ${PERMISSION_GROUPS[resource]}`}
                             onCheckedChange={(value) =>
                               set(permission, value === true)
                             }

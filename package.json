@@ -10,7 +10,7 @@
     "dev": "next dev -H 127.0.0.1 -p 3000",
     "dev:lan": "next dev -H 0.0.0.0 -p 3000",
     "dev:up": "supabase start && concurrently -k -n next,inngest -c cyan,magenta \"pnpm dev\" \"pnpm dev:inngest\"",
-    "dev:inngest": "inngest-cli dev --no-discovery --host 127.0.0.1 -u http://127.0.0.1:3000/api/inngest",
+    "dev:inngest": "pnpm dlx inngest-cli@1.46.0 dev --no-discovery --host 127.0.0.1 -u http://127.0.0.1:3000/api/inngest",
     "preflight": "bash scripts/setup/doctor.sh",
     "build": "next build",
     "start": "next start",
@@ -109,7 +109,6 @@
     "eslint-config-next": "16.3.8",
     "fflate": "0.8.3",
     "husky": "^9.1.7",
-    "inngest-cli": "1.46.0",
     "jsdom": "^30.1.2",
     "lint-staged": "^16.2.7",
     "prettier": "3.9.9",
@@ -122,8 +121,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sharp",
-      "inngest-cli"
+      "sharp"
     ],
     "overrides": {
       "ws@8": "8.20.1",

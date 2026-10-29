@@ -1,3 +1,4 @@
+import { NonRetriableError } from "inngest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Runs the issue-invoice and caea-inform handlers against an in-memory
@@ -13,7 +14,17 @@ const h = vi.hoisted(() => {
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
   const caeaDates: string[] = [];
   const informed: Array<Record<string, unknown>> = [];
-  return { handlers, onFailures, db, rpcCalls, updates, caeaDates, informed };
+  const caea: { active: boolean } = { active: true };
+  return {
+    handlers,
+    onFailures,
+    db,
+    rpcCalls,
+    updates,
+    caeaDates,
+    informed,
+    caea,
+  };
 });
 
 function from(table: string) {
@@ -86,7 +97,9 @@ vi.mock("@/lib/supabase/service", () => ({
 vi.mock("@/lib/afip/caea", () => ({
   getActiveCaeaForDate: async (date: string) => {
     h.caeaDates.push(date);
-    return { caea: "12345678901234", fch_vig_hasta: "2026-10-31" };
+    return h.caea.active
+      ? { caea: "12345678901234", fch_vig_hasta: "2026-10-31" }
+      : null;
   },
 }));
 vi.mock("@/lib/afip/wsfev1", () => ({
@@ -154,6 +167,7 @@ beforeEach(() => {
   h.rpcCalls.length = 0;
   h.updates.length = 0;
   h.caeaDates.length = 0;
+  h.caea.active = true;
   h.informed.length = 0;
 });
 
@@ -193,6 +207,32 @@ describe("issue-invoice CAEA branch", () => {
       ),
     ).toEqual([]);
     expect(result).toEqual({ caea: "12345678901234", cbteNro: 8 });
+  });
+});
+
+describe("issue-invoice CAEA branch without a CAEA", () => {
+  it("fails without retries: the same voucher date finds no CAEA again", async () => {
+    h.caea.active = false;
+    h.db.invoices = [draft()];
+    h.db.invoice_items = [
+      { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+    ];
+    h.db.sales_points = [{ numero: 9, last_known_emission_type: "CAEA" }];
+
+    const handler = h.handlers.get("issue-invoice");
+    await expect(
+      handler?.({
+        event: {
+          data: {
+            invoice_id: INVOICE_ID,
+            idempotency_key: "k1",
+            punto_venta: 9,
+          },
+        },
+        step,
+      }),
+    ).rejects.toBeInstanceOf(NonRetriableError);
+    expect(h.rpcCalls).toEqual([]);
   });
 });
 

@@ -29,7 +29,9 @@ test("the Inngest dev server binds 127.0.0.1 and calls the app there", () => {
   );
 });
 
+// Fetched on demand: as a dependency its postinstall downloads the binary on
+// every install, Vercel and CI included.
 test("the Inngest CLI is pinned, not fetched as @latest", () => {
-  assert.match(scripts["dev:inngest"], /^inngest-cli /);
-  assert.match(devDependencies["inngest-cli"], /^\d+\.\d+\.\d+$/);
+  assert.match(scripts["dev:inngest"], /^pnpm dlx inngest-cli@\d+\.\d+\.\d+ /);
+  assert.equal(devDependencies["inngest-cli"], undefined);
 });
