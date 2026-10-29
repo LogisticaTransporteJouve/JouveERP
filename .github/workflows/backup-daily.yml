@@ -5,7 +5,8 @@ name: Backup diario de la base
 # de Supabase Storage. Después borra los archivos > 30 días.
 #
 # Requiere los siguientes secrets en GitHub:
-#   - DATABASE_URL: postgresql://... (de Supabase Dashboard → Settings → Database)
+#   - DATABASE_URL: la URL del "Session pooler" (Supabase Dashboard → Connect).
+#     La "Direct connection" es solo IPv6 y los runners de GitHub no tienen IPv6.
 #   - SUPABASE_URL: https://<project>.supabase.co
 #   - SUPABASE_SERVICE_ROLE_KEY: del Supabase Dashboard → Settings → API
 #   - SLACK_WEBHOOK_URL: (opcional) para notificación de éxito/error
@@ -40,10 +41,31 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup pg_dump (Postgres 16 client)
+      - name: Bail out if secrets are missing
         run: |
-          # ubuntu-24.04 trae postgresql-client 16 preinstalado.
-          pg_dump --version
+          if [ -z "${DATABASE_URL}" ] \
+             || [ -z "${SUPABASE_URL}" ] \
+             || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "::error::Faltan secrets. Configurá DATABASE_URL, SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      # pg_dump refuses a server newer than itself, and the runner ships 16
+      # while the project runs 17 (supabase/config.toml major_version).
+      - name: Setup pg_dump (Postgres 17 client)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: pg_dump version
+        run: pg_dump --version
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
