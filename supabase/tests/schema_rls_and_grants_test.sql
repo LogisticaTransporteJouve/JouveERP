@@ -5,7 +5,7 @@
 
 begin;
 
-select plan(9);
+select plan(12);
 
 select is_empty(
   $$
@@ -108,6 +108,35 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.user_has_role(text[])', 'execute'),
   'authenticated can run user_has_role (every policy calls it)'
+);
+
+-- Table privileges are explicit (20261029120000_public_table_grants): every
+-- table and view reaches authenticated and service_role through RLS; anon
+-- reads or writes nothing.
+select is_empty(
+  $$select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind in ('r', 'p', 'v')
+       and not (has_table_privilege('authenticated', c.oid, 'select')
+                and has_table_privilege('service_role', c.oid, 'select'))$$,
+  'every public table and view is readable by authenticated and service_role'
+);
+
+select is_empty(
+  $$select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm')
+       and (has_table_privilege('anon', c.oid, 'select')
+            or has_table_privilege('anon', c.oid, 'insert')
+            or has_table_privilege('anon', c.oid, 'update')
+            or has_table_privilege('anon', c.oid, 'delete'))$$,
+  'anon holds no table privilege in public'
+);
+
+-- A materialized view has no RLS, so no API role may read one directly.
+select is_empty(
+  $$select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'm'
+       and has_table_privilege('authenticated', c.oid, 'select')$$,
+  'no materialized view in public is readable by authenticated'
 );
 
 select * from finish(true);
