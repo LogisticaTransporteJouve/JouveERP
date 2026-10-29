@@ -241,3 +241,38 @@ describe("issueFiscalInvoiceAction for a note on a USD invoice", () => {
     );
   });
 });
+
+describe("issueFiscalInvoiceAction with an idempotency key", () => {
+  const KEY = "55555555-5555-4555-8555-555555555555";
+
+  it("returns the draft a previous submit with the same key created", async () => {
+    h.db.invoices = [
+      ...(h.db.invoices ?? []),
+      {
+        id: "first-draft",
+        idempotency_key: KEY,
+        created_by: "u1",
+        status: "emitting",
+      },
+    ];
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      idempotency_key: KEY,
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: { id: "first-draft", idempotency_key: KEY, status: "emitting" },
+    });
+    expect(h.inserts).toEqual([]);
+  });
+
+  it("stores the caller's key on a first submit", async () => {
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      idempotency_key: KEY,
+    });
+    expect(res.ok).toBe(true);
+    const draft = h.inserts.find((i) => i.table === "invoices")?.values;
+    expect(draft).toMatchObject({ idempotency_key: KEY });
+  });
+});

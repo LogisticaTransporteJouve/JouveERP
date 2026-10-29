@@ -19,6 +19,7 @@ import type { Database } from "@/lib/db/database.types";
 import {
   PG_CHECK_VIOLATION,
   PG_INVALID_PARAMETER_VALUE,
+  PG_UNIQUE_VIOLATION,
 } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { todayInAR } from "@/lib/format";
@@ -111,6 +112,28 @@ async function loadEnabledPos(
   return { numero: data.numero, channel_id: data.channel_id };
 }
 
+async function findIssuedByKey(
+  supabase: ReturnType<typeof getServiceClient>,
+  idempotencyKey: string,
+  userId: string,
+): Promise<IssueInvoiceResult | null | "error"> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("id, status")
+    .eq("idempotency_key", idempotencyKey)
+    .eq("created_by", userId)
+    .maybeSingle();
+  if (error) {
+    logger.error("issue_invoice.idempotency_lookup_failed", {
+      userId,
+      error,
+    });
+    return "error";
+  }
+  if (!data || !isInvoiceStatus(data.status)) return null;
+  return { id: data.id, idempotency_key: idempotencyKey, status: data.status };
+}
+
 export async function issueFiscalInvoiceAction(
   input: CreateComprobanteInput,
 ): Promise<ActionResult<IssueInvoiceResult>> {
@@ -129,6 +152,20 @@ export async function issueFiscalInvoiceAction(
   const data = parsed.data;
 
   const supabase = getServiceClient();
+
+  // A repeated submit of the same form (double click, retry after a lost
+  // response) gets the draft the first one created.
+  if (data.idempotency_key) {
+    const existing = await findIssuedByKey(
+      supabase,
+      data.idempotency_key,
+      ctx.userId,
+    );
+    if (existing === "error") {
+      return { ok: false, error: "No se pudo crear el comprobante." };
+    }
+    if (existing) return { ok: true, data: existing };
+  }
 
   const [channel, client] = await Promise.all([
     loadChannel(supabase, data.channel_id),
@@ -315,7 +352,7 @@ export async function issueFiscalInvoiceAction(
   // isFiscal drives IVA computation: internal channels must not accrue IVA
   // (it would post phantom revenue and charge IVA on a non-fiscal document).
   const totals = computeTotals(data.items, channel.is_fiscal);
-  const idempotency_key = randomUUID();
+  const idempotency_key = data.idempotency_key ?? randomUUID();
 
   // Insert draft + items. The DB trigger validates the fiscal-fields
   // constraint (letter + cbte_tipo_afip required when channel.is_fiscal),
@@ -356,6 +393,15 @@ export async function issueFiscalInvoiceAction(
     .insert(draft)
     .select("id")
     .maybeSingle();
+  // Two concurrent submits with one key: the second loses the unique index.
+  if (inserted.error?.code === PG_UNIQUE_VIOLATION && data.idempotency_key) {
+    const existing = await findIssuedByKey(
+      supabase,
+      data.idempotency_key,
+      ctx.userId,
+    );
+    if (existing && existing !== "error") return { ok: true, data: existing };
+  }
   if (inserted.error || !inserted.data) {
     logger.warn("issue_invoice.insert_draft_failed", {
       userId: ctx.userId,

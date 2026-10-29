@@ -52,10 +52,7 @@ import { computeTotals } from "@/features/invoices/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
 import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
-import type {
-  InvoiceListItem,
-  PosOption,
-} from "../actions/invoices-actions";
+import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
 import {
   useEnabledPos,
   useInvoiceDetailOnDemand,
@@ -98,7 +95,12 @@ const SEGURO_DESCRIPTION = "Seguro";
 
 function defaultItems(): ItemDraft[] {
   return [
-    { description: "", quantity: "1", unit_price: "", iva_rate_id: IVA_RATE.TWENTY_ONE },
+    {
+      description: "",
+      quantity: "1",
+      unit_price: "",
+      iva_rate_id: IVA_RATE.TWENTY_ONE,
+    },
     {
       description: SEGURO_DESCRIPTION,
       quantity: "0.01",
@@ -188,6 +190,8 @@ function NewInvoiceForm({
   const router = useRouter();
   const issueMut = useIssueFiscalInvoice();
   const isSubmitting = issueMut.isPending;
+  // One key per voucher being written: a double submit returns the same draft.
+  const [issueKey, setIssueKey] = useState(() => crypto.randomUUID());
 
   // Header — default to Jouve Fiscal when present in the channel list.
   const initialChannel =
@@ -303,6 +307,7 @@ function NewInvoiceForm({
   }
 
   function resetForContinue() {
+    setIssueKey(crypto.randomUUID());
     form.setValue("client", null);
     form.setValue("items", defaultItems());
     form.setValue("motivo", "");
@@ -370,7 +375,8 @@ function NewInvoiceForm({
       ? conceptoForDivision(currentChannel.division)
       : CONCEPTO.SERVICIOS;
   const isServiciosConcepto =
-    concepto === CONCEPTO.SERVICIOS || concepto === CONCEPTO.PRODUCTOS_Y_SERVICIOS;
+    concepto === CONCEPTO.SERVICIOS ||
+    concepto === CONCEPTO.PRODUCTOS_Y_SERVICIOS;
 
   const isFiscal = isNote ? true : (currentChannel?.is_fiscal ?? true);
   // For factura: derive letter from receiver iva_condition.
@@ -411,9 +417,7 @@ function NewInvoiceForm({
       return Number.isFinite(declared) && declared > 0;
     });
 
-    if (
-      itemsForSubmit.some((it) => it.description.trim().length === 0)
-    ) {
+    if (itemsForSubmit.some((it) => it.description.trim().length === 0)) {
       toast.error("Cada ítem necesita una descripción.");
       return;
     }
@@ -457,6 +461,7 @@ function NewInvoiceForm({
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
         })),
+        idempotency_key: issueKey,
       },
       {
         onSuccess: (data) => {
@@ -558,9 +563,11 @@ function NewInvoiceForm({
                 </Select>
                 {channelId && !isNote && posOptions.length === 0 && (
                   <p className="text-xs text-destructive">
-                    Sin POS habilitados — configurá uno en
-                    {" "}
-                    <code className="font-mono">/admin/afip/puntos-de-venta</code>.
+                    Sin POS habilitados — configurá uno en{" "}
+                    <code className="font-mono">
+                      /admin/afip/puntos-de-venta
+                    </code>
+                    .
                   </p>
                 )}
                 <FormMessage />
@@ -672,7 +679,12 @@ function NewInvoiceForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Ítems</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addItem}
+              >
                 <Plus />
                 Agregar ítem
               </Button>
@@ -789,15 +801,21 @@ function NewInvoiceForm({
           <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3">
             <div className="text-sm">
               Neto:{" "}
-              <span className="font-mono">${formatNumber2(totals.imp_neto)}</span>
+              <span className="font-mono">
+                ${formatNumber2(totals.imp_neto)}
+              </span>
             </div>
             <div className="text-sm">
               IVA:{" "}
-              <span className="font-mono">${formatNumber2(totals.imp_iva)}</span>
+              <span className="font-mono">
+                ${formatNumber2(totals.imp_iva)}
+              </span>
             </div>
             <div className="text-base font-semibold">
               Total:{" "}
-              <span className="font-mono">${formatNumber2(totals.imp_total)}</span>
+              <span className="font-mono">
+                ${formatNumber2(totals.imp_total)}
+              </span>
             </div>
           </div>
         )}
