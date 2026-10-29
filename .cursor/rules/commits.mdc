@@ -9,5 +9,5 @@ alwaysApply: true
 - Never commit to `main`: work on a `<type>/<english-slug>` branch (or the `claude/...` branch the harness assigned).
 - PRs are always draft (`gh pr create --draft --base main`); the human marks them ready and merges. PR titles use the same format, with no issue key.
 - Destructive migrations: `[DESTRUCTIVE]` at the start of the PR title, before any stacked `(N/X)` marker.
-- The PR body starts with `## Intent`; anything routed out of scope goes under `## Follow-ups`.
+- The PR body follows `.github/pull_request_template.md` and starts with `## Resumen`; anything routed out of scope goes under `## Follow-ups`.
 - Describe the current state and why, not how you got there.

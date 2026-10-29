@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 // Rows visible to the caller (RLS client) and to the service role.
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
@@ -67,7 +68,10 @@ function serviceFrom(table: string) {
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: ["finance"] }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(["finance"]),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({

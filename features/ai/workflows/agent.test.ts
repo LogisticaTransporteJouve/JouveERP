@@ -8,6 +8,7 @@ import {
   textTurn,
   toolCallTurn,
 } from "../evals/scripted-model";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 let model = scriptedModel([]);
 const logAudit = vi.fn(async () => undefined);
@@ -36,7 +37,11 @@ const {
 } = await import("./agent");
 const { renderRunMemory } = await import("./memory");
 
-const finance = { userId: "u1", email: "a@b.c", roles: ["finance" as const] };
+const finance = {
+  userId: "u1",
+  email: "a@b.c",
+  access: resolveAccess(["finance"]),
+};
 const workflow = {
   id: "w1",
   title: "Cobranzas",
@@ -58,7 +63,7 @@ describe("buildWorkflowTools", () => {
   it("offers only read actions: no proposals and no question card", () => {
     const names = Object.keys(
       buildWorkflowTools({
-        user: { ...finance, roles: ["owner"] },
+        user: { ...finance, access: resolveAccess(["owner"]) },
         workflow,
         memory: null,
       }),
@@ -74,7 +79,7 @@ describe("buildWorkflowTools", () => {
   it("follows the user's roles at run time", () => {
     const ops = Object.keys(
       buildWorkflowTools({
-        user: { ...finance, roles: ["operations"] },
+        user: { ...finance, access: resolveAccess(["operations"]) },
         workflow,
         memory: null,
       }),

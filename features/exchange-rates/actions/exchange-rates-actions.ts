@@ -20,7 +20,7 @@ export async function listExchangeRatesAction(): Promise<
   ActionResult<ExchangeRate[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
@@ -40,7 +40,7 @@ export async function createExchangeRateAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = ExchangeRateCreateSchema.safeParse(input);
@@ -54,7 +54,7 @@ export async function deleteExchangeRateAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = ExchangeRateDeleteSchema.safeParse(input);
@@ -83,7 +83,7 @@ export async function getUsdRateForDateAction(
   date: string,
 ): Promise<ActionResult<{ rate: number | null }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsedDate = isoDate.safeParse(date);

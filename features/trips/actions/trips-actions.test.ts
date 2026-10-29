@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { pagedSupabase } from "@/tests/helpers/paged-supabase";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const trips = Array.from({ length: 2300 }, (_, i) => ({
   id: `t${i}`,
@@ -22,7 +23,10 @@ const trips = Array.from({ length: 2300 }, (_, i) => ({
 const fake = pagedSupabase({ trips });
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles: ["operations"] }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(["operations"]),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,

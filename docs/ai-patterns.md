@@ -387,7 +387,7 @@ export const maxDuration = 300; // segundos (Vercel)
 
 export async function POST(req: Request) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) return forbidden();
+  if (!userCan(ctx.access, "ai:chat")) return forbidden();
 
   const { messages, id, route, forceTool } = await req.json();
 

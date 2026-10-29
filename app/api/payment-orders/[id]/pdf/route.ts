@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     return NextResponse.json(
       { error: "No tenés permiso para ver órdenes de pago." },
       { status: 403 },

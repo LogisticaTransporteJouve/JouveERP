@@ -42,6 +42,19 @@ CHANGE-NARRATION (cuts across Q1/verdicts): a comment describing the EDIT, not c
  says it); `// keyset-paginate, rather than OFFSET` → `// keyset-paginate`. Whole comment is contrast →
  DELETE; only a clause → REWRITE.
 
+COMMON DEFECTS (each maps to a verdict):
+ - REWORDING — an edited comment saying what the old one said in as many words or more → restore the
+   old text (it costs a review and tells the reader nothing new).
+ - DRIFTING FACTS — hard-coded counts, a ticket id standing in for the reason, section/line numbers,
+   file names, values restated from a constant → REWRITE (constant by name, the reason not the ticket).
+ - LENGTH BEYOND THE WHY — longer than the code it explains → cut to the reason.
+ - DOC BLOCK SPLIT FROM ITS DECLARATION by an inserted function/constant → move it back.
+ - NULLABLE/UNION FIELD DOC MISSING A PRODUCER — list every meaning NULL / each member can carry,
+   including the one this diff's new writer produces.
+ - DELETED CONTRACT ON AN EXPORTED SYMBOL (JSDoc, invariant, units/nullability) → RESTORE by default;
+   deleting needs a one-line bug-filing-test "no". Comments the diff DELETED are in scope.
+ - LAW WITHOUT ITS CONDITION ("do NOT retry this" when it holds only sometimes) → add the condition.
+
 FIVE VERDICTS (record one, act now):
  • DELETE — Q1 derivable. No replacement.
  • KEEP+ANCHOR — Q2 unrecoverable. Name the external fact it depends on; reference constants BY NAME not

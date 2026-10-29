@@ -11,11 +11,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  userCan,
-  type Permission,
-  type Role,
-} from "@/lib/auth/permissions";
+import { userCan, type Permission, type Access } from "@/lib/auth/permissions";
 
 const ACTIONS: {
   label: string;
@@ -23,17 +19,42 @@ const ACTIONS: {
   icon: LucideIcon;
   permission: Permission;
 }[] = [
-  { label: "Facturar", href: "/invoices", icon: FilePlus2, permission: "invoices:issue" },
-  { label: "Cobrar", href: "/receipts", icon: Receipt, permission: "receipts:write" },
-  { label: "Pagar", href: "/payment-orders", icon: Banknote, permission: "payment_orders:write" },
-  { label: "Escanear documento", href: "/documentos", icon: ScanLine, permission: "ai:read" },
+  {
+    label: "Facturar",
+    href: "/invoices",
+    icon: FilePlus2,
+    permission: "invoices:issue",
+  },
+  {
+    label: "Cobrar",
+    href: "/receipts",
+    icon: Receipt,
+    permission: "receipts:write",
+  },
+  {
+    label: "Pagar",
+    href: "/payment-orders",
+    icon: Banknote,
+    permission: "payment_orders:write",
+  },
+  {
+    label: "Escanear documento",
+    href: "/documentos",
+    icon: ScanLine,
+    permission: "ai:read",
+  },
   { label: "Viajes", href: "/trips", icon: Truck, permission: "trips:read" },
-  { label: "Pallets", href: "/pallets", icon: Package, permission: "pallets:read" },
+  {
+    label: "Pallets",
+    href: "/pallets",
+    icon: Package,
+    permission: "pallets:read",
+  },
   { label: "Asistente IA", href: "/ai", icon: Sparkles, permission: "ai:chat" },
 ];
 
-export function QuickActions({ roles }: { roles: readonly Role[] }) {
-  const allowed = ACTIONS.filter((a) => userCan(roles, a.permission));
+export function QuickActions({ access }: { access: Access }) {
+  const allowed = ACTIONS.filter((a) => userCan(access, a.permission));
   if (allowed.length === 0) return null;
 
   return (

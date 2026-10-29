@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 
 import {
@@ -26,10 +26,7 @@ import {
   useReopenPayrollPeriod,
   useUpdatePayrollEntry,
 } from "../hooks/use-payroll";
-import {
-  PAYROLL_STATUS_LABEL,
-  formatPayrollPeriod,
-} from "../payroll-schema";
+import { PAYROLL_STATUS_LABEL, formatPayrollPeriod } from "../payroll-schema";
 
 import { BulkPayrollPaymentDialog } from "./bulk-payroll-payment-dialog";
 import { InlineMoneyInput } from "./inline-money-input";
@@ -46,11 +43,11 @@ function money(n: number): string {
 export function PayrollPeriodGrid({
   year,
   month,
-  actorRoles,
+  actorAccess,
 }: {
   year: number;
   month: number;
-  actorRoles: Role[];
+  actorAccess: Access;
 }) {
   const { data } = usePayrollPeriod(year, month);
   const updateMut = useUpdatePayrollEntry();
@@ -58,8 +55,8 @@ export function PayrollPeriodGrid({
   const reopenMut = useReopenPayrollPeriod();
   const { channels } = useScope();
 
-  const canWrite = userCan(actorRoles, "hr:write");
-  const canAdmin = userCan(actorRoles, "hr:admin");
+  const canWrite = userCan(actorAccess, "hr:write");
+  const canAdmin = userCan(actorAccess, "hr:admin");
 
   const period = data.period;
   const entries = data.entries;
@@ -88,11 +85,7 @@ export function PayrollPeriodGrid({
   function commit(
     entryId: string,
     field:
-      | "sueldo_neto"
-      | "vacaciones_monto"
-      | "viaticos"
-      | "deudas"
-      | "telefono",
+      "sueldo_neto" | "vacaciones_monto" | "viaticos" | "deudas" | "telefono",
     value: number,
   ) {
     return new Promise<void>((resolve, reject) => {

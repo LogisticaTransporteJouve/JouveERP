@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { PERMISSIONS, ROLES, type Role } from "@/lib/auth/permissions";
+import {
+  PERMISSIONS,
+  ROLES,
+  type Role,
+  resolveAccess,
+} from "@/lib/auth/permissions";
 
 const getPayrollSummaryAction = vi.fn();
 
@@ -31,7 +36,7 @@ const PAYROLL_TOOLS = [
   "getEmployees",
 ];
 
-const ctx = (roles: Role[]) => ({ userId: "u1", roles });
+const ctx = (roles: Role[]) => ({ userId: "u1", access: resolveAccess(roles) });
 
 beforeEach(() => {
   getPayrollSummaryAction.mockReset();
@@ -56,8 +61,12 @@ describe("registry catalogue", () => {
   });
 
   it("gives owner and admin every action", () => {
-    expect(visibleAiActions(["owner"])).toHaveLength(AI_ACTIONS.length);
-    expect(visibleAiActions(["admin"])).toHaveLength(AI_ACTIONS.length);
+    expect(visibleAiActions(resolveAccess(["owner"]))).toHaveLength(
+      AI_ACTIONS.length,
+    );
+    expect(visibleAiActions(resolveAccess(["admin"]))).toHaveLength(
+      AI_ACTIONS.length,
+    );
   });
 
   it("shows each role exactly the actions whose permissions it holds, plus the question card", () => {
@@ -65,10 +74,24 @@ describe("registry catalogue", () => {
       const tools = Object.keys(buildAiTools(ctx([role])));
       const expected = [
         "askQuestions",
-        ...visibleAiActions([role]).map((a) => a.name),
+        ...visibleAiActions(resolveAccess([role])).map((a) => a.name),
       ];
       expect(tools.sort()).toEqual(expected.sort());
     }
+  });
+});
+
+describe("per-user denies", () => {
+  it("hides every action that needs a permission of a denied module", () => {
+    const gated = AI_ACTIONS.filter((a) =>
+      a.permissions.some((p) => p.startsWith("invoices:")),
+    ).map((a) => a.name);
+    expect(gated.length).toBeGreaterThan(0);
+    const names = visibleAiActions(
+      resolveAccess(["admin"], ["invoices:read"]),
+    ).map((a) => a.name);
+    expect(names).toHaveLength(AI_ACTIONS.length - gated.length);
+    for (const name of gated) expect(names).not.toContain(name);
   });
 });
 
@@ -81,7 +104,7 @@ describe("payroll isolation", () => {
   it("never exposes payroll tools, nor lists them, to roles without hr:read", () => {
     for (const role of ["operations", "warehouse", "driver"] as const) {
       const tools = buildAiTools(ctx([role]));
-      const summary = buildCapabilitiesSummary([role]);
+      const summary = buildCapabilitiesSummary(resolveAccess([role]));
       for (const name of PAYROLL_TOOLS) {
         expect(tools, `${role}: ${name}`).not.toHaveProperty(name);
         expect(summary, `${role}: ${name}`).not.toContain(name);
@@ -112,15 +135,19 @@ describe("payroll isolation", () => {
 
 describe("capabilities summary", () => {
   it("lists one line per visible action, grouped by domain", () => {
-    const summary = buildCapabilitiesSummary(["operations"]);
+    const summary = buildCapabilitiesSummary(resolveAccess(["operations"]));
     expect(summary).toContain("Flota y transporte:");
     expect(summary).toContain("- getFleetMargin: Margen de flota");
     const lines = summary.split("\n").filter((l) => l.startsWith("- "));
-    expect(lines).toHaveLength(visibleAiActions(["operations"]).length);
+    expect(lines).toHaveLength(
+      visibleAiActions(resolveAccess(["operations"])).length,
+    );
   });
 
   it("says so when a role has no action", () => {
-    expect(buildCapabilitiesSummary([])).toContain("Sin consultas");
+    expect(buildCapabilitiesSummary(resolveAccess([]))).toContain(
+      "Sin consultas",
+    );
   });
 });
 

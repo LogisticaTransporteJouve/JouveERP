@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isRole, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: string[] = ["owner"];
 let rows: Record<string, unknown>[] = [];
@@ -21,7 +22,10 @@ function query() {
 }
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles.filter(isRole)),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ from: query }),

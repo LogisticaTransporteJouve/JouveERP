@@ -42,7 +42,7 @@ export async function getStorageBillingAction(
   input: RangeInput,
 ): Promise<ActionResult<StorageBilling>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:read")) {
+  if (!userCan(ctx.access, "storage_billing:read")) {
     return { ok: false, error: "No tenés permiso para ver la facturación." };
   }
   if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {
@@ -138,7 +138,7 @@ export async function listStorageBillingRunsAction(): Promise<
   ActionResult<StorageBillingRun[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:read")) {
+  if (!userCan(ctx.access, "storage_billing:read")) {
     return { ok: false, error: "No tenés permiso para ver la facturación." };
   }
   const supabase = await createSupabaseClient();
@@ -184,8 +184,8 @@ export async function invoiceStorageAction(
 ): Promise<ActionResult<{ invoiceId: string }>> {
   const ctx = await requireUserContext();
   if (
-    !userCan(ctx.roles, "storage_billing:issue") ||
-    !userCan(ctx.roles, "invoices:issue")
+    !userCan(ctx.access, "storage_billing:issue") ||
+    !userCan(ctx.access, "invoices:issue")
   ) {
     return { ok: false, error: "No tenés permiso para facturar almacenaje." };
   }

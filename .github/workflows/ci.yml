@@ -43,12 +43,16 @@ jobs:
       # everything: the run degrades to run-all, never to run-nothing.
       - name: Resolve diff base
         id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
-            candidate="${{ github.event.before }}"
+          if [ "$EVENT_NAME" = "push" ]; then
+            candidate="$BEFORE"
           else
-            candidate="origin/${{ github.base_ref }}"
+            candidate="origin/$BASE_REF"
           fi
           if [ -n "$candidate" ] && [ "$candidate" != "0000000000000000000000000000000000000000" ] \
             && git cat-file -e "$candidate^{commit}" 2>/dev/null; then
@@ -91,6 +95,18 @@ jobs:
       - name: Production-approval gate self-test
         run: python3 .github/scripts/check_production_jobs_gated_test.py
 
+      - name: Run scripts interpolate no PR or dispatch input
+        run: python3 .github/scripts/check-run-script-input.py
+
+      - name: Run-script-input gate self-test
+        run: python3 .github/scripts/check_run_script_input_test.py
+
+      - name: Every repo path a skill names exists
+        run: python3 .github/scripts/check-skill-refs.py
+
+      - name: Skill-refs gate self-test
+        run: python3 .github/scripts/check_skill_refs_test.py
+
       - name: Setup pnpm
         # Version is read from the root package.json "packageManager" field.
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -129,16 +145,22 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # Every PR and push: the new-migration checks (name, future stamp, strictly
-  # increasing, unique), then — only when the database surface changed — a
-  # fresh local stack with every migration applied, plpgsql_check and the
-  # types drift check. On PRs, the append-only check.
+  # Every PR and push: the new-migration checks (scripts/check-migrations.sh)
+  # and their self-tests, then — only when the database surface changed — a
+  # fresh local stack with every migration applied, plpgsql_check, the types
+  # drift check and pgTAP. On PRs, the append-only check.
   database:
     name: database
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # actions: read lets the re-propose step read past deploy runs.
+    permissions:
+      contents: read
+      actions: read
     outputs:
-      migrations: ${{ steps.changes.outputs.migrations }}
+      migrations: ${{ steps.migrations.outputs.changed || steps.changes.outputs.migrations }}
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
 
     steps:
       - name: Checkout
@@ -183,7 +205,7 @@ jobs:
           set -euo pipefail
           changed="$(git diff --name-only "${BASE}...HEAD")"
           if printf '%s\n' "$changed" \
-            | grep -E '^(supabase/migrations/|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
+            | grep -E '^(supabase/migrations/|supabase/tests/|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
@@ -195,75 +217,62 @@ jobs:
             echo "migrations=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # The push run repeats it because two PRs green on their own can land
-      # out of order, and deploy-migrations needs this job.
-      - name: New migration names and timestamps
+      # A push asks for approval when the migrations differ from the last push
+      # whose deploy succeeded, so a migration a red run, a failed deploy or a
+      # rejected approval left behind goes out with the next push. Run outcomes
+      # come from the Actions API. When no successful deploy is found (or the
+      # API errors) the diff against the previous head above decides instead.
+      - name: Migrations changed since the last deploy
+        id: migrations
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLI_CHANGED: ${{ steps.changes.outputs.migrations }}
         run: |
-          set -euo pipefail
-          base="$BASE"
-
-          # --no-renames: a rename shows up as the file it adds, so its name
-          # and stamp are checked too (the append-only step rejects the
-          # rest). Every added file under supabase/migrations is checked,
-          # not just files that already look like migrations: a misnamed
-          # file must fail, not be skipped.
-          changed=$(git diff --no-renames --diff-filter=A --name-only "${base}...HEAD" -- supabase/migrations)
-
-          if [ -z "$changed" ]; then
-            echo "No new migrations."
-            exit 0
-          fi
-
-          # Highest timestamp on the base. The listing is filtered to
-          # well-formed names so a stray file cannot become the max.
-          latest_timestamp=$(git ls-tree --name-only "$base" supabase/migrations/ \
-            | sed 's|.*/||' \
-            | grep -E '^[0-9]{14}_' \
-            | cut -c1-14 \
-            | sort -n \
-            | tail -n 1 || true)
-
-          # Stamps are UTC (`supabase migration new` writes UTC). A day of
-          # slack covers a hand-written stamp from a timezone ahead of UTC.
-          now=$(date -u +%Y%m%d%H%M%S)
-          max_allowed=$(date -u -d '+1 day' +%Y%m%d%H%M%S)
-
-          # An empty bound turns every comparison below into a silent no-op,
-          # which is worse than no gate at all.
-          if ! [[ "$latest_timestamp" =~ ^[0-9]{14}$ ]] || ! [[ "$max_allowed" =~ ^[0-9]{14}$ ]]; then
-            echo "::error::Migration gate could not determine its bounds (newest on ${BASE_LABEL}: '${latest_timestamp}', future cutoff: '${max_allowed}'). Refusing to pass without checking."
-            exit 1
-          fi
-
-          echo "Newest migration on ${BASE_LABEL}: ${latest_timestamp} (now ${now} UTC)"
-
-          errors=0
-          while IFS= read -r file; do
-            name="${file#supabase/migrations/}"
-            if ! [[ "$name" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
-              echo "::error file=${file}::${name} is not a valid migration name. Use supabase/migrations/<YYYYMMDDHHMMSS>_<snake_case>.sql (lowercase, digits and _ only)."
-              errors=$((errors + 1))
-              continue
+          last=""
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=50" --jq '.workflow_runs[] | "\(.id) \(.head_sha)"' || true)"
+          while read -r id sha; do
+            [ -n "$id" ] || continue
+            deploy="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '.jobs[] | select(.name == "Push migrations to production") | .conclusion' </dev/null || true)"
+            if [ "$deploy" = "success" ]; then
+              last="$sha"
+              break
             fi
-            timestamp="${name:0:14}"
-            if [ "$timestamp" -gt "$max_allowed" ]; then
-              echo "::error file=${file}::${name} is stamped ${timestamp}, more than a day in the future (now ${now} UTC). Every later migration would have to beat it — restamp it with the current UTC time."
-              errors=$((errors + 1))
-            elif [ "$timestamp" -le "$latest_timestamp" ]; then
-              echo "::error file=${file}::${name} is stamped ${timestamp}, not after ${latest_timestamp} (${BASE_LABEL}'s newest, or an earlier new migration). Stamps must be unique and increasing — rename the file with a fresher timestamp."
-              errors=$((errors + 1))
-            else
-              echo "OK: ${name}"
-              # Paths arrive sorted, so each new file must also beat the previous one
-              # (supabase keys schema_migrations by the stamp).
-              latest_timestamp="$timestamp"
-            fi
-          done <<< "$changed"
-
-          if [ "$errors" -gt 0 ]; then
-            echo "${errors} migration file(s) rejected."
-            exit 1
+          done <<<"$runs"
+          if [ -z "$last" ]; then
+            echo "No successful migration deploy found; using the diff against the previous head."
+            echo "changed=$CLI_CHANGED" >> "$GITHUB_OUTPUT"
+          elif [ "$CLI_CHANGED" = "true" ] \
+            || ! git merge-base --is-ancestor "$last" HEAD 2>/dev/null \
+            || ! git diff --quiet "$last" HEAD -- supabase/migrations/; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      # Name, version order, all-or-nothing statements, no session-level SET,
+      # SECURITY DEFINER revokes and squawk, over the migrations this change
+      # adds. The push run repeats it because two PRs green on their own can
+      # land out of order, and deploy-migrations needs this job.
+      - name: New migrations (name, version, transaction, SET, definer revoke, squawk)
+        run: bash scripts/check-migrations.sh "$BASE"
+
+      - name: Script self-tests (migration checks, squawk config, dev binds)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test:scripts
 
       - name: Resolve pinned Supabase CLI version
         if: ${{ !cancelled() && steps.changes.outputs.relevant == 'true' }}
@@ -280,7 +289,11 @@ jobs:
       - name: Start Supabase
         id: db
         if: ${{ !cancelled() && steps.changes.outputs.relevant == 'true' }}
-        run: supabase start
+        # Only what the checks below use: Postgres, Auth and the API. The log
+        # is printed only on failure.
+        run: |
+          supabase start -x realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor \
+            > "$RUNNER_TEMP/supabase-start.log" 2>&1 || { cat "$RUNNER_TEMP/supabase-start.log"; exit 1; }
 
       # plpgsql_check over every function in `public`, once every migration
       # has applied. Errors only: warnings are a separate decision.
@@ -292,6 +305,19 @@ jobs:
       - name: Check types drift
         if: ${{ !cancelled() && steps.db.outcome == 'success' }}
         run: bash scripts/db-types-check.sh
+
+      # pgTAP over supabase/tests. `supabase test db` passes an empty suite,
+      # so a missing directory fails here instead.
+      - name: DB tests (pgTAP)
+        if: ${{ !cancelled() && steps.db.outcome == 'success' }}
+        run: |
+          shopt -s nullglob
+          files=(supabase/tests/*.sql)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::supabase/tests has no pgTAP files."
+            exit 1
+          fi
+          supabase test db --local
 
       - name: Stop Supabase
         if: always() && steps.changes.outputs.relevant == 'true'

@@ -12,7 +12,7 @@ export async function getWeeklySummaryAction(): Promise<
   ActionResult<WeeklySummary | null>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     return { ok: false, error: "No tenés permiso para el resumen semanal." };
   }
   try {

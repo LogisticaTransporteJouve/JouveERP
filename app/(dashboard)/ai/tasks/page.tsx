@@ -20,7 +20,7 @@ export default async function AiTasksRoute({
   searchParams: Promise<{ workflow?: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:chat")) {
+  if (!userCan(ctx.access, "ai:chat")) {
     redirect("/dashboard");
   }
   const { workflow } = await searchParams;

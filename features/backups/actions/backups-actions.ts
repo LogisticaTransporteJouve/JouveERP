@@ -15,7 +15,7 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
   const ctx = await requireUserContext();
   // audit:read because backups expose sensitive metadata: only
   // owner/admin with auditing. accounting:read is NOT enough.
-  if (!userCan(ctx.roles, "audit:read")) {
+  if (!userCan(ctx.access, "audit:read")) {
     return { ok: false, error: "Solo owner/admin pueden ver backups." };
   }
 
@@ -45,8 +45,7 @@ export async function listBackupsAction(): Promise<ActionResult<BackupFile[]>> {
       createdAt: f.created_at ?? "",
       sha256:
         ((f.metadata as Record<string, unknown> | null)?.sha256 as
-          | string
-          | undefined) ?? null,
+          string | undefined) ?? null,
     }));
 
   return { ok: true, data: items };
@@ -56,7 +55,7 @@ export async function getBackupSignedUrlAction(
   fileName: string,
 ): Promise<ActionResult<{ url: string; expiresAt: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "audit:read")) {
+  if (!userCan(ctx.access, "audit:read")) {
     return { ok: false, error: "Solo owner/admin pueden descargar backups." };
   }
 

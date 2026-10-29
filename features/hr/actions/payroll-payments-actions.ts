@@ -35,7 +35,7 @@ export async function listPayrollPaymentsAction(
   entryId: string,
 ): Promise<ActionResult<PayrollPayment[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver pagos." };
   }
 
@@ -62,7 +62,7 @@ export async function createPayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = CreatePayrollPaymentSchema.safeParse(input);
@@ -117,7 +117,7 @@ export async function updatePayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para editar pagos." };
   }
   const parsed = UpdatePayrollPaymentSchema.safeParse(input);
@@ -163,7 +163,7 @@ export async function bulkCreatePayrollPaymentsAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = BulkCreatePayrollPaymentsSchema.safeParse(input);
@@ -216,7 +216,7 @@ export async function deletePayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para borrar pagos." };
   }
   const parsed = DeletePayrollPaymentSchema.safeParse(input);

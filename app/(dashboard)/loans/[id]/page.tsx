@@ -19,7 +19,7 @@ export default async function LoanDetailRoute({
 }) {
   const { id } = await params;
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     redirect("/dashboard");
   }
 
@@ -35,9 +35,7 @@ export default async function LoanDetailRoute({
 
   const accountOptions = accountsRes.ok
     ? accountsRes.data
-        .filter(
-          (a) => a.is_active && a.type !== "checks" && a.type !== "echeq",
-        )
+        .filter((a) => a.is_active && a.type !== "checks" && a.type !== "echeq")
         .map((a) => ({ id: a.id, name: a.name }))
     : [];
 

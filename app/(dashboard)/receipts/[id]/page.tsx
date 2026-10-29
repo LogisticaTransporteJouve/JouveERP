@@ -34,7 +34,7 @@ export default async function ReceiptDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "receipts:read")) {
+  if (!userCan(ctx.access, "receipts:read")) {
     redirect("/dashboard");
   }
 
@@ -165,10 +165,7 @@ export default async function ReceiptDetailPage({
               label="Imputado"
               value={money(allocatedSum, receipt.currency)}
             />
-            <Row
-              label="A cuenta"
-              value={money(aCuenta, receipt.currency)}
-            />
+            <Row label="A cuenta" value={money(aCuenta, receipt.currency)} />
           </dl>
         </div>
       </div>
@@ -183,8 +180,7 @@ export default async function ReceiptDetailPage({
                 className="flex items-center justify-between border-b py-1 last:border-b-0"
               >
                 <span>
-                  <span className="font-medium">{r.kind}</span> ·{" "}
-                  {r.tax_type}
+                  <span className="font-medium">{r.kind}</span> · {r.tax_type}
                   {r.jurisdiction && ` · ${r.jurisdiction}`} ·{" "}
                   <span className="text-muted-foreground">
                     Cert. {r.certificate_number}
@@ -256,8 +252,8 @@ export default async function ReceiptDetailPage({
           <AttachmentsZone
             targetType="receipt"
             targetId={receipt.id}
-            canWrite={userCan(ctx.roles, "files:write")}
-            canDelete={userCan(ctx.roles, "files:write")}
+            canWrite={userCan(ctx.access, "files:write")}
+            canDelete={userCan(ctx.access, "files:write")}
           />
         </div>
       </div>

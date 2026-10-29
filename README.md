@@ -1,8 +1,8 @@
 # JouveERP
 
-ERP logístico para Transporte Jouve (DZ & Sons S.A) — Argentina, single-CUIT,
-dos divisiones comerciales (DZ Instalaciones + Logística Jouve), cuatro canales
-de facturación (fiscal/interno × DZ/Jouve).
+ERP contable/financiero de DZ & Sons S.A. (Transporte Jouve) — Argentina,
+single-CUIT, dos divisiones comerciales (DZ Instalaciones + Logística Jouve),
+cuatro canales de facturación (fiscal/interno × DZ/Jouve).
 
 ## Stack
 
@@ -11,133 +11,111 @@ de facturación (fiscal/interno × DZ/Jouve).
 - **Supabase** (auth + Postgres + RLS + Storage + Realtime)
 - **TanStack Query** (server state) + Zustand opt-in (client state)
 - **Zod 4** + react-hook-form
-- **Inngest** (workflows durables)
-- **Sentry** + PostHog (vía reverse proxy `/ingest/*`)
+- **Inngest** (workflows durables y crons)
+- **Sentry**
 - **pnpm 10**
-- **Vitest** + **Playwright** (E2E)
+- **Vitest** + **Playwright** (E2E) + **pgTAP** (SQL)
 
 ## Documentación
 
-- **[`docs/roadmap.md`](docs/roadmap.md)** — **plan maestro y única fuente
-  de verdad sobre el estado**. Qué está hecho, qué está en vuelo, qué viene
-  después. Decisiones cerradas, design system, convenciones, anti-patrones,
-  riesgos, métricas, y changelog histórico por fase en el anexo.
-- [`docs/frontend-patterns.md`](docs/frontend-patterns.md) —
-  referencia técnica de patrones (tooling, navegación, tablas, forms, hooks,
-  CSP, RLS, tests). Snippets pegables.
-- [`docs/ai-patterns.md`](docs/ai-patterns.md) — plan completo de Fase I (IA).
-- [`docs/chat-patterns.md`](docs/chat-patterns.md),
-  [`docs/notifications-patterns.md`](docs/notifications-patterns.md),
-  [`docs/user-avatars.md`](docs/user-avatars.md) — specs del subsistema social.
-- [`docs/files-patterns.md`](docs/files-patterns.md) +
-  [`docs/files-reference.md`](docs/files-reference.md) — spec de adjuntos
-  polimórficos (entra en K.10 + M.4) y motor de OCR (Fase I.2).
+Índice completo en [`docs/README.md`](docs/README.md). Para contribuir:
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Reglas para agentes: [`CLAUDE.md`](CLAUDE.md)
+y [`AGENTS.md`](AGENTS.md).
 
-## Pendientes que necesitan una decisión
+## Requisitos
 
-El sistema ya hace el trabajo; lo que falta acá son **datos o reglas que solo el
-dueño o el contador conocen**. Cuando tengamos cada input, se construye. (Lista
-viva en [`docs/pendientes.md`](docs/pendientes.md).)
+- Node (versión en `.nvmrc`) y pnpm (`corepack enable`).
+- Docker corriendo (Supabase local).
+- Supabase CLI en la versión de `scripts/supabase-cli-version` (la que usa CI).
 
-1. **Envío de email** (resumen semanal de deudores + alertas de vencimientos).
-   Los crons ya calculan todo, pero no se manda nada. *Falta:* elegir proveedor
-   (recomendado **Resend**) y cargar su API key como secret — la carga el dueño,
-   no se commitea.
-2. **H.5 — facturar el depósito en AFIP.** Ya se calcula días-pallet × tarifa,
-   pero la tarifa es un estimado. *Falta:* las **tarifas reales** por cliente
-   (por pallet, por día/mes, mínimos) para cablear la emisión AFIP.
-3. **Ajuste por inflación (RG 4667).** La carga de coeficientes existe; falta el
-   asiento de reexpresión. *Falta:* el **método del contador** (qué cuentas son
-   no-monetarias y a qué cuenta va el RECPAM).
-4. **L.6 / L.7 — exports AFIP.** Régimen de información CITI/SIAP (archivo TXT
-   posicional mensual de ventas y compras) + CAEA (contingencia). *Falta:* el
-   **formato posicional exacto** de AFIP, o confirmar que no se necesitan aún.
+`pnpm preflight` chequea todo lo anterior y dice qué falta.
 
-> Descartados por decisión del dueño: **M.5** (aprobaciones por monto) y **M.6**
-> (portal de cliente). Ver decisiones #19 / #20 en `docs/roadmap.md`.
-
-## Desarrollo local
-
-Un solo comando levanta todo (Supabase + Next.js + Inngest dev runtime):
+## Puesta en marcha
 
 ```bash
-pnpm dev:up
+pnpm install          # instala dependencias y los git hooks
+pnpm preflight        # verifica Node, pnpm, Docker, Supabase CLI
+cp .env.local.example .env.local   # completar (ver abajo)
+pnpm dev:up           # Supabase + Next + Inngest dev
+pnpm seed:dev         # crea tomas@jouve.test / Test1234!
 ```
 
-Arranca Supabase, y luego corre Next y el runtime de Inngest en paralelo
-(salida con prefijos `next`/`inngest`; `Ctrl-C` baja ambos). Requiere el CLI
-de Supabase instalado y Docker corriendo.
+El primer usuario que entra se vuelve `owner` automáticamente
+(`bootstrapOwnerIfNeeded`). Desde `/admin/users` el owner invita usuarios y
+edita los **accesos** de cada uno: roles y módulos/acciones ocultos.
 
-<details>
-<summary>O los tres procesos por separado (tres terminales)</summary>
+## Qué corre dónde
 
-```bash
-# Terminal 1 — Supabase (Postgres + Auth + Storage)
-pnpm dlx supabase start
+| Proceso         | URL                      | Comando                                              |
+| --------------- | ------------------------ | ---------------------------------------------------- |
+| Next.js         | <http://127.0.0.1:3000>  | `pnpm dev` (`pnpm dev:lan` para exponerlo en la red) |
+| Inngest dev     | <http://127.0.0.1:8288>  | `pnpm dev:inngest`                                   |
+| Supabase Studio | <http://127.0.0.1:54323> | `supabase start`                                     |
 
-# Terminal 2 — Next.js
-pnpm dev
+`pnpm dev:up` levanta los tres (`Ctrl-C` baja Next e Inngest). Sin Inngest,
+los endpoints funcionan pero `inngest.send(...)` no dispara nada.
 
-# Terminal 3 — Inngest dev runtime (descubre funciones en /api/inngest)
-pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest
-```
+## Comandos
 
-</details>
+| Comando                                          | Qué hace                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:up`                       | Next solo / todo el stack                                           |
+| `pnpm lint` · `pnpm typecheck` · `pnpm test`     | ESLint (incluye las cercas de `eslint.fences.mjs`) · `tsc` · Vitest |
+| `pnpm build`                                     | build de producción                                                 |
+| `pnpm format` / `pnpm format:check`              | Prettier (CI chequea solo los archivos que cambia el PR)            |
+| `pnpm test:e2e` / `pnpm test:e2e:ui`             | Playwright (requiere `pnpm dev`)                                    |
+| `pnpm test:scripts`                              | self-tests de los scripts y gates de CI                             |
+| `pnpm db:types:generate` / `pnpm db:types:check` | regenera / verifica `lib/db/database.types.ts`                      |
+| `pnpm check:migrations`                          | squawk + reglas de migraciones nuevas contra `origin/main`          |
+| `pnpm db:restamp`                                | re-timestampea migraciones de la rama que quedaron viejas           |
+| `pnpm check:forbidden-words`                     | busca palabras prohibidas (lista en `FORBIDDEN_WORDS`)              |
+| `pnpm db:reset`                                  | resetea la DB local y siembra datos                                 |
+| `pnpm seed:dev` / `pnpm seed:all`                | usuario de dev / datos completos                                    |
+| `pnpm eval:ai`                                   | evals de ruteo de IA contra el modelo real                          |
 
-La UI de Inngest queda en <http://localhost:8288>. Si no tocás workflows
-en una sesión, podés saltearte el terminal 3 — los endpoints siguen
-funcionando, solo que `inngest.send(...)` no dispara nada hasta que el
-dev runtime esté arriba.
+## Variables de entorno
 
-### Variables de entorno
-
-Ver `.env.local.example` para la lista completa. Mínimo para correr:
-Supabase local (URL + anon key + service key), AFIP cert/key/CUIT
-(homologación alcanza para dev). VAPID keys son opcionales — sin ellas
-el push real no funciona pero el bell in-app sí.
-
-### Seed de usuarios
-
-```bash
-pnpm seed:dev                              # crea tomas@jouve.test / Test1234!
-pnpm seed:dev otro@jouve.test Test1234!    # crea uno extra
-```
-
-El primer user logueado se vuelve `owner` automáticamente vía
-`bootstrapOwnerIfNeeded`.
+Lista completa y comentada en `.env.local.example` (nunca commitear
+`.env.local`). Mínimo para correr: Supabase local (URL, anon key, service key,
+JWT secret) y AFIP en homologación (`AFIP_ENV`, `AFIP_CUIT`, `AFIP_CERT`,
+`AFIP_KEY`). Opcionales: claves de IA, VAPID (push), Resend (email), Sentry.
 
 ## Tests
 
 ```bash
-# Unit + schema (Vitest). 220+ tests, corre en <2s.
-pnpm test
-
-# Integration suite contra Supabase local (triggers, RPCs, RLS).
-# Requiere `pnpm dlx supabase start` previo.
-RUN_INTEGRATION=1 pnpm test
-
-# E2E (Playwright). Requiere `pnpm dev` corriendo en otra terminal.
-pnpm test:e2e
-
-# E2E con UI interactiva (panel de Playwright)
-pnpm test:e2e:ui
-
-# E2E AFIP-emit smoke (homologación). Requiere AFIP creds + POS habilitado.
-RUN_AFIP_E2E=1 pnpm test:e2e
+pnpm test                       # unit + schema (Vitest)
+RUN_INTEGRATION=1 pnpm test     # integración contra Supabase local
+supabase test db                # pgTAP (supabase/tests/)
+pnpm test:e2e                   # Playwright; usuario de pnpm seed:dev
+RUN_AFIP_E2E=1 pnpm test:e2e    # smoke de emisión AFIP (homologación)
 ```
 
-Las E2E usan el usuario seedeado por `pnpm seed:dev` por default. Si
-querés sobreescribir, exportá `E2E_USER_EMAIL` y `E2E_USER_PASSWORD`.
+Las E2E aceptan `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` para otro usuario.
 
-## Convenciones
+## Base de datos
 
-Resumen — el detalle está en `docs/roadmap.md` §2:
+- Migraciones en `supabase/migrations/YYYYMMDDHHMMSS_<scope>.sql`, con RLS en la
+  misma migración y timestamp posterior al último de `main`. Nunca se edita una
+  migración mergeada.
+- Timeouts con `SET LOCAL` al inicio del archivo; nunca `SET row_security`.
+- Después de una migración: `pnpm db:types:generate` (CI compara byte a byte).
+- `pnpm check:migrations` corre en el hook de pre-push y en CI.
 
-- **Conventional Commits en inglés** (`feat:`, `fix:`, `chore:`, `docs:`).
-  Sin `Co-Authored-By` ni footers de "Generated with Claude Code".
-- **Branches**: `feat/<scope>`, `fix/<scope>`, `chore/<scope>`. Una rama = un PR.
-- **PRs ≤500 LOC** cuando se pueda, ≤1000 si una migración + UI lo justifican.
-  Abrir siempre como **draft** (`gh pr create --draft`).
-- **CRUD = Dialog** centrado, no Sheet derecho.
-- **Sin colores de marca** — paleta 100% monocromática.
-- **CI verde obligatorio** para mergear.
+## CI y deploy
+
+- **CI** (`.github/workflows/ci.yml`): lint, typecheck, test, build, formato de
+  archivos cambiados, gates de workflows y skills, palabras prohibidas, y el job
+  `database` (migraciones desde cero, squawk, pgTAP, diff de tipos).
+- **Preview** (`preview.yml`): deploy de Vercel cuando el PR deja de ser draft.
+- **Producción**: Vercel publica `main`; las migraciones se aplican con el job
+  aprobado manualmente. El código tiene que tolerar la ventana en que corre
+  sin la migración nueva.
+
+## Problemas comunes
+
+- **`supabase start` falla bajando imágenes** → reintentar o usar
+  `supabase db start` (solo Postgres) para validar SQL.
+- **`db:types:check` falla** → regenerar con la versión de CLI de CI.
+- **CI dice "not after …" en migraciones** → `pnpm db:restamp`.
+- **El hook de commit rechaza el mensaje** → sacá el `Co-Authored-By` o la
+  palabra prohibida que nombra.

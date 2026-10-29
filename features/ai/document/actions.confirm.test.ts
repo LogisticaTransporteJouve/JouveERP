@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isRole, resolveAccess } from "@/lib/auth/permissions";
 
 // ---------------------------------------------------------------------------
 // In-memory stand-in for the RLS Supabase client: enough of the query builder
@@ -75,7 +76,10 @@ let roles: string[] = ["owner"];
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u1", roles }),
+  requireUserContext: async () => ({
+    userId: "u1",
+    access: resolveAccess(roles.filter(isRole)),
+  }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({

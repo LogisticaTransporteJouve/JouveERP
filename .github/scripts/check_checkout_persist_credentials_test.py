@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """Fixture tests for the checkout-credentials gate.
 
-The gate is a hand-rolled regex reader over workflow YAML. The easy mistakes —
-accepting a sibling step's setting as evidence, dropping unrecognised `uses:`
-forms from the scan, rejecting a trailing comment on a correct line, accepting
-`persist-credentials:` inside a block scalar or an `env:` map, or a quoted flow
-VALUE that merely contains the text — each have a fixture here.
+The gate is a hand-rolled regex reader over workflow YAML, and adversarial review
+has broken it five times: it accepted a sibling step's setting as evidence; it
+dropped unrecognised `uses:` forms from the scan entirely; it rejected a trailing
+comment on a correct line; it accepted any `persist-credentials:` anywhere in the
+step, including inside a block scalar or an `env:` map; and its flow-mapping
+matcher accepted a quoted string VALUE that merely contained the text. Every one
+was found by hand. This suite is what stops the sixth.
+
+Fourteen of these cases fail against the gate as it first shipped — seven by
+returning 0, i.e. passing a checkout that takes the persisting default. Those
+seven are the red tests, and they are why this file earns its place rather than
+restating the gate's own logic.
 
 Each case asserts BOTH the exit code and a stderr substring. Exit code alone is
 not enough: a fixture that silently fails to land yields exit 2, which is exactly

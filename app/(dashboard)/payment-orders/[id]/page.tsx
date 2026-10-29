@@ -45,7 +45,7 @@ export default async function PaymentOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "payment_orders:read")) {
+  if (!userCan(ctx.access, "payment_orders:read")) {
     redirect("/dashboard");
   }
 
@@ -139,13 +139,19 @@ export default async function PaymentOrderDetailPage({
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm">
-            <Row label="Pago real" value={money(paySum, paymentOrder.currency)} />
+            <Row
+              label="Pago real"
+              value={money(paySum, paymentOrder.currency)}
+            />
             <Row
               label="Total"
               value={money(total, paymentOrder.currency)}
               emphasize
             />
-            <Row label="Imputado" value={money(allocSum, paymentOrder.currency)} />
+            <Row
+              label="Imputado"
+              value={money(allocSum, paymentOrder.currency)}
+            />
             <Row
               label="A cuenta"
               value={money(aCuenta, paymentOrder.currency)}
@@ -196,7 +202,9 @@ export default async function PaymentOrderDetailPage({
                     ) : issued ? (
                       <>
                         <span className="font-medium">
-                          {issued.kind === "echeq" ? "ECHEQ propio" : "Cheque propio"}{" "}
+                          {issued.kind === "echeq"
+                            ? "ECHEQ propio"
+                            : "Cheque propio"}{" "}
                           · {issued.bank_name}
                         </span>
                         <span className="ml-2 font-mono text-xs text-muted-foreground">
@@ -210,8 +218,7 @@ export default async function PaymentOrderDetailPage({
                               ? "cobrado"
                               : issued.status === "rejected"
                                 ? "rechazado"
-                                : "anulado"}
-                          {" "}
+                                : "anulado"}{" "}
                           · Chequera: {account?.name ?? "—"}
                         </div>
                       </>
@@ -271,8 +278,7 @@ export default async function PaymentOrderDetailPage({
                       href={`/purchases/${a.purchase_invoice_id}`}
                       className="font-medium hover:underline"
                     >
-                      {kindLabel}{" "}
-                      <span className="font-mono">{number}</span>
+                      {kindLabel} <span className="font-mono">{number}</span>
                     </Link>
                     {inv?.fecha && (
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -305,8 +311,8 @@ export default async function PaymentOrderDetailPage({
           <AttachmentsZone
             targetType="payment_order"
             targetId={paymentOrder.id}
-            canWrite={userCan(ctx.roles, "files:write")}
-            canDelete={userCan(ctx.roles, "files:write")}
+            canWrite={userCan(ctx.access, "files:write")}
+            canDelete={userCan(ctx.access, "files:write")}
           />
         </div>
       </div>

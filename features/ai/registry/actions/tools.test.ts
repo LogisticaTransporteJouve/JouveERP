@@ -140,6 +140,7 @@ function agingParty(
 import { getInvoices, runInvoices } from "./sales";
 import { AI_ACTIONS } from "../catalog";
 import { reachedCap, totalsByCurrency } from "../result";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -192,7 +193,7 @@ describe("ai action registry", () => {
   });
 
   it("binds the sales + payables actions to AI SDK tools", () => {
-    const ctx = { userId: "u1", roles: ["owner" as const] };
+    const ctx = { userId: "u1", access: resolveAccess(["owner" as const]) };
     expect(typeof getInvoices.toTool(ctx).execute).toBe("function");
     expect(typeof getPurchaseInvoices.toTool(ctx).execute).toBe("function");
   });

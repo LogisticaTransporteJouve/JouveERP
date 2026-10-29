@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Redirige al mes actual.
 export default async function AttendanceIndexPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
   const today = new Date();

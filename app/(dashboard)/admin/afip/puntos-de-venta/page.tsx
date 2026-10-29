@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AfipSalesPointsPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "afip:admin")) {
+  if (!userCan(ctx.access, "afip:admin")) {
     redirect("/dashboard");
   }
 
@@ -42,9 +42,10 @@ export default async function AfipSalesPointsPage() {
           Puntos de venta AFIP
         </h1>
         <p className="text-sm text-muted-foreground">
-          Lista lo que devuelve <code className="font-mono">FEParamGetPtosVenta</code>
-          {" "}contra el CUIT configurado. Sirve para descubrir qué puntos están
-          habilitados antes de seedear los canales fiscales.
+          Lista lo que devuelve{" "}
+          <code className="font-mono">FEParamGetPtosVenta</code> contra el CUIT
+          configurado. Sirve para descubrir qué puntos están habilitados antes
+          de seedear los canales fiscales.
         </p>
       </div>
       <Hydrate state={dehydratedState}>

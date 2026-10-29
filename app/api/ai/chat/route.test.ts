@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ClaimResult } from "@/features/ai/attachments/store";
 import type { StoredAttachment } from "@/features/ai/attachments/content";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const SESSION = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const FILE_ID = "11111111-1111-4111-8111-111111111111";
@@ -32,7 +33,10 @@ const chatStore = {
 };
 
 vi.mock("@/lib/auth/context", () => ({
-  requireUserContext: async () => ({ userId: "u-owner", roles: ["finance"] }),
+  requireUserContext: async () => ({
+    userId: "u-owner",
+    access: resolveAccess(["finance"]),
+  }),
 }));
 vi.mock("@/lib/rate-limit", () => ({
   RateLimitError: class extends Error {},

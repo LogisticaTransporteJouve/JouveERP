@@ -383,7 +383,7 @@ export type UploadResult =
 
 export async function uploadFileAction(formData: FormData): Promise<UploadResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "files:write")) {
     return { ok: false, error: "Sin permisos para subir archivos." };
   }
 

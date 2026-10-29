@@ -107,7 +107,7 @@ function toListItem(
 
 export async function listLoansAction(): Promise<ActionResult<LoanListItem[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver préstamos." };
   }
   const supabase = await createSupabaseClient();
@@ -169,7 +169,7 @@ export async function getLoanAction(
   id: string,
 ): Promise<ActionResult<LoanDetail>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver préstamos." };
   }
   const supabase = await createSupabaseClient();
@@ -227,7 +227,7 @@ export async function createLoanAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "Sin permiso para crear préstamos." };
   }
   const parsed = CreateLoanSchema.safeParse(input);
@@ -292,7 +292,7 @@ export async function updateInstallmentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "Sin permiso para editar cuotas." };
   }
   const parsed = UpdateInstallmentSchema.safeParse(input);
@@ -338,7 +338,7 @@ export async function payInstallmentAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = PayInstallmentSchema.safeParse(input);
@@ -423,7 +423,7 @@ export async function payInstallmentAction(
 
 export async function cancelLoanAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:write")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "Sin permiso para anular préstamos." };
   }
   const parsed = CancelLoanSchema.safeParse(input);

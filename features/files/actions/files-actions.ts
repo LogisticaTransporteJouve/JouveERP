@@ -57,7 +57,7 @@ export async function uploadFileAction(
   formData: FormData,
 ): Promise<ActionResult<{ fileId: string; attachmentId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "files:write")) {
     return { ok: false, error: "Sin permiso para subir archivos." };
   }
 
@@ -70,7 +70,7 @@ export async function uploadFileAction(
   }
   const { targetType, targetId } = targetParsed.data;
 
-  if (!userCan(ctx.roles, TARGET_WRITE_PERMISSION[targetType])) {
+  if (!userCan(ctx.access, TARGET_WRITE_PERMISSION[targetType])) {
     return { ok: false, error: "Sin permiso para atachar a esa entidad." };
   }
 
@@ -175,7 +175,7 @@ export async function getSignedFileUrlAction(
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) {
+  if (!userCan(ctx.access, "files:read")) {
     return { ok: false, error: "No tenés permiso para ver archivos." };
   }
   const parsed = z.string().uuid().safeParse(fileId);
@@ -203,7 +203,7 @@ export async function getSignedFileUrlAction(
 
   // HR documents: only hr:read (RLS on `files` agrees; this is the action's
   // own check, independent of the policy).
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     const { data: isHrFile, error: hrErr } = await supabase.rpc(
       "is_employee_document_file",
       { p_file_id: parsed.data },
@@ -246,7 +246,7 @@ export async function detachFileAction(
   attachmentId: string,
 ): Promise<ActionResult<{ deletedBlob: boolean }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "files:write")) {
     return { ok: false, error: "No tenés permiso para modificar archivos." };
   }
   const parsed = z.string().uuid().safeParse(attachmentId);
@@ -313,7 +313,7 @@ export async function listAttachmentsAction(
   input: unknown,
 ): Promise<ActionResult<FileAttachmentRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "files:read")) {
+  if (!userCan(ctx.access, "files:read")) {
     return { ok: false, error: "No tenés permiso para ver archivos." };
   }
   const parsed = ListSchema.safeParse(input);

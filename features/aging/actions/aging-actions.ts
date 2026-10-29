@@ -19,7 +19,7 @@ export async function getAgingSummaryAction(): Promise<
   ActionResult<AgingReport>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "clients:read")) {
+  if (!userCan(ctx.access, "clients:read")) {
     return { ok: false, error: "No tenés permiso para ver aging." };
   }
 

@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -9,11 +10,13 @@ import {
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  getUserAccessAction,
   inviteUserAction,
   listUsersAction,
-  setUserRolesAction,
+  setUserAccessAction,
 } from "../actions/users-actions";
 import { adminUsersKeys } from "../lib/admin-users-keys";
+import type { SetAccessInput } from "../schema";
 
 const TWO_MINUTES = 120_000;
 
@@ -25,12 +28,22 @@ export function useUsersList() {
   });
 }
 
-export function useSetUserRoles() {
+/** One user's roles and denies, read fresh each time the dialog opens. */
+export function useUserAccess(userId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: adminUsersKeys.access(userId),
+    queryFn: () => runAction(() => getUserAccessAction(userId)),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+export function useSetUserAccess() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Parameters<typeof setUserRolesAction>[0]) =>
-      runAction(() => setUserRolesAction(input)),
-    onSuccess: () => {
+    mutationFn: (input: SetAccessInput) =>
+      runAction(() => setUserAccessAction(input)),
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: adminUsersKeys.all });
     },
   });

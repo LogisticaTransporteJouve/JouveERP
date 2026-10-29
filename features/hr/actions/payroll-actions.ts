@@ -43,7 +43,7 @@ export async function listPayrollPeriodsAction(): Promise<
   ActionResult<PayrollPeriod[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver liquidaciones." };
   }
 
@@ -80,7 +80,7 @@ export async function getPayrollPeriodAction(
   }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver liquidaciones." };
   }
 
@@ -183,7 +183,7 @@ export async function seedPayrollPeriodAction(
   input: unknown,
 ): Promise<ActionResult<{ period_id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para crear períodos." };
   }
 
@@ -217,7 +217,7 @@ export async function closePayrollPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para cerrar períodos." };
   }
   const parsed = ClosePayrollPeriodSchema.safeParse(input);
@@ -245,7 +245,7 @@ export async function reopenPayrollPeriodAction(
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   // Reopening requires hr:admin (stricter than close).
-  if (!userCan(ctx.roles, "hr:admin")) {
+  if (!userCan(ctx.access, "hr:admin")) {
     return { ok: false, error: "Sin permiso para reabrir períodos." };
   }
   const parsed = ReopenPayrollPeriodSchema.safeParse(input);
@@ -274,7 +274,7 @@ export async function updatePayrollEntryAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para editar la planilla." };
   }
   const parsed = UpdatePayrollEntrySchema.safeParse(input);
@@ -322,7 +322,7 @@ export async function listPayrollEntryExtrasAction(
   entryId: string,
 ): Promise<ActionResult<PayrollEntryExtra[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso." };
   }
 
@@ -343,7 +343,7 @@ export async function addPayrollEntryExtraAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = AddPayrollEntryExtraSchema.safeParse(input);
@@ -395,7 +395,7 @@ export async function updatePayrollEntryExtraAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = UpdatePayrollEntryExtraSchema.safeParse(input);
@@ -434,7 +434,7 @@ export async function removePayrollEntryExtraAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:write")) {
+  if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso." };
   }
   const parsed = RemovePayrollEntryExtraSchema.safeParse(input);

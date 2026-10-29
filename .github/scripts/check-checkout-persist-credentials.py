@@ -8,9 +8,6 @@ perform the initial checkout.
 
 Stdlib only — no PyYAML: it runs in CI before dependencies are installed, so a
 PR that touches only workflow files is still policed.
-
-Usage (from the repo root): python3 .github/scripts/check-checkout-persist-credentials.py
-Fixture tests: python3 .github/scripts/check_checkout_persist_credentials_test.py
 """
 
 from __future__ import annotations
@@ -18,6 +15,8 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+
+from workflow_yaml import structural_lines
 
 WORKFLOWS = Path(".github/workflows")
 COMPOSITES = Path(".github/actions")
@@ -120,39 +119,6 @@ WITH_KEY = re.compile(r"^(\s*)with:\s*(?:\#.*)?$")
 # on a line of its own. Matching only the stripped start keeps `- name: Every
 # actions/checkout sets persist-credentials` from tripping it.
 CONTINUATION_CHECKOUT = re.compile(r"^[\"']?actions/checkout[@\"']")
-# `key: |` / `key: >` opens a block scalar; everything indented under it is text.
-# `uses:` is exempt — a folded `uses: >-` value IS the action reference and still
-# has to be read. The key may carry a leading `- `, and the chomp/indent indicators
-# come in either order (`|2-` and `|-2` are both legal).
-BLOCK_SCALAR = re.compile(
-    r"^((\s*)(?:-\s+)?)(?!uses:)[^\s:]+:\s*[|>](?:[-+]?\d*|\d*[-+]?)\s*(?:\#.*)?$"
-)
-
-
-def structural_lines(lines: list[str]):
-    """Yield (index, line) for lines that are YAML structure, skipping block scalars.
-
-    A block scalar's body is an opaque string however much it looks like structure,
-    so a `run: |` body mentioning `uses: actions/checkout` is a shell command, not a
-    step. The per-step walk does not need this: it pins `with:` to the step's own key
-    column, and a block-scalar body is always indented deeper than its own key, so it
-    can never reach that column.
-    """
-    block_indent: int | None = None
-    for i, line in enumerate(lines):
-        if not line.strip():
-            continue
-        cur = len(line) - len(line.lstrip())
-        if block_indent is not None:
-            if cur > block_indent:
-                continue
-            block_indent = None
-        b = BLOCK_SCALAR.match(line)
-        if b is not None:
-            block_indent = len(b.group(1))
-            yield i, line
-            continue
-        yield i, line
 
 
 def step_lines(lines: list[str], start: int, indent: int):
@@ -191,7 +157,7 @@ def has_setting_under_with(
 
     * `env:` is a free string map, so `env: {persist-credentials: false}` is valid
       YAML and a valid workflow. The runner accepts it, checkout never receives the
-      input, and the token stays in .git/config.
+      input, and the token stays persisted for every later step.
     * A block scalar's body is an opaque string. `env: {NOTE: "with:\n  persist-
       credentials: false"}` looks like structure and is not.
 
@@ -274,8 +240,9 @@ def main() -> int:
             print(f"  {v}", file=sys.stderr)
         print(
             "\nAdd `persist-credentials: false` under `with:`. Use `true` only when a later\n"
-            "step in the SAME job runs `git push` against the remote, and say which step in\n"
-            "a comment above the checkout.",
+            "step in the SAME job runs `git push` or `git fetch` against the remote — this\n"
+            "repo is private, so an unauthenticated fetch fails — and say which step in a\n"
+            "comment above the checkout.",
             file=sys.stderr,
         )
         return 1

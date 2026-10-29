@@ -7,9 +7,11 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1 -p 3000",
+    "dev:lan": "next dev -H 0.0.0.0 -p 3000",
     "dev:up": "supabase start && concurrently -k -n next,inngest -c cyan,magenta \"pnpm dev\" \"pnpm dev:inngest\"",
-    "dev:inngest": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
+    "dev:inngest": "inngest-cli dev --no-discovery --host 127.0.0.1 -u http://127.0.0.1:3000/api/inngest",
+    "preflight": "bash scripts/setup/doctor.sh",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -21,13 +23,17 @@
     "eval:ai": "AI_EVALS_LIVE=1 vitest run features/ai/evals/routing.live.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:scripts": "node --test scripts/*.test.mjs .github/scripts/*.test.mjs",
     "db:types:generate": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types-check.sh",
+    "check:migrations": "bash scripts/check-migrations.sh origin/main",
+    "check:forbidden-words": "bash scripts/check-forbidden-words.sh",
     "seed:dev": "node scripts/seed-dev-user.mjs",
     "seed:all": "node scripts/seed-everything.mjs",
     "db:reset": "supabase db reset && node scripts/seed-everything.mjs",
+    "db:restamp": "bash scripts/dev/restamp-migrations.sh",
     "import:afip-purchases": "node scripts/import-afip-purchases.mjs",
-    "prepare": "husky"
+    "prepare": "node .husky/install.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.79",
@@ -103,9 +109,11 @@
     "eslint-config-next": "16.3.8",
     "fflate": "0.8.3",
     "husky": "^9.1.7",
+    "inngest-cli": "1.46.0",
     "jsdom": "^30.1.2",
     "lint-staged": "^16.2.7",
     "prettier": "3.9.9",
+    "squawk-cli": "2.66.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
     "typescript": "^6",
@@ -114,7 +122,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sharp"
+      "sharp",
+      "inngest-cli"
     ],
     "overrides": {
       "ws@8": "8.20.1",

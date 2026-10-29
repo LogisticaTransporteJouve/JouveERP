@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 const runs = {
   loadRun: vi.fn(),
@@ -52,7 +53,11 @@ const { aiWeeklySummary } = await import("./ai-weekly-summary");
 
 const RUN = "3f0c9a9e-5a51-4c55-9b0e-0b7d1c1c2a10";
 const USER = "8b5d3c7e-1f2a-4b3c-9d4e-5f6a7b8c9d0e";
-const user = { userId: USER, email: "a@b.c", roles: ["finance"] };
+const user = {
+  userId: USER,
+  email: "a@b.c",
+  access: resolveAccess(["finance"]),
+};
 const queuedRun = {
   runId: RUN,
   status: "queued",

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PadronTestPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "padron:lookup")) {
+  if (!userCan(ctx.access, "padron:lookup")) {
     redirect("/dashboard");
   }
 

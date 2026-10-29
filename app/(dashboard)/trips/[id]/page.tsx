@@ -16,7 +16,7 @@ export default async function TripDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "trips:read")) {
+  if (!userCan(ctx.access, "trips:read")) {
     redirect("/dashboard");
   }
 

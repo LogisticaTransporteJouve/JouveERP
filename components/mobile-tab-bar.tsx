@@ -22,6 +22,7 @@ import {
   userCan,
   type Permission,
   type Role,
+  type Access,
 } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
@@ -51,44 +52,89 @@ const TRIPS: TabItem = {
 const TABS_BY_ROLE: Record<Role, TabItem[]> = {
   owner: [
     DASHBOARD,
-    { href: "/transactions", label: "Caja", icon: Wallet, permission: "transactions:read" },
-    { href: "/receipts", label: "Recibos", icon: Receipt, permission: "receipts:read" },
+    {
+      href: "/transactions",
+      label: "Caja",
+      icon: Wallet,
+      permission: "transactions:read",
+    },
+    {
+      href: "/receipts",
+      label: "Recibos",
+      icon: Receipt,
+      permission: "receipts:read",
+    },
     { href: "/ai", label: "IA", icon: Sparkles, permission: "ai:chat" },
   ],
   admin: [
     DASHBOARD,
-    { href: "/transactions", label: "Caja", icon: Wallet, permission: "transactions:read" },
-    { href: "/receipts", label: "Recibos", icon: Receipt, permission: "receipts:read" },
+    {
+      href: "/transactions",
+      label: "Caja",
+      icon: Wallet,
+      permission: "transactions:read",
+    },
+    {
+      href: "/receipts",
+      label: "Recibos",
+      icon: Receipt,
+      permission: "receipts:read",
+    },
     { href: "/ai", label: "IA", icon: Sparkles, permission: "ai:chat" },
   ],
   finance: [
     DASHBOARD,
-    { href: "/transactions", label: "Caja", icon: Wallet, permission: "transactions:read" },
-    { href: "/receipts", label: "Recibos", icon: Receipt, permission: "receipts:read" },
+    {
+      href: "/transactions",
+      label: "Caja",
+      icon: Wallet,
+      permission: "transactions:read",
+    },
+    {
+      href: "/receipts",
+      label: "Recibos",
+      icon: Receipt,
+      permission: "receipts:read",
+    },
     { href: "/ai", label: "IA", icon: Sparkles, permission: "ai:chat" },
   ],
   operations: [
     DASHBOARD,
     TRIPS,
-    { href: "/cargas", label: "Cargas", icon: Container, permission: "shipments:read" },
+    {
+      href: "/cargas",
+      label: "Cargas",
+      icon: Container,
+      permission: "shipments:read",
+    },
     CHAT,
   ],
   warehouse: [
     DASHBOARD,
-    { href: "/pallets", label: "Pallets", icon: Boxes, permission: "pallets:read" },
-    { href: "/warehouses", label: "Depósitos", icon: Warehouse, permission: "warehouses:read" },
+    {
+      href: "/pallets",
+      label: "Pallets",
+      icon: Boxes,
+      permission: "pallets:read",
+    },
+    {
+      href: "/warehouses",
+      label: "Depósitos",
+      icon: Warehouse,
+      permission: "warehouses:read",
+    },
     CHAT,
   ],
   driver: [DASHBOARD, TRIPS, CHAT],
 };
 
-export function MobileTabBar({ userRoles }: { userRoles: Role[] }) {
+export function MobileTabBar({ userAccess }: { userAccess: Access }) {
   const pathname = usePathname();
   const { toggleSidebar } = useSidebar();
 
-  const role = highestRole(userRoles);
+  const role = highestRole(userAccess.roles);
   const items = (role ? TABS_BY_ROLE[role] : [DASHBOARD, CHAT]).filter(
-    (item) => !item.permission || userCan(userRoles, item.permission),
+    (item) => !item.permission || userCan(userAccess, item.permission),
   );
 
   return (

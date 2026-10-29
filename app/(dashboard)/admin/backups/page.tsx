@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BackupsPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "audit:read")) {
+  if (!userCan(ctx.access, "audit:read")) {
     redirect("/dashboard");
   }
 
@@ -21,8 +21,8 @@ export default async function BackupsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Backups</h1>
         <p className="text-sm text-muted-foreground">
-          Dumps diarios de la base. Generados automáticamente por GitHub
-          Actions a las 03:00 UTC.
+          Dumps diarios de la base. Generados automáticamente por GitHub Actions
+          a las 03:00 UTC.
         </p>
       </div>
 
@@ -52,8 +52,7 @@ export default async function BackupsPage() {
         <p>
           El workflow <code>.github/workflows/backup-daily.yml</code> necesita
           tres secrets configurados en el repo:
-          <code className="ml-1">DATABASE_URL</code>,{" "}
-          <code>SUPABASE_URL</code>,
+          <code className="ml-1">DATABASE_URL</code>, <code>SUPABASE_URL</code>,
           <code className="ml-1">SUPABASE_SERVICE_ROLE_KEY</code>. Opcional:
           <code className="ml-1">SLACK_WEBHOOK_URL</code> para notificaciones.
         </p>

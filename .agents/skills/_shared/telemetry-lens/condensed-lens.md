@@ -36,6 +36,28 @@ HOUSE PIPELINE (the only sanctioned emitters — three channels, never mixed):
 There is no metrics backend and no product analytics. Adding either (or a tracing exporter, or a
 second error tracker) is a platform decision, not a drive-by.
 
+FIVE QUESTIONS PER SIGNAL (ask for every log call, capture, audit write, `ai_usage` write or alert
+the diff adds or moves — they feed the laws below):
+ Q1 ONE EMISSION PER ACTION — name the one user/system action that produces it; grep every path that
+    emits it (features/, lib/, app/, SQL triggers/RPCs writing `audit_events`) and check whether the
+    callee already logs/audits. Double-emitters: client + server emission, an RPC that audits plus the
+    action that audits, a re-run on every keystroke/page, a fan-out loop, a pre-check call, an
+    Inngest retry re-emitting a non-idempotent signal.
+ Q2 THE REAL VALUE — each field holds what actually happened (the served model after fallback, the
+    final AFIP code, the real outcome), not the intended one; check every branch: fallback, retry,
+    deleted and variant paths.
+ Q3 REACHES THE COLLECTOR — through the house pipeline; on Vercel serverless it is emitted before the
+    response returns (no fire-and-forget after it); the emission point runs AFTER the guards that can
+    reject, so auth/validation/rate-limit rejections are recorded too.
+ Q4 THE ALERT CAN FIRE — for any Sentry alert rule or filter keyed on a signal, name the failure state
+    it must catch and check it fires there; it keys on a stable code/slug, never message prose (a
+    changed message string is grepped in docs/ and alert config).
+ Q5 NOT REDUNDANT — a field derivable from another in the same record, or a log duplicating a
+    capture/audit row with the same fields, is dropped.
+DENY-PATH AUDIT: an audited operation records its denials too where the deny is a security fact (an
+access change refused, an export refused): written after the gate decides, with the real outcome,
+under an extend-only event type (law 2).
+
 THE EIGHT CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, not passed):
 1. HOUSE-PIPELINE — no parallel logger, no `console.*` in server code, no direct `@sentry/nextjs`
    import outside the config files / `instrumentation.ts` / `lib/observability.ts` (lazy), no second error tracker or analytics SDK,

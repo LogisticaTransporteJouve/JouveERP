@@ -1,4 +1,4 @@
-import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
+import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
 
 /**
  * Which domain permission an insight card belongs to. A card exposes figures
@@ -18,16 +18,16 @@ export const INSIGHT_KIND_PERMISSION: Readonly<Record<string, Permission>> = {
 };
 
 /**
- * True when `roles` may see a card of `kind`. Requires ai:read plus the card's
+ * True when `access` may see a card of `kind`. Requires ai:read plus the card's
  * domain permission; an unmapped kind is visible to ai:admin only (fail
  * closed until it is mapped).
  */
 export function canSeeInsight(
-  roles: readonly Role[] | null | undefined,
+  access: Access | null | undefined,
   kind: string,
 ): boolean {
-  if (!userCan(roles, "ai:read")) return false;
+  if (!userCan(access, "ai:read")) return false;
   const permission = INSIGHT_KIND_PERMISSION[kind];
-  if (!permission) return userCan(roles, "ai:admin");
-  return userCan(roles, permission);
+  if (!permission) return userCan(access, "ai:admin");
+  return userCan(access, permission);
 }

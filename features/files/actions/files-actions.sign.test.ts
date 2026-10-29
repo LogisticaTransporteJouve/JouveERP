@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
 
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
-const ctx: { userId: string; roles: Role[] } = {
+const ctx: { userId: string; access: Access } = {
   userId: "u1",
-  roles: ["operations"],
+  access: resolveAccess(["operations"]),
 };
 let isHrFile = false;
 const rpc = vi.fn(async () => ({ data: isHrFile, error: null }));
@@ -44,7 +44,7 @@ const { getSignedFileUrlAction } = await import("./files-actions");
 beforeEach(() => {
   vi.clearAllMocks();
   isHrFile = false;
-  ctx.roles = ["operations"];
+  ctx.access = resolveAccess(["operations"]);
 });
 
 describe("getSignedFileUrlAction — employee documents", () => {
@@ -65,7 +65,7 @@ describe("getSignedFileUrlAction — employee documents", () => {
   });
 
   it("hr:read roles skip the check", async () => {
-    ctx.roles = ["finance"];
+    ctx.access = resolveAccess(["finance"]);
     isHrFile = true;
     expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
     expect(rpc).not.toHaveBeenCalled();

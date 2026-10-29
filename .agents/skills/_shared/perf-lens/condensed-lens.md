@@ -48,6 +48,34 @@ JOUVE / SUPABASE HAZARDS (each one has bitten this codebase — check them every
 Signal: the `authenticated` role's statement_timeout bounds every PostgREST query; a hot query near
 it is the red flag.
 
+READ-COMPLETENESS (every read whose result is treated as COMPLETE — a total, a dedupe, a gate,
+`hasMore`, a classification, an AI tool's total):
+- CAN IT EXCEED THE CAP? max_rows caps selects, RPC return sets and upsert `returning` alike, and the
+  local cap is not proof of the hosted one. If the set can be larger, drain it (`paginateRange` /
+  `fetchInChunks` in `lib/supabase/paginate.ts`; `.in()` lists the data or user sizes go through the
+  chunk helper, and so do the read/validation queries beside a chunked write) or aggregate in SQL.
+  Apply the same answer to every sibling read in the flow.
+- THE CURSOR (keyset or range): orders by a UNIQUE TOTAL ORDER backed by an index (end with `id`; a
+  to-many embed doesn't duplicate parent rows, so a parent `(date, id)` is already total); SURVIVES
+  DELETION of its own row (a keyset `> (k, id)` does; a stored offset or "row after this id" lookup
+  does not); doesn't encode keys lossily; resolves its time range ONCE; never writes into the set it
+  is paging.
+- THE TRUNCATION FLAG (`hasMore`) is computed from the RAW fetched slice (fetch limit+1) with a STRICT
+  `>`: `rows.length > limit` — never `>=`, never after filtering/mapping. The sort deciding which rows
+  survive runs BEFORE the cap; a server-side clamp allows page size + 1.
+- UNIT GROUPING: logic that groups rows into a unit (a comprobante and its items, an asiento and its
+  lines, a voucher family, a threshold) runs AFTER the full drain, or the page boundary aligns with
+  the unit — never per page.
+
+QUEUES AND LONG-RUNNING WORK (Inngest functions, crons, fan-outs):
+- DRAIN RATE vs ARRIVAL: the consumer (concurrency × throughput per step) drains faster than work
+  arrives at peak (month-end invoicing, a bulk import); otherwise the backlog grows without bound.
+  Name both rates or the bound.
+- LEASE WINDOW: a step timeout / lock / "processing" status outlasts the slowest item, but not so long
+  that a crashed run strands the item; a stale-claim reaper or a retry picks it back up.
+- Unknown-size work is paged + resumable with a cursor guarded to ADVANCE (a page that makes no
+  progress must stop, not loop).
+
 THE FIVE CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, not passed):
 1. SELECTIVE-KEY-PRESENT — every large-table query carries a selective, indexed filter (date range,
    parent id, status) — never an unfiltered read of a registry table. Service-role queries

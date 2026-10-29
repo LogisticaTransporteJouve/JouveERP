@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BalancePageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     redirect("/dashboard");
   }
   const res = await listCostCentersAction({ onlyActive: true });

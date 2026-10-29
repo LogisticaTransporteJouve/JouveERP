@@ -6,6 +6,44 @@ BEFORE their first pass, so every reviewer looks hardest where this repo actuall
 is a KNOWLEDGE file, not a workflow — it lists calibrated defect classes, their real frequency,
 where to look, and the confirmed fix. It does not tell you how to run a review.
 
+## Before you raise
+
+Every review subagent applies these rules before raising a finding; `adv-review` prepends this whole
+file to every subagent and its premise gate (Step 5) re-checks them. Lens-specific rules live in each
+lens's "Verify before raising". Every finding rests on a premise. Check the premise at its source first.
+
+1. **Library, framework, engine, provider or platform behaviour needs the artifact**: the source at
+   the version `pnpm-lock.yaml` pins, the vendor doc (Next.js, Supabase/PostgREST, Inngest, AFIP
+   WSFEv1 manual, the AI SDK), or a probe, run or log. Memory, the package name and analogy with a
+   sibling library don't count. Without the artifact, raise a question.
+2. **Read the code that will actually run.** Re-read the file at the PR head. For a stack, read the
+   tip and every lower layer. CI runs the merge with `main`, so also grep each anchor at
+   `origin/main` (`git grep <anchor> origin/main -- <paths>`). For SQL, the latest definition is the
+   newest across `main`'s migrations and the branch's own
+   (`git grep -l 'FUNCTION <name>' origin/main -- supabase/migrations`, plus the branch's files).
+3. **Before calling something missing, trace one layer away**: the callee, the upstream fetch, the
+   mapper, the shared hook, the DB trigger or cascade, the RLS policy, the parent surface.
+4. **Reachability needs a producer.** For "can be null", "can be empty", "can race" or "can be
+   unbounded", name the real writer or caller that produces that state. A constructed input doesn't
+   count, and neither does a row from the dev seeds (`supabase/seed.sql`, `scripts/seed-everything.mjs`).
+5. **Stored data needs the data**: a read-only production count, or proof from every writer. A
+   subagent can't run the count, so it states the exact SQL. The orchestrator runs it only through
+   read-only access it already holds (e.g. a read-only Supabase MCP connection), and never requests or
+   approves access. A local DB holds seeds, so a zero there settles nothing. Without access, the
+   finding is unverified and the SQL goes to the author as a question.
+6. **Look for stated intent**: the PR body, the ticket, a comment at the divergence site, a test that
+   pins the behaviour, `docs/*-patterns.md`. An argued choice is not a defect; disagreeing with it is a
+   question.
+7. **Introduced or pre-existing?** Diff against the merge-base. A pre-existing gap doesn't block,
+   except:
+   - A change that widens the reach of a security, role-isolation or data-loss gap (a new audience, a
+     new caller, a new AI tool over it) introduced that widening.
+   - A gap the PR or its ticket claims to close is a claims finding, judged as introduced.
+8. **One root cause, one finding, never re-raised.** Dedupe across subagents and against every
+   existing review thread, human or bot. Drop anything already refuted, declined with a reason, or
+   kept by a recorded decision.
+9. **The JSON string `"now()"` sent to a timestamptz column is fine**: PostgREST coerces it.
+
 Ports-and-adapters violations are NOT catalogued here — that lens has its own full guide. Load
 `.claude/skills/enforce-ports-and-adapters/SKILL.md`: adapter-specific logic lives ONLY inside
 its adapter behind the shared contract; nothing else — handlers, tests, components, helpers,
@@ -23,10 +61,11 @@ classifier, the change-narration rule, and the five verdicts. The `[code comment
 class below is only the look-here index; the rule lives in that guide.
 
 ## Contents
+- [Before you raise](#before-you-raise) — the premise rules every finding must pass
 - [How to use](#how-to-use)
 - [Entry schema](#entry-schema-every-catalogued-class)
 - [Curated](#curated-auto) — the calibrated defect classes (what recurs, where to look, the confirmed fix)
-- [Emerging](#emerging) — weaker-signal / single-PR candidates; graduate on frequency
+- [Emerging](#emerging) — recurring shapes a lens would miss, named by lens; graduate on frequency
 - [Known false-positives](#known-false-positives--never-raise) — never raise these
 
 ## How to use
@@ -239,15 +278,14 @@ class below is only the look-here index; the rule lives in that guide.
 - source: adv-review.
 
 ## Emerging
-<!-- Advisory / weaker-signal classes land here (single-PR or unconfirmed signal). Auto-appended by a catalog-calibration pass. Graduate to Curated on confirmation + frequency >=2 distinct PRs. -->
+<!-- A recurring defect shape its owning lens would miss lands here until a human folds it into the lens (or into Curated). Each row names the lens, the shape, the PRs that show it (two or more to graduate; one = advisory), and the check that would have caught it. adv-review hands each Read-delivered seat the rows that name its lens. -->
 
 ## Known false-positives — never raise
 <!-- Negative signal. These shapes are correct as written; raising them wastes a finding. Pre-filters both sections above. -->
 - A to-many embed does not duplicate parent rows — `(entry_date, id)` on the parent PK IS a total order; a tiebreak is needed only for a `RETURNS TABLE` RPC projecting a real JOIN.
-- An owner-only check written as `ctx.roles.includes("owner")` (e.g. client/supplier opening balances) is the documented house form, not an ad-hoc role check.
+- An owner-only check written as `ctx.access.roles.includes("owner")` (e.g. client/supplier opening balances) is the documented house form, not an ad-hoc role check.
 - `issueFiscalInvoiceAction` imported from another feature is the documented exception to the no-cross-feature-actions rule.
 - `CREATE OR REPLACE FUNCTION` preserves the ACL — do NOT flag a missing re-GRANT; only a fresh CREATE or DROP+CREATE resets EXECUTE to PUBLIC.
-- The JSON string `"now()"` coerces fine to timestamptz via PostgREST.
 - Radix uncontrolled `Select` updates its own displayed value — `defaultValue` isn't automatically a bug.
 - Supabase `SIGNED_OUT` is a precise "session removed" signal — a global reset listener on it is correct, not noisy.
 

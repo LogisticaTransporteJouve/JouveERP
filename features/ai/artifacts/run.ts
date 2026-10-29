@@ -14,15 +14,15 @@ import { LEGACY_FIELDS_NOTE, upgradeLegacyFields } from "./legacy-fields";
 import { resolveRows } from "./rows";
 import type { Artifact, ArtifactMeta, PinRequest } from "./spec";
 
-/** The read actions an artifact may be built from, for these roles. The
+/** The read actions an artifact may be built from, for this access. The
  *  artifact tools themselves never appear here (they are not registry
  *  actions), so a chart cannot be built from another chart. */
 export function artifactSourceActions(
-  roles: AiActionContext["roles"],
+  access: AiActionContext["access"],
   actions: readonly AiAction[] = AI_ACTIONS,
 ): AiAction[] {
   return actions.filter(
-    (a) => a.sideEffect === "read" && canRunAiAction(roles, a.permissions),
+    (a) => a.sideEffect === "read" && canRunAiAction(access, a.permissions),
   );
 }
 
@@ -41,7 +41,7 @@ export async function runArtifact(
   request: PinRequest,
   actions?: readonly AiAction[],
 ): Promise<ArtifactRun> {
-  const action = artifactSourceActions(ctx.roles, actions).find(
+  const action = artifactSourceActions(ctx.access, actions).find(
     (a) => a.name === request.source.action,
   );
   if (!action) {

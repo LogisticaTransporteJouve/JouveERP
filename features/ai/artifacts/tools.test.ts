@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 import { buildAiTools, buildCapabilitiesSummary } from "../registry/build";
 import { defineAiAction } from "../registry/define";
@@ -56,7 +56,7 @@ const proposeThing = defineAiAction({
 });
 
 const ACTIONS = [getExpenses, getPayroll, proposeThing];
-const ctx = (roles: Role[]) => ({ userId: "u1", roles });
+const ctx = (roles: Role[]) => ({ userId: "u1", access: resolveAccess(roles) });
 const call = { toolCallId: "call-1", messages: [], context: undefined };
 
 describe("runArtifact", () => {
@@ -184,11 +184,13 @@ describe("buildAiTools", () => {
 
   it("lists them in the capabilities summary when asked", () => {
     expect(
-      buildCapabilitiesSummary(["finance"], ACTIONS, { artifacts: true }),
+      buildCapabilitiesSummary(resolveAccess(["finance"]), ACTIONS, {
+        artifacts: true,
+      }),
     ).toContain(RENDER_CHART_TOOL);
-    expect(buildCapabilitiesSummary(["finance"], ACTIONS)).not.toContain(
-      RENDER_CHART_TOOL,
-    );
+    expect(
+      buildCapabilitiesSummary(resolveAccess(["finance"]), ACTIONS),
+    ).not.toContain(RENDER_CHART_TOOL);
   });
 });
 

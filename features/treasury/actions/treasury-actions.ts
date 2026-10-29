@@ -41,7 +41,7 @@ export async function getTreasurySummaryAction(): Promise<
 > {
   const ctx = await requireUserContext();
   // accounting:read is the "view finances" permission. Treasury falls under it.
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver tesorería." };
   }
 

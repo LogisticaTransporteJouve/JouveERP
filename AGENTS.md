@@ -21,17 +21,29 @@ table lists only names and paths, so it does not go stale.
 | auto-build | `.agents/skills/auto-build/SKILL.md` |
 | auto-implement | `.agents/skills/auto-implement/SKILL.md` |
 | auto-ship-gate | `.agents/skills/auto-ship-gate/SKILL.md` |
+| create-e2e-test | `.agents/skills/create-e2e-test/SKILL.md` |
+| enforce-claims | `.agents/skills/enforce-claims/SKILL.md` |
 | enforce-clean-code | `.agents/skills/enforce-clean-code/SKILL.md` |
 | enforce-comment-value | `.agents/skills/enforce-comment-value/SKILL.md` |
+| enforce-data-integrity | `.agents/skills/enforce-data-integrity/SKILL.md` |
+| enforce-deploy-safety | `.agents/skills/enforce-deploy-safety/SKILL.md` |
+| enforce-effects | `.agents/skills/enforce-effects/SKILL.md` |
+| enforce-outcomes | `.agents/skills/enforce-outcomes/SKILL.md` |
 | enforce-ports-and-adapters | `.agents/skills/enforce-ports-and-adapters/SKILL.md` |
+| enforce-reach | `.agents/skills/enforce-reach/SKILL.md` |
 | enforce-role-isolation | `.agents/skills/enforce-role-isolation/SKILL.md` |
+| enforce-ui-state | `.agents/skills/enforce-ui-state/SKILL.md` |
+| improve-text-md | `.agents/skills/improve-text-md/SKILL.md` |
+| long-loop | `.agents/skills/long-loop/SKILL.md` |
 | nav-github | `.agents/skills/nav-github/SKILL.md` |
 | nav-linear (optional) | `.agents/skills/nav-linear/SKILL.md` |
 | new-feature | `.agents/skills/new-feature/SKILL.md` |
 | new-inngest-fn | `.agents/skills/new-inngest-fn/SKILL.md` |
 | new-migration | `.agents/skills/new-migration/SKILL.md` |
+| restamp-migrations | `.agents/skills/restamp-migrations/SKILL.md` |
 | supabase-postgres-best-practices | `.agents/skills/supabase-postgres-best-practices/SKILL.md` |
 | tighten | `.agents/skills/tighten/SKILL.md` |
+| verify | `.agents/skills/verify/SKILL.md` |
 
 `.agents/skills/README.md` explains how they fit together, and
 `.agents/skills/_shared/runtime/capabilities.md` how work is split into waves with or without
@@ -47,8 +59,13 @@ To add a skill: create `.agents/skills/<name>/SKILL.md`, the symlink
 - Conventional commits in English with no `Co-Authored-By` or any other trailer/footer.
 - Never read `.env*` files other than the `*.example` ones; never run `supabase db push`,
   `supabase link` or a remote `db reset`. Do not start Docker or a local Supabase stack unprompted.
-- Validate with `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`; add `pnpm db:types:check`
-  and `supabase test db` (once `supabase/tests/` exists) only when `supabase/` changes and a local stack is already running.
+- Validate with `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` (in that order, on a fresh
+  container after `pnpm install`); `pnpm test:scripts` when `scripts/` or `.github/scripts/` change;
+  `pnpm check:migrations`, `pnpm db:types:check` and `supabase test db` only when `supabase/` changes and
+  a local stack is already running.
+- The PR body follows `.github/pull_request_template.md`: it starts with `## Resumen` and ends with
+  `## Follow-ups` for whatever is out of scope.
+- Gates call `userCan(ctx.access, "<perm>")`; per-user denies live in `ctx.access` (see `CLAUDE.md`).
 - Linear is optional: follow-ups go to the PR body's `## Follow-ups` section.
 - `.claude/settings.json` denies the destructive and secret-reading commands above.
 

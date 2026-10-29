@@ -27,7 +27,7 @@ import {
 } from "@/lib/afip/codes";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, type Role } from "@/lib/auth/permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
@@ -53,8 +53,8 @@ type ServerSupabase = Awaited<ReturnType<typeof createSupabaseClient>>;
 /** Who confirms a draft, and whether they may attach its file to the result. */
 type Actor = { userId: string; canAttach: boolean };
 
-function actorOf(ctx: { userId: string; roles: readonly Role[] }): Actor {
-  return { userId: ctx.userId, canAttach: userCan(ctx.roles, "files:write") };
+function actorOf(ctx: { userId: string; access: Access }): Actor {
+  return { userId: ctx.userId, canAttach: userCan(ctx.access, "files:write") };
 }
 
 const BUCKET = "files";
@@ -95,7 +95,7 @@ export async function scanDocumentAction(
   formData: FormData,
 ): Promise<ActionResult<{ extractionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "ai:read") || !userCan(ctx.access, "files:write")) {
     return { ok: false, error: "No tenés permiso para escanear documentos." };
   }
 
@@ -171,7 +171,7 @@ export async function extractDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ extractionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "files:write")) {
+  if (!userCan(ctx.access, "ai:read") || !userCan(ctx.access, "files:write")) {
     return { ok: false, error: "No tenés permiso para escanear documentos." };
   }
 
@@ -197,7 +197,7 @@ export async function listExtractionsAction(
   status: string,
 ): Promise<ActionResult<PendingExtraction[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read")) {
+  if (!userCan(ctx.access, "ai:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -233,7 +233,7 @@ export async function getExtractionAction(
   extractionId: string,
 ): Promise<ActionResult<ExtractionDetail | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read")) {
+  if (!userCan(ctx.access, "ai:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -277,8 +277,8 @@ export async function getPurchaseInvoiceDraftAction(
 ): Promise<ActionResult<PurchaseInvoiceDraftState>> {
   const ctx = await requireUserContext();
   if (
-    !userCan(ctx.roles, "ai:read") ||
-    !userCan(ctx.roles, "purchase_invoices:write")
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "purchase_invoices:write")
   ) {
     return {
       ok: false,
@@ -434,8 +434,8 @@ export async function createPurchaseInvoiceFromDraftAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (
-    !userCan(ctx.roles, "ai:read") ||
-    !userCan(ctx.roles, "purchase_invoices:write")
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "purchase_invoices:write")
   ) {
     return {
       ok: false,
@@ -479,7 +479,7 @@ export async function discardExtractionAction(
   extractionId: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read")) {
+  if (!userCan(ctx.access, "ai:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 
@@ -541,7 +541,10 @@ export async function createChecksFromExtractionAction(
   ActionResult<{ created: number; errors: { index: number; error: string }[] }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "cheques:write")) {
+  if (
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "cheques:write")
+  ) {
     return { ok: false, error: "No tenés permiso para crear cheques." };
   }
   const parsed = CreateChecksFromExtractionSchema.safeParse(input);
@@ -915,7 +918,10 @@ export async function createReceiptFromExtractionAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "receipts:write")) {
+  if (
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "receipts:write")
+  ) {
     return { ok: false, error: "No tenés permiso para crear recibos." };
   }
   const parsed = CreateReceiptFromExtractionSchema.safeParse(input);
@@ -991,8 +997,8 @@ export async function createPaymentOrderFromExtractionAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (
-    !userCan(ctx.roles, "ai:read") ||
-    !userCan(ctx.roles, "payment_orders:write")
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "payment_orders:write")
   ) {
     return { ok: false, error: "No tenés permiso para crear órdenes de pago." };
   }
@@ -1066,7 +1072,10 @@ export async function createSalesInvoiceFromExtractionAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read") || !userCan(ctx.roles, "invoices:issue")) {
+  if (
+    !userCan(ctx.access, "ai:read") ||
+    !userCan(ctx.access, "invoices:issue")
+  ) {
     return { ok: false, error: "No tenés permiso para emitir comprobantes." };
   }
   const parsed = CreateSalesInvoiceFromExtractionSchema.safeParse(input);

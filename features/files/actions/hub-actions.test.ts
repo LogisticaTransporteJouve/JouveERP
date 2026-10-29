@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
 
 // A PostgREST builder stand-in that records every filter and resolves to the
 // rows the test set for the view.
@@ -55,9 +55,9 @@ function client() {
   };
 }
 
-const ctx: { userId: string; roles: Role[] } = {
+const ctx: { userId: string; access: Access } = {
   userId: "u-1",
-  roles: ["finance"],
+  access: resolveAccess(["finance"]),
 };
 
 vi.mock("@/lib/auth/context", () => ({ requireUserContext: async () => ctx }));
@@ -93,13 +93,13 @@ beforeEach(() => {
   calls = [];
   viewRows = [];
   ctx.userId = "u-1";
-  ctx.roles = ["finance"];
+  ctx.access = resolveAccess(["finance"]);
   signed.mockClear();
 });
 
 describe("listHubFilesAction", () => {
   it("filters by the caller's entity types and own AI files", async () => {
-    ctx.roles = ["operations"];
+    ctx.access = resolveAccess(["operations"]);
     const res = await listHubFilesAction({});
     expect(res).toEqual({ ok: true, data: { items: [], nextCursor: null } });
     expect(callsOf("in")).toEqual([
@@ -115,26 +115,26 @@ describe("listHubFilesAction", () => {
   });
 
   it("does not restrict owners for ai:admin", async () => {
-    ctx.roles = ["admin"];
+    ctx.access = resolveAccess(["admin"]);
     await listHubFilesAction({});
     expect(callsOf("or")).toEqual([]);
   });
 
   it("never widens past the scope with a requested entity type", async () => {
-    ctx.roles = ["operations"];
+    ctx.access = resolveAccess(["operations"]);
     const res = await listHubFilesAction({ entityType: "employee_document" });
     expect(res).toEqual({ ok: true, data: { items: [], nextCursor: null } });
     expect(calls).toEqual([]);
   });
 
   it("returns nothing (and runs no query) for roles without listable origins", async () => {
-    ctx.roles = ["warehouse"];
+    ctx.access = resolveAccess(["warehouse"]);
     expect(await listHubFilesAction({})).toEqual({
       ok: true,
       data: { items: [], nextCursor: null },
     });
     expect(calls).toEqual([]);
-    ctx.roles = ["driver"];
+    ctx.access = resolveAccess(["driver"]);
     expect((await listHubFilesAction({})).ok).toBe(false);
   });
 
@@ -201,7 +201,7 @@ describe("listHubFilesAction", () => {
 
 describe("getHubFileUrlAction", () => {
   it("signs only a row visible in the caller's scope", async () => {
-    ctx.roles = ["operations"];
+    ctx.access = resolveAccess(["operations"]);
     viewRows = [row(1)];
     const res = await getHubFileUrlAction(row(1).link_id, { download: true });
     expect(res).toEqual({
@@ -234,7 +234,7 @@ describe("getHubFileUrlAction", () => {
   });
 
   it("refuses roles that can list no origin", async () => {
-    ctx.roles = ["warehouse"];
+    ctx.access = resolveAccess(["warehouse"]);
     viewRows = [row(1)];
     expect((await getHubFileUrlAction(row(1).link_id)).ok).toBe(false);
     expect(calls).toEqual([]);

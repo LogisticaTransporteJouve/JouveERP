@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProductsPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "products:read")) {
+  if (!userCan(ctx.access, "products:read")) {
     redirect("/dashboard");
   }
 

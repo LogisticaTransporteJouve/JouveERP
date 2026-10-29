@@ -37,7 +37,7 @@ Where a skill says "fan out parallel read-only sub-tasks", "spawn a wave", "spaw
   gathered, so neither the gather nor the judgment is safe to hand off.
 
 The stated minimums are floors on the DOCTRINE, not on the concurrency: "≥4 attackers per round",
-"≥3 consecutive clean waves", "run one more round than you think" all still bind when you run serially —
+"≥3 consecutive clean waves", "one seat per routed lens", "run one more round than you think" all still bind when you run serially —
 you perform that many independent passes, you do not skip them because they are not parallel.
 
 **What serial execution does not fully reproduce — independence.** A few skills rely on a sub-agent
@@ -53,7 +53,9 @@ prompt" and the load-proof echoes (the catalog / ports / dry counts, the read-on
 inject into — and verify — a fresh sub-agent that inherits nothing. With no sub-agents there is nothing
 to paste into: read those files directly into your one context. That read satisfies the echo / NON-CLEAN
 gates (they do not bind as separate gates), and the read-only fence is moot — there is no separate agent
-to fence.
+to fence. What still binds is each lens's output: give every pasted lens's per-law verdict, and for a
+Read-delivered lens (one `adv-review` Step 3 routes as a seat that Reads its `SKILL.md`) run its
+procedure and fill its coverage table, one lens at a time — a lens with no filled table was not run.
 
 ## Frontmatter core
 

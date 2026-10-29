@@ -161,9 +161,19 @@ Names are load-bearing. A leaked word is a leaked boundary.
 
 ## Repo hierarchy, ownership & boundaries (JouveERP — one Next.js app)
 
-JouveERP is a single Next.js 16 app, not a monorepo: the boundaries are directories, not packages,
-and **nothing machine-enforces them** (ESLint carries no import-boundary rule) — this lens and review
-are the guard. Use this map verbatim; do NOT invent a cleaner-but-false one.
+JouveERP is a single Next.js 16 app, not a monorepo: the boundaries are directories, not packages.
+**`eslint.fences.mjs` machine-enforces part of them** (`pnpm lint`): the AI-provider fence
+(`@ai-sdk/*` other than `@ai-sdk/react` only in `features/ai/model.ts`), the Sentry fence
+(`@sentry/*` only in the `sentry.*.config.ts` files, `instrumentation.ts` and `lib/observability.ts`),
+the service-key fence (the service-role key only in `lib/supabase/service.ts`), the lib→feature fence
+(`lib/**` never imports a feature's actions, components or hooks) and the cross-feature-actions fence
+(a feature value-importing another feature's actions module is an error, except read actions
+matching the name pattern — `list*`/`get*`/`search*`/`lookup*`/`find*`, not `getOrCreate*` — and
+`issueFiscalInvoiceAction`; type imports are allowed; any dynamic `import()` of another feature's
+actions is banned, read or write). A green lint is not a pass: PLACEMENT of business logic, NO-BRANCH
+and CONTRACT-VOCAB are not linted, and a write action whose name happens to match the read pattern
+slips through — this lens and review are the guard for everything the fences don't encode. Use this
+map verbatim; do NOT invent a cleaner-but-false one.
 
 ### The layer map (allowed directions)
 

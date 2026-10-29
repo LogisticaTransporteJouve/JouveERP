@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return NextResponse.json(
       { error: "No tenés permiso para ver comprobantes." },
       { status: 403 },

@@ -42,9 +42,11 @@ fatal/serious finding".
 
 ## Step 0 — Load the lenses + plan format (before any planning)
 Read `.claude/skills/enforce-ports-and-adapters/SKILL.md` IN FULL (incl. the layer map and
-feature-slice rules), `.claude/skills/enforce-clean-code/SKILL.md` IN FULL (the DRY-progression law), and
+feature-slice rules), `.claude/skills/enforce-clean-code/SKILL.md` IN FULL (the DRY-progression law),
+`.claude/skills/_shared/reach-lens/condensed-lens.md` IN FULL (the reach law), the routing table in
+`.claude/skills/adv-review/SKILL.md` Step 3 (which lenses fire for which surface), and
 `.claude/skills/_shared/plan-format.md` (the schema you must emit). NEGATIVE GATE: if you have not
-read all three this turn, you may NOT write the plan.
+read all five this turn, you may NOT write the plan.
 
 ## Step 1 — Research the codebase (spend most of your time here)
 Build a real mental model before planning. Read `README.md`, root `CLAUDE.md`, `docs/pendientes.md`, and the
@@ -67,6 +69,12 @@ mandatory design sections:
   before any code exists. Where the research shows a piece of logic will occur a 2nd time, name the
   shared interface up front (or record why the occurrences change for different reasons and stay
   separate) — a plan that bakes in an avoidable copy-paste OR a premature abstraction is redesigned HERE.
+  For each one-way door (`adv-review` Step 2, check 7: a persisted shape, an AFIP-issued voucher or
+  other external contract, a persisted name such as an Inngest event, audit event type or permission
+  string, a change to existing production data) the plan adds, record the alternative it rejected and
+  why, and whether an additive or flag-gated shape would make it two-way. Where the plan adds a member
+  to a family (a channel, a voucher type, an AI tool, a provider), list what the next member would
+  touch (`enforce-clean-code` Step 4, the next member).
 - `## Falsification Log` — start empty; Steps 3–4 fill it.
 
 ## Step 3 — Falsify the plan with INDEPENDENT attackers (not you re-reading)
@@ -77,6 +85,12 @@ one more round than you think you need**); each round assigns each subagent one 
 must PROVE with evidence:
 - "This doesn't actually solve the goal" / "over- or under-engineered" / "breaks in production
   (cold start, scale)" / "the assumptions are wrong" / "there is a radically simpler way"
+- ONE dedicated premise every round: **"this plan misses a place the change must reach"** — the
+  attacker runs the reach lens against the plan: every writer, reader, entry point, exit, variant
+  (4 channels, CAE/CAEA, ARS/USD, NC/ND) and surface (action ↔ AI CFO tool ↔ hook/keys ↔ page; money ↔
+  RPC/view ↔ PDF ↔ libro IVA/exports; permission ↔ matrix + test + RLS arrays + UI) of what the plan
+  changes, every other piece of code answering the same question, and every registry a new unit must
+  join (`app/api/inngest/route.ts`, `features/ai/registry/`, `lib/auth/permissions.ts`).
 - ONE dedicated premise every round: **"this plan bakes in a ports/boundary violation"** — the
   attacker checks `## Architecture & Ports Contract` against the ports law.
 - ONE dedicated premise every round: **"this plan bakes in an avoidable duplication OR a premature/
@@ -101,13 +115,25 @@ must PROVE with evidence:
   falsifier): **"this plan bakes in a path around the role gate"** — the attacker checks the planned
   actions/policies/grants/functions/handlers/tools against the role law in `enforce-role-isolation`:
   a `"use server"` export or route reaching `getServiceClient()` without `requireUserContext()` +
-  `userCan(ctx.roles, "<perm>")`, a write gated by a `:read` permission, a new table without RLS in the
+  `userCan(ctx.access, "<perm>")`, a gate a per-user deny does not reach, a write gated by a `:read` permission, a new table without RLS in the
   same migration, a policy with a bare `user_has_role()` or no `WITH CHECK`, a `SECURITY DEFINER`
   function without `SET search_path` or an internal role check, a `REVOKE ... FROM PUBLIC` that leaves
   the explicit `anon`/`authenticated` grants standing, any grant to `anon`, a self-scoped row without
   its `user_id` filter, an AI tool that bypasses its read action, a new permission missing from
   `lib/auth/permissions.ts` or its test — and rejects any planned fix that ships without a test
   observed to FAIL against the pre-fix state.
+- ONE dedicated premise every round: **"this plan bakes in a value that loses its meaning on the way
+  to its sink, or an effect that is unguarded, non-atomic or unsafe to replay"** — the attacker Reads
+  `.claude/skills/enforce-outcomes/SKILL.md` and `.claude/skills/enforce-effects/SKILL.md` in full and
+  applies them to the planned reads, writes, AFIP calls and Inngest steps.
+- ONE dedicated premise in every round for each CONDITIONAL lens whose `adv-review` Step 3 trigger
+  fires for the plan — data-integrity, deploy-safety, ui-state (role and telemetry are above):
+  **"this plan bakes in a defect this lens exists to catch"**; the attacker Reads that lens's
+  `SKILL.md` in full. A lens that does not fire gets no seat.
+- **Lens seats never crowd the floor.** They are additive: every round ALSO runs at least two
+  general falsifiers from the first bullet (rotate them across rounds; the "assumptions are wrong"
+  one Reads `.claude/skills/enforce-claims/SKILL.md` and checks every claim the plan makes about the
+  current code). Round size = lens seats + ≥2 general, and never under 4.
 
 Paste into EVERY subagent prompt, verbatim: (a) the block from
 `.claude/skills/_shared/subagent-constraints/hard-constraints.md`; (b) the orientation block from
@@ -115,8 +141,9 @@ Paste into EVERY subagent prompt, verbatim: (a) the block from
 from `.claude/skills/_shared/ports-lens/condensed-lens.md`; (d) the condensed clean-code lens from
 `.claude/skills/_shared/dry-lens/condensed-lens.md`; (e) the condensed algorithmic-performance lens
 from `.claude/skills/_shared/perf-lens/condensed-lens.md`; (f) the condensed telemetry lens from
-`.claude/skills/_shared/telemetry-lens/condensed-lens.md`; (g) the one assigned premise; (h) the
-plan path; and (i) — ONLY where the plan touches a DB or authz surface — the condensed
+`.claude/skills/_shared/telemetry-lens/condensed-lens.md`; (g) the condensed reach lens from
+`.claude/skills/_shared/reach-lens/condensed-lens.md`; (h) the one assigned premise, with the
+`SKILL.md` path of each Read-delivered lens it names; (i) the plan path; and (j) — ONLY where the plan touches a DB or authz surface — the condensed
 role-isolation lens from `.claude/skills/_shared/role-lens/condensed-lens.md` (omit it otherwise;
 that lens is conditional and a plan with no DB/authz surface must not pay for it). Each finding:
 attack vector, specific evidence (code paths), severity cosmetic/serious/fatal, and the proposed
@@ -126,7 +153,9 @@ agents did (`git status`, worktrees, branches) before trusting findings.
 ## Step 4 — Resolve and gate
 You are the SYNTHESIZER only. For every finding, record it in `## Falsification Log` and either FIX
 the plan or REBUT it with specific evidence (not "seems fine"). Convergence across independent
-premises on the same weakness is strong signal — act on it. The plan is done ONLY when no fatal or
+premises on the same weakness is strong signal — act on it. Check each finding's premise at its
+source before acting on it (`adv-review` Step 5; agreement between attackers is not evidence). A
+finding against a one-way door is resolved only by recording the rejected alternative and why. The plan is done ONLY when no fatal or
 serious finding is unresolved. Before finishing, do a dedup/contradiction pass on the plan prose
 (two items that say the same thing, a Target that contradicts a Scope) — `/tighten` at level low
 compresses the prose, but never let it drop a load-bearing path, line number, or call site.

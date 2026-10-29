@@ -70,7 +70,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { UserAvatar } from "@/components/user-avatar";
-import { userCan, type Permission, type Role } from "@/lib/auth/permissions";
+import { userCan, type Permission, type Access } from "@/lib/auth/permissions";
 import { getDisplayName } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
 
@@ -468,11 +468,11 @@ type ProfileSummary = {
 
 export function AppSidebar({
   userEmail,
-  userRoles,
+  userAccess,
   profile,
 }: {
   userEmail: string;
-  userRoles: Role[];
+  userAccess: Access;
   profile: ProfileSummary;
 }) {
   const pathname = usePathname();
@@ -482,7 +482,7 @@ export function AppSidebar({
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => !item.permission || userCan(userRoles, item.permission),
+        (item) => !item.permission || userCan(userAccess, item.permission),
       ),
     }))
     .filter((section) => section.items.length > 0);

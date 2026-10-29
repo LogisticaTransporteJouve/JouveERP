@@ -4803,6 +4803,30 @@ export type Database = {
           },
         ]
       }
+      user_permission_denies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          permission: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          permission: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          permission?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           avatar_color: string
@@ -6251,7 +6275,7 @@ export type Database = {
         }
       }
       search_global: {
-        Args: { p_limit?: number; p_query: string }
+        Args: { p_limit?: number; p_query: string; p_types?: string[] }
         Returns: {
           entity_id: string
           entity_type: string
@@ -6343,6 +6367,19 @@ export type Database = {
       seed_payroll_period: {
         Args: { p_month: number; p_year: number }
         Returns: string
+      }
+      set_user_access: {
+        Args: {
+          p_actor: string
+          p_addable_roles?: string[]
+          p_denied?: string[]
+          p_expected_denied?: string[]
+          p_expected_roles?: string[]
+          p_removable_roles?: string[]
+          p_roles?: string[]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

@@ -39,7 +39,7 @@ export async function listInsightsAction(): Promise<
   ActionResult<InsightCard[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:read")) {
+  if (!userCan(ctx.access, "ai:read")) {
     return { ok: false, error: "No tenés permiso para ver insights." };
   }
 
@@ -58,7 +58,7 @@ export async function listInsightsAction(): Promise<
   // Defense in depth on top of RLS: drop cards from domains this user can't
   // read (e.g. operations must not see treasury / AR / AP cards).
   const visible = (data ?? []).filter((card) =>
-    canSeeInsight(ctx.roles, card.kind),
+    canSeeInsight(ctx.access, card.kind),
   );
   const cards = visible.sort((a, b) => {
     const sev =
@@ -73,7 +73,7 @@ export async function runAnalystAction(): Promise<
   ActionResult<{ count: number }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:admin")) {
+  if (!userCan(ctx.access, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para recalcular insights." };
   }
   try {
@@ -94,7 +94,7 @@ export async function setInsightStatusAction(input: {
   status: "acknowledged";
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:admin")) {
+  if (!userCan(ctx.access, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para gestionar insights." };
   }
   if (input.status !== "acknowledged") {
@@ -127,7 +127,7 @@ export async function ignoreInsightAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "ai:admin")) {
+  if (!userCan(ctx.access, "ai:admin")) {
     return { ok: false, error: "No tenés permiso para gestionar insights." };
   }
   const parsed = IgnoreInsightSchema.safeParse(input);

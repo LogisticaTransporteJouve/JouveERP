@@ -115,7 +115,7 @@ export async function issueFiscalInvoiceAction(
   input: CreateComprobanteInput,
 ): Promise<ActionResult<IssueInvoiceResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:issue")) {
+  if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso para emitir comprobantes." };
   }
 
@@ -454,7 +454,7 @@ export async function getInvoiceStatusAction(
   id: string,
 ): Promise<ActionResult<InvoiceStatusSnapshot>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso para ver comprobantes." };
   }
 
@@ -536,7 +536,7 @@ export async function listInvoicesAction(
   ActionResult<{ items: InvoiceListItem[]; nextOffset: number | null }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso para ver comprobantes." };
   }
 
@@ -724,7 +724,7 @@ export async function getInvoiceDetailAction(
   id: string,
 ): Promise<ActionResult<ComprobanteDetail>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso para ver comprobantes." };
   }
 
@@ -817,7 +817,7 @@ export async function listFiscalChannelsAction(): Promise<
   ActionResult<FiscalChannelOption[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:issue")) {
+  if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = getServiceClient();
@@ -844,7 +844,7 @@ export async function listInvoicingChannelsAction(): Promise<
   ActionResult<FiscalChannelOption[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:issue")) {
+  if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = getServiceClient();
@@ -874,7 +874,7 @@ export async function listEnabledPosAction(
   channelId: string,
 ): Promise<ActionResult<PosOption[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:issue")) {
+  if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = getServiceClient();
@@ -904,7 +904,7 @@ export async function regeneratePdfAction(
   id: string,
 ): Promise<ActionResult<{ pdf_hash: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:issue")) {
+  if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: "No tenés permiso." };
   }
   try {
@@ -932,7 +932,7 @@ export async function cancelInvoiceAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "invoices:cancel")) {
+  if (!userCan(ctx.access, "invoices:cancel")) {
     return { ok: false, error: "No tenés permiso para anular comprobantes." };
   }
   const parsed = CancelInvoiceSchema.safeParse(input);

@@ -32,7 +32,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (!userCan(ctx.roles, exporter.permission)) {
+  if (!userCan(ctx.access, exporter.permission)) {
     return NextResponse.json({ error: "No tenés permiso." }, { status: 403 });
   }
 

@@ -44,7 +44,7 @@ export async function getSupplierOpeningBalanceAction(
   supplierId: string,
 ): Promise<ActionResult<SupplierOpeningBalance | null>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
   const idParsed = UuidSchema.safeParse(supplierId);
@@ -90,7 +90,7 @@ export async function setSupplierOpeningBalanceAction(input: {
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return {
       ok: false,
       error: "Solo el owner puede ajustar saldos de proveedor.",
@@ -130,7 +130,7 @@ export async function clearSupplierOpeningBalanceAction(
   supplierId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.roles.includes("owner")) {
+  if (!ctx.access.roles.includes("owner")) {
     return {
       ok: false,
       error: "Solo el owner puede borrar el ajuste de saldo.",
@@ -197,7 +197,7 @@ export async function getSupplierAccountAction(
   supplierId: string,
 ): Promise<ActionResult<SupplierAccountResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
   const idParsed = UuidSchema.safeParse(supplierId);
@@ -364,7 +364,7 @@ export async function getSupplierAgingAction(): Promise<
   ActionResult<AgingReport>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "suppliers:read")) {
+  if (!userCan(ctx.access, "suppliers:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
 

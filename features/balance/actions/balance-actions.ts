@@ -23,7 +23,7 @@ export async function getAccountBalancesAction(input: {
   costCenterId?: string | null;
 }): Promise<ActionResult<AccountBalanceRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const parsed = GetAccountBalancesInput.safeParse(input);

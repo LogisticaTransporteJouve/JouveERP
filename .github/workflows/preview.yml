@@ -23,7 +23,9 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: vercel-preview
+    environment:
+      name: vercel-preview
+      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       # Secrets cannot be read in a job-level `if`, so a missing setup is
@@ -53,6 +55,7 @@ jobs:
           persist-credentials: false
 
       - name: Deploy to Vercel
+        id: deploy
         if: steps.secrets.outputs.ready == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -63,3 +66,4 @@ jobs:
           url="$(npx -y vercel@59.26.0 deploy --yes --token "$VERCEL_TOKEN")"
           echo "::notice::Preview deployed: $url"
           echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "url=$url" >> "$GITHUB_OUTPUT"

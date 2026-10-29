@@ -18,11 +18,9 @@ import type { Database } from "@/lib/db/database.types";
 import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
 
 export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code?: string };
+  { ok: true; data: T } | { ok: false; error: string; code?: string };
 
-type PuntoDeVentaRow =
-  Database["public"]["Tables"]["sales_points"]["Row"];
+type PuntoDeVentaRow = Database["public"]["Tables"]["sales_points"]["Row"];
 
 export interface SalesPointRow {
   numero: number;
@@ -54,7 +52,7 @@ function rowToSalesPoint(row: PuntoDeVentaRow): SalesPointRow {
 
 async function requireAfipAdmin() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "afip:admin")) {
+  if (!userCan(ctx.access, "afip:admin")) {
     return null;
   }
   return ctx;
@@ -77,7 +75,12 @@ export async function loadAfipAdminAction(): Promise<
       });
       throw err;
     }),
-    supabase.from("sales_points").select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at").order("numero"),
+    supabase
+      .from("sales_points")
+      .select(
+        "numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at",
+      )
+      .order("numero"),
   ]);
 
   if (dbRes.error) {
@@ -119,15 +122,11 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
   }
 
   const supabase = getServiceClient();
-  const existing = await supabase
-    .from("sales_points")
-    .select("numero");
+  const existing = await supabase.from("sales_points").select("numero");
   if (existing.error) {
     return { ok: false, error: existing.error.message };
   }
-  const existingSet = new Set(
-    (existing.data ?? []).map((row) => row.numero),
-  );
+  const existingSet = new Set((existing.data ?? []).map((row) => row.numero));
 
   const now = new Date().toISOString();
   const upsertRows = raw.map((point) => ({
@@ -147,7 +146,9 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
   const upsertRes = await supabase
     .from("sales_points")
     .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false })
-    .select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at")
+    .select(
+      "numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at",
+    )
     .order("numero");
   if (upsertRes.error) {
     return { ok: false, error: upsertRes.error.message };
@@ -196,7 +197,9 @@ export async function configurePosAction(
     .from("sales_points")
     .update({ channel_id, nickname, is_enabled })
     .eq("numero", numero)
-    .select("numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at")
+    .select(
+      "numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at",
+    )
     .maybeSingle();
   if (update.error) {
     return { ok: false, error: update.error.message };
@@ -286,7 +289,10 @@ export async function getCaeaStatusAction(): Promise<ActionResult<CaeaStatus>> {
       .eq("status", "emitted"),
   ]);
   if (codesRes.error) {
-    logger.error("caea.status.failed", { userId: ctx.userId, error: codesRes.error });
+    logger.error("caea.status.failed", {
+      userId: ctx.userId,
+      error: codesRes.error,
+    });
     return { ok: false, error: "No se pudo leer el estado CAEA." };
   }
   return {

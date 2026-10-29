@@ -29,7 +29,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
-import type { Role } from "@/lib/auth/permissions";
+import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import {
   buildPdfFilename,
@@ -189,13 +189,13 @@ function buildInvoiceColumns(
 }
 
 export function ComprobantesTable({
-  actorRoles,
+  actorAccess,
   channels,
   initialChannel,
   initialStatus,
   initialQuery,
 }: {
-  actorRoles: Role[];
+  actorAccess: Access;
   channels: ChannelOption[];
   initialChannel: string | null;
   initialStatus: InvoiceStatus | null;
@@ -220,8 +220,8 @@ export function ComprobantesTable({
   const deferredStatus = useDeferredValue(status);
   const deferredQuery = useDeferredValue(debouncedQuery);
 
-  const canIssue = userCan(actorRoles, "invoices:issue");
-  const canSendEmail = userCan(actorRoles, "email:send");
+  const canIssue = userCan(actorAccess, "invoices:issue");
+  const canSendEmail = userCan(actorAccess, "email:send");
 
   // Realtime: any change to comprobantes invalidates the list (every
   // filter combo) and the aging summary (since unpaid invoices drive it).

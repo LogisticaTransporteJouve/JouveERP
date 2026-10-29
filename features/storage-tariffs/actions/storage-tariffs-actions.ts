@@ -55,7 +55,7 @@ export async function listStorageTariffsAction(): Promise<
   ActionResult<StorageTariff[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:read")) {
+  if (!userCan(ctx.access, "storage_billing:read")) {
     return {
       ok: false,
       error: "No tenés permiso para ver tarifas de almacenaje.",
@@ -85,7 +85,7 @@ export async function createStorageTariffAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:issue")) {
+  if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para crear tarifas." };
   }
   const parsed = StorageTariffCreateSchema.safeParse(input);
@@ -137,7 +137,7 @@ export async function updateStorageTariffAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:issue")) {
+  if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para editar tarifas." };
   }
   const parsed = StorageTariffUpdateSchema.safeParse(input);
@@ -190,7 +190,7 @@ export async function setStorageTariffActiveAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:issue")) {
+  if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para editar tarifas." };
   }
   const parsed = StorageTariffToggleSchema.safeParse(input);
@@ -242,7 +242,7 @@ export async function increaseStorageTariffsAction(
   input: unknown,
 ): Promise<ActionResult<{ updated: number; skipped: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:issue")) {
+  if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para editar tarifas." };
   }
   const parsed = StorageTariffIncreaseSchema.safeParse(input);
@@ -348,7 +348,7 @@ export async function deleteStorageTariffAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "storage_billing:issue")) {
+  if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para borrar tarifas." };
   }
   const supabase = await createSupabaseClient();

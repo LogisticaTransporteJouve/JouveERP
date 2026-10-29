@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PayrollPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "hr:read")) {
+  if (!userCan(ctx.access, "hr:read")) {
     redirect("/dashboard");
   }
 
@@ -26,7 +26,7 @@ export default async function PayrollPage() {
 
   return (
     <Hydrate state={dehydratedState}>
-      <PayrollPeriodsList actorRoles={ctx.roles} />
+      <PayrollPeriodsList actorAccess={ctx.access} />
     </Hydrate>
   );
 }

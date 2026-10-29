@@ -1,3 +1,4 @@
+import { listUserIdsWithPermission } from "@/lib/auth/users";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -61,16 +62,10 @@ export const fleetDocumentExpiryAlerts = inngest.createFunction(
       return { notified: 0, recipients: 0, docs: 0 };
     }
 
-    const recipientIds = await step.run("load-recipients", async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .in("role_id", ["owner", "admin", "operations"]);
-      if (error) throw new Error(`load-recipients: ${error.message}`);
-      const ids = new Set<string>();
-      for (const r of data ?? []) ids.add(r.user_id);
-      return [...ids];
-    });
+    // Whoever can read the documents, per-user denies included.
+    const recipientIds = await step.run("load-recipients", () =>
+      listUserIdsWithPermission("fleet_documents:read"),
+    );
 
     if (recipientIds.length === 0) {
       logger.warn("fleet.document_expiry.no_recipients", { docs: docs.length });

@@ -39,9 +39,9 @@ export async function generateWeeklySummary(
   weekStart: string,
   now: Date,
 ): Promise<WeeklySummaryDraft | null> {
-  const ctx = { userId: user.userId, roles: user.roles };
+  const ctx = { userId: user.userId, access: user.access };
   const visible = new Map(
-    headlessReadActions(user.roles).map((a) => [a.name, a]),
+    headlessReadActions(user.access).map((a) => [a.name, a]),
   );
   const results: WeeklyReadResult[] = [];
   for (const read of weeklyReads(now)) {

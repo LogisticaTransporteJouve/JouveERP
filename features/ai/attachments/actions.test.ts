@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Role } from "@/lib/auth/permissions";
+import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
 
 import type { ChatAttachmentFile } from "./store";
 
 const FILE_ID = "11111111-1111-4111-8111-111111111111";
 
-const ctx: { userId: string; roles: Role[] } = {
+const ctx: { userId: string; access: Access } = {
   userId: "u-owner",
-  roles: ["finance"],
+  access: resolveAccess(["finance"]),
 };
 const store = {
   loadChatAttachmentFile:
@@ -55,7 +55,7 @@ function form(name: string, type: string, content: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   ctx.userId = "u-owner";
-  ctx.roles = ["finance"];
+  ctx.access = resolveAccess(["finance"]);
 });
 
 describe("getChatAttachmentUrlAction", () => {
@@ -75,7 +75,7 @@ describe("getChatAttachmentUrlAction", () => {
   it("refuses another user, even with files:read", async () => {
     store.loadChatAttachmentFile.mockResolvedValue(sentFile("u-owner"));
     ctx.userId = "u-other";
-    ctx.roles = ["finance"];
+    ctx.access = resolveAccess(["finance"]);
     const res = await getChatAttachmentUrlAction(FILE_ID);
     expect(res).toEqual({ ok: false, error: "Archivo no encontrado." });
     expect(store.signStoredFile).not.toHaveBeenCalled();
@@ -84,17 +84,17 @@ describe("getChatAttachmentUrlAction", () => {
   it("lets ai:admin open another user's sent attachment", async () => {
     store.loadChatAttachmentFile.mockResolvedValue(sentFile("u-owner"));
     ctx.userId = "u-admin";
-    ctx.roles = ["admin"];
+    ctx.access = resolveAccess(["admin"]);
     expect((await getChatAttachmentUrlAction(FILE_ID)).ok).toBe(true);
   });
 
   it("refuses roles without ai:chat and invalid ids", async () => {
-    ctx.roles = ["warehouse"];
+    ctx.access = resolveAccess(["warehouse"]);
     expect(await getChatAttachmentUrlAction(FILE_ID)).toEqual({
       ok: false,
       error: "No tenés permiso para usar el chat de IA.",
     });
-    ctx.roles = ["finance"];
+    ctx.access = resolveAccess(["finance"]);
     expect(await getChatAttachmentUrlAction("../x")).toEqual({
       ok: false,
       error: "ID inválido.",
@@ -180,7 +180,7 @@ describe("uploadChatAttachmentAction", () => {
   });
 
   it("requires ai:chat and files:write", async () => {
-    ctx.roles = ["warehouse"];
+    ctx.access = resolveAccess(["warehouse"]);
     const res = await uploadChatAttachmentAction(
       form("a.pdf", "application/pdf", "%PDF-1.4"),
     );

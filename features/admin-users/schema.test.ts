@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AssignSchema, InviteSchema, RoleEnum, SetRolesSchema } from "./schema";
+import { InviteSchema, RoleEnum, SetAccessSchema } from "./schema";
 
 describe("RoleEnum", () => {
   it("acepta un rol válido", () => {
@@ -45,47 +45,53 @@ describe("InviteSchema", () => {
   });
 });
 
-describe("AssignSchema", () => {
-  it("acepta userId UUID + roleId válido", () => {
+const USER = "00000000-0000-4000-8000-000000000001";
+
+describe("SetAccessSchema", () => {
+  it("acepta roles y denegaciones con lo que se cargó", () => {
     expect(
-      AssignSchema.safeParse({
-        userId: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        roleId: "admin",
+      SetAccessSchema.safeParse({
+        userId: USER,
+        roles: ["finance"],
+        denied: ["accounts:read"],
+        expectedRoles: [],
+        expectedDenied: [],
       }).success,
     ).toBe(true);
   });
 
-  it("rechaza userId no UUID", () => {
+  it("acepta null para dejar una parte sin cambios", () => {
     expect(
-      AssignSchema.safeParse({ userId: "123", roleId: "admin" }).success,
-    ).toBe(false);
+      SetAccessSchema.safeParse({
+        userId: USER,
+        roles: null,
+        denied: null,
+        expectedRoles: ["finance"],
+        expectedDenied: [],
+      }).success,
+    ).toBe(true);
   });
 
-  it("rechaza roleId inválido", () => {
+  it("rechaza un permiso que no está en la matriz", () => {
     expect(
-      AssignSchema.safeParse({
-        userId: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        roleId: "ceo",
+      SetAccessSchema.safeParse({
+        userId: USER,
+        roles: null,
+        denied: ["accounts:delete_everything"],
+        expectedRoles: [],
+        expectedDenied: [],
       }).success,
     ).toBe(false);
   });
-});
 
-describe("SetRolesSchema", () => {
-  it("acepta lista vacía (revocar todo)", () => {
+  it("rechaza un userId que no es UUID", () => {
     expect(
-      SetRolesSchema.safeParse({
-        userId: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      SetAccessSchema.safeParse({
+        userId: "abc",
         roles: [],
-      }).success,
-    ).toBe(true);
-  });
-
-  it("rechaza un rol inválido en la lista", () => {
-    expect(
-      SetRolesSchema.safeParse({
-        userId: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        roles: ["owner", "nope"],
+        denied: null,
+        expectedRoles: [],
+        expectedDenied: [],
       }).success,
     ).toBe(false);
   });

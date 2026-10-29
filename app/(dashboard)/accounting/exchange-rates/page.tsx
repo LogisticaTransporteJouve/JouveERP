@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ExchangeRatesPageRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.roles, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:read")) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([
