@@ -13,7 +13,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { highestRole, userCan, type Access } from "@/lib/auth/permissions";
+import {
+  assignableRoles,
+  highestRole,
+  userCan,
+  type Access,
+} from "@/lib/auth/permissions";
 import type { UserWithRoles } from "@/lib/auth/users";
 
 import { useUsersList } from "../hooks/use-admin-users";
@@ -35,6 +40,10 @@ export function UsersTable({
   const { data: users } = useUsersList();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<UserWithRoles | null>(null);
+  // An invite needs at least one role the actor can grant.
+  const canInvite =
+    userCan(actorAccess, "users:invite") &&
+    assignableRoles(actorAccess).length > 0;
   const canEditAccess =
     userCan(actorAccess, "users:assign_role") ||
     userCan(actorAccess, "users:manage_access");
@@ -139,9 +148,11 @@ export function UsersTable({
           onChange={(event) => setSearch(event.target.value)}
           className="max-w-xs"
         />
-        <div className="ml-auto">
-          <InviteUserDialog actorAccess={actorAccess} />
-        </div>
+        {canInvite ? (
+          <div className="ml-auto">
+            <InviteUserDialog actorAccess={actorAccess} />
+          </div>
+        ) : null}
       </div>
 
       <DataTable

@@ -51,11 +51,14 @@ export async function searchGlobalAction(input: {
   // lib/auth/denies.ts.
   if (error?.code === POSTGREST_FUNCTION_NOT_FOUND) {
     captureMessageOnce("search.global.legacy_rpc", "warn");
+    // The old function caps before this filter: ask for the most it returns.
     ({ data, error } = await supabase.rpc("search_global", {
       p_query: q,
-      p_limit: limit,
+      p_limit: 50,
     }));
-    data = (data ?? []).filter((row) => types.includes(row.entity_type));
+    data = (data ?? [])
+      .filter((row) => types.includes(row.entity_type))
+      .slice(0, limit);
   }
   if (error) {
     captureException(error, {

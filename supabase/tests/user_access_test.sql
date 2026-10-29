@@ -4,7 +4,7 @@
 
 begin;
 
-select plan(24);
+select plan(28);
 
 -- Users: a standing owner, an admin actor, two finance users, one operations
 -- and one warehouse user.
@@ -21,6 +21,17 @@ insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000a4', 'finance'),
   ('00000000-0000-0000-0000-0000000000a5', 'operations'),
   ('00000000-0000-0000-0000-0000000000a6', 'warehouse');
+
+-- The writer trusts its caller: anyone but the service role is refused, even
+-- postgres without the claim.
+select throws_ok(
+  $$select public.set_user_access(
+      '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a3')$$,
+  '42501',
+  null,
+  'set_user_access refuses a caller without the service-role claim'
+);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 -- Shape and grants --------------------------------------------------------
 
@@ -162,6 +173,19 @@ select is(
   'the roles survived a denies-only save'
 );
 
+select lives_ok(
+  $$select public.set_user_access(
+      '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a3',
+      '{finance,finance}', '{invoices:issue,invoices:issue}', '{finance}', '{}', null, null)$$,
+  'duplicate roles or denies in the input are ignored'
+);
+select is(
+  (select count(*)::int from public.user_permission_denies
+    where user_id = '00000000-0000-0000-0000-0000000000a3' and permission = 'invoices:issue'),
+  1,
+  'the duplicated deny is stored once'
+);
+
 -- Owner promotion clears denies, whatever p_denied says.
 select lives_ok(
   $$select public.set_user_access(
@@ -180,6 +204,12 @@ select is(
     where user_id = '00000000-0000-0000-0000-0000000000a4'),
   0,
   'an owner keeps no denies'
+);
+
+select is(
+  (select proconfig::text from pg_proc where oid = 'public.search_global(text,integer,text[])'::regprocedure),
+  '{"search_path=\"\""}',
+  'search_global resolves nothing through the search path'
 );
 
 -- RLS: a user reads only their own denies ---------------------------------

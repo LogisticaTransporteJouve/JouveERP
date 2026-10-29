@@ -159,6 +159,12 @@ describe("per-user denies", () => {
     expect(userCan(access, "transactions:read")).toBe(true);
   });
 
+  it("denying ai:read keeps the assistant: AI features are denied one by one", () => {
+    const access = resolveAccess(["finance"], ["ai:read"]);
+    expect(userCan(access, "ai:read")).toBe(false);
+    expect(userCan(access, "ai:chat")).toBe(true);
+  });
+
   it("an owner cannot be denied anything", () => {
     const access = resolveAccess(["owner"], ["accounts:read", "users:read"]);
     expect(access.denied).toEqual([]);

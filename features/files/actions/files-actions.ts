@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
+import { ENTITY_READ_PERMISSION } from "@/lib/auth/entity-permissions";
 import { userCan, type Permission } from "@/lib/auth/permissions";
 import { ATTACHMENT_FK_COLUMN } from "@/lib/files/attachment-targets";
 import { isFileReferencedElsewhere } from "@/lib/files/references";
@@ -165,6 +166,27 @@ export async function uploadFileAction(
   return { ok: true, data: { fileId, attachmentId: attRow.id } };
 }
 
+const ATTACHMENT_TARGETS = Object.keys(ATTACHMENT_FK_COLUMN).filter(
+  (t): t is keyof typeof ATTACHMENT_FK_COLUMN => t in ATTACHMENT_FK_COLUMN,
+);
+
+/** True unless every link points at an attachable entity the user's access
+ *  cannot read. */
+function canReadSomeLink(
+  access: Parameters<typeof userCan>[0],
+  links: readonly Partial<Record<string, string | null>>[],
+): boolean {
+  if (links.length === 0) return true;
+  return links.some((link) => {
+    const target = ATTACHMENT_TARGETS.find(
+      (t) => link[ATTACHMENT_FK_COLUMN[t]] != null,
+    );
+    return (
+      target === undefined || userCan(access, ENTITY_READ_PERMISSION[target])
+    );
+  });
+}
+
 // ─── getSignedFileUrlAction ──────────────────────────────────────────────────
 // One-hour signed URL with Content-Disposition: attachment so the original
 // filename surfaces on download. The RLS on `files` gates who can read.
@@ -211,6 +233,27 @@ export async function getSignedFileUrlAction(
     if (hrErr || isHrFile) {
       return { ok: false, error: "Archivo no encontrado." };
     }
+  }
+
+  // A file attached only to entities whose module this user cannot read stays
+  // hidden, as in the files hub. Links without an attachable entity (chat,
+  // scanned documents) keep their own RLS.
+  const { data: links, error: linksErr } = await supabase
+    .from("file_attachments")
+    .select(
+      "purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id",
+    )
+    .eq("file_id", parsed.data);
+  if (linksErr) {
+    logger.warn("files.sign.links_failed", {
+      userId: ctx.userId,
+      fileId: parsed.data,
+      error: linksErr.message,
+    });
+    return { ok: false, error: "Archivo no encontrado." };
+  }
+  if (!canReadSomeLink(ctx.access, links ?? [])) {
+    return { ok: false, error: "Archivo no encontrado." };
   }
 
   const { data, error: signErr } = await supabase.storage
@@ -321,6 +364,9 @@ export async function listAttachmentsAction(
     return { ok: false, error: "Parámetros inválidos." };
   }
   const { targetType, targetId } = parsed.data;
+  if (!userCan(ctx.access, ENTITY_READ_PERMISSION[targetType])) {
+    return { ok: false, error: "No tenés permiso para ver archivos." };
+  }
   const supabase = await createClient();
 
   const { data, error } = await supabase

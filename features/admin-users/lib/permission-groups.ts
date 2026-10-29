@@ -3,6 +3,7 @@ import {
   permissionResource,
   type Permission,
   type Resource,
+  readDenyHidesModule,
 } from "@/lib/auth/permissions";
 
 /** Spanish label of each module, in the order the access dialog lists them. */
@@ -68,16 +69,11 @@ export function permissionsOf(resource: Resource): Permission[] {
   return PERMISSIONS.filter((p) => permissionResource(p) === resource);
 }
 
-/**
- * Modules that can be hidden whole: denying `<resource>:read` takes every
- * action of the resource (resolveAccess). `ai` is left out because its
- * `ai:read` (documents, insights) and `ai:chat` (the assistant) are separate
- * features an owner hides one by one.
- */
+/** Modules that can be hidden whole (see readDenyHidesModule). */
 export const MODULE_RESOURCES: readonly Resource[] = (
   Object.keys(PERMISSION_GROUPS) as Resource[]
 ).filter(
   (resource) =>
-    resource !== "ai" &&
+    readDenyHidesModule(resource) &&
     (PERMISSIONS as readonly string[]).includes(`${resource}:read`),
 );
