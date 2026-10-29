@@ -47,10 +47,16 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
   changed=$(git diff --name-only "$base" "$local_sha" 2>/dev/null) || continue
 
+  # A migration that changes no public signature leaves the types as they
+  # are: with the ref checked out and a local stack holding its migrations,
+  # regenerating them proves it (CI's types drift check runs either way).
   if printf '%s\n' "$changed" | grep -q '^supabase/migrations/' \
-    && ! printf '%s\n' "$changed" | grep -qx 'lib/db/database\.types\.ts'; then
+    && ! printf '%s\n' "$changed" | grep -qx 'lib/db/database\.types\.ts' \
+    && ! { [ "$local_sha" = "$(git rev-parse HEAD)" ] \
+           && bash "$ROOT/scripts/db-types-check.sh" >/dev/null 2>&1; }; then
     echo "pre-push: ${local_ref} changes supabase/migrations but not lib/db/database.types.ts." >&2
-    echo "Regenerate the types and commit them:" >&2
+    echo "Regenerate the types and commit them, or, if they do not change, push" >&2
+    echo "with the local stack running and the migrations applied:" >&2
     echo "  pnpm db:types:generate   (needs a running local Supabase)" >&2
     echo "If the migration really does not change the public schema types, push with --no-verify." >&2
     exit 1

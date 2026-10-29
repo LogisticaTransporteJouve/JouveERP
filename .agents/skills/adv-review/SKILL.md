@@ -103,8 +103,8 @@ orchestrator runs them once, before Wave 1 / Pass 1.
    - No conflict markers.
    - Every PR the body depends on has merged.
    - Any manual step (a Vercel env var, AFIP configuration, a backfill, a data fix) sits in the PR body
-     with the order it must happen in — merging to `main` applies migrations after the `approve` gate
-     and Vercel ships the code, so the order is real.
+     with the order it must happen in — `promote-to-production.yml` applies migrations and then
+     deploys the code, so the order is real.
 5. **Evidence.** Some changes need evidence a code read cannot supply. Without it the change is
    *unverified*: a question for the author, not a defect.
 

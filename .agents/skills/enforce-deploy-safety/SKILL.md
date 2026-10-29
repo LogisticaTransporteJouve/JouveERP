@@ -4,8 +4,8 @@ description: >-
   The deploy-safety lens for JouveERP: does the change survive the running system? Checks
   migrations against existing production data and a fresh apply, Inngest changes against runs
   already in flight (step ids, event names and payload schemas, function ids), every contract that
-  crosses the deploy boundary against old and new code live at once (Vercel ships `main` before the
-  approved migration job runs), env vars and secrets set out of band, and CI workflow and tooling
+  crosses the deploy boundary against old and new code live at once (a rollback runs older code on
+  the newer schema), env vars and secrets set out of band, and CI workflow and tooling
   changes against when and where they run. Use for "is this migration safe", "what about runs in
   flight", "version skew", "deploy window", "env var or secret added", "will CI run this", and as
   an adv-review seat. CONDITIONAL: a no-op on a diff with no migration, Inngest, cross-deploy
@@ -27,12 +27,13 @@ that reads it.**
 
 ## House facts the diff doesn't show
 
-- **Code ships first, the schema waits.** Vercel's Git integration deploys `main` as soon as it
-  lands (`vercel.json` only disables `claude/*` branches). Migrations deploy in
-  `.github/workflows/ci.yml` through `approve` (environment `production-gate`, required reviewers)
-  then `deploy-migrations` (`Push migrations to production`, `supabase db push --include-all`).
-  Between merge and approval, which can be hours, **new code runs against the old schema**. A
-  Vercel instant rollback runs **old code against the new schema**.
+- **The schema ships first, then the code.** Merging to `main` deploys nothing (`vercel.json`
+  disables `main` and `claude/*`). `.github/workflows/promote-to-production.yml`, run by hand,
+  takes a main SHA with green CI through `approve` (environment `production-gate`), applies its
+  migrations (`supabase db push --include-all`), then builds and deploys that SHA to Vercel. A
+  promotion that fails after the migrations step, or a rollback to an earlier SHA, runs **old code
+  against the new schema**; a deploy made outside the workflow could still run new code on the old
+  one.
 - **The house tolerance pattern** for that window: a read of a table the pending migration
   creates treats `42P01` / `PGRST205` as "not there yet", returns the safe empty answer and warns
   once per instance (`lib/auth/denies.ts`); a call to an RPC whose new signature is pending

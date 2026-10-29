@@ -53,8 +53,10 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
   (proveedores IA, Sentry, `lib/`→feature, actions cross-feature, `Access`,
   `parseFloat` en dinero). Evitar `as` (no hay regla general; sí está
   prohibido hacia `Access`): narrowing con type guards / Zod.
-- **Deploy:** Vercel publica `main` antes de que se apruebe la migración; el
-  código nuevo tiene que tolerar el schema viejo durante esa ventana.
+- **Deploy:** `main` no se publica solo; `promote-to-production.yml` aplica las
+  migraciones y después despliega el mismo commit. Un rollback de código vuelve
+  a un SHA anterior sin revertir migraciones: el código tiene que tolerar el
+  schema más nuevo.
 
 ## Idioma
 
