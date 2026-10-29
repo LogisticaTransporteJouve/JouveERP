@@ -2,7 +2,8 @@ name: CI
 
 # The push trigger re-validates the exact SHA that landed on main: PR runs
 # test a merge preview, so two PRs that are green in isolation can still break
-# in combination once both land. Push runs on main also deploy migrations.
+# in combination once both land. Promote to production
+# (promote-to-production.yml) ships only a main SHA whose push run passed.
 on:
   pull_request:
     branches: [main]
@@ -10,8 +11,7 @@ on:
     branches: [main]
 
 # A new push to a PR cancels that PR's stale run. Main push runs each get a
-# group of their own, so every landed SHA is validated and no in-flight
-# migration deploy is ever cancelled by a newer push.
+# group of their own, so every landed SHA is validated.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -145,20 +145,108 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # Every PR and push: the Playwright suite (tests/e2e) against a production
+  # build of the app and a fresh local stack (Postgres with seed.sql, Auth,
+  # PostgREST, Realtime for chat), signed in as the seeded dev user. The AFIP
+  # emission spec stays skipped (RUN_AFIP_E2E).
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve pinned Supabase CLI version
+        run: echo "SUPABASE_CLI_VERSION=$(sed 's/^supabase@//' scripts/supabase-cli-version)" >> "$GITHUB_ENV"
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Start Supabase
+        run: |
+          supabase start -x imgproxy,studio,edge-runtime,logflare,vector,supavisor \
+            > "$RUNNER_TEMP/supabase-start.log" 2>&1 || { cat "$RUNNER_TEMP/supabase-start.log"; exit 1; }
+
+      # The local stack's well-known keys, for the build, the server and the
+      # seed script (no .env.local in CI).
+      - name: App environment from the local stack
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_JWT_SECRET=$JWT_SECRET"
+            echo "SUPABASE_DB_URL=$DB_URL"
+            echo "NEXT_PUBLIC_APP_URL=$PLAYWRIGHT_BASE_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed the e2e user
+        run: node scripts/seed-dev-user.mjs
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start the app
+        run: |
+          nohup pnpm start -H 127.0.0.1 -p 3000 > "$RUNNER_TEMP/next.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null "$PLAYWRIGHT_BASE_URL/auth/login" && exit 0
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/next.log"
+          exit 1
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
+
   # Every PR and push: the new-migration checks (scripts/check-migrations.sh)
   # and their self-tests, then — only when the database surface changed — a
   # fresh local stack with every migration applied, plpgsql_check, the types
-  # drift check and pgTAP. On PRs, the append-only check.
+  # drift check, pgTAP and the PostgREST pentests. On PRs, the append-only check.
   database:
     name: database
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # actions: read lets the re-propose step read past deploy runs.
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      migrations: ${{ steps.migrations.outputs.changed || steps.changes.outputs.migrations }}
     env:
       SUPABASE_TELEMETRY_DISABLED: "1"
 
@@ -197,57 +285,17 @@ jobs:
           echo "BASE_LABEL=$label" >> "$GITHUB_ENV"
 
       # The DB steps below only run when something they cover changed.
-      # `migrations` feeds deploy-migrations: on a push it asks for approval
-      # only when there is something new to apply.
       - name: Detect relevant changes
         id: changes
         run: |
           set -euo pipefail
           changed="$(git diff --name-only "${BASE}...HEAD")"
           if printf '%s\n' "$changed" \
-            | grep -E '^(supabase/migrations/|supabase/tests/|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
+            | grep -E '^(supabase/migrations/|supabase/tests/|supabase/seed\.sql$|tests/security/|tests/integration/_setup\.ts$|lib/auth/permissions\.ts$|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
             echo "No relevant changes — skipping the local stack, lint and types drift check."
-          fi
-          if printf '%s\n' "$changed" | grep -E '^(supabase/migrations/|scripts/supabase-cli-version$)' >/dev/null; then
-            echo "migrations=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "migrations=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # A push asks for approval when the migrations differ from the last push
-      # whose deploy succeeded, so a migration a red run, a failed deploy or a
-      # rejected approval left behind goes out with the next push. Run outcomes
-      # come from the Actions API. When no successful deploy is found (or the
-      # API errors) the diff against the previous head above decides instead.
-      - name: Migrations changed since the last deploy
-        id: migrations
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLI_CHANGED: ${{ steps.changes.outputs.migrations }}
-        run: |
-          last=""
-          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=50" --jq '.workflow_runs[] | "\(.id) \(.head_sha)"' || true)"
-          while read -r id sha; do
-            [ -n "$id" ] || continue
-            deploy="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '.jobs[] | select(.name == "Push migrations to production") | .conclusion' </dev/null || true)"
-            if [ "$deploy" = "success" ]; then
-              last="$sha"
-              break
-            fi
-          done <<<"$runs"
-          if [ -z "$last" ]; then
-            echo "No successful migration deploy found; using the diff against the previous head."
-            echo "changed=$CLI_CHANGED" >> "$GITHUB_OUTPUT"
-          elif [ "$CLI_CHANGED" = "true" ] \
-            || ! git merge-base --is-ancestor "$last" HEAD 2>/dev/null \
-            || ! git diff --quiet "$last" HEAD -- supabase/migrations/; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup pnpm
@@ -266,7 +314,7 @@ jobs:
       # Name, version order, all-or-nothing statements, no session-level SET,
       # SECURITY DEFINER revokes and squawk, over the migrations this change
       # adds. The push run repeats it because two PRs green on their own can
-      # land out of order, and deploy-migrations needs this job.
+      # land out of order.
       - name: New migrations (name, version, transaction, SET, definer revoke, squawk)
         run: bash scripts/check-migrations.sh "$BASE"
 
@@ -319,6 +367,18 @@ jobs:
           fi
           supabase test db --local
 
+      # Each role signs in through PostgREST and reads exactly what
+      # ROLE_PERMISSIONS gives it; anon reads nothing (tests/security).
+      - name: Pentest specs against PostgREST (tests/security)
+        if: ${{ !cancelled() && steps.db.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+            pnpm test:security
+
       - name: Stop Supabase
         if: always() && steps.changes.outputs.relevant == 'true'
         run: supabase stop --no-backup
@@ -343,83 +403,3 @@ jobs:
             echo "::error file=${file}::${status} ${file}${new_path:+ -> ${new_path}}: merged migrations are append-only — never edit, delete or rename one on ${BASE_LABEL}; add a new migration that fixes forward."
           done <<< "$touched"
           exit 1
-
-  # Approval gate: `approve` enters the `production-gate` environment, which
-  # has required reviewers and no secrets; `deploy-migrations` enters
-  # `production`, which holds the secrets and no reviewers, and needs
-  # `approve`. So nothing reaches production until someone approves the run.
-  # .github/scripts/check-production-jobs-gated.py keeps it that way.
-  #
-  # Push-only, no workflow_dispatch: a dispatch from another branch would
-  # apply its migrations, which are recorded and never re-run.
-  approve:
-    name: Approve production migrations
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.database.outputs.migrations == 'true'
-    needs: [database]
-    runs-on: ubuntu-latest
-    environment: production-gate
-    timeout-minutes: 5
-    steps:
-      - run: echo "approved"
-
-  # Pushes any pending migrations to the linked Supabase project. Idempotent:
-  # `supabase db push` only applies migrations that aren't yet recorded in
-  # `supabase_migrations.schema_migrations`, so re-running is safe.
-  #
-  # Required GitHub environments (Settings → Environments):
-  #   production-gate — required reviewers on, no secrets.
-  #   production      — the secrets below; restrict to the `main` branch.
-  #
-  # Required secrets in the `production` environment:
-  #   SUPABASE_ACCESS_TOKEN  — personal access token from
-  #                            https://supabase.com/dashboard/account/tokens
-  #   SUPABASE_PROJECT_ID    — the 20-char ref of the production project
-  #                            (Settings → General → Reference ID)
-  #   SUPABASE_DB_PASSWORD   — the postgres user password set when the
-  #                            project was created (NOT the JWT secret)
-  deploy-migrations:
-    name: Push migrations to production
-    needs: [approve]
-    runs-on: ubuntu-latest
-    environment: production
-    # Budget for the slowest migration, not a measurement: a cancel in the
-    # middle of a long migration (index build, backfill) is worse than waiting.
-    timeout-minutes: 60
-    # Never cancel an in-flight deploy: a push killed mid-migration can leave
-    # the database half-migrated. A newer run queues behind it instead.
-    concurrency:
-      group: db-deploy
-      cancel-in-progress: false
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Bail out if secrets are missing
-        run: |
-          if [ -z "${SUPABASE_ACCESS_TOKEN}" ] \
-             || [ -z "${SUPABASE_PROJECT_ID}" ] \
-             || [ -z "${SUPABASE_DB_PASSWORD}" ]; then
-            echo "::error::Missing one or more Supabase secrets. Configure SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD."
-            exit 1
-          fi
-
-      - name: Resolve pinned Supabase CLI version
-        run: echo "SUPABASE_CLI_VERSION=$(sed 's/^supabase@//' scripts/supabase-cli-version)" >> "$GITHUB_ENV"
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
-        with:
-          version: ${{ env.SUPABASE_CLI_VERSION }}
-
-      - name: Link Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-
-      - name: Push migrations
-        run: supabase db push --include-all
