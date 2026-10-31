@@ -21,7 +21,6 @@ Este plan cierra las fugas que quedan en [`separacion-fiscal-interno.md`](separa
   - el re-asiento de recibos y OPs editados.
 - **Ya mergeado:** C1–C2 (#247, migración `20261031115523`) y los flakes de e2e (#248).
 - **Diferido:**
-  - A5 (rol `fiscal_reader`);
   - M3 (canal de saldos iniciales);
   - la reparación del histórico contaminado. Hasta entonces el objetivo 1 rige **hacia adelante**,
     con diagnósticos.
@@ -890,7 +889,11 @@ Depende de 6.1.
 
 ## Phase 9: Rol `fiscal_reader`
 
-Diferido (A5).
+Hecho (A5): rol de solo lectura para un contador externo. Lee clientes, proveedores, comprobantes
+(con NC/ND), compras, libros IVA, asientos y balances, y no escribe nada. RLS: solo filas de canales
+fiscales (`is_channel_fiscal(channel_id)`) y los canales internos ocultos
+(`20261031202756_fiscal_reader_role.sql`). En la app, `isFiscalOnly` fija el alcance en "Solo
+fiscal" y las lecturas por service client de comprobantes (lista, detalle, estado, PDF) lo respetan.
 
 ## Phase 10: Menores (PR J — M2)
 
@@ -1070,7 +1073,6 @@ atacar. Cada PR de implementación pasa por `/adv-review` antes de mergearse.
 
 ## Deferred Work
 
-- **A5 — rol `fiscal_reader`.** Si el dueño lo confirma.
 - **M3 — saldos iniciales por canal.**
 - **Reparación del histórico contaminado.** Requiere firma del dueño. Partir de los diagnósticos de
   2.1, 3.1 y 4.2.
