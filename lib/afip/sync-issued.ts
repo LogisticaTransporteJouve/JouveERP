@@ -44,6 +44,8 @@ export interface PairSyncResult {
   punto_venta: number;
   cbte_tipo: number;
   imported: number;
+  /** NC/ND below the last number that came in on a retry. */
+  recovered: number;
   missing: number;
   skipped_no_origin: number;
   last_authorized: number;
@@ -282,12 +284,19 @@ async function resolveClientId(
   return created.data.id;
 }
 
-async function resolveOriginId(
+type OriginLookup =
+  | { status: "found"; id: string }
+  /** Same point of sale, numbered past what is imported: a later run brings it. */
+  | { status: "pending"; nro: number }
+  /** No reference, another point of sale, or a number already passed. */
+  | { status: "missing" };
+
+async function resolveOrigin(
   supabase: Supabase,
   info: VoucherInfo,
-): Promise<string | null> {
+): Promise<OriginLookup> {
   const asoc = info.cbtesAsoc[0];
-  if (!asoc) return null;
+  if (!asoc) return { status: "missing" };
   const { data, error } = await supabase
     .from("invoices")
     .select("id")
@@ -296,22 +305,120 @@ async function resolveOriginId(
     .eq("numero", asoc.nro)
     .limit(1);
   if (error) throw new Error(`origin lookup: ${error.message}`);
-  return data?.[0]?.id ?? null;
+  const id = data?.[0]?.id;
+  if (id) return { status: "found", id };
+  if (asoc.ptoVta !== info.ptoVta) return { status: "missing" };
+  const imported = await lastLocalNumero(supabase, asoc.ptoVta, asoc.tipo);
+  return asoc.nro > imported
+    ? { status: "pending", nro: asoc.nro }
+    : { status: "missing" };
 }
 
-/** Imports up to `limit` vouchers of one (pv, cbte tipo), oldest first. */
+type VoucherOutcome =
+  | { kind: "imported" }
+  | { kind: "missing" }
+  | { kind: "no_origin" }
+  | { kind: "waiting_origin"; originNro: number }
+  | { kind: "failed"; message: string };
+
+async function importVoucher(
+  supabase: Supabase,
+  afip: ArcaVoucherPort,
+  target: SyncTarget,
+  cbteTipo: number,
+  nro: number,
+  clientCache: Map<string, string>,
+): Promise<VoucherOutcome> {
+  const info = await afip.getVoucherInfo(target.punto_venta, cbteTipo, nro);
+  if (!info) return { kind: "missing" };
+
+  const kind = KIND_LETTER_BY_TIPO[cbteTipo]?.kind;
+  const origin =
+    kind && kind !== "factura" ? await resolveOrigin(supabase, info) : null;
+  if (origin?.status === "pending") {
+    return { kind: "waiting_origin", originNro: origin.nro };
+  }
+  const originId = origin?.status === "found" ? origin.id : null;
+  // invoices_nc_nd_requires_origen: an NC/ND whose origin the ERP lacks
+  // cannot be stored.
+  if (kind !== "factura" && !originId) return { kind: "no_origin" };
+
+  const clientId = await resolveClientId(supabase, afip, info, clientCache);
+  const row = voucherToInvoiceInsert(info, {
+    channelId: target.channel_id,
+    clientId,
+    originId,
+  });
+  if (!row) return { kind: "missing" };
+
+  const { error } = await supabase
+    .from("invoices")
+    .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true });
+  if (error && error.code !== PG_UNIQUE_VIOLATION) {
+    return { kind: "failed", message: error.message };
+  }
+  return error ? { kind: "missing" } : { kind: "imported" };
+}
+
+const GAP_PAGE = 1000;
+
+/** Numbers below `upTo` the ERP does not have for this (pv, cbte tipo). */
+async function localGaps(
+  supabase: Supabase,
+  pv: number,
+  cbteTipo: number,
+  upTo: number,
+): Promise<number[]> {
+  const have = new Set<number>();
+  for (let from = 0; ; from += GAP_PAGE) {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("numero")
+      .eq("punto_venta", pv)
+      .eq("cbte_tipo_afip", cbteTipo)
+      .not("numero", "is", null)
+      .lte("numero", upTo)
+      .order("numero")
+      .range(from, from + GAP_PAGE - 1);
+    if (error) throw new Error(`local numbers: ${error.message}`);
+    for (const r of data ?? []) if (r.numero != null) have.add(r.numero);
+    if ((data ?? []).length < GAP_PAGE) break;
+  }
+  const gaps: number[] = [];
+  for (let n = 1; n <= upTo; n++) if (!have.has(n)) gaps.push(n);
+  return gaps;
+}
+
+/** A `size` window of `gaps` that moves every hour, so gaps that never
+ *  resolve (origin on another point of sale) cannot starve the rest. */
+export function hourlyWindow<T>(
+  gaps: T[],
+  size: number,
+  now = Date.now(),
+): T[] {
+  if (gaps.length <= size) return gaps;
+  const windows = Math.ceil(gaps.length / size);
+  const start = (Math.floor(now / 3_600_000) % windows) * size;
+  return gaps.slice(start, start + size);
+}
+
+/** Imports up to `limit` vouchers of one (pv, cbte tipo), oldest first.
+ *  With `retryGaps`, NC/ND left behind below the last imported number (their
+ *  origin was missing then) are tried again first. */
 export async function syncIssuedPair(
   supabase: Supabase,
   afip: ArcaVoucherPort,
   target: SyncTarget,
   cbteTipo: number,
   limit: number,
+  opts: { retryGaps?: boolean } = {},
 ): Promise<PairSyncResult> {
   const pv = target.punto_venta;
   const result: PairSyncResult = {
     punto_venta: pv,
     cbte_tipo: cbteTipo,
     imported: 0,
+    recovered: 0,
     missing: 0,
     skipped_no_origin: 0,
     last_authorized: 0,
@@ -321,7 +428,6 @@ export async function syncIssuedPair(
 
   result.last_authorized = await afip.getLastAuthorizedNumber(pv, cbteTipo);
   result.last_local = await lastLocalNumero(supabase, pv, cbteTipo);
-  if (result.last_authorized <= result.last_local) return result;
 
   if (await hasInFlightEmission(supabase, pv, cbteTipo)) {
     result.stopped = "Hay una emisión en curso en este punto de venta.";
@@ -329,54 +435,70 @@ export async function syncIssuedPair(
   }
 
   const clientCache = new Map<string, string>();
+  const isNcNd = KIND_LETTER_BY_TIPO[cbteTipo]?.kind !== "factura";
+
+  if (opts.retryGaps && isNcNd && result.last_local > 0) {
+    const gaps = hourlyWindow(
+      await localGaps(supabase, pv, cbteTipo, result.last_local),
+      limit,
+    );
+    for (const nro of gaps) {
+      const outcome = await importVoucher(
+        supabase,
+        afip,
+        target,
+        cbteTipo,
+        nro,
+        clientCache,
+      );
+      if (outcome.kind === "imported") result.recovered += 1;
+      if (outcome.kind === "failed") {
+        result.stopped = `No se pudo guardar el ${nro}: ${outcome.message}`;
+        return result;
+      }
+    }
+  }
+
   const to = Math.min(result.last_authorized, result.last_local + limit);
   for (let nro = result.last_local + 1; nro <= to; nro++) {
-    const info = await afip.getVoucherInfo(pv, cbteTipo, nro);
-    if (!info) {
-      result.missing += 1;
-      continue;
+    const outcome = await importVoucher(
+      supabase,
+      afip,
+      target,
+      cbteTipo,
+      nro,
+      clientCache,
+    );
+    switch (outcome.kind) {
+      case "imported":
+        result.imported += 1;
+        break;
+      case "missing":
+        result.missing += 1;
+        break;
+      case "no_origin":
+        result.skipped_no_origin += 1;
+        logger.warn("arca_sync.nc_nd_without_origin", {
+          punto_venta: pv,
+          cbte_tipo: cbteTipo,
+          numero: nro,
+        });
+        break;
+      case "waiting_origin":
+        // The facturas walk a long history slower than the NC/ND do; passing
+        // this one would leave it behind, so the pair waits for its origin.
+        result.stopped = `La ${nro} espera su comprobante de origen (${outcome.originNro}), que todavía no se importó.`;
+        return result;
+      case "failed":
+        result.stopped = `No se pudo guardar el ${nro}: ${outcome.message}`;
+        logger.error("arca_sync.insert_failed", {
+          punto_venta: pv,
+          cbte_tipo: cbteTipo,
+          numero: nro,
+          error: outcome.message,
+        });
+        return result;
     }
-
-    const kind = KIND_LETTER_BY_TIPO[cbteTipo]?.kind;
-    const originId =
-      kind && kind !== "factura" ? await resolveOriginId(supabase, info) : null;
-    if (kind !== "factura" && !originId) {
-      // invoices_nc_nd_requires_origen: an NC/ND whose origin the ERP lacks
-      // cannot be stored.
-      result.skipped_no_origin += 1;
-      logger.warn("arca_sync.nc_nd_without_origin", {
-        punto_venta: pv,
-        cbte_tipo: cbteTipo,
-        numero: nro,
-      });
-      continue;
-    }
-
-    const clientId = await resolveClientId(supabase, afip, info, clientCache);
-    const row = voucherToInvoiceInsert(info, {
-      channelId: target.channel_id,
-      clientId,
-      originId,
-    });
-    if (!row) {
-      result.missing += 1;
-      continue;
-    }
-
-    const { error } = await supabase
-      .from("invoices")
-      .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true });
-    if (error && error.code !== PG_UNIQUE_VIOLATION) {
-      result.stopped = `No se pudo guardar el ${nro}: ${error.message}`;
-      logger.error("arca_sync.insert_failed", {
-        punto_venta: pv,
-        cbte_tipo: cbteTipo,
-        numero: nro,
-        error: error.message,
-      });
-      return result;
-    }
-    if (!error) result.imported += 1;
   }
   return result;
 }
