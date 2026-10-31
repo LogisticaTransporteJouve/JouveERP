@@ -135,7 +135,9 @@ export function AppSidebar({
           {sections.map((section, index) => (
             <Collapsible
               key={section.label}
-              defaultOpen
+              defaultOpen={section.items.some(
+                (item) => item.href === activeHref,
+              )}
               className="group/collapsible"
             >
               <SidebarGroup className={cn(index > 0 && "pt-0")}>
