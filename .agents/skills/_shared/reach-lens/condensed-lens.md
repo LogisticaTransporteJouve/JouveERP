@@ -105,7 +105,7 @@ JOUVEERP PEER SETS (the diff touches the left → open every right-hand peer):
   `lib/db/invoicing-integrity.test.ts`).
 - A permission → `lib/auth/permissions.ts` + `lib/auth/permissions.test.ts` (100% matrix); every
   RLS role array (`public.user_has_role(array[...])`) on the tables the permission covers; UI gating
-  (`components/app-sidebar.tsx` nav `permission`, buttons, `components/mobile-tab-bar.tsx`); the AI
+  (`components/layout/nav-items.ts` nav `permission`, buttons, `components/mobile-tab-bar.tsx`); the AI
   tool's `permission` (`features/ai/registry/define.ts`); per-user denies (`lib/auth/denies.ts`,
   `lib/auth/entity-permissions.ts`) — every gate calls `userCan(ctx.access, "<perm>")`, role-level
   questions (recipients, "por rol" UI) use `roleGrants`/`rolePermissions`; headless paths

@@ -64,7 +64,7 @@
   --border: oklch(0.92 0 0);
   --input: oklch(0.92 0 0);
   --ring: #35358a;
-  --sidebar: oklch(1 0 0);
+  --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0 0);
   --sidebar-primary: #35358a;
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -93,7 +93,7 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.439 0 0);
-  --sidebar: oklch(0.21 0 0);
+  --sidebar: oklch(0.1 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
