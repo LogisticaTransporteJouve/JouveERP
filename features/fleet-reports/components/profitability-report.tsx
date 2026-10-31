@@ -149,6 +149,34 @@ export function ProfitabilityReport() {
           </section>
 
           <section className="space-y-2">
+            <h2 className="text-sm font-medium">Costos sin comprobante</h2>
+            <p className="text-muted-foreground text-sm">
+              Cargas de combustible y mantenimientos del rango sin factura de
+              compra ni movimiento vinculado: no llegan a la contabilidad.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="bg-card rounded-lg border p-4">
+                <p className="text-muted-foreground text-xs">Combustible</p>
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                  {money(data.unvouchered.fuel_amount)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {data.unvouchered.fuel_count} cargas
+                </p>
+              </div>
+              <div className="bg-card rounded-lg border p-4">
+                <p className="text-muted-foreground text-xs">Mantenimiento</p>
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                  {money(data.unvouchered.maintenance_cost)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {data.unvouchered.maintenance_count} registros
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-2">
             <h2 className="text-sm font-medium">Por viaje</h2>
             <div className="rounded-lg border">
               <Table>
@@ -183,8 +211,9 @@ export function ProfitabilityReport() {
                           {t.patente ?? "—"}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {[t.origin, t.destination].filter(Boolean).join(" → ") ||
-                            "—"}
+                          {[t.origin, t.destination]
+                            .filter(Boolean)
+                            .join(" → ") || "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(t.revenue)}

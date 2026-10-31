@@ -6,6 +6,7 @@ import { maintenanceKeys } from "@/features/maintenance/lib/maintenance-keys";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { costVoucherAccess } from "@/lib/cost-vouchers";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -35,7 +36,10 @@ export default async function MaintenancePageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <MaintenanceTable vehicleOptions={vehicleOptions} />
+        <MaintenanceTable
+          vehicleOptions={vehicleOptions}
+          voucherAccess={costVoucherAccess(ctx.access)}
+        />
       </div>
     </Hydrate>
   );

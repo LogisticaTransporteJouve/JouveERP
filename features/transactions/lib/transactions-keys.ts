@@ -1,6 +1,4 @@
-import type {
-  TransactionFilters,
-} from "../schema";
+import type { TransactionFilters } from "../schema";
 
 /**
  * Query keys for the transactions feature.
@@ -13,4 +11,6 @@ export const transactionsKeys = {
   list: (filters: TransactionFilters) =>
     [...transactionsKeys.all, "list", filters] as const,
   byId: (id: string) => [...transactionsKeys.all, "byId", id] as const,
+  picker: (filters: TransactionFilters) =>
+    [...transactionsKeys.all, "picker", filters] as const,
 };

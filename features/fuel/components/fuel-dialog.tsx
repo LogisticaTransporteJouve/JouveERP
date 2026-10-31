@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CostVoucherFields } from "@/features/fleet-reports/components/cost-voucher-fields";
+import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import { useCreateFuelLoad, useUpdateFuelLoad } from "../hooks/use-fuel";
 import type { FuelLoad } from "../schema";
@@ -48,6 +50,8 @@ const FormSchema = z.object({
   station: z.string().trim().max(120),
   card: z.string().trim().max(120),
   notes: z.string().trim().max(2000),
+  purchase_invoice_id: z.string(),
+  transaction_id: z.string(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -64,6 +68,8 @@ function toDefaults(fuelLoad?: FuelLoad): FormValues {
     station: fuelLoad?.station ?? "",
     card: fuelLoad?.card ?? "",
     notes: fuelLoad?.notes ?? "",
+    purchase_invoice_id: fuelLoad?.purchase_invoice_id ?? "",
+    transaction_id: fuelLoad?.transaction_id ?? "",
   };
 }
 
@@ -80,6 +86,7 @@ export function FuelDialog({
   fuelLoad,
   vehicleOptions,
   tripOptions,
+  voucherAccess,
   open,
   onOpenChange,
 }: {
@@ -92,6 +99,7 @@ export function FuelDialog({
     origin: string | null;
     destination: string | null;
   }[];
+  voucherAccess: CostVoucherAccess;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -103,6 +111,11 @@ export function FuelDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: toDefaults(fuelLoad),
+  });
+
+  const [purchaseInvoiceId, transactionId, voucherDate] = useWatch({
+    control: form.control,
+    name: ["purchase_invoice_id", "transaction_id", "load_date"],
   });
 
   useEffect(() => {
@@ -120,6 +133,12 @@ export function FuelDialog({
       station: values.station,
       card: values.card,
       notes: values.notes,
+      ...(voucherAccess.purchaseInvoices && {
+        purchase_invoice_id: values.purchase_invoice_id,
+      }),
+      ...(voucherAccess.transactions && {
+        transaction_id: values.transaction_id,
+      }),
     };
     if (mode === "create") {
       createMut.mutate(payload, {
@@ -317,6 +336,16 @@ export function FuelDialog({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <CostVoucherFields
+              access={voucherAccess}
+              purchaseInvoiceId={purchaseInvoiceId}
+              transactionId={transactionId}
+              aroundDate={voucherDate}
+              onChange={(field, value) =>
+                form.setValue(field, value, { shouldDirty: true })
+              }
+              disabled={isSaving}
             />
             <DialogFooter>
               <Button

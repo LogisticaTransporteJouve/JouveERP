@@ -55,7 +55,9 @@ export async function getFleetProfitabilityAction(
     paginateRange((from, to) =>
       supabase
         .from("fuel_loads")
-        .select("vehicle_id, trip_id, amount")
+        .select(
+          "vehicle_id, trip_id, amount, purchase_invoice_id, transaction_id",
+        )
         .gte("load_date", input.periodStart)
         .lte("load_date", input.periodEnd)
         .order("id")
@@ -64,7 +66,7 @@ export async function getFleetProfitabilityAction(
     paginateRange((from, to) =>
       supabase
         .from("maintenance_records")
-        .select("vehicle_id, cost")
+        .select("vehicle_id, cost, purchase_invoice_id, transaction_id")
         .gte("service_date", input.periodStart)
         .lte("service_date", input.periodEnd)
         .order("id")
@@ -105,11 +107,13 @@ export async function getFleetProfitabilityAction(
     vehicle_id: f.vehicle_id,
     trip_id: f.trip_id,
     amount: Number(f.amount),
+    has_voucher: Boolean(f.purchase_invoice_id ?? f.transaction_id),
   }));
 
   const maintenance: MaintenanceInput[] = (maintRes.data ?? []).map((m) => ({
     vehicle_id: m.vehicle_id,
     cost: m.cost === null ? null : Number(m.cost),
+    has_voucher: Boolean(m.purchase_invoice_id ?? m.transaction_id),
   }));
 
   const vehicleNames = new Map<string, string>();

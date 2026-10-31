@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import { useDeleteMaintenance, useMaintenance } from "../hooks/use-maintenance";
 import { MAINTENANCE_KIND_LABELS, type MaintenanceRecord } from "../schema";
@@ -28,8 +29,10 @@ function formatMoney(n: number | null) {
 
 export function MaintenanceTable({
   vehicleOptions,
+  voucherAccess,
 }: {
   vehicleOptions: { id: string; patente: string }[];
+  voucherAccess: CostVoucherAccess;
 }) {
   const { data: items } = useMaintenance();
   const deleteMut = useDeleteMaintenance();
@@ -169,6 +172,7 @@ export function MaintenanceTable({
           mode={dialog.mode}
           record={dialog.mode === "edit" ? dialog.record : undefined}
           vehicleOptions={vehicleOptions}
+          voucherAccess={voucherAccess}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import { useDeleteFuelLoad, useFuelLoads } from "../hooks/use-fuel";
 import type { FuelLoad } from "../schema";
@@ -27,6 +28,7 @@ function formatMoney(n: number) {
 export function FuelTable({
   vehicleOptions,
   tripOptions,
+  voucherAccess,
 }: {
   vehicleOptions: { id: string; patente: string }[];
   tripOptions: {
@@ -35,6 +37,7 @@ export function FuelTable({
     origin: string | null;
     destination: string | null;
   }[];
+  voucherAccess: CostVoucherAccess;
 }) {
   const { data: items } = useFuelLoads();
   const deleteMut = useDeleteFuelLoad();
@@ -171,6 +174,7 @@ export function FuelTable({
           fuelLoad={dialog.mode === "edit" ? dialog.fuelLoad : undefined}
           vehicleOptions={vehicleOptions}
           tripOptions={tripOptions}
+          voucherAccess={voucherAccess}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

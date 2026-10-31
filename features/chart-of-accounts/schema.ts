@@ -48,6 +48,7 @@ export const COA_SYSTEM_ROLES = [
   "cheques_diferidos_emitidos",
   "caja_apertura",
   "ajustes_caja",
+  "sueldos",
 ] as const;
 
 export type CoaSystemRole = (typeof COA_SYSTEM_ROLES)[number];
@@ -73,6 +74,7 @@ export const COA_SYSTEM_ROLE_LABEL: Record<CoaSystemRole, string> = {
   cheques_diferidos_emitidos: "Cheques diferidos emitidos",
   caja_apertura: "Apertura de caja",
   ajustes_caja: "Ajustes de caja",
+  sueldos: "Sueldos y jornales",
 };
 
 const codeRegex = /^[0-9]+(\.[0-9]+)*$/;

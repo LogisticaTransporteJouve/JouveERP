@@ -2047,7 +2047,9 @@ export type Database = {
           load_date: string
           notes: string | null
           odometer_km: number | null
+          purchase_invoice_id: string | null
           station: string | null
+          transaction_id: string | null
           trip_id: string | null
           updated_at: string
           vehicle_id: string
@@ -2062,7 +2064,9 @@ export type Database = {
           load_date: string
           notes?: string | null
           odometer_km?: number | null
+          purchase_invoice_id?: string | null
           station?: string | null
+          transaction_id?: string | null
           trip_id?: string | null
           updated_at?: string
           vehicle_id: string
@@ -2077,12 +2081,49 @@ export type Database = {
           load_date?: string
           notes?: string | null
           odometer_km?: number | null
+          purchase_invoice_id?: string | null
           station?: string | null
+          transaction_id?: string | null
           trip_id?: string | null
           updated_at?: string
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_loads_trip_id_fkey"
             columns: ["trip_id"]
@@ -2834,7 +2875,9 @@ export type Database = {
           notes: string | null
           odometer_km: number | null
           provider: string | null
+          purchase_invoice_id: string | null
           service_date: string
+          transaction_id: string | null
           updated_at: string
           vehicle_id: string
         }
@@ -2850,7 +2893,9 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           provider?: string | null
+          purchase_invoice_id?: string | null
           service_date: string
+          transaction_id?: string | null
           updated_at?: string
           vehicle_id: string
         }
@@ -2866,11 +2911,48 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           provider?: string | null
+          purchase_invoice_id?: string | null
           service_date?: string
+          transaction_id?: string | null
           updated_at?: string
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_records_vehicle_id_fkey"
             columns: ["vehicle_id"]
@@ -4636,6 +4718,7 @@ export type Database = {
           description: string | null
           id: string
           invoice_id: string | null
+          is_payroll: boolean
           kind: string
           payment_order_id: string | null
           receipt_id: string | null
@@ -4658,6 +4741,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          is_payroll?: boolean
           kind: string
           payment_order_id?: string | null
           receipt_id?: string | null
@@ -4680,6 +4764,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          is_payroll?: boolean
           kind?: string
           payment_order_id?: string | null
           receipt_id?: string | null
@@ -6719,6 +6804,7 @@ export type Database = {
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
+        | "sueldos"
       employee_document_kind:
         | "licencia_conducir"
         | "lnh"
@@ -6909,6 +6995,7 @@ export const Constants = {
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",
+        "sueldos",
       ],
       employee_document_kind: [
         "licencia_conducir",
