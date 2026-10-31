@@ -186,3 +186,28 @@ describe("ReceiptUpdateSchema", () => {
     expect(r.success).toBe(false);
   });
 });
+
+describe("ReceiptCreateSchema cotización", () => {
+  const usd = { ...validBase, currency: "USD" as const };
+
+  it("requires a rate on a USD receipt", () => {
+    const r = ReceiptCreateSchema.safeParse(usd);
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(["cotizacion"]);
+  });
+
+  it("rejects a USD rate of 1 or less", () => {
+    const r = ReceiptCreateSchema.safeParse({ ...usd, cotizacion: 1 });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts a USD receipt with its rate", () => {
+    const r = ReceiptCreateSchema.safeParse({ ...usd, cotizacion: 1180.5 });
+    expect(r.success).toBe(true);
+    expect(r.data?.cotizacion).toBe(1180.5);
+  });
+
+  it("does not ask an ARS receipt for a rate", () => {
+    expect(ReceiptCreateSchema.safeParse(validBase).success).toBe(true);
+  });
+});

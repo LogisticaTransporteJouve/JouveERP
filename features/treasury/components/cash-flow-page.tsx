@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UsdSkippedNote } from "@/components/usd-skipped-note";
 import {
   Table,
   TableBody,
@@ -104,6 +105,8 @@ export function CashFlowPage() {
               </div>
             )}
           </div>
+
+          {data.usdSkipped && <UsdSkippedNote />}
 
           <div className="rounded-lg border bg-card">
             <Table>

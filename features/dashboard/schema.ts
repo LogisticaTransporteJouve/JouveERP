@@ -80,6 +80,8 @@ export interface CashFlowChartData {
   deficitMonth: string | null;
   /** Latest USD→ARS rate used by the cash-flow action (null = ARS only). */
   usdRate: number | null;
+  /** USD items left out for lack of a loaded rate: the figures are partial. */
+  usdSkipped: boolean;
 }
 
 /** null = the caller lacks that section's read permission. */
