@@ -61,19 +61,25 @@ export const arcaIssuedSync = inngest.createFunction(
                 target,
                 cbteTipo,
                 VOUCHERS_PER_BATCH,
+                // Once per run: later batches would re-query the same gaps.
+                { retryGaps: batch === 0 },
               ),
           );
           results.push(result);
           // A batch that imported nothing (gaps, NC/ND without origin) would
           // walk the same numbers again.
-          if (result.stopped || result.imported === 0 || !hasPending(result)) {
+          if (
+            result.stopped ||
+            result.imported + result.recovered === 0 ||
+            !hasPending(result)
+          ) {
             break;
           }
         }
       }
     }
 
-    const imported = results.reduce((n, r) => n + r.imported, 0);
+    const imported = results.reduce((n, r) => n + r.imported + r.recovered, 0);
     logger.info("arca_sync.done", {
       imported,
       pending: results.some(hasPending),

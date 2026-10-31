@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   CONSUMIDOR_FINAL_CUIT,
+  hourlyWindow,
   clientIvaConditionFor,
   receiverCuit,
   syncIssuedPair,
@@ -50,6 +51,7 @@ function fakeSupabase(tables: Record<string, Row[]>) {
     const filters: Array<(r: Row) => boolean> = [];
     let order: { col: string; asc: boolean } | null = null;
     let limit = Infinity;
+    let offset = 0;
     const rows = () => {
       let out = (tables[table] ?? []).filter((r) => filters.every((f) => f(r)));
       if (order) {
@@ -58,7 +60,7 @@ function fakeSupabase(tables: Record<string, Row[]>) {
           (a, b) => (Number(a[col]) - Number(b[col])) * (asc ? 1 : -1),
         );
       }
-      return out.slice(0, limit);
+      return out.slice(offset, offset + limit);
     };
     const builder = {
       select: () => builder,
@@ -80,6 +82,15 @@ function fakeSupabase(tables: Record<string, Row[]>) {
         builder
       ),
       limit: (n: number) => ((limit = n), builder),
+      lte: (c: string, v: number) => (
+        filters.push((r) => Number(r[c]) <= v),
+        builder
+      ),
+      range: (from: number, to: number) => {
+        offset = from;
+        limit = to - from + 1;
+        return builder;
+      },
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
       single: async () => ({ data: rows()[0], error: null }),
       upsert: async (row: Row, opts: { onConflict: string }) => {
@@ -272,7 +283,7 @@ describe("syncIssuedPair", () => {
       voucher({
         cbteTipo: 3,
         cbteNro: 2,
-        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 99 }],
+        cbtesAsoc: [{ tipo: 1, ptoVta: 5, nro: 99 }],
       }),
     ]);
 
@@ -283,5 +294,100 @@ describe("syncIssuedPair", () => {
       numero: 1,
       invoice_origin_id: "inv-6",
     });
+  });
+
+  it("waits for an origin on the same point of sale that is not imported yet", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "inv-6",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 6,
+          status: "emitted",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 1,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }],
+      }),
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 2,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 50 }],
+      }),
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 3,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }],
+      }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 0 });
+    expect(res.stopped).toMatch(/espera su comprobante de origen \(50\)/);
+    expect(
+      db.invoices.filter((r) => r.kind === "nc").map((r) => r.numero),
+    ).toEqual([1]);
+  });
+
+  it("retries NC/ND left behind once their origin is imported", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "inv-6",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 6,
+          status: "emitted",
+        },
+        {
+          id: "nc-2",
+          punto_venta: 3,
+          cbte_tipo_afip: 3,
+          numero: 2,
+          status: "emitted",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 1,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }],
+      }),
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 2,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }],
+      }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10, {
+      retryGaps: true,
+    });
+
+    expect(res).toMatchObject({ recovered: 1, imported: 0 });
+    expect(
+      db.invoices.filter((r) => r.cbte_tipo_afip === 3).map((r) => r.numero),
+    ).toEqual([2, 1]);
+  });
+});
+
+describe("hourlyWindow", () => {
+  const hour = 3_600_000;
+  it("returns everything when it fits and rotates otherwise", () => {
+    expect(hourlyWindow([1, 2], 5, 0)).toEqual([1, 2]);
+    const gaps = [1, 2, 3, 4, 5];
+    expect(hourlyWindow(gaps, 2, 0)).toEqual([1, 2]);
+    expect(hourlyWindow(gaps, 2, hour)).toEqual([3, 4]);
+    expect(hourlyWindow(gaps, 2, 2 * hour)).toEqual([5]);
+    expect(hourlyWindow(gaps, 2, 3 * hour)).toEqual([1, 2]);
   });
 });
