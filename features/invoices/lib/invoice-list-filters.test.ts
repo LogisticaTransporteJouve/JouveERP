@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   invoiceListFilters,
   invoiceListParamsToUrl,
+  invoiceTypesOrFilter,
   parseInvoiceListParams,
   parseSearchTerm,
 } from "./invoice-list-filters";
@@ -15,8 +16,7 @@ describe("parseInvoiceListParams", () => {
       parseInvoiceListParams({
         status: "emitted",
         q: "acme",
-        kind: "nc",
-        letter: "B",
+        type: "nc,factura_A,bogus,nc",
         pv: "3",
         client: CLIENT,
         period: "this_month",
@@ -25,8 +25,7 @@ describe("parseInvoiceListParams", () => {
     ).toEqual({
       status: "emitted",
       query: "acme",
-      kind: "nc",
-      letter: "B",
+      types: ["factura_A", "nc"],
       puntoVenta: 3,
       clientId: CLIENT,
       period: { preset: "this_month", from: null, to: null },
@@ -37,16 +36,14 @@ describe("parseInvoiceListParams", () => {
   it("drops invalid values", () => {
     const parsed = parseInvoiceListParams({
       status: "x",
-      kind: "remito",
-      letter: "Z",
+      type: "remito",
       pv: "0",
       client: "not-a-uuid",
       group: "year",
     });
     expect(parsed).toMatchObject({
       status: null,
-      kind: null,
-      letter: null,
+      types: [],
       puntoVenta: null,
       clientId: null,
       group: null,
@@ -56,7 +53,7 @@ describe("parseInvoiceListParams", () => {
 
   it("round-trips through the URL", () => {
     const params = parseInvoiceListParams({
-      kind: "factura",
+      type: "factura_B,nd",
       pv: "11",
       period: "custom",
       from: "2026-01-01",
@@ -86,6 +83,19 @@ describe("invoiceListFilters", () => {
       from: "2026-10-30",
       to: "2026-10-30",
     });
+  });
+});
+
+describe("invoiceTypesOrFilter", () => {
+  it("matches facturas by letter and NC/ND whole", () => {
+    expect(invoiceTypesOrFilter(["nc", "factura_A"])).toBe(
+      "and(kind.eq.factura,letter.eq.A),kind.eq.nc",
+    );
+  });
+
+  it("drops unknown values instead of interpolating them", () => {
+    expect(invoiceTypesOrFilter(["kind.eq.factura),id.neq.0"])).toBe(null);
+    expect(invoiceTypesOrFilter([])).toBe(null);
   });
 });
 

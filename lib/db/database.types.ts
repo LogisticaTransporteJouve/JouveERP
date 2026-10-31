@@ -6607,12 +6607,11 @@ export type Database = {
           p_from?: string
           p_group?: string
           p_is_fiscal?: boolean
-          p_kind?: string
-          p_letter?: string
           p_numero?: number
           p_punto_venta?: number
           p_status?: string
           p_to?: string
+          p_types?: string[]
         }
         Returns: {
           bucket: string

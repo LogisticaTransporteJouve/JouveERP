@@ -66,17 +66,13 @@ import {
 } from "../lib/invoice-list-filters";
 import { invoicesKeys } from "../lib/invoices-keys";
 import {
-  INVOICE_KINDS,
-  INVOICE_KIND_LABEL,
   INVOICE_STATUSES,
   INVOICE_STATUS_LABEL,
-  LETTERS,
   formatInvoiceNumero,
-  isInvoiceKind,
-  isInvoiceLetter,
   isInvoiceStatus,
   type InvoiceStatus,
 } from "../schema";
+import { InvoiceTypeFilter } from "./invoice-type-filter";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { PdfViewerDialog } from "./pdf-viewer-dialog";
 
@@ -302,41 +298,10 @@ export function ComprobantesTable({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Select
-          value={params.kind ?? ANY}
-          onValueChange={(v) => update({ kind: isInvoiceKind(v) ? v : null })}
-        >
-          <SelectTrigger className="w-[170px]" aria-label="Tipo">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY}>Todos los tipos</SelectItem>
-            {INVOICE_KINDS.map((k) => (
-              <SelectItem key={k} value={k}>
-                {INVOICE_KIND_LABEL[k]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={params.letter ?? ANY}
-          onValueChange={(v) =>
-            update({ letter: isInvoiceLetter(v) ? v : null })
-          }
-        >
-          <SelectTrigger className="w-[160px]" aria-label="Letra">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY}>Todas las letras</SelectItem>
-            {LETTERS.map((l) => (
-              <SelectItem key={l} value={l}>
-                Letra {l}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <InvoiceTypeFilter
+          value={params.types}
+          onChange={(types) => update({ types })}
+        />
 
         <Input
           inputMode="numeric"

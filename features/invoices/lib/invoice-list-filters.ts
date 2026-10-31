@@ -1,4 +1,3 @@
-import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import {
   isListGroup,
   parsePeriodParams,
@@ -9,20 +8,60 @@ import {
 import { UuidSchema } from "@/lib/validation/common";
 
 import type { ListComprobantesFilters } from "../actions/invoices-actions";
-import {
-  isInvoiceKind,
-  isInvoiceLetter,
-  isInvoiceStatus,
-  type InvoiceStatus,
-} from "../schema";
+import { isInvoiceStatus, type InvoiceStatus } from "../schema";
+
+/** The "Tipo" filter: facturas split by letter, NC and ND whole. */
+export const INVOICE_LIST_TYPES = [
+  "factura_A",
+  "factura_B",
+  "nc",
+  "nd",
+] as const;
+export type InvoiceListType = (typeof INVOICE_LIST_TYPES)[number];
+
+export const INVOICE_LIST_TYPE_LABEL: Record<InvoiceListType, string> = {
+  factura_A: "Factura A",
+  factura_B: "Factura B",
+  nc: "Nota de Crédito",
+  nd: "Nota de Débito",
+};
+
+export const INVOICE_LIST_TYPE_SHORT: Record<InvoiceListType, string> = {
+  factura_A: "Factura A",
+  factura_B: "Factura B",
+  nc: "NC",
+  nd: "ND",
+};
+
+/** Distinct known types in canonical order, so equal selections share a
+ *  query key and a URL. */
+export function normalizeInvoiceListTypes(
+  values: readonly string[],
+): InvoiceListType[] {
+  return INVOICE_LIST_TYPES.filter((t) => values.includes(t));
+}
+
+/** PostgREST `or` filter matching any of `types` (null: no filter). Unknown
+ *  values are dropped, never interpolated: the input comes from the client. */
+export function invoiceTypesOrFilter(types: readonly string[]): string | null {
+  const known = normalizeInvoiceListTypes(types);
+  if (known.length === 0) return null;
+  return known
+    .map((t) =>
+      t === "nc" || t === "nd"
+        ? `kind.eq.${t}`
+        : `and(kind.eq.factura,letter.eq.${t.slice("factura_".length)})`,
+    )
+    .join(",");
+}
 
 /** What the comprobantes list filters on: its query key and action input. */
 export interface InvoiceListFilters {
   isFiscal: boolean | null;
   status: InvoiceStatus | null;
   query: string;
-  kind: InvoiceKind | null;
-  letter: InvoiceLetter | null;
+  /** Empty: every type. */
+  types: InvoiceListType[];
   puntoVenta: number | null;
   clientId: string | null;
   from: string | null;
@@ -30,12 +69,12 @@ export interface InvoiceListFilters {
 }
 
 /** The list's URL state:
- *  `?status&q&kind&letter&pv&client&period&from&to&group`. */
+ *  `?status&q&type&pv&client&period&from&to&group` (`type` is a
+ *  comma-separated list, e.g. `factura_A,nc`). */
 export interface InvoiceListParams {
   status: InvoiceStatus | null;
   query: string;
-  kind: InvoiceKind | null;
-  letter: InvoiceLetter | null;
+  types: InvoiceListType[];
   puntoVenta: number | null;
   clientId: string | null;
   period: PeriodSelection;
@@ -57,8 +96,7 @@ export function parseInvoiceListParams(
   return {
     status: isInvoiceStatus(params.status) ? params.status : null,
     query: params.q ?? "",
-    kind: isInvoiceKind(params.kind) ? params.kind : null,
-    letter: isInvoiceLetter(params.letter) ? params.letter : null,
+    types: normalizeInvoiceListTypes(params.type?.split(",") ?? []),
     puntoVenta: parsePuntoVenta(params.pv),
     clientId: client.success ? client.data : null,
     period: parsePeriodParams(params),
@@ -72,8 +110,7 @@ export function invoiceListParamsToUrl(
   return {
     status: params.status,
     q: params.query.trim() || null,
-    kind: params.kind,
-    letter: params.letter,
+    type: params.types.length > 0 ? params.types.join(",") : null,
     pv: params.puntoVenta === null ? null : String(params.puntoVenta),
     client: params.clientId,
     period: params.period.preset,
@@ -93,8 +130,7 @@ export function invoiceListFilters(
     isFiscal,
     status: params.status,
     query: params.query.trim(),
-    kind: params.kind,
-    letter: params.letter,
+    types: params.types,
     puntoVenta: params.puntoVenta,
     clientId: params.clientId,
     from: range?.from ?? null,
@@ -124,8 +160,7 @@ export function invoiceListActionInput(
   return {
     isFiscal: filters.isFiscal,
     status: filters.status,
-    kind: filters.kind,
-    letter: filters.letter,
+    types: filters.types,
     punto_venta: filters.puntoVenta,
     client_id: filters.clientId,
     fecha_desde: filters.from,

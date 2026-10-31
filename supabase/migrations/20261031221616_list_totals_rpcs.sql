@@ -6,7 +6,8 @@ SET LOCAL statement_timeout = '15min';
 -- function takes the same filters as its list action and returns one row per
 -- (bucket, currency): bucket is the day, the week (Monday) or the month of the
 -- document date for p_group 'day' / 'week' / 'month', and null otherwise (the
--- grand total).
+-- grand total). p_types matches the list's "Tipo" filter: 'factura_A',
+-- 'factura_B' (a factura of that letter), 'nc', 'nd'.
 --
 -- documents counts every matching row; total leaves out what never existed
 -- economically (cancelled or failed comprobantes, canceled receipts), and a
@@ -20,8 +21,7 @@ create function public.invoice_list_totals(
   p_group text default null,
   p_is_fiscal boolean default null,
   p_status text default null,
-  p_kind text default null,
-  p_letter text default null,
+  p_types text[] default null,
   p_punto_venta integer default null,
   p_client_id uuid default null,
   p_from date default null,
@@ -55,8 +55,9 @@ as $$
           where ch.id = i.channel_id and ch.is_fiscal = p_is_fiscal
         ))
     and (p_status is null or i.status = p_status)
-    and (p_kind is null or i.kind = p_kind)
-    and (p_letter is null or i.letter = p_letter)
+    and (p_types is null or (
+          case when i.kind = 'factura' then 'factura_' || coalesce(i.letter, '') else i.kind end
+        ) = any (p_types))
     and (p_punto_venta is null or i.punto_venta = p_punto_venta)
     and (p_client_id is null or i.client_id = p_client_id)
     and (p_from is null or i.fecha >= p_from)
@@ -67,9 +68,9 @@ as $$
   order by 1 desc nulls first, 2
 $$;
 
-revoke all on function public.invoice_list_totals(text, boolean, text, text, text, integer, uuid, date, date, integer, text) from public, anon;
-grant execute on function public.invoice_list_totals(text, boolean, text, text, text, integer, uuid, date, date, integer, text) to authenticated, service_role;
-comment on function public.invoice_list_totals(text, boolean, text, text, text, integer, uuid, date, date, integer, text) is
+revoke all on function public.invoice_list_totals(text, boolean, text, text[], integer, uuid, date, date, integer, text) from public, anon;
+grant execute on function public.invoice_list_totals(text, boolean, text, text[], integer, uuid, date, date, integer, text) to authenticated, service_role;
+comment on function public.invoice_list_totals(text, boolean, text, text[], integer, uuid, date, date, integer, text) is
   'Totales del listado de Comprobantes por día, semana o mes (o total general) con los filtros del listado. NC restan; anulados y fallidos no suman.';
 
 create function public.receipt_list_totals(

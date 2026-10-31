@@ -50,8 +50,11 @@ import {
 import type { IvaCondition } from "@/features/clients/schema";
 
 import {
+  invoiceTypesOrFilter,
+  normalizeInvoiceListTypes,
   parseSearchTerm,
   type InvoiceListFilters,
+  type InvoiceListType,
 } from "../lib/invoice-list-filters";
 
 type ComprobanteInsert = Database["public"]["Tables"]["invoices"]["Insert"];
@@ -606,7 +609,8 @@ export interface ListComprobantesFilters {
   /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
   isFiscal?: boolean | null;
   kind?: InvoiceRow["kind"] | null;
-  letter?: InvoiceRow["letter"];
+  /** "Tipo" filter (facturas by letter, NC, ND); empty = every type. */
+  types?: InvoiceListType[] | null;
   punto_venta?: number | null;
   /** Only invoices of an active channel (pickers; never the lists). */
   activeChannelOnly?: boolean;
@@ -682,7 +686,8 @@ export async function listInvoicesAction(
     query = query.eq("channel.is_active", true).not("channel", "is", null);
   }
   if (filters.kind) query = query.eq("kind", filters.kind);
-  if (filters.letter) query = query.eq("letter", filters.letter);
+  const typesFilter = invoiceTypesOrFilter(filters.types ?? []);
+  if (typesFilter) query = query.or(typesFilter);
   if (filters.punto_venta) query = query.eq("punto_venta", filters.punto_venta);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
@@ -762,6 +767,7 @@ export async function getInvoiceListTotalsAction(
   }
 
   const term = parseSearchTerm(filters.query);
+  const types = normalizeInvoiceListTypes(filters.types);
   const supabase = getServiceClient();
   // Ordered by (bucket, moneda), unique per row: a total order to page on. A
   // daily grouping over years passes the max_rows cap.
@@ -772,8 +778,7 @@ export async function getInvoiceListTotalsAction(
         p_is_fiscal:
           scopeIsFiscalFor(ctx.access, filters.isFiscal) ?? undefined,
         p_status: filters.status ?? undefined,
-        p_kind: filters.kind ?? undefined,
-        p_letter: filters.letter ?? undefined,
+        p_types: types.length > 0 ? types : undefined,
         p_punto_venta: filters.puntoVenta ?? undefined,
         p_client_id: filters.clientId ?? undefined,
         p_from: filters.from ?? undefined,
