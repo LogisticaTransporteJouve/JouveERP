@@ -6,6 +6,8 @@ import { listIssuedChecksAction } from "@/features/issued-checks/actions/issued-
 import { listRecurringPaymentsAction } from "@/features/recurring-payments/actions/recurring-payments-actions";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 
+import type { FiscalFilter } from "@/lib/scope";
+
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
@@ -13,7 +15,9 @@ import {
   money,
   okResult,
   reachedCap,
+  totalsByCurrency,
 } from "../result";
+import { ScopeInputSchema, readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`accounts:read` / `transactions:read` / `cheques:read` /
@@ -45,21 +49,22 @@ export const getAccounts = defineAiAction({
 
 export async function runTransactions(input: {
   accountId?: string | null;
-  channelId?: string | null;
+  scope?: FiscalFilter | null;
   dateFrom?: string | null;
   dateTo?: string | null;
   limit?: number | null;
 }): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
   const res = await listTransactionsAction({
     account_id: input.accountId ?? null,
-    channel_id: input.channelId ?? null,
+    is_fiscal: isFiscal,
     date_from: input.dateFrom ?? null,
     date_to: input.dateTo ?? null,
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.items.length} cash movements${
+    `${label}: ${res.data.items.length} cash movements${
       res.data.nextOffset !== null
         ? " (more available, narrow by date/account)"
         : ""
@@ -77,11 +82,12 @@ export const getTransactions = defineAiAction({
   sources: ["v_transactions_tagged"],
   description:
     "Cash/treasury movements (inflows, outflows, transfers) with account, " +
-    "channel, date, amount and counterparty. Filterable by account, channel and " +
+    "channel, date, amount and counterparty. Filterable by account, scope " +
+    "(fiscal/internal/all) and " +
     "date range (YYYY-MM-DD). For viewing cash flow or a specific movement.",
   input: z.object({
     accountId: z.string().nullish().describe("Account UUID, optional."),
-    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    scope: ScopeInputSchema,
     dateFrom: z.string().nullish().describe("Date from YYYY-MM-DD."),
     dateTo: z.string().nullish().describe("Date to YYYY-MM-DD."),
     limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
@@ -93,18 +99,27 @@ const CHECKS_LIST_CAP = 500;
 const CAPPED_NOTE =
   " (list capped at 500 by due date: count and total cover only these).";
 
-export async function runChecks(): Promise<AiRunResult> {
-  const res = await listChecksAction();
+export async function runChecks(
+  input: { scope?: FiscalFilter | null } = {},
+): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
+  const res = await listChecksAction({ isFiscal });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.items.reduce((s, c) => s + Number(c.amount), 0);
+  const total = totalsByCurrency(
+    res.data.items.map((c) => ({
+      amount: Number(c.amount),
+      currency: c.currency,
+      counts: true,
+    })),
+  );
   const enCartera = res.data.items.filter(
     (c) => c.status === "en_cartera",
   ).length;
   // The list action returns at most CHECKS_LIST_CAP checks (soonest due).
   const capped = reachedCap(res.data.items.length, CHECKS_LIST_CAP);
   return okResult(
-    `${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
-      `total ${money(total)}${capped ? CAPPED_NOTE : "."}`,
+    `${label}: ${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
+      `total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
     res.data,
     { partial: capped },
   );
@@ -119,18 +134,28 @@ export const getChecks = defineAiAction({
   description:
     "Third-party checks received: number, bank, drawer, due date, amount, " +
     "currency and status (in portfolio / deposited / credited / endorsed / " +
-    "bounced). No parameters. For the check portfolio or collections by check.",
-  input: z.object({}),
-  run: () => runChecks(),
+    "bounced). Optional scope (fiscal/internal/all; checks with no channel " +
+    "only under 'all'). For the check portfolio or collections by check.",
+  input: z.object({ scope: ScopeInputSchema }),
+  run: (_ctx, input) => runChecks(input),
 });
 
-export async function runIssuedChecks(): Promise<AiRunResult> {
-  const res = await listIssuedChecksAction();
+export async function runIssuedChecks(
+  input: { scope?: FiscalFilter | null } = {},
+): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
+  const res = await listIssuedChecksAction({ isFiscal });
   if (!res.ok) return errResult(res.error);
-  const total = res.data.reduce((s, c) => s + c.amount, 0);
+  const total = totalsByCurrency(
+    res.data.map((c) => ({
+      amount: c.amount,
+      currency: c.currency,
+      counts: true,
+    })),
+  );
   const capped = reachedCap(res.data.length, CHECKS_LIST_CAP);
   return okResult(
-    `${res.data.length} own checks issued · total ${money(total)}${
+    `${label}: ${res.data.length} own checks issued · total ${total} (per currency)${
       capped ? CAPPED_NOTE : "."
     }`,
     res.data,
@@ -146,10 +171,11 @@ export const getIssuedChecks = defineAiAction({
   sources: ["issued_checks"],
   description:
     "Own checks issued to suppliers: number, bank, payee, due date, amount, " +
-    "currency and status (issued / cashed / bounced / voided). No parameters. " +
+    "currency and status (issued / cashed / bounced / voided). Optional scope " +
+    "(fiscal/internal/all). " +
     "For payments by own check or upcoming check due dates.",
-  input: z.object({}),
-  run: () => runIssuedChecks(),
+  input: z.object({ scope: ScopeInputSchema }),
+  run: (_ctx, input) => runIssuedChecks(input),
 });
 
 export const getRecurringPayments = defineAiAction({
@@ -162,15 +188,18 @@ export const getRecurringPayments = defineAiAction({
     "Pagos recurrentes (alquileres, servicios, impuestos, sueldos fijos, etc.): descripción, categoría, monto, moneda, frecuencia, próximo vencimiento y estado.",
   input: z.object({
     onlyActive: z.boolean().nullish().describe("Solo activos (default true)."),
+    scope: ScopeInputSchema,
   }),
   run: async (_ctx, input) => {
+    const { isFiscal, label } = readScope(input.scope);
     const res = await listRecurringPaymentsAction({
       onlyActive: input.onlyActive ?? true,
+      isFiscal,
     });
     if (!res.ok) return errResult(res.error);
     const soonest = res.data.find((r) => r.is_active);
     return okResult(
-      `${res.data.length} pagos recurrentes` +
+      `${label}: ${res.data.length} pagos recurrentes` +
         (soonest
           ? ` · próximo: ${soonest.description} el ${soonest.next_due_date} (${soonest.currency} ${money(
               soonest.amount,

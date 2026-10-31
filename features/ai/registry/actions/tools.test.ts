@@ -306,7 +306,7 @@ describe("runInvoices", () => {
     const r = await runInvoices({ query: "Acme" });
     expect(listInvoicesAction).toHaveBeenCalledWith({
       query: "Acme",
-      channel_id: null,
+      isFiscal: null,
       fecha_desde: null,
       fecha_hasta: null,
       limit: 25,
@@ -314,6 +314,19 @@ describe("runInvoices", () => {
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("0 invoices");
     expect(r.summary).toContain("more available");
+    expect(r.summary).toContain("Todos los canales");
+  });
+
+  it("reads only fiscal channels and labels the figure with scope 'fiscal'", async () => {
+    vi.mocked(listInvoicesAction).mockResolvedValue({
+      ok: true,
+      data: { items: [], nextOffset: null },
+    });
+    const r = await runInvoices({ scope: "fiscal" });
+    expect(listInvoicesAction).toHaveBeenCalledWith(
+      expect.objectContaining({ isFiscal: true }),
+    );
+    expect(r.summary).toContain("Solo fiscal");
   });
 });
 
@@ -406,7 +419,7 @@ describe("runPurchaseInvoices", () => {
     expect(searchPurchaseInvoicesAction).toHaveBeenCalledWith({
       query: "",
       supplierId: "sup-1",
-      channelId: null,
+      isFiscal: null,
       fechaFrom: null,
       fechaTo: null,
       limit: 25,

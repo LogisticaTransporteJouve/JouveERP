@@ -10,9 +10,12 @@ export async function runTreasurySummary(): Promise<AiRunResult> {
   if (!res.ok) return errResult(res.error);
   const d = res.data;
   return okResult(
-    `${d.accounts.length} active accounts · ${d.checks_due_soon.count} checks ` +
-      `due soon (7 days).`,
+    `Caja real (todos los canales): ${d.accounts.length} active accounts · ` +
+      `${d.checks_due_soon.count} checks due soon (7 days).`,
     d,
+    {
+      note: "Treasury is the real cash of every channel; it is never split by scope.",
+    },
   );
 }
 

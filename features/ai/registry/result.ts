@@ -93,6 +93,7 @@ function amounts(a: CurrencyAmounts): string {
 export function agingResult(
   report: AgingReport,
   partyPlural: string,
+  scopeLabel: string,
 ): AiRunResult {
   const t = report.totals;
   const eq =
@@ -119,7 +120,7 @@ export function agingResult(
     oldest_days: r.oldest_days,
   }));
   return okResult(
-    `${t.party_count} ${partyPlural} with balance · total ${amounts(t.total)}${eq} · ` +
+    `${scopeLabel}: ${t.party_count} ${partyPlural} with balance · total ${amounts(t.total)}${eq} · ` +
       `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents). ` +
       "Amounts per currency: *_ars in pesos, *_usd in dollars.",
     { totals: t, usd_rate: rate, rows },

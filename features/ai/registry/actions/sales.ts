@@ -6,6 +6,8 @@ import { ClientSalesSummaryInputSchema } from "@/features/clients/reports-schema
 import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
 
+import type { FiscalFilter } from "@/lib/scope";
+
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
@@ -14,6 +16,7 @@ import {
   okResult,
   totalsByCurrency,
 } from "../result";
+import { ScopeInputSchema, readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`invoices:read` / `receipts:read` / `clients:read`) + RLS, so the tool
@@ -21,14 +24,15 @@ import {
 
 export async function runInvoices(input: {
   query?: string | null;
-  channelId?: string | null;
+  scope?: FiscalFilter | null;
   fechaDesde?: string | null;
   fechaHasta?: string | null;
   limit?: number | null;
 }): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
   const res = await listInvoicesAction({
     query: input.query ?? null,
-    channel_id: input.channelId ?? null,
+    isFiscal,
     fecha_desde: input.fechaDesde ?? null,
     fecha_hasta: input.fechaHasta ?? null,
     limit: input.limit ?? 25,
@@ -42,7 +46,7 @@ export async function runInvoices(input: {
     })),
   );
   return okResult(
-    `${res.data.items.length} invoices${
+    `${label}: ${res.data.items.length} invoices${
       res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
     } · emitted total ${total} (credit notes subtract; per currency).`,
     res.data,
@@ -58,7 +62,8 @@ export const getInvoices = defineAiAction({
   sources: ["invoices"],
   description:
     "Issued sales documents (invoices, credit notes, debit notes): list " +
-    "filterable by client/number (query), channel, and date range (YYYY-MM-DD). " +
+    "filterable by client/number (query), scope (fiscal/internal/all) and date " +
+    "range (YYYY-MM-DD). For billing or VAT questions use scope 'fiscal'. " +
     "Returns number, client, date, total and status. For sales, billing or " +
     "finding a specific document.",
   input: z.object({
@@ -66,7 +71,7 @@ export const getInvoices = defineAiAction({
       .string()
       .nullish()
       .describe("Text to search: exact number or client name."),
-    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    scope: ScopeInputSchema,
     fechaDesde: z.string().nullish().describe("Date from YYYY-MM-DD."),
     fechaHasta: z.string().nullish().describe("Date to YYYY-MM-DD."),
     limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
@@ -76,12 +81,13 @@ export const getInvoices = defineAiAction({
 
 export async function runReceipts(input: {
   query?: string | null;
-  channelId?: string | null;
+  scope?: FiscalFilter | null;
   limit?: number | null;
 }): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
   const res = await listReceiptsAction({
     query: input.query ?? null,
-    channelId: input.channelId ?? null,
+    isFiscal,
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
@@ -93,7 +99,7 @@ export async function runReceipts(input: {
     })),
   );
   return okResult(
-    `${res.data.items.length} receipts${
+    `${label}: ${res.data.items.length} receipts${
       res.data.nextOffset !== null ? " (more available)" : ""
     } · total collected ${total} (issued only; per currency).`,
     res.data,
@@ -108,12 +114,13 @@ export const getReceipts = defineAiAction({
   sideEffect: "read",
   sources: ["receipts"],
   description:
-    "Collection receipts: list filterable by number/client (query) and channel. " +
+    "Collection receipts: list filterable by number/client (query) and scope " +
+    "(fiscal/internal/all). " +
     "Returns number, client, date, amount and currency. For collections or " +
     "finding a specific receipt.",
   input: z.object({
     query: z.string().nullish().describe("Exact receipt number to search."),
-    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    scope: ScopeInputSchema,
     limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
   }),
   run: (_ctx, input) => runReceipts(input),
