@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -486,26 +487,13 @@ export function SupplierForm({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => (onCancel ? onCancel() : router.push("/suppliers"))}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSaving || (mode === "edit" && !form.formState.isDirty)}
-          >
-            {isSaving
-              ? "Guardando…"
-              : mode === "create"
-                ? "Crear proveedor"
-                : "Guardar cambios"}
-          </Button>
-        </div>
+        <DialogFormFooter
+          mode={mode}
+          isSaving={isSaving}
+          isDirty={form.formState.isDirty}
+          createLabel="Crear proveedor"
+          onCancel={() => (onCancel ? onCancel() : router.push("/suppliers"))}
+        />
       </form>
     </Form>
   );
