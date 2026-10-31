@@ -6,4 +6,5 @@ export const afipAdminKeys = {
   panel: () => [...afipAdminKeys.all, "panel"] as const,
   channels: () => [...afipAdminKeys.all, "channels"] as const,
   caea: () => [...afipAdminKeys.all, "caea"] as const,
+  reconciliation: () => [...afipAdminKeys.all, "reconciliation"] as const,
 };

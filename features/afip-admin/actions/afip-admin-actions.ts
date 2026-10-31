@@ -15,6 +15,7 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type { Database } from "@/lib/db/database.types";
+import type { PairReconciliation } from "@/lib/afip/sync-issued";
 
 import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
 
@@ -506,4 +507,42 @@ export async function countArcaImportedSinceAction(
     .gte("created_at", since);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: count ?? 0 };
+}
+
+/** Per point of sale and cbte tipo, what ARCA authorized against what the
+ *  ERP holds. Every number from 1 to ARCA's last should be in the ERP. */
+export async function getArcaReconciliationAction(): Promise<
+  ActionResult<PairReconciliation[]>
+> {
+  const ctx = await requireAfipAdmin();
+  if (!ctx) {
+    return { ok: false, error: "No tenés permiso para administrar AFIP." };
+  }
+
+  const { listSyncTargets, reconcilePair, SYNC_CBTE_TIPOS } =
+    await import("@/lib/afip/sync-issued");
+  const { getLastAuthorizedNumber } = await import("@/lib/afip/wsfev1");
+  const supabase = getServiceClient();
+  try {
+    const targets = await listSyncTargets(supabase);
+    const rows: PairReconciliation[] = [];
+    for (const target of targets) {
+      for (const cbteTipo of SYNC_CBTE_TIPOS) {
+        rows.push(
+          await reconcilePair(
+            supabase,
+            { getLastAuthorizedNumber },
+            target,
+            cbteTipo,
+          ),
+        );
+      }
+    }
+    return { ok: true, data: rows };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "No se pudo conciliar con ARCA.";
+    const code = err instanceof AfipError ? err.code : undefined;
+    return { ok: false, error: message, code };
+  }
 }

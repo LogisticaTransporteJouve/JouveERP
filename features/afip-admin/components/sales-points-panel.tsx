@@ -25,6 +25,7 @@ import {
   useSyncAfipPos,
 } from "../hooks/use-afip-admin";
 import { afipAdminKeys } from "../lib/afip-admin-keys";
+import { ArcaReconciliationPanel } from "./arca-reconciliation-panel";
 import { ConfigurePosDialog } from "./configure-pos-dialog";
 
 export function SalesPointsPanel() {
@@ -95,6 +96,8 @@ export function SalesPointsPanel() {
       {diagnostics && <DiagnosticsSection diagnostics={diagnostics} />}
 
       <SalesPointsSection salesPoints={salesPoints} />
+
+      <ArcaReconciliationPanel />
     </div>
   );
 }
