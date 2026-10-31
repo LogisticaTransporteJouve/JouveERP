@@ -47,6 +47,7 @@ describe("hubScope", () => {
       "supplier",
       "ai_document",
       "ai_chat_message",
+      "fleet_document",
     ]);
     expect(scope.entityTypes).not.toContain("employee_document");
     expect(scope.entityTypes).not.toContain("purchase_invoice");
@@ -73,6 +74,9 @@ describe("hubScope", () => {
       const { entityTypes } = hubScope(resolveAccess([role]));
       if (entityTypes.includes("employee_document")) {
         expect(["owner", "admin", "finance"]).toContain(role);
+      }
+      if (entityTypes.includes("fleet_document")) {
+        expect(["owner", "admin", "operations"]).toContain(role);
       }
     }
   });

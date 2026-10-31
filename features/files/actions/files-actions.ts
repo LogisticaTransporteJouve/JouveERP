@@ -7,7 +7,7 @@ import { ENTITY_READ_PERMISSION } from "@/lib/auth/entity-permissions";
 import { userCan, type Permission } from "@/lib/auth/permissions";
 import { ATTACHMENT_FK_COLUMN } from "@/lib/files/attachment-targets";
 import { isFileReferencedElsewhere } from "@/lib/files/references";
-import { buildStorageKey } from "@/lib/files/storage-path";
+import { discardStoredFile, storeUploadedFile } from "@/lib/files/store";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,18 +19,6 @@ import {
 } from "../schema";
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
-
-const BUCKET = "files";
-const MAX_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME = new Set([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "text/csv",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
 
 // Per-target write permission. The upload action requires `files:write`
 // plus this — attach is gated by the user's right to write the target.
@@ -50,9 +38,10 @@ const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> =
   ATTACHMENT_FK_COLUMN;
 
 // ─── uploadFileAction ────────────────────────────────────────────────────────
-// Storage write first (bytes), then files row, then file_attachments row.
-// Each step rolls back the previous on failure — RLS keeps half-built rows
-// invisible, and the nightly orphan sweep is the safety net.
+// Storage write first (bytes), then files row (storeUploadedFile), then
+// file_attachments row. Each step rolls back the previous on failure — RLS
+// keeps half-built rows invisible, and the nightly orphan sweep is the safety
+// net.
 
 export async function uploadFileAction(
   formData: FormData,
@@ -80,56 +69,14 @@ export async function uploadFileAction(
     return { ok: false, error: `Tipo de adjunto inválido para ${targetType}.` };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return { ok: false, error: "Archivo faltante." };
-  }
-  if (file.size === 0) {
-    return { ok: false, error: "El archivo está vacío." };
-  }
-  if (file.size > MAX_BYTES) {
-    return { ok: false, error: "El archivo supera 10 MB." };
-  }
-  if (!ALLOWED_MIME.has(file.type)) {
-    return {
-      ok: false,
-      error: `Tipo no permitido (${file.type || "desconocido"}).`,
-    };
-  }
-
   const supabase = await createClient();
-  const fileId = crypto.randomUUID();
-  const bucketPath = buildStorageKey(fileId, file.name);
-
-  const { error: storageErr } = await supabase.storage
-    .from(BUCKET)
-    .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
-  if (storageErr) {
-    logger.warn("files.upload.storage_failed", {
-      userId: ctx.userId,
-      error: storageErr.message,
-    });
-    return { ok: false, error: "No se pudo subir el archivo." };
-  }
-
-  const { error: registryErr } = await supabase.from("files").insert({
-    id: fileId,
-    uploaded_by: ctx.userId,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size: file.size,
-    bucket: BUCKET,
-    bucket_path: bucketPath,
-    source: "manual_upload",
-  });
-  if (registryErr) {
-    await supabase.storage.from(BUCKET).remove([bucketPath]);
-    logger.warn("files.upload.registry_failed", {
-      userId: ctx.userId,
-      error: registryErr.message,
-    });
-    return { ok: false, error: "No se pudo registrar el archivo." };
-  }
+  const stored = await storeUploadedFile(
+    supabase,
+    ctx.userId,
+    formData.get("file"),
+  );
+  if (!stored.ok) return stored;
+  const { fileId } = stored.data;
 
   // Insert per target so each branch stays typed. M.4 adds branches as new
   // FKs land on `file_attachments`.
@@ -152,8 +99,7 @@ export async function uploadFileAction(
   const attRow = insertResult.data;
   const attachErr = insertResult.error;
   if (attachErr || !attRow) {
-    await supabase.from("files").delete().eq("id", fileId);
-    await supabase.storage.from(BUCKET).remove([bucketPath]);
+    await discardStoredFile(supabase, stored.data);
     logger.warn("files.upload.attach_failed", {
       userId: ctx.userId,
       targetType,
@@ -231,6 +177,17 @@ export async function getSignedFileUrlAction(
       { p_file_id: parsed.data },
     );
     if (hrErr || isHrFile) {
+      return { ok: false, error: "Archivo no encontrado." };
+    }
+  }
+
+  // Fleet documents: only fleet_documents:read, the same pair of checks.
+  if (!userCan(ctx.access, "fleet_documents:read")) {
+    const { data: isFleetFile, error: fleetErr } = await supabase.rpc(
+      "is_fleet_document_file",
+      { p_file_id: parsed.data },
+    );
+    if (fleetErr || isFleetFile) {
       return { ok: false, error: "Archivo no encontrado." };
     }
   }

@@ -106,7 +106,13 @@ describe("listHubFilesAction", () => {
       [
         "v_files_hub.in",
         "entity_type",
-        ["client", "supplier", "ai_document", "ai_chat_message"],
+        [
+          "client",
+          "supplier",
+          "ai_document",
+          "ai_chat_message",
+          "fleet_document",
+        ],
       ],
     ]);
     expect(callsOf("or")).toEqual([
@@ -217,6 +223,7 @@ describe("getHubFileUrlAction", () => {
       "supplier",
       "ai_document",
       "ai_chat_message",
+      "fleet_document",
     ]);
     expect(callsOf("or")).toEqual([
       ["v_files_hub.or", "owner_id.is.null,owner_id.eq.u-1"],

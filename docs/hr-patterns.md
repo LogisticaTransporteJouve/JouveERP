@@ -301,9 +301,16 @@ consumo FIFO y otorgamiento anual. Migración `…517130000_vacations`.
 **Reglas LCT:**
 - Días por antigüedad (Art. 150), medidos al 31-Dic del `period_year`: <5 años =
   14; <10 = 21; <20 = 28; ≥20 = 35.
-- Prorrateo (Art. 153): si `hire_date > 1-Jul` del año (<6 meses), `entitled =
-  greatest(0, (dec31 − hire_date)/20)` (1 día cada 20 trabajados). Tiene
-  precedencia sobre los tramos.
+- Mínimo de trabajo (Art. 151) y proporcional (Art. 153): `vacation_work_days
+  (employee, year)` cuenta los días hábiles (lunes a viernes, sin `holidays`)
+  del año calendario, los del tramo en que el empleado estuvo (desde
+  `hire_date`, hasta `termination_date`) y, de esos, los de trabajo efectivo:
+  todos menos los que tienen `attendance_records.kind = 'absent_unjustified'`
+  (licencias, enfermedad y faltas justificadas cuentan como trabajados, Art.
+  152; los días que faltan del año también, como cualquier día sin fila). Si
+  los efectivos no llegan a la mitad de los hábiles del año, `entitled =
+  efectivos / 20` (entero). Tiene precedencia sobre los tramos. Reemplaza el
+  corte "ingresó después del 1-Jul" sobre días corridos (`…201921`).
 - **Período anual**: renueva el **1-Oct** (`granted_at`); se puede tomar entre
   1-Oct-N y 30-Abr-(N+1); `expires_at = 30-Abr` del año siguiente.
 - **Arrastre** (LCT art. 164): los días no usados del período anterior pasan a

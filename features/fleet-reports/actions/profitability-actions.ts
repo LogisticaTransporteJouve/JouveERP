@@ -9,6 +9,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
   computeProfitability,
+  isRevenueSource,
   type FleetProfitability,
   type FuelInput,
   type MaintenanceInput,
@@ -21,15 +22,20 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Fleet profitability over a date range: per-trip net (revenue − cost − fuel)
- * and per-vehicle net (revenue − costs − fuel − maintenance). Aggregated in TS
- * (computeProfitability) over fully drained reads. Gated on trips:read (the
- * fleet read).
+ * and per-vehicle net (revenue − costs − fuel − maintenance). A trip's revenue
+ * comes from v_trip_revenue (invoiced freight of its shipments, else the manual
+ * figure). Aggregated in TS (computeProfitability) over fully drained reads.
+ * Gated on trips:read plus shipments:read: without the shipments a trip's
+ * revenue cannot be told.
  */
 export async function getFleetProfitabilityAction(
   input: RangeInput,
 ): Promise<ActionResult<FleetProfitability>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "trips:read")) {
+  if (
+    !userCan(ctx.access, "trips:read") ||
+    !userCan(ctx.access, "shipments:read")
+  ) {
     return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
   }
   if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {
@@ -40,49 +46,63 @@ export async function getFleetProfitabilityAction(
 
   // Every read is drained past max_rows: the totals are summed in
   // computeProfitability, so a truncated page would be a wrong number.
-  const [tripsRes, fuelRes, maintRes, vehiclesRes] = await Promise.all([
-    paginateRange((from, to) =>
-      supabase
-        .from("trips")
-        .select(
-          "id, trip_date, vehicle_id, origin, destination, revenue, cost, vehicle:vehicles(patente), driver:drivers(full_name)",
-        )
-        .gte("trip_date", input.periodStart)
-        .lte("trip_date", input.periodEnd)
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange((from, to) =>
-      supabase
-        .from("fuel_loads")
-        .select(
-          "vehicle_id, trip_id, amount, purchase_invoice_id, transaction_id",
-        )
-        .gte("load_date", input.periodStart)
-        .lte("load_date", input.periodEnd)
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange((from, to) =>
-      supabase
-        .from("maintenance_records")
-        .select("vehicle_id, cost, purchase_invoice_id, transaction_id")
-        .gte("service_date", input.periodStart)
-        .lte("service_date", input.periodEnd)
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange((from, to) =>
-      supabase
-        .from("vehicles")
-        .select("id, patente")
-        .order("id")
-        .range(from, to),
-    ),
-  ]);
+  const [tripsRes, revenueRes, fuelRes, maintRes, vehiclesRes] =
+    await Promise.all([
+      paginateRange((from, to) =>
+        supabase
+          .from("trips")
+          .select(
+            "id, trip_date, vehicle_id, origin, destination, revenue, cost, vehicle:vehicles(patente), driver:drivers(full_name)",
+          )
+          .gte("trip_date", input.periodStart)
+          .lte("trip_date", input.periodEnd)
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        supabase
+          .from("v_trip_revenue")
+          .select("trip_id, revenue, revenue_source, invoiced_revenue")
+          .gte("trip_date", input.periodStart)
+          .lte("trip_date", input.periodEnd)
+          .order("trip_id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        supabase
+          .from("fuel_loads")
+          .select(
+            "vehicle_id, trip_id, amount, purchase_invoice_id, transaction_id",
+          )
+          .gte("load_date", input.periodStart)
+          .lte("load_date", input.periodEnd)
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        supabase
+          .from("maintenance_records")
+          .select("vehicle_id, cost, purchase_invoice_id, transaction_id")
+          .gte("service_date", input.periodStart)
+          .lte("service_date", input.periodEnd)
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        supabase
+          .from("vehicles")
+          .select("id, patente")
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
 
   const firstError =
-    tripsRes.error ?? fuelRes.error ?? maintRes.error ?? vehiclesRes.error;
+    tripsRes.error ??
+    revenueRes.error ??
+    fuelRes.error ??
+    maintRes.error ??
+    vehiclesRes.error;
   if (firstError) {
     logger.error("fleet.profitability.failed", {
       userId: ctx.userId,
@@ -91,17 +111,41 @@ export async function getFleetProfitabilityAction(
     return { ok: false, error: "No se pudo calcular la rentabilidad." };
   }
 
-  const trips: TripInput[] = (tripsRes.data ?? []).map((t) => ({
-    id: t.id,
-    trip_date: t.trip_date,
-    vehicle_id: t.vehicle_id,
-    origin: t.origin,
-    destination: t.destination,
-    revenue: t.revenue === null ? null : Number(t.revenue),
-    cost: t.cost === null ? null : Number(t.cost),
-    vehicle: t.vehicle,
-    driver: t.driver,
-  }));
+  const revenueByTrip = new Map<
+    string,
+    Pick<TripInput, "revenue" | "revenue_source" | "invoiced_revenue">
+  >();
+  for (const r of revenueRes.data ?? []) {
+    if (!r.trip_id || !isRevenueSource(r.revenue_source)) continue;
+    revenueByTrip.set(r.trip_id, {
+      revenue: Number(r.revenue ?? 0),
+      revenue_source: r.revenue_source,
+      invoiced_revenue: Number(r.invoiced_revenue ?? 0),
+    });
+  }
+
+  const trips: TripInput[] = [];
+  for (const t of tripsRes.data ?? []) {
+    const split = revenueByTrip.get(t.id);
+    // Both reads cover the same range; a trip missing from the view was
+    // created between them and is left out rather than guessed.
+    if (!split) {
+      logger.warn("fleet.profitability.revenue_missing", { tripId: t.id });
+      continue;
+    }
+    trips.push({
+      id: t.id,
+      trip_date: t.trip_date,
+      vehicle_id: t.vehicle_id,
+      origin: t.origin,
+      destination: t.destination,
+      ...split,
+      manual_revenue: t.revenue === null ? null : Number(t.revenue),
+      cost: t.cost === null ? null : Number(t.cost),
+      vehicle: t.vehicle,
+      driver: t.driver,
+    });
+  }
 
   const fuel: FuelInput[] = (fuelRes.data ?? []).map((f) => ({
     vehicle_id: f.vehicle_id,
