@@ -73,7 +73,7 @@ export type ExportOutput = {
 };
 
 export type Exporter = {
-  permission: Permission;
+  permission: Permission | readonly Permission[];
   load: (params: URLSearchParams, range: ExportRange) => Promise<ExportOutput>;
 };
 

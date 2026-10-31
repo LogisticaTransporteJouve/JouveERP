@@ -7,10 +7,7 @@ import { expect, test } from "./fixtures";
 const ENABLED = process.env.RUN_AFIP_E2E === "1";
 
 test.describe("AFIP smoke — emite factura y espera CAE", () => {
-  test.skip(
-    !ENABLED,
-    "RUN_AFIP_E2E=1 + AFIP creds + Inngest dev requeridos.",
-  );
+  test.skip(!ENABLED, "RUN_AFIP_E2E=1 + AFIP creds + Inngest dev requeridos.");
   // Homologación roundtrip ~5-8s + pipeline de Inngest + arranque en frío.
   test.setTimeout(90_000);
 
@@ -24,6 +21,15 @@ test.describe("AFIP smoke — emite factura y espera CAE", () => {
     const dialog = page.getByRole("dialog", { name: /nuevo comprobante/i });
     await expect(dialog).toBeVisible();
 
+    // No default channel with several active ones: pick Jouve Fiscal.
+    await dialog
+      .getByRole("combobox")
+      .filter({ hasText: /elegí un canal/i })
+      .click();
+    await page
+      .getByRole("option", { name: /logística jouve.*fiscal/i })
+      .click();
+
     const search = dialog.getByPlaceholder(/buscar por razón social/i);
     await search.click();
     await search.fill("PALLET SIRANS");
@@ -35,10 +41,15 @@ test.describe("AFIP smoke — emite factura y espera CAE", () => {
 
     // .first() en ambos: la fila "Seguro" comparte placeholder con la
     // fila editable y queda al final.
-    await dialog.getByPlaceholder(/^descripción$/i).first().fill("Smoke E2E AFIP");
+    await dialog
+      .getByPlaceholder(/^descripción$/i)
+      .first()
+      .fill("Smoke E2E AFIP");
     await dialog.getByPlaceholder("$ 0,00").first().fill("100");
 
-    await dialog.getByRole("button", { name: /emitir y solicitar cae/i }).click();
+    await dialog
+      .getByRole("button", { name: /emitir y solicitar cae/i })
+      .click();
 
     await page.waitForURL(/\/invoices\/[0-9a-f-]{36}/, { timeout: 30_000 });
     await expect(page.getByText(/^\d{14}$/)).toBeVisible({ timeout: 60_000 });

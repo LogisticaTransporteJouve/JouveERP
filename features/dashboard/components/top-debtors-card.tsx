@@ -7,12 +7,18 @@ import { formatMoneyWithCode } from "@/lib/format";
 
 import type { TopDebtor } from "../schema";
 
-export function TopDebtorsCard({ debtors }: { debtors: TopDebtor[] }) {
+export function TopDebtorsCard({
+  debtors,
+  scopeLabel,
+}: {
+  debtors: TopDebtor[];
+  scopeLabel: string;
+}) {
   return (
     <Section
       title="Top deudores"
       icon={Users}
-      description="Clientes con más saldo por cobrar"
+      description={`Clientes con más saldo por cobrar · ${scopeLabel}`}
       actions={
         <Link
           href="/aging"

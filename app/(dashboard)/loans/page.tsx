@@ -9,6 +9,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +20,12 @@ export default async function LoansRoute() {
     redirect("/dashboard");
   }
 
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const [dehydratedState, channelsRes] = await Promise.all([
     prefetchQueries([
       {
-        queryKey: loansKeys.list(),
-        queryFn: () => runAction(() => listLoansAction()),
+        queryKey: loansKeys.list(isFiscal),
+        queryFn: () => runAction(() => listLoansAction({ isFiscal })),
       },
     ]),
     listInvoicingChannelsAction(),

@@ -6,6 +6,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -17,9 +18,10 @@ import {
 import { issuedChecksKeys } from "../lib/issued-checks-keys";
 
 export function useIssuedChecksList() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: issuedChecksKeys.list(),
-    queryFn: () => runAction(() => listIssuedChecksAction()),
+    queryKey: issuedChecksKeys.list(isFiscal),
+    queryFn: () => runAction(() => listIssuedChecksAction({ isFiscal })),
   });
 }
 

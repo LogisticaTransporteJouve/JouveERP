@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -96,6 +97,7 @@ export async function listTransactionsAction(
     .order("id", { ascending: false });
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
+  query = applyFiscalFilter(query, filters.is_fiscal);
   if (filters.account_id) query = query.eq("account_id", filters.account_id);
   if (filters.kind) query = query.eq("kind", filters.kind);
   if (filters.date_from)

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -38,7 +39,6 @@ import {
   sumArAmountsBy,
   todayInAR,
 } from "@/lib/format";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import type { ReceiptDetail } from "../actions/receipts-actions";
@@ -111,11 +111,8 @@ export function ReceiptForm({
   const updateMut = useUpdateReceipt();
   const isSaving = createMut.isPending || updateMut.isPending;
 
-  const initialChannel =
-    receipt?.receipt.channel_id ??
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-    channels[0]?.id ??
-    "";
+  const defaultChannel = useDefaultChannel();
+  const initialChannel = receipt?.receipt.channel_id ?? defaultChannel ?? "";
 
   const initialPaymentLines: PaymentLineDraft[] = receipt
     ? receipt.payment_lines.map((l) => {

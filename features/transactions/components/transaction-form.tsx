@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -25,23 +26,18 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
   useCreateTransaction,
   useCreateTransfer,
 } from "../hooks/use-transactions";
-import {
-  defaultAccrualMonth,
-  TRANSACTION_CURRENCIES,
-} from "../schema";
+import { defaultAccrualMonth, TRANSACTION_CURRENCIES } from "../schema";
 
 export interface ChannelOption {
   id: string;
   name: string;
 }
-
 
 const FormSchema = z
   .object({
@@ -118,10 +114,7 @@ export function TransactionForm({
   const createTransferMut = useCreateTransfer();
   const isSaving = createTxMut.isPending || createTransferMut.isPending;
 
-  const defaultChannel =
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-    channels[0]?.id ??
-    "";
+  const defaultChannel = useDefaultChannel() ?? "";
   const today = todayInAR();
 
   const form = useForm<FormValues>({

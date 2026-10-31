@@ -15,6 +15,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 import { getServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,6 @@ export default async function ComprobantesPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    channel?: string;
     status?: string;
     q?: string;
   }>;
@@ -49,7 +50,7 @@ export default async function ComprobantesPage({
     .order("name");
 
   const filters = {
-    channel: params.channel ?? null,
+    isFiscal: isFiscalFor(await readScopeCookie()),
     status: asStatus(params.status),
     query: params.q ?? "",
   };
@@ -61,7 +62,7 @@ export default async function ComprobantesPage({
       queryFn: ({ pageParam }: { pageParam: number }) =>
         runAction(() =>
           listInvoicesAction({
-            channel_id: filters.channel,
+            isFiscal: filters.isFiscal,
             status: filters.status,
             query: filters.query.length > 0 ? filters.query : null,
             offset: pageParam,
@@ -89,7 +90,6 @@ export default async function ComprobantesPage({
             division: c.division,
             is_fiscal: c.is_fiscal,
           }))}
-          initialChannel={filters.channel}
           initialStatus={filters.status}
           initialQuery={filters.query}
         />

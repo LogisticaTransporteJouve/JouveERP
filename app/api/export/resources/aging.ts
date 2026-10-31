@@ -1,11 +1,12 @@
 import "server-only";
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
+import { CLIENT_AGING_PERMISSIONS } from "@/lib/auth/permissions";
 
 import { agingExport, type Exporter } from "../shared";
 
 export const aging: Exporter = {
-  permission: "clients:read",
+  permission: CLIENT_AGING_PERMISSIONS,
   // Snapshot: aging buckets reflect "today". The date range is ignored.
   load: async () => {
     const res = await getAgingSummaryAction();

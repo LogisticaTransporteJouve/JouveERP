@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -20,9 +21,10 @@ import {
 import { checksKeys } from "../lib/checks-keys";
 
 export function useChecksList() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: checksKeys.list(),
-    queryFn: () => runAction(() => listChecksAction()),
+    queryKey: checksKeys.list(isFiscal),
+    queryFn: () => runAction(() => listChecksAction({ isFiscal })),
   });
 }
 
@@ -36,7 +38,9 @@ export function useCheckDetail(id: string) {
 // Mutations -----------------------------------------------------------------
 
 function makeChequeMutation<TInput, TData>(
-  fn: (input: TInput) => Promise<{ ok: true; data: TData } | { ok: false; error: string }>,
+  fn: (
+    input: TInput,
+  ) => Promise<{ ok: true; data: TData } | { ok: false; error: string }>,
 ) {
   return function useChequeMutation() {
     const qc = useQueryClient();

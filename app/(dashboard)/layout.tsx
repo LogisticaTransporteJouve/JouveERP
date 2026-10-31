@@ -15,11 +15,11 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { getInvoicingChannels } from "@/lib/channels";
 import {
-  parseFiscalFilter,
   SCOPE_COOKIE,
   type FiscalFilter,
   type InvoicingChannelSummary,
 } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 import { createClient } from "@/lib/supabase/server";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
@@ -56,15 +56,11 @@ export default async function DashboardLayout({
 
   // Read scope from the cookie to avoid the "all channels" flash
   // during the client's first render.
-  const scopeCookie = cookieStore.get(SCOPE_COOKIE)?.value;
-  let initialFiscalFilter: FiscalFilter | undefined;
-  if (scopeCookie) {
-    try {
-      initialFiscalFilter = parseFiscalFilter(decodeURIComponent(scopeCookie));
-    } catch {
-      initialFiscalFilter = undefined;
-    }
-  }
+  const initialFiscalFilter: FiscalFilter | undefined = cookieStore.get(
+    SCOPE_COOKIE,
+  )
+    ? await readScopeCookie()
+    : undefined;
 
   return (
     <ScopeProvider

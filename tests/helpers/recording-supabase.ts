@@ -5,7 +5,7 @@
 
 export type RecordedCall = {
   table: string;
-  op: "select" | "insert" | "update" | "upsert" | "delete";
+  op: "select" | "insert" | "update" | "upsert" | "delete" | "rpc";
   payload?: unknown;
   options?: unknown;
   filters: [string, string, unknown][];
@@ -21,8 +21,11 @@ export function recordingSupabase(
 ) {
   const calls: RecordedCall[] = [];
 
-  function from(table: string) {
-    const call: RecordedCall = { table, op: "select", filters: [] };
+  function from(table: string, rpcArgs?: unknown) {
+    const call: RecordedCall =
+      rpcArgs === undefined
+        ? { table, op: "select", filters: [] }
+        : { table, op: "rpc", payload: rpcArgs, filters: [] };
     calls.push(call);
     const answer = async () => respond(call);
     const filter =
@@ -68,8 +71,11 @@ export function recordingSupabase(
       lte: filter("lte"),
       gte: filter("gte"),
       not: filter("not"),
+      ilike: filter("ilike"),
+      or: filter("or"),
       order: () => builder,
       limit: () => builder,
+      range: () => builder,
       maybeSingle: answer,
       single: answer,
       then<T>(resolve: (value: FakeResponse) => T, reject?: (e: unknown) => T) {
@@ -79,7 +85,10 @@ export function recordingSupabase(
     return builder;
   }
 
-  return { client: { from }, calls };
+  /** `rpc(name, args)` records a call with `op: "rpc"` on table `name`. */
+  const rpc = (name: string, args: unknown = {}) => from(name, args);
+
+  return { client: { from, rpc }, calls };
 }
 
 /** The value of the first `kind` filter on `column`, if any. */

@@ -4,8 +4,10 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
 import { fetchLatestUsdRate, toArs } from "@/lib/fx";
+import { getInvoicingChannels } from "@/lib/channels";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { channelIsFiscal } from "@/lib/scope";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,13 +40,10 @@ function addByFrequency(iso: string, freq: string): string {
   return dt.toISOString().slice(0, 10);
 }
 
-/** Embedded to-one relations can arrive as an object or a 1-element array. */
-function readFiscal(
-  channel: { is_fiscal: boolean } | { is_fiscal: boolean }[] | null,
-): CashScope {
-  const c = Array.isArray(channel) ? channel[0] : channel;
-  if (!c) return "otro";
-  return c.is_fiscal ? "facturado" : "interno";
+/** No channel, or one we can't classify → "otro"; never guessed. */
+function cashScope(isFiscal: boolean | null): CashScope {
+  if (isFiscal === null) return "otro";
+  return isFiscal ? "facturado" : "interno";
 }
 
 export type CashFlowResult = CashFlow & {
@@ -91,6 +90,10 @@ export async function getCashFlowAction(input: {
 
   const supabase = await createClient();
   const events: CashFlowEvent[] = [];
+  // Every channel, inactive included, so history keeps its classification.
+  const allChannels = await getInvoicingChannels();
+  const scopeOfChannel = (channelId: string | null) =>
+    cashScope(channelIsFiscal(channelId, allChannels));
 
   // Latest official USD rate — everything USD is valued at this rate (it's a
   // projection tool, not accounting; the ledger converts per-document).
@@ -168,9 +171,7 @@ export async function getCashFlowAction(input: {
   // Recurring payments → future outflows (dated), channel-split.
   const { data: recurring } = await supabase
     .from("recurring_payments")
-    .select(
-      "amount, currency, frequency, next_due_date, end_date, channel:invoicing_channels(is_fiscal)",
-    )
+    .select("amount, currency, frequency, next_due_date, end_date, channel_id")
     .eq("is_active", true);
   for (const rp of recurring ?? []) {
     const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
@@ -186,7 +187,7 @@ export async function getCashFlowAction(input: {
             month: m,
             direction: "out",
             amount,
-            scope: readFiscal(rp.channel),
+            scope: scopeOfChannel(rp.channel_id),
           });
         }
       }
@@ -213,7 +214,7 @@ export async function getCashFlowAction(input: {
         month: m,
         direction: "in",
         amount: amt,
-        scope: r.channel_is_fiscal ? "facturado" : "interno",
+        scope: cashScope(r.channel_is_fiscal),
       });
     }
   }
@@ -236,16 +237,17 @@ export async function getCashFlowAction(input: {
         month: m,
         direction: "out",
         amount: amt,
-        scope: p.channel_is_fiscal ? "facturado" : "interno",
+        scope: cashScope(p.channel_is_fiscal),
       });
     }
   }
 
-  // Received checks in portfolio → inflow by due month (no channel → otro).
+  // Received checks in portfolio → inflow by due month, by the check's
+  // channel (a historical manual check with no channel → otro).
   const { data: checks } = await paginateRange((from, to) =>
     supabase
       .from("checks")
-      .select("id, amount, currency, due_date")
+      .select("id, amount, currency, due_date, channel_id")
       .eq("status", "en_cartera")
       .gte("due_date", `${firstFwd}-01`)
       .order("id", { ascending: true })
@@ -260,7 +262,7 @@ export async function getCashFlowAction(input: {
         month: m,
         direction: "in",
         amount: amt,
-        scope: "otro",
+        scope: scopeOfChannel(c.channel_id),
       });
     }
   }
@@ -269,11 +271,14 @@ export async function getCashFlowAction(input: {
   // classified by the loan's channel (blanco / negro).
   const { data: activeLoans } = await supabase
     .from("loans")
-    .select("id, currency, channel:invoicing_channels(is_fiscal)")
+    .select("id, currency, channel_id")
     .eq("status", "active");
   const loanInfo = new Map<string, { scope: CashScope; currency: string }>();
   for (const l of activeLoans ?? []) {
-    loanInfo.set(l.id, { scope: readFiscal(l.channel), currency: l.currency });
+    loanInfo.set(l.id, {
+      scope: scopeOfChannel(l.channel_id),
+      currency: l.currency,
+    });
   }
   if (loanInfo.size > 0) {
     const { data: loanInst } = await supabase

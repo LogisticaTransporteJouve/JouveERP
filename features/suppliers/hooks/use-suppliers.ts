@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -160,16 +161,18 @@ export function useDeleteSupplier() {
 }
 
 export function useSupplierAccount(id: string) {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: suppliersKeys.account(id),
-    queryFn: () => runAction(() => getSupplierAccountAction(id)),
+    queryKey: suppliersKeys.accountByScope(id, isFiscal),
+    queryFn: () => runAction(() => getSupplierAccountAction(id, { isFiscal })),
   });
 }
 
 export function useSupplierAging() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: suppliersKeys.aging(),
-    queryFn: () => runAction(() => getSupplierAgingAction()),
+    queryKey: suppliersKeys.aging(isFiscal),
+    queryFn: () => runAction(() => getSupplierAgingAction({ isFiscal })),
   });
 }
 

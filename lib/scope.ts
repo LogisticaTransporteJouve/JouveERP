@@ -1,11 +1,5 @@
 import type { Database } from "@/lib/db/database.types";
 
-/** ID of the default channel pre-selected in forms (receipts, checks,
- *  transactions, payment orders, comprobantes). Matches Jouve's fiscal channel
- *  (`00003 Jouve fiscal`). If the channel does not exist in the available list,
- *  forms fall back to the first active channel. */
-export const DEFAULT_CHANNEL_ID = "jouve_fiscal";
-
 export const FISCAL_FILTERS = ["all", "fiscal", "internal"] as const;
 export type FiscalFilter = (typeof FISCAL_FILTERS)[number];
 
@@ -67,4 +61,28 @@ export function channelIsFiscal(
 ): boolean | null {
   if (!channelId) return null;
   return allChannels.find((c) => c.id === channelId)?.is_fiscal ?? null;
+}
+
+/** The read filter a scope stands for: `null` is every channel, rows without
+ *  a channel included; otherwise only channels with that `is_fiscal`. */
+export function isFiscalFor(filter: FiscalFilter): boolean | null {
+  if (filter === "fiscal") return true;
+  if (filter === "internal") return false;
+  return null;
+}
+
+/** The channel a new-record form pre-selects: the only active channel the
+ *  scope allows, or `null` (the user picks) when there are several or none. */
+export function defaultChannelFor(
+  filter: FiscalFilter,
+  channels: readonly Pick<
+    InvoicingChannelSummary,
+    "id" | "is_fiscal" | "is_active"
+  >[],
+): string | null {
+  const isFiscal = isFiscalFor(filter);
+  const eligible = channels.filter(
+    (c) => c.is_active && (isFiscal === null || c.is_fiscal === isFiscal),
+  );
+  return eligible.length === 1 ? (eligible[0]?.id ?? null) : null;
 }

@@ -6,10 +6,12 @@ import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { AgingTable } from "@/features/aging/components/aging-table";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { CLIENT_AGING_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -17,14 +19,15 @@ export const dynamic = "force-dynamic";
 
 export default async function AgingPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "clients:read")) {
+  if (!userCanAll(ctx.access, CLIENT_AGING_PERMISSIONS)) {
     redirect("/dashboard");
   }
 
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: agingKeys.summary(),
-      queryFn: () => runAction(() => getAgingSummaryAction()),
+      queryKey: agingKeys.summary(isFiscal),
+      queryFn: () => runAction(() => getAgingSummaryAction({ isFiscal })),
     },
   ]);
 

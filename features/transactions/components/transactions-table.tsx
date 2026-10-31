@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { TransactionListItem } from "@/features/transactions/actions/transactions-actions";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -39,7 +40,6 @@ import {
 import { NewTransactionDialog } from "./new-transaction-dialog";
 import type { ChannelOption } from "./transaction-form";
 
-const ANY_CHANNEL = "__any_channel__";
 const ANY_ACCOUNT = "__any_account__";
 const ANY_KIND = "__any_kind__";
 
@@ -174,7 +174,6 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
 export function TransactionsTable({
   channels,
   actorAccess,
-  initialChannel,
   initialAccount,
   initialKind,
   initialDateFrom,
@@ -182,15 +181,11 @@ export function TransactionsTable({
 }: {
   channels: ChannelOption[];
   actorAccess: Access;
-  initialChannel: string | null;
   initialAccount: string | null;
   initialKind: TransactionKind | null;
   initialDateFrom: string | null;
   initialDateTo: string | null;
 }) {
-  const [channelInput, setChannelInput] = useState(
-    initialChannel ?? ANY_CHANNEL,
-  );
   const [accountInput, setAccountInput] = useState(
     initialAccount ?? ANY_ACCOUNT,
   );
@@ -200,11 +195,10 @@ export function TransactionsTable({
 
   const setUrlFilters = useUrlFilter();
 
-  const channel = channelInput === ANY_CHANNEL ? null : channelInput;
   const account = accountInput === ANY_ACCOUNT ? null : accountInput;
   const kind = kindInput === ANY_KIND ? null : (kindInput as TransactionKind);
 
-  const deferredChannel = useDeferredValue(channel);
+  const isFiscal = useScopeIsFiscal();
   const deferredAccount = useDeferredValue(account);
   const deferredKind = useDeferredValue(kind);
   const deferredDateFrom = useDeferredValue(dateFrom);
@@ -225,31 +219,16 @@ export function TransactionsTable({
 
   useEffect(() => {
     setUrlFilters({
-      channel: channel ?? null,
       account: account ?? null,
       kind: kind ?? null,
       from: dateFrom || null,
       to: dateTo || null,
     });
-  }, [channel, account, kind, dateFrom, dateTo, setUrlFilters]);
+  }, [account, kind, dateFrom, dateTo, setUrlFilters]);
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={channelInput} onValueChange={setChannelInput}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Canal" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY_CHANNEL}>Todos los canales</SelectItem>
-            {channels.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <AccountFilter value={accountInput} onChange={setAccountInput} />
 
         <Select value={kindInput} onValueChange={setKindInput}>
@@ -288,7 +267,7 @@ export function TransactionsTable({
         >
           <TransactionsTableRows
             columns={columns}
-            channelId={deferredChannel}
+            isFiscal={isFiscal}
             accountId={deferredAccount}
             kind={deferredKind}
             dateFrom={deferredDateFrom || null}
@@ -357,14 +336,14 @@ function DateRange({
 
 function TransactionsTableRows({
   columns,
-  channelId,
+  isFiscal,
   accountId,
   kind,
   dateFrom,
   dateTo,
 }: {
   columns: ColumnDef<TransactionListItem>[];
-  channelId: string | null;
+  isFiscal: boolean | null;
   accountId: string | null;
   kind: TransactionKind | null;
   dateFrom: string | null;
@@ -372,7 +351,7 @@ function TransactionsTableRows({
 }) {
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useTransactionsList({
-      channel_id: channelId,
+      is_fiscal: isFiscal,
       account_id: accountId,
       kind,
       date_from: dateFrom,

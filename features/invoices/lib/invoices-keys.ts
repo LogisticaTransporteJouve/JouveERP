@@ -5,8 +5,9 @@ export const INVOICES_PAGE_SIZE = 50;
 /**
  * Query keys for the comprobantes feature.
  *
- * `searchInfinite` includes the filters (channel, status, query) so each
- * combination caches independently.
+ * `searchInfinite` includes the filters (scope, status, query) so each
+ * combination caches independently. The page prefetch and the table build it
+ * from the same `isFiscalFor(scope)`.
  *
  * `status` (used by the detail-page polling) is intentionally a leaf so
  * `invalidateQueries({ queryKey: invoicesKeys.status(id) })` only
@@ -15,7 +16,7 @@ export const INVOICES_PAGE_SIZE = 50;
 export const invoicesKeys = {
   all: ["invoices"] as const,
   searchInfinite: (filters: {
-    channel: string | null;
+    isFiscal: boolean | null;
     status: InvoiceStatus | null;
     query: string;
   }) => [...invoicesKeys.all, "searchInfinite", filters] as const,

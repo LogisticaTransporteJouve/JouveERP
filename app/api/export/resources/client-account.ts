@@ -56,12 +56,11 @@ export const clientAccount: Exporter = {
         clientDoc(m),
         isDebit ? moneyCell(m.gross_amount) : "",
         isDebit ? "" : moneyCell(m.gross_amount),
-        moneyCell(m.balance),
+        m.balance === null ? "" : moneyCell(m.balance),
       ];
     });
-    const finalBalance = movements.length
-      ? movements[movements.length - 1]!.balance
-      : res.data.balance;
+    // Under a scope rows carry no running balance: the total is the scope's.
+    const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
     return {
       title: "Cuenta corriente — Cliente",
       subtitle: params.get("name") ?? undefined,

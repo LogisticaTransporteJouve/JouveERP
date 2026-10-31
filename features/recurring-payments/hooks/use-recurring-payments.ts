@@ -6,6 +6,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -19,9 +20,11 @@ import { recurringPaymentsKeys } from "../lib/recurring-payments-keys";
 
 export function useRecurringPayments(options: { onlyActive?: boolean } = {}) {
   const onlyActive = options.onlyActive ?? false;
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: recurringPaymentsKeys.list(onlyActive),
-    queryFn: () => runAction(() => listRecurringPaymentsAction({ onlyActive })),
+    queryKey: recurringPaymentsKeys.list(onlyActive, isFiscal),
+    queryFn: () =>
+      runAction(() => listRecurringPaymentsAction({ onlyActive, isFiscal })),
   });
 }
 

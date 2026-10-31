@@ -6,13 +6,18 @@ import { listAccountsAction } from "@/features/accounts/actions/accounts-actions
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
 import { ReceiptsTable } from "@/features/receipts/components/receipts-table";
-import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
+import {
+  RECEIPTS_LIST_LIMIT,
+  receiptsKeys,
+} from "@/features/receipts/lib/receipts-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -32,10 +37,14 @@ export default async function RecibosPage() {
     name: c.name,
   }));
 
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: receiptsKeys.list(),
-      queryFn: () => runAction(() => listReceiptsAction()),
+      queryKey: receiptsKeys.list(isFiscal),
+      queryFn: () =>
+        runAction(() =>
+          listReceiptsAction({ limit: RECEIPTS_LIST_LIMIT, isFiscal }),
+        ),
     },
     {
       queryKey: accountsKeys.list(),

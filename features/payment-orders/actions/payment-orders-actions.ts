@@ -8,6 +8,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -79,6 +80,8 @@ function serializePaymentLine(line: PaymentLineInput) {
 
 export async function listPaymentOrdersAction(input?: {
   limit?: number;
+  /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
+  isFiscal?: boolean | null;
 }): Promise<
   ActionResult<{
     items: (PaymentOrder & { supplier_legal_name: string })[];
@@ -92,9 +95,15 @@ export async function listPaymentOrdersAction(input?: {
 
   const limit = input?.limit ?? 100;
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("payment_orders")
-    .select(`${COLUMNS}, suppliers ( legal_name )`)
+  const { data, error } = await applyFiscalFilter(
+    supabase
+      .from("payment_orders")
+      .select(
+        `${COLUMNS}, suppliers ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+      ),
+    input?.isFiscal,
+    "channel",
+  )
     .order("payment_date", { ascending: false })
     .order("numero", { ascending: false })
     .range(0, limit - 1);

@@ -9,11 +9,16 @@ import {
   type AgingReport,
 } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  SUPPLIER_AGING_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { fetchLatestUsdRate } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -178,8 +183,9 @@ export interface SupplierAccountMovement {
   channel_name: string | null;
   channel_division: string | null;
   channel_is_fiscal: boolean | null;
-  /** Running balance (oldest → newest). > 0 = les debemos. */
-  balance: number;
+  /** Running balance (oldest → newest). > 0 = les debemos. `null` under a
+   *  fiscal/internal scope (only the scope's aging total exists). */
+  balance: number | null;
   /** Per-document outstanding: only for purchase_invoice rows.
    *  imp_total minus the sum of issued payment_order_allocations.
    *  Payment_order rows show their "a cuenta" (total − Σ allocations).
@@ -189,12 +195,18 @@ export interface SupplierAccountMovement {
 
 export interface SupplierAccountResult {
   movements: SupplierAccountMovement[];
-  /** Final running balance. Positive = les debemos al proveedor. */
+  /** "Todos": the final running balance. Under a scope: the scope's aging
+   *  total (open documents of that scope). Positive = les debemos. */
   balance: number;
+  /** False under a scope: rows carry no running balance. */
+  runningBalance: boolean;
 }
 
+/** With `isFiscal` (D6): only that scope's movements, the opening balance as
+ *  an informative row and the scope's aging total as the single balance. */
 export async function getSupplierAccountAction(
   supplierId: string,
+  input?: { isFiscal?: boolean | null },
 ): Promise<ActionResult<SupplierAccountResult>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "suppliers:read")) {
@@ -336,9 +348,49 @@ export async function getSupplierAccountAction(
     };
   });
 
+  const isFiscal = input?.isFiscal ?? null;
+  if (isFiscal === null) {
+    return {
+      ok: true,
+      data: { movements, balance: round2(running), runningBalance: true },
+    };
+  }
+
+  const openRes = await paginateRange((from, to) =>
+    applyFiscalFilter(
+      supabase
+        .from("v_supplier_aging_documents")
+        .select("purchase_invoice_id, open_amount")
+        .eq("supplier_id", supplierId),
+      isFiscal,
+    )
+      .order("purchase_invoice_id", { ascending: true })
+      .range(from, to),
+  );
+  if (openRes.error) {
+    logger.error("suppliers.account.scope_balance_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error: openRes.error,
+    });
+    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
+  }
+
   return {
     ok: true,
-    data: { movements, balance: round2(running) },
+    data: {
+      movements: movements
+        .filter(
+          (m) =>
+            m.channel_is_fiscal === isFiscal ||
+            m.source_type === "opening_balance",
+        )
+        .map((m) => ({ ...m, balance: null })),
+      balance: round2(
+        openRes.data.reduce((sum, d) => sum + Number(d.open_amount ?? 0), 0),
+      ),
+      runningBalance: false,
+    },
   };
 }
 
@@ -360,27 +412,41 @@ export type SupplierAgingDocument = {
   channel_is_fiscal: boolean;
 };
 
-export async function getSupplierAgingAction(): Promise<
-  ActionResult<AgingReport>
-> {
+const SUPPLIER_AGING_SELECT = `supplier_id, ${AGING_VIEW_AMOUNT_COLUMNS}, suppliers!inner(legal_name, cuit)`;
+
+// `isFiscal` null reads every channel (v_supplier_aging); a boolean reads that
+// scope only (v_supplier_aging_by_scope, one row per supplier).
+export async function getSupplierAgingAction(input?: {
+  isFiscal?: boolean | null;
+}): Promise<ActionResult<AgingReport>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "suppliers:read")) {
+  if (!userCanAll(ctx.access, SUPPLIER_AGING_PERMISSIONS)) {
     return { ok: false, error: "No tenés permiso." };
   }
 
+  const isFiscal = input?.isFiscal ?? null;
   const supabase = await createSupabaseClient();
 
   // Drained past max_rows (1000) — one row per supplier with open documents.
   const [{ data: agingRows, error }, usdRate] = await Promise.all([
-    paginateRange((from, to) =>
-      supabase
-        .from("v_supplier_aging")
-        .select(
-          `supplier_id, ${AGING_VIEW_AMOUNT_COLUMNS}, suppliers!inner(legal_name, cuit)`,
+    isFiscal === null
+      ? paginateRange((from, to) =>
+          supabase
+            .from("v_supplier_aging")
+            .select(SUPPLIER_AGING_SELECT)
+            .order("supplier_id", { ascending: true })
+            .range(from, to),
         )
-        .order("supplier_id", { ascending: true })
-        .range(from, to),
-    ),
+      : paginateRange((from, to) =>
+          applyFiscalFilter(
+            supabase
+              .from("v_supplier_aging_by_scope")
+              .select(SUPPLIER_AGING_SELECT),
+            isFiscal,
+          )
+            .order("supplier_id", { ascending: true })
+            .range(from, to),
+        ),
     fetchLatestUsdRate(supabase),
   ]);
 

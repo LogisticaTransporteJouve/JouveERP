@@ -115,12 +115,17 @@ export async function gatherCashFlow(
   }
 
   // Client aging in pesos → expected collections (coarse timing: overdue
-  // sooner). Dollar balances stay out, like the USD accounts.
-  const { data: clientAging } = await service
-    .from("v_client_aging")
-    .select(
-      "ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
-    );
+  // sooner). Dollar balances stay out, like the USD accounts. Drained past
+  // max_rows (1000): a capped read would understate the forecast.
+  const { data: clientAging } = await paginateRange((from, to) =>
+    service
+      .from("v_client_aging")
+      .select(
+        "client_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+      )
+      .order("client_id", { ascending: true })
+      .range(from, to),
+  );
   const ca = (clientAging ?? []).reduce(
     (acc, r) => ({
       b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),
@@ -133,11 +138,15 @@ export async function gatherCashFlow(
   pushAging(events, today, ca, 1, "Cobranzas esperadas");
 
   // Supplier aging in pesos → expected payments (same coarse timing).
-  const { data: supplierAging } = await service
-    .from("v_supplier_aging")
-    .select(
-      "ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
-    );
+  const { data: supplierAging } = await paginateRange((from, to) =>
+    service
+      .from("v_supplier_aging")
+      .select(
+        "supplier_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+      )
+      .order("supplier_id", { ascending: true })
+      .range(from, to),
+  );
   const sa = (supplierAging ?? []).reduce(
     (acc, r) => ({
       b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),

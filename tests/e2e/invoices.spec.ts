@@ -6,7 +6,8 @@ import { expect, test } from "./fixtures";
 //
 // What this proves:
 //   - The list page loads.
-//   - The "Nuevo" Dialog opens and defaults to Jouve Fiscal.
+//   - The "Nuevo" Dialog opens with no channel under "Todos los canales"
+//     (more than one active channel), and the user picks Jouve Fiscal.
 //   - The client picker hits search_clients and returns results.
 //   - Picking a client shows the calculated letter.
 //   - Cancel closes the Dialog.
@@ -23,9 +24,18 @@ test("invoices list + new dialog smoke", async ({ page }) => {
     page.getByRole("dialog", { name: /nuevo comprobante/i }),
   ).toBeVisible();
 
-  // The default channel is Jouve Fiscal — the trigger should display it.
+  // With "Todos los canales" there are two active channels: no default.
+  const dialog = page.getByRole("dialog", { name: /nuevo comprobante/i });
+  const channelTrigger = dialog
+    .getByRole("combobox")
+    .filter({ hasText: /elegí un canal/i });
+  await expect(channelTrigger).toBeVisible();
+  await channelTrigger.click();
+  await page.getByRole("option", { name: /logística jouve.*fiscal/i }).click();
   await expect(
-    page.getByRole("combobox").filter({ hasText: /logística jouve.*fiscal/i }),
+    dialog
+      .getByRole("combobox")
+      .filter({ hasText: /logística jouve.*fiscal/i }),
   ).toBeVisible();
 
   // Client picker — search "PALL" and expect at least one result.
@@ -35,7 +45,10 @@ test("invoices list + new dialog smoke", async ({ page }) => {
   // The results list lives in a Popover; one of the entries should mention
   // "PALLET" (we seed PALLET SIRANS S.R.L. and similar).
   await expect(
-    page.getByRole("button").filter({ hasText: /pallet/i }).first(),
+    page
+      .getByRole("button")
+      .filter({ hasText: /pallet/i })
+      .first(),
   ).toBeVisible({ timeout: 5_000 });
 
   // Cancel closes the dialog.

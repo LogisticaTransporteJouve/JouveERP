@@ -61,12 +61,11 @@ export const supplierAccount: Exporter = {
         supplierDoc(m),
         debe ? moneyCell(debe) : "",
         haber ? moneyCell(haber) : "",
-        moneyCell(m.balance),
+        m.balance === null ? "" : moneyCell(m.balance),
       ];
     });
-    const finalBalance = movements.length
-      ? movements[movements.length - 1]!.balance
-      : res.data.balance;
+    // Under a scope rows carry no running balance: the total is the scope's.
+    const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
     return {
       title: "Cuenta corriente — Proveedor",
       subtitle: params.get("name") ?? undefined,

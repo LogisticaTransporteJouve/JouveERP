@@ -22,7 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  useScope,
+  useScopeIsFiscal,
+} from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -220,18 +223,14 @@ export function PurchaseInvoicesTable({
   actorAccess,
   initialQuery,
   initialStatus,
-  initialFiscalFilter,
 }: {
   actorAccess: Access;
   initialQuery: string;
   initialStatus: string | null;
-  initialFiscalFilter?: string | null;
 }) {
   const [queryInput, setQueryInput] = useState(initialQuery);
   const [status, setStatus] = useState<string | null>(initialStatus);
-  const [fiscalFilter, setFiscalFilter] = useState<string>(
-    initialFiscalFilter ?? "all",
-  );
+  const isFiscal = useScopeIsFiscal();
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const setUrlFilters = useUrlFilter();
@@ -246,20 +245,12 @@ export function PurchaseInvoicesTable({
     setUrlFilters({
       q: debouncedQuery || null,
       status: status ?? null,
-      type: fiscalFilter === "all" ? null : fiscalFilter,
     });
-  }, [debouncedQuery, status, fiscalFilter, setUrlFilters]);
+  }, [debouncedQuery, status, setUrlFilters]);
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
   }
-
-  const isFiscalParam =
-    fiscalFilter === "fiscal"
-      ? true
-      : fiscalFilter === "internal"
-        ? false
-        : null;
 
   const filters: PurchaseInvoicesFilters = {
     query: debouncedQuery,
@@ -268,7 +259,7 @@ export function PurchaseInvoicesTable({
     status,
     fechaFrom: null,
     fechaTo: null,
-    isFiscal: isFiscalParam,
+    isFiscal,
   };
   const deferredFilters = useDeferredValue(filters);
 
@@ -301,16 +292,6 @@ export function PurchaseInvoicesTable({
                 {PURCHASE_INVOICE_STATUS_LABEL[s]}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-        <Select value={fiscalFilter} onValueChange={setFiscalFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="fiscal">Solo fiscales</SelectItem>
-            <SelectItem value="internal">Solo internas</SelectItem>
           </SelectContent>
         </Select>
         {canWrite && (

@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
 
@@ -44,8 +45,10 @@ function narrow(row: {
   return { ...row, amount: Number(row.amount) } as RecurringPayment;
 }
 
+/** `isFiscal` (`isFiscalFor`): null/undefined = every payment, those with no
+ *  channel included; a boolean drops the payments without a channel. */
 export async function listRecurringPaymentsAction(
-  input: { onlyActive?: boolean } = {},
+  input: { onlyActive?: boolean; isFiscal?: boolean | null } = {},
 ): Promise<ActionResult<RecurringPayment[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "recurring_payments:read")) {
@@ -54,9 +57,13 @@ export async function listRecurringPaymentsAction(
 
   const supabase = await createSupabaseClient();
   const { data, error } = await paginateRange((from, to) => {
-    let query = supabase
-      .from("recurring_payments")
-      .select(SELECT_COLUMNS)
+    let query = applyFiscalFilter(
+      supabase
+        .from("recurring_payments")
+        .select(`${SELECT_COLUMNS}, channel:invoicing_channels ( is_fiscal )`),
+      input.isFiscal,
+      "channel",
+    )
       .order("is_active", { ascending: false })
       .order("next_due_date");
     if (input.onlyActive) query = query.eq("is_active", true);

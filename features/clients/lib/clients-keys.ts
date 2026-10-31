@@ -18,9 +18,10 @@ export const clientsKeys = {
   search: (filters: { query: string; onlyActive: boolean; limit: number }) =>
     [...clientsKeys.all, "search", filters] as const,
   byId: (id: string) => [...clientsKeys.all, "byId", id] as const,
-  references: (id: string) =>
-    [...clientsKeys.all, "references", id] as const,
+  references: (id: string) => [...clientsKeys.all, "references", id] as const,
   account: (id: string) => [...clientsKeys.all, "account", id] as const,
+  accountByScope: (id: string, isFiscal: boolean | null) =>
+    [...clientsKeys.account(id), { isFiscal }] as const,
   openingBalance: (id: string) =>
     [...clientsKeys.all, "openingBalance", id] as const,
 };

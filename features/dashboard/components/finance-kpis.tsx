@@ -20,10 +20,13 @@ export function FinanceKpis({
   treasury,
   receivables,
   payables,
+  scopeLabel,
 }: {
   treasury: DashboardTreasuryKpis | null;
   receivables: DashboardAgingKpis | null;
   payables: DashboardAgingKpis | null;
+  /** SCOPE_LABEL of the aging figures; cash is always every channel. */
+  scopeLabel: string;
 }) {
   if (!treasury && !receivables && !payables) return null;
 
@@ -35,7 +38,7 @@ export function FinanceKpis({
             href="/treasury"
             label="Caja ARS"
             value={formatMoneyWithCode(treasury.liquid_now.ARS, "ARS")}
-            subtitle="bancos + efectivo + billeteras"
+            subtitle="Caja real (todos los canales)"
             delta={treasury.liquid_now.ARS - treasury.liquid_prev_eom.ARS}
             deltaCurrency="ARS"
           />
@@ -65,6 +68,7 @@ export function FinanceKpis({
             label="Por cobrar"
             kpis={receivables}
             partyPlural="clientes"
+            scopeLabel={scopeLabel}
           />
         )}
         {payables && (
@@ -73,6 +77,7 @@ export function FinanceKpis({
             label="Por pagar"
             kpis={payables}
             partyPlural="proveedores"
+            scopeLabel={scopeLabel}
           />
         )}
       </StatGrid>
@@ -108,11 +113,13 @@ function AgingKpiTile({
   label,
   kpis,
   partyPlural,
+  scopeLabel,
 }: {
   href: string;
   label: string;
   kpis: DashboardAgingKpis;
   partyPlural: string;
+  scopeLabel: string;
 }) {
   const hasUsd = kpis.total.usd !== 0;
   const value =
@@ -127,7 +134,7 @@ function AgingKpiTile({
   return (
     <KpiTile
       href={href}
-      label={label}
+      label={`${label} · ${scopeLabel}`}
       value={value}
       detail={detail}
       subtitle={`${kpis.party_count} ${partyPlural} · +90 días ${formatCurrencyAmounts(

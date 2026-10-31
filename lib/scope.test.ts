@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   channelIsFiscal,
+  defaultChannelFor,
   FISCAL_FILTERS,
   isFiscalFilter,
+  isFiscalFor,
   parseFiscalFilter,
   serializeFiscalFilter,
 } from "./scope";
@@ -60,6 +62,46 @@ describe("channelIsFiscal", () => {
     expect(channelIsFiscal("otro", channels)).toBeNull();
     expect(channelIsFiscal(null, channels)).toBeNull();
     expect(channelIsFiscal("", channels)).toBeNull();
+  });
+});
+
+describe("isFiscalFor", () => {
+  it("todos → null; fiscal → true; interno → false", () => {
+    expect(isFiscalFor("all")).toBeNull();
+    expect(isFiscalFor("fiscal")).toBe(true);
+    expect(isFiscalFor("internal")).toBe(false);
+  });
+});
+
+describe("defaultChannelFor", () => {
+  const channels = [
+    { id: "jouve_fiscal", is_fiscal: true, is_active: true },
+    { id: "jouve_internal", is_fiscal: false, is_active: true },
+    { id: "dz_fiscal", is_fiscal: true, is_active: false },
+  ];
+
+  it("elige el único canal activo del alcance", () => {
+    expect(defaultChannelFor("fiscal", channels)).toBe("jouve_fiscal");
+    expect(defaultChannelFor("internal", channels)).toBe("jouve_internal");
+  });
+
+  it("con más de un canal activo no elige", () => {
+    expect(defaultChannelFor("all", channels)).toBeNull();
+    expect(
+      defaultChannelFor("fiscal", [
+        ...channels,
+        { id: "otro_fiscal", is_fiscal: true, is_active: true },
+      ]),
+    ).toBeNull();
+  });
+
+  it("nunca elige un canal inactivo", () => {
+    expect(
+      defaultChannelFor("fiscal", [
+        { id: "dz_fiscal", is_fiscal: true, is_active: false },
+      ]),
+    ).toBeNull();
+    expect(defaultChannelFor("fiscal", [])).toBeNull();
   });
 });
 

@@ -13,6 +13,8 @@ import { getInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -33,10 +35,11 @@ export default async function ChequesPage() {
     is_active: c.is_active,
   }));
 
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: checksKeys.list(),
-      queryFn: () => runAction(() => listChecksAction()),
+      queryKey: checksKeys.list(isFiscal),
+      queryFn: () => runAction(() => listChecksAction({ isFiscal })),
     },
     {
       queryKey: accountsKeys.list(),

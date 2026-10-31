@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCanAll } from "@/lib/auth/permissions";
 import { buildXlsx } from "@/lib/export/xlsx";
 import { xlsxResponse } from "@/lib/export/xlsx-response";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
@@ -32,7 +32,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (!userCan(ctx.access, exporter.permission)) {
+  if (!userCanAll(ctx.access, exporter.permission)) {
     return NextResponse.json({ error: "No tenés permiso." }, { status: 403 });
   }
 

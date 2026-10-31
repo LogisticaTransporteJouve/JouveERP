@@ -25,7 +25,14 @@ import { getCashFlowAction } from "@/features/treasury/actions/cash-flow-actions
 import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
 import type { AgingReport } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  CLIENT_AGING_PERMISSIONS,
+  SUPPLIER_AGING_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
+import { isFiscalFor, SCOPE_LABEL } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +42,8 @@ export default async function DashboardPage() {
   const ctx = await requireUserContext();
 
   const canAccounting = userCan(ctx.access, "accounting:read");
+  const scope = await readScopeCookie();
+  const isFiscal = isFiscalFor(scope);
   const [
     treasuryRes,
     agingRes,
@@ -45,8 +54,12 @@ export default async function DashboardPage() {
     layoutRes,
   ] = await Promise.all([
     canAccounting ? getTreasurySummaryAction() : null,
-    userCan(ctx.access, "clients:read") ? getAgingSummaryAction() : null,
-    userCan(ctx.access, "suppliers:read") ? getSupplierAgingAction() : null,
+    userCanAll(ctx.access, CLIENT_AGING_PERMISSIONS)
+      ? getAgingSummaryAction({ isFiscal })
+      : null,
+    userCanAll(ctx.access, SUPPLIER_AGING_PERMISSIONS)
+      ? getSupplierAgingAction({ isFiscal })
+      : null,
     getDashboardDueDatesAction(),
     canAccounting ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
     getDashboardOpsAction(),
@@ -101,6 +114,7 @@ export default async function DashboardPage() {
         }
         receivables={receivables}
         payables={payables}
+        scopeLabel={SCOPE_LABEL[scope]}
       />
     );
   }
@@ -134,7 +148,9 @@ export default async function DashboardPage() {
     widgets.due_dates = <DueDatesCard items={dueDatesRes.data} />;
   }
   if (aging) {
-    widgets.top_debtors = <TopDebtorsCard debtors={topDebtors} />;
+    widgets.top_debtors = (
+      <TopDebtorsCard debtors={topDebtors} scopeLabel={SCOPE_LABEL[scope]} />
+    );
   }
 
   const template = defaultLayoutForRoles(ctx.access.roles).filter(
