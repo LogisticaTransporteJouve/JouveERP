@@ -37,9 +37,11 @@ import {
 import { NavTheme } from "./nav-theme";
 import { NavUser, type ProfileSummary } from "./nav-user";
 
-// Foreground-on-background rather than `primary`, which carries a tint.
 const PRIMARY_BUTTON =
-  "bg-foreground text-background hover:bg-foreground/90 hover:text-background active:bg-foreground/90 active:text-background data-[active=true]:bg-foreground/90 data-[active=true]:text-background";
+  "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground data-[active=true]:bg-primary/90 data-[active=true]:text-primary-foreground";
+
+const ACTIVE_ITEM =
+  "data-[active=true]:bg-primary/10 data-[active=true]:text-primary dark:data-[active=true]:bg-primary/25 dark:data-[active=true]:text-sidebar-foreground";
 
 function NavLink({
   item,
@@ -60,7 +62,7 @@ function NavLink({
         asChild
         size="sm"
         isActive={isActive}
-        className={cn("text-xs", primary && PRIMARY_BUTTON)}
+        className={cn("text-xs", primary ? PRIMARY_BUTTON : ACTIVE_ITEM)}
       >
         <Link
           href={item.href}

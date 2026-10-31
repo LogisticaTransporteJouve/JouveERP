@@ -264,7 +264,7 @@ class below is only the look-here index; the rule lives in that guide.
 - source: adv-review Rules.
 
 **[UI conventions — Dialog, monochrome, forms]**
-- Pattern: CRUD in a `Sheet` instead of a centered `Dialog`; a brand/semantic color where the app is 100% monochrome; `<input type="date">` instead of `<DatePicker>`; reinvented primitives instead of shadcn/ui; an item outside its sidebar group; a `useSuspenseQuery` with no RSC prefetch upstream.
+- Pattern: CRUD in a `Sheet` instead of a centered `Dialog`; a color other than the `primary` token (Jouve indigo) — the rest of the app is neutral; `<input type="date">` instead of `<DatePicker>`; reinvented primitives instead of shadcn/ui; an item outside its sidebar group; a `useSuspenseQuery` with no RSC prefetch upstream.
 - Frequency: occasional.
 - Where: `features/*/components/**`, `app/(dashboard)/**/page.tsx`.
 - Fix: `Dialog` for create/edit; tokens only (danger = copy + icon, not red); `<DatePicker>` with ISO `YYYY-MM-DD`; shadcn primitives; prefetch + `Hydrate` for suspense queries.
