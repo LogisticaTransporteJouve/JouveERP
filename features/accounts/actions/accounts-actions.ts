@@ -12,11 +12,13 @@ import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   AccountCreateSchema,
+  AccountOpeningBalanceInputSchema,
   AccountToggleActiveSchema,
   AccountUpdateSchema,
   isAccountCurrency,
   isAccountType,
   type Account,
+  type AccountOpeningBalanceInput,
 } from "../schema";
 
 function narrowAccount(row: {
@@ -221,6 +223,8 @@ export interface AccountOpeningBalance {
   adjustment_date: string;
   target_balance: number;
   adjustment_transaction_id: string | null;
+  /** Channel of the adjustment movement; null when there is none. */
+  channel_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -237,7 +241,7 @@ export async function getAccountOpeningBalanceAction(
   const { data, error } = await supabase
     .from("account_opening_balances")
     .select(
-      "account_id, adjustment_date, target_balance, adjustment_transaction_id, notes, created_at, updated_at",
+      "account_id, adjustment_date, target_balance, adjustment_transaction_id, notes, created_at, updated_at, adjustment:transactions!account_opening_balances_adjustment_transaction_id_fkey(channel_id)",
     )
     .eq("account_id", accountId)
     .maybeSingle();
@@ -257,6 +261,7 @@ export async function getAccountOpeningBalanceAction(
       adjustment_date: data.adjustment_date,
       target_balance: Number(data.target_balance),
       adjustment_transaction_id: data.adjustment_transaction_id,
+      channel_id: data.adjustment?.channel_id ?? null,
       notes: data.notes,
       created_at: data.created_at,
       updated_at: data.updated_at,
@@ -264,13 +269,9 @@ export async function getAccountOpeningBalanceAction(
   };
 }
 
-export async function setAccountOpeningBalanceAction(input: {
-  account_id: string;
-  adjustment_date: string;
-  target_balance: number;
-  channel_id: string;
-  notes?: string | null;
-}): Promise<ActionResult<void>> {
+export async function setAccountOpeningBalanceAction(
+  raw: AccountOpeningBalanceInput,
+): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
   // The adjustment rewrites the historical balance — owner only, same as the
   // client adjustment.
@@ -280,8 +281,14 @@ export async function setAccountOpeningBalanceAction(input: {
       error: "No tenés permiso para ajustar saldos de cuentas.",
     };
   }
-  if (!input.account_id) return { ok: false, error: "Cuenta requerida." };
-  if (!input.channel_id) return { ok: false, error: "Canal requerido." };
+  const parsed = AccountOpeningBalanceInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const input = parsed.data;
 
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("apply_account_opening_balance", {

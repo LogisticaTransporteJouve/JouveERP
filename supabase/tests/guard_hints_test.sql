@@ -28,10 +28,10 @@ insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b302', '30666666667', 'Otro Hint', 'responsable_inscripto');
 
 insert into public.purchase_invoices
-  (id, channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)
+  (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)
 values
   ('00000000-0000-0000-0000-0000000005c1', 'jouve_fiscal', '00000000-0000-0000-0000-00000000b301',
-   'factura', 1, 50, current_date, 100, 0, 100, 'received');
+   'factura', 'A', 1, 50, current_date, 100, 0, 100, 'received');
 
 select is(
   pg_temp.hint_of($$insert into public.journal_entries (entry_date, accrual_period, description)
@@ -42,8 +42,8 @@ select is(
 
 select is(
   pg_temp.hint_of($$insert into public.purchase_invoices
-      (channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_total, status, invoice_origin_id)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b302', 'nc', 1, 51, current_date, 10,
+      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_total, status, invoice_origin_id)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b302', 'nc', 'A', 1, 51, current_date, 10,
             'received', '00000000-0000-0000-0000-0000000005c1')$$),
   'jouve_guard',
   'guard_purchase_invoice_origin'
