@@ -42,6 +42,7 @@ describe("IssuedCheckCreateSchema", () => {
     amount: 1000,
     currency: "ARS" as const,
     bank_account_id: UUID,
+    channel_id: "jouve_internal",
   };
 
   it("acepta payload válido", () => {
@@ -94,6 +95,12 @@ describe("IssuedCheckCreateSchema", () => {
         ...valid,
         bank_account_id: "not-uuid",
       }).success,
+    ).toBe(false);
+  });
+
+  it("exige canal", () => {
+    expect(
+      IssuedCheckCreateSchema.safeParse({ ...valid, channel_id: "" }).success,
     ).toBe(false);
   });
 

@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -36,9 +35,55 @@ import {
 } from "../hooks/use-checks";
 import type { Cheque } from "../schema";
 
-interface ChannelOption {
+export interface CheckChannelOption {
   id: string;
   name: string;
+  is_active: boolean;
+}
+
+// A check keeps the channel of its receipt (or the one it got when first
+// deposited, rejected or endorsed): it is shown, not chosen. Only a check
+// without channel asks for one, among the active channels.
+export function CheckChannelField({
+  check,
+  channels,
+  value,
+  onChange,
+}: {
+  check: Cheque;
+  channels: CheckChannelOption[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  if (check.channel_id) {
+    const name =
+      channels.find((c) => c.id === check.channel_id)?.name ?? check.channel_id;
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs">Canal</Label>
+        <p className="flex h-9 items-center text-sm">{name}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">Canal</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Elegir canal" />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          {channels
+            .filter((c) => c.is_active)
+            .map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -50,7 +95,7 @@ export function DepositChequeDialog({
   channels,
 }: {
   check: Cheque;
-  channels: ChannelOption[];
+  channels: CheckChannelOption[];
 }) {
   const [open, setOpen] = useState(false);
   const { data: accounts } = useAccountsList();
@@ -60,9 +105,7 @@ export function DepositChequeDialog({
   const mut = useDepositCheque();
 
   const [accountId, setAccountId] = useState(bankAccounts[0]?.id ?? "");
-  const [channelId, setChannelId] = useState(
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ?? channels[0]?.id ?? "",
-  );
+  const [channelId, setChannelId] = useState(check.channel_id ?? "");
   const [eventDate, setEventDate] = useState(todayInAR());
   const [description, setDescription] = useState("");
 
@@ -70,6 +113,10 @@ export function DepositChequeDialog({
     e.preventDefault();
     if (!accountId) {
       toast.error("Elegí la cuenta bancaria destino.");
+      return;
+    }
+    if (!channelId) {
+      toast.error("Elegí el canal del depósito.");
       return;
     }
     mut.mutate(
@@ -102,8 +149,8 @@ export function DepositChequeDialog({
         <DialogHeader>
           <DialogTitle>Depositar check {check.check_number}</DialogTitle>
           <DialogDescription>
-            Genera una transferencia desde la cartera a la cuenta bancaria.
-            El check pasa a estado depositado hasta que el banco confirme.
+            Genera una transferencia desde la cartera a la cuenta bancaria. El
+            check pasa a estado depositado hasta que el banco confirme.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -123,21 +170,12 @@ export function DepositChequeDialog({
             </Select>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Canal</Label>
-              <Select value={channelId} onValueChange={setChannelId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {channels.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CheckChannelField
+              check={check}
+              channels={channels}
+              value={channelId}
+              onChange={setChannelId}
+            />
             <div className="space-y-1">
               <Label className="text-xs">Fecha</Label>
               <DatePicker value={eventDate} onChange={setEventDate} />
@@ -205,8 +243,8 @@ export function CreditChequeDialog({ check }: { check: Cheque }) {
         <DialogHeader>
           <DialogTitle>Acreditar check {check.check_number}</DialogTitle>
           <DialogDescription>
-            Confirma que el banco ya acreditó el monto. La plata ya entró
-            con el depósito; este paso solo cierra el lifecycle del check.
+            Confirma que el banco ya acreditó el monto. La plata ya entró con el
+            depósito; este paso solo cierra el lifecycle del check.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -250,7 +288,7 @@ export function RejectChequeDialog({
   channels,
 }: {
   check: Cheque;
-  channels: ChannelOption[];
+  channels: CheckChannelOption[];
 }) {
   const [open, setOpen] = useState(false);
   const { data: accounts } = useAccountsList();
@@ -260,9 +298,7 @@ export function RejectChequeDialog({
   const mut = useRejectCheque();
 
   const [accountId, setAccountId] = useState(bankAccounts[0]?.id ?? "");
-  const [channelId, setChannelId] = useState(
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ?? channels[0]?.id ?? "",
-  );
+  const [channelId, setChannelId] = useState(check.channel_id ?? "");
   const [eventDate, setEventDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
 
@@ -270,6 +306,10 @@ export function RejectChequeDialog({
     e.preventDefault();
     if (check.status === "depositado" && !accountId) {
       toast.error("Elegí la cuenta bancaria desde la que se reversa.");
+      return;
+    }
+    if (!channelId) {
+      toast.error("Elegí el canal del rechazo.");
       return;
     }
     mut.mutate(
@@ -326,21 +366,12 @@ export function RejectChequeDialog({
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Canal</Label>
-              <Select value={channelId} onValueChange={setChannelId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {channels.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CheckChannelField
+              check={check}
+              channels={channels}
+              value={channelId}
+              onChange={setChannelId}
+            />
             <div className="space-y-1">
               <Label className="text-xs">Fecha</Label>
               <DatePicker value={eventDate} onChange={setEventDate} />
