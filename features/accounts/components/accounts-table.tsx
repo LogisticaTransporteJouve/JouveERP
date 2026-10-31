@@ -37,7 +37,7 @@ export function AccountsTable({
   // Only the owner can touch the balance adjustment (matching the client
   // flow). It stays invisible in the UI for finance/admin; the RPC
   // also blocks it just in case.
-  const canAdjust = actorAccess.roles.includes("owner");
+  const canAdjust = userCan(actorAccess, "opening_balances:write");
 
   const columns = useMemo<ColumnDef<Account>[]>(
     () => [

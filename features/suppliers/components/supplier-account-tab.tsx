@@ -120,7 +120,7 @@ export function SupplierAccountTab({
   const { fiscalFilter } = useScope();
   const canWriteOP = userCan(actorAccess, "payment_orders:write");
   const canWritePI = userCan(actorAccess, "purchase_invoices:write");
-  const isOwner = actorAccess.roles.includes("owner");
+  const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearSupplierOpeningBalance();
 
   const balLabel = balanceLabel(balance);
@@ -344,7 +344,7 @@ export function SupplierAccountTab({
               return (
                 <div className="flex items-center justify-end gap-1">
                   {isOpening ? (
-                    <OwnerOnly disabled={!isOwner}>
+                    <OwnerOnly disabled={!canSetOpening}>
                       <div className="flex items-center gap-1">
                         <SupplierOpeningBalanceDialog
                           supplierId={supplierId}
@@ -354,7 +354,7 @@ export function SupplierAccountTab({
                               variant="ghost"
                               size="icon"
                               aria-label="Editar ajuste de saldo"
-                              disabled={!isOwner}
+                              disabled={!canSetOpening}
                             >
                               <Pencil className="size-4" />
                             </Button>
@@ -366,7 +366,9 @@ export function SupplierAccountTab({
                               variant="ghost"
                               size="icon"
                               aria-label="Borrar ajuste de saldo"
-                              disabled={!isOwner || clearOpeningMut.isPending}
+                              disabled={
+                                !canSetOpening || clearOpeningMut.isPending
+                              }
                             >
                               <Trash2 className="size-4" />
                             </Button>
@@ -411,7 +413,7 @@ export function SupplierAccountTab({
         ] satisfies ColumnDef<SupplierAccountMovement>[]
       ).filter((c) => runningBalance || c.id !== "balance"),
     [
-      isOwner,
+      canSetOpening,
       supplierId,
       clearOpeningMut.isPending,
       handleClearOpening,
@@ -456,11 +458,11 @@ export function SupplierAccountTab({
           label="Exportar resumen"
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <OwnerOnly disabled={!isOwner}>
+          <OwnerOnly disabled={!canSetOpening}>
             <SupplierOpeningBalanceDialog
               supplierId={supplierId}
               trigger={
-                <Button variant="outline" size="sm" disabled={!isOwner}>
+                <Button variant="outline" size="sm" disabled={!canSetOpening}>
                   <Wallet />
                   Ajustar saldo
                 </Button>

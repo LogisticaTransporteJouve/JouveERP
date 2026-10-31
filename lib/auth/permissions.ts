@@ -65,6 +65,10 @@ export const PERMISSIONS = [
   "accounts:write",
   "transactions:read",
   "transactions:write",
+  // Deleting a movement, and setting or clearing an opening balance (clients,
+  // suppliers, accounts), rewrite history: owner only.
+  "transactions:delete",
+  "opening_balances:write",
 
   // Recurring payments (Phase R) — input for the AI cash-flow
   "recurring_payments:read",
@@ -140,12 +144,19 @@ const ROLE_PRIVILEGE: Record<Role, number> = {
   driver: 4,
 };
 
+/** Held by the owner alone; no other role is granted them. */
+export const OWNER_ONLY_PERMISSIONS: readonly Permission[] = [
+  "users:manage_access",
+  "transactions:delete",
+  "opening_balances:write",
+];
+
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: PERMISSIONS,
 
-  // Admins differ from the owner in role-assignment scope and in not
-  // managing per-user access.
-  admin: PERMISSIONS.filter((p) => p !== "users:manage_access"),
+  // Admins differ from the owner in role-assignment scope, in not managing
+  // per-user access and in not rewriting history.
+  admin: PERMISSIONS.filter((p) => !OWNER_ONLY_PERMISSIONS.includes(p)),
 
   finance: [
     "clients:read",

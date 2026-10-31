@@ -412,9 +412,8 @@ export async function deleteTransactionAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Aligned with the transactions DELETE RLS (owner only); finance/operations
-  // have transactions:write but the policy blocks them — clean gate here.
-  if (!ctx.access.roles.includes("owner")) {
+  // Owner only, like the transactions DELETE RLS.
+  if (!userCan(ctx.access, "transactions:delete")) {
     return { ok: false, error: "Solo owner puede borrar movimientos." };
   }
 

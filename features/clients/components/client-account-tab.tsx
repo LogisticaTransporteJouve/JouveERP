@@ -111,7 +111,7 @@ export function ClientAccountTab({
   // Only the owner can touch the balance adjustment (the backend actions
   // check the same thing). For the other roles we show the buttons
   // disabled with a tooltip that explains the restriction.
-  const isOwner = actorAccess.roles.includes("owner");
+  const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearClientOpeningBalance();
 
   // Global date filter (topbar). We apply it over the movements that
@@ -316,7 +316,7 @@ export function ClientAccountTab({
               return (
                 <div className="flex items-center justify-end gap-1">
                   {isOpening ? (
-                    <OwnerOnly disabled={!isOwner}>
+                    <OwnerOnly disabled={!canSetOpening}>
                       <div className="flex items-center gap-1">
                         <OpeningBalanceDialog
                           clientId={clientId}
@@ -326,7 +326,7 @@ export function ClientAccountTab({
                               variant="ghost"
                               size="icon"
                               aria-label="Editar ajuste de saldo"
-                              disabled={!isOwner}
+                              disabled={!canSetOpening}
                             >
                               <Pencil className="size-4" />
                             </Button>
@@ -338,7 +338,9 @@ export function ClientAccountTab({
                               variant="ghost"
                               size="icon"
                               aria-label="Borrar ajuste de saldo"
-                              disabled={!isOwner || clearOpeningMut.isPending}
+                              disabled={
+                                !canSetOpening || clearOpeningMut.isPending
+                              }
                             >
                               <Trash2 className="size-4" />
                             </Button>
@@ -432,7 +434,7 @@ export function ClientAccountTab({
       ).filter((c) => runningBalance || c.id !== "balance"),
     [
       clientId,
-      isOwner,
+      canSetOpening,
       clearOpeningMut.isPending,
       handleClearOpening,
       runningBalance,
@@ -482,11 +484,15 @@ export function ClientAccountTab({
         {(canIssueInvoice || canWriteReceipt) && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canIssueInvoice && (
-              <OwnerOnly disabled={!isOwner}>
+              <OwnerOnly disabled={!canSetOpening}>
                 <OpeningBalanceDialog
                   clientId={clientId}
                   trigger={
-                    <Button variant="outline" size="sm" disabled={!isOwner}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canSetOpening}
+                    >
                       <Wallet />
                       Ajustar saldo
                     </Button>
