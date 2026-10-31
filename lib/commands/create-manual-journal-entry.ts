@@ -1,21 +1,19 @@
 import "server-only";
 
-import {
-  accrualPeriodFromDate,
-  type ManualJournalEntryCreateInput,
-} from "@/features/journal-entries/schema";
+import type { ManualJournalEntryCreateInput } from "@/features/journal-entries/schema";
 import { logAudit } from "@/lib/actions/audit";
 import type { Json } from "@/lib/db/database.types";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Creates a manual journal entry (source_table null) via the same
- * create_journal_entry RPC the auto-posting triggers use, with the caller's
- * session, and audits it. The caller has already checked `accounting:write`
- * and parsed the input with `ManualJournalEntryCreateSchema`; the DB
- * DEFERRABLE trigger re-validates Σdebe = Σhaber.
+ * Creates a manual journal entry through create_manual_journal_entry, with the
+ * caller's session, and audits it. The RPC takes no source and only a NULL or
+ * active fiscal channel, and derives the accrual period from the date. The
+ * caller has already checked `accounting:write` and parsed the input with
+ * `ManualJournalEntryCreateSchema`; the DB re-validates Σdebe = Σhaber.
  */
 export async function createManualJournalEntry(
   actorId: string,
@@ -29,13 +27,20 @@ export async function createManualJournalEntry(
   }));
 
   const supabase = await createClient();
-  const { data: entryId, error } = await supabase.rpc("create_journal_entry", {
-    p_entry_date: data.entry_date,
-    p_accrual_period: accrualPeriodFromDate(data.entry_date),
-    p_description: data.description,
-    p_lines: lines,
-    ...(data.channel_id ? { p_channel_id: data.channel_id } : {}),
+  const { data: entryId, error } = await supabase.rpc(
+    "create_manual_journal_entry",
+    {
+      p_entry_date: data.entry_date,
+      p_description: data.description,
+      p_lines: lines,
+      ...(data.channel_id ? { p_channel_id: data.channel_id } : {}),
+    },
+  );
+  const guardError = mapDbGuardError(error, {
+    slug: "journal_entries.manual_create.rejected",
+    userId: actorId,
   });
+  if (guardError) return { ok: false, error: guardError };
   if (error || !entryId) {
     logger.error("journal_entries.manual_create.failed", {
       userId: actorId,

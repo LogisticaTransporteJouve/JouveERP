@@ -48,6 +48,7 @@ const MONEY_RPCS: Array<{ fn: string; permission: Permission }> = [
     fn: "replace_purchase_invoice_items",
     permission: "purchase_invoices:write",
   },
+  { fn: "create_manual_journal_entry", permission: "accounting:write" },
 ];
 
 describe("money RPC role guards", () => {

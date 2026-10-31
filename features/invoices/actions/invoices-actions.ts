@@ -16,11 +16,8 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import {
-  PG_CHECK_VIOLATION,
-  PG_INVALID_PARAMETER_VALUE,
-  PG_UNIQUE_VIOLATION,
-} from "@/lib/db/pg-error-codes";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
@@ -402,6 +399,11 @@ export async function issueFiscalInvoiceAction(
     );
     if (existing && existing !== "error") return { ok: true, data: existing };
   }
+  const guardError = mapDbGuardError(inserted.error, {
+    slug: "issue_invoice.insert_draft.rejected",
+    userId: ctx.userId,
+  });
+  if (guardError) return { ok: false, error: guardError };
   if (inserted.error || !inserted.data) {
     logger.warn("issue_invoice.insert_draft_failed", {
       userId: ctx.userId,
@@ -1026,23 +1028,12 @@ export async function cancelInvoiceAction(
     .eq("status", invoice.status)
     .select("id");
   if (error) {
-    if (error.code === PG_INVALID_PARAMETER_VALUE) {
-      return {
-        ok: false,
-        error:
-          "El comprobante tiene cobros imputados. Anulá esos recibos antes de anular el comprobante.",
-      };
-    }
-    if (
-      error.code === PG_CHECK_VIOLATION &&
-      error.message.includes("saldo inicial")
-    ) {
-      return {
-        ok: false,
-        error:
-          "El comprobante está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.",
-      };
-    }
+    const guardError = mapDbGuardError(error, {
+      slug: "invoices.cancel.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("invoices.cancel.failed", {
       userId: ctx.userId,
       id,

@@ -15,3 +15,4 @@ export const PG_UNDEFINED_TABLE = "42P01";
 export const POSTGREST_TABLE_NOT_FOUND = "PGRST205";
 /** PostgREST: no function with these argument names. */
 export const POSTGREST_FUNCTION_NOT_FOUND = "PGRST202";
+export const PG_OBJECT_IN_USE = "55006";

@@ -10,6 +10,7 @@ import { getSalesPoints, type SalesPoint } from "@/lib/afip/wsfev1";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -122,19 +123,34 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
   }
 
   const supabase = getServiceClient();
-  const existing = await supabase.from("sales_points").select("numero");
+  const existing = await supabase
+    .from("sales_points")
+    .select("numero, channel:invoicing_channels(is_fiscal)");
   if (existing.error) {
     return { ok: false, error: existing.error.message };
   }
   const existingSet = new Set((existing.data ?? []).map((row) => row.numero));
+  // A POS on an internal channel is not an AFIP point of sale: syncing it would
+  // mark it as synced with AFIP.
+  const internalSet = new Set(
+    (existing.data ?? [])
+      .filter((row) => row.channel && !row.channel.is_fiscal)
+      .map((row) => row.numero),
+  );
+  const conflicts = raw.filter((point) => internalSet.has(point.number));
+  if (conflicts.length > 0) {
+    logger.warn("afip.pos_sync.internal_conflict", { count: conflicts.length });
+  }
 
   const now = new Date().toISOString();
-  const upsertRows = raw.map((point) => ({
-    numero: point.number,
-    last_known_emission_type: point.emissionType,
-    last_known_blocked: point.blocked,
-    last_synced_at: now,
-  }));
+  const upsertRows = raw
+    .filter((point) => !internalSet.has(point.number))
+    .map((point) => ({
+      numero: point.number,
+      last_known_emission_type: point.emissionType,
+      last_known_blocked: point.blocked,
+      last_synced_at: now,
+    }));
 
   let inserted = 0;
   let updated = 0;
@@ -145,13 +161,18 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
 
   const upsertRes = await supabase
     .from("sales_points")
-    .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false })
+    .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false });
+  if (upsertRes.error) {
+    return { ok: false, error: upsertRes.error.message };
+  }
+  const listRes = await supabase
+    .from("sales_points")
     .select(
       "numero, channel_id, nickname, is_enabled, last_known_emission_type, last_known_blocked, last_synced_at, created_at, updated_at",
     )
     .order("numero");
-  if (upsertRes.error) {
-    return { ok: false, error: upsertRes.error.message };
+  if (listRes.error) {
+    return { ok: false, error: listRes.error.message };
   }
 
   await logAudit("afip.pos_synced", ctx.userId, { total: raw.length });
@@ -163,7 +184,7 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
       updated,
       total: raw.length,
       raw,
-      salesPoints: (upsertRes.data ?? []).map(rowToSalesPoint),
+      salesPoints: (listRes.data ?? []).map(rowToSalesPoint),
     },
   };
 }
@@ -193,6 +214,59 @@ export async function configurePosAction(
   }
 
   const supabase = getServiceClient();
+  const current = await supabase
+    .from("sales_points")
+    .select("channel_id")
+    .eq("numero", numero)
+    .maybeSingle();
+  if (current.error) {
+    return { ok: false, error: current.error.message };
+  }
+  if (!current.data) {
+    return {
+      ok: false,
+      error: `El POS ${numero} no existe en DB. Sincronizá con AFIP primero.`,
+    };
+  }
+
+  // A POS of an inactive channel can still be disabled or renamed; it cannot
+  // be enabled or moved there.
+  if (channel_id && (is_enabled || channel_id !== current.data.channel_id)) {
+    const channel = await supabase
+      .from("invoicing_channels")
+      .select("is_active")
+      .eq("id", channel_id)
+      .maybeSingle();
+    if (channel.error) {
+      return { ok: false, error: channel.error.message };
+    }
+    if (!channel.data?.is_active) {
+      return { ok: false, error: "El canal no existe o está inactivo." };
+    }
+  }
+
+  // loadChannelPos numbers with the lowest enabled POS of the channel: a second
+  // one would move the numbering.
+  if (is_enabled && channel_id) {
+    const other = await supabase
+      .from("sales_points")
+      .select("numero")
+      .eq("channel_id", channel_id)
+      .eq("is_enabled", true)
+      .neq("numero", numero)
+      .limit(1)
+      .maybeSingle();
+    if (other.error) {
+      return { ok: false, error: other.error.message };
+    }
+    if (other.data) {
+      return {
+        ok: false,
+        error: `El canal ya tiene habilitado el POS ${other.data.numero}. Deshabilitalo antes de habilitar otro.`,
+      };
+    }
+  }
+
   const update = await supabase
     .from("sales_points")
     .update({ channel_id, nickname, is_enabled })
@@ -202,7 +276,12 @@ export async function configurePosAction(
     )
     .maybeSingle();
   if (update.error) {
-    return { ok: false, error: update.error.message };
+    const guardError = mapDbGuardError(update.error, {
+      slug: "afip.pos_configure.rejected",
+      userId: ctx.userId,
+      id: String(numero),
+    });
+    return { ok: false, error: guardError ?? update.error.message };
   }
   if (!update.data) {
     return {

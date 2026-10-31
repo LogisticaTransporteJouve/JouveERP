@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  accrualPeriodFromDate,
   currentPeriod,
   isKnownSource,
   isPeriodFormat,
@@ -45,12 +44,6 @@ describe("isPeriodFormat", () => {
 describe("currentPeriod", () => {
   it("retorna formato YYYY-MM", () => {
     expect(isPeriodFormat(currentPeriod())).toBe(true);
-  });
-});
-
-describe("accrualPeriodFromDate", () => {
-  it("recorta YYYY-MM-DD a YYYY-MM", () => {
-    expect(accrualPeriodFromDate("2026-07-04")).toBe("2026-07");
   });
 });
 

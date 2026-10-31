@@ -8,7 +8,7 @@ const h = await vi.hoisted(async () => {
   const state: {
     access: Access;
     invoice: Record<string, unknown> | null;
-    updateError: { code: string; message: string } | null;
+    updateError: { code: string; message: string; hint?: string } | null;
     updates: Array<Record<string, unknown>>;
     audits: unknown[][];
   } = {
@@ -103,13 +103,11 @@ describe("cancelInvoiceAction", () => {
   });
 
   it("explains the allocation guard instead of a raw database error", async () => {
-    h.updateError = { code: "22023", message: "allocations" };
+    const message =
+      "El comprobante tiene recibos imputados. Anulá esos recibos antes de anularlo.";
+    h.updateError = { code: "22023", message, hint: "jouve_guard" };
     const res = await cancelInvoiceAction({ id: ID });
-    expect(res).toEqual({
-      ok: false,
-      error:
-        "El comprobante tiene cobros imputados. Anulá esos recibos antes de anular el comprobante.",
-    });
+    expect(res).toEqual({ ok: false, error: message });
   });
 
   it("is denied to roles without invoices:cancel", async () => {
@@ -150,7 +148,8 @@ describe("cancelInvoiceAction with the opening balance applied", () => {
     h.updateError = {
       code: "23514",
       message:
-        "El comprobante x está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.",
+        "El comprobante está saldado por el saldo inicial del cliente. Recalculá el saldo inicial antes de anularlo.",
+      hint: "jouve_guard",
     };
     const res = await cancelInvoiceAction({ id: ID });
     expect(res.ok).toBe(false);
