@@ -6,7 +6,7 @@ No hay multi-tenancy: una sola `business_units` (`dz_sons`).
 
 **Stack:** Next.js 16 (App Router) + React 19 · Supabase (Postgres + RLS +
 realtime) · Inngest (background/cron) · TanStack Query · shadcn/ui + Tailwind v4
-(monocromo oklch) · Zod 4 · react-hook-form · AFIP (WSAA/WSFEv1) · `@react-pdf/renderer`.
+(neutral oklch + índigo Jouve) · Zod 4 · react-hook-form · AFIP (WSAA/WSFEv1) · `@react-pdf/renderer`.
 Package manager **pnpm**. Tests Vitest (+ Playwright).
 
 ## Estructura
@@ -45,8 +45,9 @@ Package manager **pnpm**. Tests Vitest (+ Playwright).
   `pnpm check:migrations` (squawk + gates) corre en pre-push y CI. Timestamp > el máximo en `main`. **Nunca editar una mergeada.**
 - **Background/cron:** Inngest (no Temporal). Registrar en `app/api/inngest/route.ts`.
 - **Auditoría:** `logAudit()` → `audit_events` (`lib/actions/audit.ts`).
-- **UI:** CRUD en `Dialog` centrado (no Sheet). **100% monocromo** (sin color de
-  marca; peligro = copy + iconos). `lucide-react`, Geist Sans/Mono.
+- **UI:** CRUD en `Dialog` centrado (no Sheet). Neutral (oklch gris) con **un solo
+  color: `primary` = índigo Jouve** (`#35358a`, del logo) en botones primarios, nav activo y
+  foco; nada más lleva color (peligro = copy + iconos). `lucide-react`, Geist Sans/Mono.
 - **Git:** conventional commits en **inglés**; **sin** `Co-Authored-By` ni footer;
   PRs **siempre draft** (`gh pr create --draft`); no commitear a `main`.
 - ESLint: `no-explicit-any` error; cercas de seams en `eslint.fences.mjs`

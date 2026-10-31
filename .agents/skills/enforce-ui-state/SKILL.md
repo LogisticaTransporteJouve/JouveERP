@@ -41,8 +41,9 @@ the same predicate as what it does.**
   job acts as), the channel/division scope (`lib/scope.ts`, where `null` means "all"), the date
   range (`lib/date-range.ts`), the record id, and the user's permissions.
 - **Patterns.** CRUD lives in a centered `Dialog` (`components/ui/dialog.tsx`), not a Sheet;
-  destructive confirmation uses `components/ui/alert-dialog.tsx`. The UI is 100% monochrome
-  (oklch tokens in `app/globals.css`; `--destructive` is a gray): danger is said with copy and a
+  destructive confirmation uses `components/ui/alert-dialog.tsx`. The UI is neutral with one
+  hue: `primary` is the Jouve brand indigo (primary buttons, active nav, focus ring); every other
+  oklch token in `app/globals.css` is a gray, `--destructive` included: danger is said with copy and a
   `lucide-react` icon, never a color class. Fonts are Geist Sans/Mono. Copy is Spanish
   (Argentina). Close a Popover before opening a Dialog from it (focus traps; see
   `docs/frontend-patterns.md`).
@@ -131,7 +132,7 @@ sites, and table column widths.
 - shadcn `data-[size=…]` and `data-[state=…]` selectors beat plain utilities;
 - an SVG without `viewBox` doesn't scale;
 - concatenated class strings need a space (use `cn` from `lib/utils.ts`);
-- a color class (`text-red-*`, `bg-green-*`) breaks the monochrome rule: use tokens, copy and an
+- a color class (`text-red-*`, `bg-green-*`) breaks the single-hue rule: use tokens (`primary` for brand), copy and an
   icon.
 
 **Accessibility.** On any changed interactive element:
