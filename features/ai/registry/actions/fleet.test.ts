@@ -91,7 +91,13 @@ describe("runFleetProfitability", () => {
       data: {
         trips: [],
         vehicles: [],
-        totals: { revenue: 1000, cost: 400, net: 600 },
+        totals: {
+          revenue: 1000,
+          invoiced_revenue: 700,
+          manual_revenue: 300,
+          cost: 400,
+          net: 600,
+        },
         unvouchered: {
           fuel_count: 0,
           fuel_amount: 0,
@@ -106,6 +112,7 @@ describe("runFleetProfitability", () => {
     });
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.summary).toContain("600");
+    if (res.ok) expect(res.summary).toContain("invoiced $700");
     expect(getFleetProfitabilityAction).toHaveBeenCalledWith({
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",

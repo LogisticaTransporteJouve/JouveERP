@@ -152,6 +152,8 @@ function marginRow(over: Partial<FleetMarginRow>): FleetMarginRow {
     label: "AB123CD",
     trips: 2,
     revenue: 1000,
+    invoiced_revenue: 1000,
+    manual_revenue: 0,
     trip_cost: 200,
     fuel_cost: 100,
     maintenance_cost: 50,

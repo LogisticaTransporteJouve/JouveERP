@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -47,7 +48,9 @@ export function ProfitabilityReport() {
         </h1>
         <p className="text-muted-foreground text-sm">
           Ingresos menos costos (viaje, combustible, mantenimiento) por vehículo
-          y por viaje en el rango.
+          y por viaje en el rango. El ingreso de un viaje con cargas es el flete
+          facturado de esas cargas; sin cargas, el ingreso cargado a mano en el
+          viaje.
         </p>
       </div>
 
@@ -73,16 +76,28 @@ export function ProfitabilityReport() {
           />
         </div>
         {data && (
-          <div className="text-muted-foreground ml-auto text-sm">
-            Neto del rango:{" "}
-            <span
-              className={cn(
-                "font-mono font-semibold",
-                data.totals.net < 0 ? "text-destructive" : "text-foreground",
-              )}
-            >
-              {money(data.totals.net)}
-            </span>
+          <div className="text-muted-foreground ml-auto space-y-0.5 text-right text-sm">
+            <div>
+              Facturado:{" "}
+              <span className="text-foreground font-mono">
+                {money(data.totals.invoiced_revenue)}
+              </span>{" "}
+              · Manual:{" "}
+              <span className="text-foreground font-mono">
+                {money(data.totals.manual_revenue)}
+              </span>
+            </div>
+            <div>
+              Neto del rango:{" "}
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  data.totals.net < 0 ? "text-destructive" : "text-foreground",
+                )}
+              >
+                {money(data.totals.net)}
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -100,6 +115,8 @@ export function ProfitabilityReport() {
                     <TableHead>Vehículo</TableHead>
                     <TableHead className="w-16 text-right">Viajes</TableHead>
                     <TableHead className="text-right">Ingresos</TableHead>
+                    <TableHead className="text-right">Facturado</TableHead>
+                    <TableHead className="text-right">Manual</TableHead>
                     <TableHead className="text-right">Combustible</TableHead>
                     <TableHead className="text-right">Mant.</TableHead>
                     <TableHead className="text-right">Costo viaje</TableHead>
@@ -110,7 +127,7 @@ export function ProfitabilityReport() {
                   {data.vehicles.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={9}
                         className="text-muted-foreground py-8 text-center text-sm"
                       >
                         Sin movimientos en el rango.
@@ -127,6 +144,12 @@ export function ProfitabilityReport() {
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(v.revenue)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-right font-mono tabular-nums">
+                          {money(v.invoiced_revenue)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-right font-mono tabular-nums">
+                          {money(v.manual_revenue)}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(v.fuel_cost)}
@@ -186,6 +209,8 @@ export function ProfitabilityReport() {
                     <TableHead>Vehículo</TableHead>
                     <TableHead>Ruta</TableHead>
                     <TableHead className="text-right">Ingreso</TableHead>
+                    <TableHead className="text-right">Facturado</TableHead>
+                    <TableHead className="text-right">Manual</TableHead>
                     <TableHead className="text-right">Costo</TableHead>
                     <TableHead className="text-right">Comb.</TableHead>
                     <TableHead className="text-right">Neto</TableHead>
@@ -195,7 +220,7 @@ export function ProfitabilityReport() {
                   {data.trips.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={9}
                         className="text-muted-foreground py-8 text-center text-sm"
                       >
                         Sin viajes en el rango.
@@ -216,7 +241,20 @@ export function ProfitabilityReport() {
                             .join(" → ") || "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
-                          {money(t.revenue)}
+                          <div className="flex items-center justify-end gap-2">
+                            <Badge variant="outline" className="font-sans">
+                              {t.revenue_source === "invoiced"
+                                ? "Facturado"
+                                : "Manual"}
+                            </Badge>
+                            {money(t.revenue)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-right font-mono tabular-nums">
+                          {money(t.invoiced_revenue)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-right font-mono tabular-nums">
+                          {money(t.manual_revenue)}
                         </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(t.trip_cost)}

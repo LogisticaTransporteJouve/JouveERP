@@ -9,7 +9,8 @@ import { inngest } from "../client";
 // carryover) for each active employee, with carryover read from
 // hr_settings.vacation_carryover (the RPC also checks it):
 //   - Computes entitled_days based on tenure as of Dec 31 of the year
-//   - Applies Art. 153 prorating if tenure is under 6 months
+//   - Below half the year's working days (art. 151), one day per 20 days of
+//     effective work (art. 153); only unjustified absences are not work
 //   - Carries over up to a third of the previous period (LCT art. 164) when it
 //     is extended or not yet expired, and closes that period
 //   - Marks balances with expires_at < today as expired

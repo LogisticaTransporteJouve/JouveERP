@@ -172,7 +172,8 @@ export async function runFleetProfitability(input: {
       `net $${totals.net.toLocaleString("es-AR")} ` +
       `(revenue $${totals.revenue.toLocaleString("es-AR")} − cost $${totals.cost.toLocaleString(
         "es-AR",
-      )}).`,
+      )}; invoiced $${totals.invoiced_revenue.toLocaleString("es-AR")}, ` +
+      `manual $${totals.manual_revenue.toLocaleString("es-AR")}).`,
     res.data,
   );
 }
@@ -180,12 +181,22 @@ export async function runFleetProfitability(input: {
 export const getFleetProfitability = defineAiAction({
   name: "getFleetProfitability",
   domain: "flota",
-  permission: "trips:read",
+  permission: ["trips:read", "shipments:read"],
   sideEffect: "read",
-  sources: ["trips", "fuel_loads", "maintenance_records", "vehicles"],
+  sources: [
+    "trips",
+    "v_trip_revenue",
+    "shipments",
+    "fuel_loads",
+    "maintenance_records",
+    "vehicles",
+  ],
   description:
     "Fleet profitability over a date range: net per trip " +
     "(revenue − cost − fuel) and per vehicle (includes maintenance). " +
+    "A trip with shipments earns the freight of its invoiced shipments; " +
+    "without shipments, its manual revenue. Both figures (invoiced, manual) " +
+    "come per trip, per vehicle and in the totals. " +
     "Requires date from and to (YYYY-MM-DD). For trip or truck profitability.",
   input: z.object({
     periodStart: z.string().describe("Date from, format YYYY-MM-DD."),
@@ -197,17 +208,18 @@ export const getFleetProfitability = defineAiAction({
 export const getFleetMargin = defineAiAction({
   name: "getFleetMargin",
   domain: "flota",
-  permission: "trips:read",
+  permission: ["trips:read", "shipments:read"],
   sideEffect: "read",
   sources: [
     "ai_fleet_margin",
+    "v_trip_revenue",
     "trips",
     "fuel_loads",
     "maintenance_records",
     "shipments",
   ],
   description:
-    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por cliente reparte cada viaje según el flete de sus cargas. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
+    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos (el flete facturado de las cargas del viaje; sin cargas, el ingreso manual del viaje), facturado y manual por separado, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por cliente, cada carga aporta su flete facturado y los costos se reparten según el flete. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
   input: FleetMarginInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);

@@ -1,5 +1,7 @@
 // Pure profitability aggregation (no DB) — used by getFleetProfitabilityAction
-// and unit-tested in isolation. Trip net = revenue − trip cost − fuel tied to
+// and unit-tested in isolation. A trip's revenue is the freight of its invoiced
+// shipments, or its manual revenue when it has no shipments (v_trip_revenue);
+// both figures travel along. Trip net = revenue − trip cost − fuel tied to
 // that trip. Vehicle net = Σ trip revenue − Σ trip cost − ALL fuel for the
 // vehicle − ALL maintenance for the vehicle (over the period). docs/roadmap.md
 // Fase G.7.
@@ -10,11 +12,24 @@ export type TripInput = {
   vehicle_id: string | null;
   origin: string | null;
   destination: string | null;
-  revenue: number | null;
+  /** The revenue the margin uses. */
+  revenue: number;
+  revenue_source: RevenueSource;
+  /** Freight of the trip's invoiced shipments. */
+  invoiced_revenue: number;
+  /** trips.revenue as typed on the trip. */
+  manual_revenue: number | null;
   cost: number | null;
   vehicle: { patente: string } | null;
   driver: { full_name: string } | null;
 };
+
+/** invoiced: the trip has shipments; manual: it has none. */
+export type RevenueSource = "invoiced" | "manual";
+
+export function isRevenueSource(v: unknown): v is RevenueSource {
+  return v === "invoiced" || v === "manual";
+}
 
 export type FuelInput = {
   vehicle_id: string;
@@ -46,6 +61,9 @@ export type TripProfit = {
   origin: string | null;
   destination: string | null;
   revenue: number;
+  revenue_source: RevenueSource;
+  invoiced_revenue: number;
+  manual_revenue: number;
   trip_cost: number;
   fuel_cost: number;
   net: number;
@@ -56,6 +74,8 @@ export type VehicleProfit = {
   patente: string;
   trips: number;
   revenue: number;
+  invoiced_revenue: number;
+  manual_revenue: number;
   trip_cost: number;
   fuel_cost: number;
   maintenance_cost: number;
@@ -67,6 +87,8 @@ export type FleetProfitability = {
   vehicles: VehicleProfit[];
   totals: {
     revenue: number;
+    invoiced_revenue: number;
+    manual_revenue: number;
     cost: number;
     net: number;
   };
@@ -100,7 +122,7 @@ export function computeProfitability(input: {
   }
 
   const trips: TripProfit[] = input.trips.map((t) => {
-    const revenue = t.revenue ?? 0;
+    const revenue = t.revenue;
     const tripCost = t.cost ?? 0;
     const fuelCost = fuelByTrip.get(t.id) ?? 0;
     return {
@@ -111,6 +133,9 @@ export function computeProfitability(input: {
       origin: t.origin,
       destination: t.destination,
       revenue: round2(revenue),
+      revenue_source: t.revenue_source,
+      invoiced_revenue: round2(t.invoiced_revenue),
+      manual_revenue: round2(t.manual_revenue ?? 0),
       trip_cost: round2(tripCost),
       fuel_cost: round2(fuelCost),
       net: round2(revenue - tripCost - fuelCost),
@@ -119,11 +144,15 @@ export function computeProfitability(input: {
 
   // Per-vehicle: revenue + trip cost from trips, fuel/maintenance from all rows.
   const revByVehicle = new Map<string, number>();
+  const invoicedByVehicle = new Map<string, number>();
+  const manualByVehicle = new Map<string, number>();
   const costByVehicle = new Map<string, number>();
   const tripsByVehicle = new Map<string, number>();
   for (const t of input.trips) {
     if (!t.vehicle_id) continue;
-    add(revByVehicle, t.vehicle_id, t.revenue ?? 0);
+    add(revByVehicle, t.vehicle_id, t.revenue);
+    add(invoicedByVehicle, t.vehicle_id, t.invoiced_revenue);
+    add(manualByVehicle, t.vehicle_id, t.manual_revenue ?? 0);
     add(costByVehicle, t.vehicle_id, t.cost ?? 0);
     add(tripsByVehicle, t.vehicle_id, 1);
   }
@@ -145,6 +174,8 @@ export function computeProfitability(input: {
         patente: input.vehicleNames.get(vid) ?? "—",
         trips: tripsByVehicle.get(vid) ?? 0,
         revenue: round2(revenue),
+        invoiced_revenue: round2(invoicedByVehicle.get(vid) ?? 0),
+        manual_revenue: round2(manualByVehicle.get(vid) ?? 0),
         trip_cost: round2(tripCost),
         fuel_cost: round2(fuelCost),
         maintenance_cost: round2(maintenanceCost),
@@ -154,6 +185,12 @@ export function computeProfitability(input: {
     .sort((a, b) => b.net - a.net);
 
   const revenue = round2(vehicles.reduce((s, v) => s + v.revenue, 0));
+  const invoicedRevenue = round2(
+    vehicles.reduce((s, v) => s + v.invoiced_revenue, 0),
+  );
+  const manualRevenue = round2(
+    vehicles.reduce((s, v) => s + v.manual_revenue, 0),
+  );
   const cost = round2(
     vehicles.reduce(
       (s, v) => s + v.trip_cost + v.fuel_cost + v.maintenance_cost,
@@ -169,7 +206,13 @@ export function computeProfitability(input: {
   return {
     trips,
     vehicles,
-    totals: { revenue, cost, net: round2(revenue - cost) },
+    totals: {
+      revenue,
+      invoiced_revenue: invoicedRevenue,
+      manual_revenue: manualRevenue,
+      cost,
+      net: round2(revenue - cost),
+    },
     unvouchered: {
       fuel_count: fuelUnvouchered.length,
       fuel_amount: round2(fuelUnvouchered.reduce((s, f) => s + f.amount, 0)),
