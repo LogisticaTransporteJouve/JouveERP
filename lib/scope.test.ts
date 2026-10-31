@@ -1,111 +1,72 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  channelsForScope,
-  isDivision,
+  channelIsFiscal,
+  FISCAL_FILTERS,
   isFiscalFilter,
-  type InvoicingChannelSummary,
-  type Scope,
+  parseFiscalFilter,
+  serializeFiscalFilter,
 } from "./scope";
 
-const ch = (
-  id: string,
-  division: "dz" | "jouve",
-  is_fiscal: boolean,
-  is_active = true,
-): InvoicingChannelSummary => ({
-  id,
-  name: `${id}-name`,
-  division,
-  is_fiscal,
-  is_active,
-});
-
-const CHANNELS: InvoicingChannelSummary[] = [
-  ch("jouve_fiscal", "jouve", true),
-  ch("jouve_interno", "jouve", false),
-  ch("dz_fiscal", "dz", true),
-  ch("dz_interno", "dz", false),
-  ch("dz_old", "dz", true, false), // inactive
-];
-
-const scope = (
-  division: Scope["division"],
-  fiscalFilter: Scope["fiscalFilter"],
-): Scope => ({ division, fiscalFilter });
-
-describe("channelsForScope", () => {
-  it("devuelve null cuando no hay división y filter='all' (no filtra)", () => {
-    expect(channelsForScope(scope(null, "all"), CHANNELS)).toBeNull();
+describe("serializeFiscalFilter / parseFiscalFilter", () => {
+  it.each(FISCAL_FILTERS)("ida y vuelta de %s", (filter) => {
+    expect(parseFiscalFilter(serializeFiscalFilter(filter))).toBe(filter);
   });
 
-  it("filtra por división = jouve", () => {
-    const ids = channelsForScope(scope("jouve", "all"), CHANNELS);
-    expect(ids).toEqual(["jouve_fiscal", "jouve_interno"]);
+  it("toma fiscalFilter del objeto viejo con división", () => {
+    expect(
+      parseFiscalFilter(
+        JSON.stringify({ division: "dz", fiscalFilter: "internal" }),
+      ),
+    ).toBe("internal");
+    expect(parseFiscalFilter(JSON.stringify({ division: "jouve" }))).toBe(
+      "all",
+    );
   });
 
-  it("filtra por división = dz (excluye inactivos)", () => {
-    const ids = channelsForScope(scope("dz", "all"), CHANNELS);
-    expect(ids).toEqual(["dz_fiscal", "dz_interno"]);
+  it("acepta un valor pelado", () => {
+    expect(parseFiscalFilter("fiscal")).toBe("fiscal");
+    expect(parseFiscalFilter('"internal"')).toBe("internal");
   });
 
-  it("filtra fiscalFilter='fiscal' cross-divisiones", () => {
-    const ids = channelsForScope(scope(null, "fiscal"), CHANNELS);
-    expect(ids).toEqual(["jouve_fiscal", "dz_fiscal"]);
-  });
-
-  it("filtra fiscalFilter='internal' cross-divisiones", () => {
-    const ids = channelsForScope(scope(null, "internal"), CHANNELS);
-    expect(ids).toEqual(["jouve_interno", "dz_interno"]);
-  });
-
-  it("combina división + fiscalFilter", () => {
-    expect(channelsForScope(scope("jouve", "fiscal"), CHANNELS)).toEqual([
-      "jouve_fiscal",
-    ]);
-    expect(channelsForScope(scope("dz", "internal"), CHANNELS)).toEqual([
-      "dz_interno",
-    ]);
-  });
-
-  it("siempre excluye canales inactivos", () => {
-    const ids = channelsForScope(scope("dz", "fiscal"), CHANNELS);
-    expect(ids).toEqual(["dz_fiscal"]);
-    expect(ids).not.toContain("dz_old");
-  });
-
-  it("devuelve array vacío si no matchea ningún canal", () => {
-    const empty: InvoicingChannelSummary[] = [];
-    expect(channelsForScope(scope("jouve", "fiscal"), empty)).toEqual([]);
+  it("con basura o vacío devuelve all", () => {
+    expect(parseFiscalFilter(undefined)).toBe("all");
+    expect(parseFiscalFilter("")).toBe("all");
+    expect(parseFiscalFilter("{nope")).toBe("all");
+    expect(parseFiscalFilter(JSON.stringify({ fiscalFilter: "x" }))).toBe(
+      "all",
+    );
+    expect(parseFiscalFilter("null")).toBe("all");
   });
 });
 
-describe("isDivision", () => {
-  it("acepta valores válidos", () => {
-    expect(isDivision("dz")).toBe(true);
-    expect(isDivision("jouve")).toBe(true);
+describe("channelIsFiscal", () => {
+  const channels = [
+    { id: "jouve_fiscal", is_fiscal: true, is_active: true },
+    { id: "jouve_internal", is_fiscal: false, is_active: true },
+    { id: "dz_fiscal", is_fiscal: true, is_active: false },
+  ];
+
+  it("clasifica un canal inactivo", () => {
+    expect(channelIsFiscal("dz_fiscal", channels)).toBe(true);
   });
 
-  it("rechaza inválidos", () => {
-    expect(isDivision("other")).toBe(false);
-    expect(isDivision("")).toBe(false);
-    expect(isDivision(null)).toBe(false);
-    expect(isDivision(undefined)).toBe(false);
-    expect(isDivision(0)).toBe(false);
+  it("clasifica los activos", () => {
+    expect(channelIsFiscal("jouve_fiscal", channels)).toBe(true);
+    expect(channelIsFiscal("jouve_internal", channels)).toBe(false);
+  });
+
+  it("devuelve null con un id desconocido o vacío", () => {
+    expect(channelIsFiscal("otro", channels)).toBeNull();
+    expect(channelIsFiscal(null, channels)).toBeNull();
+    expect(channelIsFiscal("", channels)).toBeNull();
   });
 });
 
 describe("isFiscalFilter", () => {
-  it("acepta valores válidos", () => {
-    expect(isFiscalFilter("all")).toBe(true);
-    expect(isFiscalFilter("fiscal")).toBe(true);
-    expect(isFiscalFilter("internal")).toBe(true);
-  });
-
-  it("rechaza inválidos", () => {
-    expect(isFiscalFilter("none")).toBe(false);
-    expect(isFiscalFilter("")).toBe(false);
+  it("acepta solo los tres valores", () => {
+    expect(FISCAL_FILTERS.every(isFiscalFilter)).toBe(true);
+    expect(isFiscalFilter("dz")).toBe(false);
     expect(isFiscalFilter(null)).toBe(false);
-    expect(isFiscalFilter(true)).toBe(false);
   });
 });

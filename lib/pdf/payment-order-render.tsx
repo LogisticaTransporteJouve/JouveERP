@@ -15,6 +15,7 @@ import type {
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
+import { divisionLabel } from "@/lib/pdf/emisor";
 
 import {
   PaymentOrderDocument,
@@ -140,12 +141,7 @@ export async function buildPaymentOrderTemplateData(
       legal_name: emisorLegalName,
       cuit: emisorCuit,
       address: emisorAddress,
-      division_label:
-        channel?.division === "jouve"
-          ? "Logística Jouve"
-          : channel?.division === "dz"
-            ? "DZ Instalaciones"
-            : channel?.name ?? "",
+      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
     },
     beneficiario: {
       legal_name: supplier.legal_name,

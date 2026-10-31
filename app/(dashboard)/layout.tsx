@@ -15,10 +15,10 @@ import { getCurrentUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { getInvoicingChannels } from "@/lib/channels";
 import {
-  isDivision,
-  isFiscalFilter,
+  parseFiscalFilter,
+  SCOPE_COOKIE,
+  type FiscalFilter,
   type InvoicingChannelSummary,
-  type Scope,
 } from "@/lib/scope";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,21 +38,14 @@ export default async function DashboardLayout({
 
   const supabase = await createClient();
   // Shared (React cache) with pages that also list channels in this request.
-  // Sorted division → fiscal first, as the scope selector expects.
-  const channelsData = [...(await getInvoicingChannels())].sort((a, b) =>
-    a.division === b.division
-      ? Number(b.is_fiscal) - Number(a.is_fiscal)
-      : a.division < b.division
-        ? -1
-        : 1,
-  );
-
-  const channels: InvoicingChannelSummary[] = channelsData
-    .filter((row) => isDivision(row.division))
+  // Fiscal first, as the forms expect.
+  const channels: InvoicingChannelSummary[] = [
+    ...(await getInvoicingChannels()),
+  ]
+    .sort((a, b) => Number(b.is_fiscal) - Number(a.is_fiscal))
     .map((row) => ({
       id: row.id,
       name: row.name,
-      division: row.division as "dz" | "jouve",
       is_fiscal: row.is_fiscal,
       is_active: row.is_active,
     }));
@@ -63,26 +56,21 @@ export default async function DashboardLayout({
 
   // Read scope from the cookie to avoid the "all channels" flash
   // during the client's first render.
-  const scopeCookie = cookieStore.get("jouve_scope")?.value;
-  let initialScope: Scope | undefined;
+  const scopeCookie = cookieStore.get(SCOPE_COOKIE)?.value;
+  let initialFiscalFilter: FiscalFilter | undefined;
   if (scopeCookie) {
     try {
-      const parsed = JSON.parse(
-        decodeURIComponent(scopeCookie),
-      ) as Partial<Scope>;
-      initialScope = {
-        division: isDivision(parsed.division) ? parsed.division : null,
-        fiscalFilter: isFiscalFilter(parsed.fiscalFilter)
-          ? parsed.fiscalFilter
-          : "all",
-      };
+      initialFiscalFilter = parseFiscalFilter(decodeURIComponent(scopeCookie));
     } catch {
-      initialScope = undefined;
+      initialFiscalFilter = undefined;
     }
   }
 
   return (
-    <ScopeProvider channels={channels} initialScope={initialScope}>
+    <ScopeProvider
+      channels={channels}
+      initialFiscalFilter={initialFiscalFilter}
+    >
       <DateRangeProvider>
         <SidebarProvider
           defaultOpen={defaultOpen}

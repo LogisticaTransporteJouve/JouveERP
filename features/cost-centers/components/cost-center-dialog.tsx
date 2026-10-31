@@ -145,7 +145,7 @@ export function CostCenterDialog({
                     <Input
                       {...field}
                       disabled={isEdit}
-                      placeholder="FLOTA_DZ"
+                      placeholder="FLOTA"
                       autoComplete="off"
                       className="font-mono uppercase"
                       onChange={(e) =>
@@ -167,7 +167,7 @@ export function CostCenterDialog({
                 <FormItem>
                   <FormLabel>Nombre</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Flota DZ Instalaciones" />
+                    <Input {...field} placeholder="Flota de camiones" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
