@@ -356,7 +356,11 @@ export function ReceiptForm({
                 <FormLabel className="text-xs">Canal</FormLabel>
                 <Select
                   value={field.value}
-                  onValueChange={field.onChange}
+                  onValueChange={(next) => {
+                    field.onChange(next);
+                    // Allocations are per channel — drop picks from the old one.
+                    form.setValue("allocations", []);
+                  }}
                   disabled={mode === "edit"}
                 >
                   <FormControl>
@@ -479,6 +483,7 @@ export function ReceiptForm({
         {/* Allocations */}
         <AllocationsPicker
           clientId={client?.id ?? null}
+          channelId={channelId || null}
           excludeReceiptId={receipt?.receipt.id}
           allocations={allocations}
           onChange={(allocs) => form.setValue("allocations", allocs)}

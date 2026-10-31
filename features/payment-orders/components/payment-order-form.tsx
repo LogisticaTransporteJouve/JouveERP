@@ -398,7 +398,11 @@ export function PaymentOrderForm({
                 <FormLabel className="text-xs">Canal</FormLabel>
                 <Select
                   value={field.value}
-                  onValueChange={field.onChange}
+                  onValueChange={(next) => {
+                    field.onChange(next);
+                    // Allocations are per channel — drop picks from the old one.
+                    form.setValue("allocations", []);
+                  }}
                   disabled={mode === "edit"}
                 >
                   <FormControl>
@@ -515,6 +519,7 @@ export function PaymentOrderForm({
 
         <AllocationsPicker
           supplierId={supplier?.id ?? null}
+          channelId={channelId || null}
           excludePaymentOrderId={paymentOrder?.paymentOrder.id}
           allocations={allocations}
           onChange={(allocs) => form.setValue("allocations", allocs)}

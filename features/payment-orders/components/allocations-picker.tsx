@@ -27,7 +27,7 @@ function formatInvoiceNumber(c: PendingPurchaseInvoice): string {
   const num = String(c.numero).padStart(8, "0");
   const prefix =
     c.kind === "factura"
-      ? c.letter ?? ""
+      ? (c.letter ?? "")
       : c.kind === "nc"
         ? `NC${c.letter ? "-" + c.letter : ""}`
         : c.kind === "nd"
@@ -38,17 +38,20 @@ function formatInvoiceNumber(c: PendingPurchaseInvoice): string {
 
 export function AllocationsPicker({
   supplierId,
+  channelId,
   excludePaymentOrderId,
   allocations,
   onChange,
 }: {
   supplierId: string | null;
+  channelId: string | null;
   excludePaymentOrderId?: string;
   allocations: AllocationDraft[];
   onChange: (next: AllocationDraft[]) => void;
 }) {
   const pendingQuery = usePendingPurchaseInvoices(
     supplierId,
+    channelId,
     excludePaymentOrderId,
   );
   const pending: PendingPurchaseInvoice[] = pendingQuery.data ?? [];
@@ -58,12 +61,12 @@ export function AllocationsPicker({
 
   function setAlloc(invoiceId: string, amount: string | null) {
     if (amount === null) {
-      onChange(
-        allocations.filter((a) => a.purchase_invoice_id !== invoiceId),
-      );
+      onChange(allocations.filter((a) => a.purchase_invoice_id !== invoiceId));
       return;
     }
-    const existing = allocations.find((a) => a.purchase_invoice_id === invoiceId);
+    const existing = allocations.find(
+      (a) => a.purchase_invoice_id === invoiceId,
+    );
     if (existing) {
       onChange(
         allocations.map((a) =>
@@ -142,83 +145,85 @@ export function AllocationsPicker({
         </Button>
       </div>
       {collapsed ? null : (
-      <div className="rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs">
-            <tr>
-              <th className="w-8 px-2 py-1.5"></th>
-              <th className="px-2 py-1.5 text-left">Comprobante</th>
-              <th className="px-2 py-1.5 text-left">Fecha</th>
-              <th className="px-2 py-1.5 text-right">Original</th>
-              <th className="px-2 py-1.5 text-right">Adeudado</th>
-              <th className="px-2 py-1.5 text-right">Imputar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pending.map((c) => {
-              const alloc = allocations.find(
-                (a) => a.purchase_invoice_id === c.id,
-              );
-              const checked = !!alloc;
-              const isPartial = c.already_allocated > 0;
-              return (
-                <tr key={c.id} className="border-t">
-                  <td className="px-2 py-1.5">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => {
-                        if (v === true) {
-                          setAlloc(c.id, amountToInput(c.outstanding));
-                        } else {
-                          setAlloc(c.id, null);
-                        }
-                      }}
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {formatInvoiceNumber(c)}
-                  </td>
-                  <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                    {formatArgentineDate(c.fecha)}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono text-xs text-muted-foreground">
-                    {amountToInput(c.imp_total)}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono text-xs">
-                    <div className="flex flex-col items-end">
-                      <span
-                        className={
-                          isPartial ? "text-muted-foreground dark:text-muted-foreground" : ""
-                        }
-                      >
-                        {amountToInput(c.outstanding)}
-                      </span>
-                      {isPartial && (
-                        <span className="text-[10px] text-muted-foreground">
-                          Pagado: {amountToInput(c.already_allocated)}
+        <div className="rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-xs">
+              <tr>
+                <th className="w-8 px-2 py-1.5"></th>
+                <th className="px-2 py-1.5 text-left">Comprobante</th>
+                <th className="px-2 py-1.5 text-left">Fecha</th>
+                <th className="px-2 py-1.5 text-right">Original</th>
+                <th className="px-2 py-1.5 text-right">Adeudado</th>
+                <th className="px-2 py-1.5 text-right">Imputar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((c) => {
+                const alloc = allocations.find(
+                  (a) => a.purchase_invoice_id === c.id,
+                );
+                const checked = !!alloc;
+                const isPartial = c.already_allocated > 0;
+                return (
+                  <tr key={c.id} className="border-t">
+                    <td className="px-2 py-1.5">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          if (v === true) {
+                            setAlloc(c.id, amountToInput(c.outstanding));
+                          } else {
+                            setAlloc(c.id, null);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      {formatInvoiceNumber(c)}
+                    </td>
+                    <td className="px-2 py-1.5 text-xs text-muted-foreground">
+                      {formatArgentineDate(c.fecha)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-xs text-muted-foreground">
+                      {amountToInput(c.imp_total)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-xs">
+                      <div className="flex flex-col items-end">
+                        <span
+                          className={
+                            isPartial
+                              ? "text-muted-foreground dark:text-muted-foreground"
+                              : ""
+                          }
+                        >
+                          {amountToInput(c.outstanding)}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      disabled={!checked}
-                      value={alloc?.amount_applied ?? ""}
-                      onChange={(e) =>
-                        setAlloc(c.id, formatAmountInput(e.target.value))
-                      }
-                      className="h-8 text-right"
-                      placeholder="0,00"
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                        {isPartial && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Pagado: {amountToInput(c.already_allocated)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        disabled={!checked}
+                        value={alloc?.amount_applied ?? ""}
+                        onChange={(e) =>
+                          setAlloc(c.id, formatAmountInput(e.target.value))
+                        }
+                        className="h-8 text-right"
+                        placeholder="0,00"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
