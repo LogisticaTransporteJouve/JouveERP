@@ -14,9 +14,16 @@ vi.mock("@/lib/auth/context", () => ({
   }),
 }));
 vi.mock("@/lib/pdf/table-report-render", () => ({ renderTableReportPdf }));
-vi.mock("../exporters", () => ({
-  EXPORTERS: { invoices: { permission: "invoices:read", load } },
+const getAgingSummaryAction = vi.fn();
+vi.mock("@/features/aging/actions/aging-actions", () => ({
+  getAgingSummaryAction,
 }));
+vi.mock("../exporters", async () => {
+  const { aging } = await import("../resources/aging");
+  return {
+    EXPORTERS: { invoices: { permission: "invoices:read", load }, aging },
+  };
+});
 
 const { GET } = await import("./route");
 
@@ -83,6 +90,42 @@ describe("GET /api/export/[resource]", () => {
     const res = await get("format=xlsx");
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Error generando el archivo." });
+  });
+
+  it("400s an invalid scope without loading", async () => {
+    const res = await get("scope=dz", "aging");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Alcance inválido." });
+    expect(getAgingSummaryAction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["fiscal", true],
+    ["internal", false],
+    ["all", null],
+  ])("passes scope=%s to the aging read", async (scope, isFiscal) => {
+    getAgingSummaryAction.mockReset().mockResolvedValue({
+      ok: true,
+      data: {
+        rows: [],
+        totals: {
+          buckets: {
+            "0_30": { ars: 0, usd: 0 },
+            "30_60": { ars: 0, usd: 0 },
+            "60_90": { ars: 0, usd: 0 },
+            "90_plus": { ars: 0, usd: 0 },
+          },
+          total: { ars: 0, usd: 0 },
+          total_ars_equivalent: 0,
+          party_count: 0,
+          document_count: 0,
+        },
+        usd_rate: null,
+      },
+    });
+    const res = await get(`scope=${scope}`, "aging");
+    expect(res.status).toBe(200);
+    expect(getAgingSummaryAction).toHaveBeenCalledWith({ isFiscal });
   });
 
   it("keeps the PDF as the default, with typed cells as their text", async () => {

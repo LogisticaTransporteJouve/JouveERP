@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 import { renderTableReportPdf } from "@/lib/pdf/table-report-render";
 
 import { EXPORTERS, type ExportRange } from "../exporters";
-import { cellText, exportSheet } from "../shared";
+import { cellText, ExportInputError, exportSheet } from "../shared";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -80,6 +80,10 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof ExportInputError) {
+      logger.warn("export.bad_input", { resource, message: error.message });
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     logger.error("export.failed", { resource, error });
     return NextResponse.json(
       { error: "Error generando el archivo." },

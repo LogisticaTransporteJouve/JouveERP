@@ -9,8 +9,11 @@ import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import {
   ACCOUNT_COLUMNS,
   dateCell,
+  exportScope,
+  ExportInputError,
   inRange,
   moneyCell,
+  scopedSubtitle,
   type Exporter,
   withSlug,
 } from "../shared";
@@ -41,9 +44,10 @@ function supplierDoc(m: SupplierAccountMovement): string {
 export const supplierAccount: Exporter = {
   permission: "suppliers:read",
   load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supplierId = params.get("supplierId");
-    if (!supplierId) throw new Error("Missing supplier.");
-    const res = await getSupplierAccountAction(supplierId);
+    if (!supplierId) throw new ExportInputError("Missing supplier.");
+    const res = await getSupplierAccountAction(supplierId, { isFiscal });
     if (!res.ok) throw new Error(res.error);
     const movements = res.data.movements.filter((m) =>
       inRange(m.movement_date, range),
@@ -68,7 +72,7 @@ export const supplierAccount: Exporter = {
     const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
     return {
       title: "Cuenta corriente — Proveedor",
-      subtitle: params.get("name") ?? undefined,
+      subtitle: scopedSubtitle(scope, params.get("name") ?? undefined),
       columns: ACCOUNT_COLUMNS,
       rows,
       totalsRow: [

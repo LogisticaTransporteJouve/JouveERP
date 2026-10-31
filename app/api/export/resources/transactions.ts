@@ -6,13 +6,17 @@ import {
   type TransactionKind,
 } from "@/features/transactions/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  channelCell,
   dateCell,
+  exportScope,
   money,
   moneyCell,
+  scopedSubtitle,
   totalCell,
   type ExportCell,
   type Exporter,
@@ -34,16 +38,20 @@ function isOutflow(kind: TransactionKind): boolean {
 
 export const transactions: Exporter = {
   permission: "transactions:read",
-  load: async (_params, range) => {
+  load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("v_transactions_tagged")
-        .select(
-          "kind, amount, currency, transaction_date, description, account_name, channel_name",
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("v_transactions_tagged")
+          .select(
+            "kind, amount, currency, transaction_date, description, account_name, channel_name",
+          ),
+        isFiscal,
+      )
         .order("transaction_date", { ascending: true })
         .order("created_at", { ascending: true })
         .order("id", { ascending: true });
@@ -71,7 +79,7 @@ export const transactions: Exporter = {
         dateCell(row.transaction_date),
         TRANSACTION_KIND_LABEL[row.kind],
         row.account_name ?? "—",
-        row.channel_name ?? "—",
+        channelCell(row.channel_name ? { name: row.channel_name } : null),
         row.description ?? "—",
         moneyCell(outflow ? -amount : amount, {
           currency,
@@ -82,6 +90,7 @@ export const transactions: Exporter = {
 
     return {
       title: "Caja — Movimientos",
+      subtitle: scopedSubtitle(scope),
       columns: COLUMNS,
       rows,
       totalsRow: [

@@ -6,17 +6,27 @@ import {
   isInvoiceStatus,
 } from "@/features/invoices/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { dateCell, moneyCell, totalCell, type Exporter } from "../shared";
+import {
+  channelCell,
+  dateCell,
+  exportScope,
+  moneyCell,
+  scopedSubtitle,
+  totalCell,
+  type Exporter,
+} from "../shared";
 
 // Landscape A4 ≈ 794pt of usable width.
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 80, mono: true },
   { header: "Comprobante", width: 150, mono: true },
-  { header: "Cliente", width: 264 },
-  { header: "Estado", width: 110 },
+  { header: "Cliente", width: 184 },
+  { header: "Canal", width: 110 },
+  { header: "Estado", width: 80 },
   { header: "Total", width: 130, align: "right", mono: true },
 ];
 
@@ -24,17 +34,22 @@ type ClientJoin = { legal_name: string };
 
 export const invoices: Exporter = {
   permission: "invoices:read",
-  load: async (_params, range) => {
+  load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("invoices")
-        .select(
-          "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, clients!inner(legal_name)",
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("invoices")
+          .select(
+            "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, clients!inner(legal_name), channel:invoicing_channels(name, is_fiscal)",
+          ),
+        isFiscal,
+        "channel",
+      )
         .order("fecha", { ascending: true })
         .order("numero", { ascending: true })
         .order("id", { ascending: true });
@@ -61,6 +76,7 @@ export const invoices: Exporter = {
         dateCell(row.fecha),
         formatInvoiceNumero(row.kind, row.letter, row.punto_venta, row.numero),
         client.legal_name,
+        channelCell(row.channel),
         INVOICE_STATUS_LABEL[status],
         moneyCell(amount, { currency }),
       ];
@@ -68,9 +84,10 @@ export const invoices: Exporter = {
 
     return {
       title: "Comprobantes",
+      subtitle: scopedSubtitle(scope),
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total", totalCell(total, currencies)],
+      totalsRow: ["", "", "", "", "Total", totalCell(total, currencies)],
       orientation: "landscape",
       fileName: "comprobantes",
     };

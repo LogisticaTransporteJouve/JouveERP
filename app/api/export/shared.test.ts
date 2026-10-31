@@ -7,11 +7,37 @@ import {
   cellText,
   cellValue,
   dateCell,
+  ExportInputError,
+  exportScope,
   exportSheet,
   moneyCell,
   totalCell,
   withSlug,
 } from "./shared";
+
+describe("exportScope", () => {
+  const scopeOf = (query: string) => exportScope(new URLSearchParams(query));
+
+  it("defaults to every channel", () => {
+    expect(scopeOf("")).toEqual({ scope: "all", isFiscal: null });
+  });
+
+  it("maps fiscal and internal to isFiscal", () => {
+    expect(scopeOf("scope=fiscal")).toEqual({
+      scope: "fiscal",
+      isFiscal: true,
+    });
+    expect(scopeOf("scope=internal")).toEqual({
+      scope: "internal",
+      isFiscal: false,
+    });
+  });
+
+  it("rejects anything else as bad input", () => {
+    expect(() => scopeOf("scope=dz")).toThrow(ExportInputError);
+    expect(() => scopeOf("scope=")).toThrow(ExportInputError);
+  });
+});
 
 describe("export cells", () => {
   it("print their text in the PDF", () => {

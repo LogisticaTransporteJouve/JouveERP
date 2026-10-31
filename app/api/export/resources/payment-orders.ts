@@ -1,5 +1,6 @@
 import "server-only";
 
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/format";
@@ -10,8 +11,11 @@ import {
 } from "@/features/payment-orders/schema";
 
 import {
+  channelCell,
   dateCell,
+  exportScope,
   moneyCell,
+  scopedSubtitle,
   type Exporter,
   type ExportRange,
 } from "../shared";
@@ -23,10 +27,11 @@ import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 80, mono: true },
   { header: "Número", width: 130, mono: true },
-  { header: "Proveedor", width: 274 },
+  { header: "Proveedor", width: 194 },
+  { header: "Canal", width: 120 },
   { header: "Moneda", width: 60, align: "center" },
   { header: "Total", width: 130, align: "right", mono: true },
-  { header: "Estado", width: 120 },
+  { header: "Estado", width: 80 },
 ];
 
 type Row = {
@@ -37,6 +42,7 @@ type Row = {
   currency: string;
   status: string;
   suppliers: { legal_name: string } | null;
+  channel: { name: string } | null;
 };
 
 function statusLabel(status: string): string {
@@ -46,16 +52,21 @@ function statusLabel(status: string): string {
 export const paymentOrders: Exporter = {
   permission: "payment_orders:read",
   load: async (params: URLSearchParams, range: ExportRange) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("payment_orders")
-        .select(
-          "punto_venta, numero, payment_date, total_amount, currency, status, suppliers ( legal_name )",
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("payment_orders")
+          .select(
+            "punto_venta, numero, payment_date, total_amount, currency, status, suppliers ( legal_name ), channel:invoicing_channels ( name, is_fiscal )",
+          ),
+        isFiscal,
+        "channel",
+      )
         .order("payment_date", { ascending: true })
         .order("numero", { ascending: true })
         .order("id", { ascending: true });
@@ -83,6 +94,7 @@ export const paymentOrders: Exporter = {
         dateCell(op.payment_date),
         formatPaymentOrderNumber(op.punto_venta, op.numero),
         op.suppliers?.legal_name ?? "—",
+        channelCell(op.channel),
         currency,
         moneyCell(amount, { currency, text: formatMoney(amount, currency) }),
         statusLabel(op.status),
@@ -91,9 +103,10 @@ export const paymentOrders: Exporter = {
 
     return {
       title: "Órdenes de pago",
+      subtitle: scopedSubtitle(scope),
       columns: COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total ARS", moneyCell(totalArs), ""],
+      totalsRow: ["", "", "", "", "Total ARS", moneyCell(totalArs), ""],
       orientation: "landscape",
       fileName: "ordenes-de-pago",
     };

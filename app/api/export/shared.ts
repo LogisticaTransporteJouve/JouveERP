@@ -1,13 +1,48 @@
 import "server-only";
 
+import { z } from "zod";
+
 import { AGING_BUCKETS, type AgingBucket, type AgingReport } from "@/lib/aging";
 import type { Permission } from "@/lib/auth/permissions";
 import { exportSlug } from "@/lib/export/download";
 import type { XlsxCell, XlsxSheet } from "@/lib/export/xlsx";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import {
+  FISCAL_FILTERS,
+  isFiscalFor,
+  SCOPE_LABEL,
+  type FiscalFilter,
+} from "@/lib/scope";
 
 export const money = (n: number) => `$${formatNumber2(n)}`;
+
+/** A bad query param: the route answers 400 with this message. */
+export class ExportInputError extends Error {}
+
+const ScopeParam = z.enum(FISCAL_FILTERS).default("all");
+
+/** The header scope the export button sent (`scope=`); missing → "all". */
+export function exportScope(params: URLSearchParams): {
+  scope: FiscalFilter;
+  isFiscal: boolean | null;
+} {
+  const parsed = ScopeParam.safeParse(params.get("scope") ?? undefined);
+  if (!parsed.success) throw new ExportInputError("Alcance inválido.");
+  return { scope: parsed.data, isFiscal: isFiscalFor(parsed.data) };
+}
+
+/** The scope label, plus the exporter's own subtitle when it has one. */
+export function scopedSubtitle(scope: FiscalFilter, subtitle?: string): string {
+  return subtitle ? `${SCOPE_LABEL[scope]} · ${subtitle}` : SCOPE_LABEL[scope];
+}
+
+/** The "Canal" cell: the channel's name, or "sin canal". */
+export function channelCell(
+  channel: { name: string } | null | undefined,
+): string {
+  return channel?.name ?? "sin canal";
+}
 
 /** A cell the PDF prints as `text` and the Excel export writes as `value`. */
 export type TypedCell = { text: string; value: XlsxCell };

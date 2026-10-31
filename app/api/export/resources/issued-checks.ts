@@ -10,13 +10,17 @@ import {
 } from "@/features/issued-checks/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  channelCell,
   dateCell,
+  exportScope,
   money,
   moneyCell,
+  scopedSubtitle,
   totalCell,
   type Exporter,
   type TypedCell,
@@ -27,10 +31,11 @@ const COLUMNS =
 
 /** Landscape A4 content width ≈ 794pt. */
 const ISSUED_CHECK_COLUMNS: TableReportColumn[] = [
-  { header: "Banco", width: 150 },
-  { header: "Número", width: 90, mono: true },
-  { header: "Tipo", width: 70 },
-  { header: "Beneficiario", width: 190 },
+  { header: "Banco", width: 120 },
+  { header: "Número", width: 80, mono: true },
+  { header: "Tipo", width: 60 },
+  { header: "Beneficiario", width: 150 },
+  { header: "Canal", width: 90 },
   { header: "Vence", width: 74, mono: true },
   { header: "Importe", width: 120, align: "right", mono: true },
   { header: "Estado", width: 100 },
@@ -44,15 +49,20 @@ function amountCell(amount: number, currency: string): TypedCell {
 export const issuedChecks: Exporter = {
   permission: "issued_checks:read",
   load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("issued_checks")
-        .select(
-          `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name )`,
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("issued_checks")
+          .select(
+            `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( name, is_fiscal )`,
+          ),
+        isFiscal,
+        "channel",
+      )
         .order("due_date", { ascending: true })
         .order("id", { ascending: true });
 
@@ -84,6 +94,7 @@ export const issuedChecks: Exporter = {
           `#${row.check_number}`,
           ISSUED_CHECK_KIND_LABEL[row.kind],
           beneficiary,
+          channelCell(row.channel),
           dateCell(row.due_date),
           amountCell(amount, row.currency),
           ISSUED_CHECK_STATUS_LABEL[row.status],
@@ -93,10 +104,19 @@ export const issuedChecks: Exporter = {
 
     return {
       title: "Cheques propios",
-      subtitle: "Cheques emitidos a proveedores",
+      subtitle: scopedSubtitle(scope, "Cheques emitidos a proveedores"),
       columns: ISSUED_CHECK_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "", "Total", totalCell(total, currencies), ""],
+      totalsRow: [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "Total",
+        totalCell(total, currencies),
+        "",
+      ],
       orientation: "landscape",
       fileName: "cheques-propios",
     };

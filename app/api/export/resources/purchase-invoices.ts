@@ -9,22 +9,30 @@ import {
   type PurchaseInvoiceLetter,
 } from "@/features/purchase-invoices/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { dateCell, money, moneyCell, type Exporter } from "../shared";
+import {
+  channelCell,
+  dateCell,
+  exportScope,
+  money,
+  moneyCell,
+  scopedSubtitle,
+  type Exporter,
+} from "../shared";
 
 const COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 70, mono: true },
   { header: "Comprobante", width: 140, mono: true },
-  { header: "Proveedor", width: 230 },
-  { header: "Tipo", width: 70 },
+  { header: "Proveedor", width: 190 },
+  { header: "Canal", width: 110 },
   { header: "Estado", width: 80 },
   { header: "Total", width: 104, align: "right", mono: true },
 ];
 
 type SupplierJoin = { legal_name: string; cuit: string };
-type ChannelJoin = { is_fiscal: boolean };
 
 function isLetter(value: string): value is PurchaseInvoiceLetter {
   return PURCHASE_INVOICE_LETTERS.some((letter) => letter === value);
@@ -36,17 +44,22 @@ function asLetter(value: string | null): PurchaseInvoiceLetter | null {
 
 export const purchaseInvoices: Exporter = {
   permission: "purchase_invoices:read",
-  load: async (_params, range) => {
+  load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("purchase_invoices")
-        .select(
-          "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, suppliers!inner(legal_name, cuit), invoicing_channels!inner(is_fiscal)",
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("purchase_invoices")
+          .select(
+            "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, suppliers!inner(legal_name, cuit), channel:invoicing_channels(name, is_fiscal)",
+          ),
+        isFiscal,
+        "channel",
+      )
         .order("fecha", { ascending: true })
         .order("id", { ascending: true });
 
@@ -62,7 +75,6 @@ export const purchaseInvoices: Exporter = {
     let total = 0;
     const rows = (data ?? []).map((row) => {
       const supplier: SupplierJoin = row.suppliers;
-      const channel: ChannelJoin = row.invoicing_channels;
       const kind = isPurchaseInvoiceKind(row.kind) ? row.kind : "factura";
       const status = isPurchaseInvoiceStatus(row.status)
         ? row.status
@@ -79,7 +91,7 @@ export const purchaseInvoices: Exporter = {
           numero: row.numero,
         }),
         `${supplier.legal_name} (CUIT ${supplier.cuit})`,
-        channel.is_fiscal ? "Fiscal" : "Interno",
+        channelCell(row.channel),
         PURCHASE_INVOICE_STATUS_LABEL[status],
         moneyCell(amount, {
           currency: row.moneda === "PES" ? "ARS" : "USD",
@@ -90,6 +102,7 @@ export const purchaseInvoices: Exporter = {
 
     return {
       title: "Facturas de compra",
+      subtitle: scopedSubtitle(scope),
       columns: COLUMNS,
       rows,
       totalsRow: ["", "", "", "", "Total", moneyCell(total)],
