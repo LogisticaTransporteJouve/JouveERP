@@ -2,12 +2,6 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import {
-  ACCOUNT_TYPE_LABEL,
-  type AccountNameJoin,
-  type AccountType,
-} from "@/features/accounts/schema";
-import type { IvaCondition } from "@/features/clients/schema";
 import type {
   ChannelIssuerJoin,
   InvoiceWithChannelRefJoin,
@@ -17,19 +11,16 @@ import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
+import {
+  voucherEmisor,
+  voucherParty,
+  voucherPaymentLines,
+} from "@/lib/pdf/voucher-data";
 
 import {
   PaymentOrderDocument,
   type PaymentOrderTemplateData,
 } from "./payment-order-template";
-
-const IVA_LABEL: Record<IvaCondition, string> = {
-  responsable_inscripto: "Responsable Inscripto",
-  monotributo: "Monotributo",
-  exento: "Exento",
-  consumidor_final: "Consumidor Final",
-  no_categorizado: "No Categorizado",
-};
 
 export async function renderPaymentOrderPdf(
   data: PaymentOrderTemplateData,
@@ -88,16 +79,7 @@ export async function buildPaymentOrderTemplateData(
     throw new Error("payment-order-pdf: failed to load children");
   }
 
-  const payment_lines = (linesRes.data ?? []).map((l) => {
-    const acc = (l as unknown as AccountNameJoin).account;
-    return {
-      account_name: acc?.name ?? "—",
-      account_type_label:
-        ACCOUNT_TYPE_LABEL[acc?.type as AccountType] ?? acc?.type ?? "",
-      amount: Number(l.amount),
-      reference: l.reference ?? null,
-    };
-  });
+  const payment_lines = voucherPaymentLines(linesRes.data ?? []);
 
   const allocations = (allocsRes.data ?? []).map((a) => {
     const inv = (a as unknown as InvoiceWithChannelRefJoin).invoice;
@@ -128,19 +110,8 @@ export async function buildPaymentOrderTemplateData(
 
   return {
     ...(isFiscal ? {} : { title: "ORDEN DE PAGO INTERNA" }),
-    emisor: {
-      legal_name: emisor.legal_name,
-      cuit: emisor.cuit,
-      address: emisor.address,
-      division_label: emisor.division_label,
-    },
-    beneficiario: {
-      legal_name: supplier.legal_name,
-      cuit: supplier.cuit,
-      iva_condition_label:
-        IVA_LABEL[supplier.iva_condition as IvaCondition] ??
-        supplier.iva_condition,
-    },
+    emisor: voucherEmisor(emisor),
+    beneficiario: voucherParty(supplier),
     punto_venta: op.punto_venta,
     numero: op.numero,
     fecha: op.payment_date,

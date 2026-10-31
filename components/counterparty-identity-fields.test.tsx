@@ -47,8 +47,6 @@ const EMPTY: CounterpartyIdentityValues = {
   notes: "",
 };
 
-let latest: CounterpartyIdentityValues = EMPTY;
-
 function Harness({
   findByCuit,
   noun = "cliente",
@@ -62,7 +60,6 @@ function Harness({
   noun?: "cliente" | "proveedor";
 }) {
   const form = useForm<CounterpartyIdentityValues>({ defaultValues: EMPTY });
-  latest = form.watch();
   return (
     <Form {...form}>
       <form>
@@ -86,7 +83,6 @@ function typeCuitAndVerify(cuit: string) {
 
 afterEach(cleanup);
 beforeEach(() => {
-  latest = EMPTY;
   h.verifyCuitAction.mockReset();
   for (const fn of Object.values(h.toast)) fn.mockReset();
 });
@@ -109,9 +105,12 @@ describe("CounterpartyIdentityFields", () => {
     });
     render(<Harness findByCuit={async () => ({ ok: true, data: null })} />);
     typeCuitAndVerify("30714637432");
-    await waitFor(() => expect(latest.legal_name).toBe("ACME SA"));
-    expect(latest.iva_condition).toBe("monotributo");
-    expect(latest.address).toBe("Av. Siempre Viva 123, CABA, 1000");
+    expect(await screen.findByDisplayValue("ACME SA")).toBeTruthy();
+    expect(
+      screen.getByDisplayValue("Av. Siempre Viva 123, CABA, 1000"),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Monotributo").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Responsable Inscripto")).toHaveLength(1);
     expect(h.toast.success).toHaveBeenCalledWith("Cargado desde AFIP.");
   });
 
@@ -144,6 +143,6 @@ describe("CounterpartyIdentityFields", () => {
     await waitFor(() =>
       expect(h.toast.error).toHaveBeenCalledWith("CUIT inválido"),
     );
-    expect(latest.legal_name).toBe("");
+    expect(screen.queryByDisplayValue("ACME SA")).toBeNull();
   });
 });

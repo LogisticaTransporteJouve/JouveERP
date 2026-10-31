@@ -2,15 +2,7 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import {
-  ACCOUNT_TYPE_LABEL,
-  type AccountNameJoin,
-  type AccountType,
-} from "@/features/accounts/schema";
-import type {
-  ClientIdentityJoin,
-  IvaCondition,
-} from "@/features/clients/schema";
+import type { ClientIdentityJoin } from "@/features/clients/schema";
 import type {
   ChannelIssuerJoin,
   InvoiceRefJoin,
@@ -25,16 +17,13 @@ import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
+import {
+  voucherEmisor,
+  voucherParty,
+  voucherPaymentLines,
+} from "@/lib/pdf/voucher-data";
 
 import { ReceiptDocument, type ReceiptTemplateData } from "./receipt-template";
-
-const IVA_LABEL: Record<IvaCondition, string> = {
-  responsable_inscripto: "Responsable Inscripto",
-  monotributo: "Monotributo",
-  exento: "Exento",
-  consumidor_final: "Consumidor Final",
-  no_categorizado: "No Categorizado",
-};
 
 export async function renderReceiptPdf(
   data: ReceiptTemplateData,
@@ -100,16 +89,7 @@ export async function buildReceiptTemplateData(
     throw new Error("receipt-pdf: failed to load children");
   }
 
-  const payment_lines = (linesRes.data ?? []).map((l) => {
-    const acc = (l as unknown as AccountNameJoin).account;
-    return {
-      account_name: acc?.name ?? "—",
-      account_type_label:
-        ACCOUNT_TYPE_LABEL[acc?.type as AccountType] ?? acc?.type ?? "",
-      amount: Number(l.amount),
-      reference: l.reference ?? null,
-    };
-  });
+  const payment_lines = voucherPaymentLines(linesRes.data ?? []);
 
   const retentions = (retentionsRes.data ?? []).map((r) => ({
     kind_label: RETENTION_KIND_LABEL[r.kind as RetentionKind] ?? r.kind,
@@ -149,18 +129,8 @@ export async function buildReceiptTemplateData(
 
   return {
     ...(isFiscal ? {} : { title: "RECIBO INTERNO" }),
-    emisor: {
-      legal_name: emisor.legal_name,
-      cuit: emisor.cuit,
-      address: emisor.address,
-      division_label: emisor.division_label,
-    },
-    receptor: {
-      legal_name: client.legal_name,
-      cuit: client.cuit,
-      iva_condition_label:
-        IVA_LABEL[client.iva_condition as IvaCondition] ?? client.iva_condition,
-    },
+    emisor: voucherEmisor(emisor),
+    receptor: voucherParty(client),
     punto_venta: receipt.punto_venta,
     numero: receipt.numero,
     fecha: receipt.receipt_date,
