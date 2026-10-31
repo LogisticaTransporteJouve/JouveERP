@@ -62,6 +62,13 @@ const GUARDS = [
   "guard_invoicing_channel_config",
   "guard_sales_point_channel",
   "create_manual_journal_entry",
+  "guard_purchase_invoice_edit",
+  "guard_purchase_invoice_open_after_edit",
+  "guard_purchase_invoice_fiscal_letter",
+  "build_receipt_journal_lines",
+  "build_payment_order_journal_lines",
+  "journal_entry_status",
+  "repost_journal",
 ];
 
 describe("guard hints in migrations", () => {

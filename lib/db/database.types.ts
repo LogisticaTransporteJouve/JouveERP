@@ -1901,6 +1901,13 @@ export type Database = {
             foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
             columns: ["purchase_invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
@@ -3063,6 +3070,13 @@ export type Database = {
             foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
             columns: ["purchase_invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
@@ -3557,6 +3571,13 @@ export type Database = {
             foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
             columns: ["purchase_invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
@@ -3688,6 +3709,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "purchase_invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
           },
           {
             foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
@@ -4467,6 +4495,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "purchase_invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_opening_balance_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
           },
           {
             foreignKeyName: "supplier_opening_balance_allocations_purchase_invoice_id_fkey"
@@ -5355,6 +5390,19 @@ export type Database = {
           },
         ]
       }
+      v_purchase_invoice_open: {
+        Row: {
+          amount_credited_by_nc: number | null
+          amount_opening_applied: number | null
+          amount_paid: number | null
+          imp_total: number | null
+          kind: string | null
+          open_amount: number | null
+          purchase_invoice_id: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_supplier_account_movements: {
         Row: {
           channel_division: string | null
@@ -5869,16 +5917,36 @@ export type Database = {
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
+          p_description: string
           p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
-          p_is_fiscal: boolean
-          p_reverse?: boolean
+        }
+        Returns: Json
+      }
+      build_payment_order_journal_lines: {
+        Args: {
+          p_description: string
+          p_payment_order: Database["public"]["Tables"]["payment_orders"]["Row"]
         }
         Returns: Json
       }
       build_purchase_invoice_journal_lines: {
         Args: {
+          p_description: string
           p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
-          p_reverse?: boolean
+        }
+        Returns: Json
+      }
+      build_receipt_journal_lines: {
+        Args: {
+          p_description: string
+          p_receipt: Database["public"]["Tables"]["receipts"]["Row"]
+        }
+        Returns: Json
+      }
+      build_transaction_journal_lines: {
+        Args: {
+          p_description: string
+          p_transaction: Database["public"]["Tables"]["transactions"]["Row"]
         }
         Returns: Json
       }
@@ -6001,6 +6069,10 @@ export type Database = {
         Args: { p_check_id: string; p_event_date: string; p_notes: string }
         Returns: string
       }
+      current_journal_entries: {
+        Args: { p_id: string; p_source: string }
+        Returns: string[]
+      }
       delete_chat_draft_file: {
         Args: { p_file_id: string; p_user_id: string }
         Returns: {
@@ -6038,36 +6110,8 @@ export type Database = {
         }
         Returns: number
       }
-      emit_journal_for_invoice: {
-        Args: {
-          p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
-          p_reverse?: boolean
-          p_reversed_entry_id?: string
-        }
-        Returns: string
-      }
-      emit_journal_for_payment_order: {
-        Args: {
-          p_payment_order_id: string
-          p_reverse?: boolean
-          p_reversed_entry_id?: string
-        }
-        Returns: string
-      }
-      emit_journal_for_purchase_invoice: {
-        Args: {
-          p_invoice: Database["public"]["Tables"]["purchase_invoices"]["Row"]
-          p_reverse?: boolean
-          p_reversed_entry_id?: string
-        }
-        Returns: string
-      }
-      emit_journal_for_receipt: {
-        Args: {
-          p_receipt_id: string
-          p_reverse?: boolean
-          p_reversed_entry_id?: string
-        }
+      emit_journal: {
+        Args: { p_id: string; p_source: string }
         Returns: string
       }
       find_account_by_role: {
@@ -6144,6 +6188,22 @@ export type Database = {
       is_employee_document_file: {
         Args: { p_file_id: string }
         Returns: boolean
+      }
+      journal_entry_status: {
+        Args: { p_id: string; p_source: string }
+        Returns: string
+      }
+      journal_expected_entry: {
+        Args: { p_id: string; p_source: string }
+        Returns: Json
+      }
+      journal_missing_entries: {
+        Args: never
+        Returns: {
+          source_id: string
+          source_table: string
+          status: string
+        }[]
       }
       journal_non_fiscal_entries: {
         Args: never
@@ -6297,6 +6357,17 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      purchase_invoices_fiscal_without_letter: {
+        Args: never
+        Returns: {
+          fecha: string
+          numero: number
+          punto_venta: number
+          purchase_invoice_id: string
+          status: string
+          supplier_id: string
+        }[]
+      }
       refresh_search_index: { Args: never; Returns: undefined }
       refresh_search_index_if_dirty: { Args: never; Returns: boolean }
       reject_check: {
@@ -6313,6 +6384,11 @@ export type Database = {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
       }
+      repost_journal: {
+        Args: { p_id: string; p_source: string }
+        Returns: undefined
+      }
+      reverse_journal_entry: { Args: { p_entry_id: string }; Returns: string }
       search_chat_messages: {
         Args: { p_channel?: string; p_limit?: number; p_query: string }
         Returns: {

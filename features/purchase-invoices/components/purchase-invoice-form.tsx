@@ -519,12 +519,27 @@ export function PurchaseInvoiceForm({
       return;
     }
     const isInternal = !channelFiscal;
+    const letter = isInternal || values.letter === "" ? null : values.letter;
+    // Same rule as the DB guard: a fiscal purchase needs its letter when it is
+    // created or its letter/channel change; an old one without letter can
+    // still be corrected.
+    const letterRequired =
+      !isInternal &&
+      (mode === "create" ||
+        letter !== (invoice?.letter ?? null) ||
+        values.channel_id !== invoice?.channel_id);
+    if (letterRequired && letter === null) {
+      form.setError("letter", {
+        message: "Una factura de compra fiscal lleva letra.",
+      });
+      return;
+    }
 
     const payload: PurchaseInvoiceCreateRawInput = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
       kind: values.kind,
-      letter: isInternal ? null : values.letter === "" ? null : values.letter,
+      letter,
       punto_venta: Number(values.punto_venta),
       numero: Number(values.numero),
       fecha: values.fecha,
@@ -686,7 +701,11 @@ export function PurchaseInvoiceForm({
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none">— Sin letra</SelectItem>
+                        {/* Fiscal purchases need a letter; only an old one
+                            saved without it can stay that way. */}
+                        {mode === "edit" && !invoice?.letter && (
+                          <SelectItem value="__none">— Sin letra</SelectItem>
+                        )}
                         {PURCHASE_INVOICE_LETTERS.map((l) => (
                           <SelectItem key={l} value={l}>
                             {l}

@@ -20,6 +20,7 @@ import {
   updateAccountAction,
 } from "../actions/accounts-actions";
 import { accountsKeys } from "../lib/accounts-keys";
+import type { AccountOpeningBalanceInput } from "../schema";
 
 const ONE_MINUTE = 60_000;
 
@@ -74,13 +75,8 @@ export function useAccountOpeningBalance(id: string, enabled = true) {
 export function useSetAccountOpeningBalance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      account_id: string;
-      adjustment_date: string;
-      target_balance: number;
-      channel_id: string;
-      notes?: string | null;
-    }) => runAction(() => setAccountOpeningBalanceAction(input)),
+    mutationFn: (input: AccountOpeningBalanceInput) =>
+      runAction(() => setAccountOpeningBalanceAction(input)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({
         queryKey: accountsKeys.openingBalance(variables.account_id),

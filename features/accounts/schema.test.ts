@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AccountCreateSchema,
+  AccountOpeningBalanceInputSchema,
   AccountToggleActiveSchema,
   isCheckAccount,
 } from "./schema";
@@ -61,5 +62,38 @@ describe("AccountToggleActiveSchema", () => {
       AccountToggleActiveSchema.safeParse({ id: UUID, is_active: false })
         .success,
     ).toBe(true);
+  });
+});
+
+describe("AccountOpeningBalanceInputSchema", () => {
+  const base = {
+    account_id: UUID,
+    adjustment_date: "2026-10-31",
+    target_balance: 1500,
+    channel_id: "jouve_fiscal",
+  };
+
+  it("acepta un ajuste con canal", () => {
+    expect(AccountOpeningBalanceInputSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("exige elegir canal (sin default)", () => {
+    const result = AccountOpeningBalanceInputSchema.safeParse({
+      ...base,
+      channel_id: "",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(
+      "Elegí un canal para imputar el ajuste.",
+    );
+  });
+
+  it("rechaza una fecha mal formada", () => {
+    expect(
+      AccountOpeningBalanceInputSchema.safeParse({
+        ...base,
+        adjustment_date: "31/10/2026",
+      }).success,
+    ).toBe(false);
   });
 });
