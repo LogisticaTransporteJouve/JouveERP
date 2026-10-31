@@ -24,6 +24,7 @@ import {
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
+import { divisionLabel } from "@/lib/pdf/emisor";
 
 import { ReceiptDocument, type ReceiptTemplateData } from "./receipt-template";
 
@@ -154,12 +155,7 @@ export async function buildReceiptTemplateData(
       legal_name: emisorLegalName,
       cuit: emisorCuit,
       address: emisorAddress,
-      division_label:
-        channel?.division === "jouve"
-          ? "Logística Jouve"
-          : channel?.division === "dz"
-            ? "DZ Instalaciones"
-            : (channel?.name ?? ""),
+      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
     },
     receptor: {
       legal_name: client.legal_name,

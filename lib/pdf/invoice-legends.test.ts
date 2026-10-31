@@ -15,6 +15,7 @@ function voucher(
 ): InvoiceTemplateData {
   return {
     isFiscal,
+    emittedAt: "2026-10-01T12:00:00-03:00",
     emisor: {
       legal_name: "Emisor S.A.",
       cuit: "30000000007",
@@ -83,5 +84,19 @@ describe("invoice legends", () => {
         voucher("A", CONDICION_IVA_RECEPTOR.MONOTRIBUTO, false),
       ),
     ).toBe(false);
+  });
+});
+
+describe("invoice PDF bytes", () => {
+  it("renders the same invoice to the same hash", async () => {
+    const { createHash } = await import("node:crypto");
+    const { renderInvoicePdf } = await import("./render");
+    const hash = async () =>
+      createHash("sha256")
+        .update(await renderInvoicePdf(voucher("A", null)))
+        .digest("hex");
+    const first = await hash();
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(await hash()).toBe(first);
   });
 });

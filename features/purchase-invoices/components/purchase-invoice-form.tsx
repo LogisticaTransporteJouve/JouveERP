@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { todayIsoLocal } from "@/lib/date-range";
+import { channelIsFiscal } from "@/lib/scope";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
   SupplierPicker,
@@ -184,8 +185,12 @@ export function PurchaseInvoiceForm({
 }) {
   const router = useRouter();
   const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
-  const defaultChannelId = invoice?.channel_id ?? activeChannels[0]?.id ?? "";
+  // Edit keeps the invoice's own channel among the options even if it was retired.
+  const channelOptions = channels.filter(
+    (c) => c.is_active || c.id === invoice?.channel_id,
+  );
+  const defaultChannelId =
+    invoice?.channel_id ?? channels.find((c) => c.is_active)?.id ?? "";
 
   const createDraft = mode === "create" ? (draft ?? null) : null;
   const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);
@@ -352,6 +357,9 @@ export function PurchaseInvoiceForm({
     // and the supplier has one saved.
     if (
       supplierDetail.default_channel_id &&
+      channels.some(
+        (c) => c.id === supplierDetail.default_channel_id && c.is_active,
+      ) &&
       form.getValues("channel_id") === defaultChannelId &&
       supplierDetail.default_channel_id !== defaultChannelId
     ) {
@@ -375,14 +383,14 @@ export function PurchaseInvoiceForm({
         form.setValue("fch_vto_pago", iso, { shouldDirty: false });
       }
     }
-  }, [mode, supplierDetail, defaultChannelId, form]);
+  }, [mode, supplierDetail, defaultChannelId, channels, form]);
 
   // K.12 Part C — Internal expense auto-numero. When the channel is internal
   // and the supplier is picked, fetch the next numero for that pair. Only
   // in mode=create and only if the numero field is empty.
   const watchedChannelId = form.watch("channel_id");
   const watchedChannelIsFiscal =
-    activeChannels.find((c) => c.id === watchedChannelId)?.is_fiscal ?? true;
+    channelIsFiscal(watchedChannelId, channels) ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
 
   // An NC/ND only references an invoice of its own channel: switching the
@@ -502,8 +510,12 @@ export function PurchaseInvoiceForm({
 
     // If the channel is internal, we force letter/CAE to null even if the form
     // was left with values (e.g. you changed channel after typing).
-    const isInternal = !activeChannels.find((c) => c.id === values.channel_id)
-      ?.is_fiscal;
+    const channelFiscal = channelIsFiscal(values.channel_id, channels);
+    if (channelFiscal === null) {
+      toast.error("El canal elegido no existe. Elegí otro canal.");
+      return;
+    }
+    const isInternal = !channelFiscal;
 
     const payload: PurchaseInvoiceCreateRawInput = {
       supplier_id: values.supplier.id,
@@ -601,7 +613,7 @@ export function PurchaseInvoiceForm({
                       <SelectValue placeholder="Elegí canal" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeChannels.map((c) => (
+                      {channelOptions.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                           {c.is_fiscal ? " · fiscal" : " · interno"}

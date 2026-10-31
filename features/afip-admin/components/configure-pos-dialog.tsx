@@ -25,10 +25,7 @@ import {
 } from "@/components/ui/select";
 
 import type { SalesPointRow } from "../actions/afip-admin-actions";
-import {
-  useConfigurePos,
-  useInvoicingChannels,
-} from "../hooks/use-afip-admin";
+import { useConfigurePos, useInvoicingChannels } from "../hooks/use-afip-admin";
 
 const NO_CHANNEL_VALUE = "__none__";
 
@@ -145,7 +142,7 @@ function ConfigurePosForm({
           id="pos-nickname"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          placeholder="Ej: Jouve, DZ Instalaciones"
+          placeholder="Ej: Jouve fiscal"
           autoComplete="off"
           maxLength={120}
         />
