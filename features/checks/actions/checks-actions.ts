@@ -421,9 +421,36 @@ export async function rejectCheckAction(
   const data = parsed.data;
 
   const supabase = await createSupabaseClient();
+  // reject_check takes the outflow from the account the check is in (the
+  // deposit's or the cartera) and refuses any other one.
+  const { data: check, error: checkError } = await supabase
+    .from("checks")
+    .select(
+      "status, cartera_account_id, check_movements(event, destination_account_id, created_at)",
+    )
+    .eq("id", data.check_id)
+    .maybeSingle();
+  if (checkError || !check) {
+    logger.error("cheques.reject.load_failed", {
+      userId: ctx.userId,
+      check_id: data.check_id,
+      error: checkError,
+    });
+    return { ok: false, error: "No se pudo cargar el cheque." };
+  }
+  const deposit = check.check_movements
+    .filter((m) => m.event === "deposited" && m.destination_account_id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  if (check.status === "depositado" && !deposit) {
+    return {
+      ok: false,
+      error: "No se encontró la cuenta donde se depositó el cheque.",
+    };
+  }
+
   const { data: id, error } = await supabase.rpc("reject_check", {
     p_check_id: data.check_id,
-    p_account_id: data.account_id,
+    p_account_id: deposit?.destination_account_id ?? check.cartera_account_id,
     p_event_date: data.event_date,
     p_channel_id: data.channel_id,
     p_notes: data.notes ?? "",

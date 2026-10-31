@@ -68,11 +68,12 @@ UNIQUE` (regex `^[0-9]+(\.[0-9]+)*$`, ej. `1.1.2.3`), `name`, `level int` (CHECK
 - **`account_type`** (enum `coa_account_type`, 6): `activo, pasivo, patrimonio,
   resultado_positivo, resultado_negativo, orden` (`orden` = cuentas de orden, sin
   impacto patrimonial).
-- **`system_role`** (enum `coa_system_role`, **19**): `caja, banco, clientes,
+- **`system_role`** (enum `coa_system_role`, **20**): `caja, banco, clientes,
   proveedores, iva_debito, iva_credito, iva_percibido, iva_retenido,
   percepciones_iibb_pagadas, percepciones_iibb_cobradas, retenciones_pagadas,
   retenciones_cobradas, ventas, compras, gastos, cheques_cartera,
-  cheques_diferidos_emitidos, caja_apertura, ajustes_caja`.
+  cheques_rechazados, cheques_diferidos_emitidos, caja_apertura, ajustes_caja`.
+  `cheques_rechazados` es "Deudores por cheques rechazados" (activo, bajo 1.1.2).
 
 **`system_role` es el puente a los asientos automáticos (§3).** El RPC
 `find_account_by_role(role)` devuelve la única cuenta **activa** con ese rol; el
@@ -149,7 +150,7 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 | `purchase_invoices` | INSERT si `received`; `received→cancelled` reversal; editar importes, fecha, moneda, cuenta, centro de costo, tipo o canal (cabecera o ítems) **re-asienta** una vez al COMMIT. Guards: no cambia de canal una vez recibida, no cambia de tipo con imputaciones, no cambia el Libro IVA en un período cerrado, no queda con pendiente negativo, y una fiscal lleva letra. |
 | `receipts` / `payment_orders` | **CONSTRAINT TRIGGER DEFERRED en el header** (dispara en COMMIT, así las payment-lines hijas ya son visibles); `issued`; `issued→canceled` reversal; editar (`update_receipt` / `update_payment_order`) **re-asienta** al COMMIT. `notified_at` y notas no. |
 | `issued_checks` | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. |
-| `checks` (endosados) | `endosado→rechazado` → Debe `cheques_cartera` / Haber `proveedores`. |
+| `checks` (endosados) | `endosado→rechazado` → Debe `cheques_rechazados` / Haber `proveedores`. |
 
 ### 3.5 Reglas de negocio (asientos)
 
@@ -178,6 +179,22 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/
   `percepciones_iibb_cobradas`. NC invierte (`v_kind_factor=-1`). Compra: Debe
   `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`.
+- **Cheque rechazado (D11):** no es gasto. Con la constancia del banco el cheque es
+  título ejecutivo contra el librador y los endosantes (Ley 24.452), así que el
+  importe pasa a `cheques_rechazados` contra la cuenta donde estaba el cheque.
+  `reject_check` escribe un egreso (`kind='expense'`, `rejected_check_id`) en esa
+  cuenta y el builder de `transactions` lo asienta Debe `cheques_rechazados` / Haber
+  el rol de la cuenta:
+  - `depositado`: sale del banco del depósito (Haber `banco`); otra cuenta se rechaza
+    (`23514`);
+  - `en_cartera`: sale de la cartera del cheque (Haber `cheques_cartera`);
+  - `endosado`: sin egreso; el trigger asienta Debe `cheques_rechazados` / Haber
+    `proveedores`.
+
+  Solo canal fiscal. Los gastos bancarios del rechazo, si se cargan, van aparte como
+  gasto. Darlo de baja como incobrable es una acción explícita aparte (pendiente).
+  En la cuenta corriente del cliente el cheque de un recibo emitido vuelve como
+  movimiento "Cheque rechazado" (debe); el aging, por factura, no lo muestra.
 - **Backfill:** cada migración de auto-journal termina con un `DO $$` que emite los
   asientos faltantes de las filas ya existentes; `P0002` (rol sin cuenta) se traga
   como NOTICE para ser re-ejecutable tras asignar el rol. No hay script aparte.

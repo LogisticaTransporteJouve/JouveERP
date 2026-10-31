@@ -4736,6 +4736,7 @@ export type Database = {
           kind: string
           payment_order_id: string | null
           receipt_id: string | null
+          rejected_check_id: string | null
           transaction_date: string
           transfer_pair_id: string | null
           updated_at: string
@@ -4758,6 +4759,7 @@ export type Database = {
           kind: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4780,6 +4782,7 @@ export type Database = {
           kind?: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date?: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4846,6 +4849,13 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
             referencedColumns: ["id"]
           },
           {
@@ -6739,6 +6749,7 @@ export type Database = {
         | "compras"
         | "gastos"
         | "cheques_cartera"
+        | "cheques_rechazados"
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
@@ -6929,6 +6940,7 @@ export const Constants = {
         "compras",
         "gastos",
         "cheques_cartera",
+        "cheques_rechazados",
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",
