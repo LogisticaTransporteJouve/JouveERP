@@ -81,7 +81,6 @@ export default async function ClientDetailPage({
   const channels = activeChannels.map((c) => ({
     id: c.id,
     name: c.name,
-    division: c.division,
     is_fiscal: c.is_fiscal,
   }));
   const accounts = accountsResult.ok ? accountsResult.data : [];

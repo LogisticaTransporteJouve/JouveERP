@@ -301,12 +301,11 @@ export function computeTotals(
   };
 }
 
-/** Join row shape for `channel ( name, division, business_unit_id )` used
+/** Join row shape for `channel ( name, is_fiscal, business_unit_id )` used
  *  by the PDF renders (receipt and payment-order). */
-export type ChannelDivisionJoin = {
+export type ChannelIssuerJoin = {
   channel: {
     name: string;
-    division: string;
     is_fiscal: boolean;
     business_unit_id: string;
   } | null;

@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/server";
 export type InvoicingChannelRow = {
   id: string;
   name: string;
-  division: string;
   is_fiscal: boolean;
   is_active: boolean;
 };
@@ -24,7 +23,7 @@ export const getInvoicingChannels = cache(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("invoicing_channels")
-      .select("id, name, division, is_fiscal, is_active")
+      .select("id, name, is_fiscal, is_active")
       .order("name", { ascending: true })
       .order("id", { ascending: true });
     if (error) {

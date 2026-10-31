@@ -25,7 +25,6 @@ function channel() {
   return {
     id: isFiscal ? "jouve_fiscal" : "jouve_internal",
     name: isFiscal ? "Logística Jouve — Fiscal" : "Logística Jouve — Interno",
-    division: "jouve",
     is_fiscal: isFiscal,
     business_unit_id: "dz_sons",
   };

@@ -50,7 +50,6 @@ export interface AccountMovement {
   /** null for opening_balance — does not belong to any channel. */
   channel_id: string | null;
   channel_name: string | null;
-  channel_division: string | null;
   channel_is_fiscal: boolean | null;
   /** Running balance after this row (sorted oldest → newest by movement_date,
    *  then created_at). `null` under a fiscal/internal scope: there is no
@@ -108,7 +107,7 @@ export async function getClientAccountAction(
       supabase
         .from("v_client_account_movements")
         .select(
-          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal",
         )
         .eq("client_id", clientId)
         .order("movement_date", { ascending: true })
@@ -230,7 +229,6 @@ export async function getClientAccountAction(
       gross_amount: gross,
       channel_id: row.channel_id,
       channel_name: row.channel_name,
-      channel_division: row.channel_division,
       channel_is_fiscal: row.channel_is_fiscal,
       balance: running,
       outstanding,

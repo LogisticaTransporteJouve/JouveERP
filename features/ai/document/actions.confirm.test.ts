@@ -738,7 +738,7 @@ describe("createSalesInvoiceFromExtractionAction", () => {
         items: [],
       };
     }
-    db.invoicing_channels = [{ id: "ch1", division: "jouve", is_fiscal: true }];
+    db.invoicing_channels = [{ id: "ch1", is_fiscal: true }];
     db.clients = [
       {
         id: CLIENT_ID,

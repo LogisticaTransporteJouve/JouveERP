@@ -45,7 +45,7 @@ export default async function ComprobantesPage({
   const supabase = getServiceClient();
   const { data: channels } = await supabase
     .from("invoicing_channels")
-    .select("id, name, division, is_fiscal, is_active")
+    .select("id, name, is_fiscal, is_active")
     .eq("is_active", true)
     .order("name");
 
@@ -87,7 +87,6 @@ export default async function ComprobantesPage({
           channels={(channels ?? []).map((c) => ({
             id: c.id,
             name: c.name,
-            division: c.division,
             is_fiscal: c.is_fiscal,
           }))}
           initialStatus={filters.status}

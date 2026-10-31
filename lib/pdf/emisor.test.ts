@@ -4,18 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Database } from "@/lib/db/database.types";
 import { recordingSupabase } from "@/tests/helpers/recording-supabase";
 
-import { divisionLabel, loadEmisor, redactEmisor, type Emisor } from "./emisor";
-
-describe("divisionLabel", () => {
-  it("keeps the text the PDFs printed before", () => {
-    expect(divisionLabel("jouve", "x")).toBe("Logística Jouve");
-  });
-
-  it("falls back to the channel name", () => {
-    expect(divisionLabel(null, "Canal")).toBe("Canal");
-    expect(divisionLabel("otra", "Canal")).toBe("Canal");
-  });
-});
+import { loadEmisor, redactEmisor, type Emisor } from "./emisor";
 
 const EMISOR: Emisor = {
   legal_name: "DZ & Sons S.A.",
@@ -55,11 +44,7 @@ function fakeClient(bu: Record<string, unknown> | null, error: unknown = null) {
 }
 
 describe("loadEmisor", () => {
-  const channel = {
-    name: "Logística Jouve — Fiscal",
-    division: "jouve",
-    business_unit_id: "dz_sons",
-  };
+  const channel = { business_unit_id: "dz_sons" };
 
   it("reads the business unit's fiscal fields", async () => {
     const emisor = await loadEmisor(

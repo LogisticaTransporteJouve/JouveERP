@@ -4,17 +4,17 @@
 
 begin;
 
-select plan(9);
+select plan(8);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f4', 'admin@channel-config.test');
 insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000f4', 'admin');
 
-insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active) values
-  ('test_used', 'dz_sons', 'jouve', 'Canal usado', false, true),
-  ('test_empty', 'dz_sons', 'jouve', 'Canal vacío', false, true),
-  ('test_fiscal', 'dz_sons', 'jouve', 'Canal fiscal', true, true);
+insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is_active) values
+  ('test_used', 'dz_sons', 'Canal usado', false, true),
+  ('test_empty', 'dz_sons', 'Canal vacío', false, true),
+  ('test_fiscal', 'dz_sons', 'Canal fiscal', true, true);
 
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b201', '30555555556', 'Proveedor Config', 'responsable_inscripto');
@@ -40,15 +40,8 @@ select set_config('request.jwt.claims',
 select throws_ok(
   $$update public.invoicing_channels set is_fiscal = true where id = 'test_used'$$,
   '23514',
-  'El canal Canal usado ya tiene documentos: no se puede cambiar si es fiscal ni su división',
+  'El canal Canal usado ya tiene documentos: no se puede cambiar si es fiscal',
   'a channel with documents cannot become fiscal'
-);
-
-select throws_ok(
-  $$update public.invoicing_channels set division = 'dz' where id = 'test_used'$$,
-  '23514',
-  null,
-  'a channel with documents cannot change division'
 );
 
 select lives_ok(

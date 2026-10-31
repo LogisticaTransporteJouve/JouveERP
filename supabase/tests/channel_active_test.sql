@@ -6,8 +6,8 @@ begin;
 
 select plan(8);
 
-insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active)
-values ('test_closed', 'dz_sons', 'jouve', 'Canal cerrado', false, true);
+insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is_active)
+values ('test_closed', 'dz_sons', 'Canal cerrado', false, true);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1', 'finance@channel-active.test');

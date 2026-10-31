@@ -9,7 +9,7 @@ import {
 } from "@/features/accounts/schema";
 import type { IvaCondition } from "@/features/clients/schema";
 import type {
-  ChannelDivisionJoin,
+  ChannelIssuerJoin,
   InvoiceWithChannelRefJoin,
 } from "@/features/invoices/schema";
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
@@ -45,7 +45,7 @@ export async function buildPaymentOrderTemplateData(
   const { data: op, error: opErr } = await supabase
     .from("payment_orders")
     .select(
-      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, is_fiscal, business_unit_id), supplier:suppliers(legal_name, cuit, iva_condition)",
+      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id), supplier:suppliers(legal_name, cuit, iva_condition)",
     )
     .eq("id", paymentOrderId)
     .maybeSingle();
@@ -54,7 +54,7 @@ export async function buildPaymentOrderTemplateData(
     throw new Error(`payment-order-pdf: OP not found (${paymentOrderId})`);
   }
 
-  const channel = (op as unknown as ChannelDivisionJoin).channel;
+  const channel = (op as unknown as ChannelIssuerJoin).channel;
   const supplier = (op as unknown as SupplierFullJoin).supplier;
   if (!supplier) throw new Error("payment-order-pdf: supplier missing");
 
@@ -64,8 +64,6 @@ export async function buildPaymentOrderTemplateData(
   const emisor = redactEmisor({
     isFiscal,
     emisor: await loadEmisor(supabase, {
-      name: channel?.name ?? "",
-      division: channel?.division ?? null,
       business_unit_id: channel?.business_unit_id ?? null,
     }),
   });

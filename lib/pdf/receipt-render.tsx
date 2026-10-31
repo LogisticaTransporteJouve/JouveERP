@@ -12,7 +12,7 @@ import type {
   IvaCondition,
 } from "@/features/clients/schema";
 import type {
-  ChannelDivisionJoin,
+  ChannelIssuerJoin,
   InvoiceRefJoin,
 } from "@/features/invoices/schema";
 import {
@@ -50,7 +50,7 @@ export async function buildReceiptTemplateData(
   const { data: receipt, error: rErr } = await supabase
     .from("receipts")
     .select(
-      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, is_fiscal, business_unit_id), client:clients(legal_name, cuit, iva_condition)",
+      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id), client:clients(legal_name, cuit, iva_condition)",
     )
     .eq("id", receiptId)
     .maybeSingle();
@@ -59,7 +59,7 @@ export async function buildReceiptTemplateData(
     throw new Error(`receipt-pdf: receipt not found (${receiptId})`);
   }
 
-  const channel = (receipt as unknown as ChannelDivisionJoin).channel;
+  const channel = (receipt as unknown as ChannelIssuerJoin).channel;
   const client = (receipt as unknown as ClientIdentityJoin).client;
   if (!client) throw new Error("receipt-pdf: client missing");
 
@@ -69,8 +69,6 @@ export async function buildReceiptTemplateData(
   const emisor = redactEmisor({
     isFiscal,
     emisor: await loadEmisor(supabase, {
-      name: channel?.name ?? "",
-      division: channel?.division ?? null,
       business_unit_id: channel?.business_unit_id ?? null,
     }),
   });
