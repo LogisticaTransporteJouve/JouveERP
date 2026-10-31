@@ -89,7 +89,7 @@ select throws_ok(
   $$update public.transactions set channel_id = 'jouve_internal'
      where account_id = '00000000-0000-0000-0000-00000000a802' and kind = 'transfer_in'$$,
   '55006',
-  'No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un recibo, orden de pago, transferencia o comprobante',
+  'No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un recibo, orden de pago, transferencia, comprobante o cheque propio',
   'a transfer leg cannot change channel'
 );
 

@@ -15,9 +15,16 @@ import {
   userCanAll,
 } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
-import { fetchLatestUsdRate } from "@/lib/fx";
+import { fetchLatestUsdRate, paymentCurrencyOf } from "@/lib/fx";
 import { logger } from "@/lib/logger";
-import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
+import {
+  readEmbeddedStatus,
+  roundBalances,
+  sumAllocations,
+  zeroBalances,
+  type CurrencyBalances,
+  type StatementCurrency,
+} from "@/lib/allocations";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -179,11 +186,14 @@ export interface SupplierAccountMovement {
    *  Negative = our payment or a supplier NC. */
   signed_amount: number;
   gross_amount: number;
+  /** The movement's currency; the opening balance is in pesos. */
+  currency: StatementCurrency;
   channel_id: string;
   channel_name: string | null;
   channel_is_fiscal: boolean | null;
-  /** Running balance (oldest → newest). > 0 = les debemos. `null` under a
-   *  fiscal/internal scope (only the scope's aging total exists). */
+  /** Running balance of `currency` (oldest → newest). > 0 = les debemos.
+   *  `null` under a fiscal/internal scope (only the scope's aging total
+   *  exists). */
   balance: number | null;
   /** Per-document outstanding: for factura/ND rows, open_amount of
    *  v_purchase_invoice_open (imp_total − issued OPs − NCs − opening
@@ -195,17 +205,18 @@ export interface SupplierAccountMovement {
 
 export interface SupplierAccountResult {
   movements: SupplierAccountMovement[];
-  /** "Todos": the final running balance. Under a scope: the scope's open
-   *  documents minus its OPs' unapplied amounts and its NCs without origin.
-   *  Positive = les debemos. */
-  balance: number;
+  /** Per currency. "Todos": each currency's final running balance. Under a
+   *  scope: the scope's open documents minus its OPs' unapplied amounts and
+   *  its NCs without origin. Positive = les debemos. */
+  balances: CurrencyBalances;
   /** False under a scope: rows carry no running balance. */
   runningBalance: boolean;
 }
 
-/** With `isFiscal` (D6): only that scope's movements, the opening balance as
- *  an informative row and the scope's open documents net of its unapplied
- *  credits as the single balance. */
+/** One running balance per currency (pesos and dollars never sum). With
+ *  `isFiscal` (D6): only that scope's movements, the opening balance as an
+ *  informative row and, per currency, the scope's open documents net of its
+ *  unapplied credits. */
 export async function getSupplierAccountAction(
   supplierId: string,
   input?: { isFiscal?: boolean | null },
@@ -222,21 +233,6 @@ export async function getSupplierAccountAction(
 
   const supabase = await createSupabaseClient();
 
-  type Row = {
-    source_type: string;
-    source_id: string | null;
-    movement_date: string;
-    created_at: string;
-    kind: string;
-    letter: string | null;
-    punto_venta: number | null;
-    numero: number | null;
-    signed_amount: number | string;
-    gross_amount: number | string;
-    channel_id: string | null;
-    channel_name: string | null;
-    channel_is_fiscal: boolean | null;
-  };
   // PostgREST caps every response at `max_rows` (1000), so the feed, the
   // allocations and the open amounts are drained page by page
   // (lib/supabase/paginate) with a total order (movement_date + created_at can
@@ -246,7 +242,7 @@ export async function getSupplierAccountAction(
       supabase
         .from("v_supplier_account_movements")
         .select(
-          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal",
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal, currency",
         )
         .eq("supplier_id", supplierId)
         .order("movement_date", { ascending: true })
@@ -285,7 +281,6 @@ export async function getSupplierAccountAction(
     });
     return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
-  const data = movementsRes.data as Row[];
 
   // An OP shows its "a cuenta" (total − Σ its own allocations); a factura/ND
   // its open amount.
@@ -306,14 +301,29 @@ export async function getSupplierAccountAction(
     if (o.invoice_origin_id === null) unlinkedNc.add(o.purchase_invoice_id);
   }
 
-  // Re-sort: rows arrive ordered by movement_date+created_at (asc). Opening
-  // balance rows have movement_date = opening_date — they sit naturally where
-  // they belong chronologically. Good.
-
-  let running = 0;
-  const movements: SupplierAccountMovement[] = data.map((r) => {
+  // Rows arrive ordered by movement_date + created_at (asc). Opening balance
+  // rows have movement_date = opening_date, so they sit where they belong.
+  const running = zeroBalances();
+  const movements: SupplierAccountMovement[] = [];
+  for (const r of movementsRes.data) {
+    if (
+      r.source_type == null ||
+      r.movement_date == null ||
+      r.created_at == null ||
+      r.kind == null ||
+      r.signed_amount == null ||
+      r.gross_amount == null
+    ) {
+      logger.warn("suppliers.account.row_with_nulls", {
+        userId: ctx.userId,
+        supplierId,
+        row: r,
+      });
+      continue;
+    }
+    const currency = paymentCurrencyOf(r.currency);
     const signed = Number(r.signed_amount);
-    running += signed;
+    running[currency] = round2(running[currency] + signed);
     let outstanding: number | null = null;
     if (
       r.source_type === "purchase_invoice" &&
@@ -324,9 +334,9 @@ export async function getSupplierAccountAction(
     } else if (r.source_type === "payment_order" && r.source_id) {
       const total = Number(r.gross_amount);
       const applied = appliedByOP.get(r.source_id) ?? 0;
-      outstanding = Math.max(0, total - applied);
+      outstanding = Math.max(0, round2(total - applied));
     }
-    return {
+    movements.push({
       source_type: r.source_type as SupplierAccountSourceType,
       source_id: r.source_id,
       movement_date: r.movement_date,
@@ -337,32 +347,35 @@ export async function getSupplierAccountAction(
       numero: r.numero ?? 0,
       signed_amount: signed,
       gross_amount: Number(r.gross_amount),
+      currency,
       channel_id: r.channel_id ?? "",
       channel_name: r.channel_name,
       channel_is_fiscal: r.channel_is_fiscal,
-      balance: round2(running),
-      outstanding: outstanding,
-    };
-  });
+      balance: running[currency],
+      outstanding,
+    });
+  }
 
   const isFiscal = input?.isFiscal ?? null;
   if (isFiscal === null) {
     return {
       ok: true,
-      data: { movements, balance: round2(running), runningBalance: true },
+      data: { movements, balances: running, runningBalance: true },
     };
   }
 
-  // The scope's balance: its open factura/ND minus what its OPs paid without
-  // applying and its NCs without origin (credits that reduce no document).
-  let scopeBalance = 0;
+  // The scope's balance per currency: its open factura/ND minus what its OPs
+  // paid without applying and its NCs without origin (credits that reduce no
+  // document).
+  const balances = zeroBalances();
   for (const m of movements) {
     if (m.channel_is_fiscal !== isFiscal) continue;
     if (m.source_type === "payment_order") {
-      scopeBalance -= m.outstanding ?? 0;
+      balances[m.currency] -= m.outstanding ?? 0;
     } else if (m.source_type === "purchase_invoice" && m.source_id) {
-      if (m.kind !== "nc") scopeBalance += m.outstanding ?? 0;
-      else if (unlinkedNc.has(m.source_id)) scopeBalance -= m.gross_amount;
+      if (m.kind !== "nc") balances[m.currency] += m.outstanding ?? 0;
+      else if (unlinkedNc.has(m.source_id))
+        balances[m.currency] -= m.gross_amount;
     }
   }
 
@@ -376,7 +389,7 @@ export async function getSupplierAccountAction(
             m.source_type === "opening_balance",
         )
         .map((m) => ({ ...m, balance: null })),
-      balance: round2(scopeBalance),
+      balances: roundBalances(balances),
       runningBalance: false,
     },
   };

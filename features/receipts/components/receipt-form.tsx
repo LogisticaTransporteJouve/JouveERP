@@ -140,10 +140,18 @@ export function ReceiptForm({
     : [{ account_id: "", amount: "", reference: "" }];
 
   const initialAllocations: AllocationDraft[] = receipt
-    ? receipt.allocations.map((a) => ({
-        invoice_id: a.invoice_id,
-        amount_applied: amountToInput(Number(a.amount_applied)),
-      }))
+    ? [
+        ...receipt.allocations.map((a): AllocationDraft => ({
+          document_id: a.invoice_id,
+          document_type: "invoice",
+          amount_applied: amountToInput(Number(a.amount_applied)),
+        })),
+        ...receipt.rejected_check_allocations.map((a): AllocationDraft => ({
+          document_id: a.check_id,
+          document_type: "rejected_check",
+          amount_applied: amountToInput(a.amount_applied),
+        })),
+      ]
     : [];
 
   const initialRetentions: RetentionDraft[] = receipt
@@ -284,7 +292,9 @@ export function ReceiptForm({
         : undefined,
     }));
     const allocs = values.allocations.map((a) => ({
-      invoice_id: a.invoice_id,
+      ...(a.document_type === "rejected_check"
+        ? { rejected_check_id: a.document_id }
+        : { invoice_id: a.document_id }),
       amount_applied: parseArAmount(a.amount_applied) ?? 0,
     }));
     const rets = values.retentions.map((r) => ({

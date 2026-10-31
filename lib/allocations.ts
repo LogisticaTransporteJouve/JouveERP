@@ -4,6 +4,19 @@
 
 import { formatMoney, round2 } from "@/lib/format";
 
+/** Currency of a current-account movement: pesos and dollars keep separate
+ *  balances, never one sum. */
+export type StatementCurrency = "ARS" | "USD";
+export type CurrencyBalances = Record<StatementCurrency, number>;
+
+export function zeroBalances(): CurrencyBalances {
+  return { ARS: 0, USD: 0 };
+}
+
+export function roundBalances(b: CurrencyBalances): CurrencyBalances {
+  return { ARS: round2(b.ARS), USD: round2(b.USD) };
+}
+
 export type AllocationInput = {
   /** The document the money was applied to (invoice / purchase invoice). */
   document_id: string | null;

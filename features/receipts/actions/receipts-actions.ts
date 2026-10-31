@@ -21,6 +21,8 @@ import { IsoDateSchema } from "@/lib/validation/common";
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
 import {
+  allocationPayload,
+  allocationTargetId,
   isReceiptCurrency,
   isReceiptStatus,
   isRetentionKind,
@@ -146,10 +148,17 @@ export type ReceiptCheckByLine = Record<
   }
 >;
 
+export type ReceiptRejectedCheckAllocation = {
+  check_id: string;
+  amount_applied: number;
+};
+
 export type ReceiptDetail = {
   receipt: Receipt;
   payment_lines: ReceiptPaymentLine[];
   allocations: ReceiptAllocation[];
+  /** What the receipt settled of the client's rejected checks. */
+  rejected_check_allocations: ReceiptRejectedCheckAllocation[];
   retentions: ReceiptRetention[];
   checks_by_line: ReceiptCheckByLine;
 };
@@ -201,37 +210,44 @@ export async function getReceiptByIdAction(
     return { ok: false, error: "Recibo con datos inválidos." };
   }
 
-  const [linesRes, allocsRes, retentionsRes, chequesRes] = await Promise.all([
-    supabase
-      .from("receipt_payment_lines")
-      .select("*, account:accounts(name, type)")
-      .eq("receipt_id", id)
-      .order("created_at"),
-    supabase
-      .from("receipt_allocations")
-      .select("*, invoice:invoices(letter, kind, punto_venta, numero, fecha)")
-      .eq("receipt_id", id)
-      .order("created_at"),
-    supabase
-      .from("receipt_retentions")
-      .select(
-        "id, receipt_id, kind, tax_type, jurisdiction, certificate_number, certificate_date, amount, notes, created_at, updated_at",
-      )
-      .eq("receipt_id", id)
-      .order("created_at"),
-    supabase
-      .from("checks")
-      .select(
-        "check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, status, source_payment_line_id",
-      )
-      .eq("source_receipt_id", id),
-  ]);
+  const [linesRes, allocsRes, retentionsRes, chequesRes, checkAllocsRes] =
+    await Promise.all([
+      supabase
+        .from("receipt_payment_lines")
+        .select("*, account:accounts(name, type)")
+        .eq("receipt_id", id)
+        .order("created_at"),
+      supabase
+        .from("receipt_allocations")
+        .select("*, invoice:invoices(letter, kind, punto_venta, numero, fecha)")
+        .eq("receipt_id", id)
+        .order("created_at"),
+      supabase
+        .from("receipt_retentions")
+        .select(
+          "id, receipt_id, kind, tax_type, jurisdiction, certificate_number, certificate_date, amount, notes, created_at, updated_at",
+        )
+        .eq("receipt_id", id)
+        .order("created_at"),
+      supabase
+        .from("checks")
+        .select(
+          "check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, status, source_payment_line_id",
+        )
+        .eq("source_receipt_id", id),
+      supabase
+        .from("receipt_rejected_check_allocations")
+        .select("check_id, amount_applied")
+        .eq("receipt_id", id)
+        .order("created_at"),
+    ]);
 
   if (
     linesRes.error ||
     allocsRes.error ||
     retentionsRes.error ||
-    chequesRes.error
+    chequesRes.error ||
+    checkAllocsRes.error
   ) {
     logger.error("receipts.get.children_failed", {
       userId: ctx.userId,
@@ -240,6 +256,7 @@ export async function getReceiptByIdAction(
       allocs: allocsRes.error,
       retentions: retentionsRes.error,
       cheques: chequesRes.error,
+      rejectedChecks: checkAllocsRes.error,
     });
     return { ok: false, error: "No se pudieron cargar los detalles." };
   }
@@ -268,6 +285,10 @@ export async function getReceiptByIdAction(
       receipt,
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
+      rejected_check_allocations: (checkAllocsRes.data ?? []).map((a) => ({
+        check_id: a.check_id,
+        amount_applied: Number(a.amount_applied),
+      })),
       retentions,
       checks_by_line,
     },
@@ -347,6 +368,9 @@ export async function getReceiptUsdRateAction(
  */
 export type PendingComprobante = {
   id: string;
+  /** `rejected_check`: a bounced check of an issued receipt (id = the
+   *  check), numbered with that receipt; `kind` is then "rejected_check". */
+  document_type: "invoice" | "rejected_check";
   numero: number | null;
   punto_venta: number;
   letter: string | null;
@@ -357,7 +381,75 @@ export type PendingComprobante = {
   outstanding: number;
   /** The comprobante's moneda as a receipt currency (DOL → USD, else ARS). */
   currency: "ARS" | "USD";
+  /** Rejected checks only. */
+  check_number: string | null;
 };
+
+/** Rejected checks of the client on the channel with something still open
+ *  (v_rejected_check_open), adding back what `excludeReceiptId` — the
+ *  receipt being edited, whose settlements update_receipt rebuilds —
+ *  settled. */
+async function listPendingRejectedChecks(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  clientId: string,
+  channelId: string,
+  excludeReceiptId?: string,
+): Promise<{ data: PendingComprobante[]; error: unknown }> {
+  const [openRes, ownRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("v_rejected_check_open")
+        .select(
+          "check_id, check_number, punto_venta, numero, rejected_on, amount, amount_settled, currency",
+        )
+        .eq("client_id", clientId)
+        .eq("channel_id", channelId)
+        .order("rejected_on", { ascending: true })
+        .order("check_id", { ascending: true })
+        .range(from, to),
+    ),
+    excludeReceiptId
+      ? paginateRange((from, to) =>
+          supabase
+            .from("receipt_rejected_check_allocations")
+            .select("id, check_id, amount_applied")
+            .eq("receipt_id", excludeReceiptId)
+            .order("id", { ascending: true })
+            .range(from, to),
+        )
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (openRes.error || ownRes.error) {
+    return { data: [], error: openRes.error ?? ownRes.error };
+  }
+  const own = new Map<string, number>();
+  for (const a of ownRes.data) {
+    own.set(a.check_id, (own.get(a.check_id) ?? 0) + Number(a.amount_applied));
+  }
+  const data: PendingComprobante[] = [];
+  for (const c of openRes.data) {
+    if (!c.check_id || !c.rejected_on) continue;
+    const total = Number(c.amount ?? 0);
+    const settled = Number(c.amount_settled ?? 0) - (own.get(c.check_id) ?? 0);
+    const outstanding = Math.max(0, total - settled);
+    if (outstanding <= 0.005) continue;
+    data.push({
+      id: c.check_id,
+      document_type: "rejected_check",
+      numero: c.numero,
+      punto_venta: c.punto_venta ?? 0,
+      letter: null,
+      kind: "rejected_check",
+      fecha: c.rejected_on,
+      imp_total: total,
+      already_allocated: settled,
+      outstanding,
+      currency: paymentCurrencyOf(c.currency),
+      check_number: c.check_number,
+    });
+  }
+  return { data, error: null };
+}
 
 /** Pending comprobantes of a client on one channel: a receipt only settles
  *  comprobantes of its own channel (guard_receipt_allocation enforces it). */
@@ -480,7 +572,6 @@ export async function listPendingComprobantesForClientAction(
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
   const comprobantes: InvoiceRow[] = comprobantesRes.data;
-  if (comprobantes.length === 0) return { ok: true, data: [] };
   const allocations = allocsRes.data;
   const openingAllocs = openingAllocsRes.data;
 
@@ -526,6 +617,7 @@ export async function listPendingComprobantesForClientAction(
       const outstanding = Math.max(0, total - already - credited);
       return {
         id: c.id,
+        document_type: "invoice" as const,
         numero: c.numero,
         punto_venta: c.punto_venta,
         letter: c.letter,
@@ -535,11 +627,29 @@ export async function listPendingComprobantesForClientAction(
         already_allocated: already,
         outstanding,
         currency: paymentCurrencyOf(c.moneda),
+        check_number: null,
       };
     })
     .filter((c) => c.outstanding > 0.005);
 
-  return { ok: true, data: pending };
+  // Then the rejected checks of the same client and channel: debt a receipt
+  // can settle too (guard_receipt_rejected_check_allocation enforces it).
+  const checksRes = await listPendingRejectedChecks(
+    supabase,
+    clientId,
+    channelId,
+    excludeReceiptId,
+  );
+  if (checksRes.error) {
+    logger.error("receipts.pending.list_rejected_checks_failed", {
+      userId: ctx.userId,
+      clientId,
+      error: checksRes.error,
+    });
+    return { ok: false, error: "No se pudieron leer los cheques rechazados." };
+  }
+
+  return { ok: true, data: [...pending, ...checksRes.data] };
 }
 
 // ---------------------------------------------------------------------------
@@ -604,7 +714,7 @@ export async function createReceiptAction(
       .filter((c) => c.currency !== data.currency)
       .map((c) => c.id),
   );
-  if (allocations.some((a) => otherCurrency.has(a.invoice_id))) {
+  if (allocations.some((a) => otherCurrency.has(allocationTargetId(a)))) {
     return {
       ok: false,
       error:
@@ -612,7 +722,12 @@ export async function createReceiptAction(
     };
   }
   if (allocations.length === 0) {
-    allocations = allocateFifo(pending, data.total_amount).map((a) => ({
+    // FIFO settles comprobantes only: a rejected check is settled when the
+    // user picks it.
+    allocations = allocateFifo(
+      pending.filter((c) => c.document_type === "invoice"),
+      data.total_amount,
+    ).map((a) => ({
       invoice_id: a.document_id,
       amount_applied: a.amount_applied,
     }));
@@ -620,7 +735,7 @@ export async function createReceiptAction(
     const issue = allocationsIssue(
       pending,
       allocations.map((a) => ({
-        document_id: a.invoice_id,
+        document_id: allocationTargetId(a),
         amount_applied: a.amount_applied,
       })),
       data.total_amount,
@@ -655,10 +770,7 @@ export async function createReceiptAction(
           }
         : null,
     })),
-    p_allocations: allocations.map((a) => ({
-      invoice_id: a.invoice_id,
-      amount_applied: a.amount_applied,
-    })),
+    p_allocations: allocations.map(allocationPayload),
     p_retentions: (data.retentions ?? []).map((r) => ({
       kind: r.kind,
       tax_type: r.tax_type,
@@ -756,10 +868,7 @@ export async function updateReceiptAction(
           }
         : null,
     })),
-    p_allocations: (data.allocations ?? []).map((a) => ({
-      invoice_id: a.invoice_id,
-      amount_applied: a.amount_applied,
-    })),
+    p_allocations: (data.allocations ?? []).map(allocationPayload),
     p_retentions: (data.retentions ?? []).map((r) => ({
       kind: r.kind,
       tax_type: r.tax_type,

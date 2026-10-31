@@ -87,15 +87,15 @@ type RowActions = {
   onDelete: (tx: TransactionListItem) => void;
 };
 
-/** A movement the list knows came from an invoice cannot be edited or
- *  deleted here, and a transfer is edited as a pair (delete removes both).
- *  Movements of receipts, payment orders, loans or payroll are refused by the
- *  server, which says why. */
+/** A movement a document owns (receipt, payment order, invoice, payroll,
+ *  loan installment, check, own check cashed, account opening balance) is
+ *  changed from that document, never here: the database refuses it. A
+ *  transfer is edited as a pair (delete removes both). */
 function editable(tx: TransactionListItem): boolean {
-  return tx.invoice_id === null && tx.transfer_pair_id === null;
+  return tx.source_document === null && tx.transfer_pair_id === null;
 }
 function deletable(tx: TransactionListItem): boolean {
-  return tx.invoice_id === null;
+  return tx.source_document === null;
 }
 
 function useTransactionColumns(

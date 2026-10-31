@@ -318,3 +318,114 @@ describe("createReceiptAction allocations", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 });
+
+describe("rejected checks as allocation targets", () => {
+  const ACCOUNT = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const FA = "bbbbbbbb-0000-4000-8000-000000000001";
+  const CHECK = "cccccccc-0000-4000-8000-000000000001";
+  function setup() {
+    db.invoices = [
+      invoice(FA, "factura", 300, undefined, undefined, FISCAL, "2026-09-01"),
+    ];
+    db.receipt_allocations = [];
+    db.client_opening_balance_allocations = [];
+    db.v_rejected_check_open = [
+      {
+        check_id: CHECK,
+        client_id: CLIENT,
+        channel_id: FISCAL,
+        check_number: "CH-1",
+        punto_venta: 3,
+        numero: 77,
+        rejected_on: "2026-08-15",
+        amount: 500,
+        amount_settled: 200,
+        currency: "ARS",
+      },
+    ];
+    db.receipt_rejected_check_allocations = [
+      { id: "x1", receipt_id: "r-edit", check_id: CHECK, amount_applied: 150 },
+    ];
+    db.sales_points = [{ numero: 3, channel_id: FISCAL, is_enabled: true }];
+    rpc.mockClear();
+  }
+
+  it("lists a rejected check of the channel with what is still open", async () => {
+    setup();
+    const res = await listPendingComprobantesForClientAction(CLIENT, FISCAL);
+    expect(
+      res.ok && res.data.map((d) => [d.document_type, d.id, d.outstanding]),
+    ).toEqual([
+      ["invoice", FA, 300],
+      ["rejected_check", CHECK, 300],
+    ]);
+  });
+
+  it("gives back to the receipt being edited what it settled", async () => {
+    setup();
+    const res = await listPendingComprobantesForClientAction(
+      CLIENT,
+      FISCAL,
+      "r-edit",
+    );
+    const check = res.ok ? res.data.find((d) => d.id === CHECK) : undefined;
+    expect(check?.outstanding).toBe(450);
+  });
+
+  it("never settles a rejected check by FIFO", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 500,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 500 }],
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_receipt",
+      expect.objectContaining({
+        p_allocations: [{ invoice_id: FA, amount_applied: 300 }],
+      }),
+    );
+  });
+
+  it("sends a picked rejected check as rejected_check_id", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 250,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 250 }],
+      allocations: [{ rejected_check_id: CHECK, amount_applied: 250 }],
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_receipt",
+      expect.objectContaining({
+        p_allocations: [{ rejected_check_id: CHECK, amount_applied: 250 }],
+      }),
+    );
+  });
+
+  it("refuses settling more than the rejected check still owes", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 400,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 400 }],
+      allocations: [{ rejected_check_id: CHECK, amount_applied: 400 }],
+    });
+    expect(res.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});

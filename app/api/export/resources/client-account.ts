@@ -8,11 +8,10 @@ import { formatInvoiceNumero } from "@/features/invoices/schema";
 
 import {
   ACCOUNT_COLUMNS,
-  dateCell,
+  accountStatementTable,
   exportScope,
   ExportInputError,
   inRange,
-  moneyCell,
   scopedSubtitle,
   type Exporter,
   withSlug,
@@ -49,36 +48,24 @@ export const clientAccount: Exporter = {
     const movements = res.data.movements.filter((m) =>
       inRange(m.movement_date, range),
     );
-    let totalDebe = 0;
-    let totalHaber = 0;
-    const rows = movements.map((m) => {
-      const isDebit = m.signed_amount > 0;
-      if (isDebit) totalDebe += m.gross_amount;
-      else totalHaber += m.gross_amount;
-      return [
-        dateCell(m.movement_date),
-        clientType(m),
-        clientDoc(m),
-        isDebit ? moneyCell(m.gross_amount) : "",
-        isDebit ? "" : moneyCell(m.gross_amount),
-        m.balance === null ? "" : moneyCell(m.balance),
-      ];
-    });
-    // Under a scope rows carry no running balance: the total is the scope's.
-    const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
+    // Under a scope rows carry no running balance: the totals are the scope's.
+    const table = accountStatementTable(
+      movements.map((m) => ({
+        date: m.movement_date,
+        type: clientType(m),
+        document: clientDoc(m),
+        currency: m.currency,
+        debe: m.signed_amount > 0 ? m.gross_amount : 0,
+        haber: m.signed_amount > 0 ? 0 : m.gross_amount,
+        balance: m.balance,
+      })),
+      res.data.balances,
+    );
     return {
       title: "Cuenta corriente — Cliente",
       subtitle: scopedSubtitle(scope, params.get("name") ?? undefined),
       columns: ACCOUNT_COLUMNS,
-      rows,
-      totalsRow: [
-        "",
-        "",
-        "Totales",
-        moneyCell(totalDebe),
-        moneyCell(totalHaber),
-        moneyCell(finalBalance),
-      ],
+      ...table,
       fileName: withSlug("cuenta-corriente-cliente", params.get("name")),
     };
   },

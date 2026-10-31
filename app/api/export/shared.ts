@@ -155,13 +155,90 @@ export function inRange(date: string, range: ExportRange): boolean {
 
 /** Shared column layout for current-account statements (portrait A4 ≈ 547pt). */
 export const ACCOUNT_COLUMNS: TableReportColumn[] = [
-  { header: "Fecha", width: 64, mono: true },
-  { header: "Tipo", width: 100 },
-  { header: "Documento", width: 115, mono: true },
-  { header: "Debe", width: 90, align: "right", mono: true },
-  { header: "Haber", width: 90, align: "right", mono: true },
-  { header: "Saldo", width: 88, align: "right", mono: true },
+  { header: "Fecha", width: 60, mono: true },
+  { header: "Tipo", width: 92 },
+  { header: "Documento", width: 105, mono: true },
+  { header: "Moneda", width: 40 },
+  { header: "Debe", width: 86, align: "right", mono: true },
+  { header: "Haber", width: 86, align: "right", mono: true },
+  { header: "Saldo", width: 78, align: "right", mono: true },
 ];
+
+type StatementCurrency = "ARS" | "USD";
+
+export type StatementLine = {
+  date: string;
+  type: string;
+  document: string;
+  currency: StatementCurrency;
+  debe: number;
+  haber: number;
+  /** Running balance of `currency`, or null under a scope. */
+  balance: number | null;
+};
+
+/**
+ * Body and totals of a current-account statement (ACCOUNT_COLUMNS). Pesos and
+ * dollars never sum: each amount is typed in its row's currency, and each
+ * currency gets its own totals (Σ debe, Σ haber, final balance: the last
+ * listed balance of that currency, else `balances`, the action's figure).
+ * With one currency the totals are the totals row; with both, two rows of
+ * their own.
+ */
+export function accountStatementTable(
+  lines: readonly StatementLine[],
+  balances: Record<StatementCurrency, number>,
+): { rows: ExportCell[][]; totalsRow?: ExportCell[] } {
+  const amount = (n: number, currency: StatementCurrency) =>
+    moneyCell(n, {
+      currency,
+      text: currency === "USD" ? usdMoney(n) : money(n),
+    });
+  const rows: ExportCell[][] = lines.map((l) => [
+    dateCell(l.date),
+    l.type,
+    l.document,
+    l.currency,
+    l.debe ? amount(l.debe, l.currency) : "",
+    l.haber ? amount(l.haber, l.currency) : "",
+    l.balance === null ? "" : amount(l.balance, l.currency),
+  ]);
+  const present = new Set(lines.map((l) => l.currency));
+  if (balances.USD !== 0) present.add("USD");
+  const currencies: StatementCurrency[] = present.has("USD")
+    ? present.has("ARS") || balances.ARS !== 0
+      ? ["ARS", "USD"]
+      : ["USD"]
+    : ["ARS"];
+  const totalsFor = (currency: StatementCurrency, label: string) => {
+    const own = lines.filter((l) => l.currency === currency);
+    const last = own.at(-1)?.balance;
+    return [
+      "",
+      "",
+      label,
+      currency,
+      amount(
+        own.reduce((s, l) => s + l.debe, 0),
+        currency,
+      ),
+      amount(
+        own.reduce((s, l) => s + l.haber, 0),
+        currency,
+      ),
+      amount(last ?? balances[currency], currency),
+    ];
+  };
+  const [only] = currencies;
+  if (currencies.length === 1 && only) {
+    return { rows, totalsRow: totalsFor(only, "Totales") };
+  }
+  rows.push(
+    totalsFor("ARS", "Totales en pesos"),
+    totalsFor("USD", "Totales en dólares"),
+  );
+  return { rows };
+}
 
 const AGING_BUCKET_HEADERS: Record<AgingBucket, string> = {
   "0_30": "0–30 días",

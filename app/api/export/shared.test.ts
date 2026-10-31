@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { aggregateClientAging, type ClientAgingViewRow } from "@/lib/aging";
 
 import {
+  accountStatementTable,
   agingExport,
   cellText,
   cellValue,
@@ -201,5 +202,75 @@ describe("agingExport", () => {
       meta,
     );
     expect(noRate.totalsRow?.at(-1)).toBe("—");
+  });
+});
+
+describe("accountStatementTable", () => {
+  const line = (
+    currency: "ARS" | "USD",
+    debe: number,
+    haber: number,
+    balance: number | null,
+  ) => ({
+    date: "2026-10-01",
+    type: "Factura A",
+    document: "A 0003-00000001",
+    currency,
+    debe,
+    haber,
+    balance,
+  });
+
+  it("with one currency, the totals row is that currency's", () => {
+    const t = accountStatementTable(
+      [line("ARS", 1000, 0, 1000), line("ARS", 0, 400, 600)],
+      { ARS: 600, USD: 0 },
+    );
+    expect(t.totalsRow?.map(cellText)).toEqual([
+      "",
+      "",
+      "Totales",
+      "ARS",
+      "$1.000,00",
+      "$400,00",
+      "$600,00",
+    ]);
+  });
+
+  it("never sums pesos and dollars: one totals row per currency", () => {
+    const t = accountStatementTable(
+      [line("ARS", 1000, 0, 1000), line("USD", 50, 0, 50)],
+      { ARS: 1000, USD: 50 },
+    );
+    expect(t.totalsRow).toBeUndefined();
+    expect(t.rows.at(-2)?.map(cellText)).toEqual([
+      "",
+      "",
+      "Totales en pesos",
+      "ARS",
+      "$1.000,00",
+      "$0,00",
+      "$1.000,00",
+    ]);
+    expect(t.rows.at(-1)?.map(cellText)).toEqual([
+      "",
+      "",
+      "Totales en dólares",
+      "USD",
+      "US$50,00",
+      "US$0,00",
+      "US$50,00",
+    ]);
+    expect(cellValue(t.rows[1]![4]!)).toEqual({ money: 50, currency: "USD" });
+  });
+
+  it("under a scope (no running balance) the final balance is the action's", () => {
+    const t = accountStatementTable([line("ARS", 1000, 0, null)], {
+      ARS: 250,
+      USD: 0,
+    });
+    expect(t.totalsRow?.at(-1) && cellText(t.totalsRow.at(-1)!)).toBe(
+      "$250,00",
+    );
   });
 });

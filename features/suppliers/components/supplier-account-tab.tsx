@@ -43,6 +43,7 @@ import { SCOPE_LABEL } from "@/lib/scope";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
 import type { SupplierAccountMovement } from "../actions/account-actions";
+import type { StatementCurrency } from "@/lib/allocations";
 import {
   useClearSupplierOpeningBalance,
   useSupplierAccount,
@@ -81,6 +82,10 @@ function movementHref(m: SupplierAccountMovement): string | null {
   return null;
 }
 
+function currencySymbol(currency: StatementCurrency): string {
+  return currency === "USD" ? "US$" : "$";
+}
+
 function balanceLabel(balance: number): {
   text: string;
   className: string;
@@ -115,15 +120,17 @@ export function SupplierAccountTab({
 }) {
   const { data } = useSupplierAccount(supplierId);
   const movements = data.movements;
-  const balance = data.balance;
+  const balances = data.balances;
+  const balanceCurrencies: StatementCurrency[] =
+    balances.USD !== 0 || movements.some((m) => m.currency === "USD")
+      ? ["ARS", "USD"]
+      : ["ARS"];
   const { runningBalance } = data;
   const { fiscalFilter } = useScope();
   const canWriteOP = userCan(actorAccess, "payment_orders:write");
   const canWritePI = userCan(actorAccess, "purchase_invoices:write");
   const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearSupplierOpeningBalance();
-
-  const balLabel = balanceLabel(balance);
 
   const { range } = useDateRange();
   const filteredMovements = useMemo(() => {
@@ -285,13 +292,17 @@ export function SupplierAccountTab({
               if (debe <= 0) return "—";
               return (
                 <span className="inline-flex flex-col items-end">
-                  <span>${amountToInput(debe)}</span>
+                  <span>
+                    {currencySymbol(m.currency)}
+                    {amountToInput(debe)}
+                  </span>
                   {showOutstandingBadge &&
                     m.outstanding != null &&
                     m.outstanding > 0 &&
                     m.outstanding < m.gross_amount && (
                       <span className="text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">
-                        Pendiente: ${amountToInput(m.outstanding)}
+                        Pendiente: {currencySymbol(m.currency)}
+                        {amountToInput(m.outstanding)}
                       </span>
                     )}
                 </span>
@@ -306,7 +317,9 @@ export function SupplierAccountTab({
             cell: ({ row }) => {
               const m = row.original;
               const haber = m.signed_amount < 0 ? -m.signed_amount : 0;
-              return haber > 0 ? `$${amountToInput(haber)}` : "—";
+              return haber > 0
+                ? `${currencySymbol(m.currency)}${amountToInput(haber)}`
+                : "—";
             },
           },
           {
@@ -327,7 +340,8 @@ export function SupplierAccountTab({
                         : "text-muted-foreground"
                   }`}
                 >
-                  ${amountToInput(m.balance)}
+                  {currencySymbol(m.currency)}
+                  {amountToInput(m.balance)}
                 </span>
               );
             },
@@ -429,18 +443,32 @@ export function SupplierAccountTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
-        <div>
-          <div className="text-xs text-muted-foreground">
-            {runningBalance
+        <div className="flex flex-wrap gap-8">
+          {balanceCurrencies.map((currency) => {
+            const balance = balances[currency];
+            const balLabel = balanceLabel(balance);
+            const title = runningBalance
               ? "Saldo actual"
-              : `Saldo pendiente · ${SCOPE_LABEL[fiscalFilter]}`}
-          </div>
-          <div
-            className={`text-2xl font-semibold font-mono ${balLabel.className}`}
-          >
-            ${amountToInput(Math.abs(balance))}
-          </div>
-          <div className={`text-xs ${balLabel.className}`}>{balLabel.text}</div>
+              : `Saldo pendiente · ${SCOPE_LABEL[fiscalFilter]}`;
+            return (
+              <div key={currency}>
+                <div className="text-xs text-muted-foreground">
+                  {balanceCurrencies.length > 1
+                    ? `${title} · ${currency === "USD" ? "Dólares" : "Pesos"}`
+                    : title}
+                </div>
+                <div
+                  className={`text-2xl font-semibold font-mono ${balLabel.className}`}
+                >
+                  {currencySymbol(currency)}
+                  {amountToInput(Math.abs(balance))}
+                </div>
+                <div className={`text-xs ${balLabel.className}`}>
+                  {balLabel.text}
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div className="text-xs text-muted-foreground">
           {movements.length} movimiento{movements.length === 1 ? "" : "s"}

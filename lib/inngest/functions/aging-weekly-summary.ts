@@ -6,6 +6,7 @@ import {
 } from "@/lib/email/client";
 import {
   AGING_VIEW_AMOUNT_COLUMNS,
+  CLIENT_AGING_EXTRA_COLUMNS,
   aggregateClientAging,
   formatCurrencyAmounts,
   type AgingReport,
@@ -60,6 +61,12 @@ function renderAgingEmail(
       : totals.total_ars_equivalent !== null && usd_rate
         ? `<li>Equivalente en pesos: ${formatMoney(totals.total_ars_equivalent)} (dólar oficial ${formatMoney(usd_rate.rate)} del ${formatArgentineDate(usd_rate.rate_date)})</li>`
         : "<li>Sin cotización del dólar cargada: el saldo en USD no se consolida en pesos.</li>";
+  // Optional: a summary memoized by a run that started before the field.
+  const rejected: CurrencyAmounts | undefined = totals.rejected_checks;
+  const rejectedLine =
+    rejected && (rejected.ars !== 0 || rejected.usd !== 0)
+      ? `<li>Incluye cheques rechazados: ${formatCurrencyAmounts(rejected)}</li>`
+      : "";
   const b = totals.buckets;
   return {
     subject: `Aging semanal (${SCOPE_LABEL.all}) — ${date} · ${formatCurrencyAmounts(totals.total)} abierto`,
@@ -73,6 +80,7 @@ function renderAgingEmail(
         <li>60–90: ${formatCurrencyAmounts(b["60_90"])}</li>
         <li>+90: ${formatCurrencyAmounts(b["90_plus"])}</li>
         <li><strong>Total abierto: ${formatCurrencyAmounts(totals.total)}</strong></li>
+        ${rejectedLine}
         ${equivalent}
       </ul>
       <h3>Top deudores</h3>
@@ -107,7 +115,7 @@ export const agingWeeklySummary = inngest.createFunction(
             supabase
               .from("v_client_aging")
               .select(
-                `client_id, ${AGING_VIEW_AMOUNT_COLUMNS}, clients!inner(legal_name, display_name, cuit)`,
+                `client_id, ${AGING_VIEW_AMOUNT_COLUMNS}, ${CLIENT_AGING_EXTRA_COLUMNS}, clients!inner(legal_name, display_name, cuit)`,
               )
               .order("client_id", { ascending: true })
               .range(from, to),

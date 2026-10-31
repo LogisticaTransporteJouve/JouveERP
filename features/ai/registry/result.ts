@@ -118,10 +118,16 @@ export function agingResult(
     ),
     document_count: r.document_count,
     oldest_days: r.oldest_days,
+    rejected_checks_ars: r.rejected_checks.ars,
+    rejected_checks_usd: r.rejected_checks.usd,
   }));
+  const rejected =
+    t.rejected_checks.ars !== 0 || t.rejected_checks.usd !== 0
+      ? ` Includes rejected checks (bounced checks of receipts, owed again) ${amounts(t.rejected_checks)}, already in the buckets (rejected_checks_*).`
+      : "";
   return okResult(
     `${scopeLabel}: ${t.party_count} ${partyPlural} with balance · total ${amounts(t.total)}${eq} · ` +
-      `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents). ` +
+      `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents).${rejected} ` +
       "Amounts per currency: *_ars in pesos, *_usd in dollars.",
     { totals: t, usd_rate: rate, rows },
     {

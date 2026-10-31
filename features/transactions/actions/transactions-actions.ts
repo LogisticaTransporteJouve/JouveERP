@@ -37,7 +37,7 @@ function narrowTransaction(row: {
 }
 
 const SELECT_COLUMNS =
-  "id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description, invoice_id, counterparty_client_id, transfer_pair_id, created_by, created_at, updated_at";
+  "id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description, invoice_id, counterparty_client_id, transfer_pair_id, created_by, created_at, updated_at, receipt_id, payment_order_id, rejected_check_id, issued_check_id, is_payroll";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -49,6 +49,9 @@ export interface TransactionListItem extends Transaction {
   account_name: string;
   account_type: string;
   counterparty_legal_name: string | null;
+  /** The document that owns the movement (v_transactions_tagged); null for a
+   *  manual one. The database refuses editing or deleting an owned movement. */
+  source_document: string | null;
 }
 
 export interface TransactionListPage {
@@ -85,7 +88,7 @@ export async function listTransactionsAction(
       // No `count`: the page uses the limit + 1 trick for "has more" and never
       // exposes a total, and count=exact re-ran the whole filtered scan on
       // every page.
-      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
+      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, source_document, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -121,6 +124,7 @@ export async function listTransactionsAction(
     account_name: string;
     account_type: string;
     counterparty_client: { legal_name: string } | null;
+    source_document: string | null;
   };
 
   const rows = data ?? [];
@@ -138,6 +142,7 @@ export async function listTransactionsAction(
         account_name: tagged.account_name,
         account_type: tagged.account_type,
         counterparty_legal_name: tagged.counterparty_client?.legal_name ?? null,
+        source_document: tagged.source_document,
       };
     })
     .filter((item): item is TransactionListItem => item !== null);
@@ -323,12 +328,15 @@ export async function updateTransactionAction(
 
   const supabase = await createSupabaseClient();
 
-  // System-generated movements (receipt / payment order / transfer / invoice)
+  // System-generated movements (receipt / payment order / transfer / invoice /
+  // cashed own check)
   // must not have their amount/date edited — the journal would drift out of sync
   // (the DB trigger enforces this too). Edit the source document instead.
   const { data: existing } = await supabase
     .from("transactions")
-    .select("receipt_id, payment_order_id, transfer_pair_id, invoice_id")
+    .select(
+      "receipt_id, payment_order_id, transfer_pair_id, invoice_id, issued_check_id",
+    )
     .eq("id", data.id)
     .maybeSingle();
   if (
@@ -336,12 +344,13 @@ export async function updateTransactionAction(
     (existing.receipt_id ||
       existing.payment_order_id ||
       existing.transfer_pair_id ||
-      existing.invoice_id)
+      existing.invoice_id ||
+      existing.issued_check_id)
   ) {
     return {
       ok: false,
       error:
-        "Este movimiento fue generado por un recibo, orden de pago, transferencia o comprobante. Editá el documento de origen, no el movimiento.",
+        "Este movimiento fue generado por un documento (recibo, orden de pago, transferencia, comprobante o cheque propio). Editá el documento de origen, no el movimiento.",
     };
   }
 

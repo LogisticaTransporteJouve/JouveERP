@@ -8,11 +8,10 @@ import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
 import {
   ACCOUNT_COLUMNS,
-  dateCell,
+  accountStatementTable,
   exportScope,
   ExportInputError,
   inRange,
-  moneyCell,
   scopedSubtitle,
   type Exporter,
   withSlug,
@@ -52,37 +51,24 @@ export const supplierAccount: Exporter = {
     const movements = res.data.movements.filter((m) =>
       inRange(m.movement_date, range),
     );
-    let totalDebe = 0;
-    let totalHaber = 0;
-    const rows = movements.map((m) => {
-      const debe = m.signed_amount > 0 ? m.signed_amount : 0;
-      const haber = m.signed_amount < 0 ? -m.signed_amount : 0;
-      totalDebe += debe;
-      totalHaber += haber;
-      return [
-        dateCell(m.movement_date),
-        SUPPLIER_KIND_LABEL[m.kind] ?? m.kind,
-        supplierDoc(m),
-        debe ? moneyCell(debe) : "",
-        haber ? moneyCell(haber) : "",
-        m.balance === null ? "" : moneyCell(m.balance),
-      ];
-    });
-    // Under a scope rows carry no running balance: the total is the scope's.
-    const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
+    // Under a scope rows carry no running balance: the totals are the scope's.
+    const table = accountStatementTable(
+      movements.map((m) => ({
+        date: m.movement_date,
+        type: SUPPLIER_KIND_LABEL[m.kind] ?? m.kind,
+        document: supplierDoc(m),
+        currency: m.currency,
+        debe: m.signed_amount > 0 ? m.signed_amount : 0,
+        haber: m.signed_amount < 0 ? -m.signed_amount : 0,
+        balance: m.balance,
+      })),
+      res.data.balances,
+    );
     return {
       title: "Cuenta corriente — Proveedor",
       subtitle: scopedSubtitle(scope, params.get("name") ?? undefined),
       columns: ACCOUNT_COLUMNS,
-      rows,
-      totalsRow: [
-        "",
-        "",
-        "Totales",
-        moneyCell(totalDebe),
-        moneyCell(totalHaber),
-        moneyCell(finalBalance),
-      ],
+      ...table,
       fileName: withSlug("cuenta-corriente-proveedor", params.get("name")),
     };
   },

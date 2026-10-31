@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   AGING_BUCKETS,
+  formatCurrencyAmounts,
   isAgingOverdue,
   type AgingBucket,
   type AgingPartyRow,
@@ -20,6 +21,10 @@ import { formatArgentineDate, formatMoney } from "@/lib/format";
 // latest official rate.
 
 type BucketCopy = { label: string; header: string; hint: string };
+
+function hasAmount(a: CurrencyAmounts): boolean {
+  return a.ars !== 0 || a.usd !== 0;
+}
 
 export type AgingReportCopy = {
   partyHeader: string;
@@ -84,6 +89,12 @@ export function AgingReportView({
             <p className="font-mono text-xs text-muted-foreground">
               CUIT {row.original.cuit}
             </p>
+            {hasAmount(row.original.rejected_checks) && (
+              <p className="text-xs text-muted-foreground">
+                Incluye cheques rechazados:{" "}
+                {formatCurrencyAmounts(row.original.rejected_checks)}
+              </p>
+            )}
           </>
         ),
       },
@@ -159,7 +170,11 @@ export function AgingReportView({
           label={copy.totalLabel}
           amounts={totals.total}
           showUsd={hasUsd}
-          hint={`${totals.party_count} ${copy.partyPlural} · ${totals.document_count} documentos`}
+          hint={`${totals.party_count} ${copy.partyPlural} · ${totals.document_count} documentos${
+            hasAmount(totals.rejected_checks)
+              ? ` · incluye cheques rechazados ${formatCurrencyAmounts(totals.rejected_checks)}`
+              : ""
+          }`}
           equivalent={
             hasUsd
               ? totals.total_ars_equivalent !== null && usd_rate

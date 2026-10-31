@@ -3,6 +3,7 @@
 import type { ActionResult } from "@/lib/query/run-action";
 import {
   AGING_VIEW_AMOUNT_COLUMNS,
+  CLIENT_AGING_EXTRA_COLUMNS,
   aggregateClientAging,
   type AgingReport,
 } from "@/lib/aging";
@@ -14,7 +15,7 @@ import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-const CLIENT_AGING_SELECT = `client_id, ${AGING_VIEW_AMOUNT_COLUMNS}, clients!inner(legal_name, display_name, cuit)`;
+const CLIENT_AGING_SELECT = `client_id, ${AGING_VIEW_AMOUNT_COLUMNS}, ${CLIENT_AGING_EXTRA_COLUMNS}, clients!inner(legal_name, display_name, cuit)`;
 
 // Sorted by ARS-equivalent exposure so finance sees biggest debtors first.
 // `isFiscal` null reads every channel (v_client_aging); a boolean reads that

@@ -150,7 +150,7 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 | `invoices` (ventas) | INSERT si `emitted`; `emitted→cancelled` emite **reversal**; guard que **bloquea** cancelar si hay allocations de recibo activas (`22023`). |
 | `purchase_invoices` | INSERT si `received`; `received→cancelled` reversal; editar importes, fecha, moneda, cuenta, centro de costo, tipo o canal (cabecera o ítems) **re-asienta** una vez al COMMIT. Guards: no cambia de canal una vez recibida, no cambia de tipo con imputaciones, no cambia el Libro IVA en un período cerrado, no queda con pendiente negativo, y una fiscal lleva letra. |
 | `receipts` / `payment_orders` | **CONSTRAINT TRIGGER DEFERRED en el header** (dispara en COMMIT, así las payment-lines hijas ya son visibles); `issued`; `issued→canceled` reversal; editar (`update_receipt` / `update_payment_order`) **re-asienta** al COMMIT (también si cambia la `cotizacion`). `notified_at` y notas no. **USD:** cada línea (pagos y retenciones) se asienta en pesos a la `cotizacion` del documento, redondeada por línea, y clientes/proveedores es la suma de esas líneas redondeadas. La cotización es obligatoria (> 1) en un recibo u OP en USD nuevo (trigger `guard_document_cotizacion`; una edición que no la manda conserva la guardada) y un documento en pesos no lleva; los USD anteriores a `20261031203102` quedan con `NULL` y se asientan a `get_exchange_rate('USD', fecha)` o, sin cotización, a 1, como los comprobantes. |
-| `issued_checks` | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. |
+| `issued_checks` | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. Un cheque propio **sin OP** escribe además, al cobrarse, el egreso de caja (ver §4). |
 | `checks` (endosados) | `endosado→rechazado` → Debe `cheques_rechazados` / Haber `proveedores`. |
 
 ### 3.5 Reglas de negocio (asientos)
@@ -199,7 +199,18 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   Solo canal fiscal. Los gastos bancarios del rechazo, si se cargan, van aparte como
   gasto. Darlo de baja como incobrable es una acción explícita aparte (pendiente).
   En la cuenta corriente del cliente el cheque de un recibo emitido vuelve como
-  movimiento "Cheque rechazado" (debe); el aging, por factura, no lo muestra.
+  movimiento "Cheque rechazado" (debe), y en el aging es un documento propio
+  (`v_aging_documents.document_type = 'rejected_check'`, `document_id` = el
+  cheque, `invoice_id` NULL) que envejece desde el día del rechazo;
+  `v_client_aging(_by_scope)` dicen cuánto de cada total es cheque rechazado
+  (`ars_/usd_rejected_checks_open`). Saldo abierto: `v_rejected_check_open`.
+- **Recibo que cancela un cheque rechazado:** una imputación con
+  `rejected_check_id` va a `receipt_rejected_check_allocations` (mismo cliente,
+  canal y moneda que el recibo de origen; nunca más de lo que queda abierto, con
+  el cheque bloqueado: `guard_receipt_rejected_check_allocation`). En el asiento
+  del recibo ese tramo, convertido a la cotización del recibo y redondeado una
+  vez, acredita `cheques_rechazados`; el resto, `clientes`. La imputación FIFO
+  automática solo toma comprobantes: el cheque se elige a mano.
 - **Backfill:** cada migración de auto-journal termina con un `DO $$` que emite los
   asientos faltantes de las filas ya existentes; `P0002` (rol sin cuenta) se traga
   como NOTICE para ser re-ejecutable tras asignar el rol. No hay script aparte.
@@ -247,8 +258,25 @@ transfer entre páginas), `createTransactionAction`
 (rechaza transfers y cuentas `checks/echeq`), `createTransferAction`,
 `updateTransactionAction` (solo header; `account/channel/kind` inmutables),
 `deleteTransactionAction` (`transactions:delete`, solo owner; cascade al par;
-AFTER DELETE borra el asiento). La tabla de `/transactions` edita y borra los
-movimientos manuales; los generados por un documento los rechaza la base.
+AFTER DELETE borra el asiento). La tabla de `/transactions` edita y borra solo
+los movimientos manuales: `v_transactions_tagged.source_document` dice qué
+documento es dueño de cada uno (`receipt`, `payment_order`, `invoice`,
+`issued_check`, `rejected_check`, `payroll`, `loan_installment`,
+`check_movement`, `account_opening_balance`; NULL = manual) y la UI esconde
+Editar/Borrar en esos; la base igual los rechaza.
+
+**Cheque propio cobrado (decisión 2026-10-31):** el asiento acredita el banco
+cuando el cheque se **cobra** (`emit_journal_for_issued_check_transition`), así
+que la caja también baja el banco en ese momento: `emitted → cashed` de un
+cheque **sin orden de pago** inserta, en la misma sentencia
+(`issued_check_cashed_outflow`), un egreso en `bank_account_id` por el importe,
+fechado en `cashed_at`, con `issued_check_id` (único). Ese movimiento no asienta
+(el builder lo saltea: el cobro ya lo asienta el cheque) y no se edita ni borra
+desde caja. Emitirlo no mueve plata; rechazarlo o anularlo tampoco. Un cheque
+**de una OP** sigue como antes: la plata sale del banco con el movimiento de la
+OP, a la fecha de la OP, y cobrarlo no agrega nada. Los cheques sin OP cobrados
+antes de este cambio no tienen egreso (no se rellena: puede que se haya cargado
+a mano). Sin canal el cobro se rechaza: el egreso necesita uno.
 
 **UI:** `/transactions` (título "Caja"), `TransactionForm` 3-way (income/expense/
 transfer), filtros sincronizados a URL, `useRealtimeInvalidate`.
@@ -316,7 +344,13 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   `usd_*` por separado (`usd_*` = DOL/USD; cualquier otra moneda cae en `ars_*`,
   la app solo emite PES y DOL). El total único (pantallas, dashboard, PDF, IA) es
   el equivalente en pesos al último dólar oficial (`lib/fx.ts`, `lib/aging.ts`),
-  o ninguno si hay USD y no hay cotización cargada.
+  o ninguno si hay USD y no hay cotización cargada. Clientes y proveedores
+  cuentan los días desde `fch_vto_pago` (o `fecha` si no tiene).
+- **Cuenta corriente por moneda:** `v_client_account_movements` /
+  `v_supplier_account_movements` traen `currency` (ARS/USD) por movimiento; las
+  acciones llevan un saldo corrido por moneda y devuelven `balances: { ARS, USD }`
+  (pantalla y export muestran pesos y dólares por separado, nunca una suma). El
+  saldo de apertura no tiene moneda: es en pesos.
 - **Validación pre-presentación advisoria** (no bloquea): banner ámbar con "N sin
   CAE" / "N sin desglose". El **export PDF no está gateado** por estas alertas.
 - **Export:** solo **PDF** (`@react-pdf`, A4 landscape), rutas
