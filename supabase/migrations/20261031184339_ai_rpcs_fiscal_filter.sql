@@ -15,12 +15,16 @@ SET LOCAL statement_timeout = '15min';
 --    p_channel_id with hint 'jouve_guard' instead of silently returning nothing.
 --    Same signature: create or replace.
 --
--- All of them stay SECURITY INVOKER (the caller's RLS applies).
+-- All of them stay SECURITY INVOKER (the caller's RLS applies). Dropping the
+-- old signatures is safe across the deploy: the new parameter has a default,
+-- so code from before this migration (named args, no p_is_fiscal) still
+-- resolves to the single new version.
 
 ------------------------------------------------------------------------------
 -- 1. AI aggregates
 ------------------------------------------------------------------------------
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_payroll_summary(text, text, text, uuid);
 
 -- Payroll totals per month (YYYY-MM) or per employee over [p_from_period,
@@ -113,6 +117,7 @@ as $$
     1;
 $$;
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_fleet_margin(date, date, text, integer);
 
 -- Margin over [p_from, p_to] grouped by trip, driver, vehicle or client, with
@@ -294,6 +299,7 @@ as $$
   limit greatest(1, least(p_limit, 500));
 $$;
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_client_sales_summary(date, date, uuid, integer);
 
 -- Per client over [p_from, p_to]: invoiced in ARS (emitted invoices and debit
@@ -428,6 +434,7 @@ as $$
   limit greatest(1, least(p_limit, 500));
 $$;
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_supplier_purchases_summary(date, date, uuid, uuid, integer);
 
 
@@ -553,6 +560,7 @@ as $$
   limit greatest(1, least(p_limit, 500));
 $$;
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_supplier_upcoming_dues(integer, uuid, integer);
 
 -- Open supplier documents due on or before today + p_days (overdue ones
@@ -624,6 +632,7 @@ as $$
   limit greatest(1, least(p_limit, 500));
 $$;
 
+-- squawk-ignore ban-drop-function
 drop function public.ai_supplier_price_evolution(date, date, text, uuid, uuid, text, integer);
 
 -- Monthly purchase evolution over [p_from, p_to]. p_group_by:
