@@ -13,16 +13,14 @@
 
 ------------------------------------------------------------------------------
 -- 1. Sales points (AFIP POS).
---    Mapping from the user's memory: 00003 jouve_fiscal · 00004 dz_fiscal.
---    POS 1 and 2 are the conventional "internal" PVs used by recibos /
+--    00003 is jouve_fiscal (DZ Instalaciones, POS 2 and 4, was retired on
+--    2026-10-31). POS 1 is the conventional "internal" PV used by recibos /
 --    OPs / comprobantes internos so the per-channel correlativo has a
 --    home.
 ------------------------------------------------------------------------------
 insert into public.sales_points (numero, channel_id, nickname, is_enabled) values
   (1,    'jouve_internal', 'Interno Jouve',           true),
-  (2,    'dz_internal',    'Interno DZ Instalaciones', true),
-  (3,    'jouve_fiscal',   'Jouve Fiscal',            true),
-  (4,    'dz_fiscal',      'DZ Instalaciones Fiscal',  true)
+  (3,    'jouve_fiscal',   'Jouve Fiscal',            true)
 on conflict (numero) do nothing;
 
 ------------------------------------------------------------------------------

@@ -6090,17 +6090,6 @@ export type Database = {
         }
         Returns: string
       }
-      dz_open_items: {
-        Args: never
-        Returns: {
-          amount: number
-          currency: string
-          detail: string
-          item_date: string
-          item_id: string
-          item_kind: string
-        }[]
-      }
       emit_caea_invoice: {
         Args: {
           p_afip_last: number

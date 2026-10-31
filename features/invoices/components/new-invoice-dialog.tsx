@@ -64,16 +64,8 @@ import { OriginPicker } from "./origin-picker";
 interface ChannelOption {
   id: string;
   name: string;
-  division: string; // 'jouve' | 'dz'
+  division: string;
   is_fiscal: boolean;
-}
-
-// Each division has a default Concepto AFIP code, derived from what the
-// division actually invoices. Jouve sells transport (services); DZ
-// Instalaciones sells equipment + installation (productos+servicios).
-function conceptoForDivision(division: string): 1 | 2 | 3 {
-  if (division === "dz") return CONCEPTO.PRODUCTOS_Y_SERVICIOS;
-  return CONCEPTO.SERVICIOS;
 }
 
 type Kind = "factura" | "nc" | "nd";
@@ -366,11 +358,10 @@ function NewInvoiceForm({
     [items],
   );
 
+  // Jouve sells transport: facturas are always Servicios.
   const concepto = isNote
     ? (originDetail?.concepto ?? CONCEPTO.SERVICIOS)
-    : currentChannel
-      ? conceptoForDivision(currentChannel.division)
-      : CONCEPTO.SERVICIOS;
+    : CONCEPTO.SERVICIOS;
   const isServiciosConcepto =
     concepto === CONCEPTO.SERVICIOS ||
     concepto === CONCEPTO.PRODUCTOS_Y_SERVICIOS;
@@ -497,8 +488,8 @@ function NewInvoiceForm({
         className="space-y-5"
       >
         {/* Tipo + Canal + Fecha. POS is resolved from the channel (1:1 mapping)
-            and Concepto from the division (Jouve→Servicios, DZ→Productos+
-            Servicios) so neither needs to live in the UI for facturas. NC/ND
+            and Concepto is always Servicios, so neither needs to live in the
+            UI for facturas. NC/ND
             inherit canal + POS + concepto from the origen invoice. */}
         <div className="grid gap-4 sm:grid-cols-[180px_1fr_180px]">
           <FormField

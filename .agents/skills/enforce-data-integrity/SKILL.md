@@ -32,8 +32,8 @@ invariants through every writer and every transition.**
   `number`: money rounds through `round2` (`lib/format.ts`), and es-AR input parses through
   `parseArAmount` in the same file. A new parser gets a table of ambiguous es-AR inputs
   (`1.234`, `1,5`, `-0,01`) with expected values.
-- **Four channels.** `invoicing_channels` holds `dz_fiscal`, `dz_internal`, `jouve_fiscal` and
-  `jouve_internal` (read via `lib/channels.ts`; scope filter in `lib/scope.ts`, where `null` means
+- **Two channels.** `invoicing_channels` holds `jouve_fiscal` and `jouve_internal` (DZ was
+  retired on 2026-10-31; read via `lib/channels.ts`; scope filter in `lib/scope.ts`, where `null` means
   "do not filter", which is not the same as an empty channel list). Only fiscal channels post
   asientos and enter the libro IVA (`is_channel_fiscal`,
   `supabase/migrations/20260516250000_journal_skip_internal_and_double_counting_fix.sql`), so cash

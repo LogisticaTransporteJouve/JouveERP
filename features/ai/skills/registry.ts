@@ -101,7 +101,7 @@ export const SKILLS: SkillDefinition[] = [
       "logistica jouve",
     ],
     content:
-      "DZ & Sons operates two divisions (DZ Instalaciones, Logística Jouve) × fiscal/internal channels. Cost centers let you allocate expenses and income by area to see profitability per division. When analyzing expenses, group by cost center whenever the user asks for profitability or results by area.",
+      "DZ & Sons operates Logística Jouve with a fiscal and an internal channel. Cost centers let you allocate expenses and income by area to see profitability per area. When analyzing expenses, group by cost center whenever the user asks for profitability or results by area.",
   },
 ];
 
