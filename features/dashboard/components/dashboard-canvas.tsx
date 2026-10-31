@@ -50,10 +50,13 @@ export function DashboardCanvas({
   initialLayout,
   defaultLayout,
   widgets,
+  toolbar,
 }: {
   initialLayout: DashboardLayout;
   defaultLayout: DashboardLayout;
   widgets: Partial<Record<WidgetId, ReactNode>>;
+  /** Shares the row with "Personalizar" while not editing. */
+  toolbar?: ReactNode;
 }) {
   const [layout, setLayout] = useState(initialLayout);
   const [savedLayout, setSavedLayout] = useState(initialLayout);
@@ -62,7 +65,9 @@ export function DashboardCanvas({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const availableIds = WIDGET_IDS.filter((id) => widgets[id] != null);
@@ -144,7 +149,7 @@ export function DashboardCanvas({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         {editing ? (
           <>
@@ -181,15 +186,19 @@ export function DashboardCanvas({
             </div>
           </>
         ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-muted-foreground"
-            onClick={() => setEditing(true)}
-          >
-            <Pencil className="size-3.5" />
-            Personalizar
-          </Button>
+          <>
+            {toolbar}
+            <Button
+              variant="outline"
+              size="icon"
+              className="ml-auto size-8"
+              aria-label="Personalizar dashboard"
+              title="Personalizar"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </>
         )}
       </div>
 
@@ -212,7 +221,10 @@ export function DashboardCanvas({
 
       {layout.length === 0 ? (
         <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
-          Dashboard vacío. {editing ? "Agregá widgets arriba." : "Personalizalo para agregar widgets."}
+          Dashboard vacío.{" "}
+          {editing
+            ? "Agregá widgets arriba."
+            : "Personalizalo para agregar widgets."}
         </div>
       ) : editing ? (
         <DndContext
@@ -224,7 +236,7 @@ export function DashboardCanvas({
             items={layout.map((i) => i.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-x-4 gap-y-8 lg:grid-cols-2">
               {layout.map((item, index) => (
                 <SortableWidget
                   key={item.id}
@@ -244,7 +256,7 @@ export function DashboardCanvas({
           </SortableContext>
         </DndContext>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-x-4 gap-y-8 lg:grid-cols-2">
           {layout.map((item) => (
             <div
               key={item.id}

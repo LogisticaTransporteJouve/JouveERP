@@ -23,6 +23,7 @@
     "eval:ai": "AI_EVALS_LIVE=1 vitest run features/ai/evals/routing.live.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:security": "RUN_SECURITY=1 vitest run tests/security",
     "test:scripts": "node --test scripts/*.test.mjs .github/scripts/*.test.mjs",
     "db:types:generate": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types-check.sh",

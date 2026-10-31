@@ -49,9 +49,9 @@ tu shell (en CI es un secret).
 
 `ci.yml` corre en cada PR (también en draft): gates de workflows y skills,
 palabras prohibidas, formato de los archivos cambiados, lint, typecheck, test,
-build, y el job `database` (migraciones desde cero, squawk, plpgsql_check,
-pgTAP, diff de tipos). `preview.yml` despliega en Vercel cuando el PR deja de
-ser draft.
+build, el job `e2e` (Playwright) y el job `database` (migraciones desde cero,
+squawk, plpgsql_check, pgTAP, diff de tipos, pentests por rol contra
+PostgREST). `preview.yml` despliega en Vercel cuando el PR deja de ser draft.
 
 ## Migraciones
 
@@ -63,9 +63,10 @@ ser draft.
 
 ## Deploy y rollback
 
-- Vercel publica `main` al mergear; las migraciones nuevas se aplican en el job
-  "Push migrations to production", que requiere aprobación manual. Aprobalo
-  apenas mergea el PR: hasta entonces el código corre contra el schema viejo y
-  tiene que tolerarlo.
-- Rollback de código: revert del PR (nuevo PR). Rollback de schema: migración
-  nueva que deshace el cambio; nunca borrar ni editar la aplicada.
+- Mergear a `main` no despliega. Producción se actualiza con **Actions → Promote
+  to production → Run workflow** (desde `main`): exige CI verde en ese commit,
+  pide aprobación (`production-gate`), aplica migraciones, despliega en
+  Vercel, sincroniza Inngest y hace un smoke test.
+- Rollback de código: correr el promote con un SHA anterior de `main`.
+  Rollback de schema: migración nueva que deshace el cambio; nunca borrar ni
+  editar la aplicada.

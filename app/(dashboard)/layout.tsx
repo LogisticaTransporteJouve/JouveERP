@@ -1,16 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppHeader } from "@/components/layout/app-header";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { DateRangeProvider } from "@/components/providers/date-range-provider";
 import { ScopeProvider } from "@/components/providers/scope-provider";
 import { ScopeSelector } from "@/components/scope-selector";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BrowserNotifier } from "@/features/notifications/components/browser-notifier";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
@@ -62,7 +59,7 @@ export default async function DashboardLayout({
 
   const cookieStore = await cookies();
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
-  const defaultOpen = sidebarCookie === "true";
+  const defaultOpen = sidebarCookie !== "false";
 
   // Read scope from the cookie to avoid the "all channels" flash
   // during the client's first render.
@@ -87,7 +84,10 @@ export default async function DashboardLayout({
   return (
     <ScopeProvider channels={channels} initialScope={initialScope}>
       <DateRangeProvider>
-        <SidebarProvider defaultOpen={defaultOpen}>
+        <SidebarProvider
+          defaultOpen={defaultOpen}
+          className="h-svh min-h-0 overflow-hidden"
+        >
           <AppSidebar
             userEmail={ctx.email}
             userAccess={ctx.access}
@@ -98,18 +98,20 @@ export default async function DashboardLayout({
               avatarColor: ctx.profile.avatarColor,
             }}
           />
-          <SidebarInset className="min-w-0">
-            <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-              <SidebarTrigger className="-ml-1" />
-              <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
-                <GlobalSearchTrigger />
-                <ScopeSelector />
-                <NotificationBell currentUserId={ctx.userId} />
-              </div>
-            </header>
-            <main className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
+          {/* The canvas card scrolls on its own, under its sticky header. */}
+          <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
+            <AppHeader
+              actions={
+                <>
+                  <GlobalSearchTrigger />
+                  <ScopeSelector />
+                  <NotificationBell currentUserId={ctx.userId} />
+                </>
+              }
+            />
+            <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
               {children}
-            </main>
+            </div>
             <MobileTabBar userAccess={ctx.access} />
             <BrowserNotifier currentUserId={ctx.userId} />
           </SidebarInset>

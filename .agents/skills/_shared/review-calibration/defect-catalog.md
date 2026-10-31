@@ -144,7 +144,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[migrations — ordered, append-only, typed]**
 - Pattern: timestamp ≤ the max on `main`; editing a merged migration; RLS missing from the creating migration; RPC/table shape changed without regenerating `lib/db/database.types.ts`; missing `set_updated_at()` trigger on a table with `updated_at`; unflagged large-table lock risk; a destructive change without the `[DESTRUCTIVE]` PR-title prefix.
 - Frequency: occasional (seed).
-- Where: `supabase/migrations/`, `lib/db/database.types.ts`, `ci.yml` jobs `database` and `deploy-migrations` (applies on merge to `main`).
+- Where: `supabase/migrations/`, `lib/db/database.types.ts`, `ci.yml` job `database`, `promote-to-production.yml` job `supabase` (applies on promotion).
 - Example: two open PRs with the same timestamp prefix; a fix applied by editing an already-deployed migration (never re-applied in prod); a new column used in WHERE with no index.
 - Fix: `YYYYMMDDHHMMSS_<scope>.sql` > max on `main`; a NEW migration for every change; RLS + policies in the same file; regenerate and commit types; index new filter/FK columns; flag lock/rewrite risk in the PR body. See `/new-migration`.
 - source: CLAUDE.md; `/new-migration`.
@@ -251,7 +251,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[deploy / CI wiring / torn-deploy]**
 - Pattern: a new Inngest function not registered in `app/api/inngest/route.ts`; code that needs a migration merged before the migration is applied; an env var added locally but not in `.env.*.example` / Vercel; a cron without `TZ=America/Argentina/Buenos_Aires`.
 - Frequency: occasional, real incidents.
-- Where: `lib/inngest/functions/*`, `app/api/inngest/route.ts`, `.env.local.example`, `.env.production.example`, `ci.yml` (`deploy-migrations`).
+- Where: `lib/inngest/functions/*`, `app/api/inngest/route.ts`, `.env.local.example`, `.env.production.example`, `promote-to-production.yml`.
 - Fix: register every function; land migrations with or before the code that needs them (they apply on merge to `main`); add every new variable NAME to the examples; verify the running deployment, not just the merge.
 - source: `/new-inngest-fn`; adv-review.
 
@@ -264,7 +264,7 @@ class below is only the look-here index; the rule lives in that guide.
 - source: adv-review Rules.
 
 **[UI conventions — Dialog, monochrome, forms]**
-- Pattern: CRUD in a `Sheet` instead of a centered `Dialog`; a brand/semantic color where the app is 100% monochrome; `<input type="date">` instead of `<DatePicker>`; reinvented primitives instead of shadcn/ui; an item outside its sidebar group; a `useSuspenseQuery` with no RSC prefetch upstream.
+- Pattern: CRUD in a `Sheet` instead of a centered `Dialog`; a color other than the `primary` token (Jouve indigo) — the rest of the app is neutral; `<input type="date">` instead of `<DatePicker>`; reinvented primitives instead of shadcn/ui; an item outside its sidebar group; a `useSuspenseQuery` with no RSC prefetch upstream.
 - Frequency: occasional.
 - Where: `features/*/components/**`, `app/(dashboard)/**/page.tsx`.
 - Fix: `Dialog` for create/edit; tokens only (danger = copy + icon, not red); `<DatePicker>` with ISO `YYYY-MM-DD`; shadcn primitives; prefetch + `Hydrate` for suspense queries.

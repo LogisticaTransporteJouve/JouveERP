@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { listHubUploadersAction } from "@/features/files/actions/hub-actions";
 import { FilesHub } from "@/features/files/components/files-hub";
-import { hubFilesQuery } from "@/features/files/hooks/use-files-hub";
+import { hubFilesQuery } from "@/features/files/lib/hub-query";
 import { filesKeys } from "@/features/files/lib/files-keys";
 import { hubScope } from "@/features/files/lib/hub";
 import { HubFiltersSchema, type HubFilters } from "@/features/files/schema";

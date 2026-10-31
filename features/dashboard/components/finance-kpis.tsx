@@ -1,7 +1,12 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import {
+  StatGrid,
+  StatNote,
+  StatTile,
+  StatValue,
+} from "@/components/ui/stat-tile";
 import { formatCurrencyAmounts } from "@/lib/aging";
 import {
   formatArgentineDate,
@@ -24,7 +29,7 @@ export function FinanceKpis({
 
   return (
     <section className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         {treasury && (
           <KpiTile
             href="/treasury"
@@ -70,7 +75,7 @@ export function FinanceKpis({
             partyPlural="proveedores"
           />
         )}
-      </div>
+      </StatGrid>
 
       {treasury && treasury.checks_now > 0 && (
         <Link
@@ -150,59 +155,34 @@ function KpiTile({
   deltaCurrency?: "ARS" | "USD";
 }) {
   return (
-    <Link
-      href={href}
-      className="rounded-lg border bg-card p-4 hover:bg-accent/50"
-    >
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-2xl font-semibold">{value}</p>
-      {detail && (
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {detail}
-        </p>
+    <StatTile href={href} label={label}>
+      <StatValue>{value}</StatValue>
+      {delta != null && deltaCurrency && (
+        <Delta delta={delta} currency={deltaCurrency} />
       )}
-      <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-        <span className="truncate text-muted-foreground">{subtitle}</span>
-        {delta != null && deltaCurrency && (
-          <DeltaBadge delta={delta} currency={deltaCurrency} />
-        )}
-      </div>
-    </Link>
+      {detail && <StatNote className="truncate">{detail}</StatNote>}
+      <StatNote className="truncate">{subtitle}</StatNote>
+    </StatTile>
   );
 }
 
-function DeltaBadge({
+// Monochrome: the direction reads from the arrow and the sign, not a color.
+function Delta({
   delta,
   currency,
 }: {
   delta: number;
   currency: "ARS" | "USD";
 }) {
-  if (Math.abs(delta) < 0.01) {
-    return (
-      <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
-        <Minus className="size-3" />
-        igual
-      </Badge>
-    );
-  }
+  const flat = Math.abs(delta) < 0.01;
   const up = delta > 0;
+  const Icon = flat ? Minus : up ? ArrowUpRight : ArrowDownRight;
   return (
-    <Badge
-      variant="secondary"
-      className={`shrink-0 gap-1 font-mono text-[10px] ${
-        up
-          ? "bg-muted text-muted-foreground dark:text-muted-foreground"
-          : "bg-muted text-foreground dark:text-foreground"
-      }`}
-    >
-      {up ? (
-        <ArrowUpRight className="size-3" />
-      ) : (
-        <ArrowDownRight className="size-3" />
-      )}
-      {up ? "+" : ""}
-      {formatMoney(delta, currency)}
-    </Badge>
+    <p className="flex items-center gap-1 text-xs font-medium tabular-nums">
+      <Icon aria-hidden className="size-3.5" />
+      {flat
+        ? "Igual que el cierre del mes pasado"
+        : `${up ? "+" : ""}${formatMoney(delta, currency)} vs. cierre del mes pasado`}
+    </p>
   );
 }

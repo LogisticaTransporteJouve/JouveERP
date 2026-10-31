@@ -12,5 +12,5 @@ alwaysApply: false
 - Server actions: `"use server"` → `requireUserContext()` → `userCan(ctx.access, "<perm>")` → Zod parse → `getServiceClient()` → `ActionResult<T>`. Never `select *`.
 - Client: `runAction(() => xAction(...))` inside `useSuspenseQuery` / `useSuspenseInfiniteQuery`; query keys in `features/<f>/lib/<f>-keys.ts`; mutations invalidate every affected feature's keys.
 - No `any`, no `as`: narrow with type guards or Zod.
-- UI: CRUD in a centered `Dialog` (never `Sheet`), 100% monochrome (danger = copy + icon), `lucide-react`, `<DatePicker>` for dates.
+- UI: CRUD in a centered `Dialog` (never `Sheet`), neutral grays plus one hue: `primary` = Jouve brand indigo (primary buttons, active nav, focus); danger = copy + icon, `lucide-react`, `<DatePicker>` for dates.
 - User-facing copy in Spanish from Argentina; server logs through `logger` (`lib/logger.ts`), never `console.*`.

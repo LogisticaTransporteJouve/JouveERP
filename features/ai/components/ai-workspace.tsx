@@ -108,7 +108,7 @@ export function AiWorkspace({
   );
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col gap-4">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100dvh-8rem)] gap-4">
       <header className="flex items-center gap-2">
         <Button
           variant="ghost"

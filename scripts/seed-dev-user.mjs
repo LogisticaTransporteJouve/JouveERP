@@ -7,14 +7,16 @@
 //   pnpm seed:dev otro@jouve.test Pass123   # custom email + password
 
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = join(HERE, "..", ".env.local");
 
+// CI has no .env.local: the variables come from the environment.
 function loadEnv() {
+  if (!existsSync(ENV_PATH)) return process.env;
   const raw = readFileSync(ENV_PATH, "utf-8");
   const env = {};
   for (const line of raw.split("\n")) {
@@ -41,7 +43,7 @@ const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
   console.error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
+    "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local or the environment",
   );
   process.exit(1);
 }

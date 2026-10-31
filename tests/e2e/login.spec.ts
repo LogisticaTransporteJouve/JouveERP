@@ -9,12 +9,23 @@ test.describe("authenticated dashboard", () => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
     // Sidebar shows the user's email in the footer.
-    await expect(page.getByText(process.env.E2E_USER_EMAIL ?? "tomas@jouve.test")).toBeVisible();
+    await expect(
+      page
+        .getByText(process.env.E2E_USER_EMAIL ?? "tomas@jouve.test")
+        // A user without a name shows the email as the name too.
+        .first(),
+    ).toBeVisible();
   });
 
   test("logout returns to /auth/login", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: /cerrar sesión/i }).click();
+    // Sign-out lives in the sidebar's user menu.
+    await page
+      .getByRole("button", {
+        name: process.env.E2E_USER_EMAIL ?? "tomas@jouve.test",
+      })
+      .click();
+    await page.getByRole("menuitem", { name: /cerrar sesión/i }).click();
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });

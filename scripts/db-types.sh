@@ -6,6 +6,8 @@ set -euo pipefail
 
 OUTPUT="${1:-lib/db/database.types.ts}"
 SUPABASE="${SUPABASE_BIN:-supabase}"
+# A telemetry call that fails writes its error into the generated output.
+export SUPABASE_TELEMETRY_DISABLED="${SUPABASE_TELEMETRY_DISABLED:-1}"
 TMP="$(mktemp "$OUTPUT.XXXXXX")"
 ERR="$(mktemp)"
 trap 'rm -f "$TMP" "$ERR"' EXIT

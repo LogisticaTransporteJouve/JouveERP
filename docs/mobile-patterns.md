@@ -301,7 +301,7 @@ cambios visuales en todas.
 
 ### Fuera de alcance de este plan
 - Fix del permiso de `/fleet-reports` (hallazgo de seguridad menor — hacer en
-  PR aparte, 1 línea en `components/app-sidebar.tsx` + gate en la página).
+  PR aparte, 1 línea en `components/layout/nav-items.ts` + gate en la página).
 
 ---
 

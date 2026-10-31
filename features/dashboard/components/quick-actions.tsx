@@ -60,7 +60,13 @@ export function QuickActions({ access }: { access: Access }) {
   return (
     <div className="flex flex-wrap gap-2">
       {allowed.map((action) => (
-        <Button key={action.href} variant="outline" size="sm" asChild>
+        <Button
+          key={action.href}
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          asChild
+        >
           <Link href={action.href}>
             <action.icon className="size-4" />
             {action.label}

@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/section";
 import { barPath, niceStep } from "@/lib/chart-geometry";
 import { formatMoney } from "@/lib/format";
 
@@ -68,17 +69,106 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
   const selectedMonth = mobileMonths[selected] ?? null;
 
   return (
-    <section className="rounded-lg border bg-card">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b p-4">
-        <div>
-          <h2 className="text-sm font-medium">Flujo de caja</h2>
-          <p className="text-xs text-muted-foreground">
-            Neto mensual en ARS
-            {data.usdRate !== null ? " (USD al TC oficial)" : ""} · saldo hoy{" "}
-            <span className="font-mono">{formatMoney(data.cashToday)}</span>
-          </p>
+    <Section
+      title="Flujo de caja"
+      icon={TrendingUp}
+      description={
+        <>
+          Neto mensual en ARS
+          {data.usdRate !== null ? " (USD al TC oficial)" : ""} · saldo hoy{" "}
+          <span className="font-mono">{formatMoney(data.cashToday)}</span>
+        </>
+      }
+      actions={
+        <Link
+          href="/treasury/cash-flow"
+          className="text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Ver detalle
+        </Link>
+      }
+    >
+      <div className="rounded-lg border bg-card">
+        <div className="relative p-2 text-foreground max-md:hidden">
+          <ChartSvg
+            months={data.months}
+            vbW={720}
+            vbH={230}
+            padL={56}
+            active={hovered}
+            interaction="hover"
+            onActiveChange={setHovered}
+          />
+          {hovered != null && data.months[hovered] && (
+            <FloatingTooltip
+              month={data.months[hovered]}
+              leftPct={
+                ((56 +
+                  (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
+                  720) *
+                100
+              }
+            />
+          )}
         </div>
-        <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+
+        <div className="p-2 text-foreground md:hidden">
+          <ChartSvg
+            months={mobileMonths}
+            vbW={360}
+            vbH={200}
+            padL={44}
+            active={selected}
+            interaction="tap"
+            onActiveChange={(i) => {
+              if (i != null) setSelected(i);
+            }}
+          />
+          {selectedMonth && (
+            <div className="mx-2 mb-1 rounded-md border bg-muted/30 p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium">
+                  {monthLabel(selectedMonth.month)}
+                </span>
+                <Badge
+                  variant={selectedMonth.realized ? "secondary" : "outline"}
+                >
+                  {selectedMonth.realized ? "Realizado" : "Proyectado"}
+                </Badge>
+              </div>
+              <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <TooltipRow
+                  label="Entradas"
+                  value={formatMoney(selectedMonth.inTotal)}
+                />
+                <TooltipRow
+                  label="Salidas"
+                  value={formatMoney(selectedMonth.outTotal)}
+                />
+                <TooltipRow
+                  label="Neto"
+                  value={formatMoney(selectedMonth.net)}
+                />
+                {selectedMonth.closing != null && (
+                  <TooltipRow
+                    label="Saldo proy."
+                    value={formatMoney(selectedMonth.closing)}
+                  />
+                )}
+              </dl>
+            </div>
+          )}
+        </div>
+
+        {data.deficitMonth && (
+          <div className="flex items-center gap-2 border-t p-3 text-xs text-destructive">
+            <AlertTriangle className="size-4 shrink-0" />
+            Proyección en negativo desde {monthLabel(
+              data.deficitMonth,
+            )} (mínimo {formatMoney(data.lowestClosing ?? 0)}).
+          </div>
+        )}
+        <div className="flex items-center gap-3 border-t px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <svg width="12" height="12" aria-hidden="true">
               <rect
@@ -108,90 +198,9 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
             </svg>
             Proyectado
           </span>
-          <Link
-            href="/treasury/cash-flow"
-            className="hover:text-foreground hover:underline"
-          >
-            Ver detalle
-          </Link>
         </div>
       </div>
-
-      <div className="relative p-2 text-foreground max-md:hidden">
-        <ChartSvg
-          months={data.months}
-          vbW={720}
-          vbH={230}
-          padL={56}
-          active={hovered}
-          interaction="hover"
-          onActiveChange={setHovered}
-        />
-        {hovered != null && data.months[hovered] && (
-          <FloatingTooltip
-            month={data.months[hovered]}
-            leftPct={
-              ((56 +
-                (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
-                720) *
-              100
-            }
-          />
-        )}
-      </div>
-
-      <div className="p-2 text-foreground md:hidden">
-        <ChartSvg
-          months={mobileMonths}
-          vbW={360}
-          vbH={200}
-          padL={44}
-          active={selected}
-          interaction="tap"
-          onActiveChange={(i) => {
-            if (i != null) setSelected(i);
-          }}
-        />
-        {selectedMonth && (
-          <div className="mx-2 mb-1 rounded-md border bg-muted/30 p-2 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium">
-                {monthLabel(selectedMonth.month)}
-              </span>
-              <Badge variant={selectedMonth.realized ? "secondary" : "outline"}>
-                {selectedMonth.realized ? "Realizado" : "Proyectado"}
-              </Badge>
-            </div>
-            <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5">
-              <TooltipRow
-                label="Entradas"
-                value={formatMoney(selectedMonth.inTotal)}
-              />
-              <TooltipRow
-                label="Salidas"
-                value={formatMoney(selectedMonth.outTotal)}
-              />
-              <TooltipRow label="Neto" value={formatMoney(selectedMonth.net)} />
-              {selectedMonth.closing != null && (
-                <TooltipRow
-                  label="Saldo proy."
-                  value={formatMoney(selectedMonth.closing)}
-                />
-              )}
-            </dl>
-          </div>
-        )}
-      </div>
-
-      {data.deficitMonth && (
-        <div className="flex items-center gap-2 border-t p-3 text-xs text-destructive">
-          <AlertTriangle className="size-4 shrink-0" />
-          Proyección en negativo desde {monthLabel(
-            data.deficitMonth,
-          )} (mínimo {formatMoney(data.lowestClosing ?? 0)}).
-        </div>
-      )}
-    </section>
+    </Section>
   );
 }
 
