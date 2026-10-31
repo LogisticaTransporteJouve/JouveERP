@@ -23,11 +23,9 @@ import {
 } from "@/features/receipts/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
+import { divisionLabel } from "@/lib/pdf/emisor";
 
-import {
-  ReceiptDocument,
-  type ReceiptTemplateData,
-} from "./receipt-template";
+import { ReceiptDocument, type ReceiptTemplateData } from "./receipt-template";
 
 const IVA_LABEL: Record<IvaCondition, string> = {
   responsable_inscripto: "Responsable Inscripto",
@@ -86,9 +84,7 @@ export async function buildReceiptTemplateData(
   const [linesRes, retentionsRes, allocsRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
-      .select(
-        "amount, reference, account_id, account:accounts(name, type)",
-      )
+      .select("amount, reference, account_id, account:accounts(name, type)")
       .eq("receipt_id", receiptId)
       .order("created_at"),
     supabase
@@ -165,12 +161,7 @@ export async function buildReceiptTemplateData(
       legal_name: emisorLegalName,
       cuit: emisorCuit,
       address: emisorAddress,
-      division_label:
-        channel?.division === "jouve"
-          ? "Logística Jouve"
-          : channel?.division === "dz"
-            ? "DZ Instalaciones"
-            : channel?.name ?? "",
+      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
     },
     receptor: {
       legal_name: client.legal_name,
