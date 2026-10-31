@@ -25,6 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ListGroupHeader,
+  ListGroupToggle,
+  ListTotalsBar,
+} from "@/components/list-totals";
+import { PeriodFilter } from "@/components/period-filter";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
@@ -37,16 +43,38 @@ import {
   formatArgentineDate,
   formatNumber2,
 } from "@/lib/format";
+import { bucketOf, type ListGroup } from "@/lib/list-period";
+import { grandTotal, totalsByBucket } from "@/lib/list-totals";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
+import {
+  ClientFilter,
+  type ClientFilterValue,
+} from "@/features/clients/components/client-filter";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
-import { useInvoicesSearchInfinite } from "../hooks/use-invoices";
+import {
+  useInvoiceListTotals,
+  useInvoicesSearchInfinite,
+} from "../hooks/use-invoices";
+import {
+  invoiceListFilters,
+  invoiceListParamsToUrl,
+  parsePuntoVenta,
+  type InvoiceListFilters,
+  type InvoiceListParams,
+} from "../lib/invoice-list-filters";
 import { invoicesKeys } from "../lib/invoices-keys";
 import {
+  INVOICE_KINDS,
+  INVOICE_KIND_LABEL,
   INVOICE_STATUSES,
   INVOICE_STATUS_LABEL,
+  LETTERS,
   formatInvoiceNumero,
+  isInvoiceKind,
+  isInvoiceLetter,
+  isInvoiceStatus,
   type InvoiceStatus,
 } from "../schema";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
@@ -62,7 +90,10 @@ function formatPdfFilename(row: InvoiceListItem): string {
   return buildPdfFilename(numero, row.client_legal_name);
 }
 
-const ANY_STATUS = "__any__";
+const ANY = "__any__";
+
+const TOTALS_NOTE = "Las NC restan; anulados y fallidos no suman.";
+const NOUN = ["comprobante", "comprobantes"] as const;
 
 const STATUS_TONE: Record<InvoiceStatus, string> = {
   draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
@@ -190,34 +221,46 @@ function buildInvoiceColumns(
 export function ComprobantesTable({
   actorAccess,
   channels,
-  initialStatus,
-  initialQuery,
+  initialParams,
+  initialClient,
 }: {
   actorAccess: Access;
   channels: ChannelOption[];
-  initialStatus: InvoiceStatus | null;
-  initialQuery: string;
+  initialParams: InvoiceListParams;
+  initialClient: ClientFilterValue | null;
 }) {
-  const [statusInput, setStatusInput] = useState<string>(
-    initialStatus ?? ANY_STATUS,
+  const [params, setParams] = useState<InvoiceListParams>(initialParams);
+  const [client, setClient] = useState<ClientFilterValue | null>(initialClient);
+  const [queryInput, setQueryInput] = useState(initialParams.query);
+  const [pvInput, setPvInput] = useState(
+    initialParams.puntoVenta === null ? "" : String(initialParams.puntoVenta),
   );
-  const [queryInput, setQueryInput] = useState(initialQuery);
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
+  const debouncedPv = useDebouncedValue(pvInput.trim(), 250);
   const setUrlFilters = useUrlFilter();
 
-  const status =
-    statusInput === ANY_STATUS ? null : (statusInput as InvoiceStatus);
-
   const isFiscal = useScopeIsFiscal();
-  const deferredStatus = useDeferredValue(status);
-  const deferredQuery = useDeferredValue(debouncedQuery);
+  const current = useMemo<InvoiceListParams>(
+    () => ({
+      ...params,
+      query: debouncedQuery,
+      puntoVenta: parsePuntoVenta(debouncedPv),
+      clientId: client?.id ?? null,
+    }),
+    [params, debouncedQuery, debouncedPv, client],
+  );
+  const filters = useDeferredValue(
+    useMemo(() => invoiceListFilters(current, isFiscal), [current, isFiscal]),
+  );
+  const group = useDeferredValue(current.group);
 
   const canIssue = userCan(actorAccess, "invoices:issue");
   const canSendEmail = userCan(actorAccess, "email:send");
 
   // Realtime: any change to comprobantes invalidates the list (every
-  // filter combo) and the aging summary (since unpaid invoices drive it).
+  // filter combo), its totals and the aging summary (since unpaid invoices
+  // drive it).
   useRealtimeInvalidate([
     {
       table: "invoices",
@@ -226,11 +269,12 @@ export function ComprobantesTable({
   ]);
 
   useEffect(() => {
-    setUrlFilters({
-      status: status ?? null,
-      q: debouncedQuery || null,
-    });
-  }, [status, debouncedQuery, setUrlFilters]);
+    setUrlFilters(invoiceListParamsToUrl(current));
+  }, [current, setUrlFilters]);
+
+  function update(patch: Partial<InvoiceListParams>) {
+    setParams((prev) => ({ ...prev, ...patch }));
+  }
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
@@ -239,26 +283,17 @@ export function ComprobantesTable({
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={statusInput} onValueChange={setStatusInput}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY_STATUS}>Cualquier estado</SelectItem>
-            {INVOICE_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {INVOICE_STATUS_LABEL[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Input
-          placeholder="Buscar por cliente o factura"
+          placeholder="Buscar por cliente o número"
           value={queryInput}
           onChange={onSearchChange}
-          className="max-w-md flex-1"
+          className="w-full sm:max-w-xs"
         />
+        <PeriodFilter
+          value={params.period}
+          onChange={(period) => update({ period })}
+        />
+        <ClientFilter value={client} onChange={setClient} />
 
         <div className="ml-auto flex items-center gap-2">
           <ExportButton resource="invoices" />
@@ -266,12 +301,85 @@ export function ComprobantesTable({
         </div>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Select
+          value={params.kind ?? ANY}
+          onValueChange={(v) => update({ kind: isInvoiceKind(v) ? v : null })}
+        >
+          <SelectTrigger className="w-[170px]" aria-label="Tipo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY}>Todos los tipos</SelectItem>
+            {INVOICE_KINDS.map((k) => (
+              <SelectItem key={k} value={k}>
+                {INVOICE_KIND_LABEL[k]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={params.letter ?? ANY}
+          onValueChange={(v) =>
+            update({ letter: isInvoiceLetter(v) ? v : null })
+          }
+        >
+          <SelectTrigger className="w-[160px]" aria-label="Letra">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY}>Todas las letras</SelectItem>
+            {LETTERS.map((l) => (
+              <SelectItem key={l} value={l}>
+                Letra {l}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          inputMode="numeric"
+          placeholder="Punto de venta"
+          aria-label="Punto de venta"
+          value={pvInput}
+          onChange={(e) => setPvInput(e.target.value.replace(/\D/g, ""))}
+          maxLength={5}
+          className="w-[140px]"
+        />
+
+        <Select
+          value={params.status ?? ANY}
+          onValueChange={(v) =>
+            update({ status: isInvoiceStatus(v) ? v : null })
+          }
+        >
+          <SelectTrigger className="w-[170px]" aria-label="Estado">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY}>Cualquier estado</SelectItem>
+            {INVOICE_STATUSES.map((st) => (
+              <SelectItem key={st} value={st}>
+                {INVOICE_STATUS_LABEL[st]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="ml-auto">
+          <ListGroupToggle
+            value={params.group}
+            onChange={(next) => update({ group: next })}
+          />
+        </div>
+      </div>
+
       <div className="mt-4">
         <Suspense fallback={<ComprobantesTableSkeleton />}>
           <ComprobantesTableRows
-            isFiscal={isFiscal}
-            status={deferredStatus}
-            query={deferredQuery}
+            filters={filters}
+            group={group}
             canSendEmail={canSendEmail}
           />
         </Suspense>
@@ -281,18 +389,17 @@ export function ComprobantesTable({
 }
 
 function ComprobantesTableRows({
-  isFiscal,
-  status,
-  query,
+  filters,
+  group,
   canSendEmail,
 }: {
-  isFiscal: boolean | null;
-  status: InvoiceStatus | null;
-  query: string;
+  filters: InvoiceListFilters;
+  group: ListGroup | null;
   canSendEmail: boolean;
 }) {
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInvoicesSearchInfinite({ isFiscal, status, query });
+    useInvoicesSearchInfinite(filters);
+  const { data: totalRows } = useInvoiceListTotals(filters, group);
 
   const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
@@ -305,24 +412,44 @@ function ComprobantesTableRows({
     () => buildInvoiceColumns(canSendEmail),
     [canSendEmail],
   );
+  const total = useMemo(() => grandTotal(totalRows), [totalRows]);
+  const byBucket = useMemo(() => totalsByBucket(totalRows), [totalRows]);
 
   return (
-    <DataTable
-      columns={columns}
-      data={items}
-      getRowId={(row) => row.id}
-      emptyMessage="No hay comprobantes que coincidan."
-      footer={
-        hasNextPage ? (
-          <div
-            ref={sentinelRef}
-            className="py-4 text-center text-xs text-muted-foreground"
-          >
-            Cargando más…
-          </div>
-        ) : null
-      }
-    />
+    <div className="space-y-3">
+      <ListTotalsBar summary={total} noun={NOUN} note={TOTALS_NOTE} />
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(row) => row.id}
+        emptyMessage="No hay comprobantes que coincidan."
+        groupBy={
+          group
+            ? {
+                key: (row) => bucketOf(row.fecha, group),
+                header: (bucket) => (
+                  <ListGroupHeader
+                    bucket={bucket}
+                    group={group}
+                    summary={byBucket.get(bucket)}
+                    noun={NOUN}
+                  />
+                ),
+              }
+            : undefined
+        }
+        footer={
+          hasNextPage ? (
+            <div
+              ref={sentinelRef}
+              className="py-4 text-center text-xs text-muted-foreground"
+            >
+              Cargando más…
+            </div>
+          ) : null
+        }
+      />
+    </div>
   );
 }
 

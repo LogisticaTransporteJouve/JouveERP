@@ -1,16 +1,20 @@
 import { redirect } from "next/navigation";
 
 import { ArcaSyncButton } from "@/features/afip-admin/components/arca-sync-button";
-import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
+import {
+  getInvoiceListTotalsAction,
+  listInvoicesAction,
+} from "@/features/invoices/actions/invoices-actions";
 import { ComprobantesTable } from "@/features/invoices/components/invoices-table";
+import {
+  invoiceListActionInput,
+  invoiceListFilters,
+  parseInvoiceListParams,
+} from "@/features/invoices/lib/invoice-list-filters";
 import {
   INVOICES_PAGE_SIZE,
   invoicesKeys,
 } from "@/features/invoices/lib/invoices-keys";
-import {
-  INVOICE_STATUSES,
-  type InvoiceStatus,
-} from "@/features/invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -22,42 +26,40 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
-function asStatus(value: string | undefined): InvoiceStatus | null {
-  if (!value) return null;
-  return (INVOICE_STATUSES as readonly string[]).includes(value)
-    ? (value as InvoiceStatus)
-    : null;
-}
-
 export default async function ComprobantesPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    status?: string;
-    q?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "invoices:read")) {
     redirect("/dashboard");
   }
 
-  const params = await searchParams;
+  const params = parseInvoiceListParams(await searchParams);
   const supabase = getServiceClient();
-  const { data: channels } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_fiscal, is_active")
-    .eq("is_active", true)
-    .order("name");
+  const [{ data: channels }, { data: client }] = await Promise.all([
+    supabase
+      .from("invoicing_channels")
+      .select("id, name, is_fiscal, is_active")
+      .eq("is_active", true)
+      .order("name"),
+    params.clientId
+      ? supabase
+          .from("clients")
+          .select("id, legal_name")
+          .eq("id", params.clientId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   const visibleChannels = (channels ?? []).filter(
     (c) => !isFiscalOnly(ctx.access) || c.is_fiscal,
   );
 
-  const filters = {
-    isFiscal: isFiscalFor(await readScopeCookie()),
-    status: asStatus(params.status),
-    query: params.q ?? "",
-  };
+  const filters = invoiceListFilters(
+    params,
+    isFiscalFor(await readScopeCookie()),
+  );
 
   const dehydratedState = await prefetchQueries([
     {
@@ -65,18 +67,20 @@ export default async function ComprobantesPage({
       queryKey: invoicesKeys.searchInfinite(filters),
       queryFn: ({ pageParam }: { pageParam: number }) =>
         runAction(() =>
-          listInvoicesAction({
-            isFiscal: filters.isFiscal,
-            status: filters.status,
-            query: filters.query.length > 0 ? filters.query : null,
-            offset: pageParam,
-            limit: INVOICES_PAGE_SIZE,
-          }),
+          listInvoicesAction(
+            invoiceListActionInput(filters, pageParam, INVOICES_PAGE_SIZE),
+          ),
         ),
       initialPageParam: 0,
     },
+    {
+      queryKey: invoicesKeys.totals(filters, params.group),
+      queryFn: () =>
+        runAction(() =>
+          getInvoiceListTotalsAction({ ...filters, group: params.group }),
+        ),
+    },
   ]);
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -98,8 +102,8 @@ export default async function ComprobantesPage({
             name: c.name,
             is_fiscal: c.is_fiscal,
           }))}
-          initialStatus={filters.status}
-          initialQuery={filters.query}
+          initialParams={params}
+          initialClient={client ?? null}
         />
       </Hydrate>
     </div>

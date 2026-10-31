@@ -4,8 +4,10 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  useSuspenseInfiniteQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
@@ -15,7 +17,7 @@ import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { getMutationId } from "@/lib/query/get-mutation-id";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import type { ListGroup } from "@/lib/list-period";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -23,21 +25,47 @@ import {
   createReceiptAction,
   getNextReceiptNumeroAction,
   getReceiptByIdAction,
+  getReceiptListTotalsAction,
   getReceiptUsdRateAction,
   listPendingComprobantesForClientAction,
   listReceiptsAction,
   updateReceiptAction,
 } from "../actions/receipts-actions";
-import { RECEIPTS_LIST_LIMIT, receiptsKeys } from "../lib/receipts-keys";
+import {
+  receiptListActionInput,
+  type ReceiptListFilters,
+} from "../lib/receipt-list-filters";
+import { RECEIPTS_PAGE_SIZE, receiptsKeys } from "../lib/receipts-keys";
 
-export function useReceiptsList() {
-  const isFiscal = useScopeIsFiscal();
-  return useSuspenseQuery({
-    queryKey: receiptsKeys.list(isFiscal),
-    queryFn: () =>
+export function useReceiptsSearchInfinite(filters: ReceiptListFilters) {
+  const query = useSuspenseInfiniteQuery({
+    queryKey: receiptsKeys.searchInfinite(filters),
+    queryFn: ({ pageParam }) =>
       runAction(() =>
-        listReceiptsAction({ limit: RECEIPTS_LIST_LIMIT, isFiscal }),
+        listReceiptsAction(
+          receiptListActionInput(filters, pageParam, RECEIPTS_PAGE_SIZE),
+        ),
       ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset ?? undefined,
+  });
+
+  const items = useMemo(
+    () => query.data.pages.flatMap((page) => page.items),
+    [query.data],
+  );
+
+  return { ...query, items };
+}
+
+export function useReceiptListTotals(
+  filters: ReceiptListFilters,
+  group: ListGroup | null,
+) {
+  return useSuspenseQuery({
+    queryKey: receiptsKeys.totals(filters, group),
+    queryFn: () =>
+      runAction(() => getReceiptListTotalsAction({ ...filters, group })),
   });
 }
 

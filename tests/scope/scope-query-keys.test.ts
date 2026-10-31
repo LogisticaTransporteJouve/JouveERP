@@ -2,6 +2,10 @@ import { hashKey } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
+import {
+  invoiceListFilters,
+  parseInvoiceListParams,
+} from "@/features/invoices/lib/invoice-list-filters";
 import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import {
@@ -26,19 +30,15 @@ describe.each(FISCAL_FILTERS)("scope %s", (scope) => {
   it("invoices list", () => {
     expect(
       hashKey(
-        invoicesKeys.searchInfinite({
-          isFiscal: fromCookie,
-          status: null,
-          query: "",
-        }),
+        invoicesKeys.searchInfinite(
+          invoiceListFilters(parseInvoiceListParams({}), fromCookie),
+        ),
       ),
     ).toBe(
       hashKey(
-        invoicesKeys.searchInfinite({
-          query: "",
-          status: null,
-          isFiscal: fromProvider,
-        }),
+        invoicesKeys.searchInfinite(
+          invoiceListFilters(parseInvoiceListParams({}), fromProvider),
+        ),
       ),
     );
   });

@@ -9,12 +9,14 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import type { ListGroup } from "@/lib/list-period";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
   cancelInvoiceAction,
   getInvoiceDetailAction,
+  getInvoiceListTotalsAction,
   getInvoiceStatusAction,
   issueFiscalInvoiceAction,
   listInvoicesAction,
@@ -24,6 +26,10 @@ import {
   type InvoiceStatusSnapshot,
 } from "../actions/invoices-actions";
 import { INVOICE_EFFECT_KEYS } from "../lib/invoice-effect-keys";
+import {
+  invoiceListActionInput,
+  type InvoiceListFilters,
+} from "../lib/invoice-list-filters";
 import { INVOICES_PAGE_SIZE, invoicesKeys } from "../lib/invoices-keys";
 import type { InvoiceStatus } from "../schema";
 
@@ -31,22 +37,14 @@ export { INVOICES_PAGE_SIZE };
 
 const TERMINAL_STATES: InvoiceStatus[] = ["emitted", "failed", "cancelled"];
 
-export function useInvoicesSearchInfinite(filters: {
-  isFiscal: boolean | null;
-  status: InvoiceStatus | null;
-  query: string;
-}) {
+export function useInvoicesSearchInfinite(filters: InvoiceListFilters) {
   const query = useSuspenseInfiniteQuery({
     queryKey: invoicesKeys.searchInfinite(filters),
     queryFn: ({ pageParam }) =>
       runAction(() =>
-        listInvoicesAction({
-          isFiscal: filters.isFiscal,
-          status: filters.status,
-          query: filters.query,
-          offset: pageParam,
-          limit: INVOICES_PAGE_SIZE,
-        }),
+        listInvoicesAction(
+          invoiceListActionInput(filters, pageParam, INVOICES_PAGE_SIZE),
+        ),
       ),
     initialPageParam: 0,
     getNextPageParam: (lastPage: {
@@ -61,6 +59,17 @@ export function useInvoicesSearchInfinite(filters: {
   );
 
   return { ...query, items };
+}
+
+export function useInvoiceListTotals(
+  filters: InvoiceListFilters,
+  group: ListGroup | null,
+) {
+  return useSuspenseQuery({
+    queryKey: invoicesKeys.totals(filters, group),
+    queryFn: () =>
+      runAction(() => getInvoiceListTotalsAction({ ...filters, group })),
+  });
 }
 
 export function useInvoiceDetail(id: string) {

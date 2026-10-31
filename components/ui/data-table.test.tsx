@@ -146,4 +146,28 @@ describe("DataTable", () => {
     expect(screen.getByText("Padre+")).toBeDefined();
     expect(screen.getByText("-Hijo")).toBeDefined();
   });
+
+  it("renders one header row before each run of rows sharing a group key", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[
+          { id: "1", name: "a1" },
+          { id: "2", name: "a2" },
+          { id: "3", name: "b1" },
+        ]}
+        getRowId={(r) => r.id}
+        groupBy={{
+          key: (r) => r.name.slice(0, 1),
+          header: (key) => `Grupo ${key}`,
+        }}
+      />,
+    );
+    expect(screen.getAllByText(/^Grupo /).map((el) => el.textContent)).toEqual([
+      "Grupo a",
+      "Grupo b",
+    ]);
+    const rows = screen.getAllByRole("row").map((r) => r.textContent);
+    expect(rows.slice(1)).toEqual(["Grupo a", "a1•", "a2•", "Grupo b", "b1•"]);
+  });
 });

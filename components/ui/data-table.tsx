@@ -116,6 +116,12 @@ export type DataTableProps<T extends RowData> = {
   footer?: React.ReactNode;
   /** Wrapper override. `null` renders the bare table (no card border). */
   wrapperClassName?: string | null;
+  /** Renders a full-width header row before each run of rows sharing a key.
+   *  Rows must already arrive ordered by that key. */
+  groupBy?: {
+    key: (row: T) => string;
+    header: (key: string) => React.ReactNode;
+  };
 };
 
 /**
@@ -139,6 +145,7 @@ export function DataTable<T extends RowData>({
   onExpandedChange,
   footer,
   wrapperClassName,
+  groupBy,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = React.useState<SortingState>(
     defaultSorting ?? [],
@@ -250,7 +257,15 @@ export function DataTable<T extends RowData>({
             </TableCell>
           </TableRow>
         ) : (
-          rows.map((row) => {
+          rows.map((row, index) => {
+            const prevRow = rows[index - 1];
+            const groupKey = groupBy?.key(row.original);
+            const groupHeader =
+              groupBy &&
+              groupKey !== undefined &&
+              (!prevRow || groupBy.key(prevRow.original) !== groupKey)
+                ? groupBy.header(groupKey)
+                : null;
             const detailCells = mobileMode
               ? row
                   .getAllCells()
@@ -263,6 +278,16 @@ export function DataTable<T extends RowData>({
             const isDetailOpen = mobileExpanded[row.id] === true;
             return (
               <React.Fragment key={row.id}>
+                {groupHeader !== null && (
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableCell
+                      colSpan={columns.length + (mobileMode ? 1 : 0)}
+                      className="py-2 whitespace-normal"
+                    >
+                      {groupHeader}
+                    </TableCell>
+                  </TableRow>
+                )}
                 <TableRow
                   className={cn(onRowClick && "cursor-pointer")}
                   onClick={
