@@ -222,6 +222,18 @@ describe("getClientSalesSummary", () => {
       to: "2026-01-31",
     });
     expect(res.ok && res.meta.partial).toBe(false);
+    expect(res.ok && res.summary).toMatch(/^Todos los canales: /);
+  });
+
+  it("forwards the scope and labels the figures with it", async () => {
+    vi.mocked(getClientSalesSummaryAction).mockResolvedValue({
+      ok: true,
+      data: [],
+    });
+    const input = { from: "2026-05-01", to: "2026-05-31", scope: "fiscal" };
+    const res = await getClientSalesSummary.execute(owner, input);
+    expect(getClientSalesSummaryAction).toHaveBeenCalledWith(input);
+    expect(res.ok && res.summary).toMatch(/^Solo fiscal: /);
   });
 });
 
@@ -260,5 +272,37 @@ describe("getPayrollSummary", () => {
       totals: { total_a_pagar: 2200, paid: 1900, saldo: 300 },
     });
     expect(res.meta.note).toContain("netos");
+  });
+
+  it("takes the balance from SQL when a scope narrows what was paid", async () => {
+    const scoped: PayrollSummaryRow = {
+      group_key: "2026-02",
+      label: "2026-02",
+      periods: 1,
+      employees: 3,
+      sueldo_neto: 1200,
+      extras: 0,
+      vacaciones: 0,
+      viaticos: 0,
+      deudas: 0,
+      telefono: 0,
+      total_a_pagar: 1200,
+      paid: 400,
+      saldo: 300,
+    };
+    vi.mocked(getPayrollSummaryAction).mockResolvedValue({
+      ok: true,
+      data: [scoped],
+    });
+    const res = await getPayrollSummary.execute(
+      { userId: "u1", access: resolveAccess(["finance"]) },
+      { fromPeriod: "2026-02", toPeriod: "2026-02", scope: "fiscal" },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toMatchObject({
+      totals: { total_a_pagar: 1200, paid: 400, saldo: 300 },
+    });
+    expect(res.summary).toContain("pagado (Solo fiscal)");
   });
 });

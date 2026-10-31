@@ -4,6 +4,8 @@
 
 import { z } from "zod";
 
+import { FISCAL_FILTERS } from "@/lib/scope";
+
 /** Standard UUID v4 (what gen_random_uuid returns in Postgres). */
 export const UuidSchema = z.string().uuid("ID inválido.");
 
@@ -24,6 +26,16 @@ export const NotesSchema = z
   .max(2000, "Máx 2000 caracteres.")
   .nullable()
   .optional();
+
+/** The scope a read takes, the same three values as the header selector.
+ *  Absent = "all". The text doubles as the assistant's tool parameter doc. */
+export const ScopeInputSchema = z
+  .enum(FISCAL_FILTERS)
+  .nullish()
+  .describe(
+    "Scope: 'fiscal' (fiscal channels only: billing, VAT, anything tax), " +
+      "'internal' (internal channels only) or 'all' (every channel, default).",
+  );
 
 /** Non-negative amount (opening balances, totals). */
 export const NonNegativeAmountSchema = z

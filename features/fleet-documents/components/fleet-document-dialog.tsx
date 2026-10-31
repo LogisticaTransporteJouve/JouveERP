@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -59,8 +59,7 @@ function toDefaults(doc?: FleetDocument): FormValues {
   const ownerKind: "vehicle" | "driver" = doc?.driver_id ? "driver" : "vehicle";
   return {
     owner_kind: ownerKind,
-    owner_id:
-      (ownerKind === "driver" ? doc?.driver_id : doc?.vehicle_id) ?? "",
+    owner_id: (ownerKind === "driver" ? doc?.driver_id : doc?.vehicle_id) ?? "",
     kind: doc?.kind ?? "vtv",
     number: doc?.number ?? "",
     issued_at: doc?.issued_at ?? "",
@@ -98,7 +97,7 @@ export function FleetDocumentDialog({
     if (open) form.reset(toDefaults(doc));
   }, [open, doc, form]);
 
-  const ownerKind = form.watch("owner_kind");
+  const ownerKind = useWatch({ control: form.control, name: "owner_kind" });
 
   function onSubmit(values: FormValues) {
     const owner =

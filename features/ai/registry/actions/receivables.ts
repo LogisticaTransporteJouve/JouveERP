@@ -4,10 +4,11 @@ import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 
 import { CLIENT_AGING_PERMISSIONS } from "@/lib/auth/permissions";
 import type { FiscalFilter } from "@/lib/scope";
+import { ScopeInputSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import { type AiRunResult, agingResult, errResult } from "../result";
-import { ScopeInputSchema, readScope } from "../scope";
+import { readScope } from "../scope";
 
 /** Wraps the existing read action; gating (clients + invoices + receipts) and
  *  RLS are inherited from the action — the tool adds no new data access. */

@@ -27,8 +27,8 @@ export function weeklyReads(now: Date): WeeklyRead[] {
     },
     {
       action: "getClientSalesSummary",
-      label: "Ventas y cobranzas de la semana",
-      input: { from: lastWeekFrom, to: lastWeekTo, limit: 5 },
+      label: "Ventas y cobranzas fiscales de la semana",
+      input: { from: lastWeekFrom, to: lastWeekTo, limit: 5, scope: "fiscal" },
     },
     {
       action: "getFleetMargin",
@@ -74,6 +74,7 @@ export function renderWeeklyFacts(
 
 export const WEEKLY_SUMMARY_RULES = `Escribí el resumen semanal del CFO para el lunes: markdown, máximo 250 palabras.
 - Solo usá las cifras de "Datos de la semana"; no inventes ni recalcules números. Si un dato dice PARCIAL o no disponible, decilo.
+- Cada cifra empieza con su alcance ("Solo fiscal", "Todos los canales", "Caja real"): mantenelo al citarla. Las ventas son solo fiscales; no las sumes con cifras de otro alcance.
 - Estructura: 3 a 5 viñetas con lo más importante (caja, cobranzas, pagos que vencen, ventas, flota, sueldos, documentos), y una línea final "A mirar esta semana:" con 1 a 3 puntos.
 - No recomiendes decisiones: señalá datos y riesgos.`;
 

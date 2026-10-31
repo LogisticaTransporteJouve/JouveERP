@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
-import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
+import {
+  IsoDateSchema,
+  ScopeInputSchema,
+  UuidSchema,
+} from "@/lib/validation/common";
 
 type Fn = Database["public"]["Functions"];
 
@@ -31,6 +35,7 @@ export const SupplierPurchasesSummaryInputSchema = z
     categoryId: UuidSchema.nullish().describe(
       "UUID de una categoría de proveedor (opcional).",
     ),
+    scope: ScopeInputSchema,
     limit: limit(500, 50),
   })
   .refine(
@@ -47,6 +52,7 @@ export const SupplierUpcomingDuesInputSchema = z.object({
     .nullish()
     .describe("Ventana en días desde hoy (default 30). Incluye lo vencido."),
   supplierId: UuidSchema.nullish().describe("UUID de un proveedor (opcional)."),
+  scope: ScopeInputSchema,
   limit: limit(500, 100),
 });
 
@@ -74,6 +80,7 @@ export const SupplierPriceEvolutionInputSchema = z
       .max(100)
       .nullish()
       .describe("Texto contenido en la descripción del ítem (opcional)."),
+    scope: ScopeInputSchema,
     limit: limit(1000, 300),
   })
   .refine(

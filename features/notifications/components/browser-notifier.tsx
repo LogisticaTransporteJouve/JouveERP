@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -34,6 +35,7 @@ const TITLE_BY_TYPE: Record<string, string> = {
 
 export function BrowserNotifier({ currentUserId }: Props) {
   const lastFiredRef = useRef<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -73,7 +75,7 @@ export function BrowserNotifier({ currentUserId }: Props) {
             window.focus();
             const channelId = payload.metadata?.channel_id;
             if (channelId) {
-              window.location.href = `/chat/${channelId}`;
+              router.push(`/chat/${channelId}`);
             }
             notif.close();
           };
@@ -89,7 +91,7 @@ export function BrowserNotifier({ currentUserId }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId]);
+  }, [currentUserId, router]);
 
   return null;
 }

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -202,14 +202,14 @@ function NewInvoiceForm({
     },
   });
 
-  const kind = form.watch("kind");
-  const channelId = form.watch("channelId");
-  const puntoVenta = form.watch("puntoVenta");
-  const fecha = form.watch("fecha");
-  const origin = form.watch("origin");
-  const client = form.watch("client");
-  const items = form.watch("items");
-  const motivo = form.watch("motivo");
+  const kind = useWatch({ control: form.control, name: "kind" });
+  const channelId = useWatch({ control: form.control, name: "channelId" });
+  const puntoVenta = useWatch({ control: form.control, name: "puntoVenta" });
+  const fecha = useWatch({ control: form.control, name: "fecha" });
+  const origin = useWatch({ control: form.control, name: "origin" });
+  const client = useWatch({ control: form.control, name: "client" });
+  const items = useWatch({ control: form.control, name: "items" });
+  const motivo = useWatch({ control: form.control, name: "motivo" });
 
   const isNote = kind !== "factura";
   const { data: originDetail } = useInvoiceDetailOnDemand(

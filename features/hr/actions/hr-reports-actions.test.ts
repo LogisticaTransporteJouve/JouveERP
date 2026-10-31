@@ -51,6 +51,19 @@ describe("payroll aggregates", () => {
     });
   });
 
+  it("maps the scope to p_is_fiscal", async () => {
+    roles = ["finance"];
+    await getPayrollSummaryAction({
+      fromPeriod: "2026-01",
+      toPeriod: "2026-03",
+      scope: "internal",
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "ai_payroll_summary",
+      expect.objectContaining({ p_is_fiscal: false }),
+    );
+  });
+
   it("rejects an inverted period range", async () => {
     roles = ["finance"];
     const res = await getPayrollSummaryAction({

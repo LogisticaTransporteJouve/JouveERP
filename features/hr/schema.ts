@@ -78,15 +78,6 @@ const hireDateRequired = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de ingreso requerida.");
 
-const terminationDateNullable = z
-  .union([
-    z.literal(""),
-    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
-  ])
-  .transform((v) => (v === "" ? null : v))
-  .nullable()
-  .optional();
-
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const baseEmployeeFields = {

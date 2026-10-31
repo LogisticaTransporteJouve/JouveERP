@@ -20,6 +20,7 @@ import {
   okResult,
   reachedCap,
 } from "../result";
+import { readScope } from "../scope";
 
 // Fleet read tools. Each wraps an existing read action, inheriting its
 // `userCan` gate (trips/vehicles/fuel/maintenance/fleet_documents :read) + RLS,
@@ -206,15 +207,16 @@ export const getFleetMargin = defineAiAction({
     "shipments",
   ],
   description:
-    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por cliente reparte cada viaje según el flete de sus cargas.",
+    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por cliente reparte cada viaje según el flete de sus cargas. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
   input: FleetMarginInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getFleetMarginAction(input);
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const groups = first?.total_groups ?? 0;
     return okResult(
-      `Margen ${input.from}→${input.to} por ${input.groupBy ?? "vehicle"}: ${groups} grupos · ` +
+      `${label}: margen ${input.from}→${input.to} por ${input.groupBy ?? "vehicle"}: ${groups} grupos · ` +
         `ingresos ${money(first?.total_revenue ?? 0)} · neto ${money(first?.total_net ?? 0)}` +
         (groups > res.data.length ? ` (se muestran ${res.data.length}).` : "."),
       { rows: res.data },

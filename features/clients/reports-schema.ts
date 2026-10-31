@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
-import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
+import {
+  IsoDateSchema,
+  ScopeInputSchema,
+  UuidSchema,
+} from "@/lib/validation/common";
 
 // Input of the per-client sales/collections read. The `.describe()` texts
 // double as the assistant's tool parameter docs.
@@ -11,6 +15,7 @@ export const ClientSalesSummaryInputSchema = z
     from: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
     to: IsoDateSchema.describe("Fecha hasta, YYYY-MM-DD (inclusive)."),
     clientId: UuidSchema.nullish().describe("UUID de un cliente (opcional)."),
+    scope: ScopeInputSchema,
     limit: z
       .number()
       .int()

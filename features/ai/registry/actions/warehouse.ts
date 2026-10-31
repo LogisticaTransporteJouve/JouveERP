@@ -8,6 +8,7 @@ import {
 } from "@/features/storage-billing/actions/billing-actions";
 import { listStorageTariffsAction } from "@/features/storage-tariffs/actions/storage-tariffs-actions";
 import { listWarehousesAction } from "@/features/warehouses/actions/warehouses-actions";
+import { SCOPE_LABEL } from "@/lib/scope";
 import { IsoDateSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -101,7 +102,7 @@ export const getStorageBilling = defineAiAction({
   sideEffect: "read",
   sources: ["pallets", "storage_tariffs", "clients"],
   description:
-    "Facturación de almacenaje calculada para un rango de fechas: por cliente pallets y cargo, total de almacenaje y movimientos, y pallets sin tarifa.",
+    "Facturación de almacenaje calculada para un rango de fechas: por cliente pallets y cargo, total de almacenaje y movimientos, y pallets sin tarifa. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
   input: z
     .object({
       periodStart: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
@@ -113,7 +114,7 @@ export const getStorageBilling = defineAiAction({
     if (!res.ok) return errResult(res.error);
     const d = res.data;
     return okResult(
-      `Almacenaje ${input.periodStart}→${input.periodEnd}: ${money(d.total)} ` +
+      `${SCOPE_LABEL.all} (sin canal hasta facturar): almacenaje ${input.periodStart}→${input.periodEnd}: ${money(d.total)} ` +
         `(almacenaje ${money(d.storage_total)} + movimientos ${money(d.handling_total)}) · ` +
         `${d.byClient.length} clientes · ${d.pallets_without_tariff} pallets sin tarifa.`,
       {
@@ -125,7 +126,10 @@ export const getStorageBilling = defineAiAction({
         },
         pallets_without_tariff: d.pallets_without_tariff,
       },
-      { currency: "ARS" },
+      {
+        currency: "ARS",
+        note: "El canal (fiscal o interno) se elige al facturar la liquidación; este cálculo no lo tiene.",
+      },
     );
   },
 });

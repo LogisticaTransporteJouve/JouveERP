@@ -17,7 +17,8 @@ import { isImage, isPdf } from "@/lib/files/preview";
 // opens a PDF preview. Same pattern as features/invoices/components/
 // pdf-viewer-dialog.tsx.
 const PdfPreviewInner = dynamic(
-  () => import("./pdf-preview-inner").then((m) => ({ default: m.PdfPreviewInner })),
+  () =>
+    import("./pdf-preview-inner").then((m) => ({ default: m.PdfPreviewInner })),
   {
     ssr: false,
     loading: () => (
@@ -83,6 +84,9 @@ function PreviewContent({
 
   if (isImage(mimeType)) {
     return (
+      // A short-lived signed storage URL of unknown size: next/image would
+      // need remotePatterns and fixed dimensions, and gains nothing here.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt={filename}

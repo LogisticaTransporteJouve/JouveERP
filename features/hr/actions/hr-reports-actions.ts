@@ -2,6 +2,7 @@
 
 import { gatedRead } from "@/lib/actions/gated-read";
 import type { ActionResult } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
 
 import {
   DateRangeInputSchema,
@@ -40,6 +41,7 @@ export async function getPayrollSummaryAction(
         p_to_period: v.toPeriod,
         p_group_by: v.groupBy ?? "month",
         p_employee_id: v.employeeId ?? undefined,
+        p_is_fiscal: isFiscalFor(v.scope ?? "all") ?? undefined,
       }),
   });
 }

@@ -18,6 +18,7 @@ import {
 
 import { SUPPLIER_AGING_PERMISSIONS } from "@/lib/auth/permissions";
 import type { FiscalFilter } from "@/lib/scope";
+import { ScopeInputSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import {
@@ -29,7 +30,7 @@ import {
   reachedCap,
   totalsByCurrency,
 } from "../result";
-import { ScopeInputSchema, readScope } from "../scope";
+import { readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`purchase_invoices:read` / `suppliers:read` / `payment_orders:read`) + RLS.
@@ -214,15 +215,16 @@ export const getSupplierPurchasesSummary = defineAiAction({
     "v_supplier_aging_documents",
   ],
   description:
-    "Ranking de proveedores en un rango de fechas: comprado en ARS (total y neto, NC restan), pagado por moneda, deuda abierta y vencida actual y próximo vencimiento, con totales. Filtrable por proveedor o categoría.",
+    "Ranking de proveedores en un rango de fechas: comprado en ARS (total y neto, NC restan), pagado por moneda, deuda abierta y vencida actual y próximo vencimiento, con totales. Filtrable por proveedor o categoría. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: SupplierPurchasesSummaryInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getSupplierPurchasesSummaryAction(input);
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const suppliers = first?.total_suppliers ?? 0;
     return okResult(
-      `Proveedores ${input.from}→${input.to}: ${suppliers} · comprado ${money(
+      `${label}: proveedores ${input.from}→${input.to}: ${suppliers} · comprado ${money(
         first?.total_purchased_ars ?? 0,
       )} · deuda abierta ARS ${money(first?.total_open_ars ?? 0)}` +
         (suppliers > res.data.length
@@ -253,16 +255,17 @@ export const getSupplierUpcomingDues = defineAiAction({
     "suppliers",
   ],
   description:
-    "Facturas de proveedores con saldo que vencen en los próximos N días (incluye las ya vencidas), de la más próxima a la más lejana. Vencimiento: fecha de vto. o fecha + plazo del proveedor.",
+    "Facturas de proveedores con saldo que vencen en los próximos N días (incluye las ya vencidas), de la más próxima a la más lejana. Vencimiento: fecha de vto. o fecha + plazo del proveedor. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: SupplierUpcomingDuesInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getSupplierUpcomingDuesAction(input);
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const total = first?.total_documents ?? 0;
     const overdue = res.data.filter((r) => r.days_to_due < 0).length;
     return okResult(
-      `${total} comprobantes a pagar en ${input.days ?? 30} días (${overdue} ya vencidos en la lista) · ARS ${money(
+      `${label}: ${total} comprobantes a pagar en ${input.days ?? 30} días (${overdue} ya vencidos en la lista) · ARS ${money(
         first?.total_open_ars ?? 0,
       )}` +
         (total > res.data.length ? ` (se muestran ${res.data.length}).` : "."),
@@ -283,14 +286,15 @@ export const getSupplierPriceEvolution = defineAiAction({
     "purchase_invoice_items",
   ],
   description:
-    "Evolución mensual de compras en ARS: por proveedor o por categoría (neto mensual), o por ítem (precio unitario promedio y cantidad; requiere proveedor, categoría o texto del ítem).",
+    "Evolución mensual de compras en ARS: por proveedor o por categoría (neto mensual), o por ítem (precio unitario promedio y cantidad; requiere proveedor, categoría o texto del ítem). Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: SupplierPriceEvolutionInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getSupplierPriceEvolutionAction(input);
     if (!res.ok) return errResult(res.error);
     const limit = input.limit ?? 300;
     return okResult(
-      `${res.data.length} filas mes×${input.groupBy ?? "supplier"} entre ${input.from} y ${input.to}.`,
+      `${label}: ${res.data.length} filas mes×${input.groupBy ?? "supplier"} entre ${input.from} y ${input.to}.`,
       { rows: res.data },
       { currency: "ARS", partial: reachedCap(res.data.length, limit) },
     );

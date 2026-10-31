@@ -71,10 +71,14 @@ export function MessageThread({
       const showDayHeader =
         !prev || !isSameDay(prev.created_at, message.created_at);
       const showAuthor =
-        showDayHeader
-        || !prev
-        || prev.sender_id !== message.sender_id
-        || !withinMinutes(prev.created_at, message.created_at, AUTHOR_GROUP_MINUTES);
+        showDayHeader ||
+        !prev ||
+        prev.sender_id !== message.sender_id ||
+        !withinMinutes(
+          prev.created_at,
+          message.created_at,
+          AUTHOR_GROUP_MINUTES,
+        );
       if (showDayHeader) {
         out.push({
           kind: "day_header",
@@ -93,6 +97,9 @@ export function MessageThread({
   }, [messages]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // TanStack Virtual returns a mutable instance the React Compiler cannot
+  // memoize; skipping compilation of this component is the intended outcome.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,

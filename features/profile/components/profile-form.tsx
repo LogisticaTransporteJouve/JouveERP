@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -18,7 +18,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/user-avatar";
-import { AVATAR_COLORS, getAvatarBgClass, type AvatarColor } from "@/lib/avatars";
+import {
+  AVATAR_COLORS,
+  getAvatarBgClass,
+  type AvatarColor,
+} from "@/lib/avatars";
 import { cn } from "@/lib/utils";
 
 import {
@@ -58,9 +62,9 @@ export function ProfileForm() {
     },
   });
 
-  const firstName = form.watch("firstName");
-  const lastName = form.watch("lastName");
-  const color = form.watch("color");
+  const firstName = useWatch({ control: form.control, name: "firstName" });
+  const lastName = useWatch({ control: form.control, name: "lastName" });
+  const color = useWatch({ control: form.control, name: "color" });
 
   async function onSubmit(values: FormValues) {
     try {
@@ -233,10 +237,7 @@ export function ProfileForm() {
         </section>
 
         <div className="flex justify-end">
-          <Button
-            type="submit"
-            disabled={isSaving || !form.formState.isDirty}
-          >
+          <Button type="submit" disabled={isSaving || !form.formState.isDirty}>
             {isSaving ? "Guardando…" : "Guardar cambios"}
           </Button>
         </div>

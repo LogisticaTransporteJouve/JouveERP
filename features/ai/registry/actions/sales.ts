@@ -7,6 +7,7 @@ import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions
 import { listReceiptsAction } from "@/features/receipts/actions/receipts-actions";
 
 import type { FiscalFilter } from "@/lib/scope";
+import { ScopeInputSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import {
@@ -16,7 +17,7 @@ import {
   okResult,
   totalsByCurrency,
 } from "../result";
-import { ScopeInputSchema, readScope } from "../scope";
+import { readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`invoices:read` / `receipts:read` / `clients:read`) + RLS, so the tool
@@ -177,15 +178,16 @@ export const getClientSalesSummary = defineAiAction({
     "v_aging_documents",
   ],
   description:
-    "Ranking de clientes en un rango de fechas: facturado en ARS (facturas y ND menos NC, a la cotización de cada comprobante), cobrado por moneda, días promedio de cobro, deuda abierta y vencida actual, con totales de todos los clientes. Opcional un cliente.",
+    "Ranking de clientes en un rango de fechas: facturado en ARS (facturas y ND menos NC, a la cotización de cada comprobante), cobrado por moneda, días promedio de cobro, deuda abierta y vencida actual, con totales de todos los clientes. Opcional un cliente. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: ClientSalesSummaryInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getClientSalesSummaryAction(input);
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const clients = first?.total_clients ?? 0;
     return okResult(
-      `Clientes ${input.from}→${input.to}: ${clients} con movimiento · facturado ${money(
+      `${label}: clientes ${input.from}→${input.to}: ${clients} con movimiento · facturado ${money(
         first?.total_invoiced_ars ?? 0,
       )} · cobrado ARS ${money(first?.total_collected_ars ?? 0)} · deuda abierta ARS ${money(
         first?.total_open_ars ?? 0,

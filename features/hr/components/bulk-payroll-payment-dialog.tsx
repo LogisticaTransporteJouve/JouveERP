@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -126,7 +126,9 @@ export function BulkPayrollPaymentDialog({
   }, [open]);
 
   const selectedCount = selected.size;
-  const amountEach = Number(form.watch("amount_each") || 0);
+  const amountEach = Number(
+    useWatch({ control: form.control, name: "amount_each" }) || 0,
+  );
   const totalAmount = selectedCount * amountEach;
 
   function toggleEmployee(entryId: string, checked: boolean) {
