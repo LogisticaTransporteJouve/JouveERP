@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Info,
   RefreshCw,
+  Settings,
   ShieldAlert,
   Triangle,
 } from "lucide-react";
@@ -18,17 +19,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { AfipDiagnostics, DiagnosticEntry } from "@/lib/afip/diagnostics";
 
 import type { SalesPointRow } from "../actions/afip-admin-actions";
-import { useAfipAdminPanel, useSyncAfipPos } from "../hooks/use-afip-admin";
+import {
+  useAfipAdminPanel,
+  useInvoicingChannels,
+  useSyncAfipPos,
+} from "../hooks/use-afip-admin";
 import { afipAdminKeys } from "../lib/afip-admin-keys";
 import { ConfigurePosDialog } from "./configure-pos-dialog";
-
-type ChannelLabels = Record<string, string>;
 
 export function SalesPointsPanel() {
   const { data, isFetching } = useAfipAdminPanel();
   const syncMut = useSyncAfipPos();
   const qc = useQueryClient();
-  const [channelLabels, setChannelLabels] = useState<ChannelLabels>({});
 
   const cuit = data.cuit;
   const diagnostics = data.diagnostics;
@@ -49,12 +51,6 @@ export function SalesPointsPanel() {
     });
   }
 
-  function onPosUpdated() {
-    // The mutation hook in ConfigurePosDialog handles invalidation; this
-    // exists for parity with the previous prop signature so the dialog can
-    // forget about the panel.
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -71,9 +67,7 @@ export function SalesPointsPanel() {
               {diagnostics.env === "prod" ? "Producción" : "Homologación"}
             </Badge>
           )}
-          {cuit && (
-            <span className="font-mono text-xs">CUIT {cuit}</span>
-          )}
+          {cuit && <span className="font-mono text-xs">CUIT {cuit}</span>}
         </div>
         <div className="flex gap-2">
           <Button
@@ -90,7 +84,9 @@ export function SalesPointsPanel() {
             onClick={sync}
             disabled={isFetching || syncMut.isPending}
           >
-            <RefreshCw className={syncMut.isPending ? "animate-spin" : undefined} />
+            <RefreshCw
+              className={syncMut.isPending ? "animate-spin" : undefined}
+            />
             Sincronizar con AFIP
           </Button>
         </div>
@@ -98,12 +94,7 @@ export function SalesPointsPanel() {
 
       {diagnostics && <DiagnosticsSection diagnostics={diagnostics} />}
 
-      <SalesPointsSection
-        salesPoints={salesPoints}
-        channelLabels={channelLabels}
-        onChannelLabels={setChannelLabels}
-        onPosUpdated={onPosUpdated}
-      />
+      <SalesPointsSection salesPoints={salesPoints} />
     </div>
   );
 }
@@ -152,17 +143,14 @@ function DiagnosticRow({ entry }: { entry: DiagnosticEntry }) {
   );
 }
 
-function SalesPointsSection({
-  salesPoints,
-  channelLabels,
-  onChannelLabels,
-  onPosUpdated,
-}: {
-  salesPoints: SalesPointRow[];
-  channelLabels: ChannelLabels;
-  onChannelLabels: (labels: ChannelLabels) => void;
-  onPosUpdated: (row: SalesPointRow) => void;
-}) {
+function SalesPointsSection({ salesPoints }: { salesPoints: SalesPointRow[] }) {
+  const { data: channels } = useInvoicingChannels();
+  const channelLabels = useMemo(
+    () => Object.fromEntries(channels.map((c) => [c.id, c.name])),
+    [channels],
+  );
+  const [editing, setEditing] = useState<SalesPointRow | null>(null);
+
   const columns = useMemo<ColumnDef<SalesPointRow>[]>(
     () => [
       {
@@ -191,7 +179,8 @@ function SalesPointsSection({
         header: "Canal",
         cell: ({ row }) => {
           const channelLabel = row.original.channel_id
-            ? (channelLabels[row.original.channel_id] ?? row.original.channel_id)
+            ? (channelLabels[row.original.channel_id] ??
+              row.original.channel_id)
             : null;
           return (
             <span className={cn(!row.original.is_enabled && "opacity-60")}>
@@ -244,15 +233,18 @@ function SalesPointsSection({
         enableSorting: false,
         meta: { headerClassName: "w-32", align: "right" },
         cell: ({ row }) => (
-          <ConfigurePosDialog
-            point={row.original}
-            onChannelLabels={onChannelLabels}
-            onUpdated={onPosUpdated}
-          />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Configurar"
+            onClick={() => setEditing(row.original)}
+          >
+            <Settings className="size-4" />
+          </Button>
         ),
       },
     ],
-    [channelLabels, onChannelLabels, onPosUpdated],
+    [channelLabels],
   );
 
   return (
@@ -284,6 +276,7 @@ function SalesPointsSection({
         wrapperClassName={null}
         emptyMessage="Todavía no sincronizamos con AFIP. Tocá “Sincronizar con AFIP” para descubrir los puntos disponibles."
       />
+      <ConfigurePosDialog point={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }
