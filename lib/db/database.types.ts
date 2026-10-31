@@ -1252,13 +1252,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "client_opening_balance_allocations_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: true
@@ -4509,13 +4502,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
-          },
-          {
-            foreignKeyName: "supplier_opening_balance_allocations_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
           },
         ]
       }

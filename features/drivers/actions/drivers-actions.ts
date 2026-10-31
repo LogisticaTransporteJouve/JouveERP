@@ -8,7 +8,10 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
@@ -177,6 +180,13 @@ export async function deleteDriverAction(input: {
   const supabase = await createSupabaseClient();
   const { error } = await supabase.from("drivers").delete().eq("id", input.id);
   if (error) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return {
+        ok: false,
+        error:
+          "El chofer tiene viajes o documentos. Desactivalo en lugar de borrarlo.",
+      };
+    }
     logger.error("drivers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el chofer." };
   }

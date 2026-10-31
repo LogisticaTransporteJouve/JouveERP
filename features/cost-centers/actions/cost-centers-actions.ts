@@ -4,7 +4,10 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -122,6 +125,13 @@ export async function deleteCostCenterAction(
     .delete()
     .eq("id", parsed.data.id);
   if (error) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return {
+        ok: false,
+        error:
+          "El centro de costo está en uso en comprobantes, movimientos o asientos. Desactivalo en lugar de borrarlo.",
+      };
+    }
     logger.error("cost_centers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar (¿en uso?)." };
   }
