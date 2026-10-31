@@ -151,8 +151,10 @@ export function TreasuryPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Tesorería</h1>
         <p className="text-sm text-muted-foreground">
-          Liquidez actual por moneda y por cuenta. Saldos calculados en vivo
-          desde transacciones; el delta compara con el cierre del mes anterior.
+          Caja real (todos los canales): no cambia con el alcance elegido
+          arriba. Liquidez actual por moneda y por cuenta. Saldos calculados en
+          vivo desde transacciones; el delta compara con el cierre del mes
+          anterior.
         </p>
       </div>
 
@@ -230,7 +232,14 @@ export function TreasuryPage() {
           <SelectContent>
             <SelectItem value={ANY}>Todos los tipos</SelectItem>
             {(
-              ["bank", "cash", "wallet", "investment", "checks", "echeq"] as AccountType[]
+              [
+                "bank",
+                "cash",
+                "wallet",
+                "investment",
+                "checks",
+                "echeq",
+              ] as AccountType[]
             ).map((t) => (
               <SelectItem key={t} value={t}>
                 {ACCOUNT_TYPE_LABEL[t]}
@@ -342,7 +351,11 @@ function DeltaBadge({
           : "bg-muted text-foreground dark:text-foreground"
       }`}
     >
-      {up ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+      {up ? (
+        <ArrowUpRight className="size-3" />
+      ) : (
+        <ArrowDownRight className="size-3" />
+      )}
       {up ? "+" : ""}
       {formatMoney(delta, currency)}
       {pct != null && Number.isFinite(pct) && (
