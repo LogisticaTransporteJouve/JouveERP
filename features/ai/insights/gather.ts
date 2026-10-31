@@ -1,7 +1,8 @@
 import "server-only";
 
+import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 import { arsEquivalent, fetchLatestUsdRate } from "@/lib/fx";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { paginateRange, type PageError } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -15,12 +16,19 @@ import {
 // follow-up. Aging is placed at coarse representative weeks (more overdue =
 // collected/paid sooner); commitments (recurring payments, checks) are dated.
 
-const SIGN: Record<string, number> = {
-  income: 1,
-  transfer_in: 1,
-  expense: -1,
-  transfer_out: -1,
-};
+/** A failed read throws: the cron step fails and retries instead of
+ *  publishing an insight computed from a figure that silently became 0. */
+function must<T>(
+  res: { data: T | null; error: PageError | null },
+  op: string,
+): T {
+  if (res.error || res.data === null) {
+    throw new Error(
+      `insights.gather.${op}: ${res.error?.message ?? "no data"}`,
+    );
+  }
+  return res.data;
+}
 
 function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -36,26 +44,38 @@ export type CashFlowInputs = {
   events: CashEvent[];
 };
 
-/** Current ARS cash: opening balances + signed transactions to date. */
+/** Current ARS cash: opening balances + signed movements to date of the
+ *  active liquid accounts. Check accounts stay out: the checks they hold are
+ *  projected as inflows by due date below. */
 async function arsCashBalance(today: string): Promise<number> {
   const service = getServiceClient();
-  const { data: accounts } = await service
-    .from("accounts")
-    .select("id, opening_balance")
-    .eq("currency", "ARS");
-  const accountIds = (accounts ?? []).map((a) => a.id);
-  let balance = (accounts ?? []).reduce(
-    (s, a) => s + Number(a.opening_balance),
-    0,
-  );
-  if (accountIds.length > 0) {
-    const { data: txs } = await service
-      .from("transactions")
-      .select("account_id, kind, amount, transaction_date")
-      .in("account_id", accountIds)
-      .lte("transaction_date", today);
-    for (const tx of txs ?? []) {
-      balance += (SIGN[tx.kind] ?? 0) * Number(tx.amount);
+  const accounts = must(
+    await paginateRange((from, to) =>
+      service
+        .from("accounts")
+        .select("id, opening_balance, type")
+        .eq("currency", "ARS")
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    "accounts",
+  ).filter((a) => !(isAccountType(a.type) && isCheckAccount(a.type)));
+  const liquid = new Set(accounts.map((a) => a.id));
+  let balance = accounts.reduce((s, a) => s + Number(a.opening_balance), 0);
+  if (liquid.size > 0) {
+    // Summed in Postgres: a plain transactions read stops at max_rows.
+    const totals = must(
+      await paginateRange((from, to) =>
+        service
+          .rpc("account_movement_totals", { p_until: today, p_split: today })
+          .order("account_id", { ascending: true })
+          .range(from, to),
+      ),
+      "movement_totals",
+    );
+    for (const t of totals) {
+      if (liquid.has(t.account_id)) balance += Number(t.net_until);
     }
   }
   return Math.round(balance * 100) / 100;
@@ -70,12 +90,19 @@ export async function gatherCashFlow(
   const events: CashEvent[] = [];
 
   // Recurring payments (ARS, active) → dated outflows.
-  const { data: recurring } = await service
-    .from("recurring_payments")
-    .select("description, amount, frequency, next_due_date, end_date")
-    .eq("is_active", true)
-    .eq("currency", "ARS");
-  for (const rp of recurring ?? []) {
+  const recurring = must(
+    await paginateRange((from, to) =>
+      service
+        .from("recurring_payments")
+        .select("id, description, amount, frequency, next_due_date, end_date")
+        .eq("is_active", true)
+        .eq("currency", "ARS")
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    "recurring",
+  );
+  for (const rp of recurring) {
     if (!isFrequency(rp.frequency)) continue;
     events.push(
       ...expandRecurringPayment({
@@ -98,15 +125,22 @@ export async function gatherCashFlow(
 
   // Received checks in portfolio due in the horizon (ARS) → inflows. These do
   // NOT hit cash until deposited/accredited, so en_cartera is a real pending
-  // inflow (no double-count with the current balance).
-  const { data: received } = await service
-    .from("checks")
-    .select("check_number, amount, due_date, status, currency")
-    .eq("status", "en_cartera")
-    .eq("currency", "ARS")
-    .gte("due_date", today)
-    .lt("due_date", toDate);
-  for (const c of received ?? []) {
+  // inflow (no double-count: the balance leaves the check accounts out).
+  const received = must(
+    await paginateRange((from, to) =>
+      service
+        .from("checks")
+        .select("id, check_number, amount, due_date, status, currency")
+        .eq("status", "en_cartera")
+        .eq("currency", "ARS")
+        .gte("due_date", today)
+        .lt("due_date", toDate)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    "checks",
+  );
+  for (const c of received) {
     events.push({
       date: c.due_date,
       amount: Math.abs(Number(c.amount)),
@@ -117,16 +151,19 @@ export async function gatherCashFlow(
   // Client aging in pesos → expected collections (coarse timing: overdue
   // sooner). Dollar balances stay out, like the USD accounts. Drained past
   // max_rows (1000): a capped read would understate the forecast.
-  const { data: clientAging } = await paginateRange((from, to) =>
-    service
-      .from("v_client_aging")
-      .select(
-        "client_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
-      )
-      .order("client_id", { ascending: true })
-      .range(from, to),
+  const clientAging = must(
+    await paginateRange((from, to) =>
+      service
+        .from("v_client_aging")
+        .select(
+          "client_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+        )
+        .order("client_id", { ascending: true })
+        .range(from, to),
+    ),
+    "client_aging",
   );
-  const ca = (clientAging ?? []).reduce(
+  const ca = clientAging.reduce(
     (acc, r) => ({
       b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),
       b1: acc.b1 + Number(r.ars_bucket_30_60 ?? 0),
@@ -138,16 +175,19 @@ export async function gatherCashFlow(
   pushAging(events, today, ca, 1, "Cobranzas esperadas");
 
   // Supplier aging in pesos → expected payments (same coarse timing).
-  const { data: supplierAging } = await paginateRange((from, to) =>
-    service
-      .from("v_supplier_aging")
-      .select(
-        "supplier_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
-      )
-      .order("supplier_id", { ascending: true })
-      .range(from, to),
+  const supplierAging = must(
+    await paginateRange((from, to) =>
+      service
+        .from("v_supplier_aging")
+        .select(
+          "supplier_id, ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus",
+        )
+        .order("supplier_id", { ascending: true })
+        .range(from, to),
+    ),
+    "supplier_aging",
   );
-  const sa = (supplierAging ?? []).reduce(
+  const sa = supplierAging.reduce(
     (acc, r) => ({
       b0: acc.b0 + Number(r.ars_bucket_0_30 ?? 0),
       b1: acc.b1 + Number(r.ars_bucket_30_60 ?? 0),
@@ -194,7 +234,7 @@ export type ReceivablesRisk = {
  *  count at the latest official rate; without one, only pesos are counted. */
 export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
   const service = getServiceClient();
-  const [{ data }, usdRate] = await Promise.all([
+  const [riskRes, usdRate] = await Promise.all([
     paginateRange((from, to) =>
       service
         .from("v_client_aging")
@@ -208,7 +248,7 @@ export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
     fetchLatestUsdRate(service),
   ]);
 
-  const rows = (data ?? [])
+  const rows = must(riskRes, "receivables_risk")
     .map((r) => {
       const ars = Number(r.ars_bucket_90_plus ?? 0);
       const usd = Number(r.usd_bucket_90_plus ?? 0);

@@ -11,6 +11,8 @@ import { channelIsFiscal } from "@/lib/scope";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
+import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
+
 import {
   buildCashFlow,
   placementMonth,
@@ -88,6 +90,13 @@ export async function getCashFlowAction(input: {
   }
   const monthSet = new Set(months.map((m) => m.month));
 
+  // A projection built on a failed read would show a believable but wrong
+  // balance: every read fails the whole flow instead of counting as zero.
+  const failed = (op: string, error: unknown): ActionResult<never> => {
+    logger.error(`cashflow.${op}.failed`, { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo calcular el flujo de caja." };
+  };
+
   const supabase = await createClient();
   const events: CashFlowEvent[] = [];
   // Every channel, inactive included, so history keeps its classification.
@@ -102,22 +111,29 @@ export async function getCashFlowAction(input: {
   const arsAtRate = (amount: number, currency: string | null) =>
     toArs(amount, currency, usdRate);
 
-  const { data: accounts, error: accErr } = await supabase
-    .from("accounts")
-    .select("id, opening_balance, currency");
-  if (accErr) {
-    logger.error("cashflow.accounts.failed", {
-      userId: ctx.userId,
-      error: accErr,
-    });
-    return { ok: false, error: "No se pudo calcular el flujo de caja." };
-  }
+  const { data: accounts, error: accErr } = await paginateRange((from, to) =>
+    supabase
+      .from("accounts")
+      .select("id, opening_balance, currency, type, is_active")
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  if (accErr) return failed("accounts", accErr);
+  // Every account's movements count as realized flow, but today's cash is
+  // only what active liquid accounts hold: checks in portfolio (checks /
+  // echeq accounts) are projected below by due date, so counting their
+  // account balance too would add them twice.
   const accountCurrency = new Map<string, string>();
+  const liquidAccounts = new Set<string>();
   let cashToday = 0;
-  for (const a of accounts ?? []) {
+  for (const a of accounts) {
     const opening = arsAtRate(Number(a.opening_balance), a.currency);
     if (opening === null) continue; // USD sin cotización → afuera, como antes
     accountCurrency.set(a.id, a.currency);
+    if (!a.is_active || (isAccountType(a.type) && isCheckAccount(a.type))) {
+      continue;
+    }
+    liquidAccounts.add(a.id);
     cashToday += opening;
   }
 
@@ -146,13 +162,10 @@ export async function getCashFlowAction(input: {
       ),
     ]);
     if (totalsRes.error || flowsRes.error) {
-      logger.error("cashflow.tx.failed", {
-        userId: ctx.userId,
-        error: totalsRes.error ?? flowsRes.error,
-      });
-      return { ok: false, error: "No se pudo calcular el flujo de caja." };
+      return failed("tx", totalsRes.error ?? flowsRes.error);
     }
     for (const t of totalsRes.data) {
+      if (!liquidAccounts.has(t.account_id)) continue;
       const currency = accountCurrency.get(t.account_id);
       if (currency === undefined) continue; // excluded above (USD sin cotización)
       const net = arsAtRate(Number(t.net_until), currency);
@@ -169,11 +182,19 @@ export async function getCashFlowAction(input: {
   cashToday = round2(cashToday);
 
   // Recurring payments → future outflows (dated), channel-split.
-  const { data: recurring } = await supabase
-    .from("recurring_payments")
-    .select("amount, currency, frequency, next_due_date, end_date, channel_id")
-    .eq("is_active", true);
-  for (const rp of recurring ?? []) {
+  const { data: recurring, error: recurringErr } = await paginateRange(
+    (from, to) =>
+      supabase
+        .from("recurring_payments")
+        .select(
+          "id, amount, currency, frequency, next_due_date, end_date, channel_id",
+        )
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  if (recurringErr) return failed("recurring", recurringErr);
+  for (const rp of recurring) {
     const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
     if (amount === null) continue;
     let occ = rp.next_due_date;
@@ -198,14 +219,15 @@ export async function getCashFlowAction(input: {
   // Open client receivables → expected collection in the month of their due
   // date (overdue ones clamp to the first projected month), channel-split.
   // Drained past max_rows (1000): open documents grow with the business.
-  const { data: recv } = await paginateRange((from, to) =>
+  const { data: recv, error: recvErr } = await paginateRange((from, to) =>
     supabase
       .from("v_aging_documents")
       .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
       .order("invoice_id", { ascending: true })
       .range(from, to),
   );
-  for (const r of recv ?? []) {
+  if (recvErr) return failed("receivables", recvErr);
+  for (const r of recv) {
     const amt = arsAtRate(Number(r.open_amount), r.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
@@ -221,14 +243,15 @@ export async function getCashFlowAction(input: {
 
   // Open supplier payables → expected payment in the month of their due date
   // (overdue ones clamp to the first projected month), channel-split.
-  const { data: pay } = await paginateRange((from, to) =>
+  const { data: pay, error: payErr } = await paginateRange((from, to) =>
     supabase
       .from("v_supplier_aging_documents")
       .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
       .order("purchase_invoice_id", { ascending: true })
       .range(from, to),
   );
-  for (const p of pay ?? []) {
+  if (payErr) return failed("payables", payErr);
+  for (const p of pay) {
     const amt = arsAtRate(Number(p.open_amount), p.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(p.fch_vto_pago, p.fecha, firstFwd);
@@ -242,21 +265,23 @@ export async function getCashFlowAction(input: {
     }
   }
 
-  // Received checks in portfolio → inflow by due month, by the check's
-  // channel (a historical manual check with no channel → otro).
-  const { data: checks } = await paginateRange((from, to) =>
+  // Received checks in portfolio → inflow by due month (due or overdue ones
+  // clamp to the first projected month), by the check's channel (a
+  // historical manual check with no channel → otro). They are the only place
+  // the portfolio counts: cashToday leaves the check accounts out.
+  const { data: checks, error: checksErr } = await paginateRange((from, to) =>
     supabase
       .from("checks")
       .select("id, amount, currency, due_date, channel_id")
       .eq("status", "en_cartera")
-      .gte("due_date", `${firstFwd}-01`)
       .order("id", { ascending: true })
       .range(from, to),
   );
-  for (const c of checks ?? []) {
+  if (checksErr) return failed("checks", checksErr);
+  for (const c of checks) {
     const amt = arsAtRate(Math.abs(Number(c.amount)), c.currency);
     if (amt === null) continue;
-    const m = monthKey(c.due_date);
+    const m = placementMonth(c.due_date, null, firstFwd);
     if (monthSet.has(m)) {
       events.push({
         month: m,
@@ -269,25 +294,36 @@ export async function getCashFlowAction(input: {
 
   // Pending loan / leasing installments → projected outflows by due month,
   // classified by the loan's channel (blanco / negro).
-  const { data: activeLoans } = await supabase
-    .from("loans")
-    .select("id, currency, channel_id")
-    .eq("status", "active");
+  const { data: activeLoans, error: loansErr } = await paginateRange(
+    (from, to) =>
+      supabase
+        .from("loans")
+        .select("id, currency, channel_id")
+        .eq("status", "active")
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  if (loansErr) return failed("loans", loansErr);
   const loanInfo = new Map<string, { scope: CashScope; currency: string }>();
-  for (const l of activeLoans ?? []) {
+  for (const l of activeLoans) {
     loanInfo.set(l.id, {
       scope: scopeOfChannel(l.channel_id),
       currency: l.currency,
     });
   }
   if (loanInfo.size > 0) {
-    const { data: loanInst } = await supabase
-      .from("loan_installments")
-      .select("loan_id, due_date, amount")
-      .eq("status", "pendiente")
-      .gte("due_date", `${firstFwd}-01`)
-      .lte("due_date", rangeEndDate);
-    for (const li of loanInst ?? []) {
+    const { data: loanInst, error: instErr } = await paginateRange((from, to) =>
+      supabase
+        .from("loan_installments")
+        .select("id, loan_id, due_date, amount")
+        .eq("status", "pendiente")
+        .gte("due_date", `${firstFwd}-01`)
+        .lte("due_date", rangeEndDate)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    if (instErr) return failed("installments", instErr);
+    for (const li of loanInst) {
       const loan = loanInfo.get(li.loan_id);
       if (!loan) continue;
       const amt = arsAtRate(Math.abs(Number(li.amount)), loan.currency);
