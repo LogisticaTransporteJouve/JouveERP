@@ -12,6 +12,13 @@ export function isUsdCurrency(code: string | null | undefined): boolean {
   return code === "USD" || code === "DOL";
 }
 
+/** A comprobante's moneda as the currency of the receipt or OP that pays it. */
+export function paymentCurrencyOf(
+  moneda: string | null | undefined,
+): "ARS" | "USD" {
+  return isUsdCurrency(moneda) ? "USD" : "ARS";
+}
+
 /** Latest loaded official rate (BCRA cron or a manual override), or null when
  *  none is loaded or the read fails — callers treat both as "no rate". */
 export async function fetchLatestUsdRate(

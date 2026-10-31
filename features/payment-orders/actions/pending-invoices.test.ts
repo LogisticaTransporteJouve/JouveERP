@@ -70,7 +70,21 @@ function purchase(id: string, channelId: string, total: number, fecha: string) {
     letter: null,
     fecha,
     imp_total: total,
+    moneda: "PES",
   };
+}
+
+// v_purchase_invoice_open rows for the given purchases, `paid` already applied.
+function openRows(
+  rows: ReturnType<typeof purchase>[],
+  paid: Record<string, number> = {},
+) {
+  return rows.map((r) => ({
+    purchase_invoice_id: r.id,
+    supplier_id: r.supplier_id,
+    channel_id: r.channel_id,
+    open_amount: r.imp_total - (paid[r.id] ?? 0),
+  }));
 }
 
 describe("a payment order only settles purchase invoices of its own channel", () => {
@@ -79,6 +93,7 @@ describe("a payment order only settles purchase invoices of its own channel", ()
       purchase("fiscal", FISCAL, 1000, "2026-09-01"),
       purchase("internal", INTERNAL, 300, "2026-09-02"),
     ];
+    db.v_purchase_invoice_open = openRows(db.purchase_invoices as never);
     db.payment_order_allocations = [];
 
     const res = await listPendingInvoicesForSupplierAction(SUPPLIER, INTERNAL);
@@ -91,6 +106,7 @@ describe("a payment order only settles purchase invoices of its own channel", ()
       purchase("old-internal", INTERNAL, 200, "2026-09-01"),
       purchase("new-internal", INTERNAL, 500, "2026-10-01"),
     ];
+    db.v_purchase_invoice_open = openRows(db.purchase_invoices as never);
     db.payment_order_allocations = [];
     db.sales_points = [{ numero: 1, channel_id: INTERNAL, is_enabled: true }];
     rpc.mockClear();
@@ -122,5 +138,47 @@ describe("a payment order only settles purchase invoices of its own channel", ()
         ],
       }),
     );
+  });
+
+  it("reads the open amount net of NCs and the opening balance, and adds back the edited OP", async () => {
+    const rows = [
+      purchase("credited", INTERNAL, 1000, "2026-09-01"),
+      purchase("paid-by-edited", INTERNAL, 400, "2026-09-02"),
+    ];
+    db.purchase_invoices = rows;
+    // 600 credited by an NC on "credited"; "paid-by-edited" fully paid by OP-1.
+    db.v_purchase_invoice_open = openRows(rows, {
+      credited: 600,
+      "paid-by-edited": 400,
+    });
+    db.payment_order_allocations = [
+      {
+        id: "a1",
+        payment_order_id: "op-1",
+        purchase_invoice_id: "paid-by-edited",
+        amount_applied: 400,
+        payment_orders: { status: "issued" },
+      },
+    ];
+
+    const fresh = await listPendingInvoicesForSupplierAction(
+      SUPPLIER,
+      INTERNAL,
+    );
+    expect(fresh.ok && fresh.data.map((d) => [d.id, d.outstanding])).toEqual([
+      ["credited", 400],
+    ]);
+
+    const editing = await listPendingInvoicesForSupplierAction(
+      SUPPLIER,
+      INTERNAL,
+      "op-1",
+    );
+    expect(
+      editing.ok && editing.data.map((d) => [d.id, d.outstanding]),
+    ).toEqual([
+      ["credited", 400],
+      ["paid-by-edited", 400],
+    ]);
   });
 });

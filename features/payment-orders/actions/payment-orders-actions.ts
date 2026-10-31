@@ -7,6 +7,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
+import { allocateFifo, readEmbeddedStatus } from "@/lib/allocations";
+import { paymentCurrencyOf } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -27,7 +29,6 @@ import {
   type PaymentOrder,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
-  type PaymentOrderAllocationStatusRow,
 } from "../schema";
 
 function narrowPaymentOrder(row: {
@@ -262,6 +263,8 @@ export type PendingPurchaseInvoice = {
   imp_total: number;
   already_allocated: number;
   outstanding: number;
+  /** The purchase's moneda as an OP currency (DOL → USD, else ARS). */
+  currency: "ARS" | "USD";
 };
 
 /** Pending purchase invoices of a supplier on one channel: a payment order
@@ -287,14 +290,19 @@ export async function listPendingInvoicesForSupplierAction(
     kind: string;
     fecha: string;
     imp_total: number | string;
+    moneda: string | null;
   };
+  // What is still open comes from v_purchase_invoice_open (OPs, NCs and the
+  // opening balance), the same figure guard_payment_order_allocation and the
+  // aging use. When editing an OP, its own allocations are added back.
   // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
-  // Both reads are independent → in parallel.
-  const [invoicesRes, allocsRes] = await Promise.all([
+  const [invoicesRes, openRes, editedRes] = await Promise.all([
     paginateRange((from, to) =>
       supabase
         .from("purchase_invoices")
-        .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+        .select(
+          "id, numero, punto_venta, letter, kind, fecha, imp_total, moneda",
+        )
         .eq("supplier_id", supplierId)
         .eq("channel_id", channelId)
         .eq("status", "received")
@@ -304,14 +312,25 @@ export async function listPendingInvoicesForSupplierAction(
     ),
     paginateRange((from, to) =>
       supabase
-        .from("payment_order_allocations")
-        .select(
-          "id, purchase_invoice_id, amount_applied, payment_order_id, payment_orders!inner ( status, supplier_id )",
-        )
-        .eq("payment_orders.supplier_id", supplierId)
-        .order("id", { ascending: true })
+        .from("v_purchase_invoice_open")
+        .select("purchase_invoice_id, open_amount")
+        .eq("supplier_id", supplierId)
+        .eq("channel_id", channelId)
+        .order("purchase_invoice_id", { ascending: true })
         .range(from, to),
     ),
+    excludePaymentOrderId
+      ? paginateRange((from, to) =>
+          supabase
+            .from("payment_order_allocations")
+            .select(
+              "id, purchase_invoice_id, amount_applied, payment_orders!inner ( status )",
+            )
+            .eq("payment_order_id", excludePaymentOrderId)
+            .order("id", { ascending: true })
+            .range(from, to),
+        )
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (invoicesRes.error) {
     logger.error("payment_orders.pending.list_invoices_failed", {
@@ -321,43 +340,40 @@ export async function listPendingInvoicesForSupplierAction(
     });
     return { ok: false, error: "No se pudieron listar facturas pendientes." };
   }
-  if (allocsRes.error) {
+  if (openRes.error || editedRes.error) {
     logger.error("payment_orders.pending.list_allocations_failed", {
       userId: ctx.userId,
       supplierId,
-      error: allocsRes.error,
+      error: openRes.error ?? editedRes.error,
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
   }
   const invoices: Row[] = invoicesRes.data;
   if (invoices.length === 0) return { ok: true, data: [] };
-  const allocations = allocsRes.data;
 
-  const allocatedByInvoice = new Map<string, number>();
-  for (const alloc of allocations ?? []) {
-    const narrowed = alloc as unknown as PaymentOrderAllocationStatusRow;
-    if (narrowed.payment_orders?.status === "canceled") continue;
-    if (
-      excludePaymentOrderId &&
-      narrowed.payment_order_id === excludePaymentOrderId
-    )
-      continue;
-    const prev = allocatedByInvoice.get(alloc.purchase_invoice_id) ?? 0;
-    allocatedByInvoice.set(
-      alloc.purchase_invoice_id,
-      prev + Number(alloc.amount_applied),
+  const openByInvoice = new Map<string, number>();
+  for (const o of openRes.data) {
+    if (o.purchase_invoice_id === null) continue;
+    openByInvoice.set(o.purchase_invoice_id, Number(o.open_amount ?? 0));
+  }
+  const editedByInvoice = new Map<string, number>();
+  for (const a of editedRes.data) {
+    if (readEmbeddedStatus(a.payment_orders) !== "issued") continue;
+    editedByInvoice.set(
+      a.purchase_invoice_id,
+      (editedByInvoice.get(a.purchase_invoice_id) ?? 0) +
+        Number(a.amount_applied),
     );
   }
 
+  // NCs are not paid by an OP: they reduce their origin's open amount.
   const pending: PendingPurchaseInvoice[] = invoices
+    .filter((c) => c.kind === "factura" || c.kind === "nd")
     .map((c) => {
-      // NCs are deductions: net amount = invoice/ND positive, NC negative. Here
-      // we only handle invoices and NDs (positive); NCs are handled
-      // separately in a future iteration.
-      if (c.kind === "nc") return null;
-      const already = allocatedByInvoice.get(c.id) ?? 0;
       const total = Number(c.imp_total ?? 0);
-      const outstanding = Math.max(0, total - already);
+      const open =
+        (openByInvoice.get(c.id) ?? 0) + (editedByInvoice.get(c.id) ?? 0);
+      const outstanding = round2(Math.max(0, open));
       return {
         id: c.id,
         numero: c.numero,
@@ -366,13 +382,12 @@ export async function listPendingInvoicesForSupplierAction(
         kind: c.kind,
         fecha: c.fecha,
         imp_total: total,
-        already_allocated: already,
+        already_allocated: round2(total - outstanding),
         outstanding,
+        currency: paymentCurrencyOf(c.moneda),
       };
     })
-    .filter(
-      (c): c is PendingPurchaseInvoice => c !== null && c.outstanding > 0.005,
-    );
+    .filter((c) => c.outstanding > 0.005);
 
   return { ok: true, data: pending };
 }
@@ -421,31 +436,22 @@ export async function createPaymentOrderAction(
     };
   }
 
-  // FIFO auto-allocation when the user did not choose manual allocations.
+  // FIFO auto-allocation when the user did not choose manual allocations,
+  // over the pending purchases in the OP's currency.
   let allocations = data.allocations ?? [];
   if (allocations.length === 0) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
       data.supplier_id,
       data.channel_id,
     );
-    if (pendingRes.ok) {
-      const oldestFirst = [...pendingRes.data].sort((a, b) =>
-        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
-      );
-      let remaining = data.total_amount;
-      const auto: typeof allocations = [];
-      for (const inv of oldestFirst) {
-        if (remaining <= 0.005) break;
-        const applied = Math.min(inv.outstanding, remaining);
-        if (applied <= 0.005) continue;
-        auto.push({
-          purchase_invoice_id: inv.id,
-          amount_applied: round2(applied),
-        });
-        remaining -= applied;
-      }
-      allocations = auto;
-    }
+    if (!pendingRes.ok) return pendingRes;
+    allocations = allocateFifo(
+      pendingRes.data.filter((c) => c.currency === data.currency),
+      data.total_amount,
+    ).map((a) => ({
+      purchase_invoice_id: a.document_id,
+      amount_applied: a.amount_applied,
+    }));
   }
 
   const supabase = await createSupabaseClient();
@@ -588,7 +594,7 @@ export async function cancelPaymentOrderAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from("payment_orders")
     .update({
       status: "canceled",
@@ -596,7 +602,8 @@ export async function cancelPaymentOrderAction(
       canceled_by: ctx.userId,
     })
     .eq("id", parsed.data.id)
-    .eq("status", "issued");
+    .eq("status", "issued")
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -611,6 +618,13 @@ export async function cancelPaymentOrderAction(
       error,
     });
     return { ok: false, error: "No se pudo anular la orden de pago." };
+  }
+  if (!cancelled || cancelled.length === 0) {
+    return {
+      ok: false,
+      error:
+        "La orden de pago ya estaba anulada o no se encontró. Recargá la página.",
+    };
   }
 
   await logAudit("payment_order.canceled", ctx.userId, {}, parsed.data.id);

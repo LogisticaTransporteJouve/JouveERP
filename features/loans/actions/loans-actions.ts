@@ -3,13 +3,12 @@
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-
-import { createTransactionAction } from "@/features/transactions/actions/transactions-actions";
 
 import { generateInstallments } from "../lib/amortization";
 import {
@@ -361,74 +360,39 @@ export async function payInstallmentAction(
   const { id, paid_date, account_id, amount } = parsed.data;
   const supabase = await createSupabaseClient();
 
-  const { data: inst } = await supabase
-    .from("loan_installments")
-    .select(
-      "id, number, status, loan:loans(id, description, kind, currency, channel_id, installments_count)",
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (!inst) return { ok: false, error: "No se encontró la cuota." };
-  if (inst.status === "pagada") {
-    return { ok: false, error: "La cuota ya está pagada." };
-  }
-  const loan = Array.isArray(inst.loan) ? inst.loan[0] : inst.loan;
-  if (!loan) return { ok: false, error: "No se encontró el préstamo." };
-
-  // 1) Cash outflow in the chosen account, on the loan's channel (blanco/negro).
-  const txRes = await createTransactionAction({
-    account_id,
-    channel_id: loan.channel_id,
-    kind: "expense",
-    amount,
-    currency: loan.currency,
-    transaction_date: paid_date,
-    accrual_month: `${paid_date.slice(0, 7)}-01`,
-    description: `Cuota ${inst.number}/${loan.installments_count} — ${loan.description}`,
-  });
-  if (!txRes.ok) return txRes;
-
-  // 2) Mark the installment paid + link the transaction.
-  const { error: updErr } = await supabase
-    .from("loan_installments")
-    .update({
-      status: "pagada",
-      paid_date,
-      paid_amount: amount,
-      transaction_id: txRes.data.id,
-    })
-    .eq("id", id);
-  if (updErr) {
+  // One transaction: claims the pending installment (FOR UPDATE), books the
+  // outflow on the loan's channel and closes the loan after the last one.
+  const { data: transactionId, error } = await supabase.rpc(
+    "pay_loan_installment",
+    {
+      p_installment_id: id,
+      p_paid_date: paid_date,
+      p_account_id: account_id,
+      p_amount: amount,
+    },
+  );
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.installment.pay.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("loans.installment.pay.failed", {
       userId: ctx.userId,
       id,
-      transactionId: txRes.data.id,
-      error: updErr,
+      error,
     });
-    return {
-      ok: false,
-      error:
-        "Se registró el egreso pero no se marcó la cuota. Revisá el movimiento antes de reintentar.",
-    };
-  }
-
-  // 3) If no pending installments remain, close the loan.
-  const { count } = await supabase
-    .from("loan_installments")
-    .select("id", { count: "exact", head: true })
-    .eq("loan_id", loan.id)
-    .eq("status", "pendiente");
-  if ((count ?? 0) === 0) {
-    await supabase.from("loans").update({ status: "paid" }).eq("id", loan.id);
+    return { ok: false, error: "No se pudo registrar el pago de la cuota." };
   }
 
   await logAudit(
     "loan.installment_paid",
     ctx.userId,
-    { loan_id: loan.id, number: inst.number, amount },
-    txRes.data.id,
+    { installment_id: id, amount },
+    transactionId,
   );
-  return { ok: true, data: { transactionId: txRes.data.id } };
+  return { ok: true, data: { transactionId } };
 }
 
 export async function cancelLoanAction(input: unknown): Promise<ActionResult> {

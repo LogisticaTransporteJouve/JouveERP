@@ -4,7 +4,7 @@ import { CONCEPTO, CONDICION_IVA_RECEPTOR, IVA_RATE } from "@/lib/afip/codes";
 import { todayInAR } from "@/lib/format";
 
 import type { CreateComprobanteInput } from "../schema";
-import { resolveAccess } from "@/lib/auth/permissions";
+import { resolveAccess, type Role } from "@/lib/auth/permissions";
 
 type Row = Record<string, unknown>;
 
@@ -47,10 +47,14 @@ function from(table: string) {
   return builder;
 }
 
+const roles = vi.hoisted(() => ({
+  current: ["finance"] as Role[],
+  denied: [] as string[],
+}));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(["finance"]),
+    access: resolveAccess(roles.current, roles.denied),
   }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
@@ -125,9 +129,34 @@ beforeEach(() => {
       iva_condition_receptor: CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL,
     },
   ];
+  h.db.v_aging_documents = [{ invoice_id: ORIGIN, open_amount: 1_000_000 }];
+  roles.current = ["finance"];
+  roles.denied = [];
 });
 
 describe("issueFiscalInvoiceAction for a credit note", () => {
+  it("refuses a credit note over the origin's open amount", async () => {
+    h.db.v_aging_documents = [{ invoice_id: ORIGIN, open_amount: 50 }];
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res.ok).toBe(false);
+    expect(!res.ok && res.error).toMatch(/supera el saldo abierto/);
+    expect(h.inserts).toEqual([]);
+  });
+
+  it("refuses a credit note when the origin owes nothing", async () => {
+    h.db.v_aging_documents = [];
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res.ok).toBe(false);
+    expect(h.inserts).toEqual([]);
+  });
+
+  it("requires credit_debit_notes:issue for a note", async () => {
+    roles.denied = ["credit_debit_notes:issue"];
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res.ok).toBe(false);
+    expect(h.inserts).toEqual([]);
+  });
+
   it("takes the origin's letter and receptor condition", async () => {
     const res = await issueFiscalInvoiceAction(noteInput());
 

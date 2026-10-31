@@ -213,3 +213,89 @@ describe("a receipt only settles comprobantes of its own channel", () => {
     );
   });
 });
+
+describe("createReceiptAction allocations", () => {
+  const ACCOUNT = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const FA = "aaaaaaaa-0000-4000-8000-000000000001";
+  const FB = "aaaaaaaa-0000-4000-8000-000000000002";
+  const USD_INV = "aaaaaaaa-0000-4000-8000-000000000003";
+  const retention = {
+    kind: "retencion" as const,
+    tax_type: "ganancias" as const,
+    certificate_number: "C-1",
+    certificate_date: "2026-10-15",
+    amount: 100,
+  };
+  function setup() {
+    db.invoices = [
+      invoice(FA, "factura", 600, undefined, undefined, FISCAL, "2026-09-01"),
+      invoice(FB, "factura", 600, undefined, undefined, FISCAL, "2026-10-01"),
+      {
+        ...invoice(USD_INV, "factura", 50, undefined, undefined, FISCAL),
+        moneda: "DOL",
+      },
+    ];
+    db.receipt_allocations = [];
+    db.client_opening_balance_allocations = [];
+    db.sales_points = [{ numero: 3, channel_id: FISCAL, is_enabled: true }];
+    rpc.mockClear();
+  }
+
+  it("distributes the whole total, retentions included, FIFO in its currency", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 1000,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 900 }],
+      retentions: [retention],
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_receipt",
+      expect.objectContaining({
+        p_allocations: [
+          { invoice_id: FA, amount_applied: 600 },
+          { invoice_id: FB, amount_applied: 400 },
+        ],
+      }),
+    );
+  });
+
+  it("refuses a manual allocation over the comprobante's outstanding", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 700,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 700 }],
+      allocations: [{ invoice_id: FA, amount_applied: 700 }],
+    });
+    expect(res.ok).toBe(false);
+    expect(!res.ok && res.error).toMatch(/excede el saldo pendiente/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a manual allocation to a comprobante in another currency", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 50,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 50 }],
+      allocations: [{ invoice_id: USD_INV, amount_applied: 50 }],
+    });
+    expect(res.ok).toBe(false);
+    expect(!res.ok && res.error).toMatch(/otra moneda/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
