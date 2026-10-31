@@ -178,6 +178,7 @@ stateDiagram-v2
     en_cartera --> rechazado: rechazar
     depositado --> acreditado: acreditar
     depositado --> rechazado: rechazar
+    endosado --> rechazado: rechazar
     acreditado --> [*]
     endosado --> [*]
     rechazado --> [*]
@@ -210,8 +211,13 @@ stateDiagram-v2
         <ul>
           <li><strong>Acreditar:</strong> solo desde depositado; pasa a
             <span class="badge">acreditado</span>.</li>
-          <li><strong>Rechazar:</strong> se elige cuenta a la que devolver
-            el monto; genera transacción reversa.</li>
+          <li><strong>Rechazar:</strong> desde en cartera, depositado o
+            endosado. El rechazo no es un gasto: el monto sale de la cuenta
+            donde estaba el cheque (la cartera o el banco del depósito) y
+            queda en <em>Deudores por cheques rechazados</em>. Si estaba
+            endosado, vuelve la deuda con el proveedor. En la cuenta
+            corriente del cliente aparece como <em>Cheque rechazado</em>
+            (vuelve a deberlo).</li>
           <li><strong>Endosar:</strong> el endose se hace desde una
             <a href="purchases.html#ordenes-de-pago">Orden de pago</a> usando
             línea tipo "endose". El cheque pasa a <span class="badge">endosado</span>.</li>
