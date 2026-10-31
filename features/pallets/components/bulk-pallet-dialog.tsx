@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -95,8 +95,8 @@ export function BulkPalletDialog({
     if (open) form.reset(DEFAULTS);
   }, [open, form]);
 
-  const count = form.watch("count");
-  const prefix = form.watch("code_prefix");
+  const count = useWatch({ control: form.control, name: "count" });
+  const prefix = useWatch({ control: form.control, name: "code_prefix" });
   const previewCount = /^\d+$/.test(count) ? Number(count) : 0;
 
   function onSubmit(values: FormValues) {

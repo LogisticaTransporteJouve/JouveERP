@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -190,11 +190,14 @@ export function PaymentOrderForm({
     },
   });
 
-  const channelId = form.watch("channelId");
-  const currency = form.watch("currency");
-  const supplier = form.watch("supplier");
-  const paymentLines = form.watch("paymentLines");
-  const allocations = form.watch("allocations");
+  const channelId = useWatch({ control: form.control, name: "channelId" });
+  const currency = useWatch({ control: form.control, name: "currency" });
+  const supplier = useWatch({ control: form.control, name: "supplier" });
+  const paymentLines = useWatch({
+    control: form.control,
+    name: "paymentLines",
+  });
+  const allocations = useWatch({ control: form.control, name: "allocations" });
 
   const nextNumero = useNextPaymentOrderNumero(
     mode === "create" ? channelId : null,

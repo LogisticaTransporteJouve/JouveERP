@@ -4,6 +4,7 @@ import type { Database } from "@/lib/db/database.types";
 import {
   IsoDateSchema,
   PeriodSchema,
+  ScopeInputSchema,
   UuidSchema,
 } from "@/lib/validation/common";
 
@@ -40,6 +41,7 @@ export const PayrollSummaryInputSchema = z
     employeeId: UuidSchema.nullish().describe(
       "UUID de un empleado para filtrar (opcional).",
     ),
+    scope: ScopeInputSchema,
   })
   .refine(orderedPeriods, "El período desde es posterior al período hasta.");
 

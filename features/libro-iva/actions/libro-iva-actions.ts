@@ -6,6 +6,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
@@ -52,6 +53,11 @@ export async function listLibroIvaVentasAction(input: {
   );
 
   if (error) {
+    const rejected = mapDbGuardError(error, {
+      slug: "libro_iva_ventas.rejected",
+      userId: ctx.userId,
+    });
+    if (rejected) return { ok: false, error: rejected };
     logger.error("libro_iva_ventas.failed", {
       userId: ctx.userId,
       period: input.period,
@@ -88,6 +94,11 @@ export async function listLibroIvaComprasAction(input: {
   );
 
   if (error) {
+    const rejected = mapDbGuardError(error, {
+      slug: "libro_iva_compras.rejected",
+      userId: ctx.userId,
+    });
+    if (rejected) return { ok: false, error: rejected };
     logger.error("libro_iva_compras.failed", {
       userId: ctx.userId,
       period: input.period,

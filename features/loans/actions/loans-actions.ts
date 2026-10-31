@@ -173,17 +173,21 @@ export async function listLoansAction(input?: {
 
 export async function getLoanAction(
   id: string,
+  options?: {
+    /** Scope filter (`isFiscalFor`): a loan outside it reads as not found. */
+    isFiscal?: boolean | null;
+  },
 ): Promise<ActionResult<LoanDetail>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver préstamos." };
   }
   const supabase = await createSupabaseClient();
-  const { data: loan, error } = await supabase
-    .from("loans")
-    .select(LOAN_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
+  const { data: loan, error } = await applyFiscalFilter(
+    supabase.from("loans").select(LOAN_COLUMNS).eq("id", id),
+    options?.isFiscal,
+    "channel",
+  ).maybeSingle();
   if (error || !loan) {
     return { ok: false, error: "No se encontró el préstamo." };
   }

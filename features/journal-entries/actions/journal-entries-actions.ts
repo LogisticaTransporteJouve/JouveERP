@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { createManualJournalEntry } from "@/lib/commands/create-manual-journal-entry";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
@@ -28,12 +29,18 @@ const JournalFiltersInput = z.object({
     .nullable()
     .optional(),
   channelId: z.string().nullable().optional(),
+  isFiscal: z.boolean().nullable().optional(),
   offset: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).max(500).optional(),
 });
 
 export async function listJournalEntriesAction(
-  filters: JournalFilters & { offset?: number; limit?: number },
+  filters: JournalFilters & {
+    offset?: number;
+    limit?: number;
+    /** Scope filter (`isFiscalFor`): null/undefined = every entry. */
+    isFiscal?: boolean | null;
+  },
 ): Promise<ActionResult<JournalPage>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "accounting:read")) {
@@ -53,18 +60,20 @@ export async function listJournalEntriesAction(
   const limit = filters.limit ?? JOURNAL_PAGE_SIZE;
 
   const supabase = await createClient();
-  const query = supabase
-    .from("journal_entries")
-    .select(
+  const query = applyFiscalFilter(
+    supabase.from("journal_entries").select(
       `
       *,
       lines:journal_entry_lines(
         *,
         account:chart_of_accounts(id, code, name)
       ),
-      channel:invoicing_channels(id, name)
+      channel:invoicing_channels(id, name, is_fiscal)
       `,
-    )
+    ),
+    filters.isFiscal,
+    "channel",
+  )
     .order("entry_date", { ascending: false })
     .order("created_at", { ascending: false })
     // Tie-breaker: two entries created in the same tx (e.g. emit_journal_*

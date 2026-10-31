@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -133,8 +133,11 @@ export function TransactionForm({
     },
   });
 
-  const kind = form.watch("kind");
-  const accountFromId = form.watch("account_from_id");
+  const kind = useWatch({ control: form.control, name: "kind" });
+  const accountFromId = useWatch({
+    control: form.control,
+    name: "account_from_id",
+  });
 
   function onSubmit(values: FormValues) {
     if (values.kind === "transfer") {

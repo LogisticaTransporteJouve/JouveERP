@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -78,13 +77,14 @@ export function AttendanceCellDialog({
 }) {
   const upsertMut = useUpsertAttendance();
   const deleteMut = useDeleteAttendance();
-  const isSyncRow = existing?.source !== undefined && existing.source !== "manual";
+  const isSyncRow =
+    existing?.source !== undefined && existing.source !== "manual";
 
   const form = useForm<FormValues>({
     defaultValues: {
-      kind: (MANUAL_KINDS.includes(existing?.kind as AttendanceKind)
+      kind: MANUAL_KINDS.includes(existing?.kind as AttendanceKind)
         ? (existing?.kind as AttendanceKind)
-        : "absent_justified"),
+        : "absent_justified",
       hours_lost:
         existing?.hours_lost != null ? String(existing.hours_lost) : "",
       notes: existing?.notes ?? "",
@@ -139,8 +139,8 @@ export function AttendanceCellDialog({
             {isSyncRow ? (
               <span className="ml-2 text-muted-foreground dark:text-muted-foreground">
                 · auto desde{" "}
-                {existing?.source === "leave_sync" ? "licencia" : "feriado"}
-                {" "}— editá la fuente para cambiar
+                {existing?.source === "leave_sync" ? "licencia" : "feriado"} —
+                editá la fuente para cambiar
               </span>
             ) : null}
           </DialogDescription>

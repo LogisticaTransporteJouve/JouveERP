@@ -2,6 +2,7 @@
 
 import { gatedRead } from "@/lib/actions/gated-read";
 import type { ActionResult } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
 
 import {
   SupplierPriceEvolutionInputSchema,
@@ -40,6 +41,7 @@ export async function getSupplierPurchasesSummaryAction(
         p_supplier_id: v.supplierId ?? undefined,
         p_category_id: v.categoryId ?? undefined,
         p_limit: v.limit ?? 50,
+        p_is_fiscal: isFiscalFor(v.scope ?? "all") ?? undefined,
       }),
   });
 }
@@ -63,6 +65,7 @@ export async function getSupplierUpcomingDuesAction(
         p_days: v.days ?? 30,
         p_supplier_id: v.supplierId ?? undefined,
         p_limit: v.limit ?? 100,
+        p_is_fiscal: isFiscalFor(v.scope ?? "all") ?? undefined,
       }),
   });
 }
@@ -86,6 +89,7 @@ export async function getSupplierPriceEvolutionAction(
         p_category_id: v.categoryId ?? undefined,
         p_item_query: v.itemQuery ?? undefined,
         p_limit: v.limit ?? 300,
+        p_is_fiscal: isFiscalFor(v.scope ?? "all") ?? undefined,
       }),
   });
 }

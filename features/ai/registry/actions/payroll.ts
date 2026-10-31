@@ -19,6 +19,7 @@ import {
 
 import { defineAiAction } from "../define";
 import { errResult, money, okResult, reachedCap } from "../result";
+import { readScope } from "../scope";
 
 // Payroll and HR aggregates. Each run calls a gated hr:read action over a
 // security-invoker RPC; totals are summed in SQL, never over listed rows.
@@ -37,23 +38,27 @@ export const getPayrollSummary = defineAiAction({
   sideEffect: "read",
   sources: ["ai_payroll_summary", "v_payroll_entries_with_payments"],
   description:
-    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono), total a pagar, pagado y saldo. Montos netos (no hay bruto ni cargas sociales).",
+    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono), total a pagar, pagado y saldo. Montos netos (no hay bruto ni cargas sociales). Las liquidaciones no tienen canal: el alcance opcional (fiscal/internal/all) solo filtra lo pagado, por el canal de cada pago; el saldo es siempre el real.",
   input: PayrollSummaryInputSchema,
   run: async (_ctx, input) => {
+    const { label } = readScope(input.scope);
     const res = await getPayrollSummaryAction(input);
     if (!res.ok) return errResult(res.error);
     const rows = res.data;
     // Rows partition the range (by month or by employee), so adding the
-    // per-group SQL totals gives the range total.
+    // per-group SQL totals gives the range total. `saldo` comes from SQL:
+    // with a scope, `paid` is that scope's payments only, so total − paid
+    // would not be the balance.
     const total = sumBy(rows, (r) => r.total_a_pagar);
     const paid = sumBy(rows, (r) => r.paid);
+    const saldo = sumBy(rows, (r) => r.saldo);
     return okResult(
       `Sueldos ${input.fromPeriod}→${input.toPeriod}: ${rows.length} ${
         input.groupBy === "employee" ? "empleados" : "meses"
-      } · total a pagar ${money(total)} · pagado ${money(paid)} · saldo ${money(
-        total - paid,
-      )}.`,
-      { rows, totals: { total_a_pagar: total, paid, saldo: total - paid } },
+      } · total a pagar ${money(total)} · pagado (${label}) ${money(
+        paid,
+      )} · saldo ${money(saldo)}.`,
+      { rows, totals: { total_a_pagar: total, paid, saldo } },
       { currency: "ARS", note: PAYROLL_NOTE },
     );
   },

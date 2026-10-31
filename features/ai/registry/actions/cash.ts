@@ -7,6 +7,7 @@ import { listRecurringPaymentsAction } from "@/features/recurring-payments/actio
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 
 import type { FiscalFilter } from "@/lib/scope";
+import { ScopeInputSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import {
@@ -17,7 +18,7 @@ import {
   reachedCap,
   totalsByCurrency,
 } from "../result";
-import { ScopeInputSchema, readScope } from "../scope";
+import { readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`accounts:read` / `transactions:read` / `cheques:read` /

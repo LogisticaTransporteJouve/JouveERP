@@ -30,7 +30,7 @@ export const SKILLS: SkillDefinition[] = [
       "percepción",
     ],
     content:
-      "The VAT Sales book totals the output VAT (débito fiscal, VAT on issued vouchers); the VAT Purchases book totals the input VAT (crédito fiscal, VAT on purchase invoices). The period's technical VAT balance = output − input (payable if positive). Perceptions suffered/applied are kept separate from VAT. Common rates: 21%, 10.5%, 27%, 0% (exempt/not taxed). For a period summary use the VAT book tools and show output VAT, input VAT and balance.",
+      "The VAT Sales book totals the output VAT (débito fiscal, VAT on issued vouchers); the VAT Purchases book totals the input VAT (crédito fiscal, VAT on purchase invoices). The period's technical VAT balance = output − input (payable if positive). Perceptions suffered/applied are kept separate from VAT. Common rates: 21%, 10.5%, 27%, 0% (exempt/not taxed). For a period summary use the VAT book tools and show output VAT, input VAT and balance. The VAT books hold fiscal channels only: never take VAT or billing from internal channels; other tools need scope 'fiscal' for it.",
   },
   {
     id: "conciliacion",

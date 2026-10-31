@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
+import { type Access, resolveAccess } from "@/lib/auth/permissions";
 
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
 const ctx: { userId: string; access: Access } = {

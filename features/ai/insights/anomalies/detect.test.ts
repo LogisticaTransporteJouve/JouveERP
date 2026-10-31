@@ -9,6 +9,7 @@ import { outlierBounds, quartiles } from "./statistics";
 
 function row(p: Partial<PurchaseRow> & { id: string }): PurchaseRow {
   return {
+    scope: "fiscal",
     supplier_id: "s1",
     supplier_name: "Proveedor SA",
     imp_total: 1000,
@@ -48,6 +49,23 @@ describe("detectDuplicateInvoices", () => {
     expect(f).toHaveLength(0);
   });
 
+  it("never pairs a fiscal invoice with an internal one", () => {
+    const f = detectDuplicateInvoices([
+      row({ id: "a", numero: 10, fecha: "2026-06-01" }),
+      row({ id: "b", numero: 11, fecha: "2026-06-15", scope: "internal" }),
+    ]);
+    expect(f).toHaveLength(0);
+  });
+
+  it("labels the finding with its scope", () => {
+    const f = detectDuplicateInvoices([
+      row({ id: "a", numero: 10, scope: "internal" }),
+      row({ id: "b", numero: 11, scope: "internal" }),
+    ]);
+    expect(f[0]?.finding).toMatch(/^Solo interno · /);
+    expect(f[0]?.metrics.scope).toBe("internal");
+  });
+
   it("does not flag when outside the 30-day window", () => {
     const f = detectDuplicateInvoices([
       row({ id: "a", fecha: "2026-06-01", numero: 10 }),
@@ -65,6 +83,19 @@ describe("detectUnusualAmounts", () => {
     const spike = row({ id: "spike", imp_total: 5000, numero: 99 });
     const f = detectUnusualAmounts([...base, spike]);
     expect(f.map((x) => x.source_refs[0])).toContain("spike");
+  });
+
+  it("measures each scope's range on its own", () => {
+    const fiscal = [100, 110, 120, 130, 140].map((amt, i) =>
+      row({ id: `f${i}`, imp_total: amt, numero: i + 1 }),
+    );
+    const internal = row({
+      id: "i",
+      imp_total: 5000,
+      numero: 99,
+      scope: "internal",
+    });
+    expect(detectUnusualAmounts([...fiscal, internal])).toHaveLength(0);
   });
 
   it("stays silent without enough history", () => {
