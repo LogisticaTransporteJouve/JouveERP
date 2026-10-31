@@ -144,10 +144,10 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 
 | Origen | Trigger / regla |
 |---|---|
-| `transactions` | AFTER INSERT → un asiento; **saltea** `invoice_id` (L.2c), `receipt_id`/`payment_order_id` (L.2d, anti-doble-conteo), `transfer_out` (solo `transfer_in` emite), y canal no fiscal. |
+| `transactions` | AFTER INSERT → un asiento; **saltea** `invoice_id` (L.2c), `receipt_id`/`payment_order_id` (L.2d, anti-doble-conteo), `transfer_out` (solo `transfer_in` emite), y canal no fiscal. Editar importe, fechas, cuenta, canal, tipo o centro de costo **re-asienta** (la descripción no). |
 | `invoices` (ventas) | INSERT si `emitted`; `emitted→cancelled` emite **reversal**; guard que **bloquea** cancelar si hay allocations de recibo activas (`22023`). |
-| `purchase_invoices` | INSERT si `received`; `received→cancelled` reversal; editar `purchase_invoice_items` **regenera** el asiento (statement trigger). |
-| `receipts` / `payment_orders` | **CONSTRAINT TRIGGER DEFERRED en el header** (dispara en COMMIT, así las payment-lines hijas ya son visibles); `issued`; `issued→canceled` reversal. |
+| `purchase_invoices` | INSERT si `received`; `received→cancelled` reversal; editar importes, fecha, moneda, cuenta, centro de costo, tipo o canal (cabecera o ítems) **re-asienta** una vez al COMMIT. Guards: no cambia de canal una vez recibida, no cambia de tipo con imputaciones, no cambia el Libro IVA en un período cerrado, no queda con pendiente negativo, y una fiscal lleva letra. |
+| `receipts` / `payment_orders` | **CONSTRAINT TRIGGER DEFERRED en el header** (dispara en COMMIT, así las payment-lines hijas ya son visibles); `issued`; `issued→canceled` reversal; editar (`update_receipt` / `update_payment_order`) **re-asienta** al COMMIT. `notified_at` y notas no. |
 | `issued_checks` | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. |
 | `checks` (endosados) | `endosado→rechazado` → Debe `cheques_cartera` / Haber `proveedores`. |
 
@@ -156,13 +156,23 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 - **Fiscal-only** (`is_channel_fiscal`): solo canales fiscales generan asientos.
 - **Anti-doble-conteo** (fix `…250000`): el generador de `transactions` saltea filas
   con `invoice_id`/`receipt_id`/`payment_order_id` (ya cubiertas por su header).
-- **Zero-total guard** (fix `…517860000`): `emit_journal_for_invoice` /
-  `…purchase_invoice` retornan null si `imp_total <= 0` — un comprobante en cero
-  crearía una línea `debit=0/credit=0` (viola el CHECK, `23514`) que el handler
-  `P0002`-only no atrapa y voltearía un batch entero de import AFIP.
-- **Reversal model:** la cancelación crea un asiento **nuevo** `is_reversal=true` +
-  `reversed_entry_id` (invierte debe/haber); nunca borra el original (auditoría).
-  El DELETE de la fila origen sí hace hard-delete del asiento (cascade a líneas).
+- **Un builder por origen:** `build_{invoice,purchase_invoice,receipt,payment_order,transaction}_journal_lines`;
+  `journal_expected_entry(src, id)` dice qué asiento corresponde a la fila actual y
+  `emit_journal(src, id)` lo emite.
+- **Zero-total guard** (fix `…517860000`): un comprobante o compra con
+  `imp_total <= 0` no asienta — crearía una línea `debit=0/credit=0` (viola el CHECK,
+  `23514`) y voltearía un batch entero de import AFIP.
+- **Reversal model:** la cancelación clona el asiento vigente (`reverse_journal_entry`)
+  con debe/haber invertidos, la misma fecha, período, canal y centro de costo (aunque
+  sea NULL): `is_reversal=true` + `reversed_entry_id`. Nunca borra el original
+  (auditoría) ni lo reconstruye desde el documento. El DELETE de la fila origen sí
+  hace hard-delete del asiento (cascade a líneas).
+- **Re-asiento** (`repost_journal`): lo disparan constraint triggers diferidos
+  `AFTER UPDATE OF` las columnas que lee el asiento. Compara el asiento vigente con el
+  builder (cuentas, importes, centro de costo, fecha, período y canal; las
+  descripciones no cuentan) y solo si difiere lo borra y emite de nuevo. Un período
+  cerrado rechaza ese cambio (`55006`); una edición que no cambia el asiento pasa.
+  Un documento sin asiento vigente no se toca: lo lista `journal_missing_entries()`.
 - **Mapeo cuenta→rol** (`coa_role_for_account`): `bank/investment→banco`,
   `cash/wallet→caja`, `checks/echeq→cheques_cartera`.
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/

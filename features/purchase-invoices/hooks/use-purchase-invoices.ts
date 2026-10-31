@@ -155,7 +155,8 @@ export function useCreatePurchaseInvoice(
       submit
         ? submit(input)
         : runAction(() => createPurchaseInvoiceAction(input)),
-    onSuccess: () => {
+    // Settled, not success: the header can be saved even when its items fail.
+    onSettled: () => {
       invalidatePurchaseEffects(qc);
     },
   });
@@ -166,7 +167,7 @@ export function useUpdatePurchaseInvoice() {
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => updatePurchaseInvoiceAction(input)),
-    onSuccess: (_data, variables) => {
+    onSettled: (_data, _error, variables) => {
       invalidatePurchaseEffects(qc);
       const id = getMutationId(variables);
       if (id) {

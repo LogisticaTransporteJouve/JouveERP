@@ -73,9 +73,26 @@ export const AccountToggleActiveSchema = z.object({
   is_active: z.boolean(),
 });
 
+// D4: the adjustment is booked to a channel the user picks; there is no default.
+export const AccountOpeningBalanceInputSchema = z.object({
+  account_id: z.string().uuid("Cuenta requerida."),
+  adjustment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  target_balance: z.number().finite("Saldo inválido."),
+  channel_id: z
+    .string()
+    .trim()
+    .min(1, "Elegí un canal para imputar el ajuste."),
+  notes: trimmedNullable,
+});
+
 export type AccountCreateInput = z.infer<typeof AccountCreateSchema>;
 export type AccountUpdateInput = z.infer<typeof AccountUpdateSchema>;
-export type AccountToggleActiveInput = z.infer<typeof AccountToggleActiveSchema>;
+export type AccountToggleActiveInput = z.infer<
+  typeof AccountToggleActiveSchema
+>;
+export type AccountOpeningBalanceInput = z.input<
+  typeof AccountOpeningBalanceInputSchema
+>;
 
 export function isAccountType(value: unknown): value is AccountType {
   return (

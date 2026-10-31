@@ -65,7 +65,7 @@ export function AccountOpeningBalanceDialog({
 
   const [adjustmentDate, setAdjustmentDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
-  const [channelId, setChannelId] = useState<string>(channels[0]?.id ?? "");
+  const [channelId, setChannelId] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -73,14 +73,16 @@ export function AccountOpeningBalanceDialog({
     if (existing) {
       setAdjustmentDate(existing.adjustment_date);
       setTargetRaw(String(existing.target_balance));
+      setChannelId(existing.channel_id ?? "");
       setNotes(existing.notes ?? "");
     } else {
       setAdjustmentDate(todayIso());
       setTargetRaw("");
       setNotes("");
-      setChannelId(channels[0]?.id ?? "");
+      // D4: no default channel, the user picks where the adjustment goes.
+      setChannelId("");
     }
-  }, [open, existing, channels]);
+  }, [open, existing]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -107,9 +109,7 @@ export function AccountOpeningBalanceDialog({
       },
       {
         onSuccess: () => {
-          toast.success(
-            existing ? "Saldo actualizado." : "Saldo registrado.",
-          );
+          toast.success(existing ? "Saldo actualizado." : "Saldo registrado.");
           setOpen(false);
         },
         onError: (err) => toast.error(err.message),
@@ -121,7 +121,8 @@ export function AccountOpeningBalanceDialog({
     if (!existing) return;
     const ok = await confirm({
       title: "Borrar el saldo de apertura",
-      description: "Se elimina la transaction de ajuste asociada. Esta acción no se puede deshacer.",
+      description:
+        "Se elimina la transaction de ajuste asociada. Esta acción no se puede deshacer.",
       confirmLabel: "Borrar",
       tone: "destructive",
     });
@@ -150,9 +151,9 @@ export function AccountOpeningBalanceDialog({
         <DialogHeader>
           <DialogTitle>Ajustar saldo · {accountName}</DialogTitle>
           <DialogDescription>
-            Fijá el saldo real de la cuenta al corte. El sistema inserta
-            una transacción de ajuste por la diferencia con el saldo
-            calculado. Se imputa al canal elegido.
+            Fijá el saldo real de la cuenta al corte. El sistema inserta una
+            transacción de ajuste por la diferencia con el saldo calculado. Se
+            imputa al canal elegido.
           </DialogDescription>
         </DialogHeader>
 
@@ -160,10 +161,7 @@ export function AccountOpeningBalanceDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de ajuste</Label>
-              <DatePicker
-                value={adjustmentDate}
-                onChange={setAdjustmentDate}
-              />
+              <DatePicker value={adjustmentDate} onChange={setAdjustmentDate} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">
@@ -208,8 +206,8 @@ export function AccountOpeningBalanceDialog({
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p className="font-medium">Ajuste registrado actualmente</p>
               <p className="font-mono">
-                Corte: {existing.adjustment_date} · Saldo:{" "}
-                ${formatNumber2(existing.target_balance)}
+                Corte: {existing.adjustment_date} · Saldo: $
+                {formatNumber2(existing.target_balance)}
               </p>
             </div>
           )}
