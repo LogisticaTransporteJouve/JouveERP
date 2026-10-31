@@ -52,20 +52,26 @@ export function useReceiptDetail(
  */
 export function usePendingComprobantes(
   clientId: string | null,
+  channelId: string | null,
   excludeReceiptId?: string,
 ) {
   return useQuery({
     queryKey: receiptsKeys.pendingComprobantes(
       clientId ?? "_none",
+      channelId ?? "_none",
       excludeReceiptId,
     ),
     queryFn: () =>
-      clientId
+      clientId && channelId
         ? runAction(() =>
-            listPendingComprobantesForClientAction(clientId, excludeReceiptId),
+            listPendingComprobantesForClientAction(
+              clientId,
+              channelId,
+              excludeReceiptId,
+            ),
           )
         : Promise.resolve([]),
-    enabled: !!clientId,
+    enabled: !!clientId && !!channelId,
     staleTime: 5_000,
   });
 }

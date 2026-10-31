@@ -3,7 +3,7 @@
 import { AlertTriangle, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -384,6 +384,17 @@ export function PurchaseInvoiceForm({
   const watchedChannelIsFiscal =
     activeChannels.find((c) => c.id === watchedChannelId)?.is_fiscal ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
+
+  // An NC/ND only references an invoice of its own channel: switching the
+  // channel drops the picked origin (the edit form's first load is not a switch).
+  const prevChannelIdRef = useRef(watchedChannelId);
+  useEffect(() => {
+    if (prevChannelIdRef.current === watchedChannelId) return;
+    prevChannelIdRef.current = watchedChannelId;
+    if (form.getValues("origin_invoice")) {
+      form.setValue("origin_invoice", null, { shouldDirty: true });
+    }
+  }, [watchedChannelId, form]);
 
   useEffect(() => {
     if (mode !== "create") return;
@@ -1079,6 +1090,7 @@ export function PurchaseInvoiceForm({
                       value={field.value}
                       onChange={field.onChange}
                       supplierId={watchedSupplierId}
+                      channelId={watchedChannelId || null}
                       excludeId={invoice?.id ?? null}
                     />
                   </FormControl>

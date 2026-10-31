@@ -13,6 +13,7 @@ export type PurchaseInvoicesFilters = {
 export type PurchaseInvoicesPickerFilters = {
   query: string;
   supplierId: string | null;
+  channelId: string | null;
   kind: string | null;
   excludeId: string | null;
   status: string | null;

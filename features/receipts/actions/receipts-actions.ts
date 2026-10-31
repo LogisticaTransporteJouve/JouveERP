@@ -326,8 +326,11 @@ export type PendingComprobante = {
   outstanding: number;
 };
 
+/** Pending comprobantes of a client on one channel: a receipt only settles
+ *  comprobantes of its own channel (guard_receipt_allocation enforces it). */
 export async function listPendingComprobantesForClientAction(
   clientId: string,
+  channelId: string,
   excludeReceiptId?: string,
 ): Promise<ActionResult<PendingComprobante[]>> {
   const ctx = await requireUserContext();
@@ -363,6 +366,7 @@ export async function listPendingComprobantesForClientAction(
         .from("invoices")
         .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
         .eq("client_id", clientId)
+        .eq("channel_id", channelId)
         .eq("status", "emitted")
         .in("kind", ["factura", "nd"])
         .order("fecha", { ascending: true })
@@ -554,6 +558,7 @@ export async function createReceiptAction(
   if (allocations.length === 0) {
     const pendingRes = await listPendingComprobantesForClientAction(
       data.client_id,
+      data.channel_id,
     );
     if (pendingRes.ok) {
       const oldestFirst = [...pendingRes.data].sort((a, b) =>

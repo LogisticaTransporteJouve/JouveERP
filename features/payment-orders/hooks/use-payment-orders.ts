@@ -46,23 +46,26 @@ export function usePaymentOrderDetail(
 
 export function usePendingPurchaseInvoices(
   supplierId: string | null,
+  channelId: string | null,
   excludePaymentOrderId?: string,
 ) {
   return useQuery({
     queryKey: paymentOrdersKeys.pendingInvoices(
       supplierId ?? "_none",
+      channelId ?? "_none",
       excludePaymentOrderId,
     ),
     queryFn: () =>
-      supplierId
+      supplierId && channelId
         ? runAction(() =>
             listPendingInvoicesForSupplierAction(
               supplierId,
+              channelId,
               excludePaymentOrderId,
             ),
           )
         : Promise.resolve([]),
-    enabled: !!supplierId,
+    enabled: !!supplierId && !!channelId,
     staleTime: 5_000,
   });
 }

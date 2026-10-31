@@ -7,7 +7,10 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_CHECK_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -414,6 +417,10 @@ export async function createPurchaseInvoiceAction(
           "Ya cargaste esta factura del proveedor (mismo tipo / letra / PV / número).",
       };
     }
+    // guard_purchase_invoice_origin: the NC/ND origin is another supplier's or channel's.
+    if (error.code === PG_CHECK_VIOLATION) {
+      return { ok: false, error: error.message };
+    }
     logger.error("purchase_invoices.create.failed", {
       userId: ctx.userId,
       supplier_id: parsed.data.supplier_id,
@@ -540,6 +547,9 @@ export async function updatePurchaseInvoiceAction(
         ok: false,
         error: "Otra factura del proveedor ya usa esa combinación de número.",
       };
+    }
+    if (error.code === PG_CHECK_VIOLATION) {
+      return { ok: false, error: error.message };
     }
     logger.error("purchase_invoices.update.failed", {
       userId: ctx.userId,

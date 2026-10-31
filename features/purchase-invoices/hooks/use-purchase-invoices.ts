@@ -110,6 +110,7 @@ export function usePurchaseInvoicesSearch(
         searchPurchaseInvoicesAction({
           query: filters.query,
           supplierId: filters.supplierId,
+          channelId: filters.channelId,
           kind: filters.kind,
           excludeId: filters.excludeId,
           status: filters.status,

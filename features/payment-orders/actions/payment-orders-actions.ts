@@ -254,8 +254,12 @@ export type PendingPurchaseInvoice = {
   outstanding: number;
 };
 
+/** Pending purchase invoices of a supplier on one channel: a payment order
+ *  only settles invoices of its own channel (guard_payment_order_allocation
+ *  enforces it). */
 export async function listPendingInvoicesForSupplierAction(
   supplierId: string,
+  channelId: string,
   excludePaymentOrderId?: string,
 ): Promise<ActionResult<PendingPurchaseInvoice[]>> {
   const ctx = await requireUserContext();
@@ -282,6 +286,7 @@ export async function listPendingInvoicesForSupplierAction(
         .from("purchase_invoices")
         .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
         .eq("supplier_id", supplierId)
+        .eq("channel_id", channelId)
         .eq("status", "received")
         .order("fecha", { ascending: true })
         .order("id", { ascending: true })
@@ -411,6 +416,7 @@ export async function createPaymentOrderAction(
   if (allocations.length === 0) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
       data.supplier_id,
+      data.channel_id,
     );
     if (pendingRes.ok) {
       const oldestFirst = [...pendingRes.data].sort((a, b) =>

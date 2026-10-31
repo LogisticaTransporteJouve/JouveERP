@@ -39,12 +39,14 @@ export function PurchaseInvoicePicker({
   value,
   onChange,
   supplierId,
+  channelId,
   excludeId,
   disabled,
 }: {
   value: PickedPurchaseInvoice | null;
   onChange: (v: PickedPurchaseInvoice | null) => void;
   supplierId: string | null;
+  channelId: string | null;
   excludeId?: string | null;
   disabled?: boolean;
 }) {
@@ -57,12 +59,13 @@ export function PurchaseInvoicePicker({
     {
       query: debouncedQuery,
       supplierId,
+      channelId,
       kind: "factura",
       excludeId: excludeId ?? null,
       status: "received",
       limit: RESULT_LIMIT,
     },
-    { enabled: open && !!supplierId },
+    { enabled: open && !!supplierId && !!channelId },
   );
   const results = searchQuery.data?.invoices ?? [];
   const isSearching = searchQuery.isFetching;
