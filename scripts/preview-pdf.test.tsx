@@ -38,6 +38,7 @@ describe("invoice PDF preview", () => {
 
     const fiscal: InvoiceTemplateData = {
       isFiscal: true,
+      emittedAt: "2026-10-01T12:00:00-03:00",
       emisor: {
         legal_name: "DZ & Sons S.A.",
         cuit: "30714637432",
