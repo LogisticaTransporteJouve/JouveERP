@@ -9,8 +9,6 @@ export type PaymentOrderStatus = (typeof PAYMENT_ORDER_STATUSES)[number];
 export const PAYMENT_ORDER_CURRENCIES = ["ARS", "USD"] as const;
 export type PaymentOrderCurrency = (typeof PAYMENT_ORDER_CURRENCIES)[number];
 
-export const PAYMENT_ORDERS_PATH = "/payment-orders";
-
 const trimmedNullable = z
   .string()
   .trim()
@@ -191,11 +189,17 @@ export type IssuedCheckPayload = z.infer<typeof IssuedCheckPayloadSchema>;
 export type AllocationInput = z.infer<typeof AllocationSchema>;
 
 export function isPaymentOrderStatus(v: unknown): v is PaymentOrderStatus {
-  return typeof v === "string" && (PAYMENT_ORDER_STATUSES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (PAYMENT_ORDER_STATUSES as readonly string[]).includes(v)
+  );
 }
 
 export function isPaymentOrderCurrency(v: unknown): v is PaymentOrderCurrency {
-  return typeof v === "string" && (PAYMENT_ORDER_CURRENCIES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (PAYMENT_ORDER_CURRENCIES as readonly string[]).includes(v)
+  );
 }
 
 type PaymentOrderRow = Database["public"]["Tables"]["payment_orders"]["Row"];

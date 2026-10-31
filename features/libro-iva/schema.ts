@@ -1,8 +1,5 @@
 import { round2 } from "@/lib/format";
 
-export const LIBRO_IVA_VENTAS_PATH = "/accounting/libro-iva-ventas";
-export const LIBRO_IVA_COMPRAS_PATH = "/accounting/libro-iva-compras";
-
 export type LibroIvaComprasRow = {
   purchase_invoice_id: string;
   fecha: string;

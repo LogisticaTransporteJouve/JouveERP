@@ -14,15 +14,6 @@ export const DUE_DATE_KINDS = [
 
 export type DueDateKind = (typeof DUE_DATE_KINDS)[number];
 
-export const DUE_DATE_KIND_LABEL: Record<DueDateKind, string> = {
-  received_check: "Cheque en cartera",
-  issued_check: "Cheque propio",
-  loan_installment: "Cuota de préstamo",
-  recurring_payment: "Pago recurrente",
-  fleet_document: "Documento de flota",
-  employee_document: "Documento de personal",
-};
-
 export interface DueDateItem {
   id: string;
   kind: DueDateKind;

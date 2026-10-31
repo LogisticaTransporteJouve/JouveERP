@@ -69,19 +69,3 @@ export const openingBalancePreprocess = (value: unknown) => {
   }
   return value;
 };
-
-/** Variant that pre-strips non-numeric characters (keeps `0-9 , . -`).
- *  More defensive for typed inputs where the user may paste "$ 1.234,56"
- *  or "ARS 1.234,56". Used by the purchase-invoices and issued-checks schemas. */
-export const moneyAmountWithStripPreprocess = (value: unknown) => {
-  if (typeof value === "string") {
-    const cleaned = value
-      .replace(/[^0-9.,-]/g, "")
-      .replace(/\./g, "")
-      .replace(",", ".");
-    if (cleaned.length === 0) return undefined;
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isFinite(parsed) ? parsed : value;
-  }
-  return value;
-};

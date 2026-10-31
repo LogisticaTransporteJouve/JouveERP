@@ -30,8 +30,6 @@ export function isCheckAccount(type: AccountType | undefined): boolean {
 export const ACCOUNT_CURRENCIES = ["ARS", "USD"] as const;
 export type AccountCurrency = (typeof ACCOUNT_CURRENCIES)[number];
 
-export const ACCOUNTS_PATH = "/accounts";
-
 const trimmedNullable = z
   .string()
   .trim()
