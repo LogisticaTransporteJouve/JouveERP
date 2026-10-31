@@ -420,7 +420,11 @@ export async function deleteTransactionAction(
   const supabase = await createSupabaseClient();
   // For a transfer pair, the FK on_delete cascade on transfer_pair_id wipes
   // the other half automatically — confirmed by the migration.
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -435,6 +439,9 @@ export async function deleteTransactionAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar el movimiento." };
+  }
+  if (deleted.length === 0) {
+    return { ok: false, error: "No se encontró el movimiento." };
   }
 
   await logAudit("transaction.deleted", ctx.userId, {}, id);

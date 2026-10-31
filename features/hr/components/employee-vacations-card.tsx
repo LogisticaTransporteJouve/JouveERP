@@ -141,7 +141,7 @@ function BalancesSection({
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : balances.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Sin saldos. Generá las balances anuales desde Admin → HR.
+          Sin saldos. Se generan solos el 1 de octubre de cada año.
         </p>
       ) : (
         <div className="rounded-lg border bg-card">

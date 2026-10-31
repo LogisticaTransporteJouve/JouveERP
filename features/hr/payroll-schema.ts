@@ -85,7 +85,10 @@ export type PayrollEntryResolved = {
 export const PAYROLL_PAYMENT_METHODS = ["transferencia", "efectivo"] as const;
 export type PayrollPaymentMethod = (typeof PAYROLL_PAYMENT_METHODS)[number];
 
-export const PAYROLL_PAYMENT_METHOD_LABEL: Record<PayrollPaymentMethod, string> = {
+export const PAYROLL_PAYMENT_METHOD_LABEL: Record<
+  PayrollPaymentMethod,
+  string
+> = {
   transferencia: "Transferencia",
   efectivo: "Efectivo",
 };
@@ -100,22 +103,13 @@ export const CreatePayrollPaymentSchema = z.object({
   notes: z.string().trim().max(500).nullable().optional(),
 });
 
-export const UpdatePayrollPaymentSchema = z.object({
-  id: z.string().uuid(),
-  account_id: z.string().uuid().optional(),
-  channel_id: z.string().trim().min(1).optional(),
-  amount: z.coerce.number().positive().max(999999999.99).optional(),
-  method: z.enum(PAYROLL_PAYMENT_METHODS).optional(),
-  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  notes: z.string().trim().max(500).nullable().optional(),
-});
-
 export const DeletePayrollPaymentSchema = z.object({
   id: z.string().uuid(),
 });
 
-export type CreatePayrollPaymentInput = z.infer<typeof CreatePayrollPaymentSchema>;
-export type UpdatePayrollPaymentInput = z.infer<typeof UpdatePayrollPaymentSchema>;
+export type CreatePayrollPaymentInput = z.infer<
+  typeof CreatePayrollPaymentSchema
+>;
 
 // Bulk payment: one transfer of N pesos to M employees → generates M
 // payroll_payments rows (one per selected entry_id) with the same
@@ -139,7 +133,8 @@ export type BulkCreatePayrollPaymentsInput = z.infer<
   typeof BulkCreatePayrollPaymentsSchema
 >;
 
-type PayrollPaymentRow = Database["public"]["Tables"]["payroll_payments"]["Row"];
+type PayrollPaymentRow =
+  Database["public"]["Tables"]["payroll_payments"]["Row"];
 export type PayrollPayment = Omit<PayrollPaymentRow, "method"> & {
   method: PayrollPaymentMethod;
 };
@@ -161,21 +156,12 @@ export const AddPayrollEntryExtraSchema = z.object({
   description: z.string().trim().min(1, "Descripción requerida.").max(200),
 });
 
-export const UpdatePayrollEntryExtraSchema = z.object({
-  id: z.string().uuid(),
-  amount: z.coerce.number().positive().max(999999999.99).optional(),
-  description: z.string().trim().min(1).max(200).optional(),
-});
-
 export const RemovePayrollEntryExtraSchema = z.object({
   id: z.string().uuid(),
 });
 
 export type AddPayrollEntryExtraInput = z.infer<
   typeof AddPayrollEntryExtraSchema
->;
-export type UpdatePayrollEntryExtraInput = z.infer<
-  typeof UpdatePayrollEntryExtraSchema
 >;
 
 type PayrollEntryExtraRow =

@@ -43,19 +43,9 @@ export const CreateLeaveSchema = z
     path: ["end_date"],
   });
 
-export const UpdateLeaveSchema = z
-  .object({
-    id: z.string().uuid(),
-    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    kind: z.enum(LEAVE_KINDS).optional(),
-    notes: z.string().trim().max(500).nullable().optional(),
-  });
-
 export const DeleteLeaveSchema = z.object({ id: z.string().uuid() });
 
 export type CreateLeaveInput = z.infer<typeof CreateLeaveSchema>;
-export type UpdateLeaveInput = z.infer<typeof UpdateLeaveSchema>;
 
 type LeaveRow = Database["public"]["Tables"]["employee_leaves"]["Row"];
 export type EmployeeLeave = Omit<LeaveRow, "kind"> & { kind: LeaveKind };
@@ -103,22 +93,3 @@ export type VacationBalance = {
   created_at: string;
   updated_at: string;
 };
-
-export const GrantVacationBalancesSchema = z.object({
-  target_year: z.coerce.number().int().min(2020).max(2099),
-  carryover: z.coerce.boolean().default(true),
-});
-
-export const AdjustVacationBalanceSchema = z.object({
-  id: z.string().uuid(),
-  bonus_days: z.coerce.number().int().min(0).max(365).optional(),
-  status: z.enum(VACATION_BALANCE_STATUSES).optional(),
-  notes: z.string().trim().max(500).nullable().optional(),
-});
-
-export type GrantVacationBalancesInput = z.infer<
-  typeof GrantVacationBalancesSchema
->;
-export type AdjustVacationBalanceInput = z.infer<
-  typeof AdjustVacationBalanceSchema
->;

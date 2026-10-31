@@ -16,7 +16,6 @@ import {
   RemovePayrollEntryExtraSchema,
   ReopenPayrollPeriodSchema,
   SeedPayrollPeriodSchema,
-  UpdatePayrollEntryExtraSchema,
   UpdatePayrollEntrySchema,
   type PayrollEntryExtra,
   type PayrollEntryResolved,
@@ -389,45 +388,6 @@ export async function addPayrollEntryExtraAction(
     data.id,
   );
   return { ok: true, data: { id: data.id } };
-}
-
-export async function updatePayrollEntryExtraAction(
-  input: unknown,
-): Promise<ActionResult> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
-    return { ok: false, error: "Sin permiso." };
-  }
-  const parsed = UpdatePayrollEntryExtraSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-  const { id, ...rest } = parsed.data;
-
-  type ExtraUpdate =
-    Database["public"]["Tables"]["payroll_entry_extras"]["Update"];
-  const patch: ExtraUpdate = {};
-  if (rest.amount !== undefined) patch.amount = rest.amount;
-  if (rest.description !== undefined) patch.description = rest.description;
-  if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
-
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase
-    .from("payroll_entry_extras")
-    .update(patch)
-    .eq("id", id);
-
-  if (error) return { ok: false, error: error.message };
-  await logAudit(
-    "payroll.extra_updated",
-    ctx.userId,
-    { fields: Object.keys(patch) },
-    id,
-  );
-  return { ok: true, data: undefined };
 }
 
 export async function removePayrollEntryExtraAction(
