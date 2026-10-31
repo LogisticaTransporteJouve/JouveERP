@@ -14,13 +14,18 @@ export const searchIndexRefresh = inngest.createFunction(
     id: "search-index-refresh",
     name: "FTS — refresh search_index if dirty",
     retries: 1,
+    // A refresh that outlasts the minute must not overlap the next one.
+    concurrency: { limit: 1 },
     triggers: [{ cron: "*/1 * * * *" }],
   },
   async ({ step }) => {
     const refreshed = await step.run("refresh-if-dirty", async () => {
       const supabase = getServiceClient();
-      const { data, error } = await supabase.rpc("refresh_search_index_if_dirty");
-      if (error) throw new Error(`refresh_search_index_if_dirty: ${error.message}`);
+      const { data, error } = await supabase.rpc(
+        "refresh_search_index_if_dirty",
+      );
+      if (error)
+        throw new Error(`refresh_search_index_if_dirty: ${error.message}`);
       return rpcAs<boolean>(data);
     });
 

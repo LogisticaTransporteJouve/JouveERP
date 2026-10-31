@@ -226,7 +226,11 @@ export async function deleteVehicleAction(input: {
     return { ok: false, error: "No tenés permiso para borrar vehículos." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("vehicles").delete().eq("id", input.id);
+  const { data, error } = await supabase
+    .from("vehicles")
+    .delete()
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return {
@@ -237,6 +241,13 @@ export async function deleteVehicleAction(input: {
     }
     logger.error("vehicles.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el vehículo." };
+  }
+  // RLS filters a row the role may not delete without an error.
+  if (data.length === 0) {
+    return {
+      ok: false,
+      error: "No se encontró el vehículo o no podés borrarlo.",
+    };
   }
   await logAudit("vehicle.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };

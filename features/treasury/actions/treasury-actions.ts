@@ -160,14 +160,15 @@ export async function getTreasurySummaryAction(): Promise<
   );
 
   if (chErr) {
-    logger.warn("treasury.summary.checks_failed", {
+    logger.error("treasury.summary.checks_failed", {
       userId: ctx.userId,
       error: chErr,
     });
+    return { ok: false, error: "No se pudieron leer los cheques en cartera." };
   }
 
   const checks_due_soon = { count: 0, amount: 0 };
-  for (const c of chequesRaw ?? []) {
+  for (const c of chequesRaw) {
     checks_due_soon.count += 1;
     checks_due_soon.amount += Number(c.amount);
   }

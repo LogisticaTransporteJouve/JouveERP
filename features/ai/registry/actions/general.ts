@@ -3,6 +3,8 @@ import { z } from "zod";
 import { listAttachmentsAction } from "@/features/files/actions/files-actions";
 import { ATTACHMENT_TARGET_TYPES } from "@/features/files/schema";
 import { searchGlobalAction } from "@/features/search/actions/search-actions";
+import { SEARCH_ENTITY_TYPES } from "@/features/search/schema";
+import { ENTITY_READ_PERMISSION } from "@/lib/auth/entity-permissions";
 import { UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -11,9 +13,10 @@ import { errResult, okResult, reachedCap } from "../result";
 export const searchGlobal = defineAiAction({
   name: "searchGlobal",
   domain: "general",
-  // search_global filters entity types by role inside the RPC; clients:read is
-  // held by every role it returns anything to.
-  permission: "clients:read",
+  // searchGlobalAction narrows the hits to the entity types this access reads.
+  permission: {
+    anyOf: SEARCH_ENTITY_TYPES.map((t) => ENTITY_READ_PERMISSION[t]),
+  },
   sideEffect: "read",
   sources: ["search_global"],
   description:

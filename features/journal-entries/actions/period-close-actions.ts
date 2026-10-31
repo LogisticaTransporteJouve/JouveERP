@@ -8,6 +8,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { canManageClosedPeriods } from "../lib/period-close";
+
 type ActionResult<T = void> =
   { ok: true; data: T } | { ok: false; error: string };
 
@@ -43,10 +45,7 @@ export async function closeAccountingPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "accounting:write") ||
-    ctx.access.roles.every((r) => r !== "owner" && r !== "admin")
-  ) {
+  if (!canManageClosedPeriods(ctx.access)) {
     return { ok: false, error: "Solo owner/admin pueden cerrar períodos." };
   }
   const parsed = PeriodSchema.safeParse(input);
@@ -78,10 +77,7 @@ export async function reopenAccountingPeriodAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "accounting:write") ||
-    ctx.access.roles.every((r) => r !== "owner" && r !== "admin")
-  ) {
+  if (!canManageClosedPeriods(ctx.access)) {
     return { ok: false, error: "Solo owner/admin pueden reabrir períodos." };
   }
   const parsed = PeriodSchema.safeParse(input);
@@ -89,10 +85,11 @@ export async function reopenAccountingPeriodAction(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Inválido." };
   }
   const supabase = getServiceClient();
-  const { error } = await supabase
+  const { data: reopened, error } = await supabase
     .from("accounting_closed_periods")
     .delete()
-    .eq("period", parsed.data);
+    .eq("period", parsed.data)
+    .select("period");
   if (error) {
     logger.error("period.reopen.failed", {
       userId: ctx.userId,
@@ -100,6 +97,9 @@ export async function reopenAccountingPeriodAction(
       error,
     });
     return { ok: false, error: "No se pudo reabrir el período." };
+  }
+  if (reopened.length === 0) {
+    return { ok: false, error: "El período no estaba cerrado." };
   }
   await logAudit("accounting_period.reopened", ctx.userId, {
     period: parsed.data,

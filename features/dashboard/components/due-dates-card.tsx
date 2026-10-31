@@ -21,7 +21,7 @@ export function DueDatesCard({ items }: { items: DueDateItem[] }) {
     <Section
       title="Próximos vencimientos"
       icon={CalendarClock}
-      description="Cobros, pagos y documentos de los próximos 14 días"
+      description="Cobros, pagos y documentos de los próximos 14 días, de todos los canales"
     >
       <div className="rounded-lg border bg-card">
         {visible.length === 0 ? (

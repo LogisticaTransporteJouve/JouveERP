@@ -198,7 +198,7 @@ Todos gateados al permiso listado.
 | Tool | Lee | Action backing | Perm |
 |---|---|---|---|
 | `getPurchaseInvoices` | facturas de compra, filtros ricos | `searchPurchaseInvoicesAction` | `purchase_invoices:read` |
-| `searchSuppliers` / `getSuppliers` | lookup de proveedor | `searchSuppliersAction` / `listSuppliersAction` | `suppliers:read` |
+| `searchSuppliers` | lookup de proveedor | `searchSuppliersAction` | `suppliers:read` |
 | `getSupplierAging` | aging de proveedor (`v_aging_documents`) | `*` lectura nueva (ruta `aging-suppliers` existe) | `purchase_invoices:read` |
 | `getPaymentOrders` | OPs + líneas | `listPaymentOrdersAction` | `payment_orders:read` |
 | `getIssuedChecks` | cheques propios emitidos | `listIssuedChecksAction` | `issued_checks:read` |

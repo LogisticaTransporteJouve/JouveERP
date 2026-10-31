@@ -73,6 +73,7 @@ export function recordingSupabase(
       not: filter("not"),
       ilike: filter("ilike"),
       or: filter("or"),
+      is: filter("is"),
       order: () => builder,
       limit: () => builder,
       range: () => builder,

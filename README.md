@@ -88,7 +88,12 @@ RUN_INTEGRATION=1 pnpm test     # integración contra Supabase local
 supabase test db                # pgTAP (supabase/tests/)
 pnpm test:e2e                   # Playwright; usuario de pnpm seed:dev
 RUN_AFIP_E2E=1 pnpm test:e2e    # smoke de emisión AFIP (homologación)
+pnpm eval:ai                    # evals de ruteo de IA contra el modelo real
 ```
+
+`pnpm eval:ai` fija `AI_EVALS_LIVE=1`, la variable que habilita
+`features/ai/evals/routing.live.test.ts`; sin ella (o sin `ANTHROPIC_API_KEY`)
+esos tests se saltean, así que `pnpm test` nunca llama al modelo.
 
 Las E2E aceptan `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` para otro usuario.
 

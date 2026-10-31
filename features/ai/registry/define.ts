@@ -75,8 +75,10 @@ export type AiActionDefinition<S extends z.ZodType> = {
   input: S;
   /** Validates `data` on success; a mismatch becomes an error result. */
   output?: z.ZodType;
-  /** Every listed permission is required, both to expose and to run. */
-  permission: Permission | readonly Permission[];
+  /** Every listed permission is required, both to expose and to run;
+   *  `{ anyOf }` requires at least one of them instead. */
+  permission:
+    Permission | readonly Permission[] | { anyOf: readonly Permission[] };
   sideEffect: AiSideEffect;
   /** Tables, views or RPCs the figures come from (result `meta.sources`). */
   sources: readonly string[];
@@ -90,6 +92,8 @@ export type AiAction = {
   readonly domain: AiDomain;
   readonly description: string;
   readonly permissions: readonly Permission[];
+  /** When non-empty, at least one of these is also required. */
+  readonly anyOfPermissions: readonly Permission[];
   readonly sideEffect: AiSideEffect;
   readonly sources: readonly string[];
   /** The input schema of a `read` action (pinned artifacts store its parse). */
@@ -118,29 +122,38 @@ export type AiProposal = {
   ) => Promise<ActionResult<{ id: string }>>;
 };
 
-export function canRunAiAction(
-  access: Access,
-  permissions: readonly Permission[],
-): boolean {
-  return permissions.every((p) => userCan(access, p));
+export type AiActionGate = Pick<AiAction, "permissions" | "anyOfPermissions">;
+
+export function canRunAiAction(access: Access, gate: AiActionGate): boolean {
+  return (
+    gate.permissions.every((p) => userCan(access, p)) &&
+    (gate.anyOfPermissions.length === 0 ||
+      gate.anyOfPermissions.some((p) => userCan(access, p)))
+  );
 }
 
 export function toPermissions(
-  permission: Permission | readonly Permission[],
-): readonly Permission[] {
-  return typeof permission === "string" ? [permission] : permission;
+  permission: AiActionDefinition<z.ZodType>["permission"],
+): AiActionGate {
+  if (typeof permission === "string") {
+    return { permissions: [permission], anyOfPermissions: [] };
+  }
+  if ("anyOf" in permission) {
+    return { permissions: [], anyOfPermissions: permission.anyOf };
+  }
+  return { permissions: permission, anyOfPermissions: [] };
 }
 
 export function defineAiAction<S extends z.ZodType>(
   def: AiActionDefinition<S>,
 ): AiAction {
-  const permissions = toPermissions(def.permission);
+  const gate = toPermissions(def.permission);
 
   async function execute(
     ctx: AiActionContext,
     input: unknown,
   ): Promise<AiToolResult> {
-    if (!canRunAiAction(ctx.access, permissions)) {
+    if (!canRunAiAction(ctx.access, gate)) {
       return errResult("No tenés permiso para esta consulta.");
     }
     const parsed = def.input.safeParse(input);
@@ -186,7 +199,7 @@ export function defineAiAction<S extends z.ZodType>(
     name: def.name,
     domain: def.domain,
     description: def.description,
-    permissions,
+    ...gate,
     sideEffect: def.sideEffect,
     sources: def.sources,
     input: def.input,

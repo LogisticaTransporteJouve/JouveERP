@@ -151,28 +151,6 @@ export async function listTransactionsAction(
   };
 }
 
-export async function getTransactionByIdAction(
-  id: string,
-): Promise<ActionResult<Transaction | null>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "transactions:read")) {
-    return { ok: false, error: "No tenés permiso para ver movimientos." };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(SELECT_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    logger.error("transactions.get.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo cargar el movimiento." };
-  }
-  return { ok: true, data: data ? narrowTransaction(data) : null };
-}
-
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
@@ -412,16 +390,19 @@ export async function deleteTransactionAction(
   id: string,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  // Aligned with the transactions DELETE RLS (owner only); finance/operations
-  // have transactions:write but the policy blocks them — clean gate here.
-  if (!ctx.access.roles.includes("owner")) {
+  // Owner only, like the transactions DELETE RLS.
+  if (!userCan(ctx.access, "transactions:delete")) {
     return { ok: false, error: "Solo owner puede borrar movimientos." };
   }
 
   const supabase = await createSupabaseClient();
   // For a transfer pair, the FK on_delete cascade on transfer_pair_id wipes
   // the other half automatically — confirmed by the migration.
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -436,6 +417,9 @@ export async function deleteTransactionAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar el movimiento." };
+  }
+  if (deleted.length === 0) {
+    return { ok: false, error: "No se encontró el movimiento." };
   }
 
   await logAudit("transaction.deleted", ctx.userId, {}, id);

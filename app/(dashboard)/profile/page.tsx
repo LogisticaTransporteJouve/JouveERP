@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMyNotificationSettingsAction } from "@/features/notifications/actions/settings-actions";
 import { NotificationSettings } from "@/features/notifications/components/notification-settings";
+import { notificationsKeys } from "@/features/notifications/keys";
 import { getMyProfileAction } from "@/features/profile/actions/get-my-profile";
 import { ProfileForm } from "@/features/profile/components/profile-form";
 import { profileKeys } from "@/features/profile/keys";
@@ -20,7 +21,7 @@ export default async function ProfilePage() {
       queryFn: () => runAction(() => getMyProfileAction()),
     },
     {
-      queryKey: ["notifications", "settings"],
+      queryKey: notificationsKeys.settings(),
       queryFn: () => runAction(() => getMyNotificationSettingsAction()),
     },
   ]);

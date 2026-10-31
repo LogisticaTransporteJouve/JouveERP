@@ -1,18 +1,34 @@
 "use client";
 
-import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight } from "lucide-react";
+import {
+  ArrowDownCircle,
+  ArrowLeftRight,
+  ArrowUpCircle,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import {
   Suspense,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -29,14 +45,19 @@ import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
+import { toast } from "sonner";
 
-import { useTransactionsList } from "../hooks/use-transactions";
+import {
+  useDeleteTransaction,
+  useTransactionsList,
+} from "../hooks/use-transactions";
 import { transactionsKeys } from "../lib/transactions-keys";
 import {
   TRANSACTION_KINDS,
   TRANSACTION_KIND_LABEL,
   type TransactionKind,
 } from "../schema";
+import { EditTransactionDialog } from "./edit-transaction-dialog";
 import { NewTransactionDialog } from "./new-transaction-dialog";
 import type { ChannelOption } from "./transaction-form";
 
@@ -59,7 +80,28 @@ const KIND_ICON: Record<TransactionKind, typeof ArrowUpCircle> = {
   transfer_out: ArrowLeftRight,
 };
 
-function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
+type RowActions = {
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: (tx: TransactionListItem) => void;
+  onDelete: (tx: TransactionListItem) => void;
+};
+
+/** A movement the list knows came from an invoice cannot be edited or
+ *  deleted here, and a transfer is edited as a pair (delete removes both).
+ *  Movements of receipts, payment orders, loans or payroll are refused by the
+ *  server, which says why. */
+function editable(tx: TransactionListItem): boolean {
+  return tx.invoice_id === null && tx.transfer_pair_id === null;
+}
+function deletable(tx: TransactionListItem): boolean {
+  return tx.invoice_id === null;
+}
+
+function useTransactionColumns(
+  actions: RowActions,
+): ColumnDef<TransactionListItem>[] {
+  const { canEdit, canDelete, onEdit, onDelete } = actions;
   return useMemo(
     () => [
       {
@@ -166,8 +208,51 @@ function useTransactionColumns(): ColumnDef<TransactionListItem>[] {
           );
         },
       },
+      ...(canEdit || canDelete
+        ? [
+            {
+              id: "actions",
+              header: "",
+              enableSorting: false,
+              meta: { headerClassName: "w-12", align: "right" as const },
+              cell: ({ row }: { row: { original: TransactionListItem } }) => {
+                const tx = row.original;
+                const showEdit = canEdit && editable(tx);
+                const showDelete = canDelete && deletable(tx);
+                if (!showEdit && !showDelete) return null;
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Acciones del movimiento"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {showEdit && (
+                        <DropdownMenuItem onClick={() => onEdit(tx)}>
+                          <Pencil className="size-4" />
+                          Editar
+                        </DropdownMenuItem>
+                      )}
+                      {showDelete && (
+                        <DropdownMenuItem onClick={() => onDelete(tx)}>
+                          <Trash2 className="size-4" />
+                          Borrar
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              },
+            } satisfies ColumnDef<TransactionListItem>,
+          ]
+        : []),
     ],
-    [],
+    [canEdit, canDelete, onEdit, onDelete],
   );
 }
 
@@ -205,8 +290,37 @@ export function TransactionsTable({
   const deferredDateTo = useDeferredValue(dateTo);
 
   const canWrite = userCan(actorAccess, "transactions:write");
+  const canDelete = userCan(actorAccess, "transactions:delete");
+  const confirm = useConfirm();
+  const deleteMut = useDeleteTransaction();
+  const [editing, setEditing] = useState<TransactionListItem | null>(null);
 
-  const columns = useTransactionColumns();
+  const onDelete = useCallback(
+    async (tx: TransactionListItem) => {
+      const ok = await confirm({
+        title: "Borrar movimiento",
+        description:
+          tx.transfer_pair_id !== null
+            ? "Es una transferencia: se borran los dos movimientos. Esta acción no se puede deshacer."
+            : "Esta acción no se puede deshacer.",
+        confirmLabel: "Borrar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deleteMut.mutate(tx.id, {
+        onSuccess: () => toast.success("Movimiento borrado."),
+        onError: (err) => toast.error(err.message),
+      });
+    },
+    [confirm, deleteMut],
+  );
+
+  const columns = useTransactionColumns({
+    canEdit: canWrite,
+    canDelete,
+    onEdit: setEditing,
+    onDelete,
+  });
 
   // Realtime: any transaction insert/update/delete invalidates every
   // filter combo so saldos and movements stay in sync across tabs.
@@ -275,6 +389,13 @@ export function TransactionsTable({
           />
         </Suspense>
       </div>
+
+      <EditTransactionDialog
+        transaction={editing}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      />
     </>
   );
 }

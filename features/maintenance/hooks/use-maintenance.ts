@@ -6,6 +6,8 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { fleetReportsKeys } from "@/features/fleet-reports/lib/fleet-reports-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -24,7 +26,7 @@ export function useMaintenance() {
 }
 
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: maintenanceKeys.all });
+  invalidateKeys(qc, [maintenanceKeys.all, fleetReportsKeys.all]);
 }
 
 export function useCreateMaintenance() {
@@ -48,7 +50,8 @@ export function useUpdateMaintenance() {
 export function useDeleteMaintenance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => runAction(() => deleteMaintenanceAction({ id })),
+    mutationFn: (id: string) =>
+      runAction(() => deleteMaintenanceAction({ id })),
     onSuccess: () => invalidate(qc),
   });
 }

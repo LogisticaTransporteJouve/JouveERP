@@ -95,7 +95,7 @@ export async function setSupplierOpeningBalanceAction(input: {
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return {
       ok: false,
       error: "Solo el owner puede ajustar saldos de proveedor.",
@@ -135,7 +135,7 @@ export async function clearSupplierOpeningBalanceAction(
   supplierId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return {
       ok: false,
       error: "Solo el owner puede borrar el ajuste de saldo.",

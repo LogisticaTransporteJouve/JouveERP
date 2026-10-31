@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
+import { ExportButton } from "@/components/export-button";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
@@ -15,10 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import {
-  useCostCenters,
-  useDeleteCostCenter,
-} from "../hooks/use-cost-centers";
+import { useCostCenters, useDeleteCostCenter } from "../hooks/use-cost-centers";
 import type { CostCenter } from "../schema";
 
 import { CostCenterDialog } from "./cost-center-dialog";
@@ -129,10 +127,13 @@ export function CostCentersTable() {
             flota / proyecto / obra.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nuevo centro
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExportButton resource="cost-centers" />
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nuevo centro
+          </Button>
+        </div>
       </div>
 
       <DataTable

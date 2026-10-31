@@ -74,7 +74,7 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
       icon={TrendingUp}
       description={
         <>
-          Neto mensual en ARS
+          Neto mensual en ARS de todos los canales
           {data.usdRate !== null ? " (USD al TC oficial)" : ""} · saldo hoy{" "}
           <span className="font-mono">{formatMoney(data.cashToday)}</span>
         </>

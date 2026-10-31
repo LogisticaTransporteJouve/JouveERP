@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { TreasuryPage } from "@/features/treasury/components/treasury-page";
+import { treasurySummaryQuery } from "@/features/treasury/lib/treasury-queries";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { Hydrate } from "@/lib/query/hydrate";
+import { prefetchQueries } from "@/lib/query/prefetch";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +14,10 @@ export default async function TreasuryRoute() {
   if (!userCan(ctx.access, "accounting:read")) {
     redirect("/dashboard");
   }
-  return <TreasuryPage />;
+  const dehydratedState = await prefetchQueries([treasurySummaryQuery()]);
+  return (
+    <Hydrate state={dehydratedState}>
+      <TreasuryPage />
+    </Hydrate>
+  );
 }

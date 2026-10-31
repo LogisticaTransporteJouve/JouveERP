@@ -47,8 +47,11 @@ describe("registry catalogue", () => {
     const names = AI_ACTIONS.map((a) => a.name);
     expect(new Set(names).size).toBe(names.length);
     for (const action of AI_ACTIONS) {
-      expect(action.permissions.length, action.name).toBeGreaterThan(0);
-      for (const p of action.permissions) {
+      expect(
+        action.permissions.length + action.anyOfPermissions.length,
+        action.name,
+      ).toBeGreaterThan(0);
+      for (const p of [...action.permissions, ...action.anyOfPermissions]) {
         expect(PERMISSIONS, `${action.name}: ${p}`).toContain(p);
       }
       expect(action.sources.length, action.name).toBeGreaterThan(0);
@@ -92,6 +95,16 @@ describe("per-user denies", () => {
     ).map((a) => a.name);
     expect(names).toHaveLength(AI_ACTIONS.length - gated.length);
     for (const name of gated) expect(names).not.toContain(name);
+  });
+});
+
+describe("searchGlobal gate", () => {
+  const visible = (access: ReturnType<typeof resolveAccess>) =>
+    visibleAiActions(access).some((a) => a.name === "searchGlobal");
+
+  it("needs any one of the searchable entities' read permissions", () => {
+    expect(visible(resolveAccess(["finance"], ["clients:read"]))).toBe(true);
+    expect(visible(resolveAccess(["warehouse"]))).toBe(false);
   });
 });
 

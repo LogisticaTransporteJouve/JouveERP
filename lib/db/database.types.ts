@@ -4304,6 +4304,7 @@ export type Database = {
           freight_amount: number | null
           id: string
           invoice_id: string | null
+          invoicing_claimed_at: string | null
           notes: string | null
           origin: string | null
           scheduled_date: string | null
@@ -4323,6 +4324,7 @@ export type Database = {
           freight_amount?: number | null
           id?: string
           invoice_id?: string | null
+          invoicing_claimed_at?: string | null
           notes?: string | null
           origin?: string | null
           scheduled_date?: string | null
@@ -4342,6 +4344,7 @@ export type Database = {
           freight_amount?: number | null
           id?: string
           invoice_id?: string | null
+          invoicing_claimed_at?: string | null
           notes?: string | null
           origin?: string | null
           scheduled_date?: string | null
@@ -4390,6 +4393,7 @@ export type Database = {
       storage_billing_runs: {
         Row: {
           applied_tariffs: Json
+          channel_id: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -4397,6 +4401,7 @@ export type Database = {
           handling_out_total: number
           id: string
           invoice_id: string | null
+          pending_since: string | null
           period_end: string
           period_start: string
           storage_total: number
@@ -4404,6 +4409,7 @@ export type Database = {
         }
         Insert: {
           applied_tariffs?: Json
+          channel_id?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -4411,6 +4417,7 @@ export type Database = {
           handling_out_total?: number
           id?: string
           invoice_id?: string | null
+          pending_since?: string | null
           period_end: string
           period_start: string
           storage_total?: number
@@ -4418,6 +4425,7 @@ export type Database = {
         }
         Update: {
           applied_tariffs?: Json
+          channel_id?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -4425,12 +4433,20 @@ export type Database = {
           handling_out_total?: number
           id?: string
           invoice_id?: string | null
+          pending_since?: string | null
           period_end?: string
           period_start?: string
           storage_total?: number
           total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "storage_billing_runs_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "storage_billing_runs_client_id_fkey"
             columns: ["client_id"]
@@ -6115,6 +6131,15 @@ export type Database = {
           movement_channel_id: string
           receipt_channel_id: string
         }[]
+      }
+      claim_storage_billing_period: {
+        Args: {
+          p_channel_id: string
+          p_client_id: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: string
       }
       cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
       cleanup_rate_limit_buckets: {

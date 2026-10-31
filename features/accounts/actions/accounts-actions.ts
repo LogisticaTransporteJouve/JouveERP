@@ -275,7 +275,7 @@ export async function setAccountOpeningBalanceAction(
   const ctx = await requireUserContext();
   // The adjustment rewrites the historical balance — owner only, same as the
   // client adjustment.
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return {
       ok: false,
       error: "No tenés permiso para ajustar saldos de cuentas.",
@@ -326,7 +326,7 @@ export async function clearAccountOpeningBalanceAction(
   accountId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return { ok: false, error: "No tenés permiso para borrar saldos." };
   }
   const supabase = await createSupabaseClient();

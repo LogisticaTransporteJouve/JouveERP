@@ -13,14 +13,18 @@ import { requireUserContext } from "@/lib/auth/context";
 import { getActiveInvoicingChannels } from "@/lib/channels";
 import { todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
 
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import {
   FreightInvoiceSchema,
+  type FreightInvoiceInput,
   ShipmentCreateSchema,
   ShipmentStatusChangeSchema,
   ShipmentUpdateSchema,
@@ -187,7 +191,7 @@ export async function updateShipmentAction(
   }
   const { id, ...rest } = parsed.data;
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("shipments")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
@@ -204,10 +208,20 @@ export async function updateShipmentAction(
       }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "shipments.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("shipments.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar la carga." };
+  }
+  if (data.length === 0) {
+    return { ok: false, error: "No se encontró la carga." };
   }
   await logAudit(
     "shipment.updated",
@@ -312,13 +326,24 @@ export async function deleteShipmentAction(input: {
     return { ok: false, error: "No tenés permiso para borrar cargas." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("shipments")
     .delete()
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "shipments.delete.rejected",
+      userId: ctx.userId,
+      id: input.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("shipments.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar la carga." };
+  }
+  // RLS filters a row the role may not delete without an error.
+  if (data.length === 0) {
+    return { ok: false, error: "No se encontró la carga o no podés borrarla." };
   }
   await logAudit("shipment.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };
@@ -352,7 +377,9 @@ export async function listShipmentsByTripAction(
  * "Facturar flete": issues a sales invoice for a shipment's freight, reusing the
  * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
  * A single "Flete" service line at 21% IVA, billed to the shipment's client.
- * Links shipment.invoice_id on success so it can't be billed twice.
+ * Claims the shipment first (UPDATE ... WHERE invoice_id IS NULL), so two
+ * concurrent clicks cannot both issue; links invoice_id on success and
+ * releases the claim on failure.
  */
 export async function invoiceFreightAction(
   input: unknown,
@@ -373,12 +400,94 @@ export async function invoiceFreightAction(
   }
 
   const supabase = await createSupabaseClient();
+  const shipmentId = parsed.data.shipmentId;
+  const claim = await claimShipmentForInvoicing(supabase, shipmentId);
+  if (!claim.ok) return claim;
+  const result = await issueFreightInvoice(supabase, parsed.data);
+  if (!result.ok) {
+    const { error: releaseErr } = await supabase
+      .from("shipments")
+      .update({ invoicing_claimed_at: null })
+      .eq("id", shipmentId)
+      .is("invoice_id", null);
+    if (releaseErr) {
+      logger.error("shipments.freight_invoice.release_failed", {
+        userId: ctx.userId,
+        shipmentId,
+        error: releaseErr,
+      });
+    }
+    return result;
+  }
+
+  const { error: linkErr } = await supabase
+    .from("shipments")
+    .update({ invoice_id: result.data.id, invoicing_claimed_at: null })
+    .eq("id", shipmentId);
+  if (linkErr) {
+    logger.error("shipments.freight_invoice.link_failed", {
+      userId: ctx.userId,
+      shipmentId,
+      invoiceId: result.data.id,
+      error: linkErr,
+    });
+    return {
+      ok: false,
+      error:
+        "La factura se emitió pero no se vinculó a la carga. Anotá el comprobante antes de volver a facturar.",
+    };
+  }
+  await logAudit(
+    "shipment.freight_invoiced",
+    ctx.userId,
+    { invoice_id: result.data.id },
+    shipmentId,
+  );
+  return { ok: true, data: { invoiceId: result.data.id } };
+}
+
+/** A claim older than this is an abandoned request (same window as the
+ *  guard_billed_shipment trigger). */
+const CLAIM_TTL_MS = 15 * 60 * 1000;
+
+async function claimShipmentForInvoicing(
+  supabase: SupabaseServerClient,
+  shipmentId: string,
+): Promise<ActionResult> {
+  const staleBefore = new Date(Date.now() - CLAIM_TTL_MS).toISOString();
+  const { data, error } = await supabase
+    .from("shipments")
+    .update({ invoicing_claimed_at: new Date().toISOString() })
+    .eq("id", shipmentId)
+    .is("invoice_id", null)
+    .or(`invoicing_claimed_at.is.null,invoicing_claimed_at.lt.${staleBefore}`)
+    .select("id");
+  if (error) {
+    logger.error("shipments.freight_invoice.claim_failed", {
+      shipmentId,
+      error,
+    });
+    return { ok: false, error: "No se pudo reservar la carga para facturar." };
+  }
+  if (data.length === 0) {
+    return {
+      ok: false,
+      error: "La carga ya tiene una factura o se está facturando.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
+async function issueFreightInvoice(
+  supabase: SupabaseServerClient,
+  input: FreightInvoiceInput,
+): Promise<ActionResult<{ id: string }>> {
   const { data: shipment, error: readErr } = await supabase
     .from("shipments")
     .select(
       "id, client_id, channel_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition)",
     )
-    .eq("id", parsed.data.shipmentId)
+    .eq("id", input.shipmentId)
     .maybeSingle();
   if (readErr || !shipment) {
     return { ok: false, error: "No se encontró la carga." };
@@ -387,7 +496,7 @@ export async function invoiceFreightAction(
     return { ok: false, error: "La carga ya tiene una factura." };
   }
   // A shipment booked on a channel is invoiced on that channel only.
-  if (shipment.channel_id && shipment.channel_id !== parsed.data.channel_id) {
+  if (shipment.channel_id && shipment.channel_id !== input.channel_id) {
     return {
       ok: false,
       error:
@@ -410,12 +519,12 @@ export async function invoiceFreightAction(
     .filter(Boolean)
     .join(" → ");
 
-  const result = await issueFiscalInvoiceAction({
-    channel_id: parsed.data.channel_id,
+  return issueFiscalInvoiceAction({
+    channel_id: input.channel_id,
     client_id: shipment.client_id,
     kind: "factura",
     letter: null,
-    punto_venta: parsed.data.punto_venta,
+    punto_venta: input.punto_venta,
     ...dates,
     concepto: CONCEPTO.SERVICIOS,
     doc_tipo: DOC_TIPO.CUIT,
@@ -432,30 +541,4 @@ export async function invoiceFreightAction(
       },
     ],
   });
-  if (!result.ok) return result;
-
-  const { error: linkErr } = await supabase
-    .from("shipments")
-    .update({ invoice_id: result.data.id })
-    .eq("id", parsed.data.shipmentId);
-  if (linkErr) {
-    logger.error("shipments.freight_invoice.link_failed", {
-      userId: ctx.userId,
-      shipmentId: parsed.data.shipmentId,
-      invoiceId: result.data.id,
-      error: linkErr,
-    });
-    return {
-      ok: false,
-      error:
-        "La factura se emitió pero no se vinculó a la carga. Anotá el comprobante antes de volver a facturar.",
-    };
-  }
-  await logAudit(
-    "shipment.freight_invoiced",
-    ctx.userId,
-    { invoice_id: result.data.id },
-    parsed.data.shipmentId,
-  );
-  return { ok: true, data: { invoiceId: result.data.id } };
 }

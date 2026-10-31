@@ -20,6 +20,7 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   issued_checks: "Cheques propios",
   accounts: "Cuentas y cajas",
   transactions: "Movimientos de caja",
+  opening_balances: "Saldos iniciales",
   recurring_payments: "Pagos recurrentes",
   accounting: "Contabilidad",
   channels: "Canales de facturación",
@@ -58,6 +59,7 @@ const VERB_LABELS: Record<string, string> = {
   invite: "Invitar",
   assign_role: "Asignar roles",
   manage_access: "Gestionar accesos",
+  delete: "Borrar",
 };
 
 export function permissionLabel(permission: Permission): string {

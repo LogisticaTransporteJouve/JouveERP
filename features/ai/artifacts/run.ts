@@ -22,7 +22,7 @@ export function artifactSourceActions(
   actions: readonly AiAction[] = AI_ACTIONS,
 ): AiAction[] {
   return actions.filter(
-    (a) => a.sideEffect === "read" && canRunAiAction(access, a.permissions),
+    (a) => a.sideEffect === "read" && canRunAiAction(access, a),
   );
 }
 

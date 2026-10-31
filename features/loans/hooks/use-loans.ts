@@ -7,6 +7,9 @@ import {
 } from "@tanstack/react-query";
 
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -35,10 +38,8 @@ export function useLoan(id: string) {
 }
 
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: loansKeys.all });
-  // Payments touch cash + the cash-flow projection.
-  qc.invalidateQueries({ queryKey: ["treasury"] });
-  qc.invalidateQueries({ queryKey: ["transactions"] });
+  // Payments are cash movements with a fiscal entry.
+  invalidateKeys(qc, [loansKeys.all, ...CASH_KEYS, ...LEDGER_KEYS]);
 }
 
 export function useCreateLoan() {

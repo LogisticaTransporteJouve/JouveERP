@@ -6,7 +6,9 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
-import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
@@ -14,7 +16,6 @@ import {
   createCheckAction,
   creditCheckAction,
   depositCheckAction,
-  getChequeByIdAction,
   listChecksAction,
   rejectCheckAction,
 } from "../actions/checks-actions";
@@ -25,13 +26,6 @@ export function useChecksList() {
   return useSuspenseQuery({
     queryKey: checksKeys.list(isFiscal),
     queryFn: () => runAction(() => listChecksAction({ isFiscal })),
-  });
-}
-
-export function useCheckDetail(id: string) {
-  return useSuspenseQuery({
-    queryKey: checksKeys.detail(id),
-    queryFn: () => runAction(() => getChequeByIdAction(id)),
   });
 }
 
@@ -46,11 +40,10 @@ function makeChequeMutation<TInput, TData>(
     const qc = useQueryClient();
     return useMutation({
       mutationFn: (input: TInput) => runAction(() => fn(input)),
-      // All check mutations may have generated transactions, so we
-      // invalidate both feature caches.
+      // Every check mutation may move cash (cartera, deposit, credit,
+      // rejection) and post a fiscal entry.
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: checksKeys.all });
-        qc.invalidateQueries({ queryKey: transactionsKeys.all });
+        invalidateKeys(qc, [checksKeys.all, ...CASH_KEYS, ...LEDGER_KEYS]);
       },
     });
   };

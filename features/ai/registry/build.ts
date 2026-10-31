@@ -37,7 +37,7 @@ export function visibleAiActions(
   access: Access,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): AiAction[] {
-  return actions.filter((a) => canRunAiAction(access, a.permissions));
+  return actions.filter((a) => canRunAiAction(access, a));
 }
 
 /** The chat tools for one user, generated from the registry, plus the

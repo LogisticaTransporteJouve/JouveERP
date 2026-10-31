@@ -9,7 +9,9 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
@@ -82,13 +84,6 @@ export function useSuppliersSearch(
       ),
     enabled: options.enabled,
     placeholderData: (prev) => prev,
-  });
-}
-
-export function useSupplierById(id: string) {
-  return useSuspenseQuery({
-    queryKey: suppliersKeys.byId(id),
-    queryFn: () => runAction(() => getSupplierByIdAction(id)),
   });
 }
 
@@ -192,11 +187,10 @@ export function useSetSupplierOpeningBalance() {
       target_balance: number;
       notes?: string | null;
     }) => runAction(() => setSupplierOpeningBalanceAction(input)),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: suppliersKeys.all });
-      qc.invalidateQueries({
-        queryKey: suppliersKeys.openingBalance(variables.supplier_id),
-      });
+    // Supplier account and aging nest under suppliersKeys; the payment
+    // order picker lists the opening balance as pending.
+    onSuccess: () => {
+      invalidateKeys(qc, [suppliersKeys.all, paymentOrdersKeys.all]);
     },
   });
 }
@@ -206,11 +200,8 @@ export function useClearSupplierOpeningBalance() {
   return useMutation({
     mutationFn: (supplierId: string) =>
       runAction(() => clearSupplierOpeningBalanceAction(supplierId)),
-    onSuccess: (_data, supplierId) => {
-      qc.invalidateQueries({ queryKey: suppliersKeys.all });
-      qc.invalidateQueries({
-        queryKey: suppliersKeys.openingBalance(supplierId),
-      });
+    onSuccess: () => {
+      invalidateKeys(qc, [suppliersKeys.all, paymentOrdersKeys.all]);
     },
   });
 }

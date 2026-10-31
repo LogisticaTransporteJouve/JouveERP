@@ -359,7 +359,7 @@ export async function setClientOpeningBalanceAction(input: {
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
   // The balance adjustment rewrites the client's aging — owner only.
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return {
       ok: false,
       error: "No tenés permiso para ajustar saldos de cliente.",
@@ -399,7 +399,7 @@ export async function clearClientOpeningBalanceAction(
   clientId: string,
 ): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
-  if (!ctx.access.roles.includes("owner")) {
+  if (!userCan(ctx.access, "opening_balances:write")) {
     return {
       ok: false,
       error: "Solo el owner puede borrar el ajuste de saldo.",

@@ -180,55 +180,6 @@ export interface ChequeDetail {
   movements: CheckMovement[];
 }
 
-export async function getChequeByIdAction(
-  id: string,
-): Promise<ActionResult<ChequeDetail | null>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "cheques:read")) {
-    return { ok: false, error: "No tenés permiso para ver cheques." };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data: chequeRow, error: chequeErr } = await supabase
-    .from("checks")
-    .select(CHECK_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-  if (chequeErr) {
-    logger.error("cheques.get.failed", {
-      userId: ctx.userId,
-      id,
-      error: chequeErr,
-    });
-    return { ok: false, error: "No se pudo cargar el check." };
-  }
-  if (!chequeRow) return { ok: true, data: null };
-  const check = narrowCheck(chequeRow);
-  if (!check) return { ok: false, error: "Cheque con datos inválidos." };
-
-  const { data: movements, error: movErr } = await supabase
-    .from("check_movements")
-    .select(
-      "id, check_id, event, event_date, destination_account_id, endorsed_to_name, endorsed_to_cuit, transaction_id, notes, created_by, created_at",
-    )
-    .eq("check_id", id)
-    .order("event_date", { ascending: true });
-
-  if (movErr) {
-    logger.error("cheques.get.movements_failed", {
-      userId: ctx.userId,
-      id,
-      error: movErr,
-    });
-    return { ok: false, error: "No se pudieron cargar los movimientos." };
-  }
-
-  return {
-    ok: true,
-    data: { check, movements: movements ?? [] },
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------

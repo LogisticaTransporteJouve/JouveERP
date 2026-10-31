@@ -2,7 +2,6 @@
 
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -22,18 +21,6 @@ export function useChartOfAccounts(options: { onlyActive?: boolean } = {}) {
   return useSuspenseQuery({
     queryKey: chartOfAccountsKeys.list(onlyActive),
     queryFn: () => runAction(() => listChartOfAccountsAction({ onlyActive })),
-  });
-}
-
-export function useChartOfAccountsList(
-  options: { onlyActive?: boolean; enabled?: boolean } = {},
-) {
-  const onlyActive = options.onlyActive ?? false;
-  return useQuery({
-    queryKey: chartOfAccountsKeys.list(onlyActive),
-    queryFn: () => runAction(() => listChartOfAccountsAction({ onlyActive })),
-    enabled: options.enabled !== false,
-    placeholderData: (prev) => prev,
   });
 }
 

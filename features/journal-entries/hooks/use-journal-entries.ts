@@ -11,33 +11,16 @@ import { useMemo } from "react";
 import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/chart-of-accounts-actions";
 import { runAction } from "@/lib/query/run-action";
 
-import {
-  createManualJournalEntryAction,
-  listJournalEntriesAction,
-} from "../actions/journal-entries-actions";
+import { createManualJournalEntryAction } from "../actions/journal-entries-actions";
 import { journalEntriesKeys } from "../lib/journal-entries-keys";
 import { JOURNAL_PAGE_SIZE } from "../lib/journal-pagination";
+import { journalEntriesQuery } from "../lib/journal-query";
 import type { JournalEntryWithLines, JournalFilters } from "../schema";
 
 export { JOURNAL_PAGE_SIZE };
 
 export function useJournalEntries(filters: JournalFilters) {
-  const query = useSuspenseInfiniteQuery({
-    queryKey: journalEntriesKeys.list(filters),
-    queryFn: ({ pageParam }) =>
-      runAction(() =>
-        listJournalEntriesAction({
-          ...filters,
-          offset: pageParam,
-          limit: JOURNAL_PAGE_SIZE,
-        }),
-      ),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage: {
-      items: JournalEntryWithLines[];
-      nextOffset: number | null;
-    }) => lastPage.nextOffset ?? undefined,
-  });
+  const query = useSuspenseInfiniteQuery(journalEntriesQuery(filters));
 
   const items = useMemo<JournalEntryWithLines[]>(
     () => query.data.pages.flatMap((p) => p.items),

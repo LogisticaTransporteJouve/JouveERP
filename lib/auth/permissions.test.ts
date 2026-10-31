@@ -5,6 +5,7 @@ import {
   PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
   ROLES,
+  OWNER_ONLY_PERMISSIONS,
   ROLE_PERMISSIONS,
   assignableRoles,
   effectivePermissions,
@@ -43,11 +44,22 @@ describe("permission matrix coverage", () => {
     }
   });
 
-  it("admin holds every permission except managing per-user access", () => {
+  it("admin holds every permission except the owner-only ones", () => {
     for (const permission of PERMISSIONS) {
       expect(ROLE_PERMISSIONS.admin.includes(permission)).toBe(
-        permission !== "users:manage_access",
+        !OWNER_ONLY_PERMISSIONS.includes(permission),
       );
+    }
+  });
+
+  it("only the owner deletes movements and rewrites opening balances", () => {
+    for (const role of ROLES) {
+      for (const permission of OWNER_ONLY_PERMISSIONS) {
+        expect(
+          ROLE_PERMISSIONS[role].includes(permission),
+          `${role} → ${permission}`,
+        ).toBe(role === "owner");
+      }
     }
   });
 });
@@ -291,10 +303,15 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
   // Pins the entire role → permissions grid. Any added/removed grant — e.g.
   // giving `operations` accounting:write — fails this test until the snapshot is
   // consciously updated. Replaces the old spot-checks that let creep through.
-  it("owner holds every permission; admin all but users:manage_access", () => {
+  it("owner holds every permission; admin all but the owner-only ones", () => {
     expect([...ROLE_PERMISSIONS.owner].sort()).toEqual([...PERMISSIONS].sort());
     expect([...ROLE_PERMISSIONS.admin].sort()).toEqual(
-      PERMISSIONS.filter((p) => p !== "users:manage_access").sort(),
+      PERMISSIONS.filter(
+        (p) =>
+          p !== "users:manage_access" &&
+          p !== "transactions:delete" &&
+          p !== "opening_balances:write",
+      ).sort(),
     );
   });
 

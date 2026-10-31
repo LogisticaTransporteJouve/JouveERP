@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useJournalEntries } from "../hooks/use-journal-entries";
 import { type JournalFilters } from "../schema";
 
+import { ClosedPeriodsDialog } from "./closed-periods-dialog";
 import { JournalEntryRow } from "./journal-entry-row";
 import { JournalFiltersBar } from "./journal-filters";
 import { ManualEntryDialog } from "./manual-entry-dialog";
@@ -15,11 +16,18 @@ import { ManualEntryDialog } from "./manual-entry-dialog";
 type Props = {
   channels: ReadonlyArray<{ id: string; name: string }>;
   initialFilters: JournalFilters;
+  /** Shows the closed-periods control (canManageClosedPeriods). */
+  canManagePeriods: boolean;
 };
 
-export function JournalList({ channels, initialFilters }: Props) {
+export function JournalList({
+  channels,
+  initialFilters,
+  canManagePeriods,
+}: Props) {
   const [filters, setFilters] = useState<JournalFilters>(initialFilters);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [periodsOpen, setPeriodsOpen] = useState(false);
   const {
     items: entries,
     isFetching,
@@ -32,19 +40,32 @@ export function JournalList({ channels, initialFilters }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Libro diario</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Libro diario
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Asientos contables generados desde comprobantes, recibos,
-            órdenes de pago y movimientos de caja.
+            Asientos contables generados desde comprobantes, recibos, órdenes de
+            pago y movimientos de caja.
           </p>
         </div>
-        <Button onClick={() => setNewEntryOpen(true)}>
-          <Plus />
-          Nuevo asiento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canManagePeriods && (
+            <Button variant="outline" onClick={() => setPeriodsOpen(true)}>
+              <Lock />
+              Períodos cerrados
+            </Button>
+          )}
+          <Button onClick={() => setNewEntryOpen(true)}>
+            <Plus />
+            Nuevo asiento
+          </Button>
+        </div>
       </div>
 
       <ManualEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
+      {canManagePeriods && (
+        <ClosedPeriodsDialog open={periodsOpen} onOpenChange={setPeriodsOpen} />
+      )}
 
       <div className="rounded-lg border bg-card p-4">
         <JournalFiltersBar

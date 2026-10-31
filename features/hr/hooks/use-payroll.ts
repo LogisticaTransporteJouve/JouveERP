@@ -19,7 +19,6 @@ import {
   reopenPayrollPeriodAction,
   seedPayrollPeriodAction,
   updatePayrollEntryAction,
-  updatePayrollEntryExtraAction,
 } from "../actions/payroll-actions";
 import { payrollKeys } from "../lib/payroll-keys";
 
@@ -125,33 +124,6 @@ export function useAddPayrollEntryExtra() {
       period_month: _m,
       ...rest
     }: AddExtraVars) => runAction(() => addPayrollEntryExtraAction(rest)),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: payrollKeys.extras(vars.entry_id) });
-      qc.invalidateQueries({
-        queryKey: payrollKeys.period(vars.period_year, vars.period_month),
-      });
-    },
-  });
-}
-
-type UpdateExtraVars = {
-  id: string;
-  entry_id: string;
-  amount?: number;
-  description?: string;
-  period_year: number;
-  period_month: number;
-};
-
-export function useUpdatePayrollEntryExtra() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      entry_id: _e,
-      period_year: _y,
-      period_month: _m,
-      ...rest
-    }: UpdateExtraVars) => runAction(() => updatePayrollEntryExtraAction(rest)),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: payrollKeys.extras(vars.entry_id) });
       qc.invalidateQueries({

@@ -7,6 +7,8 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { INVOICE_EFFECT_KEYS } from "@/features/invoices/lib/invoice-effect-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -60,7 +62,8 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateShipment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) => runAction(() => createShipmentAction(input)),
+    mutationFn: (input: unknown) =>
+      runAction(() => createShipmentAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }
@@ -68,7 +71,8 @@ export function useCreateShipment() {
 export function useUpdateShipment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) => runAction(() => updateShipmentAction(input)),
+    mutationFn: (input: unknown) =>
+      runAction(() => updateShipmentAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }
@@ -93,7 +97,8 @@ export function useDeleteShipment() {
 export function useInvoiceFreight() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) => runAction(() => invoiceFreightAction(input)),
-    onSuccess: () => invalidate(qc),
+    mutationFn: (input: unknown) =>
+      runAction(() => invoiceFreightAction(input)),
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

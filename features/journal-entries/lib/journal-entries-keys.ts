@@ -14,4 +14,5 @@ export const journalEntriesKeys = {
     ] as const,
   postableAccounts: () =>
     [...journalEntriesKeys.all, "postableAccounts"] as const,
+  closedPeriods: () => [...journalEntriesKeys.all, "closedPeriods"] as const,
 };

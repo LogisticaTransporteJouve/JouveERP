@@ -4,7 +4,6 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -13,7 +12,6 @@ import {
   CreatePayrollPaymentSchema,
   DeletePayrollPaymentSchema,
   isPayrollPaymentMethod,
-  UpdatePayrollPaymentSchema,
   type PayrollPayment,
 } from "../payroll-schema";
 
@@ -111,49 +109,6 @@ export async function createPayrollPaymentAction(
     data.id,
   );
   return { ok: true, data: { id: data.id } };
-}
-
-export async function updatePayrollPaymentAction(
-  input: unknown,
-): Promise<ActionResult> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
-    return { ok: false, error: "Sin permiso para editar pagos." };
-  }
-  const parsed = UpdatePayrollPaymentSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-  const { id, ...rest } = parsed.data;
-
-  type PaymentUpdate =
-    Database["public"]["Tables"]["payroll_payments"]["Update"];
-  const patch: PaymentUpdate = {};
-  if (rest.account_id !== undefined) patch.account_id = rest.account_id;
-  if (rest.channel_id !== undefined) patch.channel_id = rest.channel_id;
-  if (rest.amount !== undefined) patch.amount = rest.amount;
-  if (rest.method !== undefined) patch.method = rest.method;
-  if (rest.paid_at !== undefined) patch.paid_at = rest.paid_at;
-  if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
-  if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
-
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase
-    .from("payroll_payments")
-    .update(patch)
-    .eq("id", id);
-
-  if (error) return { ok: false, error: error.message };
-  await logAudit(
-    "payroll.payment_updated",
-    ctx.userId,
-    { fields: Object.keys(patch) },
-    id,
-  );
-  return { ok: true, data: undefined };
 }
 
 // Bulk payment: 1 batch insert of N payroll_payments → trigger creates N

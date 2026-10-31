@@ -17,9 +17,7 @@ import { cn } from "@/lib/utils";
 
 import { useCashFlow } from "../hooks/use-treasury";
 import type { MonthFlow } from "../lib/cash-flow";
-
-const MONTHS_BACK = 3;
-const MONTHS_FWD = 6;
+import { CASH_FLOW_MONTHS } from "../lib/treasury-queries";
 
 const MES = [
   "ene",
@@ -66,7 +64,10 @@ function Amount({
 }
 
 export function CashFlowPage() {
-  const { data, isLoading } = useCashFlow(MONTHS_BACK, MONTHS_FWD);
+  const { data, isLoading } = useCashFlow(
+    CASH_FLOW_MONTHS.back,
+    CASH_FLOW_MONTHS.fwd,
+  );
 
   return (
     <div className="space-y-6">
@@ -149,7 +150,9 @@ export function CashFlowPage() {
                     <TableCell
                       className={cn(
                         "text-right font-mono tabular-nums",
-                        m.closing !== null && m.closing < 0 && "text-destructive",
+                        m.closing !== null &&
+                          m.closing < 0 &&
+                          "text-destructive",
                       )}
                     >
                       {m.closing === null ? "—" : formatMoney(m.closing)}

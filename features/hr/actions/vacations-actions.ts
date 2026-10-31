@@ -5,18 +5,14 @@ import { createLeave } from "@/lib/commands/create-leave";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
-  AdjustVacationBalanceSchema,
   CreateLeaveSchema,
   DeleteLeaveSchema,
-  GrantVacationBalancesSchema,
   isLeaveKind,
   isVacationBalanceStatus,
-  UpdateLeaveSchema,
   type EmployeeLeave,
   type VacationBalance,
 } from "../vacation-schema";
@@ -79,44 +75,6 @@ export async function createLeaveAction(
   return createLeave(ctx.userId, parsed.data);
 }
 
-export async function updateLeaveAction(input: unknown): Promise<ActionResult> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
-    return { ok: false, error: "Sin permiso." };
-  }
-  const parsed = UpdateLeaveSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-  const { id, ...rest } = parsed.data;
-
-  type LeaveUpdate = Database["public"]["Tables"]["employee_leaves"]["Update"];
-  const patch: LeaveUpdate = {};
-  if (rest.start_date !== undefined) patch.start_date = rest.start_date;
-  if (rest.end_date !== undefined) patch.end_date = rest.end_date;
-  if (rest.kind !== undefined) patch.kind = rest.kind;
-  if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
-  if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
-
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase
-    .from("employee_leaves")
-    .update(patch)
-    .eq("id", id);
-
-  if (error) return { ok: false, error: error.message };
-  await logAudit(
-    "leave.updated",
-    ctx.userId,
-    { fields: Object.keys(patch) },
-    id,
-  );
-  return { ok: true, data: undefined };
-}
-
 export async function deleteLeaveAction(input: unknown): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "hr:write")) {
@@ -176,76 +134,4 @@ export async function listVacationBalancesAction(
       )
       .filter((row): row is VacationBalance => row !== null),
   };
-}
-
-export async function grantVacationBalancesAction(
-  input: unknown,
-): Promise<ActionResult<{ count: number }>> {
-  const ctx = await requireUserContext();
-  // Granting balances is admin-level — it affects all employees.
-  if (!userCan(ctx.access, "hr:admin")) {
-    return { ok: false, error: "Sin permiso." };
-  }
-  const parsed = GrantVacationBalancesSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.rpc("grant_vacation_balances", {
-    p_target_year: parsed.data.target_year,
-    p_carryover: parsed.data.carryover,
-  });
-
-  if (error) return { ok: false, error: error.message };
-  const count = (data ?? []).length;
-  await logAudit("vacation.balances_granted", ctx.userId, {
-    target_year: parsed.data.target_year,
-    carryover: parsed.data.carryover,
-    count,
-  });
-  return { ok: true, data: { count } };
-}
-
-export async function adjustVacationBalanceAction(
-  input: unknown,
-): Promise<ActionResult> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:admin")) {
-    return { ok: false, error: "Sin permiso." };
-  }
-  const parsed = AdjustVacationBalanceSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-  const { id, ...rest } = parsed.data;
-
-  type BalanceUpdate =
-    Database["public"]["Tables"]["employee_vacation_balances"]["Update"];
-  const patch: BalanceUpdate = {};
-  if (rest.bonus_days !== undefined) patch.bonus_days = rest.bonus_days;
-  if (rest.status !== undefined) patch.status = rest.status;
-  if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
-  if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
-
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase
-    .from("employee_vacation_balances")
-    .update(patch)
-    .eq("id", id);
-
-  if (error) return { ok: false, error: error.message };
-  await logAudit(
-    "vacation.balance_adjusted",
-    ctx.userId,
-    { fields: Object.keys(patch) },
-    id,
-  );
-  return { ok: true, data: undefined };
 }
