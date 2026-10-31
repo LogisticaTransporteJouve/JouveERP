@@ -44,6 +44,7 @@ export interface FleetDocument {
   issued_at: string | null;
   expires_at: string;
   notes: string | null;
+  attachment_file_id: string | null;
   created_at: string;
   updated_at: string;
   vehicle: { patente: string } | null;
@@ -91,6 +92,7 @@ export const FleetDocumentCreateSchema = z
     issued_at: optionalDate,
     expires_at: isoDate,
     notes: optionalText(2000),
+    attachment_file_id: optionalUuid,
   })
   .refine(exactlyOneOwner, {
     message: "Elegí un vehículo o un chofer.",
@@ -111,8 +113,13 @@ export const FleetDocumentUpdateSchema = z
     issued_at: optionalDate,
     expires_at: isoDate.optional(),
     notes: optionalText(2000),
+    attachment_file_id: optionalUuid,
   })
   .refine(exactlyOneOwner, {
     message: "Elegí un vehículo o un chofer.",
     path: ["vehicle_id"],
   });
+
+export const FleetDocumentFileSchema = z.object({
+  documentId: z.string().uuid(),
+});

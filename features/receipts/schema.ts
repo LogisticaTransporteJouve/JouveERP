@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { moneyAmountPreprocess } from "@/lib/validation/common";
+import {
+  moneyAmountPreprocess,
+  UsdRateSchema,
+  usdRateIssue,
+} from "@/lib/validation/common";
 
 import type { Database } from "@/lib/db/database.types";
 
@@ -129,6 +133,7 @@ const baseReceiptFields = {
   receipt_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   total_amount: moneyAmount,
   currency: z.enum(RECEIPT_CURRENCIES),
+  cotizacion: UsdRateSchema,
   notes: trimmedNullable,
   payment_lines: z
     .array(PaymentLineSchema)
@@ -174,13 +179,19 @@ function validateSums(
 
 export const ReceiptCreateSchema = z
   .object(baseReceiptFields)
-  .superRefine(validateSums);
+  .superRefine(validateSums)
+  .superRefine((data, ctx) => {
+    const issue = usdRateIssue(data.currency, data.cotizacion);
+    if (issue)
+      ctx.addIssue({ code: "custom", path: ["cotizacion"], message: issue });
+  });
 
 export const ReceiptUpdateSchema = z
   .object({
     id: z.string().uuid(),
     receipt_date: baseReceiptFields.receipt_date,
     total_amount: baseReceiptFields.total_amount,
+    cotizacion: baseReceiptFields.cotizacion,
     notes: baseReceiptFields.notes,
     payment_lines: baseReceiptFields.payment_lines,
     allocations: baseReceiptFields.allocations,

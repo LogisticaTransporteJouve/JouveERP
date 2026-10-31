@@ -1143,14 +1143,16 @@ paralelo.
 ### 14.2 Página `/files`
 
 - **Vista `v_files_hub`** (`security_invoker = on`): una fila por (archivo,
-  entidad dueña) de `file_attachments` (10 FKs), `ai_document_extractions` y
-  `employee_documents`. Aplica la RLS de cada tabla de abajo.
+  entidad dueña) de `file_attachments` (10 FKs), `ai_document_extractions`,
+  `employee_documents` y `fleet_documents`. Aplica la RLS de cada tabla de
+  abajo.
 - **Filtro por permiso** (`features/files/lib/hub.ts`): cada origen exige el
   permiso de lectura de su entidad (`purchase_invoices:read`,
   `invoices:read`, …, `hr:read` para documentos de empleados, `ai:read` para
   documentos escaneados, `ai:chat` para adjuntos del chat). Los documentos
   escaneados y los adjuntos del chat son de un usuario (`owner_id`): sin
-  `ai:admin` solo se listan los propios. La flota no tiene archivos todavía.
+  `ai:admin` solo se listan los propios. Los documentos de flota exigen
+  `fleet_documents:read` (§14.3).
 - **Lectura:** `listHubFilesAction` con el cliente RLS del usuario, filtros
   (nombre, origen, tipo de archivo, subido por, fechas en hora argentina) y
   paginación keyset por `(uploaded_at, link_id)` desc, 50 por página, con
@@ -1159,7 +1161,7 @@ paralelo.
 - **Permiso de la página:** `files:read` (sin permiso nuevo). Warehouse tiene
   `files:read` pero ningún origen listable: ve la lista vacía.
 
-### 14.3 Archivos de documentos de empleados
+### 14.3 Archivos de documentos de empleados y de flota
 
 La policy SELECT de `files` exige además un rol con `hr:read`
 (owner/admin/finance) para los archivos que apunta `employee_documents`
@@ -1167,7 +1169,18 @@ La policy SELECT de `files` exige además un rol con `hr:read`
 `attachment_file_id`), así ningún otro rol con `files:read` puede firmarlos
 por id. `getSignedFileUrlAction` repite el chequeo y
 `create/updateEmployeeDocumentAction` solo aceptan un archivo que el usuario
-ve y que no sea un adjunto del chat.
+ve y que no sea un adjunto del chat (`linkableFileError`, `lib/files/store.ts`).
+
+Los documentos de flota siguen el mismo modelo (`…201921`):
+`fleet_documents.attachment_file_id` (FK a `files`, `ON DELETE SET NULL`); la
+policy SELECT de `files` exige un rol con `fleet_documents:read`
+(owner/admin/operations) para esos archivos (`public.is_fleet_document_file`)
+y `getSignedFileUrlAction` repite el chequeo. `uploadFleetDocumentFileAction`
+sube el archivo (`storeUploadedFile`, el mismo paso que `uploadFileAction`) y
+apunta el documento a él; si el documento no se actualiza, descarta el
+archivo. Un archivo reemplazado o quitado queda sin vínculo y lo borra el
+barrido de huérfanos. `find_orphan_files`, `delete_chat_draft_file` e
+`isFileReferencedElsewhere` cuentan este vínculo.
 
 ### 14.4 Pendiente
 

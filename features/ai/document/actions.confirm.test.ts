@@ -69,6 +69,8 @@ function query(table: string) {
 
 const createReceiptAction = vi.fn();
 const createPaymentOrderAction = vi.fn();
+const getReceiptUsdRateAction = vi.fn();
+const getPaymentOrderUsdRateAction = vi.fn();
 const createPurchaseInvoiceAction = vi.fn();
 const logAudit = vi.fn();
 const inngestSend = vi.fn();
@@ -107,9 +109,12 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("../lib/chat-store", () => ({ checkAiDailyCap: async () => "ok" }));
 vi.mock("@/features/receipts/actions/receipts-actions", () => ({
   createReceiptAction: (input: unknown) => createReceiptAction(input),
+  getReceiptUsdRateAction: (date: string) => getReceiptUsdRateAction(date),
 }));
 vi.mock("@/features/payment-orders/actions/payment-orders-actions", () => ({
   createPaymentOrderAction: (input: unknown) => createPaymentOrderAction(input),
+  getPaymentOrderUsdRateAction: (date: string) =>
+    getPaymentOrderUsdRateAction(date),
 }));
 vi.mock(
   "@/features/purchase-invoices/actions/purchase-invoices-actions",
@@ -179,6 +184,8 @@ beforeEach(() => {
   roles = ["owner"];
   createReceiptAction.mockReset();
   createPaymentOrderAction.mockReset();
+  getReceiptUsdRateAction.mockReset();
+  getPaymentOrderUsdRateAction.mockReset();
   createPurchaseInvoiceAction.mockReset();
   logAudit.mockReset();
   inngestSend.mockReset();
@@ -293,6 +300,76 @@ describe("create-from-extraction is claim-then-create", () => {
     const res = await createReceiptFromExtractionAction(receiptInput);
     expect(res.ok).toBe(false);
     expect(createReceiptAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("USD receipts and payment orders from an extraction", () => {
+  it("creates a USD receipt at the rate loaded for its date", async () => {
+    seed("receipt", { client_id: "c1" });
+    getReceiptUsdRateAction.mockResolvedValueOnce({
+      ok: true,
+      data: { rate: 1180.5, rate_date: "2026-06-30" },
+    });
+    createReceiptAction.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "rec-usd" },
+    });
+    const res = await createReceiptFromExtractionAction({
+      ...receiptInput,
+      currency: "USD",
+    });
+    expect(res).toEqual({ ok: true, data: { id: "rec-usd" } });
+    expect(getReceiptUsdRateAction).toHaveBeenCalledWith("2026-07-01");
+    expect(createReceiptAction).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "USD", cotizacion: 1180.5 }),
+    );
+  });
+
+  it("refuses a USD receipt when no rate is loaded, creating nothing", async () => {
+    seed("receipt", { client_id: "c1" });
+    getReceiptUsdRateAction.mockResolvedValueOnce({ ok: true, data: null });
+    const res = await createReceiptFromExtractionAction({
+      ...receiptInput,
+      currency: "USD",
+    });
+    expect(res.ok).toBe(false);
+    expect(createReceiptAction).not.toHaveBeenCalled();
+    expect(extraction()).toMatchObject({ status: "pending_review" });
+  });
+
+  it("an ARS receipt does not look up a rate", async () => {
+    seed("receipt", { client_id: "c1" });
+    createReceiptAction.mockResolvedValueOnce({ ok: true, data: { id: "r" } });
+    await createReceiptFromExtractionAction(receiptInput);
+    expect(getReceiptUsdRateAction).not.toHaveBeenCalled();
+    expect(createReceiptAction).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "ARS", cotizacion: null }),
+    );
+  });
+
+  it("creates a USD payment order at the rate loaded for its date", async () => {
+    seed("payment_order", { supplier_id: "s1" });
+    getPaymentOrderUsdRateAction.mockResolvedValueOnce({
+      ok: true,
+      data: { rate: 950.25, rate_date: "2026-07-01" },
+    });
+    createPaymentOrderAction.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "op-usd" },
+    });
+    const res = await createPaymentOrderFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+      numero: 1,
+      payment_date: "2026-07-01",
+      total_amount: 100,
+      currency: "USD",
+      account_id: ACCOUNT_ID,
+    });
+    expect(res).toEqual({ ok: true, data: { id: "op-usd" } });
+    expect(createPaymentOrderAction).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "USD", cotizacion: 950.25 }),
+    );
   });
 });
 

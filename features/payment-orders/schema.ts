@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { moneyAmountPreprocess } from "@/lib/validation/common";
+import {
+  moneyAmountPreprocess,
+  UsdRateSchema,
+  usdRateIssue,
+} from "@/lib/validation/common";
 
 import type { Database } from "@/lib/db/database.types";
 
@@ -123,6 +127,7 @@ const baseFields = {
   payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   total_amount: moneyAmount,
   currency: z.enum(PAYMENT_ORDER_CURRENCIES),
+  cotizacion: UsdRateSchema,
   notes: trimmedNullable,
   payment_lines: z
     .array(PaymentLineSchema)
@@ -162,13 +167,19 @@ function validateSums(
 
 export const PaymentOrderCreateSchema = z
   .object(baseFields)
-  .superRefine(validateSums);
+  .superRefine(validateSums)
+  .superRefine((data, ctx) => {
+    const issue = usdRateIssue(data.currency, data.cotizacion);
+    if (issue)
+      ctx.addIssue({ code: "custom", path: ["cotizacion"], message: issue });
+  });
 
 export const PaymentOrderUpdateSchema = z
   .object({
     id: z.string().uuid(),
     payment_date: baseFields.payment_date,
     total_amount: baseFields.total_amount,
+    cotizacion: baseFields.cotizacion,
     notes: baseFields.notes,
     payment_lines: baseFields.payment_lines,
     allocations: baseFields.allocations,

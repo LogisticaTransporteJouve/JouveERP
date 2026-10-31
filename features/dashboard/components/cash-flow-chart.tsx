@@ -6,6 +6,7 @@ import { useId, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/ui/section";
+import { UsdSkippedNote } from "@/components/usd-skipped-note";
 import { barPath, niceStep } from "@/lib/chart-geometry";
 import { formatMoney } from "@/lib/format";
 
@@ -88,6 +89,11 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
         </Link>
       }
     >
+      {data.usdSkipped && (
+        <div className="mb-2">
+          <UsdSkippedNote />
+        </div>
+      )}
       <div className="rounded-lg border bg-card">
         <div className="relative p-2 text-foreground max-md:hidden">
           <ChartSvg

@@ -13,6 +13,7 @@ import {
   deleteFleetDocumentAction,
   listFleetDocumentsAction,
   updateFleetDocumentAction,
+  uploadFleetDocumentFileAction,
 } from "../actions/fleet-documents-actions";
 import { fleetDocumentsKeys } from "../lib/fleet-documents-keys";
 
@@ -50,6 +51,19 @@ export function useDeleteFleetDocument() {
   return useMutation({
     mutationFn: (id: string) =>
       runAction(() => deleteFleetDocumentAction({ id })),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useUploadFleetDocumentFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ documentId, file }: { documentId: string; file: File }) => {
+      const fd = new FormData();
+      fd.append("documentId", documentId);
+      fd.append("file", file);
+      return runAction(() => uploadFleetDocumentFileAction(fd));
+    },
     onSuccess: () => invalidate(qc),
   });
 }

@@ -265,6 +265,25 @@ describe("createReceiptAction allocations", () => {
     );
   });
 
+  it("sends a USD receipt's rate to the RPC", async () => {
+    setup();
+    const res = await createReceiptAction({
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 50,
+      currency: "USD",
+      cotizacion: 1180.5,
+      payment_lines: [{ account_id: ACCOUNT, amount: 50 }],
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_receipt",
+      expect.objectContaining({ p_currency: "USD", p_cotizacion: 1180.5 }),
+    );
+  });
+
   it("refuses a manual allocation over the comprobante's outstanding", async () => {
     setup();
     const res = await createReceiptAction({

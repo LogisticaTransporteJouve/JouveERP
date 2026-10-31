@@ -1978,6 +1978,7 @@ export type Database = {
       }
       fleet_documents: {
         Row: {
+          attachment_file_id: string | null
           created_at: string
           created_by: string | null
           driver_id: string | null
@@ -1992,6 +1993,7 @@ export type Database = {
           vehicle_id: string | null
         }
         Insert: {
+          attachment_file_id?: string | null
           created_at?: string
           created_by?: string | null
           driver_id?: string | null
@@ -2006,6 +2008,7 @@ export type Database = {
           vehicle_id?: string | null
         }
         Update: {
+          attachment_file_id?: string | null
           created_at?: string
           created_by?: string | null
           driver_id?: string | null
@@ -2020,6 +2023,13 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fleet_documents_attachment_file_id_fkey"
+            columns: ["attachment_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fleet_documents_driver_id_fkey"
             columns: ["driver_id"]
@@ -2130,6 +2140,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "trips"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "v_trip_revenue"
+            referencedColumns: ["trip_id"]
           },
           {
             foreignKeyName: "fuel_loads_vehicle_id_fkey"
@@ -3225,6 +3242,7 @@ export type Database = {
           canceled_by: string | null
           channel_id: string
           cost_center_id: string | null
+          cotizacion: number | null
           created_at: string
           created_by: string | null
           currency: string
@@ -3243,6 +3261,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -3261,6 +3280,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id?: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -4010,6 +4030,7 @@ export type Database = {
           channel_id: string
           client_id: string
           cost_center_id: string | null
+          cotizacion: number | null
           created_at: string
           created_by: string | null
           currency: string
@@ -4029,6 +4050,7 @@ export type Database = {
           channel_id: string
           client_id: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -4048,6 +4070,7 @@ export type Database = {
           channel_id?: string
           client_id?: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -4384,6 +4407,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "trips"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "v_trip_revenue"
+            referencedColumns: ["trip_id"]
           },
         ]
       }
@@ -5721,6 +5751,19 @@ export type Database = {
           },
         ]
       }
+      v_trip_revenue: {
+        Row: {
+          invoiced_revenue: number | null
+          manual_revenue: number | null
+          revenue: number | null
+          revenue_source: string | null
+          shipments: number | null
+          trip_date: string | null
+          trip_id: string | null
+          uninvoiced_freight: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       account_movement_totals: {
@@ -5860,8 +5903,10 @@ export type Database = {
         Returns: {
           fuel_cost: number
           group_key: string
+          invoiced_revenue: number
           label: string
           maintenance_cost: number
+          manual_revenue: number
           margin_pct: number
           net: number
           revenue: number
@@ -6187,6 +6232,7 @@ export type Database = {
         Args: {
           p_allocations: Json
           p_channel_id: string
+          p_cotizacion?: number
           p_currency: string
           p_notes: string
           p_numero: number
@@ -6203,6 +6249,7 @@ export type Database = {
           p_allocations: Json
           p_channel_id: string
           p_client_id: string
+          p_cotizacion?: number
           p_currency: string
           p_notes: string
           p_numero: number
@@ -6344,6 +6391,7 @@ export type Database = {
         Args: { p_file_id: string }
         Returns: boolean
       }
+      is_fleet_document_file: { Args: { p_file_id: string }; Returns: boolean }
       journal_entry_status: {
         Args: { p_id: string; p_source: string }
         Returns: string
@@ -6758,6 +6806,7 @@ export type Database = {
       update_payment_order: {
         Args: {
           p_allocations: Json
+          p_cotizacion?: number
           p_id: string
           p_notes: string
           p_payment_date: string
@@ -6769,6 +6818,7 @@ export type Database = {
       update_receipt: {
         Args: {
           p_allocations: Json
+          p_cotizacion?: number
           p_id: string
           p_notes: string
           p_payment_lines: Json
@@ -6784,6 +6834,14 @@ export type Database = {
       }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
       user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
+      vacation_work_days: {
+        Args: { p_employee_id: string; p_year: number }
+        Returns: {
+          effective_work_days: number
+          employee_work_days: number
+          year_work_days: number
+        }[]
+      }
     }
     Enums: {
       attendance_kind:

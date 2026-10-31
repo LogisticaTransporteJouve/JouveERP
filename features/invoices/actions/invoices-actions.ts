@@ -23,6 +23,7 @@ import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
+import { getLastAuthorizedNumber } from "@/lib/afip/wsfev1";
 import { formatMoney, todayInAR } from "@/lib/format";
 import { paymentCurrencyOf } from "@/lib/fx";
 import { inngest } from "@/lib/inngest/client";
@@ -756,6 +757,10 @@ export interface ComprobanteDetail {
   punto_venta: number;
   /** null until the issue workflow assigns it (draft / emitting / failed). */
   numero: number | null;
+  /** While `numero` is null on a fiscal voucher: the number AFIP is expected
+   *  to assign (the attempted one, else last authorized + 1). Provisional —
+   *  the real one is whatever the CAE response carries. */
+  expected_numero: number | null;
   fecha: string;
   fch_serv_desde: string | null;
   fch_serv_hasta: string | null;
@@ -828,6 +833,29 @@ type InvoiceDetailJoinedRow = Omit<
   items: InvoiceItemJoinedRow[] | null;
 };
 
+async function expectedFiscalNumero(
+  row: Pick<
+    InvoiceDetailJoinedRow,
+    "id" | "afip_attempted_numero" | "punto_venta" | "cbte_tipo_afip"
+  >,
+): Promise<number | null> {
+  if (row.afip_attempted_numero != null) return row.afip_attempted_numero;
+  if (row.cbte_tipo_afip == null) return null;
+  try {
+    const last = await getLastAuthorizedNumber(
+      row.punto_venta,
+      row.cbte_tipo_afip,
+    );
+    return last + 1;
+  } catch (err) {
+    logger.warn("invoices.expected_numero_failed", {
+      invoice_id: row.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
 export async function getInvoiceDetailAction(
   id: string,
 ): Promise<ActionResult<ComprobanteDetail>> {
@@ -859,6 +887,10 @@ export async function getInvoiceDetailAction(
   if (!row.channel || !row.client) {
     return { ok: false, error: "Comprobante con relaciones inválidas." };
   }
+  const expectedNumero =
+    row.numero == null && row.channel.is_fiscal
+      ? await expectedFiscalNumero(row)
+      : null;
   return {
     ok: true,
     data: {
@@ -873,6 +905,7 @@ export async function getInvoiceDetailAction(
       letter: row.letter as InvoiceRow["letter"],
       punto_venta: row.punto_venta,
       numero: row.numero,
+      expected_numero: expectedNumero,
       fecha: row.fecha,
       fch_serv_desde: row.fch_serv_desde,
       fch_serv_hasta: row.fch_serv_hasta,

@@ -44,6 +44,12 @@ describe("getFleetProfitabilityAction", () => {
     }));
     fake = pagedSupabase({
       trips,
+      v_trip_revenue: trips.map((t) => ({
+        trip_id: t.id,
+        revenue: 10,
+        revenue_source: "manual",
+        invoiced_revenue: 0,
+      })),
       fuel_loads: fuel,
       maintenance_records: [{ vehicle_id: "v1", cost: 100 }],
       vehicles: [{ id: "v1", patente: "AA111AA" }],
@@ -63,9 +69,60 @@ describe("getFleetProfitabilityAction", () => {
 
   it("fails instead of returning a partial total when a page errors", async () => {
     fake = pagedSupabase(
-      { trips: [], fuel_loads: [], maintenance_records: [], vehicles: [] },
+      {
+        trips: [],
+        v_trip_revenue: [],
+        fuel_loads: [],
+        maintenance_records: [],
+        vehicles: [],
+      },
       { failOn: "fuel_loads" },
     );
+    const res = await getFleetProfitabilityAction(range);
+    expect(res.ok).toBe(false);
+  });
+
+  it("uses the invoiced freight of a trip with shipments", async () => {
+    fake = pagedSupabase({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-03-01",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 1000,
+          cost: 0,
+          vehicle: { patente: "AA111AA" },
+          driver: null,
+        },
+      ],
+      v_trip_revenue: [
+        {
+          trip_id: "t1",
+          revenue: 300,
+          revenue_source: "invoiced",
+          invoiced_revenue: 300,
+        },
+      ],
+      fuel_loads: [],
+      maintenance_records: [],
+      vehicles: [{ id: "v1", patente: "AA111AA" }],
+    });
+    const res = await getFleetProfitabilityAction(range);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.trips[0]).toMatchObject({
+      revenue: 300,
+      revenue_source: "invoiced",
+      invoiced_revenue: 300,
+      manual_revenue: 1000,
+    });
+    expect(res.data.totals.revenue).toBe(300);
+  });
+
+  it("requires shipments:read, since revenue comes from the shipments", async () => {
+    roles = ["driver"];
     const res = await getFleetProfitabilityAction(range);
     expect(res.ok).toBe(false);
   });

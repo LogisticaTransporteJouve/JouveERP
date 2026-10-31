@@ -1,11 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { FileText, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { FileDropzone } from "@/components/file-upload/file-dropzone";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useCreateFleetDocument,
   useUpdateFleetDocument,
+  useUploadFleetDocumentFile,
 } from "../hooks/use-fleet-documents";
 import {
   FLEET_DOC_KINDS,
@@ -85,7 +88,12 @@ export function FleetDocumentDialog({
 }) {
   const createMut = useCreateFleetDocument();
   const updateMut = useUpdateFleetDocument();
-  const isSaving = createMut.isPending || updateMut.isPending;
+  const uploadMut = useUploadFleetDocumentFile();
+  const isSaving =
+    createMut.isPending || updateMut.isPending || uploadMut.isPending;
+  const [file, setFile] = useState<File | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
+  const hasFile = Boolean(doc?.attachment_file_id) && !removeFile;
   const isEdit = mode === "edit";
 
   const form = useForm<FormValues>({
@@ -94,8 +102,30 @@ export function FleetDocumentDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset(toDefaults(doc));
+    if (!open) return;
+    form.reset(toDefaults(doc));
+    setFile(null);
+    setRemoveFile(false);
   }, [open, doc, form]);
+
+  function finish(documentId: string, message: string) {
+    if (!file) {
+      toast.success(message);
+      onOpenChange(false);
+      return;
+    }
+    uploadMut.mutate(
+      { documentId, file },
+      {
+        onSuccess: () => {
+          toast.success(message);
+          onOpenChange(false);
+        },
+        onError: (err) =>
+          toast.error(`Documento guardado, pero el archivo no: ${err.message}`),
+      },
+    );
+  }
 
   const ownerKind = useWatch({ control: form.control, name: "owner_kind" });
 
@@ -114,20 +144,18 @@ export function FleetDocumentDialog({
     };
     if (mode === "create") {
       createMut.mutate(payload, {
-        onSuccess: () => {
-          toast.success("Documento creado.");
-          onOpenChange(false);
-        },
+        onSuccess: (created) => finish(created.id, "Documento creado."),
         onError: (err) => toast.error(err.message),
       });
     } else if (doc) {
       updateMut.mutate(
-        { id: doc.id, ...payload },
         {
-          onSuccess: () => {
-            toast.success("Cambios guardados.");
-            onOpenChange(false);
-          },
+          id: doc.id,
+          ...payload,
+          ...(removeFile && !file && { attachment_file_id: null }),
+        },
+        {
+          onSuccess: () => finish(doc.id, "Cambios guardados."),
           onError: (err) => toast.error(err.message),
         },
       );
@@ -295,6 +323,49 @@ export function FleetDocumentDialog({
                 </FormItem>
               )}
             />
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Archivo</p>
+              {file ? (
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <FileText className="text-muted-foreground size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Quitar archivo elegido"
+                    onClick={() => setFile(null)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              ) : hasFile ? (
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <FileText className="text-muted-foreground size-4 shrink-0" />
+                  <span className="text-muted-foreground min-w-0 flex-1 truncate">
+                    Tiene un archivo adjunto. Subí otro para reemplazarlo.
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Quitar el archivo adjunto"
+                    onClick={() => setRemoveFile(true)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              ) : null}
+              {!file && (
+                <FileDropzone
+                  onFile={setFile}
+                  onError={(message) => toast.error(message)}
+                  disabled={isSaving}
+                  placeholder="Arrastrá el escaneo o elegí un archivo"
+                  description="PDF o imagen, hasta 10 MB."
+                />
+              )}
+            </div>
             <DialogFooter>
               <Button
                 type="button"
@@ -305,7 +376,10 @@ export function FleetDocumentDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                disabled={
+                  isSaving ||
+                  (isEdit && !form.formState.isDirty && !file && !removeFile)
+                }
               >
                 {isEdit ? "Guardar" : "Crear"}
               </Button>

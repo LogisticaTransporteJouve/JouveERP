@@ -337,11 +337,11 @@ export type InvoiceWithChannelRefJoin = {
 };
 
 /** Formats the fiscal number of a voucher following the AR convention:
- *  - factura: `A00003-00000001` (letter + POS 5d + dash + number 8d)
- *  - NC/ND: `NC00003-00000001` / `ND00003-00000001` (no letter)
+ *  - factura: `A0003-00000001` (letter + POS 4d + dash + number 8d)
+ *  - NC/ND: `NC0003-00000001` / `ND0003-00000001` (no letter)
  *  - `numero == null` (draft / AFIP processing): the number segment is
- *    replaced by `opts.whenNullNumero` (default `"—"`; the detail page uses
- *    `"pendiente"`). The prefix + POS is preserved → `"A00003-pendiente"`.
+ *    replaced by `opts.whenNullNumero` (default `"—"`); `null` drops it and
+ *    keeps only the prefix + POS → `"A0003"`.
  *  Consolidates 4 dupes that lived in invoices-table, origin-picker,
  *  send-invoice-email and the detail page `app/(dashboard)/invoices/[id]/page.tsx`. */
 export function formatInvoiceNumero(
@@ -349,14 +349,15 @@ export function formatInvoiceNumero(
   letter: string | null,
   puntoVenta: number,
   numero: number | null,
-  opts: { whenNullNumero?: string } = {},
+  opts: { whenNullNumero?: string | null } = {},
 ): string {
-  const pos = String(puntoVenta).padStart(5, "0");
-  const num =
-    numero == null
-      ? (opts.whenNullNumero ?? "—")
-      : String(numero).padStart(8, "0");
-  if (kind === "factura")
-    return letter ? `${letter}${pos}-${num}` : `${pos}-${num}`;
-  return `${kind === "nc" ? "NC" : "ND"}${pos}-${num}`;
+  const pos = String(puntoVenta).padStart(4, "0");
+  const prefix =
+    kind === "factura"
+      ? `${letter ?? ""}${pos}`
+      : `${kind === "nc" ? "NC" : "ND"}${pos}`;
+  if (numero != null) return `${prefix}-${String(numero).padStart(8, "0")}`;
+  const placeholder =
+    opts.whenNullNumero === undefined ? "—" : opts.whenNullNumero;
+  return placeholder === null ? prefix : `${prefix}-${placeholder}`;
 }

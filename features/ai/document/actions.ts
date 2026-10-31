@@ -6,7 +6,10 @@ import { ChequeCreateSchema } from "@/features/checks/schema";
 import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
-import { createPaymentOrderAction } from "@/features/payment-orders/actions/payment-orders-actions";
+import {
+  createPaymentOrderAction,
+  getPaymentOrderUsdRateAction,
+} from "@/features/payment-orders/actions/payment-orders-actions";
 import {
   createPurchaseInvoiceAction,
   type PartialCreateFailure,
@@ -16,7 +19,10 @@ import type {
   PurchaseInvoiceDraftSource,
   PurchaseInvoiceDraftSupplier,
 } from "@/features/purchase-invoices/lib/purchase-invoice-draft";
-import { createReceiptAction } from "@/features/receipts/actions/receipts-actions";
+import {
+  createReceiptAction,
+  getReceiptUsdRateAction,
+} from "@/features/receipts/actions/receipts-actions";
 import {
   CONCEPTO,
   DOC_TIPO,
@@ -31,6 +37,7 @@ import { userCan, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
+import type { UsdRate } from "@/lib/fx";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -893,6 +900,24 @@ async function confirmExtraction(
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.");
 
+/** Rate a USD recibo or OP is created with: the one loaded for its date. */
+async function documentUsdRate(
+  currency: "ARS" | "USD",
+  fetchRate: () => Promise<ActionResult<UsdRate | null>>,
+): Promise<ActionResult<number | null>> {
+  if (currency !== "USD") return { ok: true, data: null };
+  const res = await fetchRate();
+  if (!res.ok) return res;
+  if (!res.data) {
+    return {
+      ok: false,
+      error:
+        "No hay cotización del dólar para esa fecha. Cargala antes de crear el documento.",
+    };
+  }
+  return { ok: true, data: res.data.rate };
+}
+
 const CreateReceiptFromExtractionSchema = z.object({
   extractionId: z.string().uuid(),
   channelId: z.string().min(1, "Canal requerido."),
@@ -937,6 +962,10 @@ export async function createReceiptFromExtractionAction(
   if (!clientId) {
     return { ok: false, error: "Asociá un cliente antes de crear el recibo." };
   }
+  const cotizacion = await documentUsdRate(parsed.data.currency, () =>
+    getReceiptUsdRateAction(parsed.data.receipt_date),
+  );
+  if (!cotizacion.ok) return cotizacion;
 
   const created = await createWithClaim(
     supabase,
@@ -949,6 +978,7 @@ export async function createReceiptFromExtractionAction(
         receipt_date: parsed.data.receipt_date,
         total_amount: parsed.data.total_amount,
         currency: parsed.data.currency,
+        cotizacion: cotizacion.data,
         notes: null,
         payment_lines: [
           {
@@ -1015,6 +1045,10 @@ export async function createPaymentOrderFromExtractionAction(
   if (!supplierId) {
     return { ok: false, error: "Asociá un proveedor antes de crear la OP." };
   }
+  const cotizacion = await documentUsdRate(parsed.data.currency, () =>
+    getPaymentOrderUsdRateAction(parsed.data.payment_date),
+  );
+  if (!cotizacion.ok) return cotizacion;
 
   const created = await createWithClaim(
     supabase,
@@ -1027,6 +1061,7 @@ export async function createPaymentOrderFromExtractionAction(
         payment_date: parsed.data.payment_date,
         total_amount: parsed.data.total_amount,
         currency: parsed.data.currency,
+        cotizacion: cotizacion.data,
         notes: null,
         payment_lines: [
           {

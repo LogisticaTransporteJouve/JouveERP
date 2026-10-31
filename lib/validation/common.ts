@@ -43,6 +43,29 @@ export const NonNegativeAmountSchema = z
   .finite()
   .min(0, "El monto no puede ser negativo.");
 
+export const USD_RATE_REQUIRED_MESSAGE =
+  "Cargá la cotización del dólar (tiene que ser mayor a 1).";
+
+/** ARS per 1 USD of a receipt or payment order: > 1, at most the 4 decimals
+ *  of `numeric(10,4)`. Absent or null on peso documents. */
+export const UsdRateSchema = z
+  .number()
+  .finite(USD_RATE_REQUIRED_MESSAGE)
+  .gt(1, USD_RATE_REQUIRED_MESSAGE)
+  .lt(1_000_000, "Cotización inválida.")
+  .nullable()
+  .optional();
+
+/** A USD document carries its rate (the DB trigger has the last word). */
+export function usdRateIssue(
+  currency: string,
+  cotizacion: number | null | undefined,
+): string | null {
+  return currency === "USD" && cotizacion == null
+    ? USD_RATE_REQUIRED_MESSAGE
+    : null;
+}
+
 /**
  * Zod preprocess for amounts in es-AR format ("1.234,56" → 1234.56) that
  * also accepts a direct `number`. Empty/whitespace string → `undefined` (which

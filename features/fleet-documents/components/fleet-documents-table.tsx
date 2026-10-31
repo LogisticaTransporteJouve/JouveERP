@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
 import { cn } from "@/lib/utils";
 
 import {
@@ -30,6 +31,17 @@ function expiryClass(expiresAt: string): string {
   if (days <= 7) return "text-destructive font-medium";
   if (days <= 30) return "text-muted-foreground dark:text-muted-foreground";
   return "text-muted-foreground";
+}
+
+async function openFile(fileId: string) {
+  try {
+    const signed = await fetchSignedUrl(fileId);
+    window.open(signed.url, "_blank", "noopener,noreferrer");
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "No se pudo abrir el archivo.",
+    );
+  }
 }
 
 export function FleetDocumentsTable({
@@ -108,6 +120,29 @@ export function FleetDocumentsTable({
           </span>
         ),
         meta: { headerClassName: "w-32" },
+      },
+      {
+        id: "file",
+        header: "Archivo",
+        enableSorting: false,
+        meta: { headerClassName: "w-24" },
+        cell: ({ row }) => {
+          const fileId = row.original.attachment_file_id;
+          if (!fileId) {
+            return <span className="text-muted-foreground text-sm">—</span>;
+          }
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openFile(fileId)}
+              aria-label={`Descargar archivo de ${FLEET_DOC_KIND_LABELS[row.original.kind]}`}
+            >
+              <Download className="size-4" />
+              Ver
+            </Button>
+          );
+        },
       },
       {
         id: "actions",

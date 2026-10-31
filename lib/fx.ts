@@ -19,11 +19,11 @@ export function paymentCurrencyOf(
   return isUsdCurrency(moneda) ? "USD" : "ARS";
 }
 
-/** Latest loaded official rate (BCRA cron or a manual override), or null when
- *  none is loaded or the read fails — callers treat both as "no rate". */
-export async function fetchLatestUsdRate(
+/** Latest loaded official rate (BCRA cron or a manual override), keeping a
+ *  failed read (`ok: false`) apart from "no rate loaded" (`rate: null`). */
+export async function readLatestUsdRate(
   supabase: SupabaseClient<Database>,
-): Promise<UsdRate | null> {
+): Promise<{ ok: true; rate: UsdRate | null } | { ok: false }> {
   const { data, error } = await supabase
     .from("exchange_rates")
     .select("rate, rate_date")
@@ -33,6 +33,39 @@ export async function fetchLatestUsdRate(
     .maybeSingle();
   if (error) {
     logger.warn("exchange_rates.latest.failed", { error });
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    rate: data ? { rate: Number(data.rate), rate_date: data.rate_date } : null,
+  };
+}
+
+/** Latest loaded official rate, or null when none is loaded or the read
+ *  fails — callers treat both as "no rate". */
+export async function fetchLatestUsdRate(
+  supabase: SupabaseClient<Database>,
+): Promise<UsdRate | null> {
+  const res = await readLatestUsdRate(supabase);
+  return res.ok ? res.rate : null;
+}
+
+/** Rate for `date` or the nearest earlier day, like `get_exchange_rate` in SQL.
+ *  Null when none is loaded or the read fails (both mean "no rate"). */
+export async function fetchUsdRateOnOrBefore(
+  supabase: SupabaseClient<Database>,
+  date: string,
+): Promise<UsdRate | null> {
+  const { data, error } = await supabase
+    .from("exchange_rates")
+    .select("rate, rate_date")
+    .eq("currency", "USD")
+    .lte("rate_date", date)
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    logger.warn("exchange_rates.on_or_before.failed", { error });
     return null;
   }
   return data ? { rate: Number(data.rate), rate_date: data.rate_date } : null;

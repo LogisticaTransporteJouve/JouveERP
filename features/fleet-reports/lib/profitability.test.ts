@@ -18,6 +18,9 @@ describe("computeProfitability", () => {
           origin: "A",
           destination: "B",
           revenue: 1000,
+          revenue_source: "manual",
+          invoiced_revenue: 0,
+          manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
           driver: { full_name: "Juan" },
@@ -44,6 +47,9 @@ describe("computeProfitability", () => {
           origin: null,
           destination: null,
           revenue: 1000,
+          revenue_source: "manual",
+          invoiced_revenue: 0,
+          manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
           driver: null,
@@ -73,6 +79,9 @@ describe("computeProfitability", () => {
           origin: null,
           destination: null,
           revenue: 5000,
+          revenue_source: "manual",
+          invoiced_revenue: 0,
+          manual_revenue: 5000,
           cost: 0,
           vehicle: { patente: "BBB222" },
           driver: null,
@@ -110,6 +119,63 @@ describe("computeProfitability", () => {
       fuel_amount: 100,
       maintenance_count: 2,
       maintenance_cost: 300,
+    });
+  });
+
+  it("carries invoiced and manual revenue apart from the revenue it uses", () => {
+    const r = computeProfitability({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-07-01",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 300,
+          revenue_source: "invoiced",
+          invoiced_revenue: 300,
+          manual_revenue: 1000,
+          cost: 100,
+          vehicle: { patente: "AAA111" },
+          driver: null,
+        },
+        {
+          id: "t2",
+          trip_date: "2026-07-02",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 800,
+          revenue_source: "manual",
+          invoiced_revenue: 0,
+          manual_revenue: 800,
+          cost: 50,
+          vehicle: { patente: "AAA111" },
+          driver: null,
+        },
+      ],
+      fuel: [],
+      maintenance: [],
+      vehicleNames: names,
+    });
+    expect(r.trips[0]).toMatchObject({
+      revenue: 300,
+      revenue_source: "invoiced",
+      invoiced_revenue: 300,
+      manual_revenue: 1000,
+      net: 200,
+    });
+    expect(r.vehicles[0]).toMatchObject({
+      revenue: 1100,
+      invoiced_revenue: 300,
+      manual_revenue: 1800,
+      net: 950,
+    });
+    expect(r.totals).toMatchObject({
+      revenue: 1100,
+      invoiced_revenue: 300,
+      manual_revenue: 1800,
+      net: 950,
     });
   });
 });

@@ -8,11 +8,16 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { allocateFifo, readEmbeddedStatus } from "@/lib/allocations";
-import { paymentCurrencyOf } from "@/lib/fx";
+import {
+  fetchUsdRateOnOrBefore,
+  paymentCurrencyOf,
+  type UsdRate,
+} from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { IsoDateSchema } from "@/lib/validation/common";
 
 import type {
   SupplierIdentityJoin,
@@ -42,7 +47,7 @@ function narrowPaymentOrder(row: {
 }
 
 const COLUMNS =
-  "id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
+  "id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
 
 function serializePaymentLine(line: PaymentLineInput) {
   if (line.line_kind === "endorse_check") {
@@ -208,6 +213,27 @@ export async function getPaymentOrderByIdAction(
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
     },
+  };
+}
+
+/** Loaded USD rate for the payment date, to prefill the form's cotización.
+ *  Null when there is none: the user types it. */
+export async function getPaymentOrderUsdRateAction(
+  date: string,
+): Promise<ActionResult<UsdRate | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "payment_orders:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para emitir órdenes de pago.",
+    };
+  }
+  const parsed = IsoDateSchema.safeParse(date);
+  if (!parsed.success) return { ok: false, error: "Fecha inválida." };
+  const supabase = await createSupabaseClient();
+  return {
+    ok: true,
+    data: await fetchUsdRateOnOrBefore(supabase, parsed.data),
   };
 }
 
@@ -463,6 +489,7 @@ export async function createPaymentOrderAction(
     p_payment_date: data.payment_date,
     p_total_amount: data.total_amount,
     p_currency: data.currency,
+    p_cotizacion: data.cotizacion ?? undefined,
     p_notes: data.notes ?? "",
     p_payment_lines: data.payment_lines.map(serializePaymentLine),
     p_allocations: allocations.map((a) => ({
@@ -542,6 +569,7 @@ export async function updatePaymentOrderAction(
     p_id: data.id,
     p_payment_date: data.payment_date,
     p_total_amount: data.total_amount,
+    p_cotizacion: data.cotizacion ?? undefined,
     p_notes: data.notes ?? "",
     p_payment_lines: data.payment_lines.map(serializePaymentLine),
     p_allocations: (data.allocations ?? []).map((a) => ({
