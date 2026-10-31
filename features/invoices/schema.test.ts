@@ -7,6 +7,7 @@ import {
   CreateComprobanteSchema,
   computeLineAmounts,
   computeTotals,
+  formatInvoiceNumero,
   isInvoiceKind,
   isInvoiceLetter,
   isInvoiceStatus,
@@ -194,5 +195,19 @@ describe("computeLineAmounts", () => {
     expect(round2(lines.reduce((s, l) => s + l.line_total, 0))).toBe(
       totals.imp_total,
     );
+  });
+});
+
+describe("formatInvoiceNumero", () => {
+  it("pads POS to 4 digits and number to 8", () => {
+    expect(formatInvoiceNumero("factura", "A", 3, 6)).toBe("A0003-00000006");
+    expect(formatInvoiceNumero("nc", null, 3, 6)).toBe("NC0003-00000006");
+  });
+
+  it("uses a placeholder or only the prefix while there is no number", () => {
+    expect(formatInvoiceNumero("factura", "A", 3, null)).toBe("A0003-—");
+    expect(
+      formatInvoiceNumero("factura", "A", 3, null, { whenNullNumero: null }),
+    ).toBe("A0003");
   });
 });
