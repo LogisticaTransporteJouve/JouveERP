@@ -1,10 +1,4 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import { formatReceiptNumber } from "@/features/receipts/schema";
 
@@ -36,6 +30,8 @@ export interface ReceiptTemplateAllocation {
 }
 
 export interface ReceiptTemplateData {
+  /** Set only on an internal-channel receipt (D5); a fiscal one has no key. */
+  title?: string;
   emisor: {
     legal_name: string;
     cuit: string;
@@ -172,13 +168,15 @@ export function ReceiptDocument({ data }: { data: ReceiptTemplateData }) {
           <View style={styles.headerLeft}>
             <Text style={styles.emisorName}>{data.emisor.legal_name}</Text>
             <View style={styles.meta}>
-              <Text>CUIT {data.emisor.cuit}</Text>
+              {data.emisor.cuit && <Text>CUIT {data.emisor.cuit}</Text>}
               {data.emisor.address && <Text>{data.emisor.address}</Text>}
-              <Text>{data.emisor.division_label}</Text>
+              {data.emisor.division_label && (
+                <Text>{data.emisor.division_label}</Text>
+              )}
             </View>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.heading}>RECIBO</Text>
+            <Text style={styles.heading}>{data.title ?? "RECIBO"}</Text>
             <Text style={styles.subheading}>
               {formatReceiptNumber(data.punto_venta, data.numero)}
             </Text>

@@ -24,7 +24,7 @@ import {
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
-import { divisionLabel } from "@/lib/pdf/emisor";
+import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 
 import { ReceiptDocument, type ReceiptTemplateData } from "./receipt-template";
 
@@ -50,7 +50,7 @@ export async function buildReceiptTemplateData(
   const { data: receipt, error: rErr } = await supabase
     .from("receipts")
     .select(
-      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, business_unit_id), client:clients(legal_name, cuit, iva_condition)",
+      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, is_fiscal, business_unit_id), client:clients(legal_name, cuit, iva_condition)",
     )
     .eq("id", receiptId)
     .maybeSingle();
@@ -63,23 +63,17 @@ export async function buildReceiptTemplateData(
   const client = (receipt as unknown as ClientIdentityJoin).client;
   if (!client) throw new Error("receipt-pdf: client missing");
 
-  // Issuer comes from the business unit's fiscal fields.
-  const buId = channel?.business_unit_id;
-  let emisorLegalName = "DZ & Sons S.A.";
-  let emisorCuit = "";
-  let emisorAddress: string | null = null;
-  if (buId) {
-    const { data: bu } = await supabase
-      .from("business_units")
-      .select("name, cuit, tax_address")
-      .eq("id", buId)
-      .maybeSingle();
-    if (bu) {
-      emisorLegalName = bu.name ?? emisorLegalName;
-      emisorCuit = bu.cuit ?? "";
-      emisorAddress = bu.tax_address ?? null;
-    }
-  }
+  // Issuer comes from the business unit's fiscal fields; an internal
+  // receipt carries none of them (D5).
+  const isFiscal = channel?.is_fiscal ?? true;
+  const emisor = redactEmisor({
+    isFiscal,
+    emisor: await loadEmisor(supabase, {
+      name: channel?.name ?? "",
+      division: channel?.division ?? null,
+      business_unit_id: channel?.business_unit_id ?? null,
+    }),
+  });
 
   // Child rows: payment lines, retentions, allocations.
   const [linesRes, retentionsRes, allocsRes] = await Promise.all([
@@ -134,7 +128,12 @@ export async function buildReceiptTemplateData(
     const numero = inv
       ? formatInvoiceNumero(inv.kind, inv.letter, inv.punto_venta, inv.numero)
       : "—";
-    const label = inv?.kind === "factura" ? `Factura ${numero}` : numero;
+    // Allocations share the receipt's channel: internal ones never read
+    // "Factura".
+    const label =
+      inv?.kind === "factura"
+        ? `${isFiscal ? "Factura" : "Comprobante interno"} ${numero}`
+        : numero;
     return {
       invoice_label: label.trim().replace(/\s+/g, " "),
       invoice_date: inv?.fecha ?? "",
@@ -151,11 +150,12 @@ export async function buildReceiptTemplateData(
   const totalAmount = Number(receipt.total_amount);
 
   return {
+    ...(isFiscal ? {} : { title: "RECIBO INTERNO" }),
     emisor: {
-      legal_name: emisorLegalName,
-      cuit: emisorCuit,
-      address: emisorAddress,
-      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
+      legal_name: emisor.legal_name,
+      cuit: emisor.cuit,
+      address: emisor.address,
+      division_label: emisor.division_label,
     },
     receptor: {
       legal_name: client.legal_name,

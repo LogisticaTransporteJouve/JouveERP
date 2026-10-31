@@ -16,7 +16,7 @@ import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
-import { divisionLabel } from "@/lib/pdf/emisor";
+import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 
 import {
   PaymentOrderDocument,
@@ -45,7 +45,7 @@ export async function buildPaymentOrderTemplateData(
   const { data: op, error: opErr } = await supabase
     .from("payment_orders")
     .select(
-      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, business_unit_id), supplier:suppliers(legal_name, cuit, iva_condition)",
+      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, division, is_fiscal, business_unit_id), supplier:suppliers(legal_name, cuit, iva_condition)",
     )
     .eq("id", paymentOrderId)
     .maybeSingle();
@@ -58,23 +58,17 @@ export async function buildPaymentOrderTemplateData(
   const supplier = (op as unknown as SupplierFullJoin).supplier;
   if (!supplier) throw new Error("payment-order-pdf: supplier missing");
 
-  // Issuer from the channel's business_unit.
-  const buId = channel?.business_unit_id;
-  let emisorLegalName = "DZ & Sons S.A.";
-  let emisorCuit = "";
-  let emisorAddress: string | null = null;
-  if (buId) {
-    const { data: bu } = await supabase
-      .from("business_units")
-      .select("name, cuit, tax_address")
-      .eq("id", buId)
-      .maybeSingle();
-    if (bu) {
-      emisorLegalName = bu.name ?? emisorLegalName;
-      emisorCuit = bu.cuit ?? "";
-      emisorAddress = bu.tax_address ?? null;
-    }
-  }
+  // Issuer from the channel's business_unit; an internal OP carries none of
+  // its fiscal data (D5).
+  const isFiscal = channel?.is_fiscal ?? true;
+  const emisor = redactEmisor({
+    isFiscal,
+    emisor: await loadEmisor(supabase, {
+      name: channel?.name ?? "",
+      division: channel?.division ?? null,
+      business_unit_id: channel?.business_unit_id ?? null,
+    }),
+  });
 
   // Children: payment_lines + allocations. No withholdings (K.4 dropped).
   const [linesRes, allocsRes] = await Promise.all([
@@ -135,11 +129,12 @@ export async function buildPaymentOrderTemplateData(
   const totalAmount = Number(op.total_amount);
 
   return {
+    ...(isFiscal ? {} : { title: "ORDEN DE PAGO INTERNA" }),
     emisor: {
-      legal_name: emisorLegalName,
-      cuit: emisorCuit,
-      address: emisorAddress,
-      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
+      legal_name: emisor.legal_name,
+      cuit: emisor.cuit,
+      address: emisor.address,
+      division_label: emisor.division_label,
     },
     beneficiario: {
       legal_name: supplier.legal_name,
