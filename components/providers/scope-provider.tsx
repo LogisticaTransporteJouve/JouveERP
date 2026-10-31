@@ -10,90 +10,73 @@ import {
 } from "react";
 
 import {
-  isDivision,
-  isFiscalFilter,
-  type Division,
+  parseFiscalFilter,
+  SCOPE_COOKIE,
+  serializeFiscalFilter,
   type FiscalFilter,
   type InvoicingChannelSummary,
-  type Scope,
 } from "@/lib/scope";
 
-type ScopeContextValue = Scope & {
+type ScopeContextValue = {
+  fiscalFilter: FiscalFilter;
   channels: InvoicingChannelSummary[];
-  setDivision: (division: Division | null) => void;
   setFiscalFilter: (filter: FiscalFilter) => void;
 };
 
 const STORAGE_KEY = "jouve_scope_v1";
-const COOKIE_KEY = "jouve_scope";
-const DEFAULT_SCOPE: Scope = { division: null, fiscalFilter: "all" };
 
 const ScopeContext = createContext<ScopeContextValue | null>(null);
 
-function readFromStorage(): Scope {
-  if (typeof window === "undefined") return DEFAULT_SCOPE;
+function readFromStorage(): FiscalFilter {
+  if (typeof window === "undefined") return "all";
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SCOPE;
-    const parsed = JSON.parse(raw) as Partial<Scope>;
-    return {
-      division: isDivision(parsed.division) ? parsed.division : null,
-      fiscalFilter: isFiscalFilter(parsed.fiscalFilter)
-        ? parsed.fiscalFilter
-        : "all",
-    };
+    return parseFiscalFilter(window.localStorage.getItem(STORAGE_KEY));
   } catch {
-    return DEFAULT_SCOPE;
+    return "all";
   }
 }
 
 export function ScopeProvider({
   channels,
-  initialScope,
+  initialFiscalFilter,
   children,
 }: {
   channels: InvoicingChannelSummary[];
-  initialScope?: Scope;
+  initialFiscalFilter?: FiscalFilter;
   children: React.ReactNode;
 }) {
-  // The server passes initialScope read from the cookie in the layout,
+  // The server passes the filter read from the cookie in the layout,
   // avoiding the "all channels" flash during the first render.
-  const [scope, setScope] = useState<Scope>(initialScope ?? DEFAULT_SCOPE);
+  const [fiscalFilter, setFiscalFilterState] = useState<FiscalFilter>(
+    initialFiscalFilter ?? "all",
+  );
 
-  // We only hydrate from localStorage if the server didn't pass us initialScope
-  // (the pre-cookie case in old sessions). Drop a persisted division that no
-  // longer maps to an active channel.
+  // We only hydrate from localStorage if the server didn't pass a filter
+  // (the pre-cookie case in old sessions).
   useEffect(() => {
-    if (initialScope) return;
-    const stored = readFromStorage();
-    const activeDivisions = new Set(
-      channels.filter((c) => c.is_active).map((c) => c.division),
-    );
-    if (stored.division && !activeDivisions.has(stored.division)) {
-      setScope({ ...stored, division: null });
-    } else {
-      setScope(stored);
-    }
-  }, [channels, initialScope]);
+    if (initialFiscalFilter) return;
+    setFiscalFilterState(readFromStorage());
+  }, [initialFiscalFilter]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scope));
+    const serialized = serializeFiscalFilter(fiscalFilter);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, serialized);
+    } catch {
+      // Storage blocked: the cookie below still carries the scope.
+    }
     // We also persist to a cookie for SSR on the next navigation.
-    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(JSON.stringify(scope))}; path=/; max-age=31536000; SameSite=Lax`;
-  }, [scope]);
+    document.cookie = `${SCOPE_COOKIE}=${encodeURIComponent(serialized)}; path=/; max-age=31536000; SameSite=Lax`;
+  }, [fiscalFilter]);
 
-  const setDivision = useCallback((division: Division | null) => {
-    setScope((prev) => ({ ...prev, division }));
-  }, []);
-
-  const setFiscalFilter = useCallback((fiscalFilter: FiscalFilter) => {
-    setScope((prev) => ({ ...prev, fiscalFilter }));
+  const setFiscalFilter = useCallback((filter: FiscalFilter) => {
+    setFiscalFilterState(filter);
   }, []);
 
   const value = useMemo<ScopeContextValue>(
-    () => ({ ...scope, channels, setDivision, setFiscalFilter }),
-    [scope, channels, setDivision, setFiscalFilter],
+    () => ({ fiscalFilter, channels, setFiscalFilter }),
+    [fiscalFilter, channels, setFiscalFilter],
   );
 
   return (
