@@ -38,7 +38,10 @@ const positiveAmount = z
   .union([z.number(), z.string()])
   .transform((v) => {
     if (typeof v === "number") return v;
-    const cleaned = v.replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
+    const cleaned = v
+      .replace(/[^0-9.,-]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
     const n = Number(cleaned);
     return Number.isFinite(n) ? n : 0;
   })
@@ -79,7 +82,12 @@ const baseFields = {
   notes: trimmedNullable,
 };
 
-export const IssuedCheckCreateSchema = z.object(baseFields);
+// The channel comes from the payment order when there is one (the DB
+// inherits it); a check loaded by hand picks it.
+export const IssuedCheckCreateSchema = z.object({
+  ...baseFields,
+  channel_id: z.string().min(1, "Canal requerido."),
+});
 
 export const IssuedCheckUpdateSchema = z.object({
   id: z.string().uuid(),
@@ -106,7 +114,9 @@ export const IssuedCheckTransitionSchema = z.object({
 
 export type IssuedCheckCreateInput = z.infer<typeof IssuedCheckCreateSchema>;
 export type IssuedCheckUpdateInput = z.infer<typeof IssuedCheckUpdateSchema>;
-export type IssuedCheckTransitionInput = z.infer<typeof IssuedCheckTransitionSchema>;
+export type IssuedCheckTransitionInput = z.infer<
+  typeof IssuedCheckTransitionSchema
+>;
 
 export type IssuedCheck = {
   id: string;
@@ -121,6 +131,7 @@ export type IssuedCheck = {
   currency: IssuedCheckCurrency;
   bank_account_id: string;
   payment_order_id: string | null;
+  channel_id: string | null;
   supplier_id: string | null;
   supplier_legal_name?: string | null;
   bank_account_name?: string | null;
@@ -136,13 +147,22 @@ export type IssuedCheck = {
 };
 
 export function isIssuedCheckKind(v: unknown): v is IssuedCheckKind {
-  return typeof v === "string" && (ISSUED_CHECK_KINDS as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (ISSUED_CHECK_KINDS as readonly string[]).includes(v)
+  );
 }
 
 export function isIssuedCheckStatus(v: unknown): v is IssuedCheckStatus {
-  return typeof v === "string" && (ISSUED_CHECK_STATUSES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (ISSUED_CHECK_STATUSES as readonly string[]).includes(v)
+  );
 }
 
 export function isIssuedCheckCurrency(v: unknown): v is IssuedCheckCurrency {
-  return typeof v === "string" && (ISSUED_CHECK_CURRENCIES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" &&
+    (ISSUED_CHECK_CURRENCIES as readonly string[]).includes(v)
+  );
 }

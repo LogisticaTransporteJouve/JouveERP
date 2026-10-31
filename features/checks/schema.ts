@@ -84,6 +84,12 @@ export const ChequeCreateSchema = z.object({
   notes: trimmedNullable,
 });
 
+// The manual form always picks a channel; checks created from a document
+// extraction may still arrive without one and get it on deposit or endorsement.
+export const ManualChequeCreateSchema = ChequeCreateSchema.extend({
+  channel_id: z.string().min(1, "Canal requerido."),
+});
+
 export const DepositChequeSchema = z.object({
   check_id: z.string().uuid(),
   account_id: z.string().uuid("Cuenta destino requerida."),
@@ -107,6 +113,7 @@ export const RejectChequeSchema = z.object({
 });
 
 export type ChequeCreateInput = z.infer<typeof ChequeCreateSchema>;
+export type ManualChequeCreateInput = z.infer<typeof ManualChequeCreateSchema>;
 export type DepositChequeInput = z.infer<typeof DepositChequeSchema>;
 export type CreditChequeInput = z.infer<typeof CreditChequeSchema>;
 export type RejectChequeInput = z.infer<typeof RejectChequeSchema>;

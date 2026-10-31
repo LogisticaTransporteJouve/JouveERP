@@ -38,6 +38,7 @@ import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import { useCreateCheque } from "../hooks/use-checks";
+import type { CheckChannelOption } from "./check-action-dialogs";
 import {
   CHEQUE_CURRENCIES,
   CHECK_KINDS,
@@ -57,12 +58,17 @@ const FormSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
   currency: z.enum(CHEQUE_CURRENCIES),
   cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
+  channel_id: z.string().min(1, "Canal requerido."),
   notes: z.string().trim().max(500),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
 
-export function NewChequeDialog() {
+export function NewChequeDialog({
+  channels,
+}: {
+  channels: CheckChannelOption[];
+}) {
   const [open, setOpen] = useState(false);
   const { data: accounts } = useAccountsList();
   const carteraOptions = accounts.filter(
@@ -89,6 +95,7 @@ export function NewChequeDialog() {
       amount: "",
       currency: "ARS",
       cartera_account_id: defaultCarteraId("fisico"),
+      channel_id: "",
       notes: "",
     },
   });
@@ -127,6 +134,7 @@ export function NewChequeDialog() {
         amount: values.amount,
         currency: values.currency,
         cartera_account_id: values.cartera_account_id,
+        channel_id: values.channel_id,
         source_kind: "manual",
         notes: values.notes,
       },
@@ -144,6 +152,7 @@ export function NewChequeDialog() {
             amount: "",
             currency: "ARS",
             cartera_account_id: defaultCarteraId("fisico"),
+            channel_id: "",
             notes: "",
           });
           setOpen(false);
@@ -165,9 +174,9 @@ export function NewChequeDialog() {
         <DialogHeader>
           <DialogTitle>Nuevo cheque</DialogTitle>
           <DialogDescription>
-            Carga manual. Cuando un cliente paga con check vía un recibo,
-            el check se va a registrar automáticamente desde el recibo (en
-            una iteración siguiente).
+            Carga manual. Cuando un cliente paga con check vía un recibo, el
+            check se va a registrar automáticamente desde el recibo (en una
+            iteración siguiente).
           </DialogDescription>
         </DialogHeader>
 
@@ -222,9 +231,7 @@ export function NewChequeDialog() {
                     <FormLabel className="text-xs">Moneda</FormLabel>
                     <Select
                       value={field.value}
-                      onValueChange={(v) =>
-                        field.onChange(v as ChequeCurrency)
-                      }
+                      onValueChange={(v) => field.onChange(v as ChequeCurrency)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -244,6 +251,33 @@ export function NewChequeDialog() {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="channel_id"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs">Canal</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elegir canal" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {channels
+                        .filter((c) => c.is_active)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField
@@ -265,10 +299,7 @@ export function NewChequeDialog() {
                 render={({ field }) => (
                   <FormItem className="space-y-1">
                     <FormLabel className="text-xs">Cuenta de cartera</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Elegir cuenta" />

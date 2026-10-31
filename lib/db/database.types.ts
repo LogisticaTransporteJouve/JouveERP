@@ -1128,6 +1128,7 @@ export type Database = {
           amount: number
           bank_name: string
           cartera_account_id: string
+          channel_id: string | null
           check_number: string
           created_at: string
           created_by: string | null
@@ -1150,6 +1151,7 @@ export type Database = {
           amount: number
           bank_name: string
           cartera_account_id: string
+          channel_id?: string | null
           check_number: string
           created_at?: string
           created_by?: string | null
@@ -1172,6 +1174,7 @@ export type Database = {
           amount?: number
           bank_name?: string
           cartera_account_id?: string
+          channel_id?: string | null
           check_number?: string
           created_at?: string
           created_by?: string | null
@@ -1196,6 +1199,13 @@ export type Database = {
             columns: ["cartera_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checks_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
             referencedColumns: ["id"]
           },
           {
@@ -2469,6 +2479,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           cashed_at: string | null
+          channel_id: string | null
           check_number: string
           created_at: string
           created_by: string | null
@@ -2493,6 +2504,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           cashed_at?: string | null
+          channel_id?: string | null
           check_number: string
           created_at?: string
           created_by?: string | null
@@ -2517,6 +2529,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           cashed_at?: string | null
+          channel_id?: string | null
           check_number?: string
           created_at?: string
           created_by?: string | null
@@ -2538,6 +2551,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issued_checks_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
             referencedColumns: ["id"]
           },
           {
@@ -5791,6 +5811,7 @@ export type Database = {
         Args: { p_delta: number; p_employee_id: string }
         Returns: undefined
       }
+      backfill_check_channels: { Args: never; Returns: undefined }
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
@@ -5814,6 +5835,18 @@ export type Database = {
           p_window_start: string
         }
         Returns: number
+      }
+      checks_channel_mismatches: {
+        Args: never
+        Returns: {
+          check_id: string
+          check_number: string
+          document_id: string
+          journal_entry_id: string
+          movement: string
+          movement_channel_id: string
+          receipt_channel_id: string
+        }[]
       }
       cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
       cleanup_rate_limit_buckets: {

@@ -21,6 +21,7 @@ import {
   CreditChequeDialog,
   DepositChequeDialog,
   RejectChequeDialog,
+  type CheckChannelOption,
 } from "./check-action-dialogs";
 import { NewChequeDialog } from "./new-check-dialog";
 
@@ -34,16 +35,11 @@ const STATUS_TONE: Record<ChequeStatus, string> = {
 
 // Money formatter centralizado en lib/format (formatMoney).
 
-interface ChannelOption {
-  id: string;
-  name: string;
-}
-
 export function ChequesTable({
   channels,
   actorAccess,
 }: {
-  channels: ChannelOption[];
+  channels: CheckChannelOption[];
   actorAccess: Access;
 }) {
   const { data } = useChecksList();
@@ -199,7 +195,7 @@ export function ChequesTable({
 
       {canWrite && (
         <div className="flex justify-end">
-          <NewChequeDialog />
+          <NewChequeDialog channels={channels} />
         </div>
       )}
 

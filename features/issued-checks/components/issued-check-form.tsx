@@ -26,6 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 import type { Account } from "@/features/accounts/schema";
+import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 import {
   SupplierPicker,
   type PickedSupplier,
@@ -57,6 +58,7 @@ const FormSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
   currency: z.enum(ISSUED_CHECK_CURRENCIES),
   bank_account_id: z.string().uuid("Cuenta bancaria requerida."),
+  channel_id: z.string(),
   supplier: z.custom<PickedSupplier>().nullable(),
   notes: z.string().trim().max(500),
 });
@@ -79,6 +81,7 @@ function toValues(
     amount: c ? String(c.amount) : "",
     currency: c?.currency ?? "ARS",
     bank_account_id: c?.bank_account_id ?? defaultAccountId,
+    channel_id: c?.channel_id ?? "",
     supplier: prefill ?? null,
     notes: c?.notes ?? "",
   };
@@ -88,6 +91,7 @@ export function IssuedCheckForm({
   mode,
   check,
   accounts,
+  channels,
   initialSupplier,
   onSuccess,
   onCancel,
@@ -95,6 +99,7 @@ export function IssuedCheckForm({
   mode: Mode;
   check?: IssuedCheck;
   accounts: Account[];
+  channels: CheckChannelOption[];
   initialSupplier?: PickedSupplier | null;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
@@ -103,9 +108,7 @@ export function IssuedCheckForm({
   const updateMut = useUpdateIssuedCheck();
   const isSaving = createMut.isPending || updateMut.isPending;
 
-  const bankAccounts = accounts.filter(
-    (a) => a.is_active && a.type === "bank",
-  );
+  const bankAccounts = accounts.filter((a) => a.is_active && a.type === "bank");
   const defaultAccountId = check?.bank_account_id ?? bankAccounts[0]?.id ?? "";
 
   const form = useForm<FormValues>({
@@ -130,13 +133,20 @@ export function IssuedCheckForm({
     };
 
     if (mode === "create") {
-      createMut.mutate(payload, {
-        onSuccess: (data) => {
-          toast.success("Cheque cargado.");
-          if (onSuccess) onSuccess(data.id);
+      if (!values.channel_id) {
+        form.setError("channel_id", { message: "Canal requerido." });
+        return;
+      }
+      createMut.mutate(
+        { ...payload, channel_id: values.channel_id },
+        {
+          onSuccess: (data) => {
+            toast.success("Cheque cargado.");
+            if (onSuccess) onSuccess(data.id);
+          },
+          onError: (err) => toast.error(err.message),
         },
-        onError: (err) => toast.error(err.message),
-      });
+      );
     } else if (check) {
       updateMut.mutate(
         { id: check.id, ...payload },
@@ -237,6 +247,45 @@ export function IssuedCheckForm({
           )}
         />
 
+        {mode === "create" ? (
+          <FormField
+            control={form.control}
+            name="channel_id"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs">Canal</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elegir canal" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {channels
+                      .filter((c) => c.is_active)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : (
+          <div className="space-y-1">
+            <p className="text-xs font-medium">Canal</p>
+            <p className="text-sm">
+              {check?.channel_id
+                ? (channels.find((c) => c.id === check.channel_id)?.name ??
+                  check.channel_id)
+                : "Sin canal"}
+            </p>
+          </div>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -322,12 +371,11 @@ export function IssuedCheckForm({
           name="supplier"
           render={({ field }) => (
             <FormItem className="space-y-1">
-              <FormLabel className="text-xs">Beneficiario (proveedor)</FormLabel>
+              <FormLabel className="text-xs">
+                Beneficiario (proveedor)
+              </FormLabel>
               <FormControl>
-                <SupplierPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                />
+                <SupplierPicker value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

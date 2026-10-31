@@ -9,7 +9,7 @@ import { ChequesTable } from "@/features/checks/components/checks-table";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { getActiveInvoicingChannels } from "@/lib/channels";
+import { getInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -24,12 +24,13 @@ export default async function ChequesPage() {
     redirect("/dashboard");
   }
 
-  // Shared (React cache) with the dashboard layout's channel read.
-  const channelsData = await getActiveInvoicingChannels();
-
-  const channels = channelsData.map((c) => ({
+  // Shared (React cache) with the dashboard layout's channel read. All of
+  // them, inactive included: a check's channel is shown by name even when it
+  // can no longer be picked.
+  const channels = (await getInvoicingChannels()).map((c) => ({
     id: c.id,
     name: c.name,
+    is_active: c.is_active,
   }));
 
   const dehydratedState = await prefetchQueries([

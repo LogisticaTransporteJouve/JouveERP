@@ -9,6 +9,7 @@ import { IssuedChecksTable } from "@/features/issued-checks/components/issued-ch
 import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { getInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -25,6 +26,11 @@ export default async function IssuedChecksPage() {
 
   const accountsResult = await listAccountsAction();
   const accounts = accountsResult.ok ? accountsResult.data : [];
+  const channels = (await getInvoicingChannels()).map((c) => ({
+    id: c.id,
+    name: c.name,
+    is_active: c.is_active,
+  }));
 
   const dehydratedState = await prefetchQueries([
     {
@@ -53,7 +59,11 @@ export default async function IssuedChecksPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <IssuedChecksTable accounts={accounts} actorAccess={ctx.access} />
+          <IssuedChecksTable
+            accounts={accounts}
+            channels={channels}
+            actorAccess={ctx.access}
+          />
         </Suspense>
       </Hydrate>
     </div>
