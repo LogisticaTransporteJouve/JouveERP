@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { JournalList } from "@/features/journal-entries/components/journal-list";
+import { canManageClosedPeriods } from "@/features/journal-entries/lib/period-close";
 import { journalEntriesQuery } from "@/features/journal-entries/lib/journal-query";
 import {
   currentPeriod,
@@ -42,6 +43,7 @@ export default async function JournalPage() {
       <JournalList
         channels={channelsRes.data ?? []}
         initialFilters={initialFilters}
+        canManagePeriods={canManageClosedPeriods(ctx.access)}
       />
     </Hydrate>
   );
