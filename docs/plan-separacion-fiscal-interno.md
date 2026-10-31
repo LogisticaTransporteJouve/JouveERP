@@ -892,7 +892,7 @@ Depende de 6.1.
 Hecho (A5): rol de solo lectura para un contador externo. Lee clientes, proveedores, comprobantes
 (con NC/ND), compras, libros IVA, asientos y balances, y no escribe nada. RLS: solo filas de canales
 fiscales (`is_channel_fiscal(channel_id)`) y los canales internos ocultos
-(`20261031202756_fiscal_reader_role.sql`). En la app, `isFiscalOnly` fija el alcance en "Solo
+(`20261031204718_fiscal_reader_role.sql`). En la app, `isFiscalOnly` fija el alcance en "Solo
 fiscal" y las lecturas por service client de comprobantes (lista, detalle, estado, PDF) lo respetan.
 
 ## Phase 10: Menores (PR J — M2)

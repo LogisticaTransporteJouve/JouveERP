@@ -47,6 +47,7 @@ import {
 import {
   CLIENT_AGING_PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
+  TREASURY_PERMISSIONS,
   userCanAll,
   type Access,
   type Permission,
@@ -166,13 +167,13 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/treasury",
         label: "Resumen",
         icon: LineChart,
-        permission: "accounting:read",
+        permission: TREASURY_PERMISSIONS,
       },
       {
         href: "/treasury/cash-flow",
         label: "Flujo de caja",
         icon: TrendingUp,
-        permission: "accounting:read",
+        permission: TREASURY_PERMISSIONS,
       },
       {
         href: "/accounts",
@@ -208,7 +209,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/loans",
         label: "Préstamos",
         icon: CreditCard,
-        permission: "accounting:read",
+        permission: TREASURY_PERMISSIONS,
       },
     ],
   },

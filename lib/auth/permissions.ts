@@ -244,7 +244,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   driver: ["trips:read"],
 
   // An external accountant: reads the fiscal books and nothing else. Its RLS
-  // policies (20261031202756_fiscal_reader_role.sql) only reach rows whose
+  // policies (20261031204718_fiscal_reader_role.sql) only reach rows whose
   // channel is fiscal; a fiscal-only Access also pins the scope to "fiscal"
   // (isFiscalOnly) for the paths that read through the service client.
   fiscal_reader: [
@@ -393,6 +393,13 @@ export const CLIENT_AGING_PERMISSIONS = [
   "clients:read",
   "invoices:read",
   "receipts:read",
+] as const satisfies readonly Permission[];
+
+/** Composite gate of treasury, cash flow and loans: they read the cash
+ *  accounts, which accounting:read alone (the fiscal_reader) does not reach. */
+export const TREASURY_PERMISSIONS = [
+  "accounting:read",
+  "accounts:read",
 ] as const satisfies readonly Permission[];
 
 export const SUPPLIER_AGING_PERMISSIONS = [

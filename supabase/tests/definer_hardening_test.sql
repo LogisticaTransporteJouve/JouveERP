@@ -1,4 +1,4 @@
--- SECURITY DEFINER hardening (20261031203522): the functions moved to
+-- SECURITY DEFINER hardening (20261031204719): the functions moved to
 -- search_path = '' keep it, and anon cannot execute any public DEFINER
 -- function, while authenticated keeps the chat/notification RPCs it calls.
 -- Privileges are asserted with has_function_privilege, never by calling a

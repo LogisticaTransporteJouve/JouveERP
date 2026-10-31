@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
+import { TREASURY_PERMISSIONS } from "@/lib/auth/permissions";
 
 import { defineAiAction } from "../define";
 import { type AiRunResult, errResult, okResult } from "../result";
@@ -22,7 +23,7 @@ export async function runTreasurySummary(): Promise<AiRunResult> {
 export const getTreasurySummary = defineAiAction({
   name: "getTreasurySummary",
   domain: "tesoreria",
-  permission: "accounting:read",
+  permission: TREASURY_PERMISSIONS,
   sideEffect: "read",
   sources: ["accounts", "account_movement_totals", "checks"],
   description:

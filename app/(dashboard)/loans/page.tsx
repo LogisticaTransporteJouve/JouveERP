@@ -5,7 +5,7 @@ import { listLoansAction } from "@/features/loans/actions/loans-actions";
 import { LoansTable } from "@/features/loans/components/loans-table";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LoansRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     redirect("/dashboard");
   }
 

@@ -161,6 +161,8 @@ export function defaultLayoutForRoles(roles: readonly Role[]): DashboardLayout {
       return WAREHOUSE_TEMPLATE;
     case "driver":
       return DRIVER_TEMPLATE;
+    // No widget reads fiscal books only: the page shows the module hint.
+    case "fiscal_reader":
     default:
       return [];
   }

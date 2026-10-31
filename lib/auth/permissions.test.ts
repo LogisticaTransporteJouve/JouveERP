@@ -4,6 +4,7 @@ import {
   CLIENT_AGING_PERMISSIONS,
   PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
+  TREASURY_PERMISSIONS,
   ROLES,
   OWNER_ONLY_PERMISSIONS,
   ROLE_PERMISSIONS,
@@ -307,6 +308,17 @@ describe("fiscal_reader", () => {
     expect(
       [...ROLE_PERMISSIONS.fiscal_reader].filter((p) => !p.endsWith(":read")),
     ).toEqual([]);
+  });
+
+  it("does not reach treasury, cash flow or loans through accounting:read", () => {
+    expect(
+      userCanAll(resolveAccess(["fiscal_reader"]), TREASURY_PERMISSIONS),
+    ).toBe(false);
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(userCanAll(resolveAccess([role]), TREASURY_PERMISSIONS)).toBe(
+        true,
+      );
+    }
   });
 
   it("pins a fiscal-only user to fiscal channels", () => {
