@@ -15,9 +15,9 @@ insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000c7', 'finance'),
   ('00000000-0000-0000-0000-0000000000c8', 'operations');
 
-insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active) values
-  ('test_claim_a', 'dz_sons', 'jouve', 'Canal A', false, true),
-  ('test_claim_b', 'dz_sons', 'jouve', 'Canal B', false, true);
+insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is_active) values
+  ('test_claim_a', 'dz_sons', 'Canal A', false, true),
+  ('test_claim_b', 'dz_sons', 'Canal B', false, true);
 
 insert into public.clients (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000c701', '30777777778', 'Cliente Claims', 'responsable_inscripto');

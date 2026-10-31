@@ -5,7 +5,7 @@ import { getLoanAction } from "@/features/loans/actions/loans-actions";
 import { LoanDetail } from "@/features/loans/components/loan-detail";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -19,7 +19,7 @@ export default async function LoanDetailRoute({
 }) {
   const { id } = await params;
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     redirect("/dashboard");
   }
 

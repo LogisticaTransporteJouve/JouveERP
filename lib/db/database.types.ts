@@ -2488,7 +2488,6 @@ export type Database = {
           business_unit_id: string
           created_at: string
           display_color: string | null
-          division: string
           id: string
           is_active: boolean
           is_fiscal: boolean
@@ -2499,7 +2498,6 @@ export type Database = {
           business_unit_id: string
           created_at?: string
           display_color?: string | null
-          division: string
           id: string
           is_active?: boolean
           is_fiscal: boolean
@@ -2510,7 +2508,6 @@ export type Database = {
           business_unit_id?: string
           created_at?: string
           display_color?: string | null
-          division?: string
           id?: string
           is_active?: boolean
           is_fiscal?: boolean
@@ -5255,7 +5252,6 @@ export type Database = {
       }
       v_client_account_movements: {
         Row: {
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
@@ -5572,7 +5568,6 @@ export type Database = {
       }
       v_supplier_account_movements: {
         Row: {
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
@@ -5689,7 +5684,6 @@ export type Database = {
           account_type: string | null
           accrual_month: string | null
           amount: number | null
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null

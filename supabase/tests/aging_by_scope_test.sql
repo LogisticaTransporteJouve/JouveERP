@@ -7,8 +7,8 @@ begin;
 
 select plan(8);
 
-insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active)
-values ('test_old_fiscal', 'dz_sons', 'jouve', 'Fiscal viejo', true, true);
+insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is_active)
+values ('test_old_fiscal', 'dz_sons', 'Fiscal viejo', true, true);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f2', 'finance@aging-scope.test');

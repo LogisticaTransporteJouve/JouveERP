@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
-export const CHART_OF_ACCOUNTS_PATH = "/accounting/chart";
-
 export type ChartAccount =
   Database["public"]["Tables"]["chart_of_accounts"]["Row"];
 

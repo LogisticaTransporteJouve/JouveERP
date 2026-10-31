@@ -11,6 +11,7 @@ export const ROLES = [
   "operations",
   "warehouse",
   "driver",
+  "fiscal_reader",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -142,6 +143,7 @@ const ROLE_PRIVILEGE: Record<Role, number> = {
   operations: 2,
   warehouse: 3,
   driver: 4,
+  fiscal_reader: 5,
 };
 
 /** Held by the owner alone; no other role is granted them. */
@@ -240,7 +242,44 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 
   // Driver-level access stays minimal until G.3 adds `:own` scoping.
   driver: ["trips:read"],
+
+  // An external accountant: reads the fiscal books and nothing else. Its RLS
+  // policies (20261031204718_fiscal_reader_role.sql) only reach rows whose
+  // channel is fiscal; a fiscal-only Access also pins the scope to "fiscal"
+  // (isFiscalOnly) for the paths that read through the service client.
+  fiscal_reader: [
+    "clients:read",
+    "suppliers:read",
+    "channels:read",
+    "invoices:read",
+    "credit_debit_notes:read",
+    "purchase_invoices:read",
+    "accounting:read",
+  ],
 };
+
+/** Roles whose every read is limited to fiscal channels. */
+const FISCAL_ONLY_ROLES: readonly Role[] = ["fiscal_reader"];
+
+/** Whether every role of `access` is fiscal-only: such a user sees fiscal
+ *  channels alone, whatever scope the header or a request asks for. A user
+ *  who also holds another role reads under that role's ceiling. */
+export function isFiscalOnly(access: Access | null | undefined): boolean {
+  return (
+    !!access &&
+    access.roles.length > 0 &&
+    access.roles.every((role) => FISCAL_ONLY_ROLES.includes(role))
+  );
+}
+
+/** The `isFiscal` read filter a request may use: a fiscal-only user is
+ *  pinned to `true`; anyone else keeps the requested one. */
+export function scopeIsFiscalFor(
+  access: Access | null | undefined,
+  requested: boolean | null | undefined,
+): boolean | null {
+  return isFiscalOnly(access) ? true : (requested ?? null);
+}
 
 // What a user may do: the union of their roles' permissions minus the
 // permissions denied to them one by one (user_permission_denies). Gates take
@@ -354,6 +393,13 @@ export const CLIENT_AGING_PERMISSIONS = [
   "clients:read",
   "invoices:read",
   "receipts:read",
+] as const satisfies readonly Permission[];
+
+/** Composite gate of treasury, cash flow and loans: they read the cash
+ *  accounts, which accounting:read alone (the fiscal_reader) does not reach. */
+export const TREASURY_PERMISSIONS = [
+  "accounting:read",
+  "accounts:read",
 ] as const satisfies readonly Permission[];
 
 export const SUPPLIER_AGING_PERMISSIONS = [

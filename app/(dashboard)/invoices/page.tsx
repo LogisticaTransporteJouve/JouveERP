@@ -11,7 +11,7 @@ import {
   type InvoiceStatus,
 } from "@/features/invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -45,9 +45,12 @@ export default async function ComprobantesPage({
   const supabase = getServiceClient();
   const { data: channels } = await supabase
     .from("invoicing_channels")
-    .select("id, name, division, is_fiscal, is_active")
+    .select("id, name, is_fiscal, is_active")
     .eq("is_active", true)
     .order("name");
+  const visibleChannels = (channels ?? []).filter(
+    (c) => !isFiscalOnly(ctx.access) || c.is_fiscal,
+  );
 
   const filters = {
     isFiscal: isFiscalFor(await readScopeCookie()),
@@ -84,10 +87,9 @@ export default async function ComprobantesPage({
       <Hydrate state={dehydratedState}>
         <ComprobantesTable
           actorAccess={ctx.access}
-          channels={(channels ?? []).map((c) => ({
+          channels={visibleChannels.map((c) => ({
             id: c.id,
             name: c.name,
-            division: c.division,
             is_fiscal: c.is_fiscal,
           }))}
           initialStatus={filters.status}

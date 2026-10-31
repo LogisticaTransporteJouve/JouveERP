@@ -7,6 +7,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   operations: "Operaciones",
   warehouse: "Depósito",
   driver: "Chofer",
+  fiscal_reader: "Contador externo",
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
@@ -16,4 +17,6 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   operations: "Flota, viajes, combustible, mantenimientos.",
   warehouse: "Pallets, productos, movimientos de stock.",
   driver: "Acceso de chofer (próximamente).",
+  fiscal_reader:
+    "Solo lectura de lo fiscal: comprobantes, compras, libros IVA y contabilidad.",
 };

@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
-export const SUPPLIER_CATEGORIES_PATH = "/suppliers/categories";
-
 const slugTransform = z
   .string()
   .trim()
@@ -53,8 +51,13 @@ export const SupplierCategoryDeleteSchema = z.object({
   id: z.string().uuid(),
 });
 
-export type SupplierCategoryCreateInput = z.infer<typeof SupplierCategoryCreateSchema>;
-export type SupplierCategoryUpdateInput = z.infer<typeof SupplierCategoryUpdateSchema>;
-export type SupplierCategory = Database["public"]["Tables"]["supplier_categories"]["Row"];
+export type SupplierCategoryCreateInput = z.infer<
+  typeof SupplierCategoryCreateSchema
+>;
+export type SupplierCategoryUpdateInput = z.infer<
+  typeof SupplierCategoryUpdateSchema
+>;
+export type SupplierCategory =
+  Database["public"]["Tables"]["supplier_categories"]["Row"];
 
 export { slugFromName };

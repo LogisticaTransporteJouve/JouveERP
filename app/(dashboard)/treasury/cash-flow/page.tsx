@@ -6,7 +6,7 @@ import {
   cashFlowQuery,
 } from "@/features/treasury/lib/treasury-queries";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CashFlowRoute() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     redirect("/dashboard");
   }
   const dehydratedState = await prefetchQueries([

@@ -181,7 +181,6 @@ export interface SupplierAccountMovement {
   gross_amount: number;
   channel_id: string;
   channel_name: string | null;
-  channel_division: string | null;
   channel_is_fiscal: boolean | null;
   /** Running balance (oldest → newest). > 0 = les debemos. `null` under a
    *  fiscal/internal scope (only the scope's aging total exists). */
@@ -236,7 +235,6 @@ export async function getSupplierAccountAction(
     gross_amount: number | string;
     channel_id: string | null;
     channel_name: string | null;
-    channel_division: string | null;
     channel_is_fiscal: boolean | null;
   };
   // PostgREST caps every response at `max_rows` (1000), so the feed, the
@@ -248,7 +246,7 @@ export async function getSupplierAccountAction(
       supabase
         .from("v_supplier_account_movements")
         .select(
-          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_division, channel_is_fiscal",
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal",
         )
         .eq("supplier_id", supplierId)
         .order("movement_date", { ascending: true })
@@ -341,7 +339,6 @@ export async function getSupplierAccountAction(
       gross_amount: Number(r.gross_amount),
       channel_id: r.channel_id ?? "",
       channel_name: r.channel_name,
-      channel_division: r.channel_division,
       channel_is_fiscal: r.channel_is_fiscal,
       balance: round2(running),
       outstanding: outstanding,

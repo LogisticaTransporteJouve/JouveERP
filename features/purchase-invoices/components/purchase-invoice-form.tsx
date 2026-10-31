@@ -11,6 +11,7 @@ import {
   useDefaultChannel,
   useScope,
 } from "@/components/providers/scope-provider";
+import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -1180,26 +1181,13 @@ export function PurchaseInvoiceForm({
           )}
         />
 
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => (onCancel ? onCancel() : router.push("/purchases"))}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSaving || (mode === "edit" && !form.formState.isDirty)}
-          >
-            {isSaving
-              ? "Guardando…"
-              : mode === "create"
-                ? "Cargar factura"
-                : "Guardar cambios"}
-          </Button>
-        </div>
+        <DialogFormFooter
+          mode={mode}
+          isSaving={isSaving}
+          isDirty={form.formState.isDirty}
+          createLabel="Cargar factura"
+          onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
+        />
       </form>
     </Form>
   );

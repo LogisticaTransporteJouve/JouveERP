@@ -24,6 +24,8 @@ import {
 type ScopeContextValue = {
   fiscalFilter: FiscalFilter;
   channels: InvoicingChannelSummary[];
+  /** The scope cannot change (a fiscal-only user is pinned to fiscal). */
+  locked: boolean;
   setFiscalFilter: (filter: FiscalFilter) => void;
 };
 
@@ -55,10 +57,12 @@ function readFromStorage(): FiscalFilter {
 export function ScopeProvider({
   channels,
   initialFiscalFilter,
+  locked = false,
   children,
 }: {
   channels: InvoicingChannelSummary[];
   initialFiscalFilter?: FiscalFilter;
+  locked?: boolean;
   children: React.ReactNode;
 }) {
   // The server passes the filter read from the cookie in the layout,
@@ -83,16 +87,17 @@ export function ScopeProvider({
   // dashboard, page prefetches) re-render under the new scope.
   const setFiscalFilter = useCallback(
     (filter: FiscalFilter) => {
+      if (locked) return;
       persist(filter);
       setFiscalFilterState(filter);
       router.refresh();
     },
-    [router],
+    [locked, router],
   );
 
   const value = useMemo<ScopeContextValue>(
-    () => ({ fiscalFilter, channels, setFiscalFilter }),
-    [fiscalFilter, channels, setFiscalFilter],
+    () => ({ fiscalFilter, channels, locked, setFiscalFilter }),
+    [fiscalFilter, channels, locked, setFiscalFilter],
   );
 
   return (

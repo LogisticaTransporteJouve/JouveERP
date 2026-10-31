@@ -45,7 +45,6 @@ const SELECT_COLUMNS =
 
 export interface TransactionListItem extends Transaction {
   channel_name: string;
-  channel_division: string;
   channel_is_fiscal: boolean;
   account_name: string;
   account_type: string;
@@ -86,7 +85,7 @@ export async function listTransactionsAction(
       // No `count`: the page uses the limit + 1 trick for "has more" and never
       // exposes a total, and count=exact re-ran the whole filtered scan on
       // every page.
-      `${SELECT_COLUMNS}, channel_name, channel_division, channel_is_fiscal, account_name, account_type, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
+      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -118,7 +117,6 @@ export async function listTransactionsAction(
    *  join that aren't in Supabase's generated typing (views aren't generated). */
   type TaggedTransactionRow = {
     channel_name: string;
-    channel_division: string;
     channel_is_fiscal: boolean;
     account_name: string;
     account_type: string;
@@ -136,7 +134,6 @@ export async function listTransactionsAction(
       return {
         ...narrowed,
         channel_name: tagged.channel_name,
-        channel_division: tagged.channel_division,
         channel_is_fiscal: tagged.channel_is_fiscal,
         account_name: tagged.account_name,
         account_type: tagged.account_type,

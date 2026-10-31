@@ -21,8 +21,6 @@ export const IVA_CONDITION_LABEL: Record<IvaCondition, string> = {
   no_categorizado: "No Categorizado",
 };
 
-export const CLIENTS_PATH = "/clients";
-
 const trimmedNullable = z
   .string()
   .trim()
@@ -39,7 +37,10 @@ const emailNullable = z
   .nullable()
   .optional()
   .refine(
-    (value) => value === null || value === undefined || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    (value) =>
+      value === null ||
+      value === undefined ||
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     { message: "Email inválido." },
   );
 
@@ -79,19 +80,18 @@ const baseClientFields = {
 
 export const ClientCreateSchema = z.object(baseClientFields);
 
-export const ClientUpdateSchema = z
-  .object({
-    id: z.string().uuid(),
-    cuit: cuit.optional(),
-    legal_name: baseClientFields.legal_name.optional(),
-    display_name: baseClientFields.display_name,
-    iva_condition: baseClientFields.iva_condition.optional(),
-    email: baseClientFields.email,
-    phone: baseClientFields.phone,
-    address: baseClientFields.address,
-    real_address: baseClientFields.real_address,
-    notes: baseClientFields.notes,
-  });
+export const ClientUpdateSchema = z.object({
+  id: z.string().uuid(),
+  cuit: cuit.optional(),
+  legal_name: baseClientFields.legal_name.optional(),
+  display_name: baseClientFields.display_name,
+  iva_condition: baseClientFields.iva_condition.optional(),
+  email: baseClientFields.email,
+  phone: baseClientFields.phone,
+  address: baseClientFields.address,
+  real_address: baseClientFields.real_address,
+  notes: baseClientFields.notes,
+});
 
 export const ClientToggleActiveSchema = z.object({
   id: z.string().uuid(),
@@ -100,7 +100,8 @@ export const ClientToggleActiveSchema = z.object({
 
 export const VerifyCuitSchema = z.object({
   cuit: z.preprocess(
-    (value) => (typeof value === "string" ? value.replace(/[-\s]/g, "") : value),
+    (value) =>
+      typeof value === "string" ? value.replace(/[-\s]/g, "") : value,
     z
       .string()
       .regex(

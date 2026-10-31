@@ -4,7 +4,6 @@ import type { Database } from "@/lib/db/database.types";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const EMPLOYEES_PATH = "/employees";
 export const EMPLOYEES_PAGE_SIZE = 50;
 
 export const PAY_FREQUENCIES = ["semanal", "mensual", "mixto"] as const;

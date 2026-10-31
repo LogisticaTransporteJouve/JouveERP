@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
+import { createClient } from "@/lib/supabase/server";
 
 // M.0 — Always regenerate the PDF on-demand. The hash (`pdf_hash` on the
 // invoice row) is computed at issuance and persisted to provide
@@ -25,6 +26,23 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  // The PDF is rendered with the service client; a fiscal-only user first
+  // proves under RLS that the invoice is one they may read (a fiscal one).
+  if (isFiscalOnly(ctx.access)) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) {
+      return NextResponse.json(
+        { error: "Comprobante no encontrado." },
+        { status: 404 },
+      );
+    }
+  }
 
   try {
     const result = await generateInvoicePdfBuffer(id);

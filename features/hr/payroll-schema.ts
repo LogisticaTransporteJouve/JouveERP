@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
-export const PAYROLL_PATH = "/hr/payroll";
-
 // ─── Status ──────────────────────────────────────────────────────────────────
 
 export const PAYROLL_STATUSES = ["draft", "closed"] as const;

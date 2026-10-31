@@ -1,7 +1,7 @@
 "use server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
 import { readLatestUsdRate, toArs } from "@/lib/fx";
 import { getInvoicingChannels } from "@/lib/channels";
@@ -76,7 +76,7 @@ export async function getCashFlowAction(input: {
   monthsFwd?: number;
 }): Promise<ActionResult<CashFlowResult>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para ver el flujo de caja." };
   }
   const monthsBack = Math.min(Math.max(input.monthsBack ?? 3, 0), 24);
