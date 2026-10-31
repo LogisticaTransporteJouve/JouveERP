@@ -17,8 +17,8 @@ export default async function PadronTestPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Padrón AFIP</h1>
         <p className="text-sm text-muted-foreground">
-          Consulta directa al WS A4. Cacheada 24 h y limitada a 60
-          consultas/hora por usuario.
+          Consulta directa a la constancia de inscripción de AFIP (A5). Cacheada
+          24 h y limitada a 60 consultas/hora por usuario.
         </p>
       </div>
       <PadronLookup />

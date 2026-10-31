@@ -291,17 +291,36 @@ export interface InvoiceCAEResult {
   fchProceso: string | null;
 }
 
+export interface VoucherAssociated {
+  tipo: number;
+  ptoVta: number;
+  nro: number;
+}
+
 export interface VoucherInfo {
   ptoVta: number;
   cbteTipo: number;
   cbteNro: number;
   cbteFch: string;
+  concepto: number | null;
   impTotal: number;
+  impNeto: number;
+  impIva: number;
+  impTrib: number;
+  impOpEx: number;
+  impTotConc: number;
+  monId: string | null;
+  monCotiz: number | null;
+  fchServDesde: string | null;
+  fchServHasta: string | null;
+  fchVtoPago: string | null;
+  condicionIvaReceptorId: number | null;
   docTipo: number | null;
   docNro: string | null;
   cae: string | null;
   caeFchVto: string | null;
   emisionTipo: string | null;
+  cbtesAsoc: VoucherAssociated[];
 }
 
 interface RawObs {
@@ -363,6 +382,12 @@ interface ParsedUltimoAutorizadoResponse {
   };
 }
 
+interface RawCbteAsoc {
+  Tipo?: number | string;
+  PtoVta?: number | string;
+  Nro?: number | string;
+}
+
 interface RawCompConsultarResultGet {
   Concepto?: number;
   DocTipo?: number;
@@ -373,6 +398,16 @@ interface RawCompConsultarResultGet {
   ImpTotal?: number | string;
   ImpNeto?: number | string;
   ImpIVA?: number | string;
+  ImpTrib?: number | string;
+  ImpOpEx?: number | string;
+  ImpTotConc?: number | string;
+  MonId?: string;
+  MonCotiz?: number | string;
+  FchServDesde?: string | number;
+  FchServHasta?: string | number;
+  FchVtoPago?: string | number;
+  CondicionIVAReceptorId?: number | string;
+  CbtesAsoc?: { CbteAsoc?: RawCbteAsoc | RawCbteAsoc[] };
   PtoVta?: number;
   CbteTipo?: number;
   CodAutorizacion?: string | number;
@@ -625,14 +660,41 @@ export async function getVoucherInfo(
       cbteTipo: Number(res.CbteTipo ?? cbteTipo),
       cbteNro: Number(res.CbteDesde ?? cbteNro),
       cbteFch: String(res.CbteFch ?? ""),
+      concepto: optionalNumber(res.Concepto),
       impTotal: Number(res.ImpTotal ?? 0),
+      impNeto: Number(res.ImpNeto ?? 0),
+      impIva: Number(res.ImpIVA ?? 0),
+      impTrib: Number(res.ImpTrib ?? 0),
+      impOpEx: Number(res.ImpOpEx ?? 0),
+      impTotConc: Number(res.ImpTotConc ?? 0),
+      monId: res.MonId ? String(res.MonId) : null,
+      monCotiz: optionalNumber(res.MonCotiz),
+      fchServDesde: optionalString(res.FchServDesde),
+      fchServHasta: optionalString(res.FchServHasta),
+      fchVtoPago: optionalString(res.FchVtoPago),
+      condicionIvaReceptorId: optionalNumber(res.CondicionIVAReceptorId),
       docTipo: res.DocTipo === undefined ? null : Number(res.DocTipo),
       docNro: res.DocNro === undefined ? null : String(res.DocNro),
       cae: res.CodAutorizacion ? String(res.CodAutorizacion) : null,
       caeFchVto: res.FchVto ? String(res.FchVto) : null,
       emisionTipo: res.EmisionTipo ? String(res.EmisionTipo) : null,
+      cbtesAsoc: asArray(res.CbtesAsoc?.CbteAsoc).map((a) => ({
+        tipo: Number(a.Tipo ?? 0),
+        ptoVta: Number(a.PtoVta ?? 0),
+        nro: Number(a.Nro ?? 0),
+      })),
     };
   });
+}
+
+function optionalNumber(value: number | string | undefined): number | null {
+  if (value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function optionalString(value: number | string | undefined): string | null {
+  return value === undefined || value === "" ? null : String(value);
 }
 
 // ---------------------------------------------------------------------------

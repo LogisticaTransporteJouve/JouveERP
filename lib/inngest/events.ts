@@ -74,6 +74,16 @@ export type AiWeeklySummaryRequested = z.infer<
   typeof AiWeeklySummaryRequestedSchema
 >;
 
+export const ARCA_ISSUED_SYNC_REQUESTED = "afip/issued-sync.requested" as const;
+
+export const ArcaIssuedSyncRequestedSchema = z.object({
+  requested_by: z.string().uuid(),
+});
+
+export type ArcaIssuedSyncRequested = z.infer<
+  typeof ArcaIssuedSyncRequestedSchema
+>;
+
 /** The original event's `data` inside an `onFailure` payload
  *  (`event.data.event.data`), or undefined when it is not there. */
 export function failedEventData(data: unknown): unknown {

@@ -10,6 +10,7 @@ import "server-only";
 
 import { X509Certificate } from "node:crypto";
 
+import { PADRON_SERVICE_ID } from "./padron";
 import { getAccessTicket } from "./wsaa";
 import { getAfipEnv, type AfipEnv } from "./env";
 import { getServerStatus } from "./wsfev1";
@@ -28,7 +29,12 @@ export interface AfipDiagnostics {
   entries: DiagnosticEntry[];
 }
 
-const REQUIRED_ENV = ["AFIP_ENV", "AFIP_CUIT", "AFIP_CERT", "AFIP_KEY"] as const;
+const REQUIRED_ENV = [
+  "AFIP_ENV",
+  "AFIP_CUIT",
+  "AFIP_CERT",
+  "AFIP_KEY",
+] as const;
 
 function checkEnvVars(): DiagnosticEntry {
   const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
@@ -131,11 +137,9 @@ async function checkWsaaSubscription(
 async function checkWsfev1Dummy(): Promise<DiagnosticEntry> {
   try {
     const status = await getServerStatus();
-    const allOk = [
-      status.appServer,
-      status.dbServer,
-      status.authServer,
-    ].every((s) => s.toUpperCase() === "OK");
+    const allOk = [status.appServer, status.dbServer, status.authServer].every(
+      (s) => s.toUpperCase() === "OK",
+    );
     return {
       id: "wsfev1:dummy",
       label: "WSFEv1 — FEDummy",
@@ -148,9 +152,7 @@ async function checkWsfev1Dummy(): Promise<DiagnosticEntry> {
       label: "WSFEv1 — FEDummy",
       status: "error",
       message:
-        err instanceof Error
-          ? err.message
-          : "El servidor WSFEv1 no respondió.",
+        err instanceof Error ? err.message : "El servidor WSFEv1 no respondió.",
     };
   }
 }
@@ -176,8 +178,8 @@ export async function runAfipDiagnostics(): Promise<AfipDiagnostics> {
           message: "Pendiente: revisá variables y certificado primero.",
         },
         {
-          id: "wsaa:ws_sr_padron_a4",
-          label: "WSAA — ws_sr_padron_a4",
+          id: `wsaa:${PADRON_SERVICE_ID}`,
+          label: `WSAA — ${PADRON_SERVICE_ID}`,
           status: "warn",
           message: "Pendiente: revisá variables y certificado primero.",
         },
@@ -193,7 +195,7 @@ export async function runAfipDiagnostics(): Promise<AfipDiagnostics> {
 
   const [wsfeTa, padronTa, dummy] = await Promise.all([
     checkWsaaSubscription("wsfe", "WSAA — wsfe"),
-    checkWsaaSubscription("ws_sr_padron_a4", "WSAA — ws_sr_padron_a4"),
+    checkWsaaSubscription(PADRON_SERVICE_ID, `WSAA — ${PADRON_SERVICE_ID}`),
     checkWsfev1Dummy(),
   ]);
 

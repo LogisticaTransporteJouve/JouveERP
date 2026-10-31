@@ -432,3 +432,33 @@ export async function requestCaeaNowAction(): Promise<
   });
   return { ok: true, data: { current: currentCaea, next: nextCaea } };
 }
+
+/** Queues the ARCA → ERP import of issued vouchers (same job as the hourly
+ *  cron); the vouchers land in Comprobantes as the job advances. */
+export async function requestArcaSyncAction(): Promise<ActionResult<null>> {
+  const ctx = await requireAfipAdmin();
+  if (!ctx) {
+    return { ok: false, error: "No tenés permiso para administrar AFIP." };
+  }
+
+  const { inngest } = await import("@/lib/inngest/client");
+  const { ARCA_ISSUED_SYNC_REQUESTED } = await import("@/lib/inngest/events");
+  try {
+    await inngest.send({
+      name: ARCA_ISSUED_SYNC_REQUESTED,
+      data: { requested_by: ctx.userId },
+    });
+  } catch (err) {
+    logger.error("arca_sync.enqueue_failed", {
+      userId: ctx.userId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      ok: false,
+      error: "No se pudo iniciar la importación. Probá de nuevo en un rato.",
+    };
+  }
+
+  await logAudit("afip.issued_sync_requested", ctx.userId, {});
+  return { ok: true, data: null };
+}
