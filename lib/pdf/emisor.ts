@@ -4,7 +4,6 @@ import type { Database } from "@/lib/db/database.types";
 
 const DIVISION_LABEL: Record<string, string> = {
   jouve: "Logística Jouve",
-  dz: "DZ Instalaciones",
 };
 
 /** The division line every PDF prints under the issuer; an unknown division

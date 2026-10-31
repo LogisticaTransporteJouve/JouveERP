@@ -1123,7 +1123,7 @@ export async function createSalesInvoiceFromExtractionAction(
   const [{ data: channel }, { data: client }] = await Promise.all([
     supabase
       .from("invoicing_channels")
-      .select("id, division, is_fiscal")
+      .select("id, is_fiscal")
       .eq("id", parsed.data.channelId)
       .maybeSingle(),
     supabase
@@ -1142,10 +1142,7 @@ export async function createSalesInvoiceFromExtractionAction(
   const ivaCondition = client.iva_condition;
 
   const fecha = header.data.date;
-  const concepto: ConceptoCode =
-    channel.division === "dz"
-      ? CONCEPTO.PRODUCTOS_Y_SERVICIOS
-      : CONCEPTO.SERVICIOS;
+  const concepto: ConceptoCode = CONCEPTO.SERVICIOS;
   const servicios = isServiciosConcepto(concepto);
   const moneda = header.data.currency === "USD" ? MONEDA.DOLARES : MONEDA.PESOS;
   let cotizacion = 1;

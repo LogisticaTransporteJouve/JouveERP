@@ -1,10 +1,10 @@
 -- guard_channel_active: nothing is created on, or moved to, an inactive
--- channel; rows already there keep working. dz_open_items is internal.
+-- channel; rows already there keep working.
 -- One transaction, rolled back.
 
 begin;
 
-select plan(9);
+select plan(8);
 
 insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active)
 values ('test_closed', 'dz_sons', 'jouve', 'Canal cerrado', false, true);
@@ -79,11 +79,6 @@ select throws_ok(
   '23514',
   null,
   'no new document on an inactive channel, even as postgres'
-);
-
-select ok(
-  not has_function_privilege('authenticated', 'public.dz_open_items()', 'execute'),
-  'authenticated cannot run dz_open_items'
 );
 
 select ok(

@@ -9,7 +9,6 @@ import { divisionLabel, loadEmisor, redactEmisor, type Emisor } from "./emisor";
 describe("divisionLabel", () => {
   it("keeps the text the PDFs printed before", () => {
     expect(divisionLabel("jouve", "x")).toBe("Logística Jouve");
-    expect(divisionLabel("dz", "x")).toBe("DZ Instalaciones");
   });
 
   it("falls back to the channel name", () => {

@@ -79,12 +79,11 @@ const IVA_BY_LETTER = {
   C: "monotributo",
 };
 
-// PV → channel mapping mirrors supabase/seed.sql.
+// PV → channel mapping mirrors supabase/seed.sql. DZ Instalaciones (PV 2 and
+// 4) was retired: its AFIP rows are not imported.
 const PV_TO_CHANNEL = {
   3: "jouve_fiscal",
-  4: "dz_fiscal",
   1: "jouve_internal",
-  2: "dz_internal",
 };
 
 // Sanity cap for imp_total. AFIP's "Mis Comprobantes" export sometimes
@@ -136,8 +135,10 @@ function parseArgs(argv) {
     else if (a === "--skip-ops") args.skipOps = true;
     else if (a === "--purchases") args.purchases = argv[++i];
     else if (a === "--sales") args.sales = argv[++i];
-    else if (a === "--years") args.years = argv[++i].split(",").map((y) => y.trim());
-    else if (a === "--max-invoices") args.maxInvoices = Number.parseInt(argv[++i], 10);
+    else if (a === "--years")
+      args.years = argv[++i].split(",").map((y) => y.trim());
+    else if (a === "--max-invoices")
+      args.maxInvoices = Number.parseInt(argv[++i], 10);
     else if (a === "--email") args.email = argv[++i];
     else if (a === "--password") args.password = argv[++i];
   }
@@ -201,7 +202,10 @@ async function ensureDevUser(supabase, email, password) {
   let userId = null;
   let page = 1;
   while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
     if (error) throw new Error(`listUsers: ${error.message}`);
     const match = data.users.find((u) => u.email === email);
     if (match) {
@@ -294,7 +298,8 @@ function parseSalesRows(path) {
     // by ±1 cent due to per-line rounding. The auto-journal trigger
     // requires Σdebit = Σcredit exactly, so we snap imp_neto to absorb
     // the rounding while preserving the reported imp_iva/imp_trib/imp_total.
-    const imp_neto = Math.round((imp_total - imp_iva - imp_trib - imp_op_ex) * 100) / 100;
+    const imp_neto =
+      Math.round((imp_total - imp_iva - imp_trib - imp_op_ex) * 100) / 100;
     rows.push({
       tipo,
       kind: mapping.kind,
@@ -379,7 +384,8 @@ async function importPurchases(supabase, path, opts) {
   for (const r of rows) {
     const supplierId = supplierIdByCuit.get(r.cuit);
     if (!supplierId) continue;
-    const channelId = PV_TO_CHANNEL[r.pv] ?? "jouve_fiscal";
+    // r.pv is the supplier's POS: every purchase lands on Jouve's fiscal channel.
+    const channelId = "jouve_fiscal";
     const key = `${supplierId}|${r.kind}|${r.letter}|${r.pv}|${r.numero}`;
     if (dedupeKeys.has(key)) continue;
     dedupeKeys.add(key);
@@ -424,7 +430,10 @@ async function assignSupplierCategories(supabase, suppliers, catBySlug) {
     [/repuest|autopart|neumat|bateria/i, "repuestos"],
     [/taller|service|mecan|chapa|pintur/i, "mantenimiento"],
     [/oficina|papeler|libreri|imprent/i, "oficina"],
-    [/seguros?|abogad|estudio|contad|consultor|escribano|inmobiliar/i, "servicios"],
+    [
+      /seguros?|abogad|estudio|contad|consultor|escribano|inmobiliar/i,
+      "servicios",
+    ],
   ];
   const updates = [];
   for (const s of suppliers) {
@@ -439,7 +448,10 @@ async function assignSupplierCategories(supabase, suppliers, catBySlug) {
   if (!updates.length) return;
   // One UPDATE per row keeps it simple; the dataset is small here.
   for (const u of updates) {
-    await supabase.from("suppliers").update({ category_id: u.category_id }).eq("id", u.id);
+    await supabase
+      .from("suppliers")
+      .update({ category_id: u.category_id })
+      .eq("id", u.id);
   }
   console.log(`  ${updates.length} proveedores con categoría asignada`);
 }
@@ -453,7 +465,9 @@ async function importSales(supabase, target, opts) {
   for (const f of files) {
     const rows = parseSalesRows(f);
     if (opts.years) {
-      const filtered = rows.filter((r) => opts.years.includes(r.fecha.slice(0, 4)));
+      const filtered = rows.filter((r) =>
+        opts.years.includes(r.fecha.slice(0, 4)),
+      );
       all.push(...filtered);
     } else {
       all.push(...rows);
@@ -487,18 +501,16 @@ async function importSales(supabase, target, opts) {
   // Add a synthetic "Consumidor Final" client to anchor DNI/CF receivers
   // since clients.client_id is NOT NULL on invoices.
   const cfCuit = "00000000000";
-  await supabase
-    .from("clients")
-    .upsert(
-      [
-        {
-          cuit: cfCuit,
-          legal_name: "CONSUMIDOR FINAL",
-          iva_condition: "consumidor_final",
-        },
-      ],
-      { onConflict: "cuit", ignoreDuplicates: true },
-    );
+  await supabase.from("clients").upsert(
+    [
+      {
+        cuit: cfCuit,
+        legal_name: "CONSUMIDOR FINAL",
+        iva_condition: "consumidor_final",
+      },
+    ],
+    { onConflict: "cuit", ignoreDuplicates: true },
+  );
 
   // PostgREST caps responses at 1000 rows by default, and the clients
   // table grows past that quickly. Re-fetch in chunks by CUIT to make
@@ -531,7 +543,11 @@ async function importSales(supabase, target, opts) {
       invSkippedNc += 1;
       continue;
     }
-    const channelId = PV_TO_CHANNEL[r.pv] ?? "jouve_fiscal";
+    const channelId = PV_TO_CHANNEL[r.pv];
+    if (!channelId) {
+      invSkippedNc += 1;
+      continue;
+    }
     let clientId =
       r.doc_tipo === 80 && r.doc_nro.length === 11
         ? clientIdByCuit.get(r.doc_nro)
@@ -584,7 +600,9 @@ async function importSales(supabase, target, opts) {
     if (error) throw new Error(`invoices upsert: ${error.message}`);
     invInserted += data?.length ?? 0;
   });
-  console.log(`  ↑ ${invInserted} insertadas, ${invSkippedNc} NC/ND skipped (sin origen)`);
+  console.log(
+    `  ↑ ${invInserted} insertadas, ${invSkippedNc} NC/ND skipped (sin origen)`,
+  );
   return { clients: clientByCuit.size, invoices: invInserted };
 }
 
@@ -592,7 +610,9 @@ async function importSales(supabase, target, opts) {
 // Operational data synthesis
 // ---------------------------------------------------------------------------
 async function tableEmpty(supabase, table) {
-  const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true });
+  const { count, error } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true });
   if (error) throw new Error(`count ${table}: ${error.message}`);
   return (count ?? 0) === 0;
 }
@@ -603,7 +623,9 @@ async function fetchAccounts(supabase) {
     .select("id, name, type, currency");
   if (error) throw new Error(`fetch accounts: ${error.message}`);
   const byKey = {
-    cashArs: data.find((a) => a.name === "Caja General" && a.currency === "ARS"),
+    cashArs: data.find(
+      (a) => a.name === "Caja General" && a.currency === "ARS",
+    ),
     bankGalicia: data.find((a) => a.name === "Banco Galicia"),
     bankMacro: data.find((a) => a.name === "Banco Macro"),
     bankProv: data.find((a) => a.name === "Banco Provincia"),
@@ -626,7 +648,7 @@ async function nextNumero(supabase, table, channelId, pv) {
     .order("numero", { ascending: false })
     .limit(1);
   if (error) throw new Error(`next numero ${table}: ${error.message}`);
-  return ((data?.[0]?.numero) ?? 0) + 1;
+  return (data?.[0]?.numero ?? 0) + 1;
 }
 
 async function synthReceipts(supabase, accounts) {
@@ -638,7 +660,9 @@ async function synthReceipts(supabase, accounts) {
   // Pick the top-N clients by open invoices and pay a chunk per client.
   const { data: openDocs, error } = await supabase
     .from("v_aging_documents")
-    .select("invoice_id, client_id, open_amount, channel_id, channel_is_fiscal, fecha")
+    .select(
+      "invoice_id, client_id, open_amount, channel_id, channel_is_fiscal, fecha",
+    )
     .gt("open_amount", 0)
     .order("fecha", { ascending: false })
     .limit(800);
@@ -662,7 +686,13 @@ async function synthReceipts(supabase, accounts) {
     const total = docsForReceipt.reduce((s, d) => s + Number(d.open_amount), 0);
     if (total <= 0) continue;
     const channelId = docsForReceipt[0].channel_id;
-    const pv = channelId.endsWith("fiscal") ? (channelId.startsWith("jouve") ? 3 : 4) : channelId.startsWith("jouve") ? 1 : 2;
+    const pv = channelId.endsWith("fiscal")
+      ? channelId.startsWith("jouve")
+        ? 3
+        : 4
+      : channelId.startsWith("jouve")
+        ? 1
+        : 2;
     const numero = await nextNumero(supabase, "receipts", channelId, pv);
     // Spread the recibo date a few days after the latest doc.
     const baseDate = new Date(docsForReceipt[0].fecha);
@@ -765,7 +795,13 @@ async function synthPaymentOrders(supabase, accounts) {
     const total = slice.reduce((s, d) => s + Number(d.open_amount), 0);
     if (total <= 0) continue;
     const channelId = slice[0].channel_id;
-    const pv = channelId.endsWith("fiscal") ? (channelId.startsWith("jouve") ? 3 : 4) : channelId.startsWith("jouve") ? 1 : 2;
+    const pv = channelId.endsWith("fiscal")
+      ? channelId.startsWith("jouve")
+        ? 3
+        : 4
+      : channelId.startsWith("jouve")
+        ? 1
+        : 2;
     const numero = await nextNumero(supabase, "payment_orders", channelId, pv);
     const baseDate = new Date(slice[0].fecha);
     baseDate.setDate(baseDate.getDate() + 8 + (n % 7));
@@ -866,7 +902,12 @@ async function synthManualChecks(supabase, accounts) {
     rows.push({
       kind: i % 3 === 0 ? "echeq" : "fisico",
       check_number: String(500000 + i),
-      bank_name: ["Banco Galicia", "Banco Provincia", "Banco Nación", "Banco Macro"][i % 4],
+      bank_name: [
+        "Banco Galicia",
+        "Banco Provincia",
+        "Banco Nación",
+        "Banco Macro",
+      ][i % 4],
       drawer_name: `Cliente Manual ${i + 1}`,
       drawer_cuit: null,
       issue_date: today.toISOString().slice(0, 10),
@@ -878,7 +919,10 @@ async function synthManualChecks(supabase, accounts) {
       status: "en_cartera",
     });
   }
-  const { error, data } = await supabase.from("checks").insert(rows).select("id");
+  const { error, data } = await supabase
+    .from("checks")
+    .insert(rows)
+    .select("id");
   if (error) throw new Error(`manual checks: ${error.message}`);
   // Add 'received' movements so the timeline isn't empty.
   if (data?.length) {
@@ -908,8 +952,18 @@ async function synthTransfers(supabase, accounts) {
   }
   console.log("→ Sintetizando transferencias entre cuentas");
   const pairs = [
-    [accounts.cashArs, accounts.bankGalicia, 250000, "Depósito de caja en Galicia"],
-    [accounts.bankGalicia, accounts.bankProv, 500000, "Transferencia inter-banco"],
+    [
+      accounts.cashArs,
+      accounts.bankGalicia,
+      250000,
+      "Depósito de caja en Galicia",
+    ],
+    [
+      accounts.bankGalicia,
+      accounts.bankProv,
+      500000,
+      "Transferencia inter-banco",
+    ],
     [accounts.bankMacro, accounts.cashArs, 150000, "Retiro efectivo Macro"],
     [accounts.wallet, accounts.bankGalicia, 80000, "Retiro de MP a banco"],
   ].filter(([a, b]) => a && b);
@@ -1010,7 +1064,11 @@ async function synthOpeningBalances(supabase) {
       if (remaining <= 0) break;
       const apply = Math.min(Number(inv.imp_total), remaining);
       if (apply <= 0) continue;
-      allocs.push({ client_id: clientId, invoice_id: inv.id, amount_applied: round2(apply) });
+      allocs.push({
+        client_id: clientId,
+        invoice_id: inv.id,
+        amount_applied: round2(apply),
+      });
       remaining = round2(remaining - apply);
     }
     if (allocs.length) {
@@ -1320,44 +1378,110 @@ async function synthEmployees(supabase) {
     d.setDate(d.getDate() + days);
     return d.toISOString().slice(0, 10);
   };
-  const chofer = (name) =>
-    data.find((e) => e.legal_name === name)?.id ?? null;
+  const chofer = (name) => data.find((e) => e.legal_name === name)?.id ?? null;
 
   const docsRaw = [
     // Bartolomeo Axel — carnet por vencer en 10 días (alerta inminente)
-    [chofer("Bartolomeo Axel"), "licencia_conducir", "ABC123456", addDays(-365 * 4 + 10), addDays(10), "Categoría D2 — Municipalidad de Tigre"],
+    [
+      chofer("Bartolomeo Axel"),
+      "licencia_conducir",
+      "ABC123456",
+      addDays(-365 * 4 + 10),
+      addDays(10),
+      "Categoría D2 — Municipalidad de Tigre",
+    ],
     // Cabral Agustin — LNH ya vencido (rojo)
-    [chofer("Cabral Agustin"), "lnh", "LNH-554321", addDays(-365 * 2 - 30), addDays(-15), "CNRT"],
+    [
+      chofer("Cabral Agustin"),
+      "lnh",
+      "LNH-554321",
+      addDays(-365 * 2 - 30),
+      addDays(-15),
+      "CNRT",
+    ],
     // Casco Maximiliano — carnet vigente 2 años
-    [chofer("Casco Maximiliano"), "licencia_conducir", "CSM998877", addDays(-365), addDays(730), "Categoría D2"],
+    [
+      chofer("Casco Maximiliano"),
+      "licencia_conducir",
+      "CSM998877",
+      addDays(-365),
+      addDays(730),
+      "Categoría D2",
+    ],
     // Magnifico Pablo — psicofísica por vencer en 25 días
-    [chofer("Magnifico Pablo"), "aptitud_psicofisica", null, addDays(-340), addDays(25), null],
+    [
+      chofer("Magnifico Pablo"),
+      "aptitud_psicofisica",
+      null,
+      addDays(-340),
+      addDays(25),
+      null,
+    ],
     // Olmedo Ezequiel — curso cargas peligrosas vigente 6 meses
-    [chofer("Olmedo Ezequiel"), "curso_cargas_peligrosas", "CCP-2023-456", addDays(-180), addDays(180), null],
+    [
+      chofer("Olmedo Ezequiel"),
+      "curso_cargas_peligrosas",
+      "CCP-2023-456",
+      addDays(-180),
+      addDays(180),
+      null,
+    ],
     // Ramirez Matias — libreta sanitaria por vencer en 5 días (alerta crítica)
-    [chofer("Ramirez Matias"), "libreta_sanitaria", null, addDays(-360), addDays(5), "Municipalidad de Tigre"],
+    [
+      chofer("Ramirez Matias"),
+      "libreta_sanitaria",
+      null,
+      addDays(-360),
+      addDays(5),
+      "Municipalidad de Tigre",
+    ],
     // Sanchez Jorge — carnet vencido hace 2 meses
-    [chofer("Sanchez Jorge"), "licencia_conducir", "SJG112233", addDays(-365 * 5 - 60), addDays(-60), "Categoría D2"],
+    [
+      chofer("Sanchez Jorge"),
+      "licencia_conducir",
+      "SJG112233",
+      addDays(-365 * 5 - 60),
+      addDays(-60),
+      "Categoría D2",
+    ],
     // Apesteguia Tete (mecánico) — aptitud visual vigente 8 meses
-    [chofer("Apesteguia Tete"), "aptitud_visual", null, addDays(-120), addDays(240), null],
+    [
+      chofer("Apesteguia Tete"),
+      "aptitud_visual",
+      null,
+      addDays(-120),
+      addDays(240),
+      null,
+    ],
   ].filter(([employeeId]) => employeeId);
 
   if (docsRaw.length > 0) {
-    const docs = docsRaw.map(([employee_id, kind, number, issued_at, expires_at, issuing_authority]) => ({
-      employee_id,
-      kind,
-      number,
-      issued_at,
-      expires_at,
-      issuing_authority,
-    }));
+    const docs = docsRaw.map(
+      ([
+        employee_id,
+        kind,
+        number,
+        issued_at,
+        expires_at,
+        issuing_authority,
+      ]) => ({
+        employee_id,
+        kind,
+        number,
+        issued_at,
+        expires_at,
+        issuing_authority,
+      }),
+    );
     const { error: docsErr } = await supabase
       .from("employee_documents")
       .insert(docs);
     if (docsErr) {
       console.warn(`  ⚠ documents skip: ${docsErr.message}`);
     } else {
-      console.log(`  ↑ ${docs.length} documentos sample (vencidos, por vencer y vigentes)`);
+      console.log(
+        `  ↑ ${docs.length} documentos sample (vencidos, por vencer y vigentes)`,
+      );
     }
   }
 
@@ -1372,8 +1496,7 @@ async function synthEmployees(supabase) {
 // dashboards (planilla mensual, libro IVA, ventas-por-mes,
 // cuenta corriente abierta) all look empty for the current year.
 // This function fills Jan→May 2026 with believable monthly activity:
-//   * ~25 sales invoices/month spread across both fiscal channels
-//     (jouve_fiscal PV 3, dz_fiscal PV 4)
+//   * ~25 sales invoices/month on jouve_fiscal (PV 3)
 //   * ~10 purchase invoices/month for the same window
 // All amounts stay in the 200k–4M ARS range so they look like
 // late-2025/early-2026 ticket sizes without dwarfing prior years.
@@ -1409,10 +1532,7 @@ async function synth2026Invoices(supabase) {
 
   // Resume per-channel counters from the existing max numero.
   const counters = {};
-  for (const [pv, ch] of [
-    [3, "jouve_fiscal"],
-    [4, "dz_fiscal"],
-  ]) {
+  for (const [pv, ch] of [[3, "jouve_fiscal"]]) {
     const { data } = await supabase
       .from("invoices")
       .select("numero")
@@ -1438,12 +1558,12 @@ async function synth2026Invoices(supabase) {
     for (let i = 0; i < perMonth; i++) {
       const day = String(((i * 3 + 1) % days) + 1).padStart(2, "0");
       const fecha = `${ym}-${day}`;
-      const useA = (seq % 3) !== 0; // ~66% letter A
-      const channel = (seq % 2 === 0) ? "jouve_fiscal" : "dz_fiscal";
-      const pv = channel === "jouve_fiscal" ? 3 : 4;
+      const useA = seq % 3 !== 0; // ~66% letter A
+      const channel = "jouve_fiscal";
+      const pv = 3;
       const numero = counters[channel]++;
       const letter = useA ? "A" : "B";
-      const pool = useA ? cliA : (cliB.length ? cliB : cliA);
+      const pool = useA ? cliA : cliB.length ? cliB : cliA;
       const client = pool[seq % pool.length];
 
       // Base neto in the 200k–4M ARS band, IVA 21%.
@@ -1518,7 +1638,8 @@ async function synth2026Invoices(supabase) {
       const day = String(((i * 5 + 2) % days) + 1).padStart(2, "0");
       const fecha = `${ym}-${day}`;
       const supplier = supList[pseq % supList.length];
-      const letter = supplier.iva_condition === "responsable_inscripto" ? "A" : "B";
+      const letter =
+        supplier.iva_condition === "responsable_inscripto" ? "A" : "B";
       // Suppliers use their own AFIP PV (we don't control them); fake
       // it as the supplier's CUIT mod 999 for variety.
       const pv = (pseq % 4) + 1;
@@ -1529,7 +1650,7 @@ async function synth2026Invoices(supabase) {
       const imp_total = round2(imp_neto + imp_iva);
       // Default to jouve_fiscal for the receiving channel; suppliers
       // are not channel-scoped in real life, only the receiving side
-      // is. PV_TO_CHANNEL is good enough here.
+      // is.
       const channel = "jouve_fiscal";
       purchRows.push({
         channel_id: channel,
@@ -1559,7 +1680,8 @@ async function synth2026Invoices(supabase) {
         ignoreDuplicates: true,
       })
       .select("id");
-    if (error) throw new Error(`purchase_invoices 2026 upsert: ${error.message}`);
+    if (error)
+      throw new Error(`purchase_invoices 2026 upsert: ${error.message}`);
     pInserted += data?.length ?? 0;
   });
   console.log(`  ↑ ${pInserted} facturas 2026 (compras)`);
@@ -1575,7 +1697,9 @@ async function main() {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    console.error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    );
     process.exit(1);
   }
   const supabase = createClient(url, key, {

@@ -1,7 +1,8 @@
 # CLAUDE.md — JouveERP
 
-ERP contable/financiero argentino, **single-CUIT** (DZ & Sons S.A.), 2 divisiones
-(DZ Instalaciones, Logística Jouve) × fiscal/interno = 4 canales de facturación.
+ERP contable/financiero argentino, **single-CUIT** (DZ & Sons S.A.). Opera solo
+Logística Jouve, con 2 canales de facturación: `jouve_fiscal` y `jouve_internal`
+(DZ Instalaciones se retiró el 2026-10-31).
 No hay multi-tenancy: una sola `business_units` (`dz_sons`).
 
 **Stack:** Next.js 16 (App Router) + React 19 · Supabase (Postgres + RLS +

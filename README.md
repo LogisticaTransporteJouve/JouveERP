@@ -1,8 +1,8 @@
 # JouveERP
 
 ERP contable/financiero de DZ & Sons S.A. (Transporte Jouve) — Argentina,
-single-CUIT, dos divisiones comerciales (DZ Instalaciones + Logística Jouve),
-cuatro canales de facturación (fiscal/interno × DZ/Jouve).
+single-CUIT. Opera Logística Jouve con dos canales de facturación (fiscal e
+interno); DZ Instalaciones se retiró el 2026-10-31.
 
 ## Stack
 

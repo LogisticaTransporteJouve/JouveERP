@@ -44,7 +44,7 @@ export interface InvoiceTemplateData {
     cuit: string;
     iva_condition: string;
     address: string | null;
-    division_label: string; // "Logística Jouve" / "DZ Instalaciones"
+    division_label: string; // "Logística Jouve"
     iibb_number: string | null; // "no contribuyente" if not registered
     inicio_actividades: string | null; // YYYY-MM-DD
   };

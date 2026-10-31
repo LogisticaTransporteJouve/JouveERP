@@ -706,11 +706,10 @@ export const facturasStructure: SkillDefinition = {
 
 ### Canales
 
-\`invoicing_channels\` representa el canal de facturación. Hoy 4 canales:
-- DZ Instalaciones fiscal (AFIP, letras A/B/C según receptor)
-- DZ Instalaciones interno (sin AFIP, letra X)
-- Logística Jouve fiscal
-- Logística Jouve interno
+\`invoicing_channels\` representa el canal de facturación. Hoy 2 canales
+(DZ Instalaciones se retiró el 2026-10-31):
+- Logística Jouve fiscal (AFIP, letras A/B/C según receptor)
+- Logística Jouve interno (sin AFIP)
 
 Todos cuelgan de **una sola** \`business_units\` (\`dz_sons\`).
 
