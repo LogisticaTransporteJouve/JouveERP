@@ -38,6 +38,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { amountToInput, formatArgentineDate } from "@/lib/format";
+import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
 import type { SupplierAccountMovement } from "../actions/account-actions";
 import {
@@ -58,18 +59,16 @@ const KIND_LABEL: Record<string, string> = {
 function formatDocumentNumber(m: SupplierAccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
   if (!m.punto_venta || !m.numero) return "—";
-  const pos = String(m.punto_venta).padStart(4, "0");
-  const num = String(m.numero).padStart(8, "0");
-  if (m.source_type === "payment_order") return `OP${pos}-${num}`;
-  const prefix =
-    m.kind === "factura"
-      ? (m.letter ?? "")
-      : m.kind === "nc"
-        ? "NC"
-        : m.kind === "nd"
-          ? "ND"
-          : "";
-  return `${prefix}${pos}-${num}`;
+  if (m.source_type === "payment_order") {
+    const pos = String(m.punto_venta).padStart(5, "0");
+    return `OP${pos}-${String(m.numero).padStart(8, "0")}`;
+  }
+  return formatInvoiceNumber({
+    kind: m.kind,
+    letter: m.letter,
+    punto_venta: m.punto_venta,
+    numero: m.numero,
+  });
 }
 
 function movementHref(m: SupplierAccountMovement): string | null {

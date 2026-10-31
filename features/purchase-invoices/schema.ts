@@ -302,8 +302,8 @@ export type PurchaseInvoiceRefJoin = {
 };
 
 export function formatInvoiceNumber(p: {
-  kind?: PurchaseInvoiceKind;
-  letter: PurchaseInvoiceLetter | null;
+  kind?: PurchaseInvoiceKind | string;
+  letter: PurchaseInvoiceLetter | string | null;
   punto_venta: number;
   numero: number;
 }): string {
