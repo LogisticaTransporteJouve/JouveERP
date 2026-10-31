@@ -1,5 +1,6 @@
 import {
-  isListGroup,
+  listGroupParam,
+  parseListGroupParam,
   parsePeriodParams,
   resolvePeriod,
   type ListGroup,
@@ -100,7 +101,7 @@ export function parseInvoiceListParams(
     puntoVenta: parsePuntoVenta(params.pv),
     clientId: client.success ? client.data : null,
     period: parsePeriodParams(params),
-    group: isListGroup(params.group) ? params.group : null,
+    group: parseListGroupParam(params.group),
   };
 }
 
@@ -116,7 +117,7 @@ export function invoiceListParamsToUrl(
     period: params.period.preset,
     from: params.period.from,
     to: params.period.to,
-    group: params.group,
+    group: listGroupParam(params.group),
   };
 }
 

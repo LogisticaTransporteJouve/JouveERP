@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   bucketOf,
   formatBucket,
+  listGroupParam,
+  parseListGroupParam,
   parsePeriodParams,
   resolvePeriod,
 } from "./list-period";
@@ -107,5 +109,20 @@ describe("formatBucket", () => {
       "Semana del 26/10/2026 al 01/11/2026",
     );
     expect(formatBucket("2026-10-01", "month")).toBe("octubre 2026");
+  });
+});
+
+describe("list grouping param", () => {
+  it("defaults to day and reads none as the plain list", () => {
+    expect(parseListGroupParam(undefined)).toBe("day");
+    expect(parseListGroupParam("year")).toBe("day");
+    expect(parseListGroupParam("none")).toBe(null);
+    expect(parseListGroupParam("month")).toBe("month");
+  });
+
+  it("omits the default from the URL", () => {
+    expect(listGroupParam("day")).toBe(null);
+    expect(listGroupParam(null)).toBe("none");
+    expect(listGroupParam("week")).toBe("week");
   });
 });

@@ -39,7 +39,7 @@ describe("parseInvoiceListParams", () => {
       type: "remito",
       pv: "0",
       client: "not-a-uuid",
-      group: "year",
+      group: "none",
     });
     expect(parsed).toMatchObject({
       status: null,

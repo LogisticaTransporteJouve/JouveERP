@@ -67,6 +67,23 @@ export function isListGroup(value: unknown): value is ListGroup {
   );
 }
 
+/** Lists open grouped by day; "Lista" (no grouping) is the `none` param. */
+export const DEFAULT_LIST_GROUP: ListGroup = "day";
+const NO_GROUP_PARAM = "none";
+
+export function parseListGroupParam(
+  value: string | null | undefined,
+): ListGroup | null {
+  if (value === NO_GROUP_PARAM) return null;
+  return isListGroup(value) ? value : DEFAULT_LIST_GROUP;
+}
+
+/** The `group` URL param for a grouping (null: the default, omitted). */
+export function listGroupParam(group: ListGroup | null): string | null {
+  if (group === null) return NO_GROUP_PARAM;
+  return group === DEFAULT_LIST_GROUP ? null : group;
+}
+
 function asIsoDate(value: string | null | undefined): string | null {
   return value && ISO_DATE.test(value) ? value : null;
 }
