@@ -4,8 +4,8 @@ import "server-only";
 //
 // Flow:
 //   1. Build a LoginTicketRequest XML with timestamps and target service.
-//   2. Sign it as CMS PKCS#7 with the AFIP cert + private key (SHA-1, no
-//      signed attributes — AFIP's legacy implementation rejects modern CMS).
+//   2. Sign it as CMS PKCS#7 with the AFIP cert + private key (SHA-1 —
+//      AFIP's legacy implementation rejects SHA-256).
 //   3. POST the base64-encoded CMS to the WSAA endpoint via SOAP envelope.
 //   4. Parse the returned XML to extract { token, sign, expirationTime }.
 //   5. Cache per service in memory (hot path) and DB (cold path).
@@ -16,15 +16,15 @@ import "server-only";
 // The DB cache uses the service-role Supabase client to bypass RLS — these
 // rows hold credentials that authenticated users must NOT read.
 
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { constants, createPrivateKey, privateEncrypt } from "node:crypto";
+
+import forge from "node-forge";
 
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { getAfipCert, getAfipKey, getWsaaUrl } from "./env";
+import { afipFetch } from "./http";
 import type { AccessTicket } from "./types";
 
 const SAFETY_MARGIN_MS = 5 * 60 * 1000;
@@ -66,46 +66,59 @@ function buildLoginTicketRequest(service: string): string {
 </loginTicketRequest>`;
 }
 
-// Sign the LoginTicketRequest XML as CMS PKCS#7 using OpenSSL as subprocess.
-// AFIP's WSAA legacy implementation requires:
-//   - SHA-1 digest (SHA-256 returns cms.sign.invalid)
-//   - No signed attributes
-//   - DER-encoded output, base64 wrapped
-function signCms(xml: string): string {
-  const dir = mkdtempSync(join(tmpdir(), "afip-wsaa-"));
-  const xmlPath = join(dir, "ticket.xml");
-  const certPath = join(dir, "cert.pem");
-  const keyPath = join(dir, "key.pem");
+// Literal OIDs: forge.pki.oids is typed as a possibly-undefined lookup.
+const OID = {
+  sha1: "1.3.14.3.2.26",
+  data: "1.2.840.113549.1.7.1",
+  contentType: "1.2.840.113549.1.9.3",
+  messageDigest: "1.2.840.113549.1.9.4",
+  signingTime: "1.2.840.113549.1.9.5",
+} as const;
 
-  try {
-    writeFileSync(xmlPath, xml, "utf-8");
-    writeFileSync(certPath, getAfipCert(), "utf-8");
-    writeFileSync(keyPath, getAfipKey(), "utf-8");
+// DER prefix of a SHA-1 DigestInfo; the digest bytes follow it.
+const SHA1_DIGEST_INFO_PREFIX = Buffer.from(
+  "3021300906052b0e03021a05000414",
+  "hex",
+);
 
-    const der = execFileSync(
-      "openssl",
-      [
-        "cms",
-        "-sign",
-        "-in",
-        xmlPath,
-        "-signer",
-        certPath,
-        "-inkey",
-        keyPath,
-        "-nodetach",
-        "-outform",
-        "DER",
-        "-md",
-        "sha1",
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
-
-    return der.toString("base64");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+// Sign the LoginTicketRequest XML as CMS PKCS#7 (SignedData, content
+// attached, DER, base64). AFIP's WSAA requires a SHA-1 digest — SHA-256
+// returns cms.sign.invalid. Built in-process because the serverless runtime's
+// `openssl` binary is not usable (it fails on a libssl symbol lookup). forge
+// assembles the CMS, but the RSA signature comes from node:crypto: forge
+// 1.4.2's own RSA signing yields signatures that do not verify for our keys.
+export function signCms(xml: string, certPem: string, keyPem: string): string {
+  const p7 = forge.pkcs7.createSignedData();
+  p7.content = forge.util.createBuffer(xml, "utf8");
+  const certificate = forge.pki.certificateFromPem(certPem);
+  p7.addCertificate(certificate);
+  const key = forge.pki.privateKeyFromPem(keyPem);
+  const nodeKey = createPrivateKey(keyPem);
+  key.sign = (md) =>
+    privateEncrypt(
+      { key: nodeKey, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.concat([
+        SHA1_DIGEST_INFO_PREFIX,
+        Buffer.from(
+          typeof md === "string" ? md : md.digest().getBytes(),
+          "binary",
+        ),
+      ]),
+    ).toString("binary");
+  p7.addSigner({
+    key,
+    certificate,
+    digestAlgorithm: OID.sha1,
+    authenticatedAttributes: [
+      { type: OID.contentType, value: OID.data },
+      { type: OID.messageDigest },
+      // forge stamps the current time when no value is given.
+      { type: OID.signingTime },
+    ],
+  });
+  p7.sign();
+  const der = forge.asn1.toDer(p7.toAsn1()).getBytes();
+  return forge.util.encode64(der);
 }
 
 function extractTag(xml: string, tag: string): string | null {
@@ -130,7 +143,7 @@ async function callWsaa(cms: string): Promise<AccessTicket> {
 
   logger.debug("wsaa.request", { url: wsaaUrl, cms_length: cms.length });
 
-  const res = await fetch(wsaaUrl, {
+  const res = await afipFetch(wsaaUrl, {
     method: "POST",
     headers: {
       "Content-Type": "text/xml",
@@ -238,7 +251,7 @@ export async function getAccessTicket(service: string): Promise<AccessTicket> {
 
       logger.info("wsaa.requesting_fresh_ta", { service });
       const xml = buildLoginTicketRequest(service);
-      const cms = signCms(xml);
+      const cms = signCms(xml, getAfipCert(), getAfipKey());
       const ta = await callWsaa(cms);
       memCache.set(service, ta);
       await writeTaToDb(service, ta);

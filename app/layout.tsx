@@ -47,7 +47,7 @@ export default async function RootLayout({
           <QueryProvider>
             <ConfirmProvider>{children}</ConfirmProvider>
           </QueryProvider>
-          <Toaster richColors closeButton />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
