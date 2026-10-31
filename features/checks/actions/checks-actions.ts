@@ -9,12 +9,12 @@ import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
-  ChequeCreateSchema,
   CreditChequeSchema,
   DepositChequeSchema,
   isChequeCurrency,
   isChequeKind,
   isChequeStatus,
+  ManualChequeCreateSchema,
   RejectChequeSchema,
   type Cheque,
   type CheckMovement,
@@ -42,7 +42,7 @@ function narrowCheck(row: {
 }
 
 const CHECK_COLUMNS =
-  "id, kind, check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, amount, currency, source_kind, source_receipt_id, source_payment_line_id, source_client_id, cartera_account_id, status, notes, created_by, created_at, updated_at";
+  "id, kind, check_number, bank_name, drawer_name, drawer_cuit, issue_date, due_date, amount, currency, source_kind, source_receipt_id, source_payment_line_id, source_client_id, cartera_account_id, channel_id, status, notes, created_by, created_at, updated_at";
 
 /** Embedded joins in check select queries: cartera_account always,
  *  source_client optional depending on whether the check came from a receipt. */
@@ -112,6 +112,7 @@ export type EnCarteraCheck = {
   currency: "ARS" | "USD";
   cartera_account_id: string;
   cartera_account_name: string;
+  channel_id: string | null;
 };
 
 export async function listEnCarteraChecksAction(filters?: {
@@ -125,7 +126,7 @@ export async function listEnCarteraChecksAction(filters?: {
   let query = supabase
     .from("checks")
     .select(
-      "id, kind, check_number, bank_name, drawer_name, due_date, amount, currency, cartera_account_id, cartera_account:accounts!checks_cartera_account_id_fkey(name)",
+      "id, kind, check_number, bank_name, drawer_name, due_date, amount, currency, cartera_account_id, channel_id, cartera_account:accounts!checks_cartera_account_id_fkey(name)",
     )
     .eq("status", "en_cartera")
     .order("due_date", { ascending: true });
@@ -162,6 +163,7 @@ export async function listEnCarteraChecksAction(filters?: {
         currency: row.currency,
         cartera_account_id: row.cartera_account_id,
         cartera_account_name: acct?.name ?? "—",
+        channel_id: row.channel_id,
       };
     });
   return { ok: true, data: items };
@@ -233,7 +235,7 @@ export async function createCheckAction(
     return { ok: false, error: "No tenés permiso para registrar cheques." };
   }
 
-  const parsed = ChequeCreateSchema.safeParse(input);
+  const parsed = ManualChequeCreateSchema.safeParse(input);
   if (!parsed.success) {
     return {
       ok: false,
@@ -256,6 +258,7 @@ export async function createCheckAction(
       amount: data.amount,
       currency: data.currency,
       cartera_account_id: data.cartera_account_id,
+      channel_id: data.channel_id,
       source_kind: data.source_kind,
       source_receipt_id: data.source_receipt_id ?? null,
       source_payment_line_id: data.source_payment_line_id ?? null,

@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Account } from "@/features/accounts/schema";
+import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 
 import type { IssuedCheck } from "../schema";
 import { IssuedCheckForm } from "./issued-check-form";
@@ -20,9 +21,11 @@ import { IssuedCheckForm } from "./issued-check-form";
 export function EditIssuedCheckDialog({
   check,
   accounts,
+  channels,
 }: {
   check: IssuedCheck;
   accounts: Account[];
+  channels: CheckChannelOption[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -46,6 +49,7 @@ export function EditIssuedCheckDialog({
           mode="edit"
           check={check}
           accounts={accounts}
+          channels={channels}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />

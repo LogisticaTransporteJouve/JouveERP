@@ -434,6 +434,7 @@ describe("runChecks", () => {
       amount: 100,
       bank_name: "Banco",
       cartera_account_id: "a1",
+      channel_id: null,
       check_number: "1",
       created_at: "2026-01-01T00:00:00Z",
       created_by: null,

@@ -30,7 +30,7 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
 }
 
 const COLUMNS =
-  "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
+  "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
 
 export async function listIssuedChecksAction(): Promise<
   ActionResult<IssuedCheck[]>
@@ -106,6 +106,7 @@ export async function createIssuedCheckAction(
       currency: parsed.data.currency,
       bank_account_id: parsed.data.bank_account_id,
       payment_order_id: parsed.data.payment_order_id ?? null,
+      channel_id: parsed.data.channel_id,
       supplier_id: parsed.data.supplier_id ?? null,
       notes: parsed.data.notes ?? null,
       created_by: ctx.userId,

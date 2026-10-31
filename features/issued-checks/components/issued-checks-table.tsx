@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import type { Account } from "@/features/accounts/schema";
+import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
@@ -35,9 +36,11 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function IssuedChecksTable({
   accounts,
+  channels,
   actorAccess,
 }: {
   accounts: Account[];
+  channels: CheckChannelOption[];
   actorAccess: Access;
 }) {
   const { data: checks } = useIssuedChecksList();
@@ -179,7 +182,11 @@ export function IssuedChecksTable({
                   >
                     <XCircle className="size-4 text-foreground" />
                   </Button>
-                  <EditIssuedCheckDialog check={c} accounts={accounts} />
+                  <EditIssuedCheckDialog
+                    check={c}
+                    accounts={accounts}
+                    channels={channels}
+                  />
                   <Button
                     variant="ghost"
                     size="icon"
@@ -196,13 +203,13 @@ export function IssuedChecksTable({
         },
       },
     ];
-  }, [accounts, canWrite, confirm, transitionMut]);
+  }, [accounts, canWrite, channels, confirm, transitionMut]);
 
   return (
     <>
       {canWrite && (
         <div className="flex justify-end">
-          <NewIssuedCheckDialog accounts={accounts} />
+          <NewIssuedCheckDialog accounts={accounts} channels={channels} />
         </div>
       )}
 
