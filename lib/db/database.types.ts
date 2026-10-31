@@ -5854,6 +5854,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_manual_journal_entry: {
+        Args: {
+          p_channel_id?: string
+          p_description: string
+          p_entry_date: string
+          p_lines: Json
+        }
+        Returns: string
+      }
       create_payment_order: {
         Args: {
           p_allocations: Json
@@ -6048,6 +6057,17 @@ export type Database = {
       is_employee_document_file: {
         Args: { p_file_id: string }
         Returns: boolean
+      }
+      journal_non_fiscal_entries: {
+        Args: never
+        Returns: {
+          channel_id: string
+          description: string
+          entry_date: string
+          entry_id: string
+          source_id: string
+          source_table: string
+        }[]
       }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }

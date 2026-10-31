@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -456,6 +457,11 @@ export async function createPaymentOrderAction(
   });
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "payment_orders.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
@@ -530,6 +536,12 @@ export async function updatePaymentOrderAction(
   });
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "payment_orders.update.rejected",
+      userId: ctx.userId,
+      id: data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("payment_orders.update.failed", {
       userId: ctx.userId,
       id: data.id,
@@ -578,6 +590,12 @@ export async function cancelPaymentOrderAction(
     .eq("status", "issued");
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "payment_orders.cancel.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("payment_orders.cancel.failed", {
       userId: ctx.userId,
       id: parsed.data.id,

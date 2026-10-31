@@ -11,10 +11,7 @@ export type JournalEntryLineRow =
   Database["public"]["Tables"]["journal_entry_lines"]["Row"];
 
 export type JournalSourceTable =
-  | "transactions"
-  | "invoices"
-  | "receipts"
-  | "payment_orders";
+  "transactions" | "invoices" | "receipts" | "payment_orders";
 
 export const SOURCE_LABEL: Record<JournalSourceTable, string> = {
   transactions: "Movimiento de caja",
@@ -94,7 +91,7 @@ export const ManualJournalLineSchema = z
       .nullable()
       .optional(),
   })
-  .refine((l) => (l.debit > 0) !== (l.credit > 0), {
+  .refine((l) => l.debit > 0 !== l.credit > 0, {
     message: "Cada línea lleva importe en Debe o en Haber (solo uno).",
   });
 
@@ -130,8 +127,3 @@ export type ManualJournalLineInput = z.infer<typeof ManualJournalLineSchema>;
 export type ManualJournalEntryCreateInput = z.infer<
   typeof ManualJournalEntryCreateSchema
 >;
-
-/** Accrual period (YYYY-MM) implied by an entry date (YYYY-MM-DD). */
-export function accrualPeriodFromDate(date: string): string {
-  return date.slice(0, 7);
-}

@@ -72,7 +72,7 @@ export function ManualEntryDialog({
   onCreated?: (id: string) => void;
 }) {
   const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
+  const fiscalChannels = channels.filter((c) => c.is_active && c.is_fiscal);
   const { accounts } = usePostableAccounts(open);
   const create = useCreateManualJournalEntry();
 
@@ -159,14 +159,14 @@ export function ManualEntryDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="me-canal">Canal (opcional)</Label>
+            <Label htmlFor="me-canal">Canal fiscal (opcional)</Label>
             <Select value={channelId} onValueChange={setChannelId}>
               <SelectTrigger id="me-canal">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_CHANNEL}>Sin canal</SelectItem>
-                {activeChannels.map((c) => (
+                {fiscalChannels.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
@@ -261,9 +261,7 @@ export function ManualEntryDialog({
             Debe {money(totalDebe)} · Haber {money(totalHaber)}
           </span>
           <span className={balanced ? "font-medium" : "text-muted-foreground"}>
-            {balanced
-              ? "Balanceado"
-              : `Diferencia ${money(Math.abs(diff))}`}
+            {balanced ? "Balanceado" : `Diferencia ${money(Math.abs(diff))}`}
           </span>
         </div>
 
@@ -282,7 +280,11 @@ export function ManualEntryDialog({
               !balanced ||
               descripcion.trim().length === 0 ||
               !fecha ||
-              lines.some((l) => l.account_id === "" && (toNumber(l.debit) > 0 || toNumber(l.credit) > 0)) ||
+              lines.some(
+                (l) =>
+                  l.account_id === "" &&
+                  (toNumber(l.debit) > 0 || toNumber(l.credit) > 0),
+              ) ||
               create.isPending
             }
           >

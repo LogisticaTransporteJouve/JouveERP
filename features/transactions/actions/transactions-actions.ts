@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -229,6 +230,11 @@ export async function createTransactionAction(
     .single();
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "transactions.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("transactions.create.failed", { userId: ctx.userId, error });
     return {
       ok: false,
@@ -280,6 +286,11 @@ export async function createTransferAction(
   });
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "transactions.create_transfer.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("transactions.create_transfer.failed", {
       userId: ctx.userId,
       error,
@@ -369,6 +380,12 @@ export async function updateTransactionAction(
     .eq("id", data.id);
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "transactions.update.rejected",
+      userId: ctx.userId,
+      id: data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("transactions.update.failed", {
       userId: ctx.userId,
       id: data.id,
@@ -405,6 +422,12 @@ export async function deleteTransactionAction(
   const { error } = await supabase.from("transactions").delete().eq("id", id);
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "transactions.delete.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("transactions.delete.failed", {
       userId: ctx.userId,
       id,

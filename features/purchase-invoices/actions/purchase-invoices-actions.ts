@@ -1,5 +1,6 @@
 "use server";
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
@@ -7,10 +8,8 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import {
-  PG_CHECK_VIOLATION,
-  PG_UNIQUE_VIOLATION,
-} from "@/lib/db/pg-error-codes";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -417,10 +416,11 @@ export async function createPurchaseInvoiceAction(
           "Ya cargaste esta factura del proveedor (mismo tipo / letra / PV / número).",
       };
     }
-    // guard_purchase_invoice_origin: the NC/ND origin is another supplier's or channel's.
-    if (error.code === PG_CHECK_VIOLATION) {
-      return { ok: false, error: error.message };
-    }
+    const guardError = mapDbGuardError(error, {
+      slug: "purchase_invoices.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("purchase_invoices.create.failed", {
       userId: ctx.userId,
       supplier_id: parsed.data.supplier_id,
@@ -436,6 +436,13 @@ export async function createPurchaseInvoiceAction(
   if (parsed.data.items && parsed.data.items.length > 0) {
     const itemsError = await applyItems(supabase, data.id, parsed.data.items);
     if (itemsError) {
+      const guardError = mapDbGuardError(itemsError, {
+        slug: "purchase_invoices.items.insert.rejected",
+        userId: ctx.userId,
+        id: data.id,
+      });
+      if (guardError)
+        return { ok: false, error: guardError, createdId: data.id };
       logger.error("purchase_invoices.items.insert.failed", {
         userId: ctx.userId,
         id: data.id,
@@ -468,7 +475,7 @@ async function applyItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   invoiceId: string,
   items: PurchaseInvoiceItemInput[],
-): Promise<string | null> {
+): Promise<PostgrestError | null> {
   const { error } = await supabase.rpc("replace_purchase_invoice_items", {
     p_invoice_id: invoiceId,
     p_items: items.map((it, idx) => ({
@@ -482,7 +489,7 @@ async function applyItems(
       sort_order: it.sort_order ?? idx,
     })),
   });
-  return error ? error.message : null;
+  return error;
 }
 
 export async function updatePurchaseInvoiceAction(
@@ -548,9 +555,12 @@ export async function updatePurchaseInvoiceAction(
         error: "Otra factura del proveedor ya usa esa combinación de número.",
       };
     }
-    if (error.code === PG_CHECK_VIOLATION) {
-      return { ok: false, error: error.message };
-    }
+    const guardError = mapDbGuardError(error, {
+      slug: "purchase_invoices.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("purchase_invoices.update.failed", {
       userId: ctx.userId,
       id,
@@ -564,6 +574,12 @@ export async function updatePurchaseInvoiceAction(
   if (rest.items !== undefined) {
     const itemsError = await applyItems(supabase, id, rest.items);
     if (itemsError) {
+      const guardError = mapDbGuardError(itemsError, {
+        slug: "purchase_invoices.items.update.rejected",
+        userId: ctx.userId,
+        id,
+      });
+      if (guardError) return { ok: false, error: guardError };
       logger.error("purchase_invoices.items.update.failed", {
         userId: ctx.userId,
         id,
@@ -611,6 +627,12 @@ export async function cancelPurchaseInvoiceAction(
     .eq("status", "received");
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "purchase_invoices.cancel.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("purchase_invoices.cancel.failed", {
       userId: ctx.userId,
       id: parsed.data.id,
