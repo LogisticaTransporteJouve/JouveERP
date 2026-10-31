@@ -11,6 +11,7 @@ export const receiptsKeys = {
   detail: (id: string) => [...receiptsKeys.all, "detail", id] as const,
   nextNumero: (channelId: string) =>
     [...receiptsKeys.all, "nextNumero", channelId] as const,
+  usdRate: (date: string) => [...receiptsKeys.all, "usdRate", date] as const,
   pendingComprobantes: (
     clientId: string,
     channelId: string,

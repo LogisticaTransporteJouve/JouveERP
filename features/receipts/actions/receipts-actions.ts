@@ -7,11 +7,16 @@ import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { allocateFifo, allocationsIssue } from "@/lib/allocations";
-import { paymentCurrencyOf } from "@/lib/fx";
+import {
+  fetchUsdRateOnOrBefore,
+  paymentCurrencyOf,
+  type UsdRate,
+} from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { IsoDateSchema } from "@/lib/validation/common";
 
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
@@ -47,7 +52,7 @@ function narrowReceipt(row: {
 }
 
 const RECEIPT_COLUMNS =
-  "id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
+  "id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -314,6 +319,24 @@ export async function getNextReceiptNumeroAction(input: {
   return {
     ok: true,
     data: { next: lastNumero + 1, isFirst: lastNumero === 0 },
+  };
+}
+
+/** Loaded USD rate for the receipt date, to prefill the form's cotización.
+ *  Null when there is none: the user types it. */
+export async function getReceiptUsdRateAction(
+  date: string,
+): Promise<ActionResult<UsdRate | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "receipts:write")) {
+    return { ok: false, error: "No tenés permiso para emitir recibos." };
+  }
+  const parsed = IsoDateSchema.safeParse(date);
+  if (!parsed.success) return { ok: false, error: "Fecha inválida." };
+  const supabase = await createSupabaseClient();
+  return {
+    ok: true,
+    data: await fetchUsdRateOnOrBefore(supabase, parsed.data),
   };
 }
 
@@ -614,6 +637,7 @@ export async function createReceiptAction(
     p_recibo_date: data.receipt_date,
     p_total_amount: data.total_amount,
     p_currency: data.currency,
+    p_cotizacion: data.cotizacion ?? undefined,
     p_notes: data.notes ?? "",
     p_payment_lines: data.payment_lines.map((l) => ({
       account_id: l.account_id,
@@ -714,6 +738,7 @@ export async function updateReceiptAction(
     p_id: data.id,
     p_recibo_date: data.receipt_date,
     p_total_amount: data.total_amount,
+    p_cotizacion: data.cotizacion ?? undefined,
     p_notes: data.notes ?? "",
     p_payment_lines: data.payment_lines.map((l) => ({
       account_id: l.account_id,

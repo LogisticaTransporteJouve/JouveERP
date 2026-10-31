@@ -135,6 +135,7 @@ export default async function DashboardPage() {
           lowestClosing: cashFlow.lowestClosing,
           deficitMonth: cashFlow.deficitMonth,
           usdRate: cashFlow.usdRate,
+          usdSkipped: cashFlow.usdSkipped,
         }}
       />
     );

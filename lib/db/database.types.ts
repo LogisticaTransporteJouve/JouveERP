@@ -3228,6 +3228,7 @@ export type Database = {
           canceled_by: string | null
           channel_id: string
           cost_center_id: string | null
+          cotizacion: number | null
           created_at: string
           created_by: string | null
           currency: string
@@ -3246,6 +3247,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -3264,6 +3266,7 @@ export type Database = {
           canceled_by?: string | null
           channel_id?: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -4013,6 +4016,7 @@ export type Database = {
           channel_id: string
           client_id: string
           cost_center_id: string | null
+          cotizacion: number | null
           created_at: string
           created_by: string | null
           currency: string
@@ -4032,6 +4036,7 @@ export type Database = {
           channel_id: string
           client_id: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency: string
@@ -4051,6 +4056,7 @@ export type Database = {
           channel_id?: string
           client_id?: string
           cost_center_id?: string | null
+          cotizacion?: number | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -6193,6 +6199,7 @@ export type Database = {
         Args: {
           p_allocations: Json
           p_channel_id: string
+          p_cotizacion?: number
           p_currency: string
           p_notes: string
           p_numero: number
@@ -6209,6 +6216,7 @@ export type Database = {
           p_allocations: Json
           p_channel_id: string
           p_client_id: string
+          p_cotizacion?: number
           p_currency: string
           p_notes: string
           p_numero: number
@@ -6764,6 +6772,7 @@ export type Database = {
       update_payment_order: {
         Args: {
           p_allocations: Json
+          p_cotizacion?: number
           p_id: string
           p_notes: string
           p_payment_date: string
@@ -6775,6 +6784,7 @@ export type Database = {
       update_receipt: {
         Args: {
           p_allocations: Json
+          p_cotizacion?: number
           p_id: string
           p_notes: string
           p_payment_lines: Json

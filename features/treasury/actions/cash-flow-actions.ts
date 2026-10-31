@@ -3,7 +3,7 @@
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
-import { fetchLatestUsdRate, toArs } from "@/lib/fx";
+import { readLatestUsdRate, toArs } from "@/lib/fx";
 import { getInvoicingChannels } from "@/lib/channels";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -54,8 +54,11 @@ export type CashFlowResult = CashFlow & {
   monthsFwd: number;
   /** First projected month (where pending receivables/payables are placed). */
   pendingMonth: string;
-  /** Latest official USD→ARS rate used to convert USD items (null = no rate → USD skipped). */
+  /** Latest official USD→ARS rate used to convert USD items (null = none loaded). */
   usdRate: number | null;
+  /** True when USD items were left out because no rate is loaded: the
+   *  figures are partial and the UI says so. */
+  usdSkipped: boolean;
 };
 
 /**
@@ -64,8 +67,9 @@ export type CashFlowResult = CashFlow & {
  * from cash movements; future months project recurring payments (dated), open
  * client receivables and supplier payables (by due date), received checks and
  * loan installments. USD accounts/documents/checks are converted at the latest
- * official rate (exchange_rates); without a loaded rate they're skipped, as
- * before. Gated on accounting:read.
+ * official rate (exchange_rates); without a loaded rate they're left out and
+ * the result is flagged `usdSkipped`, and a failed rate read fails the whole
+ * flow. Gated on accounting:read.
  */
 export async function getCashFlowAction(input: {
   monthsBack?: number;
@@ -106,10 +110,16 @@ export async function getCashFlowAction(input: {
 
   // Latest official USD rate — everything USD is valued at this rate (it's a
   // projection tool, not accounting; the ledger converts per-document).
-  const usdRate = (await fetchLatestUsdRate(supabase))?.rate ?? null;
-  /** null = USD without a loaded rate → caller skips. */
-  const arsAtRate = (amount: number, currency: string | null) =>
-    toArs(amount, currency, usdRate);
+  const usdRateRes = await readLatestUsdRate(supabase);
+  if (!usdRateRes.ok) return failed("usd_rate", "exchange_rates read failed");
+  const usdRate = usdRateRes.rate?.rate ?? null;
+  let usdSkipped = false;
+  /** null = USD without a loaded rate → caller skips (and the flow is flagged). */
+  const arsAtRate = (amount: number, currency: string | null) => {
+    const ars = toArs(amount, currency, usdRate);
+    if (ars === null) usdSkipped = true;
+    return ars;
+  };
 
   const { data: accounts, error: accErr } = await paginateRange((from, to) =>
     supabase
@@ -350,6 +360,7 @@ export async function getCashFlowAction(input: {
       monthsFwd,
       pendingMonth: firstFwd,
       usdRate,
+      usdSkipped,
     },
   };
 }
