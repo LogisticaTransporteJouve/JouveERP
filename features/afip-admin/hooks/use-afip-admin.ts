@@ -13,6 +13,7 @@ import {
   getCaeaStatusAction,
   listInvoicingChannelsAction,
   loadAfipAdminAction,
+  requestArcaSyncAction,
   requestCaeaNowAction,
   syncAfipPosAction,
 } from "../actions/afip-admin-actions";
@@ -69,5 +70,11 @@ export function useRequestCaea() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: afipAdminKeys.caea() });
     },
+  });
+}
+
+export function useRequestArcaSync() {
+  return useMutation({
+    mutationFn: () => runAction(() => requestArcaSyncAction()),
   });
 }

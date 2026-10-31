@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { ArcaSyncButton } from "@/features/afip-admin/components/arca-sync-button";
 import { listInvoicesAction } from "@/features/invoices/actions/invoices-actions";
 import { ComprobantesTable } from "@/features/invoices/components/invoices-table";
 import {
@@ -75,11 +76,16 @@ export default async function ComprobantesPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Comprobantes</h1>
-        <p className="text-sm text-muted-foreground">
-          Facturas, notas de crédito y débito por canal.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Comprobantes
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Facturas, notas de crédito y débito por canal.
+          </p>
+        </div>
+        {userCan(ctx.access, "afip:admin") && <ArcaSyncButton />}
       </div>
       <Hydrate state={dehydratedState}>
         <ComprobantesTable

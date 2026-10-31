@@ -9,6 +9,7 @@ import {
 } from "@/lib/inngest/functions/ai-weekly-summary";
 import { aiWorkflowRun } from "@/lib/inngest/functions/ai-workflow-run";
 import { aiWorkflowsMaterialize } from "@/lib/inngest/functions/ai-workflows-materialize";
+import { arcaIssuedSync } from "@/lib/inngest/functions/arca-issued-sync";
 import { bcraExchangeRate } from "@/lib/inngest/functions/bcra-exchange-rate";
 import { caeaInform } from "@/lib/inngest/functions/caea-inform";
 import { caeaRequest } from "@/lib/inngest/functions/caea-request";
@@ -50,6 +51,7 @@ export const { GET, POST, PUT } = serve({
     bcraExchangeRate,
     caeaRequest,
     caeaInform,
+    arcaIssuedSync,
     aiWorkflowsMaterialize,
     aiWorkflowRun,
     aiWeeklySummaryFanOut,

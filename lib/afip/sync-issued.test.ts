@@ -1,0 +1,287 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+import {
+  CONSUMIDOR_FINAL_CUIT,
+  clientIvaConditionFor,
+  receiverCuit,
+  syncIssuedPair,
+  voucherToInvoiceInsert,
+  type ArcaVoucherPort,
+} from "./sync-issued";
+import type { VoucherInfo } from "./wsfev1";
+
+function voucher(over: Partial<VoucherInfo> = {}): VoucherInfo {
+  return {
+    ptoVta: 3,
+    cbteTipo: 1,
+    cbteNro: 1,
+    cbteFch: "20261030",
+    concepto: 2,
+    impTotal: 1210,
+    impNeto: 1000,
+    impIva: 210,
+    impTrib: 0,
+    impOpEx: 0,
+    impTotConc: 0,
+    monId: "PES",
+    monCotiz: 1,
+    fchServDesde: "20261001",
+    fchServHasta: "20261031",
+    fchVtoPago: "20261110",
+    condicionIvaReceptorId: 1,
+    docTipo: 80,
+    docNro: "30718543866",
+    cae: "76000000000001",
+    caeFchVto: "20261109",
+    emisionTipo: "CAE",
+    cbtesAsoc: [],
+    ...over,
+  };
+}
+
+type Row = Record<string, unknown>;
+
+// Minimal PostgREST-like fake covering the chains sync-issued uses.
+function fakeSupabase(tables: Record<string, Row[]>) {
+  let seq = 0;
+  function query(table: string) {
+    const filters: Array<(r: Row) => boolean> = [];
+    let order: { col: string; asc: boolean } | null = null;
+    let limit = Infinity;
+    const rows = () => {
+      let out = (tables[table] ?? []).filter((r) => filters.every((f) => f(r)));
+      if (order) {
+        const { col, asc } = order;
+        out = [...out].sort(
+          (a, b) => (Number(a[col]) - Number(b[col])) * (asc ? 1 : -1),
+        );
+      }
+      return out.slice(0, limit);
+    };
+    const builder = {
+      select: () => builder,
+      eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), builder),
+      is: (c: string, v: unknown) => (
+        filters.push((r) => (r[c] ?? null) === v),
+        builder
+      ),
+      not: (c: string, _op: string, v: unknown) => (
+        filters.push((r) => (r[c] ?? null) !== v),
+        builder
+      ),
+      in: (c: string, vs: unknown[]) => (
+        filters.push((r) => vs.includes(r[c])),
+        builder
+      ),
+      order: (col: string, o?: { ascending?: boolean }) => (
+        (order = { col, asc: o?.ascending ?? true }),
+        builder
+      ),
+      limit: (n: number) => ((limit = n), builder),
+      maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
+      single: async () => ({ data: rows()[0], error: null }),
+      upsert: async (row: Row, opts: { onConflict: string }) => {
+        const list = (tables[table] ??= []);
+        if (list.some((r) => r[opts.onConflict] === row[opts.onConflict])) {
+          return { error: null };
+        }
+        list.push({ id: `${table}-${++seq}`, ...row });
+        return { error: null };
+      },
+      then: (resolve: (v: { data: Row[]; error: null }) => void) =>
+        resolve({ data: rows(), error: null }),
+    };
+    return builder;
+  }
+  return { from: query } as never;
+}
+
+function fakeAfip(vouchers: VoucherInfo[]): ArcaVoucherPort {
+  return {
+    lookupContributor: async (cuit) => ({
+      cuit,
+      person_type: "JURIDICA",
+      id_type: "CUIT",
+      status: "ACTIVO",
+      legal_name: "PALLET SIRANS S.R.L.",
+      first_name: null,
+      last_name: null,
+      tax_condition: "responsable_inscripto",
+      fiscal_address: null,
+      main_activity: null,
+      closing_month: null,
+      registration_date: null,
+      taxes: [],
+    }),
+    getLastAuthorizedNumber: async (pv, tipo) =>
+      Math.max(
+        0,
+        ...vouchers
+          .filter((v) => v.ptoVta === pv && v.cbteTipo === tipo)
+          .map((v) => v.cbteNro),
+      ),
+    getVoucherInfo: async (pv, tipo, nro) =>
+      vouchers.find(
+        (v) => v.ptoVta === pv && v.cbteTipo === tipo && v.cbteNro === nro,
+      ) ?? null,
+  };
+}
+
+const target = { punto_venta: 3, channel_id: "jouve_fiscal" };
+
+describe("voucherToInvoiceInsert", () => {
+  it("maps an ARCA factura A to an emitted invoice", () => {
+    const row = voucherToInvoiceInsert(voucher({ cbteNro: 6 }), {
+      channelId: "jouve_fiscal",
+      clientId: "c1",
+      originId: null,
+    });
+    expect(row).toMatchObject({
+      kind: "factura",
+      letter: "A",
+      punto_venta: 3,
+      numero: 6,
+      fecha: "2026-10-30",
+      cbte_tipo_afip: 1,
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_total: 1210,
+      moneda: "PES",
+      cae: "76000000000001",
+      cae_vencimiento: "2026-11-09",
+      fch_serv_desde: "2026-10-01",
+      status: "emitted",
+      emission_type: "cae",
+      idempotency_key: "arca-sync-3-1-6",
+    });
+  });
+
+  it("keeps the origin cbte tipo on NC/ND and skips unknown tipos", () => {
+    const nc = voucherToInvoiceInsert(
+      voucher({ cbteTipo: 3, cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }] }),
+      { channelId: "jouve_fiscal", clientId: "c1", originId: "inv-6" },
+    );
+    expect(nc).toMatchObject({
+      kind: "nc",
+      cbte_tipo_origen_afip: 1,
+      invoice_origin_id: "inv-6",
+    });
+    expect(
+      voucherToInvoiceInsert(voucher({ cbteTipo: 51 }), {
+        channelId: "x",
+        clientId: "c1",
+        originId: null,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("receiver mapping", () => {
+  it("uses the CUIT only for DocTipo 80 with 11 digits", () => {
+    expect(receiverCuit(voucher())).toBe("30718543866");
+    expect(receiverCuit(voucher({ docTipo: 96, docNro: "30111222" }))).toBe(
+      CONSUMIDOR_FINAL_CUIT,
+    );
+  });
+
+  it("derives the client IVA condition from CondicionIVAReceptorId", () => {
+    expect(clientIvaConditionFor(voucher({ condicionIvaReceptorId: 6 }))).toBe(
+      "monotributo",
+    );
+    expect(clientIvaConditionFor(voucher({ docTipo: 99, docNro: "0" }))).toBe(
+      "consumidor_final",
+    );
+  });
+});
+
+describe("syncIssuedPair", () => {
+  it("imports from the last local number up to ARCA's last, within the limit", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "i1",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 1,
+          status: "emitted",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([1, 2, 3, 4].map((n) => voucher({ cbteNro: n })));
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 1, 2);
+
+    expect(res).toMatchObject({
+      imported: 2,
+      last_local: 1,
+      last_authorized: 4,
+    });
+    expect(db.invoices.map((r) => r.numero)).toEqual([1, 2, 3]);
+    expect(db.clients).toEqual([
+      expect.objectContaining({
+        cuit: "30718543866",
+        legal_name: "PALLET SIRANS S.R.L.",
+      }),
+    ]);
+  });
+
+  it("does not touch a pair with an emission waiting for its CAE", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "i9",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: null,
+          status: "emitting",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([voucher({ cbteNro: 1 })]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 1, 10);
+
+    expect(res.imported).toBe(0);
+    expect(res.stopped).toMatch(/emisión en curso/);
+    expect(db.invoices).toHaveLength(1);
+  });
+
+  it("links an NC to its imported origin and skips one without origin", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "inv-6",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 6,
+          status: "emitted",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 1,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 6 }],
+      }),
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 2,
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 99 }],
+      }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 1 });
+    expect(db.invoices.find((r) => r.kind === "nc")).toMatchObject({
+      numero: 1,
+      invoice_origin_id: "inv-6",
+    });
+  });
+});

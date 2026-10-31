@@ -230,18 +230,21 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
   });
 
   const text = await res.text();
+  // AFIP answers business faults ("No existe persona con ese Id") as HTTP 500
+  // with a SOAP Fault body, so the fault is read before the status.
+  const parsed = xmlParser.parse(text) as ParsedPadronResponse;
+  const fault = parsed.Envelope?.Body?.Fault;
+  if (fault) {
+    throw new Error(padronFaultMessage(cuitClean, fault.faultstring));
+  }
   if (!res.ok) {
     logger.warn("padron.http_error", {
       status: res.status,
       body: text.slice(0, 500),
     });
-    throw new Error(`Padrón HTTP ${res.status}: ${text.slice(0, 300)}`);
-  }
-
-  const parsed = xmlParser.parse(text) as ParsedPadronResponse;
-  const fault = parsed.Envelope?.Body?.Fault;
-  if (fault) {
-    throw new Error(`Padrón fault: ${fault.faultstring ?? "unknown"}`);
+    throw new Error(
+      `El padrón de AFIP no respondió (HTTP ${res.status}). Probá de nuevo en un rato.`,
+    );
   }
 
   const persona =
@@ -251,4 +254,16 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
   }
 
   return { ...normalizePersona(persona), cuit: cuitClean };
+}
+
+export function padronFaultMessage(
+  cuit: string,
+  faultstring: string | undefined,
+): string {
+  if (faultstring && /no existe persona/i.test(faultstring)) {
+    return getAfipEnv() === "homo"
+      ? `El CUIT ${cuit} no está en el padrón de homologación de AFIP, que solo tiene datos de prueba.`
+      : `El CUIT ${cuit} no existe en el padrón de AFIP.`;
+  }
+  return `El padrón de AFIP devolvió un error: ${faultstring ?? "sin detalle"}.`;
 }
