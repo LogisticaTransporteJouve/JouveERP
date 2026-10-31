@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -10,6 +11,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   configurePosAction,
+  getArcaReconciliationAction,
   getCaeaStatusAction,
   listInvoicingChannelsAction,
   loadAfipAdminAction,
@@ -76,5 +78,15 @@ export function useRequestCaea() {
 export function useRequestArcaSync() {
   return useMutation({
     mutationFn: () => runAction(() => requestArcaSyncAction()),
+  });
+}
+
+/** On demand: each run asks ARCA for every (pv, tipo) last number. */
+export function useArcaReconciliation(enabled: boolean) {
+  return useQuery({
+    queryKey: afipAdminKeys.reconciliation(),
+    queryFn: () => runAction(() => getArcaReconciliationAction()),
+    enabled,
+    staleTime: 0,
   });
 }
