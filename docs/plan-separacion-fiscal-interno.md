@@ -59,7 +59,7 @@ Este plan cierra las fugas que quedan en [`separacion-fiscal-interno.md`](separa
   - Los emisores de cheques no miran el canal.
   - ACL de los `emit_*`: `{postgres, service_role}`.
 - **Reversos.** Los 4 triggers `*_after_update_journal` buscan el asiento con `order by created_at
-  asc limit 1` y lo **reconstruyen** con `emit_*(…, true, v_original)`. Usan la fecha del documento,
+asc limit 1` y lo **reconstruyen** con `emit_*(…, true, v_original)`. Usan la fecha del documento,
   así que hoy anular un documento de un período cerrado ya da `55006`.
 - **Centro de costo.** `set_journal_cost_center` completa `cost_center_id` desde la fila **actual**
   del documento cuando viene NULL.
@@ -98,7 +98,7 @@ Este plan cierra las fugas que quedan en [`separacion-fiscal-interno.md`](separa
   `guard_transaction_immutable_when_linked` (que es INVOKER y no tiene `search_path`).
 - **CI.**
   - `.github/scripts/check-migration-definer-revoke.mjs` exige, para toda DEFINER, `revoke … from
-    public, anon, authenticated`.
+public, anon, authenticated`.
   - `lib/db/rpc-role-guards.test.ts` exige ese revoke y el guard de rol en `update_receipt`,
     `update_payment_order`, `deposit_check`, `reject_check` y `replace_purchase_invoice_items`.
   - Default ACL de funciones nuevas: `{anon, authenticated, service_role}`.
@@ -136,25 +136,25 @@ canal deja de distinguir fiscal de interno.
 - **Tesorería y saldos de cuentas** quedan consolidados por diseño: es la caja real. Se rotulan
   "Caja real (todos los canales)". El flujo de caja sí clasifica por `isFiscal`.
 
-| Pieza | Capa | Contrato |
-|---|---|---|
-| `FISCAL_FILTERS`, `FiscalFilter`, `isFiscalFilter`, `SCOPE_COOKIE`, `SCOPE_LABEL`, `parseFiscalFilter(raw)`, `channelIsFiscal(id, allChannels): boolean \| null`, `InvoicingChannelSummary` (sin `Division`) | `lib/scope.ts` (puro, apto para cliente, **sin `next/*`**) | Único módulo de canal y alcance. El alcance es un `FiscalFilter`, no se envuelve. `isFiscalFor(filter)` y `defaultChannelFor(filter, channels)` llegan con su primer uso (PR G) |
-| `userCanAll(access, perms)` | `lib/auth/permissions.ts` (+ test) | Gate compuesto. Único helper para acciones, páginas, nav, export e IA. `NavItem.permission` y el `permission` de export aceptan un array |
-| `serializeFiscalFilter(f)` / `parseFiscalFilter(raw)` | `lib/scope.ts` | Único writer y reader de la cookie y del localStorage. Se escribe `{"fiscalFilter": f}` (objeto JSON, así el código viejo sigue leyendo tras un rollback). Se leen el objeto viejo `{division, fiscalFilter}`, un string pelado y basura (→ `"all"`) |
-| `applyFiscalFilter(query, isFiscal, embed)` | `lib/supabase/fiscal-filter.ts` | Opera sobre el embed que ya usa el select (`channel:invoicing_channels(name,is_fiscal)`): `.eq(\`${embed}.is_fiscal\`, v)` + `.not(embed, "is", null)` cuando `isFiscal !== null`. Select constante, una sola función. Las vistas usan `channel_is_fiscal` |
-| `mapDbGuardError(error, { slug, userId, id })` | `lib/db/guard-errors.ts` (PR A) | Solo con `error.hint === 'jouve_guard'`: devuelve el mensaje del guard y hace `logger.warn(slug, …)`, con `slug` literal (p. ej. `"receipts.update.rejected"`). Cualquier otro error devuelve `null` |
-| `loadEmisor(supabase, channel)`, `redactEmisor({isFiscal, emisor})`, `divisionLabel(division)` | `lib/pdf/emisor.ts` | Una sola carga de `business_units` para los 3 renderers; el mismo texto de división que hoy |
-| `build_*_journal_lines` (todos los orígenes) | DB | EXTRACT para recibo, OP y movimiento, como ya existe para comprobante y compra. Los `emit_*` = build + insert |
-| `current_journal_entry(src, id)`, `reverse_journal_entry(id)` | DB, DEFINER internas | **Reverso único:** clona las líneas negadas, el centro de costo (aunque sea NULL), el período, la fecha y el canal |
-| `repost_journal(src, id)` | DB, DEFINER interna | **Re-asiento único.** Se dispara solo con `AFTER UPDATE OF <columnas que lee el asiento>`; un UPDATE de `notified_at` o de notas no lo dispara.<br><br>Al disparar:<br>1. Vuelve a leer el estado y sigue solo si el documento está vigente.<br>2. Construye las líneas con `build_*`.<br>3. Compara contra el asiento vigente: el multiconjunto `(chart_of_accounts_id, cost_center_id, debit, credit)` más `entry_date`, `accrual_period` y `channel_id`. **Las descripciones no cuentan.**<br><br>Resultado de la comparación:<br>- Igual: no hace nada.<br>- Distinto: borra los asientos vigentes (`GET DIAGNOSTICS` = vigentes) y emite. Si el período está cerrado, `55006`.<br>- Sin asiento vigente: no hace nada; lo lista `journal_missing_entries()`, el diagnóstico de 4.1.<br>- Si no puede construir las líneas: `raise … hint 'jouve_guard'` con la causa |
+| Pieza                                                                                                                                                                                                        | Capa                                                       | Contrato                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FISCAL_FILTERS`, `FiscalFilter`, `isFiscalFilter`, `SCOPE_COOKIE`, `SCOPE_LABEL`, `parseFiscalFilter(raw)`, `channelIsFiscal(id, allChannels): boolean \| null`, `InvoicingChannelSummary` (sin `Division`) | `lib/scope.ts` (puro, apto para cliente, **sin `next/*`**) | Único módulo de canal y alcance. El alcance es un `FiscalFilter`, no se envuelve. `isFiscalFor(filter)` y `defaultChannelFor(filter, channels)` llegan con su primer uso (PR G)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `userCanAll(access, perms)`                                                                                                                                                                                  | `lib/auth/permissions.ts` (+ test)                         | Gate compuesto. Único helper para acciones, páginas, nav, export e IA. `NavItem.permission` y el `permission` de export aceptan un array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `serializeFiscalFilter(f)` / `parseFiscalFilter(raw)`                                                                                                                                                        | `lib/scope.ts`                                             | Único writer y reader de la cookie y del localStorage. Se escribe `{"fiscalFilter": f}` (objeto JSON, así el código viejo sigue leyendo tras un rollback). Se leen el objeto viejo `{division, fiscalFilter}`, un string pelado y basura (→ `"all"`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `applyFiscalFilter(query, isFiscal, embed)`                                                                                                                                                                  | `lib/supabase/fiscal-filter.ts`                            | Opera sobre el embed que ya usa el select (`channel:invoicing_channels(name,is_fiscal)`): `.eq(\`${embed}.is_fiscal\`, v)`+`.not(embed, "is", null)`cuando`isFiscal !== null`. Select constante, una sola función. Las vistas usan `channel_is_fiscal`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `mapDbGuardError(error, { slug, userId, id })`                                                                                                                                                               | `lib/db/guard-errors.ts` (PR A)                            | Solo con `error.hint === 'jouve_guard'`: devuelve el mensaje del guard y hace `logger.warn(slug, …)`, con `slug` literal (p. ej. `"receipts.update.rejected"`). Cualquier otro error devuelve `null`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `loadEmisor(supabase, channel)`, `redactEmisor({isFiscal, emisor})`, `divisionLabel(division)`                                                                                                               | `lib/pdf/emisor.ts`                                        | Una sola carga de `business_units` para los 3 renderers; el mismo texto de división que hoy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `build_*_journal_lines` (todos los orígenes)                                                                                                                                                                 | DB                                                         | EXTRACT para recibo, OP y movimiento, como ya existe para comprobante y compra. Los `emit_*` = build + insert                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `current_journal_entry(src, id)`, `reverse_journal_entry(id)`                                                                                                                                                | DB, DEFINER internas                                       | **Reverso único:** clona las líneas negadas, el centro de costo (aunque sea NULL), el período, la fecha y el canal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `repost_journal(src, id)`                                                                                                                                                                                    | DB, DEFINER interna                                        | **Re-asiento único.** Se dispara solo con `AFTER UPDATE OF <columnas que lee el asiento>`; un UPDATE de `notified_at` o de notas no lo dispara.<br><br>Al disparar:<br>1. Vuelve a leer el estado y sigue solo si el documento está vigente.<br>2. Construye las líneas con `build_*`.<br>3. Compara contra el asiento vigente: el multiconjunto `(chart_of_accounts_id, cost_center_id, debit, credit)` más `entry_date`, `accrual_period` y `channel_id`. **Las descripciones no cuentan.**<br><br>Resultado de la comparación:<br>- Igual: no hace nada.<br>- Distinto: borra los asientos vigentes (`GET DIAGNOSTICS` = vigentes) y emite. Si el período está cerrado, `55006`.<br>- Sin asiento vigente: no hace nada; lo lista `journal_missing_entries()`, el diagnóstico de 4.1.<br>- Si no puede construir las líneas: `raise … hint 'jouve_guard'` con la causa |
 
 **Grants (convención única, la que exigen los checks de CI):**
 
-| Tipo de función | Grants |
-|---|---|
+| Tipo de función                                                                                             | Grants                                                                             |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | DEFINER internas (`emit_*`, `build_*`, `current/reverse/repost_journal`, guards, triggers, `dz_open_items`) | `revoke all … from public, anon, authenticated`, sin grant (o solo `service_role`) |
-| DEFINER llamadas desde la UI (`create_manual_journal_entry`) | revoke ×3 + `grant execute … to authenticated` + chequeo de rol interno |
-| INVOKER RPCs (aging, `ai_*`, búsqueda) | `revoke all … from public, anon` + `grant … to authenticated, service_role` |
+| DEFINER llamadas desde la UI (`create_manual_journal_entry`)                                                | revoke ×3 + `grant execute … to authenticated` + chequeo de rol interno            |
+| INVOKER RPCs (aging, `ai_*`, búsqueda)                                                                      | `revoke all … from public, anon` + `grant … to authenticated, service_role`        |
 
 pgTAP verifica `has_function_privilege('authenticated', …)` en cada caso.
 
@@ -169,16 +169,18 @@ canal solo contra los activos; re-escribir el enum o las etiquetas de alcance.
   de `> 0`). La usan `v_supplier_aging_documents` y el chequeo diferido post-edición. El guard de
   #247 conserva su fórmula y su `FOR UPDATE`.
 - **Regla de hints:** toda `raise` de un guard que este plan agrega o toca lleva `using hint =
-  'jouve_guard'`.
+'jouve_guard'`.
 - `readFiscal` de tesorería → `channelIsFiscal`.
 
 **One-way doors:**
 
 1. **Retiro de DZ.**
    - El PR 0 instala el guard y el diagnóstico.
-   - El PR 0b desactiva DZ. Se mergea cuando `dz_open_items()` da 0 en producción, lo vuelve a
+   - El PR 0b retira DZ. Se mergea cuando `dz_open_items()` da 0 en producción, lo vuelve a
      correr el dueño justo antes de aprobar `production-gate`, y el PR B ya está promovido.
-   - Se revierte con `is_active=true`.
+   - Camino **borrar** (D10, sin documentos DZ): `delete` de los canales DZ. No se revierte con un
+     update: hay que volver a insertarlos. Se aceptó porque no hay datos que perder.
+   - Camino **ocultar** (D10, con documentos DZ): `is_active=false`. Se revierte con `is_active=true`.
 2. **Canal en cheques + backfill.** Desde documentos solamente.
 3. **Revoke de `create_journal_entry` a `authenticated` (C2).** Se mergea después de que C esté
    promovido. El checklist de C2 y `CONTRIBUTING.md` dicen: "para hacer rollback a un SHA anterior a
@@ -195,15 +197,48 @@ canal solo contra los activos; re-escribir el enum o las etiquetas de alcance.
      - revoke ×3 de las firmas nuevas.
 
      Un Vitest sobre `latestDefinition` verifica que nadie llame a una aridad borrada.
+
    - Si cambia la firma de una RPC con defaults: drop + create de una sola versión (precedente
      `20260516190000:7`).
 
 **Decisiones del dueño:**
 
-- **D10 (PR 0/0b) — retirar DZ.**
-  - Recomendado: saldar todo lo que liste `dz_open_items()` y después correr 0b. La función la
-    ejecuta el dueño desde el SQL editor de Supabase: `select * from public.dz_open_items();`.
-  - Después del retiro, DZ queda congelado:
+- **D10 (PR 0/0b) — retirar DZ.** Objetivo del dueño: que DZ no exista más, ni en la app ni en la
+  base. El camino lo decide un conteo que el dueño corre en producción (SQL editor, solo lectura):
+
+  ```sql
+  select t, n from (
+    select 'invoices' t, count(*) n from public.invoices where channel_id like 'dz\_%'
+    union all select 'purchase_invoices', count(*) from public.purchase_invoices where channel_id like 'dz\_%'
+    union all select 'receipts', count(*) from public.receipts where channel_id like 'dz\_%'
+    union all select 'payment_orders', count(*) from public.payment_orders where channel_id like 'dz\_%'
+    union all select 'transactions', count(*) from public.transactions where channel_id like 'dz\_%'
+    union all select 'journal_entries', count(*) from public.journal_entries where channel_id like 'dz\_%'
+    union all select 'loans', count(*) from public.loans where channel_id like 'dz\_%'
+    union all select 'payroll_payments', count(*) from public.payroll_payments where channel_id like 'dz\_%'
+    union all select 'recurring_payments', count(*) from public.recurring_payments where channel_id like 'dz\_%'
+    union all select 'shipments', count(*) from public.shipments where channel_id like 'dz\_%'
+    union all select 'trips', count(*) from public.trips where channel_id like 'dz\_%'
+    union all select 'suppliers', count(*) from public.suppliers where default_channel_id like 'dz\_%'
+    union all select 'sales_points', count(*) from public.sales_points where channel_id like 'dz\_%'
+  ) x order by t;
+  ```
+
+  - **Todo en 0 salvo `suppliers`, `sales_points`, `recurring_payments`, `shipments` sin factura →
+    camino borrar (recomendado si aplica).** 0b pone esas referencias en NULL, borra los canales
+    `dz_fiscal` y `dz_internal`, y la división `dz` desaparece del CHECK, del código, del seed y de
+    los docs. No queda rastro de DZ.
+  - **Hay comprobantes fiscales DZ con CAE → camino ocultar.** No se pueden borrar: AFIP ya los
+    tiene, forman parte del Libro IVA del CUIT ya presentado y hay que conservarlos 10 años. Los
+    canales quedan con `is_active=false` y la app los oculta del todo (selector, pickers,
+    filtros, etiquetas). Solo aparecen como renglones del Libro IVA y de los reportes fiscales de
+    sus períodos.
+  - **Solo hay documentos internos DZ (o de prueba)** → el dueño elige: ocultar, o borrarlos en la
+    limpieza aceptando que cambian los saldos de las cuentas y cajas que tocaron (0b lista el
+    impacto antes de borrar).
+  - En los dos caminos: saldar antes todo lo que liste `dz_open_items()` y después correr 0b. La
+    función la ejecuta el dueño desde el SQL editor de Supabase: `select * from public.dz_open_items();`.
+  - Después del retiro por el camino ocultar, DZ queda congelado:
     - corregir **compras** de DZ y anular recibos u OPs de DZ sigue funcionando, porque el diario no
       tiene guard de canal;
     - crear o mover registros a DZ falla;
@@ -211,6 +246,7 @@ canal solo contra los activos; re-escribir el enum o las etiquetas de alcance.
       el POS, emite y vuelve a desactivar.
   - La función no lleva chequeo de JWT: corre como `postgres` desde el SQL editor.
   - El POS 00004 queda habilitado hasta la baja en ARCA si es CAEA.
+
 - **D1 (PR C):** asiento manual con canal NULL o con un canal fiscal **activo**.
 - **D2 (PR D):** en compras con canal fiscal, la letra es obligatoria. El CAE solo se avisa.
 - **D3 (PR D):** editar una compra recibida re-asienta. Alternativa: bloquear la edición de importes.
@@ -250,7 +286,8 @@ Cada PR se rebasea sobre `origin/main`, y cada migración lleva un timestamp may
 
 ## Phase 0: Solo Logística Jouve (PR 0, PR 0b)
 
-Objetivo: operar solo `jouve_*`, con DZ consultable como histórico. Depende de D10.
+Objetivo: operar solo `jouve_*`. DZ desaparece de la base (camino borrar) o queda solo como
+histórico fiscal oculto (camino ocultar). Depende de D10.
 
 ### 0.1 Diagnóstico y guard de canal activo (PR 0)
 
@@ -324,7 +361,7 @@ Objetivo: operar solo `jouve_*`, con DZ consultable como histórico. Depende de 
     → 0. Esos dos archivos cambian en 0.4.
 - **Scope:** el Concepto, el prompt y los docs van en 0.4, mientras DZ siga operando.
 
-### 0.4 Desactivar DZ (PR 0b — requiere B promovido y `dz_open_items()` = 0)
+### 0.4 Retirar DZ (PR 0b — requiere B promovido y `dz_open_items()` = 0)
 
 - **Files:**
   - `supabase/migrations/<ts>_retire_dz_division.sql`, `supabase/seed.sql:16-25`,
@@ -334,7 +371,19 @@ Objetivo: operar solo `jouve_*`, con DZ consultable como histórico. Depende de 
   - `features/ai/agent.ts:40`, `features/ai/skills/registry.ts:91-104`
   - `CLAUDE.md`, `docs/{accounting-patterns,ai-patterns:710-711,separacion-fiscal-interno}.md`
 - **Target:**
-  - Migración:
+  - Migración, **camino borrar** (D10):
+    - aborta con `raise` si alguna tabla del conteo de D10 tiene una fila DZ fuera de las que
+      esta misma migración limpia (la guarda vive en la migración porque el conteo ya dio 0 en
+      producción antes del merge; no bloquea deploys);
+    - NULL en `suppliers.default_channel_id`, `recurring_payments`, `shipments` y
+      `sales_points.channel_id` de DZ;
+    - `delete from invoicing_channels where division='dz'`;
+    - CHECK de `division` → `('jouve')`. La columna queda (expand-only: el código viejo de un
+      rollback la sigue leyendo); se borra en un PR posterior;
+    - `drop function dz_open_items()`.
+    - Código: se borran las ramas y etiquetas `dz` (`division` deja de ser selector), el tipo
+      `Division` pasa a `'jouve'`.
+  - Migración, **camino ocultar** (D10):
     - `update invoicing_channels set is_active=false where division='dz'`;
     - deshabilita el POS 2, y el POS 4 solo si `last_known_emission_type <> 'caea'`;
     - pone en NULL **solo lo pendiente**: `suppliers.default_channel_id`, los `recurring_payments`
@@ -347,8 +396,9 @@ Objetivo: operar solo `jouve_*`, con DZ consultable como histórico. Depende de 
   - Docs: "DZ retirada el 2026-10-31".
   - Checklist del PR: salida de `dz_open_items()` vacía, vuelta a correr antes de `production-gate`.
 - **Validation:** `supabase db reset`, `pnpm eval:ai`, `git grep -n '"dz"' -- features lib app components` → 0.
-  A mano: los pickers solo ofrecen Jouve, y "Solo fiscal" sigue mostrando las facturas fiscales de
-  DZ.
+  Camino borrar: `select count(*) from invoicing_channels where division='dz'` → 0 y el pgTAP de la
+  migración falla si queda una fila DZ. Camino ocultar, a mano: los pickers solo ofrecen Jouve, y
+  "Solo fiscal" sigue mostrando las facturas fiscales de DZ.
 
 ## Phase 1: Bugs sueltos y base (PR A)
 
@@ -557,7 +607,7 @@ D3 y D4.
     build + insert.
   - **Recibo:** mantiene las retenciones de 1.5.
   - **USD:** `build_*` usa la cotización **guardada** con la cadena actual (`nullif(cotizacion,0),
-    get_exchange_rate, 1`), igual que `libro_iva_*` y como exige `multicurrency-reports.test.ts:46-58`.
+get_exchange_rate, 1`), igual que `libro_iva_*` y como exige `multicurrency-reports.test.ts:46-58`.
     No hay write-back ni raise. Recibos, OPs y movimientos siguen al nominal (Deferred).
   - **`journal_missing_entries()`:** diagnóstico DEFINER interno. Lista los documentos fiscales
     vigentes sin asiento y aquellos cuyo asiento vigente ≠ `build_*`. Va en el cuerpo del PR, para
@@ -586,8 +636,8 @@ D3 y D4.
 - **Target:**
   - `replace_purchase_invoice_items` pierde su bloque de diario.
   - Constraint trigger `AFTER UPDATE OF imp_neto, imp_iva, imp_trib, imp_total, imp_op_ex,
-    imp_tot_conc, fecha, moneda, cotizacion, account_id, cost_center_id, kind, letter, punto_venta,
-    numero, channel_id`, `DEFERRABLE INITIALLY DEFERRED`, sobre compras `received` → `repost_journal`.
+imp_tot_conc, fecha, moneda, cotizacion, account_id, cost_center_id, kind, letter, punto_venta,
+numero, channel_id`, `DEFERRABLE INITIALLY DEFERRED`, sobre compras `received` → `repost_journal`.
   - La edición en dos llamadas (cabecera y después ítems) re-asienta una vez por commit. Es
     idempotente gracias a la comparación. Si fallan los ítems, el asiento refleja la cabecera, que
     es lo que quedó guardado.
@@ -626,7 +676,7 @@ D3 y D4.
 - **Files:** misma migración.
 - **Target:**
   - Constraint triggers `AFTER UPDATE OF receipt_date, total_amount` (o `payment_date,
-    total_amount`), `DEFERRABLE INITIALLY DEFERRED` y DEFINER, en `receipts` y `payment_orders` →
+total_amount`), `DEFERRABLE INITIALLY DEFERRED` y DEFINER, en `receipts` y `payment_orders` →
     `repost_journal`.
   - `update_receipt` / `update_payment_order` siempre setean esas columnas, así que toda edición
     dispara el trigger. `notified_at` no lo dispara.
@@ -875,37 +925,38 @@ Diferido (A5).
 
 ### New files
 
-| File | Purpose |
-|---|---|
-| `supabase/migrations/<ts>_channel_active_guard.sql` / `<ts>_retire_dz_division.sql` | Guard + diagnóstico (0.1) / retiro (0.4) |
-| `supabase/migrations/<ts>_guard_hints.sql` | Hints (1.3) |
-| `supabase/migrations/<ts>_checks_channel.sql` | Cheques (2.x) |
-| `supabase/migrations/<ts>_journal_manual_rpc.sql` / `<ts>_revoke_create_journal_entry.sql` | Diario (3.1–3.2) |
-| `supabase/migrations/<ts>_journal_reverse_repost.sql` | `build_*`, reverso, re-asiento, compras, recibos/OPs (4.1–4.4) |
-| `supabase/migrations/<ts>_transactions_repost.sql` | Movimientos (4.6) |
-| `supabase/migrations/<ts>_channel_config_guards.sql` | Canal/POS (5.1) |
-| `supabase/migrations/<ts>_aging_by_scope.sql` / `<ts>_ai_rpcs_fiscal_filter.sql` | Lecturas (6.1, 8.1) |
-| `supabase/tests/*_test.sql` | pgTAP por fase + invariantes (5.3) |
-| `supabase/migrations/<ts>_receipt_retentions_journal.sql` | Bug de recibos con retenciones (1.5) |
-| `lib/supabase/fiscal-filter.ts`, `lib/db/guard-errors.ts`, `lib/pdf/emisor.ts` | Helpers |
-| `features/storage-billing/schema.test.ts` | Regresión 1.1 |
+| File                                                                                       | Purpose                                                        |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `supabase/migrations/<ts>_channel_active_guard.sql` / `<ts>_retire_dz_division.sql`        | Guard + diagnóstico (0.1) / retiro (0.4)                       |
+| `supabase/migrations/<ts>_guard_hints.sql`                                                 | Hints (1.3)                                                    |
+| `supabase/migrations/<ts>_checks_channel.sql`                                              | Cheques (2.x)                                                  |
+| `supabase/migrations/<ts>_journal_manual_rpc.sql` / `<ts>_revoke_create_journal_entry.sql` | Diario (3.1–3.2)                                               |
+| `supabase/migrations/<ts>_journal_reverse_repost.sql`                                      | `build_*`, reverso, re-asiento, compras, recibos/OPs (4.1–4.4) |
+| `supabase/migrations/<ts>_transactions_repost.sql`                                         | Movimientos (4.6)                                              |
+| `supabase/migrations/<ts>_channel_config_guards.sql`                                       | Canal/POS (5.1)                                                |
+| `supabase/migrations/<ts>_aging_by_scope.sql` / `<ts>_ai_rpcs_fiscal_filter.sql`           | Lecturas (6.1, 8.1)                                            |
+| `supabase/tests/*_test.sql`                                                                | pgTAP por fase + invariantes (5.3)                             |
+| `supabase/migrations/<ts>_receipt_retentions_journal.sql`                                  | Bug de recibos con retenciones (1.5)                           |
+| `lib/supabase/fiscal-filter.ts`, `lib/db/guard-errors.ts`, `lib/pdf/emisor.ts`             | Helpers                                                        |
+| `features/storage-billing/schema.test.ts`                                                  | Regresión 1.1                                                  |
 
 ### Modified files
 
-| File | Change |
-|---|---|
-| `lib/scope.ts`, `components/scope-selector.tsx`, `components/providers/scope-provider.tsx`, `app/(dashboard)/layout.tsx` | Alcance |
+| File                                                                                                                                                                                                                            | Change                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `lib/scope.ts`, `components/scope-selector.tsx`, `components/providers/scope-provider.tsx`, `app/(dashboard)/layout.tsx`                                                                                                        | Alcance                              |
 | `features/{invoices,receipts,payment-orders,transactions,purchase-invoices,loans,hr,checks,issued-checks,aging,clients,suppliers,accounts,journal-entries,afip-admin,shipments,storage-billing,treasury,recurring-payments}/**` | `isFiscal`, defaults, forms, errores |
-| `features/ai/**`, `lib/inngest/functions/aging-weekly-summary.ts` | IA y crons |
-| `lib/pdf/**`, `lib/email/templates/**`, `app/api/export/**`, `components/export-button.tsx`, `components/layout/nav-items.ts`, `app/(dashboard)/aging*/page.tsx` | Salidas y gates |
-| `lib/commands/create-manual-journal-entry.ts`, `lib/db/pg-error-codes.ts`, `lib/db/multicurrency-reports.test.ts` | Diario, errores |
-| `CONTRIBUTING.md`, `lib/auth/permissions.ts` (+ `userCanAll`), `lib/db/rpc-role-guards.test.ts`, `supabase/seed.sql`, `scripts/seed-everything.mjs`, `CLAUDE.md`, `docs/*.md`, `eslint.config.mjs` | Deploy, seed, docs, lint |
+| `features/ai/**`, `lib/inngest/functions/aging-weekly-summary.ts`                                                                                                                                                               | IA y crons                           |
+| `lib/pdf/**`, `lib/email/templates/**`, `app/api/export/**`, `components/export-button.tsx`, `components/layout/nav-items.ts`, `app/(dashboard)/aging*/page.tsx`                                                                | Salidas y gates                      |
+| `lib/commands/create-manual-journal-entry.ts`, `lib/db/pg-error-codes.ts`, `lib/db/multicurrency-reports.test.ts`                                                                                                               | Diario, errores                      |
+| `CONTRIBUTING.md`, `lib/auth/permissions.ts` (+ `userCanAll`), `lib/db/rpc-role-guards.test.ts`, `supabase/seed.sql`, `scripts/seed-everything.mjs`, `CLAUDE.md`, `docs/*.md`, `eslint.config.mjs`                              | Deploy, seed, docs, lint             |
 
 ## Success Criteria
 
 1. Todos los pgTAP de guards, triggers y grants pasan como `authenticated` con su migración, y
    fallan sin ella.
 2. Después de 0b:
+   - camino borrar: no existe ningún canal ni fila DZ; el resto de este punto no aplica;
    - no se puede crear ni mover nada a un canal DZ;
    - corregir compras de DZ y anular recibos u OPs de DZ sigue funcionando;
    - una compra de DZ conserva su letra;
@@ -920,7 +971,7 @@ Diferido (A5).
    internas ni de canal NULL, y **sí** incluyen el histórico fiscal de DZ. Toda cifra lleva
    `SCOPE_LABEL`, y tesorería se rotula "Caja real".
 6. `git grep -n -E 'DEFAULT_CHANNEL_ID|"(jouve|dz)_(fiscal|internal)"|"dz"|division ===' -- features
-   app components lib ':!*.test.*'` → 0.
+app components lib ':!*.test.*'` → 0.
 7. Los PDFs y emails internos no muestran CUIT ni títulos fiscales. Las props de los fiscales no
    cambian. El PDF es determinístico.
 8. `pnpm eval:ai` no regresa, y "¿cuánto facturé?" usa scope fiscal.
@@ -964,53 +1015,53 @@ Todos FIXED en v3.
 
 **Ronda 3** (4 atacantes: rol/deploy, objetivos/puertos/claims, alcance, integridad):
 
-| # | Vector · evidencia | Sev. | Resolución |
-|---|---|---|---|
-| R3-1 | Re-asiento dentro de `update_receipt`/`update_payment_order` (INVOKER): los `emit_*` no tienen grant y el DELETE bajo RLS borra 0 filas → 42501 o doble asiento. Lo vieron 4 atacantes | fatal | FIXED: 4.4, constraint triggers diferidos DEFINER con `repost_journal`; las RPC no cambian |
-| R3-2 | Guard sobre `journal_entries`: los reversos y re-asientos de DZ fallan, contra D10 y el criterio 2. 4 atacantes | fatal | FIXED: `journal_entries` fuera del guard; los manuales se validan en 3.1 |
-| R3-3 | DDL inválido: WHEN con `OLD` en INSERT; `checks`/`issued_checks` no tienen columna en el PR 0; `suppliers` usa `default_channel_id`. 4 atacantes | fatal | FIXED: dos triggers con `TG_ARGV`; cheques en 2.1 |
-| R3-4 | La convención de revoke dejaba `authenticated` con EXECUTE sobre funciones DEFINER internas (forja) y contradice los checks de CI. 3 atacantes | fatal | FIXED: tabla de grants + pgTAP `has_function_privilege` |
-| R3-5 | Quitar `p_reverse` sin DROP deja sobrecargas ambiguas y contradice la regla de expand-only | serious | FIXED: one-way door 4 acotado + DROP explícito |
-| R3-6 | `dz_open_items` no puede salir de vistas con canal NULL o sin moneda; nunca llega a 0; no se dice quién lo corre | serious | FIXED: por documento, con moneda, ejecutado por el dueño antes de `production-gate`, y se borra en 0b |
-| R3-7 | `pdf_layout`: nadie lo escribía; el código viejo; el PDF no es determinístico (`creationDate`), así que el test de hash es imposible | serious | FIXED: 1.4 PDF determinístico, se elimina `pdf_layout`, snapshot de props |
-| R3-8 | El piso de rollback de C2 no se impone | moderate | FIXED → R4-6: checklist (3.3) |
-| R3-9 | El censo de CI es incompleto y depende de PR G | serious | FIXED: reemplazado por invariantes pgTAP + Vitest por acción (5.3) |
-| R3-10 | Gates compuestos sin tipo de export, páginas de aging ni nav | moderate | FIXED: 6.1 |
-| R3-11 | 0b antes de B → el backfill de cheques choca con el guard | serious | FIXED: 0b requiere B promovido |
-| R3-12 | 0.3 cambiaba el Concepto y el prompt mientras DZ todavía operaba | moderate | FIXED: pasa a 0.4 |
-| R3-13 | `useOriginSearch` usa `isFiscal` de PR G y trunca por `kind` | serious | FIXED: movido a 6.1, con filtros del lado del servidor |
-| R3-14 | Re-asiento en 4 copias, sin una unidad definida | serious | FIXED: `repost_journal` + `build_*` |
-| R3-15 | Guard de pendiente: lee OLD, tres fórmulas, tolerancias distintas | serious | FIXED: `purchase_invoice_open_amount` + trigger diferido |
-| R3-16 | Re-asiento incondicional bloquea ediciones de solo notas en período cerrado; los recibos con retenciones quedan desbalanceados (bug existente, verificado en `schema.ts:152-161`) | serious | FIXED: comparar antes de re-asentar; retenciones → superado por R4-1 |
-| R3-17 | TC re-derivado; `moneda`/`cotizacion` fuera del WHEN | moderate | FIXED → R4-4: cotización guardada, sin write-back; comparación sin descripciones |
-| R3-18 | El raise reportaba mal la causa y no llevaba hint | moderate | FIXED: raise desde `repost_journal` con causa y hint |
-| R3-19 | D6: el saldo de la cuenta corriente ≠ el del aging | moderate | FIXED: con alcance, un único saldo = aging; "Todos" igual que hoy |
-| R3-20 | Tesorería `readFiscal` y herramientas IA faltantes (treasury, recurring, loan detail, fleet, storage) | serious | FIXED: 6.1, 8.1 |
-| R3-21 | API de filtro en dos funciones; `Scope` wrapper; helpers sin uso en PR 0 | should-fix | FIXED |
-| R3-22 | Slug de telemetría armado a partir del ctx; command de asientos sin mapeo | cosmetic | FIXED: slug literal; 1.3 |
-| R3-23 | Claims: "13 PRs", overclaim en 1.2, `guard_transaction_immutable_when_linked` sin hint/`search_path`, TRUNCATE sobre el diario | cosmetic | FIXED |
+| #     | Vector · evidencia                                                                                                                                                                     | Sev.       | Resolución                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------- |
+| R3-1  | Re-asiento dentro de `update_receipt`/`update_payment_order` (INVOKER): los `emit_*` no tienen grant y el DELETE bajo RLS borra 0 filas → 42501 o doble asiento. Lo vieron 4 atacantes | fatal      | FIXED: 4.4, constraint triggers diferidos DEFINER con `repost_journal`; las RPC no cambian            |
+| R3-2  | Guard sobre `journal_entries`: los reversos y re-asientos de DZ fallan, contra D10 y el criterio 2. 4 atacantes                                                                        | fatal      | FIXED: `journal_entries` fuera del guard; los manuales se validan en 3.1                              |
+| R3-3  | DDL inválido: WHEN con `OLD` en INSERT; `checks`/`issued_checks` no tienen columna en el PR 0; `suppliers` usa `default_channel_id`. 4 atacantes                                       | fatal      | FIXED: dos triggers con `TG_ARGV`; cheques en 2.1                                                     |
+| R3-4  | La convención de revoke dejaba `authenticated` con EXECUTE sobre funciones DEFINER internas (forja) y contradice los checks de CI. 3 atacantes                                         | fatal      | FIXED: tabla de grants + pgTAP `has_function_privilege`                                               |
+| R3-5  | Quitar `p_reverse` sin DROP deja sobrecargas ambiguas y contradice la regla de expand-only                                                                                             | serious    | FIXED: one-way door 4 acotado + DROP explícito                                                        |
+| R3-6  | `dz_open_items` no puede salir de vistas con canal NULL o sin moneda; nunca llega a 0; no se dice quién lo corre                                                                       | serious    | FIXED: por documento, con moneda, ejecutado por el dueño antes de `production-gate`, y se borra en 0b |
+| R3-7  | `pdf_layout`: nadie lo escribía; el código viejo; el PDF no es determinístico (`creationDate`), así que el test de hash es imposible                                                   | serious    | FIXED: 1.4 PDF determinístico, se elimina `pdf_layout`, snapshot de props                             |
+| R3-8  | El piso de rollback de C2 no se impone                                                                                                                                                 | moderate   | FIXED → R4-6: checklist (3.3)                                                                         |
+| R3-9  | El censo de CI es incompleto y depende de PR G                                                                                                                                         | serious    | FIXED: reemplazado por invariantes pgTAP + Vitest por acción (5.3)                                    |
+| R3-10 | Gates compuestos sin tipo de export, páginas de aging ni nav                                                                                                                           | moderate   | FIXED: 6.1                                                                                            |
+| R3-11 | 0b antes de B → el backfill de cheques choca con el guard                                                                                                                              | serious    | FIXED: 0b requiere B promovido                                                                        |
+| R3-12 | 0.3 cambiaba el Concepto y el prompt mientras DZ todavía operaba                                                                                                                       | moderate   | FIXED: pasa a 0.4                                                                                     |
+| R3-13 | `useOriginSearch` usa `isFiscal` de PR G y trunca por `kind`                                                                                                                           | serious    | FIXED: movido a 6.1, con filtros del lado del servidor                                                |
+| R3-14 | Re-asiento en 4 copias, sin una unidad definida                                                                                                                                        | serious    | FIXED: `repost_journal` + `build_*`                                                                   |
+| R3-15 | Guard de pendiente: lee OLD, tres fórmulas, tolerancias distintas                                                                                                                      | serious    | FIXED: `purchase_invoice_open_amount` + trigger diferido                                              |
+| R3-16 | Re-asiento incondicional bloquea ediciones de solo notas en período cerrado; los recibos con retenciones quedan desbalanceados (bug existente, verificado en `schema.ts:152-161`)      | serious    | FIXED: comparar antes de re-asentar; retenciones → superado por R4-1                                  |
+| R3-17 | TC re-derivado; `moneda`/`cotizacion` fuera del WHEN                                                                                                                                   | moderate   | FIXED → R4-4: cotización guardada, sin write-back; comparación sin descripciones                      |
+| R3-18 | El raise reportaba mal la causa y no llevaba hint                                                                                                                                      | moderate   | FIXED: raise desde `repost_journal` con causa y hint                                                  |
+| R3-19 | D6: el saldo de la cuenta corriente ≠ el del aging                                                                                                                                     | moderate   | FIXED: con alcance, un único saldo = aging; "Todos" igual que hoy                                     |
+| R3-20 | Tesorería `readFiscal` y herramientas IA faltantes (treasury, recurring, loan detail, fleet, storage)                                                                                  | serious    | FIXED: 6.1, 8.1                                                                                       |
+| R3-21 | API de filtro en dos funciones; `Scope` wrapper; helpers sin uso en PR 0                                                                                                               | should-fix | FIXED                                                                                                 |
+| R3-22 | Slug de telemetría armado a partir del ctx; command de asientos sin mapeo                                                                                                              | cosmetic   | FIXED: slug literal; 1.3                                                                              |
+| R3-23 | Claims: "13 PRs", overclaim en 1.2, `guard_transaction_immutable_when_linked` sin hint/`search_path`, TRUNCATE sobre el diario                                                         | cosmetic   | FIXED                                                                                                 |
 
 **Ronda 4** (4 atacantes: diseño SQL, rol/deploy, alcance, objetivos/simplicidad):
 
-| # | Vector · evidencia | Sev. | Resolución |
-|---|---|---|---|
-| R4-1 | Retenciones a `retenciones_cobradas` (pasivo, 2.1.2.5) y del lado del crédito: el asiento sigue desbalanceado. Además, hoy un recibo fiscal con retenciones **no se puede crear** (23514 al commit; `create_journal_entry:81`). 3 atacantes | fatal | FIXED: 1.5 en el PR A, débito a `retenciones_pagadas` / `percepciones_iibb_pagadas`, y D12 |
-| R4-2 | El `DROP` de las firmas `emit_*` rompe los 9 call sites (plpgsql se resuelve recién al ejecutar) | serious | FIXED: one-way door 4, reemplazo previo + smoke + Vitest de aridad |
-| R4-3 | El re-asiento disparado por cualquier UPDATE (`notified_at`) reescribía el histórico; la clave de comparación no estaba definida; caso sin asiento. 4 atacantes | serious | FIXED: `AFTER UPDATE OF` columnas de asiento, comparación sin descripciones, no-op + diagnóstico |
-| R4-4 | El write-back o raise de la cotización USD choca con `check_invoice_immutability`, con el test de paridad y con documentos que no tienen la columna | serious | FIXED: cadena actual con la cotización guardada, sin write-back |
-| R4-5 | Los pgTAP de triggers diferidos no prueban nada dentro de `begin…rollback` | serious | FIXED: `set constraints all immediate` |
-| R4-6 | El piso de rollback se lee del árbol del SHA destino, y el Instant Rollback de Vercel lo saltea | serious | FIXED: se reemplaza por un checklist (simplicidad) |
-| R4-7 | Las NC de facturas fiscales de DZ son imposibles después de 0b (guard + POS deshabilitado) | serious | FIXED: runbook en D10; criterio 2 reescrito |
-| R4-8 | 0b borraba de forma irreversible el canal histórico de viajes y envíos; el guard frente a NULL | serious | FIXED: solo pendientes; el guard devuelve `new` con NULL |
-| R4-9 | Las vistas `by_scope` daban varias filas por contraparte, con paginación y `party_count` rotos; grants a anon | serious | FIXED: `null` → vista vieja; con valor → `.eq`; `security_invoker`; revoke de anon; test |
-| R4-10 | `purchase_invoice_open_amount` por fila en la vista (perf) y paridad con el guard de #247 | serious | FIXED: vista base set-based; el guard de #247 queda igual |
-| R4-11 | Edición de compras en dos llamadas | moderate | REBUTTED-with-evidence: idempotente por la comparación; el estado final coincide con lo guardado |
-| R4-12 | Writer de la cookie ausente | serious | FIXED: `serializeFiscalFilter` + tests de ida y vuelta y legacy |
-| R4-13 | Hints y adopters incompletos; match por texto en la anulación | moderate | FIXED: regla de hints, adopters ampliados |
-| R4-14 | Gate compuesto sin helper; nav de un solo permiso | should-fix | FIXED: `userCanAll` |
-| R4-15 | PRs que reescriben la misma función (A↔D/E); RPC manual fuera de `MONEY_RPCS` | should-fix | FIXED: orden + test de `latestDefinition`; agregado a `MONEY_RPCS` |
-| R4-16 | El grep de 0.3 no podía dar 0; `emitted_at` no está en los datos del template; PII en el log de aging | moderate/cosmetic | FIXED |
-| R4-17 | Que la comparación y el re-asiento genérico sobrediseñen | question | REBUTTED: bloquear ediciones rompería la edición de recibos y OPs, que está en uso; la comparación es necesaria porque las ediciones en tablas hijas no se ven en la fila padre |
+| #     | Vector · evidencia                                                                                                                                                                                                                          | Sev.              | Resolución                                                                                                                                                                      |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R4-1  | Retenciones a `retenciones_cobradas` (pasivo, 2.1.2.5) y del lado del crédito: el asiento sigue desbalanceado. Además, hoy un recibo fiscal con retenciones **no se puede crear** (23514 al commit; `create_journal_entry:81`). 3 atacantes | fatal             | FIXED: 1.5 en el PR A, débito a `retenciones_pagadas` / `percepciones_iibb_pagadas`, y D12                                                                                      |
+| R4-2  | El `DROP` de las firmas `emit_*` rompe los 9 call sites (plpgsql se resuelve recién al ejecutar)                                                                                                                                            | serious           | FIXED: one-way door 4, reemplazo previo + smoke + Vitest de aridad                                                                                                              |
+| R4-3  | El re-asiento disparado por cualquier UPDATE (`notified_at`) reescribía el histórico; la clave de comparación no estaba definida; caso sin asiento. 4 atacantes                                                                             | serious           | FIXED: `AFTER UPDATE OF` columnas de asiento, comparación sin descripciones, no-op + diagnóstico                                                                                |
+| R4-4  | El write-back o raise de la cotización USD choca con `check_invoice_immutability`, con el test de paridad y con documentos que no tienen la columna                                                                                         | serious           | FIXED: cadena actual con la cotización guardada, sin write-back                                                                                                                 |
+| R4-5  | Los pgTAP de triggers diferidos no prueban nada dentro de `begin…rollback`                                                                                                                                                                  | serious           | FIXED: `set constraints all immediate`                                                                                                                                          |
+| R4-6  | El piso de rollback se lee del árbol del SHA destino, y el Instant Rollback de Vercel lo saltea                                                                                                                                             | serious           | FIXED: se reemplaza por un checklist (simplicidad)                                                                                                                              |
+| R4-7  | Las NC de facturas fiscales de DZ son imposibles después de 0b (guard + POS deshabilitado)                                                                                                                                                  | serious           | FIXED: runbook en D10; criterio 2 reescrito                                                                                                                                     |
+| R4-8  | 0b borraba de forma irreversible el canal histórico de viajes y envíos; el guard frente a NULL                                                                                                                                              | serious           | FIXED: solo pendientes; el guard devuelve `new` con NULL                                                                                                                        |
+| R4-9  | Las vistas `by_scope` daban varias filas por contraparte, con paginación y `party_count` rotos; grants a anon                                                                                                                               | serious           | FIXED: `null` → vista vieja; con valor → `.eq`; `security_invoker`; revoke de anon; test                                                                                        |
+| R4-10 | `purchase_invoice_open_amount` por fila en la vista (perf) y paridad con el guard de #247                                                                                                                                                   | serious           | FIXED: vista base set-based; el guard de #247 queda igual                                                                                                                       |
+| R4-11 | Edición de compras en dos llamadas                                                                                                                                                                                                          | moderate          | REBUTTED-with-evidence: idempotente por la comparación; el estado final coincide con lo guardado                                                                                |
+| R4-12 | Writer de la cookie ausente                                                                                                                                                                                                                 | serious           | FIXED: `serializeFiscalFilter` + tests de ida y vuelta y legacy                                                                                                                 |
+| R4-13 | Hints y adopters incompletos; match por texto en la anulación                                                                                                                                                                               | moderate          | FIXED: regla de hints, adopters ampliados                                                                                                                                       |
+| R4-14 | Gate compuesto sin helper; nav de un solo permiso                                                                                                                                                                                           | should-fix        | FIXED: `userCanAll`                                                                                                                                                             |
+| R4-15 | PRs que reescriben la misma función (A↔D/E); RPC manual fuera de `MONEY_RPCS`                                                                                                                                                               | should-fix        | FIXED: orden + test de `latestDefinition`; agregado a `MONEY_RPCS`                                                                                                              |
+| R4-16 | El grep de 0.3 no podía dar 0; `emitted_at` no está en los datos del template; PII en el log de aging                                                                                                                                       | moderate/cosmetic | FIXED                                                                                                                                                                           |
+| R4-17 | Que la comparación y el re-asiento genérico sobrediseñen                                                                                                                                                                                    | question          | REBUTTED: bloquear ediciones rompería la edición de recibos y OPs, que está en uso; la comparación es necesaria porque las ediciones en tablas hijas no se ven en la fila padre |
 
 **Gate:** no quedan fatales ni serios sin resolver. Las correcciones de la ronda 4 no se volvieron a
 atacar. Cada PR de implementación pasa por `/adv-review` antes de mergearse.
