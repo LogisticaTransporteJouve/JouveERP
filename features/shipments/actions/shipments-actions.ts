@@ -10,6 +10,7 @@ import {
   condicionIvaReceptorFor,
 } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
+import { getActiveInvoicingChannels } from "@/lib/channels";
 import { todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -76,7 +77,7 @@ type ShipmentOptions = {
   channels: { id: string; name: string }[];
 };
 
-/** Select options for the shipment form (clients, trips, channels). */
+/** Select options for the shipment form (clients, trips, active channels). */
 export async function listShipmentOptionsAction(): Promise<
   ActionResult<ShipmentOptions>
 > {
@@ -92,12 +93,12 @@ export async function listShipmentOptionsAction(): Promise<
       .select("id, trip_date, status")
       .order("trip_date", { ascending: false })
       .limit(200),
-    supabase.from("invoicing_channels").select("id, name").order("name"),
+    getActiveInvoicingChannels(),
   ]);
-  if (clients.error || trips.error || channels.error) {
+  if (clients.error || trips.error) {
     logger.error("shipments.options.failed", {
       userId: ctx.userId,
-      error: clients.error ?? trips.error ?? channels.error,
+      error: clients.error ?? trips.error,
     });
     return { ok: false, error: "No se pudieron cargar las opciones." };
   }
@@ -106,7 +107,7 @@ export async function listShipmentOptionsAction(): Promise<
     data: {
       clients: clients.data ?? [],
       trips: trips.data ?? [],
-      channels: channels.data ?? [],
+      channels: channels.map((c) => ({ id: c.id, name: c.name })),
     },
   };
 }
@@ -375,7 +376,7 @@ export async function invoiceFreightAction(
   const { data: shipment, error: readErr } = await supabase
     .from("shipments")
     .select(
-      "id, client_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition)",
+      "id, client_id, channel_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition)",
     )
     .eq("id", parsed.data.shipmentId)
     .maybeSingle();
@@ -384,6 +385,14 @@ export async function invoiceFreightAction(
   }
   if (shipment.invoice_id) {
     return { ok: false, error: "La carga ya tiene una factura." };
+  }
+  // A shipment booked on a channel is invoiced on that channel only.
+  if (shipment.channel_id && shipment.channel_id !== parsed.data.channel_id) {
+    return {
+      ok: false,
+      error:
+        "La carga está cargada en otro canal: facturala en el canal de la carga.",
+    };
   }
   const client = shipment.client;
   if (!shipment.client_id || !client?.cuit) {

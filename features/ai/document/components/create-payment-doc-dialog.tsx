@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  useScope,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -89,6 +92,7 @@ export function CreatePaymentDocDialog({
   const copy = COPY[kind];
   const { channels } = useScope();
   const activeChannels = channels.filter((c) => c.is_active);
+  const defaultChannel = useDefaultChannel();
   const { data: accounts } = useAccountsList();
 
   const [channelId, setChannelId] = useState("");
@@ -117,8 +121,10 @@ export function CreatePaymentDocDialog({
   useEffect(() => {
     if (!open) return;
     const parsed = ReceiptExtractionSchema.safeParse(payload);
-    setChannelId(activeChannels[0]?.id ?? "");
-    setNumero(parsed.success && parsed.data.number ? String(parsed.data.number) : "");
+    setChannelId(defaultChannel ?? "");
+    setNumero(
+      parsed.success && parsed.data.number ? String(parsed.data.number) : "",
+    );
     setFecha(parsed.success ? (parsed.data.date ?? "") : "");
     setImporte(
       parsed.success && parsed.data.total_amount != null
@@ -169,8 +175,7 @@ export function CreatePaymentDocDialog({
     );
   }
 
-  const incomplete =
-    !channelId || !numero || !fecha || !importe || !accountId;
+  const incomplete = !channelId || !numero || !fecha || !importe || !accountId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

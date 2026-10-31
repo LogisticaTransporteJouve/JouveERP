@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CLIENT_AGING_PERMISSIONS,
   PERMISSIONS,
+  SUPPLIER_AGING_PERMISSIONS,
   ROLES,
   ROLE_PERMISSIONS,
   assignableRoles,
@@ -11,6 +13,7 @@ import {
   removableRoles,
   resolveAccess,
   userCan,
+  userCanAll,
   type Permission,
   type Role,
 } from "@/lib/auth/permissions";
@@ -142,6 +145,37 @@ describe("userCan", () => {
     expect(userCan(resolveAccess(["admin"]), "ai:admin")).toBe(true);
     expect(userCan(resolveAccess(["finance"]), "ai:admin")).toBe(false);
     expect(userCan(resolveAccess(["operations"]), "ai:admin")).toBe(false);
+  });
+});
+
+describe("userCanAll", () => {
+  it("requires every permission", () => {
+    const finance = resolveAccess(["finance"], []);
+    expect(userCanAll(finance, CLIENT_AGING_PERMISSIONS)).toBe(true);
+    expect(userCanAll(finance, SUPPLIER_AGING_PERMISSIONS)).toBe(true);
+  });
+
+  it("operations keeps clients:read but no longer reaches aging", () => {
+    const operations = resolveAccess(["operations"], []);
+    expect(userCan(operations, "clients:read")).toBe(true);
+    expect(userCanAll(operations, CLIENT_AGING_PERMISSIONS)).toBe(false);
+    expect(userCanAll(operations, SUPPLIER_AGING_PERMISSIONS)).toBe(false);
+  });
+
+  it("a deny on any one permission closes the gate", () => {
+    const access = resolveAccess(["finance"], ["receipts:read"]);
+    expect(userCanAll(access, CLIENT_AGING_PERMISSIONS)).toBe(false);
+  });
+
+  it("a single permission behaves like userCan", () => {
+    const operations = resolveAccess(["operations"], []);
+    expect(userCanAll(operations, "clients:read")).toBe(true);
+    expect(userCanAll(operations, "invoices:read")).toBe(false);
+  });
+
+  it("an empty list or a missing access never grants", () => {
+    expect(userCanAll(resolveAccess(["owner"], []), [])).toBe(false);
+    expect(userCanAll(null, ["clients:read"])).toBe(false);
   });
 });
 

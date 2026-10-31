@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  useScope,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,6 +54,7 @@ export function CreateSalesInvoiceDialog({
 }) {
   const { channels } = useScope();
   const activeChannels = channels.filter((c) => c.is_active);
+  const defaultChannel = useDefaultChannel();
 
   const [channelId, setChannelId] = useState("");
   const [pos, setPos] = useState("");
@@ -60,7 +64,7 @@ export function CreateSalesInvoiceDialog({
 
   useEffect(() => {
     if (open) {
-      setChannelId(activeChannels[0]?.id ?? "");
+      setChannelId(defaultChannel ?? "");
       setPos("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,7 +139,13 @@ export function CreateSalesInvoiceDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="si-canal">Canal</Label>
-              <Select value={channelId} onValueChange={(v) => { setChannelId(v); setPos(""); }}>
+              <Select
+                value={channelId}
+                onValueChange={(v) => {
+                  setChannelId(v);
+                  setPos("");
+                }}
+              >
                 <SelectTrigger id="si-canal">
                   <SelectValue placeholder="Canal" />
                 </SelectTrigger>

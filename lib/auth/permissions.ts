@@ -326,6 +326,31 @@ export function userCan(
   return access.roles.some((role) => roleGrants(role, permission));
 }
 
+/** A composite gate: every permission must pass `userCan` (an empty list never
+ *  grants). For screens that show what several modules own, like aging. A
+ *  single permission is the plain `userCan`. */
+export function userCanAll(
+  access: Access | null | undefined,
+  permissions: Permission | readonly Permission[],
+): boolean {
+  if (typeof permissions === "string") return userCan(access, permissions);
+  return permissions.length > 0 && permissions.every((p) => userCan(access, p));
+}
+
+/** Composite gates of the aging screens: the counterparty and every document
+ *  module whose rows the aging sums. */
+export const CLIENT_AGING_PERMISSIONS = [
+  "clients:read",
+  "invoices:read",
+  "receipts:read",
+] as const satisfies readonly Permission[];
+
+export const SUPPLIER_AGING_PERMISSIONS = [
+  "suppliers:read",
+  "purchase_invoices:read",
+  "payment_orders:read",
+] as const satisfies readonly Permission[];
+
 // Owners can assign any role, including granting and revoking owner; admins
 // any role except owner; nobody else.
 function roleLevelAssignable(actorRoles: readonly Role[], role: Role): boolean {

@@ -307,6 +307,7 @@ export type ChannelDivisionJoin = {
   channel: {
     name: string;
     division: string;
+    is_fiscal: boolean;
     business_unit_id: string;
   } | null;
 };

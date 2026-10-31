@@ -1,10 +1,4 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 // Payment Order PDF template. Visual mirror of the receipt but out-flow:
 // "Pagamos a" instead of "Recibimos de", "ORDEN DE PAGO" instead of
@@ -25,6 +19,8 @@ export interface PaymentOrderTemplateAllocation {
 }
 
 export interface PaymentOrderTemplateData {
+  /** Set only on an internal-channel payment order (D5). */
+  title?: string;
   emisor: {
     legal_name: string;
     cuit: string;
@@ -180,13 +176,15 @@ export function PaymentOrderDocument({
           <View style={styles.headerLeft}>
             <Text style={styles.emisorName}>{data.emisor.legal_name}</Text>
             <View style={styles.meta}>
-              <Text>CUIT {data.emisor.cuit}</Text>
+              {data.emisor.cuit && <Text>CUIT {data.emisor.cuit}</Text>}
               {data.emisor.address && <Text>{data.emisor.address}</Text>}
-              <Text>{data.emisor.division_label}</Text>
+              {data.emisor.division_label && (
+                <Text>{data.emisor.division_label}</Text>
+              )}
             </View>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.heading}>ORDEN DE PAGO</Text>
+            <Text style={styles.heading}>{data.title ?? "ORDEN DE PAGO"}</Text>
             <Text style={styles.subheading}>
               {formatOPNumber(data.punto_venta, data.numero)}
             </Text>

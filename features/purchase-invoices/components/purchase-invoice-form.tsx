@@ -7,7 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  useScope,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -189,8 +192,8 @@ export function PurchaseInvoiceForm({
   const channelOptions = channels.filter(
     (c) => c.is_active || c.id === invoice?.channel_id,
   );
-  const defaultChannelId =
-    invoice?.channel_id ?? channels.find((c) => c.is_active)?.id ?? "";
+  const scopeDefaultChannel = useDefaultChannel();
+  const defaultChannelId = invoice?.channel_id ?? scopeDefaultChannel ?? "";
 
   const createDraft = mode === "create" ? (draft ?? null) : null;
   const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);

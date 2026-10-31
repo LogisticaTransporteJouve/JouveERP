@@ -24,6 +24,7 @@ import {
 } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
+import { ScopeInputSchema, readScope } from "../scope";
 import {
   errResult,
   money,
@@ -297,10 +298,11 @@ export const getLoans = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Préstamos y leasings: acreedor, capital, moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Sin parámetros.",
-  input: z.object({}),
-  run: async () => {
-    const res = await listLoansAction();
+    "Préstamos y leasings: acreedor, capital, moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Alcance opcional (fiscal/internal/all).",
+  input: z.object({ scope: ScopeInputSchema }),
+  run: async (_ctx, input) => {
+    const { isFiscal, label } = readScope(input.scope);
+    const res = await listLoansAction({ isFiscal });
     if (!res.ok) return errResult(res.error);
     const active = res.data.filter((l) => l.status === "active");
     const pendingByCurrency: Record<string, number> = {};
@@ -309,7 +311,7 @@ export const getLoans = defineAiAction({
         (pendingByCurrency[l.currency] ?? 0) + l.pending_total;
     }
     return okResult(
-      `${res.data.length} préstamos (${active.length} activos) · pendiente ${
+      `${label}: ${res.data.length} préstamos (${active.length} activos) · pendiente ${
         Object.entries(pendingByCurrency)
           .map(([c, v]) => `${c} ${money(v)}`)
           .join(" · ") || "$0"

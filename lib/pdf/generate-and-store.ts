@@ -19,7 +19,7 @@ import type {
 } from "./invoice-template";
 
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
-import { divisionLabel } from "@/lib/pdf/emisor";
+import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import type { IvaCondition } from "@/features/clients/schema";
 import type { InvoiceRow } from "@/features/invoices/schema";
 
@@ -91,16 +91,8 @@ export async function buildTemplateData(
   }
   const numero: number = row.numero;
 
-  const { data: bu, error: buErr } = await supabase
-    .from("business_units")
-    .select(
-      "name, cuit, tax_condition, tax_address, iibb_number, inicio_actividades",
-    )
-    .eq("id", channel.business_unit_id)
-    .maybeSingle();
-  if (buErr) throw new Error(`load-business-unit: ${buErr.message}`);
-
   const isFiscal = channel.is_fiscal;
+  const emisor = await loadEmisor(supabase, channel);
 
   const sortedItems: InvoiceTemplateItem[] = items
     .slice()
@@ -141,7 +133,7 @@ export async function buildTemplateData(
   if (isFiscal && row.cae && row.cbte_tipo_afip !== null) {
     const qrPayload: InvoiceQRPayload = {
       fecha: row.fecha,
-      cuit: bu?.cuit ?? "",
+      cuit: emisor.cuit,
       ptoVta: row.punto_venta,
       tipoCmp: row.cbte_tipo_afip,
       nroCmp: numero,
@@ -162,15 +154,8 @@ export async function buildTemplateData(
   return {
     isFiscal,
     emittedAt: row.emitted_at ?? `${row.fecha}T00:00:00-03:00`,
-    emisor: {
-      legal_name: bu?.name ?? "DZ & Sons S.A.",
-      cuit: bu?.cuit ?? "",
-      iva_condition: bu?.tax_condition ?? "",
-      address: bu?.tax_address ?? null,
-      division_label: divisionLabel(channel.division, channel.name),
-      iibb_number: bu?.iibb_number ?? null,
-      inicio_actividades: bu?.inicio_actividades ?? null,
-    },
+    // D5: an internal comprobante prints no fiscal data of the issuer.
+    emisor: redactEmisor({ isFiscal, emisor }),
     receptor: {
       legal_name: client.legal_name,
       doc_tipo_label: DOC_TIPO_LABEL[row.doc_tipo] ?? String(row.doc_tipo),

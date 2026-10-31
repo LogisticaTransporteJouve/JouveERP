@@ -201,10 +201,12 @@ export async function invoiceStorageAction(
 
   const supabase = await createSupabaseClient();
 
-  // Guard against double-billing: no overlap with an already-billed period.
+  // Guard against double-billing: no overlap with a period already billed to
+  // this client on this channel. A run whose invoice is gone (channel unknown)
+  // counts against every channel.
   const { data: existingRuns, error: runsErr } = await supabase
     .from("storage_billing_runs")
-    .select("period_start, period_end")
+    .select("period_start, period_end, invoice:invoices(channel_id)")
     .eq("client_id", client_id);
   if (runsErr) {
     logger.error("storage.invoice.runs_read.failed", {
@@ -213,11 +215,14 @@ export async function invoiceStorageAction(
     });
     return { ok: false, error: "No se pudo validar el período." };
   }
-  if (overlapsBilled(existingRuns ?? [], period_start, period_end)) {
+  const sameChannelRuns = (existingRuns ?? []).filter(
+    (r) => (r.invoice?.channel_id ?? channel_id) === channel_id,
+  );
+  if (overlapsBilled(sameChannelRuns, period_start, period_end)) {
     return {
       ok: false,
       error:
-        "Ese período ya fue facturado (total o parcialmente) para este cliente.",
+        "Ese período ya fue facturado (total o parcialmente) para este cliente en este canal.",
     };
   }
 

@@ -5173,6 +5173,33 @@ export type Database = {
           },
         ]
       }
+      v_client_aging_by_scope: {
+        Row: {
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
+          channel_is_fiscal: boolean | null
+          client_id: string | null
+          document_count: number | null
+          oldest_days: number | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_documents_expiring: {
         Row: {
           days_until_expiry: number | null
@@ -5404,6 +5431,33 @@ export type Database = {
           ars_bucket_60_90: number | null
           ars_bucket_90_plus: number | null
           ars_total_open: number | null
+          document_count: number | null
+          oldest_days: number | null
+          supplier_id: string | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_supplier_aging_by_scope: {
+        Row: {
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
+          channel_is_fiscal: boolean | null
           document_count: number | null
           oldest_days: number | null
           supplier_id: string | null

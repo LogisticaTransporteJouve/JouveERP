@@ -9,8 +9,11 @@ import { formatInvoiceNumero } from "@/features/invoices/schema";
 import {
   ACCOUNT_COLUMNS,
   dateCell,
+  exportScope,
+  ExportInputError,
   inRange,
   moneyCell,
+  scopedSubtitle,
   type Exporter,
   withSlug,
 } from "../shared";
@@ -37,9 +40,10 @@ function clientDoc(m: AccountMovement): string {
 export const clientAccount: Exporter = {
   permission: "clients:read",
   load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const clientId = params.get("clientId");
-    if (!clientId) throw new Error("Missing client.");
-    const res = await getClientAccountAction(clientId);
+    if (!clientId) throw new ExportInputError("Missing client.");
+    const res = await getClientAccountAction(clientId, { isFiscal });
     if (!res.ok) throw new Error(res.error);
     const movements = res.data.movements.filter((m) =>
       inRange(m.movement_date, range),
@@ -56,15 +60,14 @@ export const clientAccount: Exporter = {
         clientDoc(m),
         isDebit ? moneyCell(m.gross_amount) : "",
         isDebit ? "" : moneyCell(m.gross_amount),
-        moneyCell(m.balance),
+        m.balance === null ? "" : moneyCell(m.balance),
       ];
     });
-    const finalBalance = movements.length
-      ? movements[movements.length - 1]!.balance
-      : res.data.balance;
+    // Under a scope rows carry no running balance: the total is the scope's.
+    const finalBalance = movements.at(-1)?.balance ?? res.data.balance;
     return {
       title: "Cuenta corriente — Cliente",
-      subtitle: params.get("name") ?? undefined,
+      subtitle: scopedSubtitle(scope, params.get("name") ?? undefined),
       columns: ACCOUNT_COLUMNS,
       rows,
       totalsRow: [

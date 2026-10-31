@@ -16,6 +16,9 @@ import {
   SupplierUpcomingDuesInputSchema,
 } from "@/features/suppliers/reports-schema";
 
+import { SUPPLIER_AGING_PERMISSIONS } from "@/lib/auth/permissions";
+import type { FiscalFilter } from "@/lib/scope";
+
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
@@ -26,6 +29,7 @@ import {
   reachedCap,
   totalsByCurrency,
 } from "../result";
+import { ScopeInputSchema, readScope } from "../scope";
 
 // Tool inputs stay loose; the underlying actions re-validate and gate
 // (`purchase_invoices:read` / `suppliers:read` / `payment_orders:read`) + RLS.
@@ -33,15 +37,16 @@ import {
 export async function runPurchaseInvoices(input: {
   query?: string | null;
   supplierId?: string | null;
-  channelId?: string | null;
+  scope?: FiscalFilter | null;
   fechaFrom?: string | null;
   fechaTo?: string | null;
   limit?: number | null;
 }): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
   const res = await searchPurchaseInvoicesAction({
     query: input.query ?? "",
     supplierId: input.supplierId ?? null,
-    channelId: input.channelId ?? null,
+    isFiscal,
     fechaFrom: input.fechaFrom ?? null,
     fechaTo: input.fechaTo ?? null,
     limit: input.limit ?? 25,
@@ -55,7 +60,7 @@ export async function runPurchaseInvoices(input: {
     })),
   );
   return okResult(
-    `${res.data.invoices.length} purchase invoices${
+    `${label}: ${res.data.invoices.length} purchase invoices${
       res.data.nextOffset !== null ? " (more available, narrow the filter)" : ""
     } · received total ${total} (credit notes subtract; per currency).`,
     res.data,
@@ -71,7 +76,8 @@ export const getPurchaseInvoices = defineAiAction({
   sources: ["search_purchase_invoices"],
   description:
     "Purchase invoices (expenses/suppliers): list filterable by supplier/number " +
-    "(query), channel and date range (YYYY-MM-DD). Returns number, supplier, " +
+    "(query), scope (fiscal/internal/all) and date range (YYYY-MM-DD). For VAT " +
+    "credit use scope 'fiscal'. Returns number, supplier, " +
     "date, net/VAT/total and status. For purchases, expenses or VAT credit.",
   input: z.object({
     query: z
@@ -79,7 +85,7 @@ export const getPurchaseInvoices = defineAiAction({
       .nullish()
       .describe("Text to search: number or supplier name."),
     supplierId: z.string().nullish().describe("Supplier UUID, optional."),
-    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    scope: ScopeInputSchema,
     fechaFrom: z.string().nullish().describe("Date from YYYY-MM-DD."),
     fechaTo: z.string().nullish().describe("Date to YYYY-MM-DD."),
     limit: z.number().nullish().describe("Max rows (default 25, max 200)."),
@@ -87,31 +93,40 @@ export const getPurchaseInvoices = defineAiAction({
   run: (_ctx, input) => runPurchaseInvoices(input),
 });
 
-export async function runSupplierAging(): Promise<AiRunResult> {
-  const res = await getSupplierAgingAction();
+export async function runSupplierAging(
+  input: { scope?: FiscalFilter | null } = {},
+): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
+  const res = await getSupplierAgingAction({ isFiscal });
   if (!res.ok) return errResult(res.error);
-  return agingResult(res.data, "suppliers");
+  return agingResult(res.data, "suppliers", label);
 }
 
 export const getSupplierAging = defineAiAction({
   name: "getSupplierAging",
   domain: "compras",
-  permission: "suppliers:read",
+  permission: SUPPLIER_AGING_PERMISSIONS,
   sideEffect: "read",
-  sources: ["v_supplier_aging"],
+  sources: ["v_supplier_aging", "v_supplier_aging_by_scope"],
   description:
     "Accounts payable aging: outstanding balance with each supplier per bucket " +
     "(0-30 / 30-60 / 60-90 / +90 days), pesos and dollars separately, with " +
-    "totals and their ARS equivalent at the latest official rate. No parameters. For " +
+    "totals and their ARS equivalent at the latest official rate. Optional " +
+    "scope (fiscal/internal/all). For " +
     "'how much do I owe?', 'who do I owe the most to?' or planning payments.",
-  input: z.object({}),
-  run: () => runSupplierAging(),
+  input: z.object({ scope: ScopeInputSchema }),
+  run: (_ctx, input) => runSupplierAging(input),
 });
 
 export async function runPaymentOrders(input: {
   limit?: number | null;
+  scope?: FiscalFilter | null;
 }): Promise<AiRunResult> {
-  const res = await listPaymentOrdersAction({ limit: input.limit ?? 50 });
+  const { isFiscal, label } = readScope(input.scope);
+  const res = await listPaymentOrdersAction({
+    limit: input.limit ?? 50,
+    isFiscal,
+  });
   if (!res.ok) return errResult(res.error);
   const total = totalsByCurrency(
     res.data.items.map((o) => ({
@@ -121,7 +136,7 @@ export async function runPaymentOrders(input: {
     })),
   );
   return okResult(
-    `${res.data.items.length} payment orders${
+    `${label}: ${res.data.items.length} payment orders${
       res.data.nextOffset !== null ? " (more available)" : ""
     } · total paid ${total} (issued only; per currency).`,
     res.data,
@@ -140,6 +155,7 @@ export const getPaymentOrders = defineAiAction({
     "date, amount, currency and status. For viewing payments made.",
   input: z.object({
     limit: z.number().nullish().describe("Max rows (default 50)."),
+    scope: ScopeInputSchema,
   }),
   run: (_ctx, input) => runPaymentOrders(input),
 });

@@ -27,6 +27,8 @@ import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -43,6 +45,7 @@ export default async function ClientDetailPage({
   }
 
   const { id } = await params;
+  const isFiscal = isFiscalFor(await readScopeCookie());
   // Independent reads in parallel: the client row, the pickers' channels and
   // accounts, and the cuenta-corriente prefetch (a not-found id just wastes
   // the prefetch; the account actions validate the id themselves).
@@ -53,8 +56,9 @@ export default async function ClientDetailPage({
       listAccountsAction(),
       prefetchQueries([
         {
-          queryKey: clientsKeys.account(id),
-          queryFn: () => runAction(() => getClientAccountAction(id)),
+          queryKey: clientsKeys.accountByScope(id, isFiscal),
+          queryFn: () =>
+            runAction(() => getClientAccountAction(id, { isFiscal })),
         },
         {
           queryKey: clientsKeys.openingBalance(id),

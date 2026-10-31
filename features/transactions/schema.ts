@@ -111,6 +111,8 @@ export type TransactionUpdateInput = z.infer<typeof TransactionUpdateSchema>;
 
 export const TransactionFiltersSchema = z.object({
   channel_id: z.string().nullable().optional(),
+  /** Scope filter (`isFiscalFor`): null/absent = every channel. */
+  is_fiscal: z.boolean().nullable().optional(),
   account_id: z.string().uuid().nullable().optional(),
   kind: z.enum(TRANSACTION_KINDS).nullable().optional(),
   date_from: isoDate.nullable().optional(),

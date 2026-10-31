@@ -6,10 +6,12 @@ import { getSupplierAgingAction } from "@/features/suppliers/actions/account-act
 import { SupplierAgingTable } from "@/features/suppliers/components/supplier-aging-table";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { SUPPLIER_AGING_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -17,14 +19,15 @@ export const dynamic = "force-dynamic";
 
 export default async function AgingSuppliersPage() {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "suppliers:read")) {
+  if (!userCanAll(ctx.access, SUPPLIER_AGING_PERMISSIONS)) {
     redirect("/dashboard");
   }
 
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: suppliersKeys.aging(),
-      queryFn: () => runAction(() => getSupplierAgingAction()),
+      queryKey: suppliersKeys.aging(isFiscal),
+      queryFn: () => runAction(() => getSupplierAgingAction({ isFiscal })),
     },
   ]);
 

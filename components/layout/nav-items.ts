@@ -44,13 +44,19 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
+import {
+  CLIENT_AGING_PERMISSIONS,
+  SUPPLIER_AGING_PERMISSIONS,
+  userCanAll,
+  type Access,
+  type Permission,
+} from "@/lib/auth/permissions";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  permission?: Permission;
+  permission?: Permission | readonly Permission[];
 };
 
 export type NavSection = {
@@ -114,7 +120,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/aging",
         label: "Aging clientes",
         icon: AlertTriangle,
-        permission: "clients:read",
+        permission: CLIENT_AGING_PERMISSIONS,
       },
     ],
   },
@@ -149,7 +155,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/aging-suppliers",
         label: "Aging proveedores",
         icon: AlertTriangle,
-        permission: "suppliers:read",
+        permission: SUPPLIER_AGING_PERMISSIONS,
       },
     ],
   },
@@ -439,7 +445,7 @@ const ALL_ITEMS = [
 ];
 
 export function canSee(access: Access, item: NavItem): boolean {
-  return !item.permission || userCan(access, item.permission);
+  return !item.permission || userCanAll(access, item.permission);
 }
 
 export function visibleSections(access: Access): NavSection[] {

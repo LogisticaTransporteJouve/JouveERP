@@ -7,6 +7,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient } from "@/lib/supabase/server";
 
 import type { AccountsListNameJoin } from "@/features/accounts/schema";
@@ -32,20 +33,26 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
 const COLUMNS =
   "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
 
-export async function listIssuedChecksAction(): Promise<
-  ActionResult<IssuedCheck[]>
-> {
+/** `isFiscal` (`isFiscalFor`): null/undefined = every check, those with no
+ *  channel included; a boolean drops the checks without a channel. */
+export async function listIssuedChecksAction(input?: {
+  isFiscal?: boolean | null;
+}): Promise<ActionResult<IssuedCheck[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "issued_checks:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques propios." };
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("issued_checks")
-    .select(
-      `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name )`,
-    )
+  const { data, error } = await applyFiscalFilter(
+    supabase
+      .from("issued_checks")
+      .select(
+        `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( is_fiscal )`,
+      ),
+    input?.isFiscal,
+    "channel",
+  )
     .order("due_date", { ascending: true })
     .limit(500);
 
@@ -65,6 +72,7 @@ export async function listIssuedChecksAction(): Promise<
       };
       delete flat.suppliers;
       delete flat.accounts;
+      delete flat.channel;
       return narrow(flat);
     })
     .filter((r): r is IssuedCheck => r !== null);

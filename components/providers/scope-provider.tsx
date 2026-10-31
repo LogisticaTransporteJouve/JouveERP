@@ -4,12 +4,16 @@ import {
   createContext,
   useCallback,
   useContext,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import {
+  defaultChannelFor,
+  isFiscalFor,
   parseFiscalFilter,
   SCOPE_COOKIE,
   serializeFiscalFilter,
@@ -26,6 +30,18 @@ type ScopeContextValue = {
 const STORAGE_KEY = "jouve_scope_v1";
 
 const ScopeContext = createContext<ScopeContextValue | null>(null);
+
+function persist(filter: FiscalFilter) {
+  if (typeof window === "undefined") return;
+  const serialized = serializeFiscalFilter(filter);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, serialized);
+  } catch {
+    // Storage blocked: the cookie below still carries the scope.
+  }
+  // Also a cookie, so the server renders and prefetches under this scope.
+  document.cookie = `${SCOPE_COOKIE}=${encodeURIComponent(serialized)}; path=/; max-age=31536000; SameSite=Lax`;
+}
 
 function readFromStorage(): FiscalFilter {
   if (typeof window === "undefined") return "all";
@@ -59,20 +75,20 @@ export function ScopeProvider({
   }, [initialFiscalFilter]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const serialized = serializeFiscalFilter(fiscalFilter);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, serialized);
-    } catch {
-      // Storage blocked: the cookie below still carries the scope.
-    }
-    // We also persist to a cookie for SSR on the next navigation.
-    document.cookie = `${SCOPE_COOKIE}=${encodeURIComponent(serialized)}; path=/; max-age=31536000; SameSite=Lax`;
+    persist(fiscalFilter);
   }, [fiscalFilter]);
 
-  const setFiscalFilter = useCallback((filter: FiscalFilter) => {
-    setFiscalFilterState(filter);
-  }, []);
+  const router = useRouter();
+  // The cookie is written before the refresh so server components (the
+  // dashboard, page prefetches) re-render under the new scope.
+  const setFiscalFilter = useCallback(
+    (filter: FiscalFilter) => {
+      persist(filter);
+      setFiscalFilterState(filter);
+      router.refresh();
+    },
+    [router],
+  );
 
   const value = useMemo<ScopeContextValue>(
     () => ({ fiscalFilter, channels, setFiscalFilter }),
@@ -90,4 +106,19 @@ export function useScope() {
     throw new Error("useScope must be used within ScopeProvider");
   }
   return ctx;
+}
+
+/** The read filter of the header scope, for list queries (`isFiscalFor`).
+ *  Deferred so switching scope keeps the previous list on screen while the
+ *  new one loads instead of suspending to the skeleton. */
+/** The channel a new-record form pre-selects (`defaultChannelFor` over every
+ *  channel): the scope's only active channel, else `null` and the user picks. */
+export function useDefaultChannel(): string | null {
+  const { fiscalFilter, channels } = useScope();
+  return defaultChannelFor(fiscalFilter, channels);
+}
+
+export function useScopeIsFiscal(): boolean | null {
+  const { fiscalFilter } = useScope();
+  return useDeferredValue(isFiscalFor(fiscalFilter));
 }

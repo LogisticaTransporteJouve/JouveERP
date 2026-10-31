@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -39,7 +40,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { formatMoney, todayInAR } from "@/lib/format";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import { useBulkCreatePayrollPayments } from "../hooks/use-payroll-payments";
 import {
@@ -91,15 +91,13 @@ export function BulkPayrollPaymentDialog({
     [accountsData],
   );
   const mut = useBulkCreatePayrollPayments();
+  const defaultChannel = useDefaultChannel() ?? "";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       account_id: activeAccounts[0]?.id ?? "",
-      channel_id:
-        channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-        channels[0]?.id ??
-        "",
+      channel_id: defaultChannel,
       amount_each: "",
       method: "transferencia" as PayrollPaymentMethod,
       paid_at: todayInAR(),
@@ -118,10 +116,7 @@ export function BulkPayrollPaymentDialog({
     );
     form.reset({
       account_id: activeAccounts[0]?.id ?? "",
-      channel_id:
-        channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-        channels[0]?.id ??
-        "",
+      channel_id: defaultChannel,
       amount_each: "",
       method: "transferencia",
       paid_at: todayInAR(),
@@ -197,10 +192,7 @@ export function BulkPayrollPaymentDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Employee selector */}
             <div className="rounded-md border">
               <div className="flex items-center justify-between border-b px-3 py-2">
@@ -381,7 +373,8 @@ export function BulkPayrollPaymentDialog({
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {selectedCount} empleado{selectedCount !== 1 ? "s" : ""} × {formatMoney(amountEach)}
+                  {selectedCount} empleado{selectedCount !== 1 ? "s" : ""} ×{" "}
+                  {formatMoney(amountEach)}
                 </span>
                 <span className="font-mono font-medium">
                   Total: {formatMoney(totalAmount)}

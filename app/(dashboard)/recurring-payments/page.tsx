@@ -8,6 +8,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +18,14 @@ export default async function RecurringPaymentsPageRoute() {
   if (!userCan(ctx.access, "recurring_payments:read")) {
     redirect("/dashboard");
   }
+  const isFiscal = isFiscalFor(await readScopeCookie());
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: recurringPaymentsKeys.list(false),
+      queryKey: recurringPaymentsKeys.list(false, isFiscal),
       queryFn: () =>
-        runAction(() => listRecurringPaymentsAction({ onlyActive: false })),
+        runAction(() =>
+          listRecurringPaymentsAction({ onlyActive: false, isFiscal }),
+        ),
     },
   ]);
   return (

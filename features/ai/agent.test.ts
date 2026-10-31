@@ -32,6 +32,7 @@ describe("system prompt guardrails", () => {
   it("is the AI CFO persona that writes only through confirmed proposals, in Rioplatense Spanish", () => {
     expect(CFO_BASE_PROMPT).toContain("AI CFO de Jouve");
     expect(CFO_BASE_PROMPT).toContain("JouveERP");
+    expect(CFO_BASE_PROMPT).toContain('solo con scope "fiscal"');
     expect(CFO_BASE_PROMPT).toContain("NO WRITES WITHOUT CONFIRMATION");
     expect(CFO_BASE_PROMPT).toContain("askQuestions");
     expect(CFO_BASE_PROMPT).toContain("revisionKey");

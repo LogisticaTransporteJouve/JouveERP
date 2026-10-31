@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -60,22 +61,27 @@ export interface CheckListItem extends Cheque {
   source_client_legal_name: string | null;
 }
 
-export async function listChecksAction(): Promise<
-  ActionResult<{ items: CheckListItem[] }>
-> {
+/** `isFiscal` (`isFiscalFor`): null/undefined = every check, those with no
+ *  channel included; a boolean drops the checks without a channel. */
+export async function listChecksAction(input?: {
+  isFiscal?: boolean | null;
+}): Promise<ActionResult<{ items: CheckListItem[] }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques." };
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("checks")
-    .select(
+  const { data, error } = await applyFiscalFilter(
+    supabase.from("checks").select(
       `${CHECK_COLUMNS},
        cartera_account:accounts!checks_cartera_account_id_fkey(name),
-       source_client:clients(legal_name)`,
-    )
+       source_client:clients(legal_name),
+       channel:invoicing_channels(is_fiscal)`,
+    ),
+    input?.isFiscal,
+    "channel",
+  )
     .order("due_date", { ascending: true })
     .limit(500);
 

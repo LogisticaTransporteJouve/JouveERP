@@ -24,6 +24,8 @@ export interface SendComprobanteByEmailInput {
   body: string | null;
   // Data for the template (header/preview/detail).
   emisor_name: string;
+  /** An internal-channel comprobante: no billing wording (D5). */
+  internal?: boolean;
   client_legal_name: string;
   numero_label: string;
   fecha: string;
@@ -43,7 +45,10 @@ export interface SendComprobanteByEmailResult {
 // error string if it fails — the caller decides how to show it.
 export async function sendComprobanteByEmail(
   input: SendComprobanteByEmailInput,
-): Promise<{ ok: true; data: SendComprobanteByEmailResult } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; data: SendComprobanteByEmailResult }
+  | { ok: false; error: string }
+> {
   if (!isEmailConfigured()) {
     return {
       ok: false,
@@ -61,6 +66,7 @@ export async function sendComprobanteByEmail(
     input.entity_type === "invoice" ? (
       <InvoiceEmail
         emisor_name={input.emisor_name}
+        internal={input.internal ?? false}
         client_legal_name={input.client_legal_name}
         numero_label={input.numero_label}
         fecha={input.fecha}

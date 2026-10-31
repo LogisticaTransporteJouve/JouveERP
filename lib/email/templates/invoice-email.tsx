@@ -12,6 +12,8 @@ import {
 
 export interface InvoiceEmailProps {
   emisor_name: string;
+  /** Internal comprobante: the footer drops "sistema de facturación". */
+  internal?: boolean;
   client_legal_name: string;
   numero_label: string;
   fecha: string;
@@ -21,6 +23,7 @@ export interface InvoiceEmailProps {
 
 export function InvoiceEmail({
   emisor_name,
+  internal = false,
   client_legal_name,
   numero_label,
   fecha,
@@ -59,8 +62,9 @@ export function InvoiceEmail({
           </Section>
           <Hr style={hrStyle} />
           <Text style={footerStyle}>
-            Este mensaje fue enviado automáticamente desde nuestro sistema de
-            facturación.
+            {internal
+              ? "Este mensaje fue enviado automáticamente."
+              : "Este mensaje fue enviado automáticamente desde nuestro sistema de facturación."}
           </Text>
         </Container>
       </Body>

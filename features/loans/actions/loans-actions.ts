@@ -5,6 +5,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -25,7 +26,7 @@ import {
 } from "../schema";
 
 const LOAN_COLUMNS =
-  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, channel:invoicing_channels(name)";
+  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, channel:invoicing_channels(name, is_fiscal)";
 
 function readChannelName(
   channel: { name: string } | { name: string }[] | null,
@@ -105,16 +106,21 @@ function toListItem(
   };
 }
 
-export async function listLoansAction(): Promise<ActionResult<LoanListItem[]>> {
+export async function listLoansAction(input?: {
+  /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
+  isFiscal?: boolean | null;
+}): Promise<ActionResult<LoanListItem[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "accounting:read")) {
     return { ok: false, error: "Sin permiso para ver préstamos." };
   }
   const supabase = await createSupabaseClient();
   const { data: loans, error } = await paginateRange((from, to) =>
-    supabase
-      .from("loans")
-      .select(LOAN_COLUMNS)
+    applyFiscalFilter(
+      supabase.from("loans").select(LOAN_COLUMNS),
+      input?.isFiscal,
+      "channel",
+    )
       .order("created_at", { ascending: false })
       .order("id")
       .range(from, to),

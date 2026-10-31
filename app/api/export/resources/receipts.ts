@@ -3,10 +3,19 @@ import "server-only";
 import { formatReceiptNumber } from "@/features/receipts/schema";
 import { logger } from "@/lib/logger";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { dateCell, money, moneyCell, type Exporter } from "../shared";
+import {
+  channelCell,
+  dateCell,
+  exportScope,
+  money,
+  moneyCell,
+  scopedSubtitle,
+  type Exporter,
+} from "../shared";
 
 /** PostgREST embeds the related client as a single nested object. */
 function clientName(client: { legal_name: string } | null): string {
@@ -16,8 +25,9 @@ function clientName(client: { legal_name: string } | null): string {
 const RECEIPTS_COLUMNS: TableReportColumn[] = [
   { header: "Fecha", width: 70, mono: true },
   { header: "Recibo", width: 110, mono: true },
-  { header: "Cliente", width: 200 },
-  { header: "Estado", width: 80 },
+  { header: "Cliente", width: 140 },
+  { header: "Canal", width: 80 },
+  { header: "Estado", width: 60 },
   { header: "Total", width: 87, align: "right", mono: true },
 ];
 
@@ -28,16 +38,21 @@ const STATUS_LABEL: Record<string, string> = {
 
 export const receipts: Exporter = {
   permission: "receipts:read",
-  load: async (_params, range) => {
+  load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = supabase
-        .from("receipts")
-        .select(
-          "punto_venta, numero, receipt_date, total_amount, currency, status, clients ( legal_name )",
-        )
+      let query = applyFiscalFilter(
+        supabase
+          .from("receipts")
+          .select(
+            "punto_venta, numero, receipt_date, total_amount, currency, status, clients ( legal_name ), channel:invoicing_channels ( name, is_fiscal )",
+          ),
+        isFiscal,
+        "channel",
+      )
         .order("receipt_date", { ascending: true })
         .order("numero", { ascending: true })
         .order("id", { ascending: true });
@@ -71,6 +86,7 @@ export const receipts: Exporter = {
         dateCell(r.receipt_date),
         formatReceiptNumber(r.punto_venta, r.numero),
         clientName(r.clients),
+        channelCell(r.channel),
         STATUS_LABEL[r.status] ?? r.status,
         formattedTotal,
       ];
@@ -78,9 +94,10 @@ export const receipts: Exporter = {
 
     return {
       title: "Recibos",
+      subtitle: scopedSubtitle(scope),
       columns: RECEIPTS_COLUMNS,
       rows,
-      totalsRow: ["", "", "", "Total (ARS)", moneyCell(total)],
+      totalsRow: ["", "", "", "", "Total (ARS)", moneyCell(total)],
       fileName: "recibos",
     };
   },

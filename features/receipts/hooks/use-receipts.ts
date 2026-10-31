@@ -11,6 +11,7 @@ import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -22,12 +23,16 @@ import {
   listReceiptsAction,
   updateReceiptAction,
 } from "../actions/receipts-actions";
-import { receiptsKeys } from "../lib/receipts-keys";
+import { RECEIPTS_LIST_LIMIT, receiptsKeys } from "../lib/receipts-keys";
 
 export function useReceiptsList() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: receiptsKeys.list(),
-    queryFn: () => runAction(() => listReceiptsAction({ limit: 100 })),
+    queryKey: receiptsKeys.list(isFiscal),
+    queryFn: () =>
+      runAction(() =>
+        listReceiptsAction({ limit: RECEIPTS_LIST_LIMIT, isFiscal }),
+      ),
   });
 }
 

@@ -13,6 +13,7 @@ import { purchaseInvoicesKeys } from "@/features/purchase-invoices/lib/purchase-
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -27,9 +28,10 @@ import {
 import { paymentOrdersKeys } from "../lib/payment-orders-keys";
 
 export function usePaymentOrdersList() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: paymentOrdersKeys.list(),
-    queryFn: () => runAction(() => listPaymentOrdersAction()),
+    queryKey: paymentOrdersKeys.list(isFiscal),
+    queryFn: () => runAction(() => listPaymentOrdersAction({ isFiscal })),
   });
 }
 

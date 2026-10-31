@@ -13,10 +13,12 @@ export const suppliersKeys = {
   search: (filters: { query: string; onlyActive: boolean; limit: number }) =>
     [...suppliersKeys.all, "search", filters] as const,
   byId: (id: string) => [...suppliersKeys.all, "byId", id] as const,
-  references: (id: string) =>
-    [...suppliersKeys.all, "references", id] as const,
+  references: (id: string) => [...suppliersKeys.all, "references", id] as const,
   account: (id: string) => [...suppliersKeys.all, "account", id] as const,
-  aging: () => [...suppliersKeys.all, "aging"] as const,
+  accountByScope: (id: string, isFiscal: boolean | null) =>
+    [...suppliersKeys.account(id), { isFiscal }] as const,
+  aging: (isFiscal: boolean | null) =>
+    [...suppliersKeys.all, "aging", { isFiscal }] as const,
   openingBalance: (id: string) =>
     [...suppliersKeys.all, "openingBalance", id] as const,
 };

@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,7 +51,6 @@ import {
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
 import {
@@ -165,7 +165,7 @@ export function NewInvoiceDialog({
 
 const FormSchema = z.object({
   kind: z.enum(["factura", "nc", "nd"]),
-  channelId: z.string(),
+  channelId: z.string().min(1, "Elegí un canal."),
   puntoVenta: z.string(),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   origin: z.custom<InvoiceListItem>().nullable(),
@@ -193,11 +193,8 @@ function NewInvoiceForm({
   // One key per voucher being written: a double submit returns the same draft.
   const [issueKey, setIssueKey] = useState(() => crypto.randomUUID());
 
-  // Header — default to Jouve Fiscal when present in the channel list.
-  const initialChannel =
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-    channels[0]?.id ??
-    "";
+  // Header — the scope's only active channel, else the user picks.
+  const initialChannel = useDefaultChannel() ?? "";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),

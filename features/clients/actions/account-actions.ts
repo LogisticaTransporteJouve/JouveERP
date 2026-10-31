@@ -8,6 +8,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -51,8 +52,9 @@ export interface AccountMovement {
   channel_division: string | null;
   channel_is_fiscal: boolean | null;
   /** Running balance after this row (sorted oldest → newest by movement_date,
-   *  then created_at). */
-  balance: number;
+   *  then created_at). `null` under a fiscal/internal scope: there is no
+   *  running balance per scope, only the scope's aging total. */
+  balance: number | null;
   /** Per-document outstanding: only meaningful for invoice rows.
    *  imp_total minus the sum of issued receipt_allocations applied to it.
    *  Receipt rows return their "a cuenta" (total minus allocations).
@@ -62,17 +64,26 @@ export interface AccountMovement {
 
 export interface ClientAccountResult {
   movements: AccountMovement[];
-  /** Final running balance — last row's `balance`. Positive = client owes. */
+  /** "Todos": the final running balance (last row's `balance`). Under a
+   *  scope: the scope's aging total (open documents of that scope, net of
+   *  opening-balance allocations). Positive = client owes. */
   balance: number;
+  /** False under a scope: rows carry no running balance. */
+  runningBalance: boolean;
 }
 
 /**
  * Returns the chronological feed of comprobantes + recibos for a client
  * with a running balance computed in TS. The view filters by status
  * (`emitted` / `issued`) so cancelled / failed rows never appear.
+ *
+ * With `isFiscal` (D6) only that scope's movements are listed, the opening
+ * balance (no channel) stays as an informative row, and the single balance is
+ * the scope's aging total.
  */
 export async function getClientAccountAction(
   clientId: string,
+  input?: { isFiscal?: boolean | null },
 ): Promise<ActionResult<ClientAccountResult>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "clients:read")) {
@@ -230,7 +241,63 @@ export async function getClientAccountAction(
     });
   }
 
-  return { ok: true, data: { movements, balance: running } };
+  const isFiscal = input?.isFiscal ?? null;
+  if (isFiscal === null) {
+    return {
+      ok: true,
+      data: { movements, balance: running, runningBalance: true },
+    };
+  }
+
+  const openRes = await paginateRange((from, to) =>
+    applyFiscalFilter(
+      supabase
+        .from("v_aging_documents")
+        .select("invoice_id, open_amount")
+        .eq("client_id", clientId),
+      isFiscal,
+    )
+      .order("invoice_id", { ascending: true })
+      .range(from, to),
+  );
+  if (openRes.error) {
+    logger.error("clients.account.scope_balance_failed", {
+      userId: ctx.userId,
+      clientId,
+      error: openRes.error,
+    });
+    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
+  }
+
+  // The opening balance has no channel: shown as its target, informative only.
+  const openingTarget = Number(
+    rows.find((r) => r.source_type === "opening_balance")?.signed_amount ?? 0,
+  );
+  return {
+    ok: true,
+    data: {
+      movements: movements
+        .filter(
+          (m) =>
+            m.channel_is_fiscal === isFiscal ||
+            m.source_type === "opening_balance",
+        )
+        .map((m) =>
+          m.source_type === "opening_balance"
+            ? {
+                ...m,
+                signed_amount: openingTarget,
+                gross_amount: Math.abs(openingTarget),
+                balance: null,
+              }
+            : { ...m, balance: null },
+        ),
+      balance: round2(
+        openRes.data.reduce((sum, d) => sum + Number(d.open_amount ?? 0), 0),
+      ),
+      runningBalance: false,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

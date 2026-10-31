@@ -14,6 +14,7 @@ import {
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 import { fetchLatestUsdRate } from "@/lib/fx";
 import { logger } from "@/lib/logger";
+import { SCOPE_LABEL } from "@/lib/scope";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -61,9 +62,10 @@ function renderAgingEmail(
         : "<li>Sin cotización del dólar cargada: el saldo en USD no se consolida en pesos.</li>";
   const b = totals.buckets;
   return {
-    subject: `Aging semanal — ${date} · ${formatCurrencyAmounts(totals.total)} abierto`,
+    subject: `Aging semanal (${SCOPE_LABEL.all}) — ${date} · ${formatCurrencyAmounts(totals.total)} abierto`,
     html: `<div style="font-family:system-ui,sans-serif;max-width:640px">
       <h2>Aging semanal — ${date}</h2>
+      <p>Alcance: ${SCOPE_LABEL.all} (fiscales e internos).</p>
       <p>${totals.party_count} clientes con deuda · ${totals.document_count} comprobantes abiertos.</p>
       <ul>
         <li>0–30: ${formatCurrencyAmounts(b["0_30"])}</li>
@@ -131,10 +133,13 @@ export const agingWeeklySummary = inngest.createFunction(
 
     const generatedAt = new Date().toISOString();
 
+    // Counts only: names, CUITs and amounts stay out of the logs.
     await step.run("publish-summary", async () => {
       logger.info("aging.weekly_summary", {
         generated_at: generatedAt,
-        ...summary,
+        party_count: summary.totals.party_count,
+        document_count: summary.totals.document_count,
+        top_count: summary.top.length,
       });
     });
 

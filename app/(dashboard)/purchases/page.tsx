@@ -13,13 +13,15 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function PurchasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; type?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:read")) {
@@ -29,14 +31,7 @@ export default async function PurchasesPage({
   const params = await searchParams;
   const initialQuery = (params.q ?? "").trim();
   const initialStatus = params.status ?? null;
-  const initialFiscalFilter =
-    params.type === "fiscal" || params.type === "internal" ? params.type : null;
-  const isFiscalParam =
-    initialFiscalFilter === "fiscal"
-      ? true
-      : initialFiscalFilter === "internal"
-        ? false
-        : null;
+  const isFiscal = isFiscalFor(await readScopeCookie());
 
   const filters = {
     query: initialQuery,
@@ -45,7 +40,7 @@ export default async function PurchasesPage({
     status: initialStatus,
     fechaFrom: null,
     fechaTo: null,
-    isFiscal: isFiscalParam,
+    isFiscal,
   };
 
   const dehydratedState = await prefetchQueries([
@@ -90,7 +85,6 @@ export default async function PurchasesPage({
             actorAccess={ctx.access}
             initialQuery={initialQuery}
             initialStatus={initialStatus}
-            initialFiscalFilter={initialFiscalFilter}
           />
         </PurchaseInvoiceFileAssistBinding>
       </Hydrate>

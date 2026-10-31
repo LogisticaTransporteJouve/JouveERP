@@ -8,6 +8,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -57,6 +58,8 @@ export async function listReceiptsAction(input?: {
   query?: string | null;
   status?: "issued" | "canceled" | null;
   channelId?: string | null;
+  /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
+  isFiscal?: boolean | null;
 }): Promise<
   ActionResult<{
     items: (Receipt & { client_legal_name: string })[];
@@ -73,7 +76,9 @@ export async function listReceiptsAction(input?: {
   const supabase = await createSupabaseClient();
   let query = supabase
     .from("receipts")
-    .select(`${RECEIPT_COLUMNS}, clients ( legal_name )`)
+    .select(
+      `${RECEIPT_COLUMNS}, clients ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+    )
     .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false })
     // Tie-breaker: numero is unique per channel. Without a channel filter, two
@@ -83,6 +88,7 @@ export async function listReceiptsAction(input?: {
 
   if (input?.status) query = query.eq("status", input.status);
   if (input?.channelId) query = query.eq("channel_id", input.channelId);
+  query = applyFiscalFilter(query, input?.isFiscal, "channel");
   if (input?.query?.trim()) {
     // Exact numero search (no fulltext here; the global ⌘K covers that).
     const n = Number(input.query.trim());

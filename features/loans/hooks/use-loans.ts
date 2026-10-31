@@ -6,6 +6,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -19,9 +20,10 @@ import {
 import { loansKeys } from "../lib/loans-keys";
 
 export function useLoans() {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: loansKeys.list(),
-    queryFn: () => runAction(() => listLoansAction()),
+    queryKey: loansKeys.list(isFiscal),
+    queryFn: () => runAction(() => listLoansAction({ isFiscal })),
   });
 }
 
@@ -59,7 +61,8 @@ export function useUpdateInstallment() {
 export function usePayInstallment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) => runAction(() => payInstallmentAction(input)),
+    mutationFn: (input: unknown) =>
+      runAction(() => payInstallmentAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

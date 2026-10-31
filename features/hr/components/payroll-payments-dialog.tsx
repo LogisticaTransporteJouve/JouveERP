@@ -5,7 +5,10 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  useScope,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -150,6 +153,7 @@ function PaymentsBody({
   const { data: payments = [], isLoading } = usePayrollPayments(entryId);
   const { data: accounts } = useAccountsList();
   const { channels } = useScope();
+  const defaultChannel = useDefaultChannel();
   const createMut = useCreatePayrollPayment();
   const deleteMut = useDeletePayrollPayment();
 
@@ -159,7 +163,7 @@ function PaymentsBody({
   const form = useForm<AddValues>({
     defaultValues: {
       account_id: activeAccounts[0]?.id ?? "",
-      channel_id: activeChannels[0]?.id ?? "",
+      channel_id: defaultChannel ?? "",
       amount: saldo > 0 ? String(saldo) : "",
       method: "transferencia",
       paid_at: new Date().toISOString().slice(0, 10),
@@ -222,7 +226,9 @@ function PaymentsBody({
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>
         ) : (
           payments.map((payment) => {
-            const account = activeAccounts.find((a) => a.id === payment.account_id);
+            const account = activeAccounts.find(
+              (a) => a.id === payment.account_id,
+            );
             return (
               <li
                 key={payment.id}
@@ -238,7 +244,9 @@ function PaymentsBody({
                     {payment.notes ? ` · ${payment.notes}` : ""}
                   </div>
                 </div>
-                <span className="font-mono">{money(Number(payment.amount))}</span>
+                <span className="font-mono">
+                  {money(Number(payment.amount))}
+                </span>
                 {!disabled && (
                   <Button
                     size="icon"

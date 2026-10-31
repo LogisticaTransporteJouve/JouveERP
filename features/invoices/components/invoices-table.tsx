@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Access } from "@/lib/auth/permissions";
@@ -62,7 +63,6 @@ function formatPdfFilename(row: InvoiceListItem): string {
 }
 
 const ANY_STATUS = "__any__";
-const ANY_CHANNEL = "__any__";
 
 const STATUS_TONE: Record<InvoiceStatus, string> = {
   draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
@@ -191,19 +191,14 @@ function buildInvoiceColumns(
 export function ComprobantesTable({
   actorAccess,
   channels,
-  initialChannel,
   initialStatus,
   initialQuery,
 }: {
   actorAccess: Access;
   channels: ChannelOption[];
-  initialChannel: string | null;
   initialStatus: InvoiceStatus | null;
   initialQuery: string;
 }) {
-  const [channelInput, setChannelInput] = useState<string>(
-    initialChannel ?? ANY_CHANNEL,
-  );
   const [statusInput, setStatusInput] = useState<string>(
     initialStatus ?? ANY_STATUS,
   );
@@ -212,11 +207,10 @@ export function ComprobantesTable({
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
   const setUrlFilters = useUrlFilter();
 
-  const channel = channelInput === ANY_CHANNEL ? null : channelInput;
   const status =
     statusInput === ANY_STATUS ? null : (statusInput as InvoiceStatus);
 
-  const deferredChannel = useDeferredValue(channel);
+  const isFiscal = useScopeIsFiscal();
   const deferredStatus = useDeferredValue(status);
   const deferredQuery = useDeferredValue(debouncedQuery);
 
@@ -234,11 +228,10 @@ export function ComprobantesTable({
 
   useEffect(() => {
     setUrlFilters({
-      channel: channel ?? null,
       status: status ?? null,
       q: debouncedQuery || null,
     });
-  }, [channel, status, debouncedQuery, setUrlFilters]);
+  }, [status, debouncedQuery, setUrlFilters]);
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setQueryInput(event.target.value);
@@ -247,20 +240,6 @@ export function ComprobantesTable({
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={channelInput} onValueChange={setChannelInput}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Canal" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY_CHANNEL}>Todos los canales</SelectItem>
-            {channels.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Select value={statusInput} onValueChange={setStatusInput}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Estado" />
@@ -291,7 +270,7 @@ export function ComprobantesTable({
       <div className="mt-4">
         <Suspense fallback={<ComprobantesTableSkeleton />}>
           <ComprobantesTableRows
-            channel={deferredChannel}
+            isFiscal={isFiscal}
             status={deferredStatus}
             query={deferredQuery}
             canSendEmail={canSendEmail}
@@ -303,18 +282,18 @@ export function ComprobantesTable({
 }
 
 function ComprobantesTableRows({
-  channel,
+  isFiscal,
   status,
   query,
   canSendEmail,
 }: {
-  channel: string | null;
+  isFiscal: boolean | null;
   status: InvoiceStatus | null;
   query: string;
   canSendEmail: boolean;
 }) {
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInvoicesSearchInfinite({ channel, status, query });
+    useInvoicesSearchInfinite({ isFiscal, status, query });
 
   const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {

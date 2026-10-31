@@ -25,6 +25,8 @@ import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -41,6 +43,7 @@ export default async function SupplierDetailPage({
   }
 
   const { id } = await params;
+  const isFiscal = isFiscalFor(await readScopeCookie());
   // Independent reads in parallel (see clients/[id]).
   const [result, activeChannels, accountsResult, dehydratedState] =
     await Promise.all([
@@ -49,8 +52,9 @@ export default async function SupplierDetailPage({
       listAccountsAction(),
       prefetchQueries([
         {
-          queryKey: suppliersKeys.account(id),
-          queryFn: () => runAction(() => getSupplierAccountAction(id)),
+          queryKey: suppliersKeys.accountByScope(id, isFiscal),
+          queryFn: () =>
+            runAction(() => getSupplierAccountAction(id, { isFiscal })),
         },
       ]),
     ]);

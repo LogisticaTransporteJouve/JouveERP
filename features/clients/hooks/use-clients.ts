@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -98,7 +99,10 @@ export function useClientById(id: string) {
   });
 }
 
-export function useClientReferences(id: string, options: { enabled?: boolean } = {}) {
+export function useClientReferences(
+  id: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: clientsKeys.references(id),
     queryFn: () => runAction(() => getClientReferencesAction(id)),
@@ -107,9 +111,10 @@ export function useClientReferences(id: string, options: { enabled?: boolean } =
 }
 
 export function useClientAccount(id: string) {
+  const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: clientsKeys.account(id),
-    queryFn: () => runAction(() => getClientAccountAction(id)),
+    queryKey: clientsKeys.accountByScope(id, isFiscal),
+    queryFn: () => runAction(() => getClientAccountAction(id, { isFiscal })),
   });
 }
 

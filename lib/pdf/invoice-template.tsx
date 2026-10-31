@@ -300,6 +300,9 @@ function InvoicePage({
       ? `Letra ${data.letter}`
       : "Sin letra"
     : "Documento no fiscal";
+  const heading = data.isFiscal
+    ? INVOICE_KIND_LABEL[data.kind]
+    : INTERNAL_KIND_LABEL[data.kind];
 
   return (
     <Page size="A4" style={styles.page}>
@@ -311,9 +314,13 @@ function InvoicePage({
         <View style={styles.headerLeft}>
           <Text style={styles.emisorName}>{data.emisor.legal_name}</Text>
           <View style={styles.emisorMeta}>
-            <Text>{data.emisor.division_label}</Text>
-            <Text>CUIT {data.emisor.cuit}</Text>
-            <Text>{data.emisor.iva_condition}</Text>
+            {data.emisor.division_label && (
+              <Text>{data.emisor.division_label}</Text>
+            )}
+            {data.emisor.cuit && <Text>CUIT {data.emisor.cuit}</Text>}
+            {data.emisor.iva_condition && (
+              <Text>{data.emisor.iva_condition}</Text>
+            )}
             {data.emisor.iibb_number && (
               <Text>Ingresos Brutos: {data.emisor.iibb_number}</Text>
             )}
@@ -336,9 +343,7 @@ function InvoicePage({
         )}
 
         <View style={styles.headerRight}>
-          <Text style={styles.comprobanteHeading}>
-            {INVOICE_KIND_LABEL[data.kind]}
-          </Text>
+          <Text style={styles.comprobanteHeading}>{heading}</Text>
           <Text style={styles.comprobanteSubheading}>{subtitle}</Text>
           <Text style={{ marginTop: 8 }}>
             N°{" "}
@@ -523,6 +528,13 @@ function InvoicePage({
     </Page>
   );
 }
+
+/** The title of an internal comprobante: never "Factura" (D5). */
+const INTERNAL_KIND_LABEL: Record<InvoiceKind, string> = {
+  factura: "Comprobante interno",
+  nc: "Nota de crédito interna",
+  nd: "Nota de débito interna",
+};
 
 // Mirrors the table in lib/afip/codes.ts. Kept inline because the PDF-side
 // only needs the int code as a string for display next to the letter.

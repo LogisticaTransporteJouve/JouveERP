@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCanAll } from "@/lib/auth/permissions";
 import { buildXlsx } from "@/lib/export/xlsx";
 import { xlsxResponse } from "@/lib/export/xlsx-response";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 import { renderTableReportPdf } from "@/lib/pdf/table-report-render";
 
 import { EXPORTERS, type ExportRange } from "../exporters";
-import { cellText, exportSheet } from "../shared";
+import { cellText, ExportInputError, exportSheet } from "../shared";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,7 +32,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (!userCan(ctx.access, exporter.permission)) {
+  if (!userCanAll(ctx.access, exporter.permission)) {
     return NextResponse.json({ error: "No tenés permiso." }, { status: 403 });
   }
 
@@ -80,6 +80,10 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof ExportInputError) {
+      logger.warn("export.bad_input", { resource, message: error.message });
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     logger.error("export.failed", { resource, error });
     return NextResponse.json(
       { error: "Error generando el archivo." },

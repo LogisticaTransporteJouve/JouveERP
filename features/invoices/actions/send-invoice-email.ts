@@ -12,6 +12,7 @@ import {
   formatNumber2,
 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { divisionLabel } from "@/lib/pdf/emisor";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -20,10 +21,16 @@ import type { ClientLegalJoin } from "@/features/clients/schema";
 import { formatInvoiceNumero } from "../schema";
 import type { ActionResult } from "@/lib/query/run-action";
 
-/** Specific shape of `channel:invoicing_channels ( business_unit:business_units(name) )`
- *  returned by the send-invoice-email SELECT to get the issuer's name. */
+/** Shape of `channel:invoicing_channels(name, division, is_fiscal,
+ *  business_unit:business_units(name))`: the issuer's name and whether the
+ *  comprobante is fiscal. */
 type ChannelBusinessUnitJoin = {
-  channel: { business_unit: { name: string } | null } | null;
+  channel: {
+    name: string;
+    division: string | null;
+    is_fiscal: boolean;
+    business_unit: { name: string } | null;
+  } | null;
 };
 
 const SendInvoiceEmailSchema = z.object({
@@ -67,7 +74,7 @@ export async function sendInvoiceByEmailAction(
     .from("invoices")
     .select(
       `id, kind, letter, punto_venta, numero, fecha, imp_total, status,
-       channel:invoicing_channels(business_unit:business_units(name)),
+       channel:invoicing_channels(name, division, is_fiscal, business_unit:business_units(name)),
        client:clients(legal_name)`,
     )
     .eq("id", input.invoice_id)
@@ -83,9 +90,13 @@ export async function sendInvoiceByEmailAction(
   }
 
   const client = (invoice as unknown as ClientLegalJoin).client;
-  const emisorName =
-    (invoice as unknown as ChannelBusinessUnitJoin).channel?.business_unit
-      ?.name ?? "DZ & Sons";
+  const channel = (invoice as unknown as ChannelBusinessUnitJoin).channel;
+  const isFiscal = channel?.is_fiscal ?? true;
+  // D5: an internal comprobante goes out under the division, never under the
+  // fiscal issuer.
+  const emisorName = isFiscal
+    ? (channel?.business_unit?.name ?? "DZ & Sons")
+    : divisionLabel(channel?.division, channel?.name ?? "");
 
   const numberLabel = formatInvoiceNumero(
     invoice.kind,
@@ -120,6 +131,7 @@ export async function sendInvoiceByEmailAction(
     subject: input.subject,
     body: input.body,
     emisor_name: emisorName,
+    internal: !isFiscal,
     client_legal_name: client?.legal_name ?? "Cliente",
     numero_label: numberLabel,
     fecha: dateLabel,

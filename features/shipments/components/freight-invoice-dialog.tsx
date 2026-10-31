@@ -108,7 +108,11 @@ export function FreightInvoiceDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="freight-channel">Canal</Label>
-            <Select value={channelId} onValueChange={setChannelId}>
+            <Select
+              value={channelId}
+              onValueChange={setChannelId}
+              disabled={!!shipment?.channel_id}
+            >
               <SelectTrigger id="freight-channel">
                 <SelectValue placeholder="Elegí un canal" />
               </SelectTrigger>

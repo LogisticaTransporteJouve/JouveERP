@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -43,7 +44,6 @@ import {
   todayInAR,
 } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
-import { DEFAULT_CHANNEL_ID } from "@/lib/scope";
 
 import type { PaymentOrderDetail } from "../actions/payment-orders-actions";
 import {
@@ -114,11 +114,9 @@ export function PaymentOrderForm({
   const updateMut = useUpdatePaymentOrder();
   const isSaving = createMut.isPending || updateMut.isPending;
 
+  const defaultChannel = useDefaultChannel();
   const initialChannel =
-    paymentOrder?.paymentOrder.channel_id ??
-    channels.find((c) => c.id === DEFAULT_CHANNEL_ID)?.id ??
-    channels[0]?.id ??
-    "";
+    paymentOrder?.paymentOrder.channel_id ?? defaultChannel ?? "";
 
   const initialPaymentLines: PaymentLineDraft[] = paymentOrder
     ? paymentOrder.payment_lines.map((l): PaymentLineDraft => {

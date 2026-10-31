@@ -34,7 +34,7 @@ export { INVOICES_PAGE_SIZE };
 const TERMINAL_STATES: InvoiceStatus[] = ["emitted", "failed", "cancelled"];
 
 export function useInvoicesSearchInfinite(filters: {
-  channel: string | null;
+  isFiscal: boolean | null;
   status: InvoiceStatus | null;
   query: string;
 }) {
@@ -43,7 +43,7 @@ export function useInvoicesSearchInfinite(filters: {
     queryFn: ({ pageParam }) =>
       runAction(() =>
         listInvoicesAction({
-          channel_id: filters.channel,
+          isFiscal: filters.isFiscal,
           status: filters.status,
           query: filters.query,
           offset: pageParam,
@@ -142,9 +142,10 @@ export function useEnabledPos(
 }
 
 /**
- * Search for invoices eligible as the origin of an NC/ND: only `emitted`,
- * fiscal channel and `kind === "factura"`. The invoices list page consumes
- * this from the NC/ND dialog.
+ * Search for invoices eligible as the origin of an NC/ND: only `emitted`
+ * facturas of an active fiscal channel, filtered server-side so the 25 rows
+ * are all eligible. The invoices list page consumes this from the NC/ND
+ * dialog.
  */
 export function useOriginSearch(query: string, enabled = true) {
   return useQuery({
@@ -153,13 +154,14 @@ export function useOriginSearch(query: string, enabled = true) {
       const res = await runAction(() =>
         listInvoicesAction({
           status: "emitted",
+          kind: "factura",
+          isFiscal: true,
+          activeChannelOnly: true,
           query: query.trim().length > 0 ? query : null,
           limit: 25,
         }),
       );
-      return res.items.filter(
-        (it) => it.channel_is_fiscal && it.kind === "factura",
-      );
+      return res.items;
     },
     enabled,
     staleTime: 5_000,

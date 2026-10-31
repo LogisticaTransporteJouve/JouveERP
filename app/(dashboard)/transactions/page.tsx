@@ -18,6 +18,8 @@ import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -39,7 +41,6 @@ export default async function CajaPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    channel?: string;
     account?: string;
     kind?: string;
     from?: string;
@@ -53,7 +54,7 @@ export default async function CajaPage({
 
   const params = await searchParams;
   const filters = {
-    channel_id: params.channel ?? null,
+    is_fiscal: isFiscalFor(await readScopeCookie()),
     account_id: params.account ?? null,
     kind: asKind(params.kind),
     date_from: asISODate(params.from),
@@ -95,7 +96,7 @@ export default async function CajaPage({
           <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
           <p className="text-sm text-muted-foreground">
             Ingresos, egresos y transferencias entre cuentas. Cada movimiento se
-            imputa a un canal (Jouve o DZ) para reportes por división.
+            imputa a un canal; la lista sigue el alcance elegido arriba.
           </p>
         </div>
         <ExportButton resource="transactions" />
@@ -105,7 +106,6 @@ export default async function CajaPage({
           <TransactionsTable
             channels={channels}
             actorAccess={ctx.access}
-            initialChannel={filters.channel_id}
             initialAccount={filters.account_id}
             initialKind={filters.kind}
             initialDateFrom={filters.date_from}

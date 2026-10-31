@@ -103,6 +103,8 @@ describe.each([
 describe.each([
   ["v_client_aging", "v_aging_documents"],
   ["v_supplier_aging", "v_supplier_aging_documents"],
+  ["v_client_aging_by_scope", "v_aging_documents"],
+  ["v_supplier_aging_by_scope", "v_supplier_aging_documents"],
 ])("%s", (view, source) => {
   const definition = lastStatement(
     new RegExp(
@@ -130,4 +132,15 @@ describe.each([
     expect(definition).not.toMatch(/sum\(d\.open_amount\)\s+as/);
     expect(definition).not.toMatch(/\btotal_open\b/);
   });
+
+  if (view.endsWith("_by_scope")) {
+    it("groups by counterparty and scope, and is not readable by anon", () => {
+      expect(definition).toMatch(/group by d\.\w+_id, d\.channel_is_fiscal;/);
+      expect(
+        lastStatement(
+          new RegExp(`revoke all on table public\\.${view} [^;]*;`, "gi"),
+        ),
+      ).toMatch(/from public, anon;$/);
+    });
+  }
 });

@@ -23,6 +23,7 @@ import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
+import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -548,6 +549,11 @@ export async function getInvoiceStatusAction(
 
 export interface ListComprobantesFilters {
   channel_id?: string | null;
+  /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
+  isFiscal?: boolean | null;
+  kind?: InvoiceRow["kind"] | null;
+  /** Only invoices of an active channel (pickers; never the lists). */
+  activeChannelOnly?: boolean;
   status?: InvoiceRow["status"] | null;
   fecha_desde?: string | null;
   fecha_hasta?: string | null;
@@ -600,7 +606,7 @@ export async function listInvoicesAction(
     .from("invoices")
     .select(
       `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, cae, emitted_at,
-       channel:invoicing_channels(name, is_fiscal),
+       channel:invoicing_channels(name, is_fiscal, is_active),
        client:clients!inner(legal_name)`,
     )
     .order("fecha", { ascending: false })
@@ -611,6 +617,11 @@ export async function listInvoicesAction(
     .range(offset, offset + limit); // limit + 1 trick
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
+  query = applyFiscalFilter(query, filters.isFiscal, "channel");
+  if (filters.activeChannelOnly) {
+    query = query.eq("channel.is_active", true).not("channel", "is", null);
+  }
+  if (filters.kind) query = query.eq("kind", filters.kind);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
   if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
@@ -648,7 +659,7 @@ export async function listInvoicesAction(
     status: string;
     cae: string | null;
     emitted_at: string | null;
-    channel: { name: string; is_fiscal: boolean } | null;
+    channel: { name: string; is_fiscal: boolean; is_active: boolean } | null;
     client: { legal_name: string } | null;
   }>;
 
