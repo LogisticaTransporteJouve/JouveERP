@@ -1,7 +1,6 @@
 "use client";
 
-import { Settings } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,50 +27,44 @@ import { useConfigurePos, useInvoicingChannels } from "../hooks/use-afip-admin";
 
 const NO_CHANNEL_VALUE = "__none__";
 
-type ChannelLabels = Record<string, string>;
-
+/** One dialog for the whole table, opened with the row to edit. Living
+ *  outside the table keeps it mounted while the rows re-render; a dialog
+ *  unmounted while open leaves Radix's `pointer-events: none` on the body. */
 export function ConfigurePosDialog({
   point,
-  onChannelLabels,
-  onUpdated,
+  onClose,
 }: {
-  point: SalesPointRow;
-  onChannelLabels: (labels: ChannelLabels) => void;
-  onUpdated: (row: SalesPointRow) => void;
+  point: SalesPointRow | null;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Configurar">
-          <Settings className="size-4" />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={point !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            Punto de venta {String(point.numero).padStart(5, "0")}
-          </DialogTitle>
-          <DialogDescription>
-            Asociá el POS a un canal para que aparezca en el form de emisión.
-          </DialogDescription>
-        </DialogHeader>
-        {open ? (
-          <Suspense
-            fallback={
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                Cargando canales…
-              </p>
-            }
-          >
-            <ConfigurePosForm
-              point={point}
-              onChannelLabels={onChannelLabels}
-              onUpdated={onUpdated}
-              onClose={() => setOpen(false)}
-            />
-          </Suspense>
+        {point ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                Punto de venta {String(point.numero).padStart(5, "0")}
+              </DialogTitle>
+              <DialogDescription>
+                Asociá el POS a un canal para que aparezca en el form de
+                emisión.
+              </DialogDescription>
+            </DialogHeader>
+            <Suspense
+              fallback={
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  Cargando canales…
+                </p>
+              }
+            >
+              <ConfigurePosForm
+                key={point.numero}
+                point={point}
+                onClose={onClose}
+              />
+            </Suspense>
+          </>
         ) : null}
       </DialogContent>
     </Dialog>
@@ -81,13 +73,9 @@ export function ConfigurePosDialog({
 
 function ConfigurePosForm({
   point,
-  onChannelLabels,
-  onUpdated,
   onClose,
 }: {
   point: SalesPointRow;
-  onChannelLabels: (labels: ChannelLabels) => void;
-  onUpdated: (row: SalesPointRow) => void;
   onClose: () => void;
 }) {
   const channelsQuery = useInvoicingChannels();
@@ -99,12 +87,6 @@ function ConfigurePosForm({
   );
   const [nickname, setNickname] = useState(point.nickname ?? "");
   const [isEnabled, setIsEnabled] = useState(point.is_enabled);
-
-  useEffect(() => {
-    const labels: ChannelLabels = {};
-    for (const c of channels) labels[c.id] = c.name;
-    onChannelLabels(labels);
-  }, [channels, onChannelLabels]);
 
   const isSaving = configureMut.isPending;
 
@@ -119,9 +101,8 @@ function ConfigurePosForm({
         is_enabled: isEnabled,
       },
       {
-        onSuccess: (data) => {
+        onSuccess: () => {
           toast.success("Configuración guardada.");
-          onUpdated(data);
           onClose();
         },
         onError: (err) => toast.error(err.message),
