@@ -68,12 +68,13 @@ UNIQUE` (regex `^[0-9]+(\.[0-9]+)*$`, ej. `1.1.2.3`), `name`, `level int` (CHECK
 - **`account_type`** (enum `coa_account_type`, 6): `activo, pasivo, patrimonio,
   resultado_positivo, resultado_negativo, orden` (`orden` = cuentas de orden, sin
   impacto patrimonial).
-- **`system_role`** (enum `coa_system_role`, **20**): `caja, banco, clientes,
+- **`system_role`** (enum `coa_system_role`, **21**): `caja, banco, clientes,
   proveedores, iva_debito, iva_credito, iva_percibido, iva_retenido,
   percepciones_iibb_pagadas, percepciones_iibb_cobradas, retenciones_pagadas,
   retenciones_cobradas, ventas, compras, gastos, cheques_cartera,
-  cheques_rechazados, cheques_diferidos_emitidos, caja_apertura, ajustes_caja`.
-  `cheques_rechazados` es "Deudores por cheques rechazados" (activo, bajo 1.1.2).
+  cheques_rechazados, cheques_diferidos_emitidos, caja_apertura, ajustes_caja,
+  sueldos`. `cheques_rechazados` es "Deudores por cheques rechazados" (activo, bajo
+  1.1.2); `sueldos` es 5.3.1 "Sueldos y jornales" (`…193031`).
 
 **`system_role` es el puente a los asientos automáticos (§3).** El RPC
 `find_account_by_role(role)` devuelve la única cuenta **activa** con ese rol; el
@@ -190,6 +191,10 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   - `en_cartera`: sale de la cartera del cheque (Haber `cheques_cartera`);
   - `endosado`: sin egreso; el trigger asienta Debe `cheques_rechazados` / Haber
     `proveedores`.
+- **Pago de sueldo:** el egreso que crea `payroll_payment_sync_transaction` lleva
+  `is_payroll=true` y el builder de `transactions` lo asienta Debe `sueldos` (5.3.1)
+  en vez de `gastos` (5.3.5); si ninguna cuenta activa tiene el rol, cae a `gastos`.
+  Los asientos anteriores a `…193031` quedan en 5.3.5 hasta que se re-asienten.
 
   Solo canal fiscal. Los gastos bancarios del rechazo, si se cargan, van aparte como
   gasto. Darlo de baja como incobrable es una acción explícita aparte (pendiente).

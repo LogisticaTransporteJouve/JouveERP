@@ -281,5 +281,6 @@ begin
 end;
 $$;
 
-revoke all on function public.grant_vacation_balances(int, boolean) from public, anon;
+-- The HR admin action calls it with the user's session; the body checks the role.
+revoke all on function public.grant_vacation_balances(int, boolean) from public, anon, authenticated;
 grant execute on function public.grant_vacation_balances(int, boolean) to authenticated, service_role;

@@ -8,41 +8,20 @@ SET LOCAL statement_timeout = '15min';
 -- fleet report. ON DELETE SET NULL: deleting the voucher leaves the cost
 -- unlinked, never deletes it.
 
+-- The columns are new and all NULL: the FK check has no row to scan, so the
+-- lock is momentary. No index: these tables are small and the report reads
+-- them by date.
 alter table public.fuel_loads
-  add column purchase_invoice_id uuid,
-  add column transaction_id uuid;
-
-alter table public.fuel_loads
-  add constraint fuel_loads_purchase_invoice_id_fkey
-    foreign key (purchase_invoice_id) references public.purchase_invoices (id)
-    on delete set null not valid;
-alter table public.fuel_loads
-  validate constraint fuel_loads_purchase_invoice_id_fkey;
-
-alter table public.fuel_loads
-  add constraint fuel_loads_transaction_id_fkey
-    foreign key (transaction_id) references public.transactions (id)
-    on delete set null not valid;
-alter table public.fuel_loads
-  validate constraint fuel_loads_transaction_id_fkey;
+  -- squawk-ignore adding-foreign-key-constraint
+  add column purchase_invoice_id uuid references public.purchase_invoices (id) on delete set null,
+  -- squawk-ignore adding-foreign-key-constraint
+  add column transaction_id uuid references public.transactions (id) on delete set null;
 
 alter table public.maintenance_records
-  add column purchase_invoice_id uuid,
-  add column transaction_id uuid;
-
-alter table public.maintenance_records
-  add constraint maintenance_records_purchase_invoice_id_fkey
-    foreign key (purchase_invoice_id) references public.purchase_invoices (id)
-    on delete set null not valid;
-alter table public.maintenance_records
-  validate constraint maintenance_records_purchase_invoice_id_fkey;
-
-alter table public.maintenance_records
-  add constraint maintenance_records_transaction_id_fkey
-    foreign key (transaction_id) references public.transactions (id)
-    on delete set null not valid;
-alter table public.maintenance_records
-  validate constraint maintenance_records_transaction_id_fkey;
+  -- squawk-ignore adding-foreign-key-constraint
+  add column purchase_invoice_id uuid references public.purchase_invoices (id) on delete set null,
+  -- squawk-ignore adding-foreign-key-constraint
+  add column transaction_id uuid references public.transactions (id) on delete set null;
 
 comment on column public.fuel_loads.purchase_invoice_id is
   'Purchase invoice that books this load (optional).';
