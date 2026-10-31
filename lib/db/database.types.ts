@@ -6132,7 +6132,6 @@ export type Database = {
           receipt_channel_id: string
         }[]
       }
-      cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
       claim_storage_billing_period: {
         Args: {
           p_channel_id: string
@@ -6142,6 +6141,7 @@ export type Database = {
         }
         Returns: string
       }
+      cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
       cleanup_rate_limit_buckets: {
         Args: { p_older_than?: string }
         Returns: number
