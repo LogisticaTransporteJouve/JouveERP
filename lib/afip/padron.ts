@@ -19,6 +19,7 @@ import { XMLParser } from "fast-xml-parser";
 
 import { logger } from "@/lib/logger";
 
+import { afipFetch } from "./http";
 import { getAccessTicket } from "./wsaa";
 import { getAfipCuit, getAfipEnv } from "./env";
 import type {
@@ -286,7 +287,7 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
     idPersona: cuitClean,
   });
 
-  const res = await fetch(getPadronEndpoint(), {
+  const res = await afipFetch(getPadronEndpoint(), {
     method: "POST",
     headers: {
       "Content-Type": "text/xml; charset=utf-8",

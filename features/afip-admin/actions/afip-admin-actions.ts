@@ -434,13 +434,37 @@ export async function requestCaeaNowAction(): Promise<
 }
 
 /** Queues the ARCA → ERP import of issued vouchers (same job as the hourly
- *  cron); the vouchers land in Comprobantes as the job advances. */
-export async function requestArcaSyncAction(): Promise<ActionResult<null>> {
+ *  cron). Returns when it was queued so the caller can count what lands. */
+export async function requestArcaSyncAction(): Promise<
+  ActionResult<{ requestedAt: string }>
+> {
   const ctx = await requireAfipAdmin();
   if (!ctx) {
     return { ok: false, error: "No tenés permiso para administrar AFIP." };
   }
 
+  const { listSyncTargets } = await import("@/lib/afip/sync-issued");
+  let targets: Awaited<ReturnType<typeof listSyncTargets>>;
+  try {
+    targets = await listSyncTargets(getServiceClient());
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : "No se pudieron leer los puntos de venta.",
+    };
+  }
+  if (targets.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No hay puntos de venta fiscales habilitados. Asigná uno a un canal fiscal en Admin → Puntos de venta.",
+    };
+  }
+
+  const requestedAt = new Date().toISOString();
   const { inngest } = await import("@/lib/inngest/client");
   const { ARCA_ISSUED_SYNC_REQUESTED } = await import("@/lib/inngest/events");
   try {
@@ -460,5 +484,26 @@ export async function requestArcaSyncAction(): Promise<ActionResult<null>> {
   }
 
   await logAudit("afip.issued_sync_requested", ctx.userId, {});
-  return { ok: true, data: null };
+  return { ok: true, data: { requestedAt } };
+}
+
+/** How many vouchers the ARCA import stored since `since` (ISO timestamp). */
+export async function countArcaImportedSinceAction(
+  since: string,
+): Promise<ActionResult<number>> {
+  const ctx = await requireAfipAdmin();
+  if (!ctx) {
+    return { ok: false, error: "No tenés permiso para administrar AFIP." };
+  }
+  if (Number.isNaN(Date.parse(since))) {
+    return { ok: false, error: "Fecha inválida." };
+  }
+
+  const { count, error } = await getServiceClient()
+    .from("invoices")
+    .select("id", { count: "exact", head: true })
+    .like("idempotency_key", "arca-sync-%")
+    .gte("created_at", since);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: count ?? 0 };
 }

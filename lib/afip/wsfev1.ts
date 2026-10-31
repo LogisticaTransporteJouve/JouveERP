@@ -42,6 +42,7 @@ import {
   AfipTransportError,
   type AfipServiceErrorEntry,
 } from "./errors";
+import { afipFetch } from "./http";
 import { getAccessTicket } from "./wsaa";
 
 const WSFE_NS = "http://ar.gov.afip.dif.FEV1/";
@@ -154,9 +155,9 @@ async function callWsfev1<T>(
 
   logger.debug("wsfev1.request", { action });
 
-  let res: Response;
+  let res: Awaited<ReturnType<typeof afipFetch>>;
   try {
-    res = await fetch(url, {
+    res = await afipFetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "text/xml; charset=utf-8",
