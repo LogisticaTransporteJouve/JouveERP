@@ -24,8 +24,10 @@ const SetOpeningInput = z.object({
   notes: NotesSchema,
 });
 
+/** `rejected_check`: a check of an issued receipt that bounced; the client
+ *  owes it again (D11). Numbered with the receipt that brought it. */
 export type AccountMovementSourceType =
-  "invoice" | "receipt" | "opening_balance";
+  "invoice" | "receipt" | "opening_balance" | "rejected_check";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;
@@ -259,26 +261,29 @@ export async function getClientAccountAction(
   const openingTarget = Number(
     rows.find((r) => r.source_type === "opening_balance")?.signed_amount ?? 0,
   );
+  const scoped = movements.filter(
+    (m) =>
+      m.channel_is_fiscal === isFiscal || m.source_type === "opening_balance",
+  );
+  // Aging is per invoice and a bounced check reopens none, so its debt is
+  // added on top of the scope's open documents.
+  const rejectedChecks = scoped
+    .filter((m) => m.source_type === "rejected_check")
+    .reduce((sum, m) => sum + m.signed_amount, 0);
   return {
     ok: true,
     data: {
-      movements: movements
-        .filter(
-          (m) =>
-            m.channel_is_fiscal === isFiscal ||
-            m.source_type === "opening_balance",
-        )
-        .map((m) =>
-          m.source_type === "opening_balance"
-            ? {
-                ...m,
-                signed_amount: openingTarget,
-                gross_amount: Math.abs(openingTarget),
-                balance: null,
-              }
-            : { ...m, balance: null },
-        ),
-      balance: round2(scopeOpen - scopeOnAccount),
+      movements: scoped.map((m) =>
+        m.source_type === "opening_balance"
+          ? {
+              ...m,
+              signed_amount: openingTarget,
+              gross_amount: Math.abs(openingTarget),
+              balance: null,
+            }
+          : { ...m, balance: null },
+      ),
+      balance: round2(scopeOpen - scopeOnAccount + rejectedChecks),
       runningBalance: false,
     },
   };

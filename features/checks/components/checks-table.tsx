@@ -164,11 +164,14 @@ export function ChequesTable({
                 <DepositChequeDialog check={c} channels={channels} />
               )}
               {canWrite && c.status === "depositado" && (
-                <>
-                  <CreditChequeDialog check={c} />
-                  <RejectChequeDialog check={c} channels={channels} />
-                </>
+                <CreditChequeDialog check={c} />
               )}
+              {canWrite &&
+                (c.status === "en_cartera" ||
+                  c.status === "depositado" ||
+                  c.status === "endosado") && (
+                  <RejectChequeDialog check={c} channels={channels} />
+                )}
             </div>
           );
         },

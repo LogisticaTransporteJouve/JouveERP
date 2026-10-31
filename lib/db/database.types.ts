@@ -1252,13 +1252,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "client_opening_balance_allocations_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: true
@@ -4510,13 +4503,6 @@ export type Database = {
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
-          {
-            foreignKeyName: "supplier_opening_balance_allocations_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       supplier_opening_balances: {
@@ -4653,6 +4639,7 @@ export type Database = {
           kind: string
           payment_order_id: string | null
           receipt_id: string | null
+          rejected_check_id: string | null
           transaction_date: string
           transfer_pair_id: string | null
           updated_at: string
@@ -4674,6 +4661,7 @@ export type Database = {
           kind: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4695,6 +4683,7 @@ export type Database = {
           kind?: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date?: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4761,6 +4750,13 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
             referencedColumns: ["id"]
           },
           {
@@ -6719,6 +6715,7 @@ export type Database = {
         | "compras"
         | "gastos"
         | "cheques_cartera"
+        | "cheques_rechazados"
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
@@ -6908,6 +6905,7 @@ export const Constants = {
         "compras",
         "gastos",
         "cheques_cartera",
+        "cheques_rechazados",
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",

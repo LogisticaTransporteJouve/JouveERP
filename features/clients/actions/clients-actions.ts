@@ -5,7 +5,10 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -331,17 +334,21 @@ export async function getClientReferencesAction(
         .eq(dep.column, id),
     ),
   );
+  // A failed count is not a zero: the delete must not go ahead on it.
+  const failed = dependents.filter((_, i) => counts[i]!.error);
+  if (failed.length > 0) {
+    logger.error("clients.refs.count_failed", {
+      userId: ctx.userId,
+      id,
+      tables: failed.map((dep) => dep.table),
+    });
+    return {
+      ok: false,
+      error: "No se pudo verificar si el cliente tiene movimientos asociados.",
+    };
+  }
   dependents.forEach((dep, i) => {
-    const { count, error } = counts[i]!;
-    if (error) {
-      logger.warn("clients.refs.count_failed", {
-        userId: ctx.userId,
-        id,
-        table: dep.table,
-        err: error.message,
-      });
-      return;
-    }
+    const { count } = counts[i]!;
     if (count && count > 0) {
       details[dep.table] = count;
       total += count;
@@ -373,6 +380,13 @@ export async function deleteClientAction(id: string): Promise<ActionResult> {
   const { error } = await service.from("clients").delete().eq("id", id);
 
   if (error) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return {
+        ok: false,
+        error:
+          "El cliente tiene movimientos asociados. Desactivalo en lugar de eliminarlo.",
+      };
+    }
     logger.error("clients.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo eliminar el cliente." };
   }
