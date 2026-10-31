@@ -86,3 +86,48 @@ describe("bootstrap_first_owner", () => {
     );
   });
 });
+
+describe("client opening balance RPCs", () => {
+  it.each(["apply_client_opening_balance", "clear_client_opening_balance"])(
+    "%s admits the owner only, like the app gate",
+    (fn) => {
+      const definition = latestDefinition(fn);
+      expect(definition).toMatch(
+        /if\s+not\s+public\.user_has_role\(array\['owner'\]\)\s+then\s+raise\s+exception\s+'[^']*'\s+using\s+errcode\s*=\s*'42501';/i,
+      );
+      expect(definition).toMatch(/set\s+search_path\s*=\s*''/i);
+      const revoke = lastStatement(
+        new RegExp(`revoke all on function public\\.${fn}\\([^;]*;`, "gi"),
+      );
+      expect(revoke).toMatch(/from public, anon, authenticated;$/);
+    },
+  );
+});
+
+describe("document cancellation triggers", () => {
+  // As the caller, finance's cancel hit the owner-only DELETE policy on
+  // transactions and left the movements alive.
+  it.each(["handle_payment_order_cancellation", "handle_receipt_cancellation"])(
+    "%s runs as definer with an empty search_path",
+    (fn) => {
+      const definition = latestDefinition(fn);
+      expect(definition).toMatch(/security\s+definer/i);
+      expect(definition).toMatch(/set\s+search_path\s*=\s*''/i);
+    },
+  );
+});
+
+describe("ai_usage_today", () => {
+  it("is executable only by service_role", () => {
+    expect(
+      lastStatement(
+        /revoke all on function public\.ai_usage_today\(\)[^;]*;/gi,
+      ),
+    ).toMatch(/from public, anon, authenticated;$/);
+    expect(
+      lastStatement(
+        /grant execute on function public\.ai_usage_today\(\)[^;]*;/gi,
+      ),
+    ).toMatch(/to service_role;$/);
+  });
+});
