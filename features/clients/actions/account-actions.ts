@@ -203,11 +203,7 @@ export async function getClientAccountAction(
     }
     running = round2(running + signed);
     let outstanding: number | null = null;
-    if (
-      row.source_type === "invoice" &&
-      row.source_id &&
-      row.kind !== "credit_note"
-    ) {
+    if (row.source_type === "invoice" && row.source_id && row.kind !== "nc") {
       const applied = appliedByInvoice.get(row.source_id) ?? 0;
       outstanding = Math.max(0, round2(gross - applied));
     } else if (row.source_type === "receipt" && row.source_id) {

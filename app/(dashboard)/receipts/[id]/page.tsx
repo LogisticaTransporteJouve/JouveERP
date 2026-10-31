@@ -23,6 +23,7 @@ import { formatReceiptNumber } from "@/features/receipts/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoneyWithCode } from "@/lib/format";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -201,17 +202,16 @@ export default async function ReceiptDetailPage({
           <dl className="mt-3 space-y-2 text-sm">
             {allocations.map((a) => {
               const inv = (a as unknown as InvoiceRefJoin).invoice;
-              const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
-              const num = String(inv?.numero ?? 0).padStart(8, "0");
-              const letter = inv?.letter ?? "";
+              const numero = inv
+                ? formatInvoiceNumero(
+                    inv.kind,
+                    inv.letter,
+                    inv.punto_venta,
+                    inv.numero,
+                  )
+                : "—";
               const label =
-                inv?.kind === "factura"
-                  ? `Factura ${letter} ${pos}-${num}`
-                  : inv?.kind === "credit_note"
-                    ? `NC ${letter} ${pos}-${num}`
-                    : inv?.kind === "debit_note"
-                      ? `ND ${letter} ${pos}-${num}`
-                      : `${pos}-${num}`;
+                inv?.kind === "factura" ? `Factura ${numero}` : numero;
               return (
                 <div
                   key={a.id}

@@ -15,6 +15,7 @@ import type {
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
+import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import { divisionLabel } from "@/lib/pdf/emisor";
 
 import {
@@ -108,19 +109,16 @@ export async function buildPaymentOrderTemplateData(
 
   const allocations = (allocsRes.data ?? []).map((a) => {
     const inv = (a as unknown as InvoiceWithChannelRefJoin).invoice;
-    const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
-    const num = String(inv?.numero ?? 0).padStart(8, "0");
-    const letter = inv?.letter ?? "";
     const isInternal = inv?.channel?.is_fiscal === false;
     let label: string;
-    if (isInternal) {
-      label = `Gasto interno ${pos}-${num}`;
-    } else if (inv?.kind === "nc") {
-      label = `NC ${letter} ${pos}-${num}`;
-    } else if (inv?.kind === "nd") {
-      label = `ND ${letter} ${pos}-${num}`;
+    if (!inv) {
+      label = "—";
+    } else if (isInternal) {
+      const pos = String(inv.punto_venta).padStart(5, "0");
+      label = `Gasto interno ${pos}-${String(inv.numero).padStart(8, "0")}`;
     } else {
-      label = `Factura ${letter} ${pos}-${num}`;
+      const numero = formatInvoiceNumber(inv);
+      label = inv.kind === "factura" ? `Factura ${numero}` : numero;
     }
     return {
       invoice_label: label.trim().replace(/\s+/g, " "),
