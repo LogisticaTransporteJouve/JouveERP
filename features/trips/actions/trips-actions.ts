@@ -188,10 +188,18 @@ export async function deleteTripAction(input: {
     return { ok: false, error: "No tenés permiso para borrar viajes." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("trips").delete().eq("id", input.id);
+  const { data, error } = await supabase
+    .from("trips")
+    .delete()
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     logger.error("trips.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el viaje." };
+  }
+  // RLS filters a row the role may not delete without an error.
+  if (data.length === 0) {
+    return { ok: false, error: "No se encontró el viaje o no podés borrarlo." };
   }
   await logAudit("trip.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };

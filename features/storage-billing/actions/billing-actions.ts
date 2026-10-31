@@ -11,6 +11,7 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -26,7 +27,6 @@ import {
   type StorageBilling,
   type TariffInput,
 } from "../lib/billing";
-import { overlapsBilled } from "../lib/continuity";
 import { StorageInvoiceSchema, type StorageBillingRun } from "../schema";
 
 type RangeInput = { periodStart: string; periodEnd: string };
@@ -201,31 +201,6 @@ export async function invoiceStorageAction(
 
   const supabase = await createSupabaseClient();
 
-  // Guard against double-billing: no overlap with a period already billed to
-  // this client on this channel. A run whose invoice is gone (channel unknown)
-  // counts against every channel.
-  const { data: existingRuns, error: runsErr } = await supabase
-    .from("storage_billing_runs")
-    .select("period_start, period_end, invoice:invoices(channel_id)")
-    .eq("client_id", client_id);
-  if (runsErr) {
-    logger.error("storage.invoice.runs_read.failed", {
-      userId: ctx.userId,
-      error: runsErr,
-    });
-    return { ok: false, error: "No se pudo validar el período." };
-  }
-  const sameChannelRuns = (existingRuns ?? []).filter(
-    (r) => (r.invoice?.channel_id ?? channel_id) === channel_id,
-  );
-  if (overlapsBilled(sameChannelRuns, period_start, period_end)) {
-    return {
-      ok: false,
-      error:
-        "Ese período ya fue facturado (total o parcialmente) para este cliente en este canal.",
-    };
-  }
-
   // The client needs a CUIT + valid IVA condition to invoice.
   const { data: client, error: clientErr } = await supabase
     .from("clients")
@@ -243,19 +218,29 @@ export async function invoiceStorageAction(
   }
 
   // Recompute this client's storage for the period (authoritative).
+  // Drained past max_rows, like the preview: a truncated read would bill
+  // less than the preview showed.
   const [palletsRes, tariffsRes] = await Promise.all([
-    supabase
-      .from("pallets")
-      .select("id, client_id, code, entry_date, exit_date")
-      .eq("client_id", client_id)
-      .lte("entry_date", period_end)
-      .or(`exit_date.is.null,exit_date.gte.${period_start}`),
-    supabase
-      .from("storage_tariffs")
-      .select(
-        "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
-      )
-      .eq("is_active", true),
+    paginateRange((from, to) =>
+      supabase
+        .from("pallets")
+        .select("id, client_id, code, entry_date, exit_date")
+        .eq("client_id", client_id)
+        .lte("entry_date", period_end)
+        .or(`exit_date.is.null,exit_date.gte.${period_start}`)
+        .order("id")
+        .range(from, to),
+    ),
+    paginateRange((from, to) =>
+      supabase
+        .from("storage_tariffs")
+        .select(
+          "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
+        )
+        .eq("is_active", true)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
   if (palletsRes.error || tariffsRes.error) {
     logger.error("storage.invoice.compute.failed", {
@@ -327,6 +312,31 @@ export async function invoiceStorageAction(
     });
   }
 
+  // Claim the period before issuing: the RPC checks overlap under a per-client
+  // lock and inserts a pending run, so a concurrent click is refused instead
+  // of billing the same days twice.
+  const { data: runId, error: claimErr } = await supabase.rpc(
+    "claim_storage_billing_period",
+    {
+      p_client_id: client_id,
+      p_channel_id: channel_id,
+      p_period_start: period_start,
+      p_period_end: period_end,
+    },
+  );
+  if (claimErr || !runId) {
+    const guardError = mapDbGuardError(claimErr, {
+      slug: "storage.invoice.claim_rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("storage.invoice.claim_failed", {
+      userId: ctx.userId,
+      error: claimErr,
+    });
+    return { ok: false, error: "No se pudo validar el período." };
+  }
+
   const today = todayInAR();
   const result = await issueFiscalInvoiceAction({
     channel_id,
@@ -346,24 +356,36 @@ export async function invoiceStorageAction(
     cotizacion: 1,
     items,
   });
-  if (!result.ok) return result;
+  if (!result.ok) {
+    const { error: releaseErr } = await supabase
+      .from("storage_billing_runs")
+      .delete()
+      .eq("id", runId)
+      .is("invoice_id", null);
+    if (releaseErr) {
+      logger.error("storage.invoice.release_failed", {
+        userId: ctx.userId,
+        runId,
+        error: releaseErr,
+      });
+    }
+    return result;
+  }
 
   const { error: insertErr } = await supabase
     .from("storage_billing_runs")
-    .insert({
-      client_id,
-      period_start,
-      period_end,
+    .update({
       storage_total: storage,
       handling_in_total: loading,
       handling_out_total: unloading,
       total,
       applied_tariffs: billing.applied_tariffs,
       invoice_id: result.data.id,
-      created_by: ctx.userId,
-    });
+      pending_since: null,
+    })
+    .eq("id", runId);
   if (insertErr) {
-    logger.error("storage.invoice.run_insert.failed", {
+    logger.error("storage.invoice.run_link.failed", {
       userId: ctx.userId,
       invoiceId: result.data.id,
       error: insertErr,

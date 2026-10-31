@@ -8,6 +8,9 @@ SET LOCAL statement_timeout = '15min';
 -- the transaction url changes. search_global and refresh_search_index read
 -- it by name, so they keep working.
 
+-- Recreated below in the same transaction; its only readers are the
+-- search_global and refresh_search_index functions, which resolve it by name.
+-- squawk-ignore ban-drop-view
 drop materialized view public.search_index;
 
 create materialized view public.search_index as
@@ -102,8 +105,11 @@ create materialized view public.search_index as
   from public.transactions t
 ;
 
--- Unique index requerido para REFRESH CONCURRENTLY
+-- Unique index requerido para REFRESH CONCURRENTLY. A materialized view
+-- created in this transaction has no other writer to block.
+-- squawk-ignore require-concurrent-index-creation
 create unique index search_index_unique_idx on public.search_index (entity_type, entity_id);
+-- squawk-ignore require-concurrent-index-creation
 create index search_index_tsv_idx on public.search_index using gin (tsv);
 
 comment on materialized view public.search_index is
