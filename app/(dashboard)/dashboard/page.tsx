@@ -145,26 +145,20 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Resumen de caja, cobranzas, pagos y vencimientos de DZ &amp; Sons.
-          </p>
-        </div>
-        <QuickActions access={ctx.access} />
-      </div>
-
+    <div className="mx-auto max-w-7xl space-y-6">
       {Object.keys(widgets).length === 0 ? (
-        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
-          Usá el menú lateral para acceder a tus módulos habilitados.
-        </div>
+        <>
+          <QuickActions access={ctx.access} />
+          <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+            Usá el menú lateral para acceder a tus módulos habilitados.
+          </div>
+        </>
       ) : (
         <DashboardCanvas
           initialLayout={resolvedLayout}
           defaultLayout={template}
           widgets={widgets}
+          toolbar={<QuickActions access={ctx.access} />}
         />
       )}
     </div>

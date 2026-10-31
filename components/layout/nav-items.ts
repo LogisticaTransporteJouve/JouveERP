@@ -1,5 +1,3 @@
-"use client";
-
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -9,7 +7,6 @@ import {
   CalendarDays,
   CalendarClock,
   CarFront,
-  ChevronRight,
   Container,
   CreditCard,
   DatabaseBackup,
@@ -23,7 +20,6 @@ import {
   LineChart,
   ListChecks,
   ListTree,
-  LogOut,
   MessageSquare,
   Package,
   Receipt,
@@ -41,54 +37,30 @@ import {
   Target,
   TrendingUp,
   Truck,
+  UserRound,
   Users,
   Wallet,
   Warehouse,
   Wrench,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 
-import { ThemeToggle } from "@/components/theme-toggle";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { useChatUnreadCountLite } from "@/features/chat/hooks/use-chat";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { UserAvatar } from "@/components/user-avatar";
-import { userCan, type Permission, type Access } from "@/lib/auth/permissions";
-import { getDisplayName } from "@/lib/avatars";
-import { cn } from "@/lib/utils";
+import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
 
-type NavItem = {
+export type NavItem = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   permission?: Permission;
 };
 
-type NavSection = {
-  label: string | null;
+export type NavSection = {
+  label: string;
   items: NavItem[];
 };
 
-const navSections: NavSection[] = [
+export const NAV_SECTIONS: readonly NavSection[] = [
   {
-    label: null,
+    label: "Plataforma",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -103,12 +75,6 @@ const navSections: NavSection[] = [
   {
     label: "Inteligencia",
     items: [
-      {
-        href: "/ai",
-        label: "Asistente IA",
-        icon: Sparkles,
-        permission: "ai:chat",
-      },
       {
         href: "/ai/tasks",
         label: "Tareas IA",
@@ -459,173 +425,42 @@ const navSections: NavSection[] = [
   },
 ];
 
-type ProfileSummary = {
-  firstName: string | null;
-  lastName: string | null;
-  avatarUrl: string | null;
-  avatarColor: string;
+export const ASSISTANT_ITEM: NavItem = {
+  href: "/ai",
+  label: "Asistente",
+  icon: Sparkles,
+  permission: "ai:chat",
 };
 
-export function AppSidebar({
-  userEmail,
-  userAccess,
-  profile,
-}: {
-  userEmail: string;
-  userAccess: Access;
-  profile: ProfileSummary;
-}) {
-  const pathname = usePathname();
-  const chatUnread = useChatUnreadCountLite();
+const ALL_ITEMS = [
+  ASSISTANT_ITEM,
+  { href: "/profile", label: "Perfil", icon: UserRound },
+  ...NAV_SECTIONS.flatMap((section) => section.items),
+];
 
-  const visibleSections = navSections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter(
-        (item) => !item.permission || userCan(userAccess, item.permission),
-      ),
-    }))
-    .filter((section) => section.items.length > 0);
+export function canSee(access: Access, item: NavItem): boolean {
+  return !item.permission || userCan(access, item.permission);
+}
 
-  const displayName = getDisplayName(
-    profile.firstName,
-    profile.lastName,
-    userEmail,
-  );
+export function visibleSections(access: Access): NavSection[] {
+  return NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => canSee(access, item)),
+  })).filter((section) => section.items.length > 0);
+}
 
-  return (
-    <Sidebar collapsible="icon" className="overflow-x-hidden">
-      <SidebarHeader className="p-0">
-        <div className="flex h-12 items-center">
-          <div className="flex w-12 shrink-0 items-center justify-center">
-            <Image
-              src="/jouve-logo.jpeg"
-              alt="JouveERP"
-              width={28}
-              height={28}
-              priority
-              className="size-7 rounded-md"
-            />
-          </div>
-          <span className="text-sm font-semibold tracking-tight whitespace-nowrap opacity-100 transition-opacity duration-150 delay-150 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
-            Logística y Transporte Jouve
-          </span>
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="overflow-x-hidden">
-        {visibleSections.map((section, idx) => {
-          const menu = (
-            <SidebarMenu>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
-                const badge = item.href === "/chat" ? chatUnread : 0;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href}>
-                        <span className="relative inline-flex shrink-0">
-                          <Icon className="size-4" />
-                          {badge > 0 ? (
-                            <span
-                              className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-medium leading-none text-white"
-                              aria-label={`${badge} sin leer`}
-                            >
-                              {badge > 99 ? "99+" : badge}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          );
+// The deepest item whose href is the path or one of its ancestors, so
+// /suppliers/categories picks "Categorías" and not "Proveedores".
+export function navItemForPath(pathname: string): NavItem | undefined {
+  let best: NavItem | undefined;
+  for (const item of ALL_ITEMS) {
+    const matches =
+      pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (matches && (!best || item.href.length > best.href.length)) best = item;
+  }
+  return best;
+}
 
-          if (!section.label) {
-            return (
-              <SidebarGroup key={`top-${idx}`}>
-                <SidebarGroupContent>{menu}</SidebarGroupContent>
-              </SidebarGroup>
-            );
-          }
-
-          return (
-            <Collapsible
-              key={section.label}
-              defaultOpen
-              className="group/collapsible"
-            >
-              <SidebarGroup>
-                <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:text-sidebar-foreground">
-                    {section.label}
-                    <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                  <SidebarGroupContent>{menu}</SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-          );
-        })}
-      </SidebarContent>
-      <SidebarFooter className="overflow-hidden p-0">
-        <Link
-          href="/profile"
-          title={displayName}
-          className={cn(
-            "flex h-12 items-center overflow-hidden text-sidebar-foreground hover:bg-sidebar-accent",
-            (pathname === "/profile" || pathname.startsWith("/profile/")) &&
-              "bg-sidebar-accent",
-          )}
-        >
-          <div className="flex w-12 shrink-0 items-center justify-center">
-            <UserAvatar
-              firstName={profile.firstName}
-              lastName={profile.lastName}
-              email={userEmail}
-              avatarUrl={profile.avatarUrl}
-              color={profile.avatarColor}
-              size="sm"
-            />
-          </div>
-          <div className="flex min-w-0 flex-col whitespace-nowrap pr-2 opacity-100 transition-opacity duration-150 delay-150 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
-            <span className="truncate text-sm font-medium">{displayName}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {userEmail}
-            </span>
-          </div>
-        </Link>
-        <div className="flex h-10 items-center overflow-hidden">
-          <div className="flex w-12 shrink-0 items-center justify-center">
-            <ThemeToggle />
-          </div>
-        </div>
-        <form action="/auth/logout" method="post">
-          <button
-            type="submit"
-            title="Cerrar sesión"
-            className="flex h-10 w-full items-center overflow-hidden text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <div className="flex w-12 shrink-0 items-center justify-center">
-              <LogOut className="size-4" />
-            </div>
-            <span className="whitespace-nowrap pr-2 text-sm opacity-100 transition-opacity duration-150 delay-150 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
-              Cerrar sesión
-            </span>
-          </button>
-        </form>
-      </SidebarFooter>
-    </Sidebar>
-  );
+export function navSectionForItem(item: NavItem): NavSection | undefined {
+  return NAV_SECTIONS.find((section) => section.items.includes(item));
 }

@@ -32,7 +32,7 @@ export function ChatShell({
   }, [activeChannelId]);
 
   return (
-    <div className="grid h-[calc(100dvh-6.5rem)] grid-cols-1 overflow-hidden rounded-lg border bg-card max-md:h-[calc(100dvh-11rem)] md:grid-cols-[260px_1fr]">
+    <div className="grid h-[calc(100dvh-7.5rem)] grid-cols-1 overflow-hidden rounded-lg border bg-card max-md:h-[calc(100dvh-11rem)] md:grid-cols-[260px_1fr]">
       <aside
         className={cn(
           "md:border-r",
