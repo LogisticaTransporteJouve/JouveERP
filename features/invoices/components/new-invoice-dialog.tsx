@@ -64,7 +64,6 @@ import { OriginPicker } from "./origin-picker";
 interface ChannelOption {
   id: string;
   name: string;
-  division: string;
   is_fiscal: boolean;
 }
 

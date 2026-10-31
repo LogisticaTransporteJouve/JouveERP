@@ -4,15 +4,18 @@ import {
   CLIENT_AGING_PERMISSIONS,
   PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
+  TREASURY_PERMISSIONS,
   ROLES,
   OWNER_ONLY_PERMISSIONS,
   ROLE_PERMISSIONS,
   assignableRoles,
   effectivePermissions,
   highestRole,
+  isFiscalOnly,
   isRole,
   removableRoles,
   resolveAccess,
+  scopeIsFiscalFor,
   userCan,
   userCanAll,
   type Permission,
@@ -256,6 +259,7 @@ describe("assignableRoles / removableRoles", () => {
       "operations",
       "warehouse",
       "driver",
+      "fiscal_reader",
     ];
     for (const actor of nonPrivileged) {
       expect(assignableRoles(resolveAccess([actor]))).toEqual([]);
@@ -278,11 +282,70 @@ describe("assignableRoles / removableRoles", () => {
   });
 });
 
+describe("fiscal_reader", () => {
+  it("reads the fiscal modules and writes nothing", () => {
+    const reader = resolveAccess(["fiscal_reader"]);
+    for (const p of [
+      "invoices:read",
+      "purchase_invoices:read",
+      "accounting:read",
+      "clients:read",
+      "suppliers:read",
+    ] as const) {
+      expect(userCan(reader, p), p).toBe(true);
+    }
+    for (const p of [
+      "receipts:read",
+      "payment_orders:read",
+      "transactions:read",
+      "accounts:read",
+      "hr:read",
+      "ai:chat",
+      "files:read",
+    ] as const) {
+      expect(userCan(reader, p), p).toBe(false);
+    }
+    expect(
+      [...ROLE_PERMISSIONS.fiscal_reader].filter((p) => !p.endsWith(":read")),
+    ).toEqual([]);
+  });
+
+  it("does not reach treasury, cash flow or loans through accounting:read", () => {
+    expect(
+      userCanAll(resolveAccess(["fiscal_reader"]), TREASURY_PERMISSIONS),
+    ).toBe(false);
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(userCanAll(resolveAccess([role]), TREASURY_PERMISSIONS)).toBe(
+        true,
+      );
+    }
+  });
+
+  it("pins a fiscal-only user to fiscal channels", () => {
+    const reader = resolveAccess(["fiscal_reader"]);
+    expect(isFiscalOnly(reader)).toBe(true);
+    expect(scopeIsFiscalFor(reader, null)).toBe(true);
+    expect(scopeIsFiscalFor(reader, false)).toBe(true);
+    expect(scopeIsFiscalFor(reader, undefined)).toBe(true);
+  });
+
+  it("does not pin a user who also holds another role, or none", () => {
+    const both = resolveAccess(["fiscal_reader", "finance"]);
+    expect(isFiscalOnly(both)).toBe(false);
+    expect(scopeIsFiscalFor(both, null)).toBe(null);
+    expect(scopeIsFiscalFor(both, false)).toBe(false);
+    expect(isFiscalOnly(resolveAccess([]))).toBe(false);
+    expect(isFiscalOnly(null)).toBe(false);
+    expect(scopeIsFiscalFor(resolveAccess(["finance"]), undefined)).toBe(null);
+  });
+});
+
 describe("highestRole", () => {
   it("returns the most privileged role from a union", () => {
     expect(highestRole(["finance", "owner", "driver"])).toBe("owner");
     expect(highestRole(["operations", "warehouse"])).toBe("operations");
     expect(highestRole(["driver"])).toBe("driver");
+    expect(highestRole(["fiscal_reader", "driver"])).toBe("driver");
   });
 
   it("returns null for empty", () => {
@@ -317,10 +380,15 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
 
   it("pins the exact permission set of every restricted role", () => {
     const restricted = Object.fromEntries(
-      (["finance", "operations", "warehouse", "driver"] as const).map((r) => [
-        r,
-        [...ROLE_PERMISSIONS[r]].sort(),
-      ]),
+      (
+        [
+          "finance",
+          "operations",
+          "warehouse",
+          "driver",
+          "fiscal_reader",
+        ] as const
+      ).map((r) => [r, [...ROLE_PERMISSIONS[r]].sort()]),
     );
     expect(restricted).toMatchInlineSnapshot(`
       {
@@ -369,6 +437,15 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "suppliers:write",
           "transactions:read",
           "transactions:write",
+        ],
+        "fiscal_reader": [
+          "accounting:read",
+          "channels:read",
+          "clients:read",
+          "credit_debit_notes:read",
+          "invoices:read",
+          "purchase_invoices:read",
+          "suppliers:read",
         ],
         "operations": [
           "ai:chat",

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { Button } from "@/components/ui/button";
+import { DialogFormFooter } from "@/components/dialog-form-footer";
 import {
   Form,
   FormControl,
@@ -205,28 +205,13 @@ export function AccountForm({
           )}
         />
 
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onCancel?.()}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              isSaving || (mode === "edit" && !form.formState.isDirty)
-            }
-          >
-            {isSaving
-              ? "Guardando…"
-              : mode === "create"
-                ? "Crear cuenta"
-                : "Guardar cambios"}
-          </Button>
-        </div>
+        <DialogFormFooter
+          mode={mode}
+          isSaving={isSaving}
+          isDirty={form.formState.isDirty}
+          createLabel="Crear cuenta"
+          onCancel={() => onCancel?.()}
+        />
       </form>
     </Form>
   );

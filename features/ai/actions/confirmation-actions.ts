@@ -2,7 +2,7 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { UuidSchema } from "@/lib/validation/common";
@@ -31,6 +31,37 @@ const GONE = "Esta propuesta ya no está pendiente.";
 /** The registry action behind a stored proposal, if it is still a proposal. */
 function proposalAction(name: string): AiAction | undefined {
   return AI_ACTIONS.find((a) => a.name === name && a.proposal);
+}
+
+/** The caller's pending proposal `id` and its registry proposal, once the
+ *  caller may run that action (the same permissions the manual form checks). */
+async function loadPendingProposal(
+  ctx: { userId: string; access: Access },
+  id: string,
+): Promise<
+  ActionResult<{
+    row: AiConfirmation;
+    proposal: NonNullable<AiAction["proposal"]>;
+  }>
+> {
+  let row: AiConfirmation | null;
+  try {
+    row = await getConfirmation(ctx.userId, id);
+  } catch (error) {
+    logger.error("ai.confirmations.read_failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer la propuesta." };
+  }
+  if (!row || row.status !== "pending") return { ok: false, error: GONE };
+  const action = proposalAction(row.action);
+  if (!action?.proposal) return { ok: false, error: GONE };
+  if (!canRunAiAction(ctx.access, action)) {
+    return { ok: false, error: NO_ACTION };
+  }
+  return { ok: true, data: { row, proposal: action.proposal } };
 }
 
 /** Proposal revisions of one of the caller's sessions (for the cards). */
@@ -69,24 +100,10 @@ export async function confirmAiProposalAction(
   if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
 
-  let row: AiConfirmation | null;
-  try {
-    row = await getConfirmation(ctx.userId, id);
-  } catch (error) {
-    logger.error("ai.confirmations.read_failed", {
-      userId: ctx.userId,
-      id,
-      error,
-    });
-    return { ok: false, error: "No se pudo leer la propuesta." };
-  }
-  if (!row || row.status !== "pending") return { ok: false, error: GONE };
-  const action = proposalAction(row.action);
-  if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.access, action)) {
-    return { ok: false, error: NO_ACTION };
-  }
-  const valid = action.proposal.spec.validate(row.draft, row.labels);
+  const pending = await loadPendingProposal(ctx, id);
+  if (!pending.ok) return pending;
+  const { row, proposal } = pending.data;
+  const valid = proposal.spec.validate(row.draft, row.labels);
   if (!valid.ok) {
     return {
       ok: false,
@@ -109,7 +126,7 @@ export async function confirmAiProposalAction(
 
   let res: ActionResult<{ id: string }>;
   try {
-    res = await action.proposal.executeDraft(
+    res = await proposal.executeDraft(
       { userId: ctx.userId, access: ctx.access },
       valid.draft,
     );
@@ -192,24 +209,10 @@ export async function reviseAiProposalAction(
   if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
 
-  let row: AiConfirmation | null;
-  try {
-    row = await getConfirmation(ctx.userId, id);
-  } catch (error) {
-    logger.error("ai.confirmations.read_failed", {
-      userId: ctx.userId,
-      id,
-      error,
-    });
-    return { ok: false, error: "No se pudo leer la propuesta." };
-  }
-  if (!row || row.status !== "pending") return { ok: false, error: GONE };
-  const action = proposalAction(row.action);
-  if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.access, action)) {
-    return { ok: false, error: NO_ACTION };
-  }
-  const { spec } = action.proposal;
+  const pending = await loadPendingProposal(ctx, id);
+  if (!pending.ok) return pending;
+  const { row, proposal } = pending.data;
+  const { spec } = proposal;
   const edited = editedDraft(row.draft, draft, spec.fields);
   const valid = spec.validate(edited, row.labels);
   if (!valid.ok) {

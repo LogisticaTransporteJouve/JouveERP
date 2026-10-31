@@ -2488,7 +2488,6 @@ export type Database = {
           business_unit_id: string
           created_at: string
           display_color: string | null
-          division: string
           id: string
           is_active: boolean
           is_fiscal: boolean
@@ -2499,7 +2498,6 @@ export type Database = {
           business_unit_id: string
           created_at?: string
           display_color?: string | null
-          division: string
           id: string
           is_active?: boolean
           is_fiscal: boolean
@@ -2510,7 +2508,6 @@ export type Database = {
           business_unit_id?: string
           created_at?: string
           display_color?: string | null
-          division?: string
           id?: string
           is_active?: boolean
           is_fiscal?: boolean

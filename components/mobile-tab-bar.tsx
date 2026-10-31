@@ -7,7 +7,9 @@ import {
   Menu,
   MessageSquare,
   Receipt,
+  ReceiptText,
   Route,
+  ShoppingCart,
   Sparkles,
   Wallet,
   Warehouse,
@@ -126,6 +128,21 @@ const TABS_BY_ROLE: Record<Role, TabItem[]> = {
     CHAT,
   ],
   driver: [DASHBOARD, TRIPS, CHAT],
+  fiscal_reader: [
+    DASHBOARD,
+    {
+      href: "/invoices",
+      label: "Ventas",
+      icon: ReceiptText,
+      permission: "invoices:read",
+    },
+    {
+      href: "/purchases",
+      label: "Compras",
+      icon: ShoppingCart,
+      permission: "purchase_invoices:read",
+    },
+  ],
 };
 
 export function MobileTabBar({ userAccess }: { userAccess: Access }) {

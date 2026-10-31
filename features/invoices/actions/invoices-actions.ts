@@ -14,7 +14,11 @@ import {
   type InvoiceLetter,
 } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  isFiscalOnly,
+  scopeIsFiscalFor,
+  userCan,
+} from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -551,13 +555,15 @@ export async function getInvoiceStatusAction(
   const { data, error } = await supabase
     .from("invoices")
     .select(
-      "id, status, cae, cae_vencimiento, numero, punto_venta, emitted_at, afip_observaciones",
+      "id, status, cae, cae_vencimiento, numero, punto_venta, emitted_at, afip_observaciones, channel:invoicing_channels(is_fiscal)",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: `Comprobante ${id} no encontrado.` };
+  if (!data || (isFiscalOnly(ctx.access) && !data.channel?.is_fiscal)) {
+    return { ok: false, error: `Comprobante ${id} no encontrado.` };
+  }
 
   // Narrow only the status — the polling endpoint doesn't surface kind or
   // letter, and selecting them just to validate would inflate every
@@ -657,7 +663,11 @@ export async function listInvoicesAction(
     .range(offset, offset + limit); // limit + 1 trick
 
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
-  query = applyFiscalFilter(query, filters.isFiscal, "channel");
+  query = applyFiscalFilter(
+    query,
+    scopeIsFiscalFor(ctx.access, filters.isFiscal),
+    "channel",
+  );
   if (filters.activeChannelOnly) {
     query = query.eq("channel.is_active", true).not("channel", "is", null);
   }
@@ -871,6 +881,9 @@ export async function getInvoiceDetailAction(
 
   const row = data as unknown as InvoiceDetailJoinedRow;
 
+  if (isFiscalOnly(ctx.access) && !row.channel?.is_fiscal) {
+    return { ok: false, error: `Comprobante ${id} no encontrado.` };
+  }
   if (!row.channel || !row.client) {
     return { ok: false, error: "Comprobante con relaciones inválidas." };
   }

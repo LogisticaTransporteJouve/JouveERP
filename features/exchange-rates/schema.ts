@@ -3,8 +3,6 @@ import { z } from "zod";
 import type { Database } from "@/lib/db/database.types";
 import { round2 } from "@/lib/format";
 
-export const EXCHANGE_RATES_PATH = "/accounting/exchange-rates";
-
 export type ExchangeRate =
   Database["public"]["Tables"]["exchange_rates"]["Row"];
 

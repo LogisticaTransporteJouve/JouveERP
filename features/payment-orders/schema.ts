@@ -13,8 +13,6 @@ export type PaymentOrderStatus = (typeof PAYMENT_ORDER_STATUSES)[number];
 export const PAYMENT_ORDER_CURRENCIES = ["ARS", "USD"] as const;
 export type PaymentOrderCurrency = (typeof PAYMENT_ORDER_CURRENCIES)[number];
 
-export const PAYMENT_ORDERS_PATH = "/payment-orders";
-
 const trimmedNullable = z
   .string()
   .trim()

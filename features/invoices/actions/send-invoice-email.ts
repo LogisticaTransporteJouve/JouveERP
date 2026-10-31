@@ -12,7 +12,7 @@ import {
   formatNumber2,
 } from "@/lib/format";
 import { logger } from "@/lib/logger";
-import { divisionLabel } from "@/lib/pdf/emisor";
+import { DIVISION_LABEL } from "@/lib/pdf/emisor";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -21,13 +21,12 @@ import type { ClientLegalJoin } from "@/features/clients/schema";
 import { formatInvoiceNumero } from "../schema";
 import type { ActionResult } from "@/lib/query/run-action";
 
-/** Shape of `channel:invoicing_channels(name, division, is_fiscal,
+/** Shape of `channel:invoicing_channels(name, is_fiscal,
  *  business_unit:business_units(name))`: the issuer's name and whether the
  *  comprobante is fiscal. */
 type ChannelBusinessUnitJoin = {
   channel: {
     name: string;
-    division: string | null;
     is_fiscal: boolean;
     business_unit: { name: string } | null;
   } | null;
@@ -74,7 +73,7 @@ export async function sendInvoiceByEmailAction(
     .from("invoices")
     .select(
       `id, kind, letter, punto_venta, numero, fecha, imp_total, status,
-       channel:invoicing_channels(name, division, is_fiscal, business_unit:business_units(name)),
+       channel:invoicing_channels(name, is_fiscal, business_unit:business_units(name)),
        client:clients(legal_name)`,
     )
     .eq("id", input.invoice_id)
@@ -96,7 +95,7 @@ export async function sendInvoiceByEmailAction(
   // fiscal issuer.
   const emisorName = isFiscal
     ? (channel?.business_unit?.name ?? "DZ & Sons")
-    : divisionLabel(channel?.division, channel?.name ?? "");
+    : DIVISION_LABEL;
 
   const numberLabel = formatInvoiceNumero(
     invoice.kind,

@@ -11,7 +11,8 @@ import {
 import { FISCAL_FILTERS, isFiscalFilter, SCOPE_LABEL } from "@/lib/scope";
 
 export function ScopeSelector() {
-  const { fiscalFilter, setFiscalFilter } = useScope();
+  const { fiscalFilter, locked, setFiscalFilter } = useScope();
+  if (locked) return null;
 
   return (
     <Select

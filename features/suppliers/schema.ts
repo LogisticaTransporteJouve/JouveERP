@@ -12,8 +12,6 @@ import {
 export { IVA_CONDITIONS, IVA_CONDITION_LABEL };
 export type { IvaCondition };
 
-export const SUPPLIERS_PATH = "/suppliers";
-
 const trimmedNullable = z
   .string()
   .trim()
@@ -31,7 +29,9 @@ const emailNullable = z
   .optional()
   .refine(
     (value) =>
-      value === null || value === undefined || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      value === null ||
+      value === undefined ||
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     { message: "Email inválido." },
   );
 
@@ -116,7 +116,9 @@ export const SupplierToggleActiveSchema = z.object({
 
 export type SupplierCreateInput = z.infer<typeof SupplierCreateSchema>;
 export type SupplierUpdateInput = z.infer<typeof SupplierUpdateSchema>;
-export type SupplierToggleActiveInput = z.infer<typeof SupplierToggleActiveSchema>;
+export type SupplierToggleActiveInput = z.infer<
+  typeof SupplierToggleActiveSchema
+>;
 
 // Narrow `iva_condition` to the union enforced by the DB CHECK.
 type SupplierRow = Database["public"]["Tables"]["suppliers"]["Row"];

@@ -1018,7 +1018,7 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
    (`files:read|write|admin`), función Inngest `files-sweep-orphans` con
    cron diario, tests RLS + matriz. ~280 LOC.
 2. **K.10b `feat: files lib + dropzone + preview`** — helpers
-   `lib/files/{storage-path,file-association-utils,preview,mime-type-icons,format-file-size}.ts`,
+   `lib/files/{storage-path,preview,mime-type-icons,format-file-size}.ts`,
    `components/file-upload/{FileDropzone,file-upload-utils}.tsx`
    (port desde `reference-app copy` + `capture="environment"` para mobile),
    `components/file-preview/FilePreviewDialog.tsx`, tests Vitest.

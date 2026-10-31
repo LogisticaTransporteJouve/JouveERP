@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
-export const JOURNAL_PATH = "/accounting/journal";
-
 export type JournalEntryRow =
   Database["public"]["Tables"]["journal_entries"]["Row"];
 

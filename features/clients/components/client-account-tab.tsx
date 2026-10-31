@@ -55,7 +55,6 @@ import { OpeningBalanceDialog } from "./opening-balance-dialog";
 interface InvoiceChannelOption {
   id: string;
   name: string;
-  division: string;
   is_fiscal: boolean;
 }
 

@@ -28,6 +28,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import {
   CLIENT_AGING_PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
+  TREASURY_PERMISSIONS,
   userCan,
   userCanAll,
 } from "@/lib/auth/permissions";
@@ -41,7 +42,7 @@ const TOP_DEBTORS = 5;
 export default async function DashboardPage() {
   const ctx = await requireUserContext();
 
-  const canAccounting = userCan(ctx.access, "accounting:read");
+  const canTreasury = userCanAll(ctx.access, TREASURY_PERMISSIONS);
   const scope = await readScopeCookie();
   const isFiscal = isFiscalFor(scope);
   const [
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
     opsRes,
     layoutRes,
   ] = await Promise.all([
-    canAccounting ? getTreasurySummaryAction() : null,
+    canTreasury ? getTreasurySummaryAction() : null,
     userCanAll(ctx.access, CLIENT_AGING_PERMISSIONS)
       ? getAgingSummaryAction({ isFiscal })
       : null,
@@ -61,7 +62,7 @@ export default async function DashboardPage() {
       ? getSupplierAgingAction({ isFiscal })
       : null,
     getDashboardDueDatesAction(),
-    canAccounting ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
+    canTreasury ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
     getDashboardOpsAction(),
     getMyDashboardLayoutAction(),
   ]);

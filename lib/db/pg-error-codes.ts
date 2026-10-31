@@ -8,7 +8,6 @@
  */
 export const PG_UNIQUE_VIOLATION = "23505";
 export const PG_FOREIGN_KEY_VIOLATION = "23503";
-export const PG_INVALID_PARAMETER_VALUE = "22023";
 export const PG_CHECK_VIOLATION = "23514";
 export const PG_UNDEFINED_TABLE = "42P01";
 /** PostgREST: the table is not in its schema cache. */

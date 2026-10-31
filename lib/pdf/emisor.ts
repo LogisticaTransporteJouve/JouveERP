@@ -2,18 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database.types";
 
-const DIVISION_LABEL: Record<string, string> = {
-  jouve: "Logística Jouve",
-};
-
-/** The division line every PDF prints under the issuer; an unknown division
- *  falls back to the channel name. */
-export function divisionLabel(
-  division: string | null | undefined,
-  fallback: string,
-): string {
-  return (division && DIVISION_LABEL[division]) ?? fallback;
-}
+/** The division line every PDF prints under the issuer (the only division
+ *  left after DZ was retired). */
+export const DIVISION_LABEL = "Logística Jouve";
 
 /** The issuer block of the invoice, receipt and payment-order PDFs. */
 export type Emisor = {
@@ -27,8 +18,6 @@ export type Emisor = {
 };
 
 export type EmisorChannel = {
-  name: string;
-  division: string | null;
   business_unit_id: string | null;
 };
 
@@ -46,7 +35,7 @@ export async function loadEmisor(
     cuit: "",
     iva_condition: "",
     address: null,
-    division_label: divisionLabel(channel.division, channel.name),
+    division_label: DIVISION_LABEL,
     iibb_number: null,
     inicio_actividades: null,
   };

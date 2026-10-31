@@ -13,8 +13,6 @@ export type ReceiptStatus = (typeof RECEIPT_STATUSES)[number];
 export const RECEIPT_CURRENCIES = ["ARS", "USD"] as const;
 export type ReceiptCurrency = (typeof RECEIPT_CURRENCIES)[number];
 
-export const RECEIPTS_PATH = "/receipts";
-
 const trimmedNullable = z
   .string()
   .trim()

@@ -1,5 +1,3 @@
-export const BALANCE_PATH = "/accounting/balance";
-
 export type AccountBalanceRow = {
   account_id: string;
   account_code: string;
@@ -17,7 +15,10 @@ export type AccountBalanceRow = {
   balance: string | number;
 };
 
-export const ACCOUNT_TYPE_LABEL: Record<AccountBalanceRow["account_type"], string> = {
+export const ACCOUNT_TYPE_LABEL: Record<
+  AccountBalanceRow["account_type"],
+  string
+> = {
   activo: "Activo",
   pasivo: "Pasivo",
   patrimonio: "Patrimonio neto",
@@ -32,7 +33,9 @@ export type BalanceTotals = {
   isBalanced: boolean;
 };
 
-export function computeBalanceTotals(rows: readonly AccountBalanceRow[]): BalanceTotals {
+export function computeBalanceTotals(
+  rows: readonly AccountBalanceRow[],
+): BalanceTotals {
   let totalDebit = 0;
   let totalCredit = 0;
   for (const r of rows) {

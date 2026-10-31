@@ -1,5 +1,3 @@
-export const LIBRO_MAYOR_PATH = "/accounting/libro-mayor";
-
 export type LedgerRow = {
   entry_id: string;
   line_id: string;
@@ -22,7 +20,9 @@ export type LedgerSummary = {
   finalBalance: number;
 };
 
-export function computeLedgerSummary(rows: readonly LedgerRow[]): LedgerSummary {
+export function computeLedgerSummary(
+  rows: readonly LedgerRow[],
+): LedgerSummary {
   let totalDebit = 0;
   let totalCredit = 0;
   for (const r of rows) {

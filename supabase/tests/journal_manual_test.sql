@@ -17,8 +17,8 @@ insert into public.chart_of_accounts (id, code, name, level, account_type) value
   ('00000000-0000-0000-0000-00000000ac01', '97', 'Prueba debe', 1, 'activo'),
   ('00000000-0000-0000-0000-00000000ac02', '98', 'Prueba haber', 1, 'pasivo');
 
-insert into public.invoicing_channels (id, business_unit_id, division, name, is_fiscal, is_active)
-values ('test_fiscal_off', 'dz_sons', 'jouve', 'Fiscal inactivo', true, false);
+insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is_active)
+values ('test_fiscal_off', 'dz_sons', 'Fiscal inactivo', true, false);
 
 create temp table lines on commit drop as
 select '[{"account_id":"00000000-0000-0000-0000-00000000ac01","debit":100,"credit":0},

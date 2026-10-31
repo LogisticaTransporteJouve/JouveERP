@@ -12,6 +12,7 @@ import { BrowserNotifier } from "@/features/notifications/components/browser-not
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
 import { getCurrentUserContext } from "@/lib/auth/context";
+import { isFiscalOnly } from "@/lib/auth/permissions";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { getInvoicingChannels } from "@/lib/channels";
 import {
@@ -55,17 +56,18 @@ export default async function DashboardLayout({
   const defaultOpen = sidebarCookie !== "false";
 
   // Read scope from the cookie to avoid the "all channels" flash
-  // during the client's first render.
-  const initialFiscalFilter: FiscalFilter | undefined = cookieStore.get(
-    SCOPE_COOKIE,
-  )
-    ? await readScopeCookie()
-    : undefined;
+  // during the client's first render. A fiscal-only user is pinned to fiscal.
+  const scopeLocked = isFiscalOnly(ctx.access);
+  const initialFiscalFilter: FiscalFilter | undefined =
+    scopeLocked || cookieStore.get(SCOPE_COOKIE)
+      ? await readScopeCookie()
+      : undefined;
 
   return (
     <ScopeProvider
       channels={channels}
       initialFiscalFilter={initialFiscalFilter}
+      locked={scopeLocked}
     >
       <DateRangeProvider>
         <SidebarProvider

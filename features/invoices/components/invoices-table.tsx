@@ -75,7 +75,6 @@ const STATUS_TONE: Record<InvoiceStatus, string> = {
 interface ChannelOption {
   id: string;
   name: string;
-  division: string;
   is_fiscal: boolean;
 }
 

@@ -23,9 +23,7 @@ describe("DashboardLayoutSchema", () => {
   });
 
   it("rejects unknown widget ids", () => {
-    const res = DashboardLayoutSchema.safeParse([
-      { id: "nope", size: "full" },
-    ]);
+    const res = DashboardLayoutSchema.safeParse([{ id: "nope", size: "full" }]);
     expect(res.success).toBe(false);
   });
 
@@ -53,11 +51,15 @@ describe("DashboardLayoutSchema", () => {
 
 describe("defaultLayoutForRoles", () => {
   it("returns a valid template for every role", () => {
-    for (const role of ROLES) {
+    for (const role of ROLES.filter((r) => r !== "fiscal_reader")) {
       const layout = defaultLayoutForRoles([role]);
       expect(layout.length).toBeGreaterThan(0);
       expect(DashboardLayoutSchema.safeParse(layout).success).toBe(true);
     }
+  });
+
+  it("gives the fiscal_reader no widget", () => {
+    expect(defaultLayoutForRoles(["fiscal_reader"])).toEqual([]);
   });
 
   it("returns empty for no roles", () => {

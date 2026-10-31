@@ -2,7 +2,12 @@
 
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, type Permission } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+  type Permission,
+} from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -19,7 +24,7 @@ const HORIZON_DAYS = 14;
 const SECTION_PERMISSIONS: Permission[] = [
   "cheques:read",
   "issued_checks:read",
-  "accounting:read",
+  "accounts:read",
   "recurring_payments:read",
   "fleet_documents:read",
   "hr:read",
@@ -114,7 +119,7 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
     (async (): Promise<DueDateItem[]> => {
-      if (!userCan(ctx.access, "accounting:read")) return [];
+      if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("loan_installments")

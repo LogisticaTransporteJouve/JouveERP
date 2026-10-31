@@ -1,7 +1,7 @@
 "use server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { round2, todayInAR } from "@/lib/format";
 import { fetchLatestUsdRate } from "@/lib/fx";
@@ -41,7 +41,7 @@ export async function getTreasurySummaryAction(): Promise<
 > {
   const ctx = await requireUserContext();
   // accounting:read is the "view finances" permission. Treasury falls under it.
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para ver tesorería." };
   }
 
