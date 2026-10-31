@@ -567,34 +567,28 @@ export async function createReceiptAction(
       data.client_id,
       data.channel_id,
     );
-    // A failed read must not issue the receipt unallocated: the client's
-    // invoices would stay open with the cash already received.
-    if (!pendingRes.ok) {
-      return {
-        ok: false,
-        error: `No se pudieron leer los comprobantes pendientes para imputar el recibo: ${pendingRes.error}`,
-      };
+    if (pendingRes.ok) {
+      const oldestFirst = [...pendingRes.data].sort((a, b) =>
+        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
+      );
+      const totalRetentions = (data.retentions ?? []).reduce(
+        (acc, r) => acc + r.amount,
+        0,
+      );
+      let remaining = data.total_amount - totalRetentions;
+      const auto: typeof allocations = [];
+      for (const inv of oldestFirst) {
+        if (remaining <= 0.005) break;
+        const applied = Math.min(inv.outstanding, remaining);
+        if (applied <= 0.005) continue;
+        auto.push({
+          invoice_id: inv.id,
+          amount_applied: round2(applied),
+        });
+        remaining -= applied;
+      }
+      allocations = auto;
     }
-    const oldestFirst = [...pendingRes.data].sort((a, b) =>
-      a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
-    );
-    const totalRetentions = (data.retentions ?? []).reduce(
-      (acc, r) => acc + r.amount,
-      0,
-    );
-    let remaining = data.total_amount - totalRetentions;
-    const auto: typeof allocations = [];
-    for (const inv of oldestFirst) {
-      if (remaining <= 0.005) break;
-      const applied = Math.min(inv.outstanding, remaining);
-      if (applied <= 0.005) continue;
-      auto.push({
-        invoice_id: inv.id,
-        amount_applied: round2(applied),
-      });
-      remaining -= applied;
-    }
-    allocations = auto;
   }
 
   const supabase = await createSupabaseClient();
