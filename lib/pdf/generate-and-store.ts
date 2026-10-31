@@ -160,6 +160,7 @@ export async function buildTemplateData(
 
   return {
     isFiscal,
+    emittedAt: row.emitted_at ?? `${row.fecha}T00:00:00-03:00`,
     emisor: {
       legal_name: bu?.name ?? "DZ & Sons S.A.",
       cuit: bu?.cuit ?? "",

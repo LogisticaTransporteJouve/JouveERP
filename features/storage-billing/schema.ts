@@ -10,7 +10,7 @@ export const StorageInvoiceSchema = z
     client_id: z.string().uuid("Cliente requerido."),
     period_start: dateRe,
     period_end: dateRe,
-    channel_id: z.string().uuid("Canal requerido."),
+    channel_id: z.string().min(1, "Canal requerido."),
     punto_venta: z.coerce
       .number()
       .int("Punto de venta inválido.")
