@@ -68,7 +68,7 @@ const formatter = { format: (n: number) => `$${formatNumber2(n)}` };
 function formatMovementNumber(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
   if (m.punto_venta == null || m.numero == null) return "—";
-  if (m.source_type === "receipt") {
+  if (m.source_type === "receipt" || m.source_type === "rejected_check") {
     const pos = String(m.punto_venta).padStart(5, "0");
     return `R${pos}-${String(m.numero).padStart(8, "0")}`;
   }
@@ -78,6 +78,7 @@ function formatMovementNumber(m: AccountMovement): string {
 function movementTypeLabel(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "Ajuste de saldo";
   if (m.source_type === "receipt") return "Recibo";
+  if (m.source_type === "rejected_check") return "Cheque rechazado";
   if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
   if (m.kind === "nc") return "Nota de Crédito";
   if (m.kind === "nd") return "Nota de Débito";
@@ -393,7 +394,7 @@ export function ClientAccountTab({
                         </Link>
                       </Button>
                     </>
-                  ) : m.source_id ? (
+                  ) : m.source_type === "receipt" && m.source_id ? (
                     <>
                       <Button
                         asChild

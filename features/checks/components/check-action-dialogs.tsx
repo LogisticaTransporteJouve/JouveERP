@@ -283,6 +283,16 @@ export function CreditChequeDialog({ check }: { check: Cheque }) {
 // Reject
 // ---------------------------------------------------------------------------
 
+function rejectDescription(status: Cheque["status"]): string {
+  if (status === "depositado") {
+    return "El banco rechazó el cheque. Sale de la cuenta donde se depositó y queda como deuda del firmante (Deudores por cheques rechazados).";
+  }
+  if (status === "endosado") {
+    return "El cheque endosado volvió rechazado. La deuda con el proveedor vuelve y el cheque queda como deuda del firmante.";
+  }
+  return "Sale de la cartera y queda como deuda del firmante (Deudores por cheques rechazados).";
+}
+
 export function RejectChequeDialog({
   check,
   channels,
@@ -291,23 +301,14 @@ export function RejectChequeDialog({
   channels: CheckChannelOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const { data: accounts } = useAccountsList();
-  const bankAccounts = accounts.filter(
-    (a) => a.is_active && a.type === "bank" && a.currency === check.currency,
-  );
   const mut = useRejectCheque();
 
-  const [accountId, setAccountId] = useState(bankAccounts[0]?.id ?? "");
   const [channelId, setChannelId] = useState(check.channel_id ?? "");
   const [eventDate, setEventDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (check.status === "depositado" && !accountId) {
-      toast.error("Elegí la cuenta bancaria desde la que se reversa.");
-      return;
-    }
     if (!channelId) {
       toast.error("Elegí el canal del rechazo.");
       return;
@@ -315,7 +316,6 @@ export function RejectChequeDialog({
     mut.mutate(
       {
         check_id: check.id,
-        account_id: accountId,
         channel_id: channelId,
         event_date: eventDate,
         notes,
@@ -342,29 +342,10 @@ export function RejectChequeDialog({
         <DialogHeader>
           <DialogTitle>Rechazar check {check.check_number}</DialogTitle>
           <DialogDescription>
-            {check.status === "depositado"
-              ? "El banco rechazó el check. Se genera un egreso en la cuenta bancaria para revertir el depósito."
-              : "Marca el check como rechazado sin afectar cuentas bancarias."}
+            {rejectDescription(check.status)}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          {check.status === "depositado" && (
-            <div className="space-y-1">
-              <Label className="text-xs">Cuenta bancaria afectada</Label>
-              <Select value={accountId} onValueChange={setAccountId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {bankAccounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <CheckChannelField
               check={check}
