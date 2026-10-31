@@ -47,4 +47,4 @@ they confirm.
    and regenerate types only if the schema changed (`pnpm db:types:generate`). Commit the renames.
 
 Never run `supabase db push` or `supabase link` (blocked by `.claude/settings.json`); production
-migrations deploy only through CI's approved `Push migrations to production` job.
+migrations deploy only through the approved `promote-to-production.yml` workflow.

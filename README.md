@@ -104,12 +104,16 @@ Las E2E aceptan `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` para otro usuario.
 ## CI y deploy
 
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, test, build, formato de
-  archivos cambiados, gates de workflows y skills, palabras prohibidas, y el job
-  `database` (migraciones desde cero, squawk, pgTAP, diff de tipos).
+  archivos cambiados, gates de workflows y skills, palabras prohibidas; el job
+  `e2e` (Playwright contra un build de producción y Supabase local); y el job
+  `database` (migraciones desde cero, squawk, pgTAP, diff de tipos y pentests
+  por rol contra PostgREST, `pnpm test:security`).
 - **Preview** (`preview.yml`): deploy de Vercel cuando el PR deja de ser draft.
-- **Producción**: Vercel publica `main`; las migraciones se aplican con el job
-  aprobado manualmente. El código tiene que tolerar la ventana en que corre
-  sin la migración nueva.
+- **Producción** (`promote-to-production.yml`, manual desde Actions): toma un
+  commit de `main` con CI verde, pide aprobación, aplica las migraciones,
+  despliega en Vercel, sincroniza Inngest, hace un smoke test y mueve el tag
+  `production-latest`. Un SHA anterior hace rollback del código. Vercel no
+  publica `main` solo.
 
 ## Problemas comunes
 

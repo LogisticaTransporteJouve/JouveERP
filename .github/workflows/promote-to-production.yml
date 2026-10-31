@@ -1,0 +1,333 @@
+name: Promote to production
+
+# The only way code and migrations reach production. Vercel does not deploy
+# `main` on its own (vercel.json); this workflow takes a commit on main whose
+# CI passed, applies its pending migrations, builds it with production
+# variables, deploys it, syncs Inngest, smoke-tests it and tags it
+# `production-latest`. An earlier main SHA rolls the code back (migrations are
+# never rolled back).
+#
+# GitHub environments (Settings → Environments):
+#   production-gate — required reviewers, no secrets.
+#   production      — the secrets below; restricted to `main`.
+# Secrets in `production`: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID,
+#   SUPABASE_DB_PASSWORD, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID,
+#   INNGEST_SIGNING_KEY.
+# Variable in `production`: PRODUCTION_URL (https://<host>, no path).
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full main commit SHA to promote (default main HEAD). An earlier SHA rolls back.
+        required: false
+        type: string
+
+concurrency:
+  group: promote-to-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_CLI: vercel@59.26.0
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  detect-changes:
+    name: Detect changes since the last promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      sha: ${{ steps.changes.outputs.sha }}
+      rollback: ${{ steps.changes.outputs.rollback }}
+    steps:
+      # A dispatch runs the workflow file of the branch it names, so one from
+      # any other branch could run an edited copy of this file.
+      - name: Dispatched from main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from main, not $GITHUB_REF."
+            exit 1
+          fi
+
+      - name: Validate the SHA input
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          if [ -n "$INPUT_SHA" ] && ! [[ "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::sha must be a full 40-character commit SHA."
+            exit 1
+          fi
+
+      - name: Checkout the promoted SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha || 'main' }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: On main
+        id: sha
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not on main."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "### Promoting \`$sha\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # Run outcomes come from the Actions API: the run's own conclusion is not
+      # enough, since a job can be skipped or cancelled with every check green.
+      - name: CI passed on main for this SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ok=""
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha=$SHA&per_page=20" --jq '.workflow_runs[].id')"
+          for id in $runs; do
+            green="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '[.jobs[] | select((.name == "Lint / Typecheck / Test / Build" or .name == "database" or .name == "e2e") and .conclusion == "success")] | length')"
+            if [ "$green" = "3" ]; then
+              ok="$id"
+              break
+            fi
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::No successful ci.yml push run on main for $SHA with Lint / Typecheck / Test / Build, database and e2e green."
+            exit 1
+          fi
+          echo "- CI: run $ok passed" >> "$GITHUB_STEP_SUMMARY"
+
+      # Compares against `production-latest`, the last promotion whose smoke
+      # test passed, so a promotion ships every commit since then.
+      - name: Determine changes since the last promotion
+        id: changes
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          rollback=false
+          {
+            if ! git rev-parse -q --verify 'refs/tags/production-latest' >/dev/null; then
+              echo "First promotion: no \`production-latest\` tag yet."
+            else
+              base="$(git rev-parse 'production-latest^{commit}')"
+              if [ "$base" = "$SHA" ]; then
+                echo "Production already runs this commit; it is built and deployed again."
+              else
+                if git merge-base --is-ancestor "$SHA" "$base"; then
+                  rollback=true
+                  echo "**Rollback** from \`$base\`: reverts the code of every commit after \`$SHA\`. Migrations are never rolled back."
+                else
+                  echo "Ships every commit between \`$base\` and \`$SHA\`."
+                fi
+                echo '```'
+                git diff --name-only "$base" "$SHA"
+                echo '```'
+                if git diff --quiet "$base" "$SHA" -- supabase/migrations/; then
+                  echo "- Migrations since the last promotion: none"
+                else
+                  echo "- Migrations since the last promotion: yes"
+                fi
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "rollback=$rollback" >> "$GITHUB_OUTPUT"
+
+  # The one human gate for the run. `production-gate` holds the required
+  # reviewers and no secrets; `production` holds the secrets and no reviewers.
+  # .github/scripts/check-production-jobs-gated.py keeps every job that enters
+  # `production` behind this one.
+  approve:
+    name: Approve production promotion
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    environment: production-gate
+    timeout-minutes: 5
+    steps:
+      - run: echo approved
+
+  # Always first, so the code never runs ahead of its schema. Idempotent:
+  # `supabase db push` applies only what schema_migrations lacks.
+  supabase:
+    name: Supabase production migrations
+    needs: [detect-changes, approve]
+    runs-on: ubuntu-latest
+    environment: production
+    # Budget for the slowest migration; a cancel mid-migration is worse.
+    timeout-minutes: 60
+    concurrency:
+      group: db-deploy
+      cancel-in-progress: false
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Anything to apply
+        id: target
+        env:
+          ROLLBACK: ${{ needs.detect-changes.outputs.rollback }}
+        run: |
+          # The database already holds every migration up to production-latest,
+          # and those of an older SHA are a subset of them.
+          if [ "$ROLLBACK" = "true" ]; then
+            echo "::notice::Rollback: the database keeps its schema, nothing to apply."
+            echo "apply=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::Missing SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID or SUPABASE_DB_PASSWORD in the production environment."
+            exit 1
+          fi
+          echo "apply=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the promoted SHA
+        if: steps.target.outputs.apply == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.detect-changes.outputs.sha }}
+          persist-credentials: false
+
+      - name: Resolve pinned Supabase CLI version
+        if: steps.target.outputs.apply == 'true'
+        run: echo "SUPABASE_CLI_VERSION=$(sed 's/^supabase@//' scripts/supabase-cli-version)" >> "$GITHUB_ENV"
+
+      - name: Setup Supabase CLI
+        if: steps.target.outputs.apply == 'true'
+        uses: supabase/setup-cli@afb1b15109756ea5cf9d8985a359d9095235ca2b # v2.1.2
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Link Supabase project
+        if: steps.target.outputs.apply == 'true'
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Push pending migrations
+        if: steps.target.outputs.apply == 'true'
+        run: supabase db push --include-all
+
+  # The same commit is built with production variables and deployed, so the
+  # build is Vercel's production build, not a promoted preview.
+  vercel:
+    name: Vercel production deploy
+    needs: [detect-changes, approve, supabase]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Checkout the promoted SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.detect-changes.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Version is read from the root package.json "packageManager" field.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      # No dependency cache: this job holds production secrets, and a cache is
+      # shared with runs of other workflows.
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Build and deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::Missing VERCEL_TOKEN, VERCEL_ORG_ID or VERCEL_PROJECT_ID in the production environment."
+            exit 1
+          fi
+          npx -y "$VERCEL_CLI" pull --yes --environment=production --token "$VERCEL_TOKEN"
+          npx -y "$VERCEL_CLI" build --prod --token "$VERCEL_TOKEN"
+          url="$(npx -y "$VERCEL_CLI" deploy --prebuilt --prod --token "$VERCEL_TOKEN")"
+          echo "Deployed $url" >> "$GITHUB_STEP_SUMMARY"
+
+  # The Inngest app has to point at the new deployment's functions. A signed
+  # sync makes the app register itself at the URL the request was sent to, so
+  # it goes to the production domain, never a deployment URL.
+  inngest:
+    name: Sync Inngest with production
+    needs: [detect-changes, approve, vercel]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Signed sync of /api/inngest
+        env:
+          INNGEST_SIGNING_KEY: ${{ secrets.INNGEST_SIGNING_KEY }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$INNGEST_SIGNING_KEY" ] || { echo "::error::INNGEST_SIGNING_KEY is not set in the production environment"; exit 1; }
+          [[ "$PRODUCTION_URL" =~ ^https://[^/]+$ ]] || { echo "::error::PRODUCTION_URL must be https://<host> with no path, got '$PRODUCTION_URL'"; exit 1; }
+          # The SDK's signature: HMAC-SHA256 of body + timestamp, keyed with the
+          # signing key minus its signkey-<env>- prefix. The body is empty.
+          key="$(printf '%s' "$INNGEST_SIGNING_KEY" | sed -E 's/^signkey-[A-Za-z0-9_]+-//')"
+          ts="$(date +%s)"
+          sig="$(printf '%s' "$ts" | openssl dgst -sha256 -hmac "$key" -hex | awk '{print $NF}')"
+          curl -fsS --max-time 30 --retry 3 --retry-delay 5 --retry-all-errors \
+            -X PUT -H "x-inngest-signature: t=$ts&s=$sig" \
+            "$PRODUCTION_URL/api/inngest"
+          echo
+
+  smoke-test:
+    name: Production smoke test
+    needs: [detect-changes, approve, vercel, inngest]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      # The login page renders without a session, and /api/inngest answers an
+      # unsigned request with 401: a 500 means no signing key, a 200 dev mode.
+      - name: Probe the login page and /api/inngest
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 --retry 3 --retry-delay 5 --retry-all-errors \
+            -o /dev/null "$PRODUCTION_URL/auth/login"
+          code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$PRODUCTION_URL/api/inngest")"
+          if [ "$code" != "401" ]; then
+            echo "::error::/api/inngest answered $code to an unsigned GET, expected 401"
+            exit 1
+          fi
+
+  # Through the API rather than `git push`, so the job needs no checkout and
+  # tags exactly the SHA that was deployed even if main moved meanwhile.
+  tag:
+    name: Move production-latest
+    needs: [detect-changes, approve, smoke-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 5
+    steps:
+      - name: Point production-latest at the promoted SHA
+        env:
+          SHA: ${{ needs.detect-changes.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [ -n "$SHA" ] || { echo "::error::sha is empty"; exit 1; }
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/production-latest" \
+            -f sha="$SHA" -F force=true >/dev/null \
+            || gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/production-latest" -f sha="$SHA" >/dev/null
+          echo "production-latest -> \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
