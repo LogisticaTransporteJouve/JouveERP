@@ -55,6 +55,7 @@ describe("getFleetProfitabilityAction", () => {
     expect(res.data.totals.revenue).toBe(15000);
     // 1500 trip cost + 2400 fuel + 100 maintenance
     expect(res.data.totals.cost).toBe(4000);
+    expect(res.data.unvouchered.fuel_count).toBe(1200);
     expect(
       fake.calls.filter((c) => c.table === "trips").length,
     ).toBeGreaterThan(1);

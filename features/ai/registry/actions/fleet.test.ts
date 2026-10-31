@@ -92,6 +92,12 @@ describe("runFleetProfitability", () => {
         trips: [],
         vehicles: [],
         totals: { revenue: 1000, cost: 400, net: 600 },
+        unvouchered: {
+          fuel_count: 0,
+          fuel_amount: 0,
+          maintenance_count: 0,
+          maintenance_cost: 0,
+        },
       },
     });
     const res = await runFleetProfitability({

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CostVoucherShape } from "@/lib/cost-vouchers";
+
 export const MAINTENANCE_KINDS = [
   "service",
   "reparacion",
@@ -36,6 +38,8 @@ export interface MaintenanceRecord {
   next_service_km: number | null;
   provider: string | null;
   notes: string | null;
+  purchase_invoice_id: string | null;
+  transaction_id: string | null;
   created_at: string;
   vehicle: { patente: string } | null;
 }
@@ -50,7 +54,10 @@ const optionalText = (max: number) =>
     .optional();
 
 const optionalDate = z
-  .union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.")])
+  .union([
+    z.literal(""),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  ])
   .transform((v) => (v === "" ? null : v))
   .nullable()
   .optional();
@@ -63,9 +70,7 @@ const optionalAmount = z
 
 export const MaintenanceCreateSchema = z.object({
   vehicle_id: z.string().uuid("Vehículo requerido."),
-  service_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+  service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   kind: z.enum(MAINTENANCE_KINDS).default("service"),
   description: z.string().trim().min(1, "Descripción requerida.").max(500),
   cost: optionalAmount,
@@ -74,6 +79,7 @@ export const MaintenanceCreateSchema = z.object({
   next_service_km: optionalAmount,
   provider: optionalText(160),
   notes: optionalText(2000),
+  ...CostVoucherShape,
 });
 
 export type MaintenanceCreateInput = z.infer<typeof MaintenanceCreateSchema>;
@@ -86,11 +92,17 @@ export const MaintenanceUpdateSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida.")
     .optional(),
   kind: z.enum(MAINTENANCE_KINDS).optional(),
-  description: z.string().trim().min(1, "Descripción requerida.").max(500).optional(),
+  description: z
+    .string()
+    .trim()
+    .min(1, "Descripción requerida.")
+    .max(500)
+    .optional(),
   cost: optionalAmount,
   odometer_km: optionalAmount,
   next_service_date: optionalDate,
   next_service_km: optionalAmount,
   provider: optionalText(160),
   notes: optionalText(2000),
+  ...CostVoucherShape,
 });

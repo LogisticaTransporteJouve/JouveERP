@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CostVoucherShape } from "@/lib/cost-vouchers";
+
 export interface FuelLoad {
   id: string;
   vehicle_id: string;
@@ -11,6 +13,8 @@ export interface FuelLoad {
   station: string | null;
   card: string | null;
   notes: string | null;
+  purchase_invoice_id: string | null;
+  transaction_id: string | null;
   created_at: string;
   vehicle: { patente: string } | null;
 }
@@ -46,6 +50,7 @@ export const FuelLoadCreateSchema = z.object({
   station: optionalText(120),
   card: optionalText(120),
   notes: optionalText(2000),
+  ...CostVoucherShape,
 });
 
 export type FuelLoadCreateInput = z.infer<typeof FuelLoadCreateSchema>;
@@ -64,4 +69,5 @@ export const FuelLoadUpdateSchema = z.object({
   station: optionalText(120),
   card: optionalText(120),
   notes: optionalText(2000),
+  ...CostVoucherShape,
 });

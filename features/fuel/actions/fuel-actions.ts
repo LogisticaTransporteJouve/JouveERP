@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { costVoucherDenied, costVoucherPatch } from "@/lib/cost-vouchers";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -28,6 +29,8 @@ type FuelLoadSelectRow = Pick<
   | "station"
   | "card"
   | "notes"
+  | "purchase_invoice_id"
+  | "transaction_id"
   | "created_at"
 > & { vehicle: { patente: string } | null };
 
@@ -41,7 +44,7 @@ function narrowFuelLoad(row: FuelLoadSelectRow): FuelLoad {
 }
 
 const SELECT_COLUMNS =
-  "id, vehicle_id, trip_id, load_date, liters, amount, odometer_km, station, card, notes, created_at, vehicle:vehicles(patente)";
+  "id, vehicle_id, trip_id, load_date, liters, amount, odometer_km, station, card, notes, purchase_invoice_id, transaction_id, created_at, vehicle:vehicles(patente)";
 
 export async function listFuelLoadsAction(): Promise<ActionResult<FuelLoad[]>> {
   const ctx = await requireUserContext();
@@ -83,6 +86,8 @@ export async function createFuelLoadAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
+  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
+  if (voucherDenied) return { ok: false, error: voucherDenied };
 
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
@@ -97,6 +102,7 @@ export async function createFuelLoadAction(
       station: parsed.data.station ?? null,
       card: parsed.data.card ?? null,
       notes: parsed.data.notes ?? null,
+      ...costVoucherPatch(parsed.data),
       created_by: ctx.userId,
     })
     .select("id")
@@ -129,6 +135,8 @@ export async function updateFuelLoadAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
+  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
+  if (voucherDenied) return { ok: false, error: voucherDenied };
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
@@ -144,6 +152,7 @@ export async function updateFuelLoadAction(
       ...(rest.station !== undefined && { station: rest.station }),
       ...(rest.card !== undefined && { card: rest.card }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
+      ...costVoucherPatch(rest),
     })
     .eq("id", id);
   if (error) {

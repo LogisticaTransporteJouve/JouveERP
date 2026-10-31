@@ -67,4 +67,28 @@ describe("FuelLoadCreateSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("keeps an absent voucher undefined and an empty one null", () => {
+    const base = {
+      vehicle_id: VEHICLE_ID,
+      load_date: "2026-06-22",
+      liters: "50",
+      amount: "100000",
+    };
+    const absent = FuelLoadCreateSchema.safeParse(base);
+    expect(absent.success && absent.data.purchase_invoice_id).toBeUndefined();
+    const cleared = FuelLoadCreateSchema.safeParse({
+      ...base,
+      purchase_invoice_id: "",
+      transaction_id: VEHICLE_ID,
+    });
+    expect(cleared.success).toBe(true);
+    if (cleared.success) {
+      expect(cleared.data.purchase_invoice_id).toBeNull();
+      expect(cleared.data.transaction_id).toBe(VEHICLE_ID);
+    }
+    expect(
+      FuelLoadCreateSchema.safeParse({ ...base, transaction_id: "x" }).success,
+    ).toBe(false);
+  });
 });

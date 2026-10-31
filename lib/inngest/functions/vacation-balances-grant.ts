@@ -5,11 +5,13 @@ import { inngest } from "../client";
 
 // N.4 — Annual cron for vacation balances.
 //
-// October 1st 00:00 ART. Calls the RPC grant_vacation_balances(year, true)
-// for each active employee:
+// October 1st 00:00 ART. Calls the RPC grant_vacation_balances(year,
+// carryover) for each active employee, with carryover read from
+// hr_settings.vacation_carryover (the RPC also checks it):
 //   - Computes entitled_days based on tenure as of Dec 31 of the year
 //   - Applies Art. 153 prorating if tenure is under 6 months
-//   - Carries over remaining_days from the previous year if the policy is active
+//   - Carries over up to a third of the previous period (LCT art. 164) when it
+//     is extended or not yet expired, and closes that period
 //   - Marks balances with expires_at < today as expired
 //
 // Idempotent: if the (employee, year) balance already exists, it's skipped.
@@ -28,9 +30,16 @@ export const vacationBalancesGrant = inngest.createFunction(
 
     const result = await step.run("grant-balances", async () => {
       const supabase = getServiceClient();
+      const setting = await supabase
+        .from("hr_settings")
+        .select("value")
+        .eq("key", "vacation_carryover")
+        .maybeSingle();
+      if (setting.error)
+        throw new Error(`grant-balances: ${setting.error.message}`);
       const { data, error } = await supabase.rpc("grant_vacation_balances", {
         p_target_year: targetYear,
-        p_carryover: true,
+        p_carryover: setting.data?.value === true,
       });
       if (error) throw new Error(`grant-balances: ${error.message}`);
       return data ?? [];

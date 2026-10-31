@@ -20,11 +20,22 @@ export type FuelInput = {
   vehicle_id: string;
   trip_id: string | null;
   amount: number;
+  /** Linked to a purchase invoice or a treasury movement. */
+  has_voucher: boolean;
 };
 
 export type MaintenanceInput = {
   vehicle_id: string;
   cost: number | null;
+  has_voucher: boolean;
+};
+
+/** Fleet costs with no purchase invoice and no movement linked. */
+export type Unvouchered = {
+  fuel_count: number;
+  fuel_amount: number;
+  maintenance_count: number;
+  maintenance_cost: number;
 };
 
 export type TripProfit = {
@@ -59,6 +70,7 @@ export type FleetProfitability = {
     cost: number;
     net: number;
   };
+  unvouchered: Unvouchered;
 };
 
 function round2(n: number): number {
@@ -149,9 +161,22 @@ export function computeProfitability(input: {
     ),
   );
 
+  const fuelUnvouchered = input.fuel.filter((f) => !f.has_voucher);
+  const maintenanceUnvouchered = input.maintenance.filter(
+    (m) => !m.has_voucher,
+  );
+
   return {
     trips,
     vehicles,
     totals: { revenue, cost, net: round2(revenue - cost) },
+    unvouchered: {
+      fuel_count: fuelUnvouchered.length,
+      fuel_amount: round2(fuelUnvouchered.reduce((s, f) => s + f.amount, 0)),
+      maintenance_count: maintenanceUnvouchered.length,
+      maintenance_cost: round2(
+        maintenanceUnvouchered.reduce((s, m) => s + (m.cost ?? 0), 0),
+      ),
+    },
   };
 }
