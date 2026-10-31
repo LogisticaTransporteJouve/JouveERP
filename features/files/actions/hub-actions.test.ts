@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
+import { type Access, resolveAccess } from "@/lib/auth/permissions";
 
 // A PostgREST builder stand-in that records every filter and resolves to the
 // rows the test set for the view.

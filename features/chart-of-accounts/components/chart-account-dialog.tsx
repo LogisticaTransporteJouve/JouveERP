@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -92,8 +92,7 @@ export function ChartAccountDialog({
   }, [allAccounts, mode]);
 
   const initialParent =
-    parentSuggestion ??
-    (mode === "create" && account ? account : undefined);
+    parentSuggestion ?? (mode === "create" && account ? account : undefined);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -101,13 +100,11 @@ export function ChartAccountDialog({
       code: account?.code ?? "",
       name: account?.name ?? "",
       account_type:
-        account?.account_type ??
-        initialParent?.account_type ??
-        "activo",
-      eerr_category: account?.eerr_category ?? initialParent?.eerr_category ?? "",
+        account?.account_type ?? initialParent?.account_type ?? "activo",
+      eerr_category:
+        account?.eerr_category ?? initialParent?.eerr_category ?? "",
       system_role: (account?.system_role ?? NONE_ROLE) as
-        | CoaSystemRole
-        | typeof NONE_ROLE,
+        CoaSystemRole | typeof NONE_ROLE,
       is_active: account?.is_active ?? true,
     },
   });
@@ -123,14 +120,13 @@ export function ChartAccountDialog({
       eerr_category:
         account?.eerr_category ?? initialParent?.eerr_category ?? "",
       system_role: (account?.system_role ?? NONE_ROLE) as
-        | CoaSystemRole
-        | typeof NONE_ROLE,
+        CoaSystemRole | typeof NONE_ROLE,
       is_active: account?.is_active ?? true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, account?.id, parentSuggestion?.id]);
 
-  const parentId = form.watch("parent_id");
+  const parentId = useWatch({ control: form.control, name: "parent_id" });
 
   useEffect(() => {
     if (mode !== "create") return;
@@ -157,9 +153,10 @@ export function ChartAccountDialog({
       name: values.name,
       account_type: values.account_type,
       eerr_category:
-        values.eerr_category.trim().length > 0 ? values.eerr_category.trim() : null,
-      system_role:
-        values.system_role === NONE_ROLE ? null : values.system_role,
+        values.eerr_category.trim().length > 0
+          ? values.eerr_category.trim()
+          : null,
+      system_role: values.system_role === NONE_ROLE ? null : values.system_role,
       is_active: values.is_active,
     };
 
@@ -193,17 +190,14 @@ export function ChartAccountDialog({
   }
 
   const isEdit = mode === "edit";
-  const codePreviewLevel = form.watch("code")
-    ? levelFromCode(form.watch("code"))
-    : null;
+  const code = useWatch({ control: form.control, name: "code" });
+  const codePreviewLevel = code ? levelFromCode(code) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {isEdit ? "Editar cuenta" : "Nueva cuenta"}
-          </DialogTitle>
+          <DialogTitle>{isEdit ? "Editar cuenta" : "Nueva cuenta"}</DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Cambiá datos no estructurales de la cuenta. Código y padre no se modifican una vez creada."
@@ -415,15 +409,9 @@ export function ChartAccountDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  isSaving || (isEdit && !form.formState.isDirty)
-                }
+                disabled={isSaving || (isEdit && !form.formState.isDirty)}
               >
-                {isSaving
-                  ? "Guardando…"
-                  : isEdit
-                    ? "Guardar cambios"
-                    : "Crear"}
+                {isSaving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear"}
               </Button>
             </DialogFooter>
           </form>

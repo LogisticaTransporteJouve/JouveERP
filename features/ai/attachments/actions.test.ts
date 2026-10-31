@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Access, type Role, resolveAccess } from "@/lib/auth/permissions";
+import { type Access, resolveAccess } from "@/lib/auth/permissions";
 
 import type { ChatAttachmentFile } from "./store";
 

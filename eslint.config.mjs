@@ -17,6 +17,12 @@ const eslintConfig = defineConfig([
       "react-hooks/preserve-manual-memoization": "off",
       // Hard ban on implicit `any`.
       "@typescript-eslint/no-explicit-any": "error",
+      // A parameter named `_x` is unused on purpose (a positional callback
+      // argument, or a key dropped from a destructured input before `...rest`).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
     },
   },
   ...fenceBlocks,

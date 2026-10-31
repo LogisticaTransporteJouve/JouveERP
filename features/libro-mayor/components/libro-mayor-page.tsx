@@ -32,7 +32,7 @@ export function LibroMayorPage() {
   const [to, setTo] = useState<string>("");
 
   const ledger = useLedger(accountId, from || null, to || null);
-  const rows = ledger.data?.rows ?? [];
+  const rows = useMemo(() => ledger.data?.rows ?? [], [ledger.data]);
   const truncated = ledger.data?.truncated ?? false;
   const summary = useMemo(() => computeLedgerSummary(rows), [rows]);
 
@@ -103,7 +103,11 @@ export function LibroMayorPage() {
         <div className="grid grid-cols-3 gap-3">
           <Card label="Total Debe" value={money(summary.totalDebit)} />
           <Card label="Total Haber" value={money(summary.totalCredit)} />
-          <Card label="Saldo final" value={money(summary.finalBalance)} emphasize />
+          <Card
+            label="Saldo final"
+            value={money(summary.finalBalance)}
+            emphasize
+          />
         </div>
       )}
 
@@ -121,99 +125,109 @@ export function LibroMayorPage() {
             {truncated && (
               <div className="rounded-lg border border-border bg-muted p-3 text-sm">
                 ⚠ La cuenta tiene más de 1000 movimientos. Mostrando los
-                primeros 1000 — filtrá por rango de fechas para ver el
-                resto.
+                primeros 1000 — filtrá por rango de fechas para ver el resto.
               </div>
             )}
             <div className="overflow-x-auto rounded-lg border bg-card">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/30 text-left text-xs">
-                <tr>
-                  <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
-                    Fecha
-                  </th>
-                  <th className="px-2 py-2 font-medium">Período</th>
-                  <th className="px-2 py-2 font-medium">Descripción</th>
-                  <th className="px-2 py-2 font-medium">Origen</th>
-                  <th className="px-2 py-2 text-right font-medium">Debe</th>
-                  <th className="px-2 py-2 text-right font-medium">Haber</th>
-                  <th className="px-2 py-2 text-right font-medium">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const debit = Number(r.debit);
-                  const credit = Number(r.credit);
-                  const running = Number(r.running);
-                  const href =
-                    isKnownSource(r.source_table) && r.source_id
-                      ? `${SOURCE_HREF_PREFIX[r.source_table]}/${r.source_id}`
-                      : null;
-                  return (
-                    <tr
-                      key={r.line_id}
-                      className={cn(
-                        "group border-b last:border-b-0 hover:bg-muted/20",
-                        r.is_reversal && "bg-muted",
-                      )}
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/30 text-left text-xs">
+                  <tr>
+                    <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
+                      Fecha
+                    </th>
+                    <th className="px-2 py-2 font-medium">Período</th>
+                    <th className="px-2 py-2 font-medium">Descripción</th>
+                    <th className="px-2 py-2 font-medium">Origen</th>
+                    <th className="px-2 py-2 text-right font-medium">Debe</th>
+                    <th className="px-2 py-2 text-right font-medium">Haber</th>
+                    <th className="px-2 py-2 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const debit = Number(r.debit);
+                    const credit = Number(r.credit);
+                    const running = Number(r.running);
+                    const href =
+                      isKnownSource(r.source_table) && r.source_id
+                        ? `${SOURCE_HREF_PREFIX[r.source_table]}/${r.source_id}`
+                        : null;
+                    return (
+                      <tr
+                        key={r.line_id}
+                        className={cn(
+                          "group border-b last:border-b-0 hover:bg-muted/20",
+                          r.is_reversal && "bg-muted",
+                        )}
+                      >
+                        <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
+                          {formatArgentineDate(r.entry_date)}
+                        </td>
+                        <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
+                          {r.accrual_period}
+                        </td>
+                        <td className="px-2 py-1">
+                          {r.is_reversal && (
+                            <Undo2 className="mr-1 inline-block size-3 text-foreground" />
+                          )}
+                          <span title={r.line_desc ?? ""}>{r.description}</span>
+                        </td>
+                        <td className="px-2 py-1">
+                          {href ? (
+                            <Link
+                              href={href}
+                              className="inline-flex items-center gap-1 text-xs hover:underline"
+                            >
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-normal"
+                              >
+                                {isKnownSource(r.source_table)
+                                  ? SOURCE_LABEL[r.source_table]
+                                  : r.source_table}
+                              </Badge>
+                              <ExternalLink className="size-3" />
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono">
+                          {debit > 0 ? money(debit) : ""}
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono">
+                          {credit > 0 ? money(credit) : ""}
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono font-medium">
+                          {money(running)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="border-t-2 bg-muted/30 font-semibold">
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="sticky left-0 z-10 bg-card px-2 py-2 text-right text-xs"
                     >
-                      <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
-                        {formatArgentineDate(r.entry_date)}
-                      </td>
-                      <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
-                        {r.accrual_period}
-                      </td>
-                      <td className="px-2 py-1">
-                        {r.is_reversal && (
-                          <Undo2 className="mr-1 inline-block size-3 text-foreground" />
-                        )}
-                        <span title={r.line_desc ?? ""}>{r.description}</span>
-                      </td>
-                      <td className="px-2 py-1">
-                        {href ? (
-                          <Link href={href} className="inline-flex items-center gap-1 text-xs hover:underline">
-                            <Badge variant="outline" className="text-xs font-normal">
-                              {isKnownSource(r.source_table)
-                                ? SOURCE_LABEL[r.source_table]
-                                : r.source_table}
-                            </Badge>
-                            <ExternalLink className="size-3" />
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono">
-                        {debit > 0 ? money(debit) : ""}
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono">
-                        {credit > 0 ? money(credit) : ""}
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono font-medium">
-                        {money(running)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="border-t-2 bg-muted/30 font-semibold">
-                <tr>
-                  <td colSpan={4} className="sticky left-0 z-10 bg-card px-2 py-2 text-right text-xs">
-                    Totales ({rows.length} movimientos)
-                  </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {money(summary.totalDebit)}
-                  </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {money(summary.totalCredit)}
-                  </td>
-                  <td className="px-2 py-2 text-right font-mono">
-                    {money(summary.finalBalance)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                      Totales ({rows.length} movimientos)
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {money(summary.totalDebit)}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {money(summary.totalCredit)}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {money(summary.finalBalance)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         )
       ) : (

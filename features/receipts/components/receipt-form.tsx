@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -169,13 +169,16 @@ export function ReceiptForm({
     },
   });
 
-  const channelId = form.watch("channelId");
-  const receiptDate = form.watch("receiptDate");
-  const currency = form.watch("currency");
-  const client = form.watch("client");
-  const paymentLines = form.watch("paymentLines");
-  const allocations = form.watch("allocations");
-  const retentions = form.watch("retentions");
+  const channelId = useWatch({ control: form.control, name: "channelId" });
+  const receiptDate = useWatch({ control: form.control, name: "receiptDate" });
+  const currency = useWatch({ control: form.control, name: "currency" });
+  const client = useWatch({ control: form.control, name: "client" });
+  const paymentLines = useWatch({
+    control: form.control,
+    name: "paymentLines",
+  });
+  const allocations = useWatch({ control: form.control, name: "allocations" });
+  const retentions = useWatch({ control: form.control, name: "retentions" });
 
   const nextNumero = useNextReceiptNumero(mode === "create" ? channelId : null);
   const isFirst = nextNumero.isFirst;

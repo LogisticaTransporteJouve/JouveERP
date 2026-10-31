@@ -21,7 +21,10 @@ export function ReactionBar({
   disabled,
   align = "start",
 }: Props) {
-  const grouped = useMemo(() => groupByEmoji(reactions), [reactions]);
+  const grouped = useMemo(
+    () => groupByEmoji(reactions, currentUserId),
+    [reactions, currentUserId],
+  );
   if (grouped.length === 0) return null;
   return (
     <div
@@ -51,17 +54,18 @@ export function ReactionBar({
       ))}
     </div>
   );
+}
 
-  function groupByEmoji(
-    rs: Reaction[],
-  ): Array<{ emoji: string; users: string[]; mine: boolean }> {
-    const map = new Map<string, { users: string[]; mine: boolean }>();
-    for (const r of rs) {
-      const bucket = map.get(r.emoji) ?? { users: [], mine: false };
-      bucket.users.push(r.user_id);
-      if (r.user_id === currentUserId) bucket.mine = true;
-      map.set(r.emoji, bucket);
-    }
-    return Array.from(map, ([emoji, v]) => ({ emoji, ...v }));
+function groupByEmoji(
+  rs: Reaction[],
+  currentUserId: string,
+): Array<{ emoji: string; users: string[]; mine: boolean }> {
+  const map = new Map<string, { users: string[]; mine: boolean }>();
+  for (const r of rs) {
+    const bucket = map.get(r.emoji) ?? { users: [], mine: false };
+    bucket.users.push(r.user_id);
+    if (r.user_id === currentUserId) bucket.mine = true;
+    map.set(r.emoji, bucket);
   }
+  return Array.from(map, ([emoji, v]) => ({ emoji, ...v }));
 }

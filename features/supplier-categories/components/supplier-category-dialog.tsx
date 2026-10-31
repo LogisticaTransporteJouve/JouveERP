@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -31,10 +31,7 @@ import {
   useCreateSupplierCategory,
   useUpdateSupplierCategory,
 } from "../hooks/use-supplier-categories";
-import {
-  slugFromName,
-  type SupplierCategory,
-} from "../schema";
+import { slugFromName, type SupplierCategory } from "../schema";
 
 type Mode = "create" | "edit";
 
@@ -80,7 +77,7 @@ export function SupplierCategoryDialog({
     });
   }, [open, category, form]);
 
-  const watchedName = form.watch("name");
+  const watchedName = useWatch({ control: form.control, name: "name" });
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   // Auto-slug from the name in create mode, until the user edits it.
@@ -94,7 +91,11 @@ export function SupplierCategoryDialog({
   function onSubmit(values: FormValues) {
     if (mode === "create") {
       createMut.mutate(
-        { name: values.name, slug: values.slug || undefined, is_active: values.is_active },
+        {
+          name: values.name,
+          slug: values.slug || undefined,
+          is_active: values.is_active,
+        },
         {
           onSuccess: () => {
             toast.success("Categoría creada.");

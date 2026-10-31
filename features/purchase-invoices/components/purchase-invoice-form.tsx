@@ -4,7 +4,7 @@ import { AlertTriangle, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import {
@@ -219,15 +219,20 @@ export function PurchaseInvoiceForm({
   );
   const [acceptTotalsGap, setAcceptTotalsGap] = useState(false);
 
-  const watchedKind = form.watch("kind");
-  const watchedMoneda = form.watch("moneda");
-  const watchedNeto = form.watch("imp_neto");
-  const watchedIva = form.watch("imp_iva");
-  const watchedTrib = form.watch("imp_trib");
-  const watchedSupplierId = form.watch("supplier")?.id ?? null;
-  const watchedOriginId = form.watch("origin_invoice")?.id ?? null;
-  const watchedWithItems = form.watch("with_items");
-  const watchedItems = form.watch("items");
+  const watchedKind = useWatch({ control: form.control, name: "kind" });
+  const watchedMoneda = useWatch({ control: form.control, name: "moneda" });
+  const watchedNeto = useWatch({ control: form.control, name: "imp_neto" });
+  const watchedIva = useWatch({ control: form.control, name: "imp_iva" });
+  const watchedTrib = useWatch({ control: form.control, name: "imp_trib" });
+  const watchedSupplierId =
+    useWatch({ control: form.control, name: "supplier" })?.id ?? null;
+  const watchedOriginId =
+    useWatch({ control: form.control, name: "origin_invoice" })?.id ?? null;
+  const watchedWithItems = useWatch({
+    control: form.control,
+    name: "with_items",
+  });
+  const watchedItems = useWatch({ control: form.control, name: "items" });
 
   const itemsQuery = usePurchaseInvoiceItems(invoice?.id ?? null);
   const itemsData = itemsQuery.data ?? null;
@@ -391,7 +396,10 @@ export function PurchaseInvoiceForm({
   // K.12 Part C — Internal expense auto-numero. When the channel is internal
   // and the supplier is picked, fetch the next numero for that pair. Only
   // in mode=create and only if the numero field is empty.
-  const watchedChannelId = form.watch("channel_id");
+  const watchedChannelId = useWatch({
+    control: form.control,
+    name: "channel_id",
+  });
   const watchedChannelIsFiscal =
     channelIsFiscal(watchedChannelId, channels) ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
@@ -434,8 +442,14 @@ export function PurchaseInvoiceForm({
     };
   }, [mode, isInternalChannel, watchedSupplierId, watchedChannelId, form]);
 
-  const debouncedPv = useDebouncedValue(form.watch("punto_venta"), 300);
-  const debouncedNumero = useDebouncedValue(form.watch("numero"), 300);
+  const debouncedPv = useDebouncedValue(
+    useWatch({ control: form.control, name: "punto_venta" }),
+    300,
+  );
+  const debouncedNumero = useDebouncedValue(
+    useWatch({ control: form.control, name: "numero" }),
+    300,
+  );
   const duplicateLookup = useMemo(() => {
     const pv = Number(debouncedPv);
     const numero = Number(debouncedNumero);
@@ -454,7 +468,7 @@ export function PurchaseInvoiceForm({
   // Only document-filled invoices are checked: a manual header-only load may
   // legitimately carry amounts the form has no field for. With items, the
   // computed total is checked against the total printed on the document.
-  const watchedTotal = form.watch("imp_total");
+  const watchedTotal = useWatch({ control: form.control, name: "imp_total" });
   const gap = !createDraft
     ? null
     : watchedWithItems

@@ -48,7 +48,6 @@ export function ChannelSettingsDialog({
 }: Props) {
   const { data: header } = useChannelHeader(channelId);
   const update = useUpdateChannel(channelId);
-  const addMembers = useAddChannelMembers(channelId);
   const removeMember = useRemoveChannelMember(channelId);
   const leave = useLeaveChannel();
   const router = useRouter();
@@ -87,7 +86,8 @@ export function ChannelSettingsDialog({
     );
     const ok = await confirm({
       title: `Quitar a ${memberName} del grupo`,
-      description: "No va a poder ver los mensajes nuevos. Podés volver a agregarla/o más adelante.",
+      description:
+        "No va a poder ver los mensajes nuevos. Podés volver a agregarla/o más adelante.",
       confirmLabel: "Quitar",
       tone: "destructive",
     });
@@ -103,7 +103,8 @@ export function ChannelSettingsDialog({
   const handleLeave = async () => {
     const ok = await confirm({
       title: "Salir del grupo",
-      description: "No vas a poder ver mensajes nuevos. Alguien va a tener que agregarte de nuevo.",
+      description:
+        "No vas a poder ver mensajes nuevos. Alguien va a tener que agregarte de nuevo.",
       confirmLabel: "Salir",
       tone: "destructive",
     });
@@ -336,7 +337,11 @@ function AddMembersSection({
                       size="sm"
                     />
                     <span className="flex-1 truncate text-left text-sm">
-                      {getDisplayName(user.first_name, user.last_name, user.email)}
+                      {getDisplayName(
+                        user.first_name,
+                        user.last_name,
+                        user.email,
+                      )}
                     </span>
                     {checked ? (
                       <Plus className="size-3.5 rotate-45 text-foreground" />
@@ -370,7 +375,11 @@ function filterUsers(users: AssignableUser[], query: string): AssignableUser[] {
   const q = query.trim().toLowerCase();
   if (!q) return users;
   return users.filter((u) => {
-    const display = getDisplayName(u.first_name, u.last_name, u.email).toLowerCase();
+    const display = getDisplayName(
+      u.first_name,
+      u.last_name,
+      u.email,
+    ).toLowerCase();
     return display.includes(q) || u.email.toLowerCase().includes(q);
   });
 }
