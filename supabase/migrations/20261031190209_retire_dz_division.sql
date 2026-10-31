@@ -38,10 +38,15 @@ update public.shipments set channel_id = null where channel_id in ('dz_fiscal', 
 
 delete from public.invoicing_channels where division = 'dz';
 
--- The column stays (expand-only: a rollback's code still reads it).
+-- The column stays (expand-only: a rollback's code still reads it). The table
+-- has two rows, so validating in the same transaction blocks nothing.
+-- squawk-ignore ban-drop-constraint
 alter table public.invoicing_channels drop constraint invoicing_channels_division_check;
 alter table public.invoicing_channels
   add constraint invoicing_channels_division_check check (division = 'jouve') not valid;
+-- squawk-ignore constraint-missing-not-valid
 alter table public.invoicing_channels validate constraint invoicing_channels_division_check;
 
+-- Owner-only diagnostic for the retirement; nothing in the app calls it.
+-- squawk-ignore ban-drop-function
 drop function if exists public.dz_open_items();
