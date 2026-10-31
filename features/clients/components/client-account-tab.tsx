@@ -48,6 +48,7 @@ import {
   useClientAccount,
 } from "../hooks/use-clients";
 import type { AccountMovement } from "../actions/account-actions";
+import type { CurrencyBalances, StatementCurrency } from "@/lib/allocations";
 import { clientsKeys } from "../lib/clients-keys";
 import { OpeningBalanceDialog } from "./opening-balance-dialog";
 
@@ -63,7 +64,8 @@ interface InvoiceChannelOption {
 // formatter with the helper.
 import { formatNumber2 } from "@/lib/format";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
-const formatter = { format: (n: number) => `$${formatNumber2(n)}` };
+const fmt = (n: number, currency: StatementCurrency) =>
+  `${currency === "USD" ? "US$" : "$"}${formatNumber2(n)}`;
 
 function formatMovementNumber(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
@@ -104,7 +106,7 @@ export function ClientAccountTab({
 }) {
   const { data } = useClientAccount(clientId);
   const movements = data.movements;
-  const balance = data.balance;
+  const balances = data.balances;
   const { runningBalance } = data;
   const { fiscalFilter } = useScope();
   const canIssueInvoice = userCan(actorAccess, "invoices:issue");
@@ -255,14 +257,14 @@ export function ClientAccountTab({
               if (!isDebit) return "";
               return (
                 <span className="inline-flex flex-col items-end">
-                  <span>{formatter.format(m.gross_amount)}</span>
-                  {m.source_type === "invoice" &&
-                    m.kind !== "nc" &&
+                  <span>{fmt(m.gross_amount, m.currency)}</span>
+                  {((m.source_type === "invoice" && m.kind !== "nc") ||
+                    m.source_type === "rejected_check") &&
                     m.outstanding != null &&
                     m.outstanding > 0 &&
                     m.outstanding < m.gross_amount && (
                       <span className="text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">
-                        Pendiente: {formatter.format(m.outstanding)}
+                        Pendiente: {fmt(m.outstanding, m.currency)}
                       </span>
                     )}
                 </span>
@@ -277,7 +279,7 @@ export function ClientAccountTab({
             cell: ({ row }) => {
               const m = row.original;
               const isDebit = m.signed_amount > 0;
-              return !isDebit ? formatter.format(m.gross_amount) : "";
+              return !isDebit ? fmt(m.gross_amount, m.currency) : "";
             },
           },
           {
@@ -301,7 +303,7 @@ export function ClientAccountTab({
                         : "text-muted-foreground"
                   }
                 >
-                  {formatter.format(m.balance)}
+                  {fmt(m.balance, m.currency)}
                 </span>
               );
             },
@@ -467,7 +469,8 @@ export function ClientAccountTab({
   return (
     <div className="space-y-4">
       <BalanceHeader
-        balance={balance}
+        balances={balances}
+        hasUsd={movements.some((m) => m.currency === "USD")}
         count={movements.length}
         scopeLabel={runningBalance ? null : SCOPE_LABEL[fiscalFilter]}
       />
@@ -582,39 +585,56 @@ function OwnerOnly({
   );
 }
 
-/** `scopeLabel` set: the balance is that scope's open documents (aging), not
- *  a running balance. */
+/** One balance per currency: dollars only when the account has any.
+ *  `scopeLabel` set: each is that scope's open documents (aging), not a
+ *  running balance. */
 function BalanceHeader({
-  balance,
+  balances,
+  hasUsd,
   count,
   scopeLabel,
 }: {
-  balance: number;
+  balances: CurrencyBalances;
+  hasUsd: boolean;
   count: number;
   scopeLabel: string | null;
 }) {
-  const tone =
-    balance > 0
-      ? "text-muted-foreground dark:text-muted-foreground"
-      : balance < 0
-        ? "text-blue-600 dark:text-blue-400"
-        : "text-muted-foreground";
-  const label =
-    balance > 0
-      ? "El cliente nos debe"
-      : balance < 0
-        ? "Le debemos al cliente"
-        : "Saldo en cero";
+  const currencies: StatementCurrency[] =
+    hasUsd || balances.USD !== 0 ? ["ARS", "USD"] : ["ARS"];
   return (
-    <div className="flex items-end justify-between rounded-lg border bg-muted/30 p-4">
-      <div className="space-y-1">
-        <div className="text-xs text-muted-foreground">
-          {scopeLabel ? `Saldo pendiente · ${scopeLabel}` : "Saldo"}
-        </div>
-        <div className={`font-mono text-2xl font-semibold ${tone}`}>
-          {formatter.format(balance)}
-        </div>
-        <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+      <div className="flex flex-wrap gap-8">
+        {currencies.map((currency) => {
+          const balance = balances[currency];
+          const tone =
+            balance > 0
+              ? "text-muted-foreground dark:text-muted-foreground"
+              : balance < 0
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-muted-foreground";
+          const label =
+            balance > 0
+              ? "El cliente nos debe"
+              : balance < 0
+                ? "Le debemos al cliente"
+                : "Saldo en cero";
+          const title = scopeLabel
+            ? `Saldo pendiente · ${scopeLabel}`
+            : "Saldo";
+          return (
+            <div key={currency} className="space-y-1">
+              <div className="text-xs text-muted-foreground">
+                {currencies.length > 1
+                  ? `${title} · ${currency === "USD" ? "Dólares" : "Pesos"}`
+                  : title}
+              </div>
+              <div className={`font-mono text-2xl font-semibold ${tone}`}>
+                {fmt(balance, currency)}
+              </div>
+              <div className="text-xs text-muted-foreground">{label}</div>
+            </div>
+          );
+        })}
       </div>
       <div className="text-xs text-muted-foreground">
         {count} movimiento{count === 1 ? "" : "s"}

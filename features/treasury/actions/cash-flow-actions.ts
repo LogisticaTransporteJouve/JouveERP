@@ -233,7 +233,7 @@ export async function getCashFlowAction(input: {
     supabase
       .from("v_aging_documents")
       .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
-      .order("invoice_id", { ascending: true })
+      .order("document_id", { ascending: true })
       .range(from, to),
   );
   if (recvErr) return failed("receivables", recvErr);

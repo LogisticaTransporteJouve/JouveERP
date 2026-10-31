@@ -1101,6 +1101,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "check_movements_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
             foreignKeyName: "check_movements_destination_account_id_fkey"
             columns: ["destination_account_id"]
             isOneToOne: false
@@ -1229,6 +1236,13 @@ export type Database = {
             referencedRelation: "receipts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "checks_source_receipt_id_fkey"
+            columns: ["source_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
         ]
       }
       client_opening_balance_allocations: {
@@ -1257,13 +1271,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: true
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "client_opening_balance_allocations_opening_fkey"
@@ -1842,6 +1849,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "file_attachments_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
             foreignKeyName: "file_attachments_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
@@ -1861,13 +1875,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_attachments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "file_attachments_issued_check_id_fkey"
@@ -1910,6 +1917,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
           },
           {
             foreignKeyName: "file_attachments_supplier_id_fkey"
@@ -2300,13 +2314,6 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "invoice_items_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
-          },
         ]
       }
       invoices: {
@@ -2473,13 +2480,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_invoice_origin_id_fkey"
-            columns: ["invoice_origin_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -3224,6 +3224,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_order_payment_lines_endorsed_check_id_fkey"
+            columns: ["endorsed_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
             foreignKeyName: "payment_order_payment_lines_issued_check_id_fkey"
             columns: ["issued_check_id"]
             isOneToOne: false
@@ -3916,18 +3923,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "receipt_allocations_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "receipt_allocations_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
           },
         ]
       }
@@ -3973,6 +3980,69 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_payment_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+        ]
+      }
+      receipt_rejected_check_allocations: {
+        Row: {
+          amount_applied: number
+          check_id: string
+          created_at: string
+          id: string
+          receipt_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_applied: number
+          check_id: string
+          created_at?: string
+          id?: string
+          receipt_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_applied?: number
+          check_id?: string
+          created_at?: string
+          id?: string
+          receipt_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_rejected_check_allocations_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_rejected_check_allocations_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
+            foreignKeyName: "receipt_rejected_check_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_rejected_check_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
           },
         ]
       }
@@ -4023,6 +4093,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_retentions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
           },
         ]
       }
@@ -4398,13 +4475,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "shipments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "shipments_trip_id_fkey"
             columns: ["trip_id"]
             isOneToOne: false
@@ -4490,13 +4560,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "storage_billing_runs_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -4765,6 +4828,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           is_payroll: boolean
+          issued_check_id: string | null
           kind: string
           payment_order_id: string | null
           receipt_id: string | null
@@ -4788,6 +4852,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           is_payroll?: boolean
+          issued_check_id?: string | null
           kind: string
           payment_order_id?: string | null
           receipt_id?: string | null
@@ -4811,6 +4876,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           is_payroll?: boolean
+          issued_check_id?: string | null
           kind?: string
           payment_order_id?: string | null
           receipt_id?: string | null
@@ -4863,11 +4929,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_invoice_id_fkey"
-            columns: ["invoice_id"]
+            foreignKeyName: "transactions_issued_check_id_fkey"
+            columns: ["issued_check_id"]
             isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
+            referencedRelation: "issued_checks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "transactions_payment_order_id_fkey"
@@ -4884,11 +4950,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+          {
             foreignKeyName: "transactions_rejected_check_id_fkey"
             columns: ["rejected_check_id"]
             isOneToOne: false
             referencedRelation: "checks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
           },
           {
             foreignKeyName: "transactions_transfer_pair_id_fkey"
@@ -5199,8 +5279,11 @@ export type Database = {
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
+          check_number: string | null
           client_id: string | null
           days_overdue: number | null
+          document_id: string | null
+          document_type: string | null
           fch_vto_pago: string | null
           fecha: string | null
           imp_total: number | null
@@ -5212,22 +5295,7 @@ export type Database = {
           open_amount: number | null
           punto_venta: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "invoicing_channels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_attendance_records_resolved: {
         Row: {
@@ -5255,12 +5323,12 @@ export type Database = {
       }
       v_client_account_movements: {
         Row: {
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
           client_id: string | null
           created_at: string | null
+          currency: string | null
           gross_amount: number | null
           kind: string | null
           letter: string | null
@@ -5280,6 +5348,7 @@ export type Database = {
           ars_bucket_30_60: number | null
           ars_bucket_60_90: number | null
           ars_bucket_90_plus: number | null
+          ars_rejected_checks_open: number | null
           ars_total_open: number | null
           client_id: string | null
           document_count: number | null
@@ -5288,17 +5357,26 @@ export type Database = {
           usd_bucket_30_60: number | null
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
+          usd_rejected_checks_open: number | null
           usd_total_open: number | null
+          clients: {
+            address: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string
+            display_name: string | null
+            email: string | null
+            id: string
+            is_active: boolean
+            iva_condition: string
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_client_aging_by_scope: {
         Row: {
@@ -5306,6 +5384,7 @@ export type Database = {
           ars_bucket_30_60: number | null
           ars_bucket_60_90: number | null
           ars_bucket_90_plus: number | null
+          ars_rejected_checks_open: number | null
           ars_total_open: number | null
           channel_is_fiscal: boolean | null
           client_id: string | null
@@ -5315,17 +5394,26 @@ export type Database = {
           usd_bucket_30_60: number | null
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
+          usd_rejected_checks_open: number | null
           usd_total_open: number | null
+          clients: {
+            address: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string
+            display_name: string | null
+            email: string | null
+            id: string
+            is_active: boolean
+            iva_condition: string
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_documents_expiring: {
         Row: {
@@ -5570,13 +5658,45 @@ export type Database = {
           },
         ]
       }
+      v_rejected_check_open: {
+        Row: {
+          amount: number | null
+          amount_settled: number | null
+          channel_id: string | null
+          check_id: string | null
+          check_number: string | null
+          client_id: string | null
+          currency: string | null
+          numero: number | null
+          open_amount: number | null
+          punto_venta: number | null
+          rejected_on: string | null
+          source_receipt_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_supplier_account_movements: {
         Row: {
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
           created_at: string | null
+          currency: string | null
           gross_amount: number | null
           kind: string | null
           letter: string | null
@@ -5689,7 +5809,6 @@ export type Database = {
           account_type: string | null
           accrual_month: string | null
           amount: number | null
-          channel_division: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
@@ -5700,7 +5819,13 @@ export type Database = {
           description: string | null
           id: string | null
           invoice_id: string | null
+          is_payroll: boolean | null
+          issued_check_id: string | null
           kind: string | null
+          payment_order_id: string | null
+          receipt_id: string | null
+          rejected_check_id: string | null
+          source_document: string | null
           transaction_date: string | null
           transfer_pair_id: string | null
           updated_at: string | null
@@ -5735,11 +5860,46 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_invoice_id_fkey"
-            columns: ["invoice_id"]
+            foreignKeyName: "transactions_issued_check_id_fkey"
+            columns: ["issued_check_id"]
             isOneToOne: false
-            referencedRelation: "v_aging_documents"
-            referencedColumns: ["invoice_id"]
+            referencedRelation: "issued_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
           },
           {
             foreignKeyName: "transactions_transfer_pair_id_fkey"
@@ -6203,6 +6363,59 @@ export type Database = {
         Args: { p_supplier_id: string }
         Returns: undefined
       }
+      clients:
+        | {
+            Args: { "": Database["public"]["Views"]["v_client_aging"]["Row"] }
+            Returns: {
+              address: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string
+              display_name: string | null
+              email: string | null
+              id: string
+              is_active: boolean
+              iva_condition: string
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_client_aging"
+              to: "clients"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
+              "": Database["public"]["Views"]["v_client_aging_by_scope"]["Row"]
+            }
+            Returns: {
+              address: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string
+              display_name: string | null
+              email: string | null
+              id: string
+              is_active: boolean
+              iva_condition: string
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_client_aging_by_scope"
+              to: "clients"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
       coa_role_for_account: {
         Args: { p_account_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]

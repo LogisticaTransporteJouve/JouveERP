@@ -31,6 +31,8 @@ export const getClientAging = defineAiAction({
     "Accounts receivable aging: open balance of each client per bucket " +
     "(0-30 / 30-60 / 60-90 / +90 days), pesos and dollars separately, sorted " +
     "by highest debt (dollars at the latest official rate), with totals. " +
+    "Debt includes rejected checks of receipts (aged from the rejection), " +
+    "reported apart as rejected_checks_*. " +
     "Optional scope (fiscal/internal/all). Useful for 'who owes me the most?' " +
     "or collection risk.",
   input: z.object({ scope: ScopeInputSchema }),

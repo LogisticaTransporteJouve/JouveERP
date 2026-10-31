@@ -31,11 +31,18 @@ export type AgingPartyRow = AgingAmounts & {
   cuit: string;
   document_count: number;
   oldest_days: number;
+  /** How much of `total` is rejected-check debt (clients only; already in
+   *  the buckets, not on top of them). */
+  rejected_checks: CurrencyAmounts;
 };
 
 export type AgingReport = {
   rows: AgingPartyRow[];
-  totals: AgingAmounts & { party_count: number; document_count: number };
+  totals: AgingAmounts & {
+    party_count: number;
+    document_count: number;
+    rejected_checks: CurrencyAmounts;
+  };
   usd_rate: UsdRate | null;
 };
 
@@ -53,6 +60,9 @@ export type AgingViewAmounts = {
   usd_total_open: number | null;
   document_count: number | null;
   oldest_days: number | null;
+  /** Client views only (CLIENT_AGING_EXTRA_COLUMNS). */
+  ars_rejected_checks_open?: number | null;
+  usd_rejected_checks_open?: number | null;
 };
 
 export type AgingPartyInput = AgingViewAmounts & {
@@ -65,6 +75,10 @@ export type AgingPartyInput = AgingViewAmounts & {
 /** The columns to select from either aging view, after the party id. */
 export const AGING_VIEW_AMOUNT_COLUMNS =
   "ars_bucket_0_30, ars_bucket_30_60, ars_bucket_60_90, ars_bucket_90_plus, ars_total_open, usd_bucket_0_30, usd_bucket_30_60, usd_bucket_60_90, usd_bucket_90_plus, usd_total_open, document_count, oldest_days";
+
+/** Client aging views only: the rejected-check part of each total. */
+export const CLIENT_AGING_EXTRA_COLUMNS =
+  "ars_rejected_checks_open, usd_rejected_checks_open";
 
 function emptyBuckets(): Record<AgingBucket, CurrencyAmounts> {
   return {
@@ -117,6 +131,7 @@ export function buildAgingReport(
   const rate = usdRate?.rate ?? null;
   const totalsBuckets = emptyBuckets();
   const total: CurrencyAmounts = { ars: 0, usd: 0 };
+  const rejectedTotal: CurrencyAmounts = { ars: 0, usd: 0 };
   let documentCount = 0;
 
   const rows: AgingPartyRow[] = input.map((r) => {
@@ -133,6 +148,12 @@ export function buildAgingReport(
     total.usd += rowTotal.usd;
     const documents = Number(r.document_count ?? 0);
     documentCount += documents;
+    const rejected = {
+      ars: Number(r.ars_rejected_checks_open ?? 0),
+      usd: Number(r.usd_rejected_checks_open ?? 0),
+    };
+    rejectedTotal.ars += rejected.ars;
+    rejectedTotal.usd += rejected.usd;
     return {
       id: r.id,
       legal_name: r.legal_name,
@@ -143,6 +164,7 @@ export function buildAgingReport(
       total_ars_equivalent: arsEquivalent(rowTotal.ars, rowTotal.usd, rate),
       document_count: documents,
       oldest_days: Number(r.oldest_days ?? 0),
+      rejected_checks: rejected,
     };
   });
   rows.sort(compareByExposure);
@@ -167,6 +189,10 @@ export function buildAgingReport(
       ),
       party_count: rows.length,
       document_count: documentCount,
+      rejected_checks: {
+        ars: round2(rejectedTotal.ars),
+        usd: round2(rejectedTotal.usd),
+      },
     },
     usd_rate: usdRate,
   };

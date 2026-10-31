@@ -19,11 +19,20 @@ import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
 
 export type AllocationDraft = {
-  invoice_id: string;
+  /** The comprobante or the rejected check (see document_type). */
+  document_id: string;
+  document_type: PendingComprobante["document_type"];
   amount_applied: string; // input string
 };
 
 function formatComprobanteNumber(c: PendingComprobante): string {
+  if (c.document_type === "rejected_check") {
+    const receipt =
+      c.numero == null
+        ? ""
+        : ` (R${String(c.punto_venta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")})`;
+    return `Cheque rechazado ${c.check_number ?? ""}${receipt}`;
+  }
   return formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero);
 }
 
@@ -50,22 +59,26 @@ export function AllocationsPicker({
   const error = pendingQuery.error?.message ?? null;
   const [collapsed, setCollapsed] = useState(false);
 
-  function setAlloc(comprobanteId: string, amount: string | null) {
+  function setAlloc(doc: PendingComprobante, amount: string | null) {
     if (amount === null) {
-      onChange(allocations.filter((a) => a.invoice_id !== comprobanteId));
+      onChange(allocations.filter((a) => a.document_id !== doc.id));
       return;
     }
-    const existing = allocations.find((a) => a.invoice_id === comprobanteId);
+    const existing = allocations.find((a) => a.document_id === doc.id);
     if (existing) {
       onChange(
         allocations.map((a) =>
-          a.invoice_id === comprobanteId ? { ...a, amount_applied: amount } : a,
+          a.document_id === doc.id ? { ...a, amount_applied: amount } : a,
         ),
       );
     } else {
       onChange([
         ...allocations,
-        { invoice_id: comprobanteId, amount_applied: amount },
+        {
+          document_id: doc.id,
+          document_type: doc.document_type,
+          amount_applied: amount,
+        },
       ]);
     }
   }
@@ -94,8 +107,8 @@ export function AllocationsPicker({
   if (pending.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-        Este cliente no tiene comprobantes pendientes de cobro. El recibo
-        quedará a cuenta.
+        Este cliente no tiene comprobantes ni cheques rechazados pendientes de
+        cobro. El recibo quedará a cuenta.
       </div>
     );
   }
@@ -146,7 +159,7 @@ export function AllocationsPicker({
             </thead>
             <tbody>
               {pending.map((c) => {
-                const alloc = allocations.find((a) => a.invoice_id === c.id);
+                const alloc = allocations.find((a) => a.document_id === c.id);
                 const checked = !!alloc;
                 const isPartial = c.already_allocated > 0;
                 return (
@@ -156,9 +169,9 @@ export function AllocationsPicker({
                         checked={checked}
                         onCheckedChange={(v) => {
                           if (v === true) {
-                            setAlloc(c.id, amountToInput(c.outstanding));
+                            setAlloc(c, amountToInput(c.outstanding));
                           } else {
-                            setAlloc(c.id, null);
+                            setAlloc(c, null);
                           }
                         }}
                       />
@@ -197,7 +210,7 @@ export function AllocationsPicker({
                         disabled={!checked}
                         value={alloc?.amount_applied ?? ""}
                         onChange={(e) =>
-                          setAlloc(c.id, formatAmountInput(e.target.value))
+                          setAlloc(c, formatAmountInput(e.target.value))
                         }
                         className="h-8 text-right"
                         placeholder="0,00"

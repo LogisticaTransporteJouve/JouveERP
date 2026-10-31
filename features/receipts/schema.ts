@@ -76,10 +76,42 @@ const PaymentLineSchema = z.object({
 
 export type PaymentLineCheck = z.infer<typeof PaymentLineCheckSchema>;
 
-const AllocationSchema = z.object({
-  invoice_id: z.string().uuid(),
-  amount_applied: moneyAmount,
-});
+/** An allocation settles one comprobante (`invoice_id`) or one rejected check
+ *  of the client (`rejected_check_id`), never both. */
+const AllocationSchema = z
+  .object({
+    invoice_id: z.string().uuid().optional(),
+    rejected_check_id: z.string().uuid().optional(),
+    amount_applied: moneyAmount,
+  })
+  .refine(
+    (a) => (a.invoice_id === undefined) !== (a.rejected_check_id === undefined),
+    { message: "Cada imputación va a un comprobante o a un cheque rechazado." },
+  );
+
+/** The comprobante or rejected check an allocation settles. */
+export function allocationTargetId(a: {
+  invoice_id?: string;
+  rejected_check_id?: string;
+}): string {
+  return a.invoice_id ?? a.rejected_check_id ?? "";
+}
+
+/** The RPC payload of an allocation (create_receipt / update_receipt). */
+export function allocationPayload(a: {
+  invoice_id?: string;
+  rejected_check_id?: string;
+  amount_applied: number;
+}):
+  | { invoice_id: string; amount_applied: number }
+  | { rejected_check_id: string; amount_applied: number } {
+  return a.rejected_check_id !== undefined
+    ? {
+        rejected_check_id: a.rejected_check_id,
+        amount_applied: a.amount_applied,
+      }
+    : { invoice_id: a.invoice_id ?? "", amount_applied: a.amount_applied };
+}
 
 export const RETENTION_KINDS = ["retencion", "percepcion"] as const;
 export type RetentionKind = (typeof RETENTION_KINDS)[number];

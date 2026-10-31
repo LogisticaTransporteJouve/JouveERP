@@ -76,29 +76,40 @@ export async function buildReceiptTemplateData(
   });
 
   // Child rows: payment lines, retentions, allocations.
-  const [linesRes, retentionsRes, allocsRes] = await Promise.all([
-    supabase
-      .from("receipt_payment_lines")
-      .select("amount, reference, account_id, account:accounts(name, type)")
-      .eq("receipt_id", receiptId)
-      .order("created_at"),
-    supabase
-      .from("receipt_retentions")
-      .select(
-        "kind, tax_type, jurisdiction, certificate_number, certificate_date, amount",
-      )
-      .eq("receipt_id", receiptId)
-      .order("created_at"),
-    supabase
-      .from("receipt_allocations")
-      .select(
-        "amount_applied, invoice_id, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
-      )
-      .eq("receipt_id", receiptId)
-      .order("created_at"),
-  ]);
+  const [linesRes, retentionsRes, allocsRes, checkAllocsRes] =
+    await Promise.all([
+      supabase
+        .from("receipt_payment_lines")
+        .select("amount, reference, account_id, account:accounts(name, type)")
+        .eq("receipt_id", receiptId)
+        .order("created_at"),
+      supabase
+        .from("receipt_retentions")
+        .select(
+          "kind, tax_type, jurisdiction, certificate_number, certificate_date, amount",
+        )
+        .eq("receipt_id", receiptId)
+        .order("created_at"),
+      supabase
+        .from("receipt_allocations")
+        .select(
+          "amount_applied, invoice_id, invoice:invoices(letter, kind, punto_venta, numero, fecha)",
+        )
+        .eq("receipt_id", receiptId)
+        .order("created_at"),
+      supabase
+        .from("receipt_rejected_check_allocations")
+        .select("amount_applied, check:checks(check_number, bank_name)")
+        .eq("receipt_id", receiptId)
+        .order("created_at"),
+    ]);
 
-  if (linesRes.error || retentionsRes.error || allocsRes.error) {
+  if (
+    linesRes.error ||
+    retentionsRes.error ||
+    allocsRes.error ||
+    checkAllocsRes.error
+  ) {
     throw new Error("receipt-pdf: failed to load children");
   }
 
@@ -140,6 +151,16 @@ export async function buildReceiptTemplateData(
       amount_applied: Number(a.amount_applied),
     };
   });
+  // What the receipt settled of the client's rejected checks.
+  for (const a of checkAllocsRes.data ?? []) {
+    allocations.push({
+      invoice_label: a.check
+        ? `Cheque rechazado ${a.check.check_number} ${a.check.bank_name}`
+        : "Cheque rechazado",
+      invoice_date: "",
+      amount_applied: Number(a.amount_applied),
+    });
+  }
 
   const paymentSum = payment_lines.reduce((acc, l) => acc + l.amount, 0);
   const retentionSum = retentions.reduce((acc, r) => acc + r.amount, 0);

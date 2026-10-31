@@ -174,3 +174,32 @@ describe("formatCurrencyAmounts", () => {
     );
   });
 });
+
+describe("rejected checks in the client aging", () => {
+  it("reports the rejected-check part of each total without adding it again", () => {
+    const r = aggregateClientAging(
+      [
+        row({
+          ars_bucket_0_30: 300,
+          ars_total_open: 300,
+          ars_rejected_checks_open: 100,
+          usd_bucket_0_30: 20,
+          usd_total_open: 20,
+          usd_rejected_checks_open: 20,
+        }),
+        row({ client_id: "c2", ars_bucket_0_30: 50, ars_total_open: 50 }),
+      ],
+      RATE,
+    );
+    expect(r.rows.find((x) => x.id === "c1")?.rejected_checks).toEqual({
+      ars: 100,
+      usd: 20,
+    });
+    expect(r.rows.find((x) => x.id === "c2")?.rejected_checks).toEqual({
+      ars: 0,
+      usd: 0,
+    });
+    expect(r.totals.rejected_checks).toEqual({ ars: 100, usd: 20 });
+    expect(r.totals.total).toEqual({ ars: 350, usd: 20 });
+  });
+});
