@@ -5476,13 +5476,53 @@ export type Database = {
           amount_credited_by_nc: number | null
           amount_opening_applied: number | null
           amount_paid: number | null
+          channel_id: string | null
           imp_total: number | null
+          invoice_origin_id: string | null
           kind: string | null
+          moneda: string | null
           open_amount: number | null
           purchase_invoice_id: string | null
           status: string | null
+          supplier_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_supplier_account_movements: {
         Row: {
@@ -5685,6 +5725,21 @@ export type Database = {
       add_chat_channel_members: {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
+      }
+      aging_apply_credit: {
+        Args: {
+          p_b0: number
+          p_b30: number
+          p_b60: number
+          p_b90: number
+          p_credit: number
+        }
+        Returns: {
+          b0: number
+          b30: number
+          b60: number
+          b90: number
+        }[]
       }
       ai_account_type_totals: {
         Args: {
@@ -6263,6 +6318,7 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
       is_employee_document_file: {
@@ -6433,6 +6489,15 @@ export type Database = {
         Returns: boolean
       }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      pay_loan_installment: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_installment_id: string
+          p_paid_date: string
+        }
+        Returns: string
+      }
       pick_default_avatar_color: {
         Args: { p_user_id: string }
         Returns: string

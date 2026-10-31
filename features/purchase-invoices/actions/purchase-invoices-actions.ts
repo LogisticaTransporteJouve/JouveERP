@@ -616,7 +616,7 @@ export async function cancelPurchaseInvoiceAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from("purchase_invoices")
     .update({
       status: "cancelled",
@@ -624,7 +624,8 @@ export async function cancelPurchaseInvoiceAction(
       cancelled_by: ctx.userId,
     })
     .eq("id", parsed.data.id)
-    .eq("status", "received");
+    .eq("status", "received")
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -639,6 +640,13 @@ export async function cancelPurchaseInvoiceAction(
       error,
     });
     return { ok: false, error: "No se pudo anular la factura." };
+  }
+  if (!cancelled || cancelled.length === 0) {
+    return {
+      ok: false,
+      error:
+        "La factura ya estaba anulada o no se encontró. Recargá la página.",
+    };
   }
 
   await logAudit("purchase_invoice.cancelled", ctx.userId, {}, parsed.data.id);

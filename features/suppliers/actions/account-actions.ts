@@ -186,24 +186,27 @@ export interface SupplierAccountMovement {
   /** Running balance (oldest → newest). > 0 = les debemos. `null` under a
    *  fiscal/internal scope (only the scope's aging total exists). */
   balance: number | null;
-  /** Per-document outstanding: only for purchase_invoice rows.
-   *  imp_total minus the sum of issued payment_order_allocations.
-   *  Payment_order rows show their "a cuenta" (total − Σ allocations).
-   *  null when not applicable. */
+  /** Per-document outstanding: for factura/ND rows, open_amount of
+   *  v_purchase_invoice_open (imp_total − issued OPs − NCs − opening
+   *  balance), the same figure as the aging and the OP guard. Payment_order
+   *  rows show their "a cuenta" (total − Σ allocations). null when not
+   *  applicable. */
   outstanding: number | null;
 }
 
 export interface SupplierAccountResult {
   movements: SupplierAccountMovement[];
-  /** "Todos": the final running balance. Under a scope: the scope's aging
-   *  total (open documents of that scope). Positive = les debemos. */
+  /** "Todos": the final running balance. Under a scope: the scope's open
+   *  documents minus its OPs' unapplied amounts and its NCs without origin.
+   *  Positive = les debemos. */
   balance: number;
   /** False under a scope: rows carry no running balance. */
   runningBalance: boolean;
 }
 
 /** With `isFiscal` (D6): only that scope's movements, the opening balance as
- *  an informative row and the scope's aging total as the single balance. */
+ *  an informative row and the scope's open documents net of its unapplied
+ *  credits as the single balance. */
 export async function getSupplierAccountAction(
   supplierId: string,
   input?: { isFiscal?: boolean | null },
@@ -236,11 +239,11 @@ export async function getSupplierAccountAction(
     channel_division: string | null;
     channel_is_fiscal: boolean | null;
   };
-  // PostgREST caps every response at `max_rows` (1000), so the feed and the
-  // allocations are drained page by page (lib/supabase/paginate) with a total
-  // order (movement_date + created_at can tie → source_type + source_id).
-  // The three reads are independent → in parallel.
-  const [movementsRes, allocsRes, openingAllocsRes] = await Promise.all([
+  // PostgREST caps every response at `max_rows` (1000), so the feed, the
+  // allocations and the open amounts are drained page by page
+  // (lib/supabase/paginate) with a total order (movement_date + created_at can
+  // tie → source_type + source_id). The three reads are independent.
+  const [movementsRes, allocsRes, openRes] = await Promise.all([
     paginateRange((from, to) =>
       supabase
         .from("v_supplier_account_movements")
@@ -255,9 +258,8 @@ export async function getSupplierAccountAction(
         .range(from, to),
     ),
     // Every allocation made by this supplier's payment orders (filtered via
-    // the parent's supplier_id, not `.in(…)`, to stay under the URL cap). The
-    // same rows give per-invoice "applied" (issued OPs only) and per-OP
-    // "a cuenta", so no second `.in(payment_order_id, …)` query is needed.
+    // the parent's supplier_id, not `.in(…)`, to stay under the URL cap), for
+    // each OP's "a cuenta".
     paginateRange((from, to) =>
       supabase
         .from("payment_order_allocations")
@@ -268,43 +270,43 @@ export async function getSupplierAccountAction(
         .order("id", { ascending: true })
         .range(from, to),
     ),
-    // Opening balance allocations: an invoice that received money from the
-    // adjustment also reduces the aging/outstanding.
     paginateRange((from, to) =>
       supabase
-        .from("supplier_opening_balance_allocations")
-        .select("purchase_invoice_id, amount_applied")
+        .from("v_purchase_invoice_open")
+        .select("purchase_invoice_id, open_amount, invoice_origin_id")
         .eq("supplier_id", supplierId)
         .order("purchase_invoice_id", { ascending: true })
         .range(from, to),
     ),
   ]);
-  if (movementsRes.error || allocsRes.error || openingAllocsRes.error) {
+  if (movementsRes.error || allocsRes.error || openRes.error) {
     logger.error("suppliers.account.list_failed", {
       userId: ctx.userId,
       supplierId,
-      error: movementsRes.error ?? allocsRes.error ?? openingAllocsRes.error,
+      error: movementsRes.error ?? allocsRes.error ?? openRes.error,
     });
     return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
   const data = movementsRes.data as Row[];
 
-  // Per-document outstanding: factura/ND shows imp_total − Σ allocations
-  // from issued OPs − Σ opening allocations. An OP shows its "a cuenta"
-  // (total − Σ its own allocations).
-  const { appliedByDocument: appliedByInvoice, appliedByPayer: appliedByOP } =
-    sumAllocations(
-      allocsRes.data.map((a) => ({
-        document_id: a.purchase_invoice_id,
-        payer_id: a.payment_order_id,
-        amount_applied: a.amount_applied,
-        counts_for_document: readEmbeddedStatus(a.payment_orders) === "issued",
-      })),
-      openingAllocsRes.data.map((a) => ({
-        document_id: a.purchase_invoice_id,
-        amount_applied: a.amount_applied,
-      })),
-    );
+  // An OP shows its "a cuenta" (total − Σ its own allocations); a factura/ND
+  // its open amount.
+  const { appliedByPayer: appliedByOP } = sumAllocations(
+    allocsRes.data.map((a) => ({
+      document_id: a.purchase_invoice_id,
+      payer_id: a.payment_order_id,
+      amount_applied: a.amount_applied,
+      counts_for_document: readEmbeddedStatus(a.payment_orders) === "issued",
+    })),
+    [],
+  );
+  const openByInvoice = new Map<string, number>();
+  const unlinkedNc = new Set<string>();
+  for (const o of openRes.data) {
+    if (o.purchase_invoice_id === null) continue;
+    openByInvoice.set(o.purchase_invoice_id, Number(o.open_amount ?? 0));
+    if (o.invoice_origin_id === null) unlinkedNc.add(o.purchase_invoice_id);
+  }
 
   // Re-sort: rows arrive ordered by movement_date+created_at (asc). Opening
   // balance rows have movement_date = opening_date — they sit naturally where
@@ -315,14 +317,12 @@ export async function getSupplierAccountAction(
     const signed = Number(r.signed_amount);
     running += signed;
     let outstanding: number | null = null;
-    if (r.source_type === "purchase_invoice" && r.source_id) {
-      const total = Number(r.gross_amount);
-      if (r.kind === "nc") {
-        outstanding = null;
-      } else {
-        const applied = appliedByInvoice.get(r.source_id) ?? 0;
-        outstanding = Math.max(0, total - applied);
-      }
+    if (
+      r.source_type === "purchase_invoice" &&
+      r.source_id &&
+      r.kind !== "nc"
+    ) {
+      outstanding = round2(Math.max(0, openByInvoice.get(r.source_id) ?? 0));
     } else if (r.source_type === "payment_order" && r.source_id) {
       const total = Number(r.gross_amount);
       const applied = appliedByOP.get(r.source_id) ?? 0;
@@ -356,24 +356,17 @@ export async function getSupplierAccountAction(
     };
   }
 
-  const openRes = await paginateRange((from, to) =>
-    applyFiscalFilter(
-      supabase
-        .from("v_supplier_aging_documents")
-        .select("purchase_invoice_id, open_amount")
-        .eq("supplier_id", supplierId),
-      isFiscal,
-    )
-      .order("purchase_invoice_id", { ascending: true })
-      .range(from, to),
-  );
-  if (openRes.error) {
-    logger.error("suppliers.account.scope_balance_failed", {
-      userId: ctx.userId,
-      supplierId,
-      error: openRes.error,
-    });
-    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
+  // The scope's balance: its open factura/ND minus what its OPs paid without
+  // applying and its NCs without origin (credits that reduce no document).
+  let scopeBalance = 0;
+  for (const m of movements) {
+    if (m.channel_is_fiscal !== isFiscal) continue;
+    if (m.source_type === "payment_order") {
+      scopeBalance -= m.outstanding ?? 0;
+    } else if (m.source_type === "purchase_invoice" && m.source_id) {
+      if (m.kind !== "nc") scopeBalance += m.outstanding ?? 0;
+      else if (unlinkedNc.has(m.source_id)) scopeBalance -= m.gross_amount;
+    }
   }
 
   return {
@@ -386,9 +379,7 @@ export async function getSupplierAccountAction(
             m.source_type === "opening_balance",
         )
         .map((m) => ({ ...m, balance: null })),
-      balance: round2(
-        openRes.data.reduce((sum, d) => sum + Number(d.open_amount ?? 0), 0),
-      ),
+      balance: round2(scopeBalance),
       runningBalance: false,
     },
   };

@@ -15,9 +15,6 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
-vi.mock("@/features/transactions/actions/transactions-actions", () => ({
-  createTransactionAction: vi.fn(),
-}));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
 const { listLoansAction } = await import("./loans-actions");

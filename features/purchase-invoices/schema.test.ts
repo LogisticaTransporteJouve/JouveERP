@@ -129,14 +129,25 @@ describe("PurchaseInvoiceCreateSchema", () => {
     ).toBe(false);
   });
 
-  it("acepta NC con motivo", () => {
+  it("acepta NC con motivo y comprobante de origen", () => {
     expect(
       PurchaseInvoiceCreateSchema.safeParse({
         ...valid,
         kind: "nc",
         motivo_nc_nd: "Devolución",
+        invoice_origin_id: UUID,
       }).success,
     ).toBe(true);
+  });
+
+  it("rechaza NC/ND sin comprobante de origen", () => {
+    const r = PurchaseInvoiceCreateSchema.safeParse({
+      ...valid,
+      kind: "nd",
+      motivo_nc_nd: "Intereses",
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(["invoice_origin_id"]);
   });
 });
 
