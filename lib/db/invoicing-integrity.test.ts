@@ -107,13 +107,13 @@ describe("NCs count against their origin", () => {
     );
   });
 
-  it("receipt allocations reject NCs and non-emitted invoices and include NC credits", () => {
+  it("receipt allocations reject NCs and non-emitted invoices and include NC and opening credits", () => {
     const definition = latestDefinition("guard_receipt_allocation");
     expect(definition).toMatch(
       /v_status <> 'emitted' or v_kind not in \('factura', 'nd'\)/,
     );
     expect(definition).toMatch(
-      /v_sum \+ v_credited \+ new\.amount_applied > v_total \+ 0\.01/,
+      /v_sum \+ v_credited \+ v_opening \+ new\.amount_applied > v_total \+ 0\.01/,
     );
     // Only NCs older than the receipt count, so editing a receipt that paid
     // the invoice before an NC was issued is not refused.

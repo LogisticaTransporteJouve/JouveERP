@@ -183,31 +183,47 @@ export const PurchaseInvoiceCreateSchema = z
   .refine((d) => d.moneda === "PES" || d.cotizacion > 1, {
     message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
     path: ["cotizacion"],
+  })
+  .refine((d) => d.kind === "factura" || Boolean(d.invoice_origin_id), {
+    message: "Elegí el comprobante de origen de la nota de crédito o débito.",
+    path: ["invoice_origin_id"],
   });
 
-export const PurchaseInvoiceUpdateSchema = z.object({
-  id: z.string().uuid(),
-  channel_id: baseFields.channel_id.optional(),
-  supplier_id: baseFields.supplier_id.optional(),
-  kind: baseFields.kind.optional(),
-  letter: baseFields.letter,
-  punto_venta: baseFields.punto_venta.optional(),
-  numero: baseFields.numero.optional(),
-  fecha: baseFields.fecha.optional(),
-  fch_vto_pago: baseFields.fch_vto_pago,
-  imp_neto: baseFields.imp_neto.optional(),
-  imp_iva: baseFields.imp_iva.optional(),
-  imp_trib: baseFields.imp_trib.optional(),
-  imp_total: baseFields.imp_total.optional(),
-  moneda: baseFields.moneda.optional(),
-  cotizacion: baseFields.cotizacion.optional(),
-  cae_proveedor: baseFields.cae_proveedor,
-  cae_vto_proveedor: baseFields.cae_vto_proveedor,
-  invoice_origin_id: baseFields.invoice_origin_id,
-  motivo_nc_nd: baseFields.motivo_nc_nd,
-  notes: baseFields.notes,
-  items: itemsArray.optional(),
-});
+export const PurchaseInvoiceUpdateSchema = z
+  .object({
+    id: z.string().uuid(),
+    channel_id: baseFields.channel_id.optional(),
+    supplier_id: baseFields.supplier_id.optional(),
+    kind: baseFields.kind.optional(),
+    letter: baseFields.letter,
+    punto_venta: baseFields.punto_venta.optional(),
+    numero: baseFields.numero.optional(),
+    fecha: baseFields.fecha.optional(),
+    fch_vto_pago: baseFields.fch_vto_pago,
+    imp_neto: baseFields.imp_neto.optional(),
+    imp_iva: baseFields.imp_iva.optional(),
+    imp_trib: baseFields.imp_trib.optional(),
+    imp_total: baseFields.imp_total.optional(),
+    moneda: baseFields.moneda.optional(),
+    cotizacion: baseFields.cotizacion.optional(),
+    cae_proveedor: baseFields.cae_proveedor,
+    cae_vto_proveedor: baseFields.cae_vto_proveedor,
+    invoice_origin_id: baseFields.invoice_origin_id,
+    motivo_nc_nd: baseFields.motivo_nc_nd,
+    notes: baseFields.notes,
+    items: itemsArray.optional(),
+  })
+  .refine(
+    (d) =>
+      d.moneda === undefined ||
+      d.moneda === "PES" ||
+      d.cotizacion === undefined ||
+      d.cotizacion > 1,
+    {
+      message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
+      path: ["cotizacion"],
+    },
+  );
 
 export const PurchaseInvoiceCancelSchema = z.object({
   id: z.string().uuid(),

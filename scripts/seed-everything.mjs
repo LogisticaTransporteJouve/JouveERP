@@ -384,6 +384,9 @@ async function importPurchases(supabase, path, opts) {
   for (const r of rows) {
     const supplierId = supplierIdByCuit.get(r.cuit);
     if (!supplierId) continue;
+    // The AFIP export carries no NC/ND origin nor a dollar rate, and the DB
+    // now requires both (purchase_invoices_nc_nd_origin, _cotizacion).
+    if (r.kind !== "factura" || r.moneda !== "PES") continue;
     // r.pv is the supplier's POS: every purchase lands on Jouve's fiscal channel.
     const channelId = "jouve_fiscal";
     const key = `${supplierId}|${r.kind}|${r.letter}|${r.pv}|${r.numero}`;
