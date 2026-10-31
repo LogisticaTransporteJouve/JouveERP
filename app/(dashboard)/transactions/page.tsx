@@ -6,7 +6,7 @@ import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 import { TransactionsTable } from "@/features/transactions/components/transactions-table";
 import { ExportButton } from "@/components/export-button";
-import { TRANSACTIONS_PAGE_SIZE } from "@/features/transactions/hooks/use-transactions";
+import { TRANSACTIONS_PAGE_SIZE } from "@/features/transactions/lib/pagination";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import {
   TRANSACTION_KINDS,

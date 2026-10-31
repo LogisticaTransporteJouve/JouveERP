@@ -21,8 +21,7 @@ import {
 } from "../actions/transactions-actions";
 import { transactionsKeys } from "../lib/transactions-keys";
 import type { TransactionFilters } from "../schema";
-
-export const TRANSACTIONS_PAGE_SIZE = 50;
+import { TRANSACTIONS_PAGE_SIZE } from "../lib/pagination";
 
 export function useTransactionsList(filters: TransactionFilters) {
   const query = useSuspenseInfiniteQuery({
@@ -88,8 +87,7 @@ export function useUpdateTransaction() {
 export function useDeleteTransaction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      runAction(() => deleteTransactionAction(id)),
+    mutationFn: (id: string) => runAction(() => deleteTransactionAction(id)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: transactionsKeys.all });
     },
