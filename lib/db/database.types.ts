@@ -6600,6 +6600,26 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      invoice_list_totals: {
+        Args: {
+          p_client_id?: string
+          p_client_name?: string
+          p_from?: string
+          p_group?: string
+          p_is_fiscal?: boolean
+          p_numero?: number
+          p_punto_venta?: number
+          p_status?: string
+          p_to?: string
+          p_types?: string[]
+        }
+        Returns: {
+          bucket: string
+          documents: number
+          moneda: string
+          total: number
+        }[]
+      }
       invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
@@ -6794,6 +6814,23 @@ export type Database = {
           purchase_invoice_id: string
           status: string
           supplier_id: string
+        }[]
+      }
+      receipt_list_totals: {
+        Args: {
+          p_client_id?: string
+          p_from?: string
+          p_group?: string
+          p_is_fiscal?: boolean
+          p_numero?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          bucket: string
+          currency: string
+          documents: number
+          total: number
         }[]
       }
       refresh_search_index: { Args: never; Returns: undefined }

@@ -14,11 +14,18 @@ import {
 } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { isListGroup, type ListGroup } from "@/lib/list-period";
+import type { ListTotalRow } from "@/lib/list-totals";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { IsoDateSchema } from "@/lib/validation/common";
 
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
+
+import {
+  receiptNumeroOf,
+  type ReceiptListFilters,
+} from "../lib/receipt-list-filters";
 
 import {
   allocationPayload,
@@ -68,6 +75,9 @@ export async function listReceiptsAction(input?: {
   channelId?: string | null;
   /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
   isFiscal?: boolean | null;
+  clientId?: string | null;
+  from?: string | null;
+  to?: string | null;
 }): Promise<
   ActionResult<{
     items: (Receipt & { client_legal_name: string })[];
@@ -97,13 +107,12 @@ export async function listReceiptsAction(input?: {
   if (input?.status) query = query.eq("status", input.status);
   if (input?.channelId) query = query.eq("channel_id", input.channelId);
   query = applyFiscalFilter(query, input?.isFiscal, "channel");
-  if (input?.query?.trim()) {
-    // Exact numero search (no fulltext here; the global ⌘K covers that).
-    const n = Number(input.query.trim());
-    if (Number.isFinite(n)) {
-      query = query.eq("numero", n);
-    }
-  }
+  if (input?.clientId) query = query.eq("client_id", input.clientId);
+  if (input?.from) query = query.gte("receipt_date", input.from);
+  if (input?.to) query = query.lte("receipt_date", input.to);
+  // Exact numero search (no fulltext here; the global ⌘K covers that).
+  const numero = receiptNumeroOf(input?.query);
+  if (numero !== null) query = query.eq("numero", numero);
 
   const { data, error } = await query;
   if (error) {
@@ -130,6 +139,50 @@ export async function listReceiptsAction(input?: {
   return {
     ok: true,
     data: { items, nextOffset: items.length === limit ? offset + limit : null },
+  };
+}
+
+/**
+ * Totals of the receipts list over every row its filters match, per day,
+ * week or month (`group`) or overall: the list itself only loads a page.
+ */
+export async function getReceiptListTotalsAction(
+  filters: ReceiptListFilters & { group: ListGroup | null },
+): Promise<ActionResult<ListTotalRow[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "receipts:read")) {
+    return { ok: false, error: "No tenés permiso para ver recibos." };
+  }
+
+  const numero = receiptNumeroOf(filters.query);
+  const supabase = await createSupabaseClient();
+  // Ordered by (bucket, currency), unique per row: a total order to page on.
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .rpc("receipt_list_totals", {
+        p_group: isListGroup(filters.group) ? filters.group : undefined,
+        p_is_fiscal: filters.isFiscal ?? undefined,
+        p_status: filters.status ?? undefined,
+        p_client_id: filters.clientId ?? undefined,
+        p_from: filters.from ?? undefined,
+        p_to: filters.to ?? undefined,
+        p_numero: numero ?? undefined,
+      })
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("receipts.list_totals.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron calcular los totales." };
+  }
+
+  return {
+    ok: true,
+    data: data.map((row) => ({
+      bucket: row.bucket,
+      currency: row.currency,
+      documents: row.documents,
+      total: Number(row.total),
+    })),
   };
 }
 

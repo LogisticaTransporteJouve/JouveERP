@@ -25,11 +25,14 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { getLastAuthorizedNumber } from "@/lib/afip/wsfev1";
 import { formatMoney, todayInAR } from "@/lib/format";
+import { isListGroup, type ListGroup } from "@/lib/list-period";
+import { isoCurrency, type ListTotalRow } from "@/lib/list-totals";
 import { paymentCurrencyOf } from "@/lib/fx";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -45,6 +48,14 @@ import {
 } from "../schema";
 
 import type { IvaCondition } from "@/features/clients/schema";
+
+import {
+  invoiceTypesOrFilter,
+  normalizeInvoiceListTypes,
+  parseSearchTerm,
+  type InvoiceListFilters,
+  type InvoiceListType,
+} from "../lib/invoice-list-filters";
 
 type ComprobanteInsert = Database["public"]["Tables"]["invoices"]["Insert"];
 type ComprobanteItemInsert =
@@ -598,6 +609,9 @@ export interface ListComprobantesFilters {
   /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
   isFiscal?: boolean | null;
   kind?: InvoiceRow["kind"] | null;
+  /** "Tipo" filter (facturas by letter, NC, ND); empty = every type. */
+  types?: InvoiceListType[] | null;
+  punto_venta?: number | null;
   /** Only invoices of an active channel (pickers; never the lists). */
   activeChannelOnly?: boolean;
   status?: InvoiceRow["status"] | null;
@@ -672,24 +686,20 @@ export async function listInvoicesAction(
     query = query.eq("channel.is_active", true).not("channel", "is", null);
   }
   if (filters.kind) query = query.eq("kind", filters.kind);
+  const typesFilter = invoiceTypesOrFilter(filters.types ?? []);
+  if (typesFilter) query = query.or(typesFilter);
+  if (filters.punto_venta) query = query.eq("punto_venta", filters.punto_venta);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
   if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
   if (filters.client_id) query = query.eq("client_id", filters.client_id);
-  if (filters.query) {
-    // supabase-js `.or()` doesn't support filters on embedded tables in the
-    // same clause (`clients.legal_name.ilike.x,numero.eq.y` is invalid).
-    // Split the search by input shape: pure digits → exact match by numero,
-    // otherwise → ilike on client.legal_name.
-    const term = filters.query.trim();
-    if (term.length > 0) {
-      const purelyNumeric = /^\d+$/.test(term);
-      if (purelyNumeric) {
-        query = query.eq("numero", Number(term));
-      } else {
-        query = query.ilike("clients.legal_name", `%${term}%`);
-      }
-    }
+  // supabase-js `.or()` doesn't support filters on embedded tables in the
+  // same clause (`clients.legal_name.ilike.x,numero.eq.y` is invalid), so the
+  // term matches either the numero or the client's legal name, by its shape.
+  const term = parseSearchTerm(filters.query);
+  if (term.numero !== null) query = query.eq("numero", term.numero);
+  if (term.clientName !== null) {
+    query = query.ilike("clients.legal_name", `%${term.clientName}%`);
   }
 
   const { data, error } = await query;
@@ -741,6 +751,56 @@ export async function listInvoicesAction(
       items,
       nextOffset: fullPage ? offset + limit : null,
     },
+  };
+}
+
+/**
+ * Totals of the comprobantes list over every row its filters match, per day,
+ * week or month (`group`) or overall: the list itself only loads a page.
+ */
+export async function getInvoiceListTotalsAction(
+  filters: InvoiceListFilters & { group: ListGroup | null },
+): Promise<ActionResult<ListTotalRow[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "invoices:read")) {
+    return { ok: false, error: "No tenés permiso para ver comprobantes." };
+  }
+
+  const term = parseSearchTerm(filters.query);
+  const types = normalizeInvoiceListTypes(filters.types);
+  const supabase = getServiceClient();
+  // Ordered by (bucket, moneda), unique per row: a total order to page on. A
+  // daily grouping over years passes the max_rows cap.
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .rpc("invoice_list_totals", {
+        p_group: isListGroup(filters.group) ? filters.group : undefined,
+        p_is_fiscal:
+          scopeIsFiscalFor(ctx.access, filters.isFiscal) ?? undefined,
+        p_status: filters.status ?? undefined,
+        p_types: types.length > 0 ? types : undefined,
+        p_punto_venta: filters.puntoVenta ?? undefined,
+        p_client_id: filters.clientId ?? undefined,
+        p_from: filters.from ?? undefined,
+        p_to: filters.to ?? undefined,
+        p_numero: term.numero ?? undefined,
+        p_client_name: term.clientName ?? undefined,
+      })
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("invoices.list_totals.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron calcular los totales." };
+  }
+
+  return {
+    ok: true,
+    data: data.map((row) => ({
+      bucket: row.bucket,
+      currency: isoCurrency(row.moneda),
+      documents: row.documents,
+      total: Number(row.total),
+    })),
   };
 }
 
