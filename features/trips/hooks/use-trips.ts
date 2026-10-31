@@ -6,6 +6,8 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { fleetReportsKeys } from "@/features/fleet-reports/lib/fleet-reports-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -24,7 +26,7 @@ export function useTrips() {
 }
 
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: tripsKeys.all });
+  invalidateKeys(qc, [tripsKeys.all, fleetReportsKeys.all]);
 }
 
 export function useCreateTrip() {

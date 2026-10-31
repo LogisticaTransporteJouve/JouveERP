@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { INVOICE_EFFECT_KEYS } from "@/features/invoices/lib/invoice-effect-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -50,9 +52,8 @@ export function useEnabledPos(channelId: string) {
 export function useInvoiceStorage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: unknown) => runAction(() => invoiceStorageAction(input)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: storageBillingKeys.all });
-    },
+    mutationFn: (input: unknown) =>
+      runAction(() => invoiceStorageAction(input)),
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

@@ -9,7 +9,10 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { agingKeys } from "@/features/aging/lib/aging-keys";
+import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
@@ -118,6 +121,14 @@ export function useClientAccount(id: string) {
   });
 }
 
+/** The opening balance feeds the client's account, aging and the receipts
+ *  picker of pending documents. */
+const OPENING_BALANCE_EFFECT_KEYS = [
+  clientsKeys.all,
+  agingKeys.all,
+  receiptsKeys.all,
+] as const;
+
 export function useClientOpeningBalance(id: string) {
   return useSuspenseQuery({
     queryKey: clientsKeys.openingBalance(id),
@@ -134,16 +145,7 @@ export function useSetClientOpeningBalance() {
       target_balance: number;
       notes?: string | null;
     }) => runAction(() => setClientOpeningBalanceAction(input)),
-    onSuccess: (_data, variables) => {
-      // Affects: opening, account feed, aging.
-      qc.invalidateQueries({
-        queryKey: clientsKeys.openingBalance(variables.client_id),
-      });
-      qc.invalidateQueries({
-        queryKey: clientsKeys.account(variables.client_id),
-      });
-      qc.invalidateQueries({ queryKey: clientsKeys.all });
-    },
+    onSuccess: () => invalidateKeys(qc, OPENING_BALANCE_EFFECT_KEYS),
   });
 }
 
@@ -152,13 +154,7 @@ export function useClearClientOpeningBalance() {
   return useMutation({
     mutationFn: (clientId: string) =>
       runAction(() => clearClientOpeningBalanceAction(clientId)),
-    onSuccess: (_data, clientId) => {
-      qc.invalidateQueries({
-        queryKey: clientsKeys.openingBalance(clientId),
-      });
-      qc.invalidateQueries({ queryKey: clientsKeys.account(clientId) });
-      qc.invalidateQueries({ queryKey: clientsKeys.all });
-    },
+    onSuccess: () => invalidateKeys(qc, OPENING_BALANCE_EFFECT_KEYS),
   });
 }
 

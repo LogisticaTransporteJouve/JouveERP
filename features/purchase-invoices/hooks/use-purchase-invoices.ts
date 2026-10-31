@@ -9,7 +9,11 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { libroIvaKeys } from "@/features/libro-iva/lib/libro-iva-keys";
+import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
@@ -137,9 +141,18 @@ export function usePurchaseInvoiceDuplicate(
   });
 }
 
+/** A purchase invoice changes the supplier's account and aging, the payment
+ *  order picker, the purchases VAT book and its fiscal entry. */
+const PURCHASE_EFFECT_KEYS = [
+  purchaseInvoicesKeys.all,
+  suppliersKeys.all,
+  paymentOrdersKeys.all,
+  libroIvaKeys.all,
+  ...LEDGER_KEYS,
+] as const;
+
 function invalidatePurchaseEffects(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
-  qc.invalidateQueries({ queryKey: suppliersKeys.all });
+  invalidateKeys(qc, PURCHASE_EFFECT_KEYS);
 }
 
 /**

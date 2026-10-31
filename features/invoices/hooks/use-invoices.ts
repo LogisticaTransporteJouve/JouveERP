@@ -9,10 +9,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { agingKeys } from "@/features/aging/lib/aging-keys";
-import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
-import { shipmentsKeys } from "@/features/shipments/lib/shipments-keys";
-import { storageBillingKeys } from "@/features/storage-billing/lib/storage-billing-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -26,6 +23,7 @@ import {
   type InvoiceListItem,
   type InvoiceStatusSnapshot,
 } from "../actions/invoices-actions";
+import { INVOICE_EFFECT_KEYS } from "../lib/invoice-effect-keys";
 import { INVOICES_PAGE_SIZE, invoicesKeys } from "../lib/invoices-keys";
 import type { InvoiceStatus } from "../schema";
 
@@ -121,6 +119,7 @@ export function useInvoiceStatusPoll(id: string, initialStatus: InvoiceStatus) {
         TERMINAL_STATES.includes(newStatus)
       ) {
         qc.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
+        invalidateKeys(qc, INVOICE_EFFECT_KEYS);
       }
       return newData;
     },
@@ -189,9 +188,9 @@ export function useIssueFiscalInvoice() {
   return useMutation({
     mutationFn: (input: Parameters<typeof issueFiscalInvoiceAction>[0]) =>
       runAction(() => issueFiscalInvoiceAction(input)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: invoicesKeys.all });
-    },
+    // Internal invoices are emitted here; fiscal ones may still be queued,
+    // and the status poll invalidates again when they settle.
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }
 
@@ -209,18 +208,6 @@ export function useCancelInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runAction(() => cancelInvoiceAction({ id })),
-    onSettled: () => {
-      // The cancellation frees the shipment / storage period it billed and
-      // drops the invoice from aging and from the receipts picker.
-      for (const key of [
-        invoicesKeys.all,
-        agingKeys.all,
-        receiptsKeys.all,
-        shipmentsKeys.all,
-        storageBillingKeys.all,
-      ]) {
-        qc.invalidateQueries({ queryKey: key });
-      }
-    },
+    onSettled: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

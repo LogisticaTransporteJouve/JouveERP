@@ -7,7 +7,10 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -49,13 +52,16 @@ export function useTransactionsList(filters: TransactionFilters) {
 
 // Mutations -----------------------------------------------------------------
 
+/** A movement changes caja, balances, treasury and its fiscal entry. */
+const TRANSACTION_EFFECT_KEYS = [...CASH_KEYS, ...LEDGER_KEYS] as const;
+
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => createTransactionAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      invalidateKeys(qc, TRANSACTION_EFFECT_KEYS);
     },
   });
 }
@@ -66,7 +72,7 @@ export function useCreateTransfer() {
     mutationFn: (input: unknown) =>
       runAction(() => createTransferAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      invalidateKeys(qc, TRANSACTION_EFFECT_KEYS);
     },
   });
 }
@@ -77,7 +83,7 @@ export function useUpdateTransaction() {
     mutationFn: (input: unknown) =>
       runAction(() => updateTransactionAction(input)),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      invalidateKeys(qc, TRANSACTION_EFFECT_KEYS);
       const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: transactionsKeys.byId(id) });
     },
@@ -89,7 +95,7 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => runAction(() => deleteTransactionAction(id)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      invalidateKeys(qc, TRANSACTION_EFFECT_KEYS);
     },
   });
 }

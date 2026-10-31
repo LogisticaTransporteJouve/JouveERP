@@ -1,11 +1,10 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -21,6 +20,9 @@ const paymentKeys = {
   byEntry: (entryId: string) =>
     [...payrollKeys.all, "payments", "byEntry", entryId] as const,
 };
+
+/** A payroll payment is a cash movement with its own fiscal entry. */
+const PAYMENT_EFFECT_KEYS = [...CASH_KEYS, ...LEDGER_KEYS] as const;
 
 export function usePayrollPayments(entryId: string) {
   return useQuery({
@@ -47,6 +49,7 @@ export function useCreatePayrollPayment() {
     mutationFn: ({ period_year: _y, period_month: _m, ...rest }: CreateVars) =>
       runAction(() => createPayrollPaymentAction(rest)),
     onSuccess: (_data, vars) => {
+      invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
       qc.invalidateQueries({ queryKey: paymentKeys.byEntry(vars.entry_id) });
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
@@ -76,9 +79,9 @@ export function useUpdatePayrollPayment() {
       period_year: _y,
       period_month: _m,
       ...rest
-    }: UpdateVars) =>
-      runAction(() => updatePayrollPaymentAction(rest)),
+    }: UpdateVars) => runAction(() => updatePayrollPaymentAction(rest)),
     onSuccess: (_data, vars) => {
+      invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
       qc.invalidateQueries({ queryKey: paymentKeys.byEntry(vars.entry_id) });
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
@@ -109,13 +112,10 @@ type BulkVars = {
 export function useBulkCreatePayrollPayments() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      period_year: _y,
-      period_month: _m,
-      ...rest
-    }: BulkVars) =>
+    mutationFn: ({ period_year: _y, period_month: _m, ...rest }: BulkVars) =>
       runAction(() => bulkCreatePayrollPaymentsAction(rest)),
     onSuccess: (_data, vars) => {
+      invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
       // Invalidate all the period's entries: the grid recomputes
       // balances for each one.
       qc.invalidateQueries({
@@ -134,6 +134,7 @@ export function useDeletePayrollPayment() {
     mutationFn: ({ id }: DeleteVars) =>
       runAction(() => deletePayrollPaymentAction({ id })),
     onSuccess: (_data, vars) => {
+      invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
       qc.invalidateQueries({ queryKey: paymentKeys.byEntry(vars.entry_id) });
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),

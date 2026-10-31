@@ -9,9 +9,11 @@ import {
 
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { purchaseInvoicesKeys } from "@/features/purchase-invoices/lib/purchase-invoices-keys";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
-import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { getMutationId } from "@/lib/query/get-mutation-id";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
@@ -90,13 +92,20 @@ export function useNextPaymentOrderNumero(channelId: string | null) {
   };
 }
 
+/** A payment order moves cash, settles purchase invoices (supplier account
+ *  and aging), endorses or issues checks and posts a fiscal entry. */
+const PAYMENT_ORDER_EFFECT_KEYS = [
+  paymentOrdersKeys.all,
+  ...CASH_KEYS,
+  purchaseInvoicesKeys.all,
+  suppliersKeys.all,
+  checksKeys.all,
+  issuedChecksKeys.all,
+  ...LEDGER_KEYS,
+] as const;
+
 function invalidatePaymentOrderEffects(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: paymentOrdersKeys.all });
-  qc.invalidateQueries({ queryKey: transactionsKeys.all });
-  qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all });
-  qc.invalidateQueries({ queryKey: suppliersKeys.all });
-  qc.invalidateQueries({ queryKey: checksKeys.all });
-  qc.invalidateQueries({ queryKey: issuedChecksKeys.all });
+  invalidateKeys(qc, PAYMENT_ORDER_EFFECT_KEYS);
 }
 
 export function useCreatePaymentOrder() {

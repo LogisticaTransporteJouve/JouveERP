@@ -7,7 +7,9 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
-import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
+import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -81,9 +83,8 @@ export function useSetAccountOpeningBalance() {
       qc.invalidateQueries({
         queryKey: accountsKeys.openingBalance(variables.account_id),
       });
-      qc.invalidateQueries({ queryKey: accountsKeys.all });
-      // The transactions list also changes (the adjustment row is added).
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      // The adjustment row is a cash movement with a fiscal entry.
+      invalidateKeys(qc, [...CASH_KEYS, ...LEDGER_KEYS]);
     },
   });
 }
@@ -97,8 +98,7 @@ export function useClearAccountOpeningBalance() {
       qc.invalidateQueries({
         queryKey: accountsKeys.openingBalance(accountId),
       });
-      qc.invalidateQueries({ queryKey: accountsKeys.all });
-      qc.invalidateQueries({ queryKey: transactionsKeys.all });
+      invalidateKeys(qc, [...CASH_KEYS, ...LEDGER_KEYS]);
     },
   });
 }
