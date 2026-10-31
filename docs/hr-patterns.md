@@ -178,7 +178,8 @@ RLS de las 4 tablas: SELECT/INSERT/UPDATE/DELETE para
   (`kind='expense'`, `currency='ARS'`, `account_id`/`channel_id` del pago,
   `transaction_date=paid_at`, `accrual_month = make_date(period.year,
   period.month, 1)`, `description='Sueldo <legal_name> (MM/YYYY)[ — notes]'`) y
-  setea `new.transaction_id`.
+  setea `new.transaction_id`. La transacción lleva `is_payroll=true`, así que su
+  asiento debita `sueldos` (5.3.1 "Sueldos y jornales"), no `gastos`.
 - **AFTER UPDATE**: propaga `account_id/channel_id/amount/transaction_date` a la
   transacción ligada.
 - **BEFORE DELETE**: borra la transacción ligada.
@@ -305,14 +306,19 @@ consumo FIFO y otorgamiento anual. Migración `…517130000_vacations`.
   precedencia sobre los tramos.
 - **Período anual**: renueva el **1-Oct** (`granted_at`); se puede tomar entre
   1-Oct-N y 30-Abr-(N+1); `expires_at = 30-Abr` del año siguiente.
-- **Arrastre** (política Jouve): días no usados pasan a `carryover_days` del
-  período siguiente si `vacation_carryover=true`.
+- **Arrastre** (LCT art. 164): los días no usados del período anterior pasan a
+  `carryover_days` solo si ese período está `extended` o `active` sin vencer, con
+  tope de un tercio de sus `entitled_days`, y solo si `vacation_carryover=true`. El
+  período de origen pasa a `expired` (nota "N días arrastrados a AAAA"), así sus
+  días no se consumen dos veces.
 
 **RPCs / triggers:**
 - **`grant_vacation_balances(p_target_year, p_carryover)`** (`SECURITY DEFINER`)
   — rutina anual (corre el 1-Oct vía cron). Idempotente (saltea `(employee,
   period_year)` existentes; solo activos). Marca `active → expired` los saldos
-  con `expires_at < current_date` (excepto `extended`). Devuelve filas otorgadas.
+  con `expires_at < current_date` (excepto `extended`). Arrastra solo si
+  `p_carryover` **y** `hr_settings.vacation_carryover` están en true (`…193031`).
+  Devuelve filas otorgadas.
 - **`sync_vacation_balance_used()`** [trigger en `employee_leaves`] — solo actúa
   sobre `kind='vacaciones'`. INSERT: `apply_vacation_delta(+days)`; UPDATE:
   revierte viejo y aplica nuevo; DELETE: `−days`.
@@ -395,7 +401,7 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
 
 | Cron | Schedule | Qué hace |
 |---|---|---|
-| **`vacation-balances-grant`** | `0 0 1 10 *` (anual, 1-Oct 00:00 ART) | Un step que llama `grant_vacation_balances({ p_target_year: <año>, p_carryover: true })`. Loguea `hr.vacation_balances_granted {target_year, count}`. Fallback manual admin-only vía `grantVacationBalancesAction`. |
+| **`vacation-balances-grant`** | `0 0 1 10 *` (anual, 1-Oct 00:00 ART) | Un step que lee `hr_settings.vacation_carryover` y llama `grant_vacation_balances({ p_target_year: <año>, p_carryover: <setting> })`. Loguea `hr.vacation_balances_granted {target_year, count}`. Fallback manual admin-only vía `grantVacationBalancesAction`. |
 | **`document-expiry-alerts`** | `0 8 * * *` (diario, 08:00 ART) | (1) lee `v_documents_expiring`; filtra por cooldown `NOTIFY_COOLDOWN_DAYS=7` (`notified_at` null o >7 días); (2) destinatarios = `user_roles.user_id` con `role_id ∈ ('owner','admin','finance')`; (3) inserta una notif `type='document_expiring'` por (doc × destinatario) con metadata; (4) marca `notified_at=now()`. Early-exit si no hay docs/destinatarios. |
 
 > El recipient set de `document-expiry-alerts` quedó **alineado** a la matriz

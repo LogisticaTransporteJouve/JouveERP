@@ -5,7 +5,10 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -229,6 +232,13 @@ export async function deleteVehicleAction(input: {
     .eq("id", input.id)
     .select("id");
   if (error) {
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return {
+        ok: false,
+        error:
+          "El vehículo tiene cargas de combustible, mantenimientos, documentos o viajes. Desactivalo en lugar de borrarlo.",
+      };
+    }
     logger.error("vehicles.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el vehículo." };
   }

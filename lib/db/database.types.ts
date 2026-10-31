@@ -1252,13 +1252,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "client_opening_balance_allocations_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: true
@@ -2054,7 +2047,9 @@ export type Database = {
           load_date: string
           notes: string | null
           odometer_km: number | null
+          purchase_invoice_id: string | null
           station: string | null
+          transaction_id: string | null
           trip_id: string | null
           updated_at: string
           vehicle_id: string
@@ -2069,7 +2064,9 @@ export type Database = {
           load_date: string
           notes?: string | null
           odometer_km?: number | null
+          purchase_invoice_id?: string | null
           station?: string | null
+          transaction_id?: string | null
           trip_id?: string | null
           updated_at?: string
           vehicle_id: string
@@ -2084,12 +2081,49 @@ export type Database = {
           load_date?: string
           notes?: string | null
           odometer_km?: number | null
+          purchase_invoice_id?: string | null
           station?: string | null
+          transaction_id?: string | null
           trip_id?: string | null
           updated_at?: string
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_loads_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_loads_trip_id_fkey"
             columns: ["trip_id"]
@@ -2841,7 +2875,9 @@ export type Database = {
           notes: string | null
           odometer_km: number | null
           provider: string | null
+          purchase_invoice_id: string | null
           service_date: string
+          transaction_id: string | null
           updated_at: string
           vehicle_id: string
         }
@@ -2857,7 +2893,9 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           provider?: string | null
+          purchase_invoice_id?: string | null
           service_date: string
+          transaction_id?: string | null
           updated_at?: string
           vehicle_id: string
         }
@@ -2873,11 +2911,48 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           provider?: string | null
+          purchase_invoice_id?: string | null
           service_date?: string
+          transaction_id?: string | null
           updated_at?: string
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_records_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_records_vehicle_id_fkey"
             columns: ["vehicle_id"]
@@ -4526,13 +4601,6 @@ export type Database = {
             referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
-          {
-            foreignKeyName: "supplier_opening_balance_allocations_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       supplier_opening_balances: {
@@ -4666,9 +4734,11 @@ export type Database = {
           description: string | null
           id: string
           invoice_id: string | null
+          is_payroll: boolean
           kind: string
           payment_order_id: string | null
           receipt_id: string | null
+          rejected_check_id: string | null
           transaction_date: string
           transfer_pair_id: string | null
           updated_at: string
@@ -4687,9 +4757,11 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          is_payroll?: boolean
           kind: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4708,9 +4780,11 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          is_payroll?: boolean
           kind?: string
           payment_order_id?: string | null
           receipt_id?: string | null
+          rejected_check_id?: string | null
           transaction_date?: string
           transfer_pair_id?: string | null
           updated_at?: string
@@ -4777,6 +4851,13 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_rejected_check_id_fkey"
+            columns: ["rejected_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
             referencedColumns: ["id"]
           },
           {
@@ -5411,13 +5492,53 @@ export type Database = {
           amount_credited_by_nc: number | null
           amount_opening_applied: number | null
           amount_paid: number | null
+          channel_id: string | null
           imp_total: number | null
+          invoice_origin_id: string | null
           kind: string | null
+          moneda: string | null
           open_amount: number | null
           purchase_invoice_id: string | null
           status: string | null
+          supplier_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_supplier_account_movements: {
         Row: {
@@ -5620,6 +5741,21 @@ export type Database = {
       add_chat_channel_members: {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
+      }
+      aging_apply_credit: {
+        Args: {
+          p_b0: number
+          p_b30: number
+          p_b60: number
+          p_b90: number
+          p_credit: number
+        }
+        Returns: {
+          b0: number
+          b30: number
+          b60: number
+          b90: number
+        }[]
       }
       ai_account_type_totals: {
         Args: {
@@ -6207,6 +6343,7 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
       is_employee_document_file: {
@@ -6377,6 +6514,15 @@ export type Database = {
         Returns: boolean
       }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      pay_loan_installment: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_installment_id: string
+          p_paid_date: string
+        }
+        Returns: string
+      }
       pick_default_avatar_color: {
         Args: { p_user_id: string }
         Returns: string
@@ -6679,9 +6825,11 @@ export type Database = {
         | "compras"
         | "gastos"
         | "cheques_cartera"
+        | "cheques_rechazados"
         | "cheques_diferidos_emitidos"
         | "caja_apertura"
         | "ajustes_caja"
+        | "sueldos"
       employee_document_kind:
         | "licencia_conducir"
         | "lnh"
@@ -6868,9 +7016,11 @@ export const Constants = {
         "compras",
         "gastos",
         "cheques_cartera",
+        "cheques_rechazados",
         "cheques_diferidos_emitidos",
         "caja_apertura",
         "ajustes_caja",
+        "sueldos",
       ],
       employee_document_kind: [
         "licencia_conducir",

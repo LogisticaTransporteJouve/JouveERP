@@ -2,6 +2,8 @@
 // suppliers ↔ payment orders). Shared by both sides so the "applied" and
 // "a cuenta" math stays identical.
 
+import { formatMoney, round2 } from "@/lib/format";
+
 export type AllocationInput = {
   /** The document the money was applied to (invoice / purchase invoice). */
   document_id: string | null;
@@ -60,4 +62,71 @@ export function readEmbeddedStatus(embed: unknown): string | null {
     return null;
   }
   return typeof one.status === "string" ? one.status : null;
+}
+
+export type PendingDocument = {
+  id: string;
+  fecha: string;
+  outstanding: number;
+};
+
+export type DocumentAllocation = {
+  document_id: string;
+  amount_applied: number;
+};
+
+const CENT = 0.005;
+
+/** Spreads `amount` over the pending documents, oldest `fecha` first (ties by
+ *  id), each up to its outstanding, until the amount is used up. */
+export function allocateFifo(
+  pending: readonly PendingDocument[],
+  amount: number,
+): DocumentAllocation[] {
+  const oldestFirst = [...pending].sort((a, b) =>
+    a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.id < b.id ? -1 : 1,
+  );
+  const out: DocumentAllocation[] = [];
+  let remaining = round2(amount);
+  for (const doc of oldestFirst) {
+    if (remaining <= CENT) break;
+    const applied = round2(Math.min(doc.outstanding, remaining));
+    if (applied <= CENT) continue;
+    out.push({ document_id: doc.id, amount_applied: applied });
+    remaining = round2(remaining - applied);
+  }
+  return out;
+}
+
+/** Why a set of allocations can't be applied (Spanish, for the user), or null.
+ *  Each document must be pending and receive at most its outstanding; the sum
+ *  can't exceed the payer's total. */
+export function allocationsIssue(
+  pending: readonly PendingDocument[],
+  allocations: readonly DocumentAllocation[],
+  total: number,
+): string | null {
+  const outstanding = new Map(pending.map((d) => [d.id, d.outstanding]));
+  const byDocument = new Map<string, number>();
+  let sum = 0;
+  for (const a of allocations) {
+    byDocument.set(
+      a.document_id,
+      (byDocument.get(a.document_id) ?? 0) + a.amount_applied,
+    );
+    sum += a.amount_applied;
+  }
+  for (const [id, applied] of byDocument) {
+    const open = outstanding.get(id);
+    if (open === undefined) {
+      return "Uno de los comprobantes imputados ya no tiene saldo pendiente.";
+    }
+    if (applied > open + 0.01) {
+      return `La imputación (${formatMoney(applied)}) excede el saldo pendiente del comprobante (${formatMoney(open)}).`;
+    }
+  }
+  if (sum > total + 0.01) {
+    return "Las imputaciones superan el total.";
+  }
+  return null;
 }

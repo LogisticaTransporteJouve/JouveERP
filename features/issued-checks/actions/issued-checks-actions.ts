@@ -163,7 +163,39 @@ export async function updateIssuedCheckAction(
 
   const { id, ...rest } = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase
+
+  // A check an OP issued carries that OP's money: its amount, bank account,
+  // currency and OP change only by editing the OP.
+  const { data: current, error: readErr } = await supabase
+    .from("issued_checks")
+    .select("payment_order_id, amount, currency, bank_account_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) {
+    logger.error("issued_checks.update.read_failed", {
+      userId: ctx.userId,
+      error: readErr,
+    });
+    return { ok: false, error: "No se pudo leer el cheque." };
+  }
+  if (!current) return { ok: false, error: "Cheque no encontrado." };
+  if (
+    current.payment_order_id !== null &&
+    ((rest.amount !== undefined && rest.amount !== Number(current.amount)) ||
+      (rest.currency !== undefined && rest.currency !== current.currency) ||
+      (rest.bank_account_id !== undefined &&
+        rest.bank_account_id !== current.bank_account_id) ||
+      (rest.payment_order_id !== undefined &&
+        (rest.payment_order_id ?? null) !== current.payment_order_id))
+  ) {
+    return {
+      ok: false,
+      error:
+        "El cheque está ligado a una orden de pago: el monto, la moneda, la cuenta y la OP se cambian editando la orden de pago.",
+    };
+  }
+
+  const { data: updated, error } = await supabase
     .from("issued_checks")
     .update({
       ...(rest.kind !== undefined && { kind: rest.kind }),
@@ -192,7 +224,8 @@ export async function updateIssuedCheckAction(
       }),
       ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -203,6 +236,9 @@ export async function updateIssuedCheckAction(
     }
     logger.error("issued_checks.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar el cheque." };
+  }
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: "Cheque no encontrado." };
   }
 
   await logAudit(
@@ -238,10 +274,14 @@ export async function transitionIssuedCheckAction(
     cancelled_by: parsed.data.to_status === "cancelled" ? ctx.userId : null,
   };
 
-  const { error } = await supabase
+  // Only an emitted check moves: the filter makes a stale or repeated
+  // transition a no-op instead of rewriting a cashed or rejected one.
+  const { data: moved, error } = await supabase
     .from("issued_checks")
     .update(update)
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("status", "emitted")
+    .select("id");
 
   if (error) {
     logger.error("issued_checks.transition.failed", {
@@ -251,6 +291,13 @@ export async function transitionIssuedCheckAction(
     return {
       ok: false,
       error: error.message ?? "No se pudo cambiar el estado.",
+    };
+  }
+  if (!moved || moved.length === 0) {
+    return {
+      ok: false,
+      error:
+        "El cheque ya no está emitido (se cobró, rechazó o anuló antes). Recargá la página.",
     };
   }
 

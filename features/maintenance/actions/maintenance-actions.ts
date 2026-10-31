@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { costVoucherDenied, costVoucherPatch } from "@/lib/cost-vouchers";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -30,6 +31,8 @@ type MaintenanceSelectRow = Pick<
   | "next_service_km"
   | "provider"
   | "notes"
+  | "purchase_invoice_id"
+  | "transaction_id"
   | "created_at"
 > & { vehicle: { patente: string } | null };
 
@@ -49,7 +52,7 @@ function narrow(row: MaintenanceSelectRow): MaintenanceRecord | null {
 }
 
 const SELECT_COLUMNS =
-  "id, vehicle_id, service_date, kind, description, cost, odometer_km, next_service_date, next_service_km, provider, notes, created_at, vehicle:vehicles(patente)";
+  "id, vehicle_id, service_date, kind, description, cost, odometer_km, next_service_date, next_service_km, provider, notes, purchase_invoice_id, transaction_id, created_at, vehicle:vehicles(patente)";
 
 export async function listMaintenanceAction(): Promise<
   ActionResult<MaintenanceRecord[]>
@@ -92,6 +95,8 @@ export async function createMaintenanceAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
+  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
+  if (voucherDenied) return { ok: false, error: voucherDenied };
 
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
@@ -107,6 +112,7 @@ export async function createMaintenanceAction(
       next_service_km: parsed.data.next_service_km ?? null,
       provider: parsed.data.provider ?? null,
       notes: parsed.data.notes ?? null,
+      ...costVoucherPatch(parsed.data),
       created_by: ctx.userId,
     })
     .select("id")
@@ -139,6 +145,8 @@ export async function updateMaintenanceAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
+  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
+  if (voucherDenied) return { ok: false, error: voucherDenied };
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
@@ -161,6 +169,7 @@ export async function updateMaintenanceAction(
       }),
       ...(rest.provider !== undefined && { provider: rest.provider }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
+      ...costVoucherPatch(rest),
     })
     .eq("id", id);
   if (error) {

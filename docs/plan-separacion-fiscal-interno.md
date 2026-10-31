@@ -266,8 +266,10 @@ canal solo contra los activos; re-escribir el enum o las etiquetas de alcance.
   - Recomendado: usar `retenciones_pagadas` para todas las retenciones. Las percepciones van a
     `percepciones_iibb_pagadas` si son de IIBB; si no, a `retenciones_pagadas`.
   - Alternativa: crear roles por impuesto.
-- **D11 (PR B):** cuenta del cheque rechazado. Hoy se manda a gastos. Recomendado: deudores y
-  cheques en cartera. Si no se decide, queda como follow-up.
+- **D11 (PR B):** cuenta del cheque rechazado. **Decidido (2026-10-31):** no es gasto; Debe
+  "Deudores por cheques rechazados" (`cheques_rechazados`) contra la cuenta donde estaba el
+  cheque (banco del depósito, cartera o proveedor si estaba endosado). Ver
+  `docs/accounting-patterns.md` §3.5.
 
 ## Validation Commands
 

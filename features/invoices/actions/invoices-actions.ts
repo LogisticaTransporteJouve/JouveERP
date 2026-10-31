@@ -19,7 +19,8 @@ import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
-import { todayInAR } from "@/lib/format";
+import { formatMoney, todayInAR } from "@/lib/format";
+import { paymentCurrencyOf } from "@/lib/fx";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
@@ -148,6 +149,15 @@ export async function issueFiscalInvoiceAction(
     };
   }
   const data = parsed.data;
+  if (
+    data.kind !== "factura" &&
+    !userCan(ctx.access, "credit_debit_notes:issue")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para emitir notas de crédito o débito.",
+    };
+  }
 
   const supabase = getServiceClient();
 
@@ -350,6 +360,35 @@ export async function issueFiscalInvoiceAction(
   // isFiscal drives IVA computation: internal channels must not accrue IVA
   // (it would post phantom revenue and charge IVA on a non-fiscal document).
   const totals = computeTotals(data.items, channel.is_fiscal);
+
+  // An NC can't credit more than its origin still owes (the deferred guard
+  // invoices_nc_open_after_change has the last word, counting NCs in flight).
+  if (data.kind === "nc" && data.invoice_origin_id) {
+    const { data: open, error: openErr } = await supabase
+      .from("v_aging_documents")
+      .select("open_amount")
+      .eq("invoice_id", data.invoice_origin_id)
+      .maybeSingle();
+    if (openErr) {
+      logger.error("issue_invoice.load_origin_open_failed", {
+        userId: ctx.userId,
+        invoice_origin_id: data.invoice_origin_id,
+        error: openErr,
+      });
+      return {
+        ok: false,
+        error: "No se pudo leer el saldo del comprobante de origen.",
+      };
+    }
+    const originOpen = Number(open?.open_amount ?? 0);
+    if (totals.imp_total > originOpen + 0.01) {
+      return {
+        ok: false,
+        error: `La nota de crédito (${formatMoney(totals.imp_total, paymentCurrencyOf(moneda))}) supera el saldo abierto del comprobante de origen (${formatMoney(originOpen, paymentCurrencyOf(moneda))}).`,
+      };
+    }
+  }
+
   const idempotency_key = data.idempotency_key ?? randomUUID();
 
   // Insert draft + items. The DB trigger validates the fiscal-fields

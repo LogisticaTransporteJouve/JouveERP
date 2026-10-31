@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CostVoucherFields } from "@/features/fleet-reports/components/cost-voucher-fields";
+import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import {
   useCreateMaintenance,
@@ -54,6 +56,8 @@ const FormSchema = z.object({
   next_service_km: z.string(),
   provider: z.string().trim().max(160),
   notes: z.string().trim().max(2000),
+  purchase_invoice_id: z.string(),
+  transaction_id: z.string(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -71,6 +75,8 @@ function toDefaults(record?: MaintenanceRecord): FormValues {
       record?.next_service_km != null ? String(record.next_service_km) : "",
     provider: record?.provider ?? "",
     notes: record?.notes ?? "",
+    purchase_invoice_id: record?.purchase_invoice_id ?? "",
+    transaction_id: record?.transaction_id ?? "",
   };
 }
 
@@ -78,12 +84,14 @@ export function MaintenanceDialog({
   mode,
   record,
   vehicleOptions,
+  voucherAccess,
   open,
   onOpenChange,
 }: {
   mode: "create" | "edit";
   record?: MaintenanceRecord;
   vehicleOptions: { id: string; patente: string }[];
+  voucherAccess: CostVoucherAccess;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -95,6 +103,11 @@ export function MaintenanceDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: toDefaults(record),
+  });
+
+  const [purchaseInvoiceId, transactionId, voucherDate] = useWatch({
+    control: form.control,
+    name: ["purchase_invoice_id", "transaction_id", "service_date"],
   });
 
   useEffect(() => {
@@ -113,6 +126,12 @@ export function MaintenanceDialog({
       next_service_km: values.next_service_km,
       provider: values.provider,
       notes: values.notes,
+      ...(voucherAccess.purchaseInvoices && {
+        purchase_invoice_id: values.purchase_invoice_id,
+      }),
+      ...(voucherAccess.transactions && {
+        transaction_id: values.transaction_id,
+      }),
     };
     if (mode === "create") {
       createMut.mutate(payload, {
@@ -219,7 +238,10 @@ export function MaintenanceDialog({
                 <FormItem>
                   <FormLabel>Descripción</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Cambio de aceite y filtros" />
+                    <Input
+                      {...field}
+                      placeholder="Cambio de aceite y filtros"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -321,6 +343,16 @@ export function MaintenanceDialog({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <CostVoucherFields
+              access={voucherAccess}
+              purchaseInvoiceId={purchaseInvoiceId}
+              transactionId={transactionId}
+              aroundDate={voucherDate}
+              onChange={(field, value) =>
+                form.setValue(field, value, { shouldDirty: true })
+              }
+              disabled={isSaving}
             />
             <DialogFooter>
               <Button

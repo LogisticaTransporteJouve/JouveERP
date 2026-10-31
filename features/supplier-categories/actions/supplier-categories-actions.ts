@@ -172,10 +172,11 @@ export async function deleteSupplierCategoryAction(
     };
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("supplier_categories")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
@@ -189,6 +190,9 @@ export async function deleteSupplierCategoryAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar la categoría." };
+  }
+  if (!deleted?.length) {
+    return { ok: false, error: "La categoría no existe o no se pudo borrar." };
   }
 
   await logAudit("supplier_category.deleted", ctx.userId, {}, parsed.data.id);

@@ -8,7 +8,6 @@ import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { readEmbeddedStatus, sumAllocations } from "@/lib/allocations";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -25,8 +24,10 @@ const SetOpeningInput = z.object({
   notes: NotesSchema,
 });
 
+/** `rejected_check`: a check of an issued receipt that bounced; the client
+ *  owes it again (D11). Numbered with the receipt that brought it. */
 export type AccountMovementSourceType =
-  "invoice" | "receipt" | "opening_balance";
+  "invoice" | "receipt" | "opening_balance" | "rejected_check";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;
@@ -55,18 +56,18 @@ export interface AccountMovement {
    *  then created_at). `null` under a fiscal/internal scope: there is no
    *  running balance per scope, only the scope's aging total. */
   balance: number | null;
-  /** Per-document outstanding: only meaningful for invoice rows.
-   *  imp_total minus the sum of issued receipt_allocations applied to it.
-   *  Receipt rows return their "a cuenta" (total minus allocations).
-   *  null when not applicable. */
+  /** Per-document outstanding: for factura/ND rows, the open amount of
+   *  v_aging_documents (imp_total − issued receipts − opening balance − NCs),
+   *  the same figure as the aging. Receipt rows return their "a cuenta"
+   *  (total minus allocations). null when not applicable. */
   outstanding: number | null;
 }
 
 export interface ClientAccountResult {
   movements: AccountMovement[];
   /** "Todos": the final running balance (last row's `balance`). Under a
-   *  scope: the scope's aging total (open documents of that scope, net of
-   *  opening-balance allocations). Positive = client owes. */
+   *  scope: the scope's aging total minus its receipts' unapplied amounts
+   *  ("a cuenta"). Positive = client owes. */
   balance: number;
   /** False under a scope: rows carry no running balance. */
   runningBalance: boolean;
@@ -79,7 +80,7 @@ export interface ClientAccountResult {
  *
  * With `isFiscal` (D6) only that scope's movements are listed, the opening
  * balance (no channel) stays as an informative row, and the single balance is
- * the scope's aging total.
+ * the scope's aging total net of its receipts' unapplied amounts.
  */
 export async function getClientAccountAction(
   clientId: string,
@@ -97,11 +98,12 @@ export async function getClientAccountAction(
 
   const supabase = await createSupabaseClient();
 
-  // PostgREST caps every response at `max_rows` (1000), so the feed and the
-  // allocations are drained page by page (lib/supabase/paginate). Each drain
-  // needs a total order: movement_date + created_at alone can tie, so
-  // source_type + source_id close it. The three reads are independent.
-  const [movementsRes, allocsRes, openingAllocsRes] = await Promise.all([
+  // PostgREST caps every response at `max_rows` (1000), so the feed, the
+  // allocations and the open documents are drained page by page
+  // (lib/supabase/paginate). Each drain needs a total order: movement_date +
+  // created_at alone can tie, so source_type + source_id close it. The three
+  // reads are independent.
+  const [movementsRes, allocsRes, openRes] = await Promise.all([
     paginateRange((from, to) =>
       supabase
         .from("v_client_account_movements")
@@ -115,11 +117,9 @@ export async function getClientAccountAction(
         .order("source_id", { ascending: true, nullsFirst: true })
         .range(from, to),
     ),
-    // Every allocation made by this client's receipts. Filtering by the
-    // receipt's client_id (not `.in(invoice_id, …)`) avoids PostgREST's URL
-    // length cap with thousands of migrated invoices; !inner narrows to the
-    // parent. The same rows give both per-invoice "applied" and per-receipt
-    // "a cuenta", so no second `.in(receipt_id, …)` query is needed.
+    // Every allocation made by this client's receipts, for each receipt's
+    // "a cuenta". Filtering by the receipt's client_id (not `.in(…)`) avoids
+    // PostgREST's URL length cap; !inner narrows to the parent.
     paginateRange((from, to) =>
       supabase
         .from("receipt_allocations")
@@ -130,22 +130,22 @@ export async function getClientAccountAction(
         .order("id", { ascending: true })
         .range(from, to),
     ),
-    // What the balance adjustment settled, so invoices the opening marked as
-    // settled show the "Pagada" / "Parcial" badge.
+    // Open factura/ND of the client (open_amount > 0): one formula with the
+    // aging; a document missing here owes nothing.
     paginateRange((from, to) =>
       supabase
-        .from("client_opening_balance_allocations")
-        .select("invoice_id, amount_applied")
+        .from("v_aging_documents")
+        .select("invoice_id, open_amount, channel_is_fiscal")
         .eq("client_id", clientId)
         .order("invoice_id", { ascending: true })
         .range(from, to),
     ),
   ]);
-  if (movementsRes.error || allocsRes.error || openingAllocsRes.error) {
+  if (movementsRes.error || allocsRes.error || openRes.error) {
     logger.error("clients.account.list_failed", {
       userId: ctx.userId,
       clientId,
-      error: movementsRes.error ?? allocsRes.error ?? openingAllocsRes.error,
+      error: movementsRes.error ?? allocsRes.error ?? openRes.error,
     });
     return { ok: false, error: "No se pudo cargar la cuenta corriente." };
   }
@@ -165,24 +165,21 @@ export async function getClientAccountAction(
     return (a.created_at ?? "").localeCompare(b.created_at ?? "");
   });
 
-  // Per-document outstanding: invoices show imp_total − Σ allocations from
-  // non-canceled receipts − Σ opening allocations. Receipts show their
-  // "a cuenta" (total − Σ allocations made by THIS receipt).
-  const {
-    appliedByDocument: appliedByInvoice,
-    appliedByPayer: appliedByReceipt,
-  } = sumAllocations(
+  // Receipts show their "a cuenta" (total − Σ allocations made by THIS
+  // receipt); invoices their open amount from v_aging_documents.
+  const { appliedByPayer: appliedByReceipt } = sumAllocations(
     allocsRes.data.map((a) => ({
       document_id: a.invoice_id,
       payer_id: a.receipt_id,
       amount_applied: a.amount_applied,
       counts_for_document: readEmbeddedStatus(a.receipts) !== "canceled",
     })),
-    openingAllocsRes.data.map((a) => ({
-      document_id: a.invoice_id,
-      amount_applied: a.amount_applied,
-    })),
+    [],
   );
+  const openByInvoice = new Map<string, number>();
+  for (const d of openRes.data) {
+    if (d.invoice_id) openByInvoice.set(d.invoice_id, Number(d.open_amount));
+  }
   let running = 0;
   const movements: AccountMovement[] = [];
   for (const row of rows) {
@@ -215,8 +212,7 @@ export async function getClientAccountAction(
     running = round2(running + signed);
     let outstanding: number | null = null;
     if (row.source_type === "invoice" && row.source_id && row.kind !== "nc") {
-      const applied = appliedByInvoice.get(row.source_id) ?? 0;
-      outstanding = Math.max(0, round2(gross - applied));
+      outstanding = round2(openByInvoice.get(row.source_id) ?? 0);
     } else if (row.source_type === "receipt" && row.source_id) {
       const applied = appliedByReceipt.get(row.source_id) ?? 0;
       outstanding = Math.max(0, round2(gross - applied));
@@ -249,52 +245,45 @@ export async function getClientAccountAction(
     };
   }
 
-  const openRes = await paginateRange((from, to) =>
-    applyFiscalFilter(
-      supabase
-        .from("v_aging_documents")
-        .select("invoice_id, open_amount")
-        .eq("client_id", clientId),
-      isFiscal,
-    )
-      .order("invoice_id", { ascending: true })
-      .range(from, to),
+  // The scope's balance: what its open documents owe minus what its receipts
+  // paid without applying ("a cuenta"), so a payment on account lowers it.
+  const scopeMovements = movements.filter(
+    (m) => m.channel_is_fiscal === isFiscal,
   );
-  if (openRes.error) {
-    logger.error("clients.account.scope_balance_failed", {
-      userId: ctx.userId,
-      clientId,
-      error: openRes.error,
-    });
-    return { ok: false, error: "No se pudo cargar la cuenta corriente." };
-  }
+  const scopeOpen = openRes.data
+    .filter((d) => d.channel_is_fiscal === isFiscal)
+    .reduce((sum, d) => sum + Number(d.open_amount ?? 0), 0);
+  const scopeOnAccount = scopeMovements
+    .filter((m) => m.source_type === "receipt")
+    .reduce((sum, m) => sum + (m.outstanding ?? 0), 0);
 
   // The opening balance has no channel: shown as its target, informative only.
   const openingTarget = Number(
     rows.find((r) => r.source_type === "opening_balance")?.signed_amount ?? 0,
   );
+  const scoped = movements.filter(
+    (m) =>
+      m.channel_is_fiscal === isFiscal || m.source_type === "opening_balance",
+  );
+  // Aging is per invoice and a bounced check reopens none, so its debt is
+  // added on top of the scope's open documents.
+  const rejectedChecks = scoped
+    .filter((m) => m.source_type === "rejected_check")
+    .reduce((sum, m) => sum + m.signed_amount, 0);
   return {
     ok: true,
     data: {
-      movements: movements
-        .filter(
-          (m) =>
-            m.channel_is_fiscal === isFiscal ||
-            m.source_type === "opening_balance",
-        )
-        .map((m) =>
-          m.source_type === "opening_balance"
-            ? {
-                ...m,
-                signed_amount: openingTarget,
-                gross_amount: Math.abs(openingTarget),
-                balance: null,
-              }
-            : { ...m, balance: null },
-        ),
-      balance: round2(
-        openRes.data.reduce((sum, d) => sum + Number(d.open_amount ?? 0), 0),
+      movements: scoped.map((m) =>
+        m.source_type === "opening_balance"
+          ? {
+              ...m,
+              signed_amount: openingTarget,
+              gross_amount: Math.abs(openingTarget),
+              balance: null,
+            }
+          : { ...m, balance: null },
       ),
+      balance: round2(scopeOpen - scopeOnAccount + rejectedChecks),
       runningBalance: false,
     },
   };

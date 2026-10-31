@@ -6,7 +6,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
-import { round2 } from "@/lib/format";
+import { allocateFifo, allocationsIssue } from "@/lib/allocations";
+import { paymentCurrencyOf } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -331,6 +332,8 @@ export type PendingComprobante = {
   imp_total: number;
   already_allocated: number;
   outstanding: number;
+  /** The comprobante's moneda as a receipt currency (DOL → USD, else ARS). */
+  currency: "ARS" | "USD";
 };
 
 /** Pending comprobantes of a client on one channel: a receipt only settles
@@ -357,6 +360,7 @@ export async function listPendingComprobantesForClientAction(
     kind: string;
     fecha: string;
     imp_total: number | string;
+    moneda: string | null;
   };
   // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
   // The four reads are independent → in parallel. Only facturas and NDs are
@@ -371,7 +375,9 @@ export async function listPendingComprobantesForClientAction(
     paginateRange((from, to) =>
       supabase
         .from("invoices")
-        .select("id, numero, punto_venta, letter, kind, fecha, imp_total")
+        .select(
+          "id, numero, punto_venta, letter, kind, fecha, imp_total, moneda",
+        )
         .eq("client_id", clientId)
         .eq("channel_id", channelId)
         .eq("status", "emitted")
@@ -505,6 +511,7 @@ export async function listPendingComprobantesForClientAction(
         imp_total: total,
         already_allocated: already,
         outstanding,
+        currency: paymentCurrencyOf(c.moneda),
       };
     })
     .filter((c) => c.outstanding > 0.005);
@@ -557,38 +564,45 @@ export async function createReceiptAction(
     };
   }
 
-  // FIFO auto-allocation: when the user submits without manually picking
-  // invoices, distribute the receipt total across pending invoices from
-  // the oldest forward until the receipt is consumed. Retentions reduce
-  // what gets distributed because they're a tax credit, not real cash.
+  // The receipt's total includes its retentions (Σ payment lines + Σ
+  // retentions): the journal entry and the account statement credit the
+  // client for all of it, so all of it is distributed. Without manual
+  // allocations it goes FIFO over the pending comprobantes; manual ones are
+  // checked against the same pending list (the DB guards have the last word).
+  const pendingRes = await listPendingComprobantesForClientAction(
+    data.client_id,
+    data.channel_id,
+  );
+  if (!pendingRes.ok) return pendingRes;
+  const pending = pendingRes.data.filter((c) => c.currency === data.currency);
   let allocations = data.allocations ?? [];
+  const otherCurrency = new Set(
+    pendingRes.data
+      .filter((c) => c.currency !== data.currency)
+      .map((c) => c.id),
+  );
+  if (allocations.some((a) => otherCurrency.has(a.invoice_id))) {
+    return {
+      ok: false,
+      error:
+        "Un comprobante imputado está en otra moneda que el recibo: un recibo solo cancela comprobantes de su misma moneda.",
+    };
+  }
   if (allocations.length === 0) {
-    const pendingRes = await listPendingComprobantesForClientAction(
-      data.client_id,
-      data.channel_id,
+    allocations = allocateFifo(pending, data.total_amount).map((a) => ({
+      invoice_id: a.document_id,
+      amount_applied: a.amount_applied,
+    }));
+  } else {
+    const issue = allocationsIssue(
+      pending,
+      allocations.map((a) => ({
+        document_id: a.invoice_id,
+        amount_applied: a.amount_applied,
+      })),
+      data.total_amount,
     );
-    if (pendingRes.ok) {
-      const oldestFirst = [...pendingRes.data].sort((a, b) =>
-        a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0,
-      );
-      const totalRetentions = (data.retentions ?? []).reduce(
-        (acc, r) => acc + r.amount,
-        0,
-      );
-      let remaining = data.total_amount - totalRetentions;
-      const auto: typeof allocations = [];
-      for (const inv of oldestFirst) {
-        if (remaining <= 0.005) break;
-        const applied = Math.min(inv.outstanding, remaining);
-        if (applied <= 0.005) continue;
-        auto.push({
-          invoice_id: inv.id,
-          amount_applied: round2(applied),
-        });
-        remaining -= applied;
-      }
-      allocations = auto;
-    }
+    if (issue) return { ok: false, error: issue };
   }
 
   const supabase = await createSupabaseClient();
@@ -773,7 +787,7 @@ export async function cancelReceiptAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from("receipts")
     .update({
       status: "canceled",
@@ -781,7 +795,8 @@ export async function cancelReceiptAction(
       canceled_by: ctx.userId,
     })
     .eq("id", parsed.data.id)
-    .eq("status", "issued");
+    .eq("status", "issued")
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -796,6 +811,12 @@ export async function cancelReceiptAction(
       error,
     });
     return { ok: false, error: "No se pudo anular el recibo." };
+  }
+  if (!cancelled || cancelled.length === 0) {
+    return {
+      ok: false,
+      error: "El recibo ya estaba anulado o no se encontró. Recargá la página.",
+    };
   }
 
   await logAudit("receipt.canceled", ctx.userId, {}, parsed.data.id);
