@@ -25,7 +25,6 @@ import {
 import {
   createClientAction,
   deleteClientAction,
-  getClientByIdAction,
   getClientReferencesAction,
   searchClientsAction,
   setClientActiveAction,
@@ -92,13 +91,6 @@ export function useClientsSearch(
       ),
     enabled: options.enabled,
     placeholderData: (prev) => prev,
-  });
-}
-
-export function useClientById(id: string) {
-  return useSuspenseQuery({
-    queryKey: clientsKeys.byId(id),
-    queryFn: () => runAction(() => getClientByIdAction(id)),
   });
 }
 

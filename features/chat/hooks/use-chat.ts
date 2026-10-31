@@ -22,7 +22,6 @@ import {
 import {
   createGroupAction,
   getChannelHeaderAction,
-  getOrCreateSelfChannelAction,
   markChannelReadAction,
   openOrCreateDmAction,
 } from "../actions/channels";
@@ -189,7 +188,9 @@ export function useSendMessage() {
       mentionUserIds?: string[];
     }) => runAction(() => sendMessageAction(input)),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: chatKeys.messages(variables.channelId) });
+      qc.invalidateQueries({
+        queryKey: chatKeys.messages(variables.channelId),
+      });
       qc.invalidateQueries({ queryKey: chatKeys.channels() });
     },
   });
@@ -225,12 +226,6 @@ export function useToggleReaction(channelId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chatKeys.reactions(channelId) });
     },
-  });
-}
-
-export function useGetOrCreateSelfChannel() {
-  return useMutation({
-    mutationFn: () => runAction(() => getOrCreateSelfChannelAction()),
   });
 }
 

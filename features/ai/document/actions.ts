@@ -221,13 +221,6 @@ export async function listExtractionsAction(
   return { ok: true, data: data ?? [] };
 }
 
-/** Lists the caller's drafts still awaiting review (RLS scoped; ai:admin sees all). */
-export async function listPendingExtractionsAction(): Promise<
-  ActionResult<PendingExtraction[]>
-> {
-  return listExtractionsAction("pending_review");
-}
-
 /** Full draft (with extracted payload) for the review screen. */
 export async function getExtractionAction(
   extractionId: string,

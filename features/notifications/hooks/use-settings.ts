@@ -12,12 +12,11 @@ import {
   getMyNotificationSettingsAction,
   upsertNotificationSettingAction,
 } from "../actions/settings-actions";
-
-const SETTINGS_KEY = ["notifications", "settings"] as const;
+import { notificationsKeys } from "../keys";
 
 export function useNotificationSettings() {
   return useSuspenseQuery({
-    queryKey: SETTINGS_KEY,
+    queryKey: notificationsKeys.settings(),
     queryFn: () => runAction(() => getMyNotificationSettingsAction()),
   });
 }
@@ -28,7 +27,7 @@ export function useUpsertNotificationSetting() {
     mutationFn: (input: { type: string; enabled: boolean }) =>
       runAction(() => upsertNotificationSettingAction(input)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: SETTINGS_KEY });
+      qc.invalidateQueries({ queryKey: notificationsKeys.settings() });
     },
   });
 }

@@ -15,13 +15,7 @@ import {
   upsertAttendanceRecordAction,
 } from "../actions/attendance-actions";
 import type { AttendanceKind } from "../attendance-schema";
-
-const attendanceKeys = {
-  all: ["attendance"] as const,
-  month: (year: number, month: number) =>
-    [...attendanceKeys.all, "month", year, month] as const,
-  employees: () => [...attendanceKeys.all, "employees"] as const,
-};
+import { attendanceKeys } from "../lib/attendance-keys";
 
 export function useAttendanceMonth(year: number, month: number) {
   return useSuspenseQuery({

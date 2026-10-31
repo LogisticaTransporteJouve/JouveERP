@@ -221,10 +221,12 @@ transfers requieren `transfer_pair_id`, income/expense lo prohíben.
 
 **Server actions** (`transactions:read`/`write`): `listTransactionsAction` (sobre
 `v_transactions_tagged`, sort triple con `id` tiebreaker para no duplicar pares de
-transfer entre páginas), `getTransactionByIdAction`, `createTransactionAction`
+transfer entre páginas), `createTransactionAction`
 (rechaza transfers y cuentas `checks/echeq`), `createTransferAction`,
 `updateTransactionAction` (solo header; `account/channel/kind` inmutables),
-`deleteTransactionAction` (cascade al par; AFTER DELETE borra el asiento).
+`deleteTransactionAction` (`transactions:delete`, solo owner; cascade al par;
+AFTER DELETE borra el asiento). La tabla de `/transactions` edita y borra los
+movimientos manuales; los generados por un documento los rechaza la base.
 
 **UI:** `/transactions` (título "Caja"), `TransactionForm` 3-way (income/expense/
 transfer), filtros sincronizados a URL, `useRealtimeInvalidate`.

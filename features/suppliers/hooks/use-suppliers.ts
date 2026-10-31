@@ -87,13 +87,6 @@ export function useSuppliersSearch(
   });
 }
 
-export function useSupplierById(id: string) {
-  return useSuspenseQuery({
-    queryKey: suppliersKeys.byId(id),
-    queryFn: () => runAction(() => getSupplierByIdAction(id)),
-  });
-}
-
 export function useSupplierByIdOptional(
   id: string | null,
   options: { enabled?: boolean } = {},

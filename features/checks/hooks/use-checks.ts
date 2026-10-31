@@ -16,7 +16,6 @@ import {
   createCheckAction,
   creditCheckAction,
   depositCheckAction,
-  getChequeByIdAction,
   listChecksAction,
   rejectCheckAction,
 } from "../actions/checks-actions";
@@ -27,13 +26,6 @@ export function useChecksList() {
   return useSuspenseQuery({
     queryKey: checksKeys.list(isFiscal),
     queryFn: () => runAction(() => listChecksAction({ isFiscal })),
-  });
-}
-
-export function useCheckDetail(id: string) {
-  return useSuspenseQuery({
-    queryKey: checksKeys.detail(id),
-    queryFn: () => runAction(() => getChequeByIdAction(id)),
   });
 }
 

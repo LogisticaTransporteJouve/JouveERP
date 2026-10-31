@@ -5,7 +5,6 @@ import {
   useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -72,13 +71,6 @@ export function usePurchaseInvoicesSearchInfinite(
   );
 
   return { ...query, items };
-}
-
-export function usePurchaseInvoiceById(id: string) {
-  return useSuspenseQuery({
-    queryKey: purchaseInvoicesKeys.byId(id),
-    queryFn: () => runAction(() => getPurchaseInvoiceByIdAction(id)),
-  });
 }
 
 export function usePurchaseInvoiceItems(

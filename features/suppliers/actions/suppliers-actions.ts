@@ -35,30 +35,6 @@ function narrowSupplier(row: {
 const SELECT_COLS =
   "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at";
 
-export async function listSuppliersAction(): Promise<ActionResult<Supplier[]>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "suppliers:read")) {
-    return { ok: false, error: "No tenés permiso para ver proveedores." };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("suppliers")
-    .select(SELECT_COLS)
-    .order("legal_name");
-
-  if (error) {
-    logger.error("suppliers.list.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo listar los proveedores." };
-  }
-
-  const items = (data ?? [])
-    .map((row) => narrowSupplier(row))
-    .filter((row): row is Supplier => row !== null);
-
-  return { ok: true, data: items };
-}
-
 export type SearchSuppliersInput = {
   query?: string;
   onlyActive?: boolean;

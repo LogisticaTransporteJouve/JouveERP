@@ -2,10 +2,8 @@
 
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -14,8 +12,6 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   createEmployeeAction,
-  getEmployeeByIdAction,
-  listEmployeesAction,
   reactivateEmployeeAction,
   searchEmployeesAction,
   terminateEmployeeAction,
@@ -53,20 +49,6 @@ export function useEmployeesSearchInfinite(filters: {
   );
 
   return { ...query, items };
-}
-
-export function useEmployeesList() {
-  return useSuspenseQuery({
-    queryKey: employeesKeys.list(),
-    queryFn: () => runAction(() => listEmployeesAction()),
-  });
-}
-
-export function useEmployeeById(id: string) {
-  return useSuspenseQuery({
-    queryKey: employeesKeys.byId(id),
-    queryFn: () => runAction(() => getEmployeeByIdAction(id)),
-  });
 }
 
 export function useCreateEmployee() {
@@ -117,26 +99,5 @@ export function useReactivateEmployee() {
       qc.invalidateQueries({ queryKey: employeesKeys.all });
       qc.invalidateQueries({ queryKey: employeesKeys.byId(id) });
     },
-  });
-}
-
-// Backwards-compatible alias for components that want a non-suspense fetch.
-export function useEmployeesSearch(
-  filters: { query: string; onlyActive: boolean; limit: number },
-  options: { enabled?: boolean } = {},
-) {
-  return useQuery({
-    queryKey: employeesKeys.search(filters),
-    queryFn: () =>
-      runAction(() =>
-        searchEmployeesAction({
-          query: filters.query,
-          onlyActive: filters.onlyActive,
-          offset: 0,
-          limit: filters.limit,
-        }),
-      ),
-    enabled: options.enabled,
-    placeholderData: (prev) => prev,
   });
 }

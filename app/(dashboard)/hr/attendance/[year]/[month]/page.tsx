@@ -13,6 +13,7 @@ import {
   listAttendanceEmployeesAction,
 } from "@/features/hr/actions/attendance-actions";
 import { AttendanceGrid } from "@/features/hr/components/attendance-grid";
+import { attendanceKeys } from "@/features/hr/lib/attendance-keys";
 import { MONTH_LABELS } from "@/features/hr/payroll-schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -48,11 +49,11 @@ export default async function AttendanceMonthPage({
 
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: ["attendance", "month", year, month] as const,
+      queryKey: attendanceKeys.month(year, month),
       queryFn: () => runAction(() => getAttendanceMonthAction(year, month)),
     },
     {
-      queryKey: ["attendance", "employees"] as const,
+      queryKey: attendanceKeys.employees(),
       queryFn: () => runAction(() => listAttendanceEmployeesAction()),
     },
   ]);

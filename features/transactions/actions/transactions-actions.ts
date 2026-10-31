@@ -151,28 +151,6 @@ export async function listTransactionsAction(
   };
 }
 
-export async function getTransactionByIdAction(
-  id: string,
-): Promise<ActionResult<Transaction | null>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "transactions:read")) {
-    return { ok: false, error: "No tenés permiso para ver movimientos." };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(SELECT_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    logger.error("transactions.get.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo cargar el movimiento." };
-  }
-  return { ok: true, data: data ? narrowTransaction(data) : null };
-}
-
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
