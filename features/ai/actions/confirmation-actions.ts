@@ -83,7 +83,7 @@ export async function confirmAiProposalAction(
   if (!row || row.status !== "pending") return { ok: false, error: GONE };
   const action = proposalAction(row.action);
   if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.access, action.permissions)) {
+  if (!canRunAiAction(ctx.access, action)) {
     return { ok: false, error: NO_ACTION };
   }
   const valid = action.proposal.spec.validate(row.draft, row.labels);
@@ -206,7 +206,7 @@ export async function reviseAiProposalAction(
   if (!row || row.status !== "pending") return { ok: false, error: GONE };
   const action = proposalAction(row.action);
   if (!action?.proposal) return { ok: false, error: GONE };
-  if (!canRunAiAction(ctx.access, action.permissions)) {
+  if (!canRunAiAction(ctx.access, action)) {
     return { ok: false, error: NO_ACTION };
   }
   const { spec } = action.proposal;

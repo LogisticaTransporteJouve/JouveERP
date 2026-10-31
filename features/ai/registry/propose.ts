@@ -104,7 +104,7 @@ const revisionKeySchema = z.object({
 export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
   def: AiProposalDefinition<I, D>,
 ): AiAction {
-  const permissions = toPermissions(def.permission);
+  const gate = toPermissions(def.permission);
   const { spec } = def;
 
   function result(
@@ -145,7 +145,7 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
     raw: unknown,
     call?: AiToolCall,
   ): Promise<AiToolResult> {
-    if (!canRunAiAction(ctx.access, permissions)) {
+    if (!canRunAiAction(ctx.access, gate)) {
       return errResult("No tenés permiso para esta acción.");
     }
     if (!ctx.proposals || !call) {
@@ -225,7 +225,7 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
     name: def.name,
     domain: def.domain,
     description: def.description,
-    permissions,
+    ...gate,
     sideEffect: "propose",
     sources: def.sources,
     execute,

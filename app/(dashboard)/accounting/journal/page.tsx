@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
 import { JournalList } from "@/features/journal-entries/components/journal-list";
-import { journalEntriesKeys } from "@/features/journal-entries/lib/journal-entries-keys";
+import { journalEntriesQuery } from "@/features/journal-entries/lib/journal-query";
 import {
   currentPeriod,
   type JournalFilters,
@@ -11,7 +10,6 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
-import { runAction } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -36,10 +34,7 @@ export default async function JournalPage() {
   };
 
   const dehydratedState = await prefetchQueries([
-    {
-      queryKey: journalEntriesKeys.list(initialFilters),
-      queryFn: () => runAction(() => listJournalEntriesAction(initialFilters)),
-    },
+    { infinite: true, ...journalEntriesQuery(initialFilters) },
   ]);
 
   return (
