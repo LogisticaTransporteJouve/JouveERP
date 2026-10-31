@@ -106,7 +106,6 @@ export const CreditChequeSchema = z.object({
 
 export const RejectChequeSchema = z.object({
   check_id: z.string().uuid(),
-  account_id: z.string().uuid("Cuenta bancaria requerida."),
   channel_id: z.string().min(1, "Canal requerido."),
   event_date: isoDate,
   notes: trimmedNullable,
