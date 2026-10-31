@@ -13,6 +13,7 @@ import {
   formatArgentineDate,
   parseArAmount,
 } from "@/lib/format";
+import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
 import type { PendingPurchaseInvoice } from "../actions/payment-orders-actions";
 import { usePendingPurchaseInvoices } from "../hooks/use-payment-orders";
@@ -21,20 +22,6 @@ export type AllocationDraft = {
   purchase_invoice_id: string;
   amount_applied: string;
 };
-
-function formatInvoiceNumber(c: PendingPurchaseInvoice): string {
-  const pos = String(c.punto_venta).padStart(4, "0");
-  const num = String(c.numero).padStart(8, "0");
-  const prefix =
-    c.kind === "factura"
-      ? (c.letter ?? "")
-      : c.kind === "nc"
-        ? `NC${c.letter ? "-" + c.letter : ""}`
-        : c.kind === "nd"
-          ? `ND${c.letter ? "-" + c.letter : ""}`
-          : "";
-  return `${prefix}${pos}-${num}`;
-}
 
 export function AllocationsPicker({
   supplierId,

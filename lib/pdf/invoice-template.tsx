@@ -34,6 +34,9 @@ export interface InvoiceTemplateItem {
 
 export interface InvoiceTemplateData {
   isFiscal: boolean;
+  /** ISO timestamp the PDF carries as its creation date, so re-rendering the
+   *  same invoice yields the same bytes (and the same `pdf_hash`). */
+  emittedAt: string;
 
   // Issuer (always JouveERP / DZ & Sons)
   emisor: {
@@ -270,7 +273,7 @@ export function isLetterAToMonotributo(data: InvoiceTemplateData): boolean {
 export function InvoiceDocument({ data }: { data: InvoiceTemplateData }) {
   if (!data.isFiscal) {
     return (
-      <Document>
+      <Document creationDate={new Date(data.emittedAt)} producer="JouveERP">
         <InvoicePage data={data} copyLabel={null} />
       </Document>
     );
@@ -278,7 +281,7 @@ export function InvoiceDocument({ data }: { data: InvoiceTemplateData }) {
   // RG 1415: every fiscal invoice is printed twice — ORIGINAL keeps with the
   // receptor, DUPLICADO with the emisor.
   return (
-    <Document>
+    <Document creationDate={new Date(data.emittedAt)} producer="JouveERP">
       <InvoicePage data={data} copyLabel="ORIGINAL" />
       <InvoicePage data={data} copyLabel="DUPLICADO" />
     </Document>

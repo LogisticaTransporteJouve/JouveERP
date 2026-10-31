@@ -23,11 +23,10 @@ import {
 } from "@/features/receipts/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
+import { divisionLabel } from "@/lib/pdf/emisor";
 
-import {
-  ReceiptDocument,
-  type ReceiptTemplateData,
-} from "./receipt-template";
+import { ReceiptDocument, type ReceiptTemplateData } from "./receipt-template";
 
 const IVA_LABEL: Record<IvaCondition, string> = {
   responsable_inscripto: "Responsable Inscripto",
@@ -86,9 +85,7 @@ export async function buildReceiptTemplateData(
   const [linesRes, retentionsRes, allocsRes] = await Promise.all([
     supabase
       .from("receipt_payment_lines")
-      .select(
-        "amount, reference, account_id, account:accounts(name, type)",
-      )
+      .select("amount, reference, account_id, account:accounts(name, type)")
       .eq("receipt_id", receiptId)
       .order("created_at"),
     supabase
@@ -134,17 +131,10 @@ export async function buildReceiptTemplateData(
 
   const allocations = (allocsRes.data ?? []).map((a) => {
     const inv = (a as unknown as InvoiceRefJoin).invoice;
-    const pos = String(inv?.punto_venta ?? 0).padStart(4, "0");
-    const num = String(inv?.numero ?? 0).padStart(8, "0");
-    const letter = inv?.letter ?? "";
-    const label =
-      inv?.kind === "factura"
-        ? `Factura ${letter} ${pos}-${num}`
-        : inv?.kind === "credit_note"
-          ? `NC ${letter} ${pos}-${num}`
-          : inv?.kind === "debit_note"
-            ? `ND ${letter} ${pos}-${num}`
-            : `${pos}-${num}`;
+    const numero = inv
+      ? formatInvoiceNumero(inv.kind, inv.letter, inv.punto_venta, inv.numero)
+      : "—";
+    const label = inv?.kind === "factura" ? `Factura ${numero}` : numero;
     return {
       invoice_label: label.trim().replace(/\s+/g, " "),
       invoice_date: inv?.fecha ?? "",
@@ -165,12 +155,7 @@ export async function buildReceiptTemplateData(
       legal_name: emisorLegalName,
       cuit: emisorCuit,
       address: emisorAddress,
-      division_label:
-        channel?.division === "jouve"
-          ? "Logística Jouve"
-          : channel?.division === "dz"
-            ? "DZ Instalaciones"
-            : channel?.name ?? "",
+      division_label: divisionLabel(channel?.division, channel?.name ?? ""),
     },
     receptor: {
       legal_name: client.legal_name,

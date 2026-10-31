@@ -7,6 +7,10 @@ import "server-only";
 // to have cryptographic proof of integrity. If in the future someone
 // disputes a delivered PDF, it's regenerated and the hash is compared.
 //
+// The PDF's creation date is the invoice's emitted_at, so the bytes are
+// reproducible. Hashes stored before that change (2026-10-31) were taken from
+// a render stamped with the render time and cannot be reproduced.
+//
 // The AFIP QR is a pure function of the data (cae + receptor + amounts) and
 // always yields the same scannable URL, so we don't lose fiscal validity
 // by not storing the bytes.

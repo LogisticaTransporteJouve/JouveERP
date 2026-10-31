@@ -60,18 +60,17 @@ interface InvoiceChannelOption {
 // the `$` flush against the number in this table, so we build a custom
 // formatter with the helper.
 import { formatNumber2 } from "@/lib/format";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
 const formatter = { format: (n: number) => `$${formatNumber2(n)}` };
 
 function formatMovementNumber(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
   if (m.punto_venta == null || m.numero == null) return "—";
-  const pos = String(m.punto_venta).padStart(4, "0");
-  const num = String(m.numero).padStart(8, "0");
-  if (m.source_type === "receipt") return `R${pos}-${num}`;
-  if (m.kind === "factura") return `${m.letter ?? ""}${pos}-${num}`;
-  if (m.kind === "nc") return `NC${pos}-${num}`;
-  if (m.kind === "nd") return `ND${pos}-${num}`;
-  return `${pos}-${num}`;
+  if (m.source_type === "receipt") {
+    const pos = String(m.punto_venta).padStart(5, "0");
+    return `R${pos}-${String(m.numero).padStart(8, "0")}`;
+  }
+  return formatInvoiceNumero(m.kind, m.letter, m.punto_venta, m.numero);
 }
 
 function movementTypeLabel(m: AccountMovement): string {
@@ -214,7 +213,7 @@ export function ClientAccountTab({
                 formatMovementNumber(m)
               )}
               {m.source_type === "invoice" &&
-                m.kind !== "credit_note" &&
+                m.kind !== "nc" &&
                 m.outstanding != null &&
                 (m.outstanding === 0 ? (
                   <Badge
@@ -248,7 +247,7 @@ export function ClientAccountTab({
             <span className="inline-flex flex-col items-end">
               <span>{formatter.format(m.gross_amount)}</span>
               {m.source_type === "invoice" &&
-                m.kind !== "credit_note" &&
+                m.kind !== "nc" &&
                 m.outstanding != null &&
                 m.outstanding > 0 &&
                 m.outstanding < m.gross_amount && (

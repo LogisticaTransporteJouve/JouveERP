@@ -19,6 +19,7 @@ import type {
 } from "./invoice-template";
 
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
+import { divisionLabel } from "@/lib/pdf/emisor";
 import type { IvaCondition } from "@/features/clients/schema";
 import type { InvoiceRow } from "@/features/invoices/schema";
 
@@ -160,13 +161,13 @@ export async function buildTemplateData(
 
   return {
     isFiscal,
+    emittedAt: row.emitted_at ?? `${row.fecha}T00:00:00-03:00`,
     emisor: {
       legal_name: bu?.name ?? "DZ & Sons S.A.",
       cuit: bu?.cuit ?? "",
       iva_condition: bu?.tax_condition ?? "",
       address: bu?.tax_address ?? null,
-      division_label:
-        channel.division === "jouve" ? "Logística Jouve" : "DZ Instalaciones",
+      division_label: divisionLabel(channel.division, channel.name),
       iibb_number: bu?.iibb_number ?? null,
       inicio_actividades: bu?.inicio_actividades ?? null,
     },

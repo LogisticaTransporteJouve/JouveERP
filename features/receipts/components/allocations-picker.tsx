@@ -13,6 +13,7 @@ import {
   formatArgentineDate,
   parseArAmount,
 } from "@/lib/format";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
 
 import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
@@ -23,17 +24,7 @@ export type AllocationDraft = {
 };
 
 function formatComprobanteNumber(c: PendingComprobante): string {
-  const pos = String(c.punto_venta).padStart(4, "0");
-  const num = c.numero == null ? "—" : String(c.numero).padStart(8, "0");
-  const prefix =
-    c.kind === "factura"
-      ? (c.letter ?? "")
-      : c.kind === "credit_note"
-        ? `NC${c.letter ? "-" + c.letter : ""}`
-        : c.kind === "debit_note"
-          ? `ND${c.letter ? "-" + c.letter : ""}`
-          : "";
-  return `${prefix}${pos}-${num}`;
+  return formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero);
 }
 
 export function AllocationsPicker({
