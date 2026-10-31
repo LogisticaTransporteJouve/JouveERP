@@ -7,6 +7,7 @@ import {
   mapTaxCondition,
   normalizePersona,
   padronFaultMessage,
+  personaFromConstancia,
   type RawPersona,
 } from "./padron";
 
@@ -148,6 +149,64 @@ describe("normalizePersona", () => {
     expect(norm.status).toBe("UNKNOWN");
     expect(norm.tax_condition).toBe("no_categorizado");
     expect(norm.fiscal_address).toBeNull();
+  });
+});
+
+describe("personaFromConstancia (A5)", () => {
+  it("merges régimen general and monotributo taxes and the fiscal address", () => {
+    const norm = normalizePersona(
+      personaFromConstancia({
+        datosGenerales: {
+          tipoPersona: "JURIDICA",
+          tipoClave: "CUIT",
+          estadoClave: "ACTIVO",
+          razonSocial: "PALLET SIRANS S.R.L.",
+          domicilioFiscal: {
+            direccion: "RUTA 5 KM 100",
+            localidad: "MERCEDES",
+            descripcionProvincia: "BUENOS AIRES",
+            codPostal: "6600",
+          },
+        },
+        datosRegimenGeneral: {
+          impuesto: {
+            idImpuesto: 30,
+            descripcionImpuesto: "IVA",
+            periodo: 201501,
+          },
+          actividad: {
+            orden: 1,
+            descripcionActividad: "FABRICACION DE PALLETS",
+          },
+        },
+      }),
+    );
+    expect(norm).toMatchObject({
+      legal_name: "PALLET SIRANS S.R.L.",
+      status: "ACTIVO",
+      tax_condition: "responsable_inscripto",
+      main_activity: "FABRICACION DE PALLETS",
+      fiscal_address: { street: "RUTA 5 KM 100", city: "MERCEDES" },
+    });
+  });
+
+  it("reads a monotributista from datosMonotributo", () => {
+    const norm = normalizePersona(
+      personaFromConstancia({
+        datosGenerales: {
+          tipoPersona: "FISICA",
+          apellido: "PEREZ",
+          nombre: "JUAN",
+        },
+        datosMonotributo: { impuesto: { idImpuesto: 20 } },
+      }),
+    );
+    expect(norm.tax_condition).toBe("monotributo");
+    expect(norm.legal_name).toBe("PEREZ, JUAN");
+  });
+
+  it("treats IVA EXENTO (32) as exento", () => {
+    expect(mapTaxCondition([{ idImpuesto: 32 }])).toBe("exento");
   });
 });
 

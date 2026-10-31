@@ -1,15 +1,19 @@
 import "server-only";
 
-// AFIP Padrón A4 SOAP client.
+// AFIP padrón client — Constancia de Inscripción (personaServiceA5).
 //
-// Calls personaServiceA4 with a manual SOAP envelope (no WSDL parsing or
-// `soap` runtime dependency — the request shape is fixed and AFIP is unlikely
-// to break compatibility). Response is parsed with fast-xml-parser into the
-// normalized ContributorInfo shape used by the rest of the app.
+// Calls getPersona_v2 with a manual SOAP envelope (no WSDL parsing or `soap`
+// runtime dependency — the request shape is fixed). The response is parsed
+// with fast-xml-parser into the normalized ContributorInfo shape used by the
+// rest of the app. A5 replaced A4, which ARCA no longer enables for regular
+// taxpayers in production.
 //
-// Pre-requisite: the AFIP_CUIT user must be subscribed to "ws_sr_padron_a4"
-// in the AFIP portal (Administrador de Relaciones de Clave Fiscal → Nuevas
-// relaciones).
+// Pre-requisite: the certificate's alias must be related to
+// "ws_sr_constancia_inscripcion" (Administrador de Relaciones de Clave Fiscal
+// → Nueva relación → ARCA → WebServices → Consulta de Constancia de
+// Inscripción); in homologación, via WSASS.
+
+export const PADRON_SERVICE_ID = "ws_sr_constancia_inscripcion";
 
 import { XMLParser } from "fast-xml-parser";
 
@@ -27,8 +31,10 @@ import type {
 interface RawTax {
   idImpuesto?: number;
   descripcionImpuesto?: string;
+  /** A4 only; A5 lists active registrations without a state. */
   estado?: string;
   ffInscripcion?: string;
+  periodo?: number | string;
 }
 
 interface RawAddress {
@@ -61,7 +67,8 @@ export interface RawPersona {
 
 const VAT_TAX_ID = 30;
 const MONOTAX_IDS = [20, 21];
-const EXEMPT_TAX_ID = 4;
+// 32 = IVA EXENTO in the constancia; 4 kept from the A4 tax table.
+const EXEMPT_TAX_IDS = [4, 32];
 
 function asArray<T>(value: T | T[] | undefined | null): T[] {
   if (value === undefined || value === null) return [];
@@ -71,7 +78,8 @@ function asArray<T>(value: T | T[] | undefined | null): T[] {
 // Map AFIP tax registrations → our IVA enum.
 // Priority: VAT (responsable_inscripto) > Monotax > Exempt > no_categorizado.
 export function mapTaxCondition(taxes: RawTax[]): TaxCondition {
-  const isActive = (t: RawTax) => t.estado === "ACTIVO";
+  const isActive = (t: RawTax) =>
+    t.estado === undefined || t.estado === "ACTIVO";
   if (taxes.some((t) => t.idImpuesto === VAT_TAX_ID && isActive(t))) {
     return "responsable_inscripto";
   }
@@ -85,7 +93,14 @@ export function mapTaxCondition(taxes: RawTax[]): TaxCondition {
   ) {
     return "monotributo";
   }
-  if (taxes.some((t) => t.idImpuesto === EXEMPT_TAX_ID && isActive(t))) {
+  if (
+    taxes.some(
+      (t) =>
+        t.idImpuesto !== undefined &&
+        EXEMPT_TAX_IDS.includes(t.idImpuesto) &&
+        isActive(t),
+    )
+  ) {
     return "exento";
   }
   return "no_categorizado";
@@ -126,7 +141,7 @@ function buildTaxes(taxes: RawTax[]): TaxEntry[] {
   return taxes.map((t) => ({
     id: t.idImpuesto ?? 0,
     description: t.descripcionImpuesto ?? "",
-    status: t.estado ?? "UNKNOWN",
+    status: t.estado ?? "ACTIVO",
     registration_date: t.ffInscripcion ?? null,
   }));
 }
@@ -155,11 +170,11 @@ export function normalizePersona(persona: RawPersona): ContributorInfo {
 
 function getPadronEndpoint(): string {
   return getAfipEnv() === "prod"
-    ? "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA4"
-    : "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA4";
+    ? "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5"
+    : "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5";
 }
 
-const PADRON_NS = "http://a4.soap.ws.server.puc.sr/";
+const PADRON_NS = "http://a5.soap.ws.server.puc.sr/";
 
 function buildPadronEnvelope(args: {
   token: string;
@@ -168,15 +183,15 @@ function buildPadronEnvelope(args: {
   idPersona: string;
 }): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a4="${PADRON_NS}">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a5="${PADRON_NS}">
   <soapenv:Header/>
   <soapenv:Body>
-    <a4:getPersona>
+    <a5:getPersona_v2>
       <token>${args.token}</token>
       <sign>${args.sign}</sign>
       <cuitRepresentada>${args.cuitRepresentada}</cuitRepresentada>
       <idPersona>${args.idPersona}</idPersona>
-    </a4:getPersona>
+    </a5:getPersona_v2>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }
@@ -187,13 +202,64 @@ const xmlParser = new XMLParser({
   parseTagValue: true,
 });
 
+interface RawConstanciaErrors {
+  error?: string | string[];
+}
+
+export interface RawPersonaReturn {
+  datosGenerales?: {
+    tipoPersona?: "FISICA" | "JURIDICA";
+    tipoClave?: "CUIT" | "CUIL" | "CDI";
+    estadoClave?: string;
+    razonSocial?: string;
+    nombre?: string;
+    apellido?: string;
+    mesCierre?: number;
+    fechaContratoSocial?: string;
+    domicilioFiscal?: RawAddress;
+  };
+  datosRegimenGeneral?: {
+    impuesto?: RawTax | RawTax[];
+    actividad?: RawActivity | RawActivity[];
+  };
+  datosMonotributo?: {
+    impuesto?: RawTax | RawTax[];
+    actividadMonotributista?: RawActivity;
+  };
+  errorConstancia?: RawConstanciaErrors;
+}
+
+/** Folds the constancia's sections into the flat persona shape. */
+export function personaFromConstancia(ret: RawPersonaReturn): RawPersona {
+  const general = ret.datosGenerales ?? {};
+  return {
+    tipoPersona: general.tipoPersona,
+    tipoClave: general.tipoClave,
+    estadoClave: general.estadoClave,
+    razonSocial: general.razonSocial,
+    nombre: general.nombre,
+    apellido: general.apellido,
+    mesCierre: general.mesCierre,
+    fechaInscripcion: general.fechaContratoSocial,
+    impuesto: [
+      ...asArray(ret.datosRegimenGeneral?.impuesto),
+      ...asArray(ret.datosMonotributo?.impuesto),
+    ],
+    domicilio: general.domicilioFiscal
+      ? [{ ...general.domicilioFiscal, tipoDomicilio: "FISCAL" }]
+      : [],
+    actividad: [
+      ...asArray(ret.datosRegimenGeneral?.actividad),
+      ...asArray(ret.datosMonotributo?.actividadMonotributista),
+    ],
+  };
+}
+
 interface ParsedPadronResponse {
   Envelope?: {
     Body?: {
-      getPersonaResponse?: {
-        personaReturn?: {
-          persona?: RawPersona;
-        };
+      getPersona_v2Response?: {
+        personaReturn?: RawPersonaReturn;
       };
       Fault?: {
         faultstring?: string;
@@ -210,7 +276,7 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
     );
   }
 
-  const ta = await getAccessTicket("ws_sr_padron_a4");
+  const ta = await getAccessTicket(PADRON_SERVICE_ID);
   logger.debug("padron.lookup", { cuit: cuitClean });
 
   const envelope = buildPadronEnvelope({
@@ -247,13 +313,19 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
     );
   }
 
-  const persona =
-    parsed.Envelope?.Body?.getPersonaResponse?.personaReturn?.persona;
-  if (!persona) {
-    throw new Error(`CUIT ${cuitClean} no encontrado en padrón AFIP A4.`);
+  const ret = parsed.Envelope?.Body?.getPersona_v2Response?.personaReturn;
+  if (!ret?.datosGenerales) {
+    // errorConstancia carries why AFIP issues no constancia (e.g. no active
+    // taxes); without datosGenerales there is nothing to build a client from.
+    const reasons = asArray(ret?.errorConstancia?.error).join(" ");
+    throw new Error(
+      reasons
+        ? `AFIP no emite constancia para el CUIT ${cuitClean}: ${reasons}`
+        : `CUIT ${cuitClean} no encontrado en el padrón de AFIP.`,
+    );
   }
 
-  return { ...normalizePersona(persona), cuit: cuitClean };
+  return { ...normalizePersona(personaFromConstancia(ret)), cuit: cuitClean };
 }
 
 export function padronFaultMessage(
