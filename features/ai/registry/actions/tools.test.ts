@@ -282,7 +282,7 @@ describe("runLedger", () => {
 });
 
 describe("runLibroIvaVentas", () => {
-  it("reports the row count for the period", async () => {
+  it("reads every fiscal channel of the period and says so", async () => {
     vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
       ok: true,
       data: [],
@@ -290,10 +290,9 @@ describe("runLibroIvaVentas", () => {
     const r = await runLibroIvaVentas({ period: "2026-05" });
     expect(listLibroIvaVentasAction).toHaveBeenCalledWith({
       period: "2026-05",
-      channelId: null,
     });
     expect(r.ok).toBe(true);
-    expect(r.summary).toContain("VAT Sales");
+    expect(r.summary).toMatch(/^Solo fiscal: .*VAT Sales/);
   });
 });
 

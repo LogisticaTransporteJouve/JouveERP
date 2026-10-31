@@ -5647,6 +5647,7 @@ export type Database = {
         Args: {
           p_client_id?: string
           p_from: string
+          p_is_fiscal?: boolean
           p_limit?: number
           p_to: string
         }
@@ -5706,6 +5707,7 @@ export type Database = {
         Args: {
           p_from: string
           p_group_by?: string
+          p_is_fiscal?: boolean
           p_limit?: number
           p_to: string
         }
@@ -5766,6 +5768,7 @@ export type Database = {
           p_employee_id?: string
           p_from_period: string
           p_group_by?: string
+          p_is_fiscal?: boolean
           p_to_period: string
         }
         Returns: {
@@ -5800,6 +5803,7 @@ export type Database = {
           p_category_id?: string
           p_from: string
           p_group_by?: string
+          p_is_fiscal?: boolean
           p_item_query?: string
           p_limit?: number
           p_supplier_id?: string
@@ -5820,6 +5824,7 @@ export type Database = {
         Args: {
           p_category_id?: string
           p_from: string
+          p_is_fiscal?: boolean
           p_limit?: number
           p_supplier_id?: string
           p_to: string
@@ -5843,7 +5848,12 @@ export type Database = {
         }[]
       }
       ai_supplier_upcoming_dues: {
-        Args: { p_days?: number; p_limit?: number; p_supplier_id?: string }
+        Args: {
+          p_days?: number
+          p_is_fiscal?: boolean
+          p_limit?: number
+          p_supplier_id?: string
+        }
         Returns: {
           days_to_due: number
           due_date: string

@@ -1,10 +1,27 @@
 // Deterministic anomaly detectors over purchase invoices (pure, no DB/LLM).
 // Returns findings shaped for ai_insights rows.
 
+import { SCOPE_LABEL, type FiscalFilter } from "@/lib/scope";
+
 import { outlierBounds } from "./statistics";
+
+/** A purchase's scope: its channel's `is_fiscal`, or "none" without channel. */
+export type PurchaseScope = Exclude<FiscalFilter, "all"> | "none";
+
+const PURCHASE_SCOPE_LABEL: Record<PurchaseScope, string> = {
+  fiscal: SCOPE_LABEL.fiscal,
+  internal: SCOPE_LABEL.internal,
+  none: "Sin canal",
+};
+
+export function purchaseScope(isFiscal: boolean | null): PurchaseScope {
+  if (isFiscal === null) return "none";
+  return isFiscal ? "fiscal" : "internal";
+}
 
 export type PurchaseRow = {
   id: string;
+  scope: PurchaseScope;
   supplier_id: string;
   supplier_name: string;
   imp_total: number;
@@ -39,13 +56,14 @@ function pvNum(r: PurchaseRow): string {
 }
 
 /**
- * Same supplier + same total within a 30-day window but a different voucher
- * number → likely a double-loaded / double-paid invoice. One finding per cluster.
+ * Same scope + supplier + same total within a 30-day window but a different
+ * voucher number → likely a double-loaded / double-paid invoice. One finding
+ * per cluster. A fiscal and an internal invoice never pair up.
  */
 export function detectDuplicateInvoices(rows: PurchaseRow[]): AnomalyFinding[] {
   const byKey = new Map<string, PurchaseRow[]>();
   for (const r of rows) {
-    const key = `${r.supplier_id}|${r.imp_total}`;
+    const key = `${r.scope}|${r.supplier_id}|${r.imp_total}`;
     const arr = byKey.get(key) ?? [];
     arr.push(r);
     byKey.set(key, arr);
@@ -69,10 +87,11 @@ export function detectDuplicateInvoices(rows: PurchaseRow[]): AnomalyFinding[] {
       kind: "dup_invoice",
       severity: "warning",
       title: "Posible factura duplicada",
-      finding: `${first.supplier_name}: ${group.length} facturas por ${money(
+      finding: `${PURCHASE_SCOPE_LABEL[first.scope]} · ${first.supplier_name}: ${group.length} facturas por ${money(
         first.imp_total,
       )} en ≤${DUP_WINDOW_DAYS} días (${group.map(pvNum).join(", ")}). Revisá que no sea un doble cargo.`,
       metrics: {
+        scope: first.scope,
         supplier_id: first.supplier_id,
         amount: first.imp_total,
         count: group.length,
@@ -85,16 +104,17 @@ export function detectDuplicateInvoices(rows: PurchaseRow[]): AnomalyFinding[] {
 }
 
 /**
- * Per supplier with enough history, flag invoices whose total is well above the
- * supplier's usual range (Tukey upper fence). High outliers only — a much
- * larger-than-usual bill is the money-risk one.
+ * Per scope and supplier with enough history, flag invoices whose total is well
+ * above the supplier's usual range in that scope (Tukey upper fence). High
+ * outliers only — a much larger-than-usual bill is the money-risk one.
  */
 export function detectUnusualAmounts(rows: PurchaseRow[]): AnomalyFinding[] {
   const bySupplier = new Map<string, PurchaseRow[]>();
   for (const r of rows) {
-    const arr = bySupplier.get(r.supplier_id) ?? [];
+    const key = `${r.scope}|${r.supplier_id}`;
+    const arr = bySupplier.get(key) ?? [];
     arr.push(r);
-    bySupplier.set(r.supplier_id, arr);
+    bySupplier.set(key, arr);
   }
 
   const findings: AnomalyFinding[] = [];
@@ -111,12 +131,13 @@ export function detectUnusualAmounts(rows: PurchaseRow[]): AnomalyFinding[] {
           kind: "unusual_amount",
           severity: "warning",
           title: "Importe inusual de proveedor",
-          finding: `${r.supplier_name}: factura ${pvNum(r)} por ${money(
+          finding: `${PURCHASE_SCOPE_LABEL[r.scope]} · ${r.supplier_name}: factura ${pvNum(r)} por ${money(
             r.imp_total,
           )}, muy por encima de su rango habitual (${money(bounds.q1)}–${money(
             bounds.q3,
           )}).`,
           metrics: {
+            scope: r.scope,
             supplier_id: r.supplier_id,
             amount: r.imp_total,
             q1: bounds.q1,

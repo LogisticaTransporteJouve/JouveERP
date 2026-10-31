@@ -20,11 +20,12 @@ import {
 import {
   IsoDateSchema,
   PeriodSchema,
+  ScopeInputSchema,
   UuidSchema,
 } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { ScopeInputSchema, readScope } from "../scope";
+import { readScope } from "../scope";
 import {
   errResult,
   money,
@@ -328,13 +329,17 @@ export const getLoanDetail = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago). Requiere el UUID del préstamo (de getLoans).",
-  input: z.object({ loanId: UuidSchema.describe("UUID del préstamo.") }),
+    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago). Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
+  input: z.object({
+    loanId: UuidSchema.describe("UUID del préstamo."),
+    scope: ScopeInputSchema,
+  }),
   run: async (_ctx, input) => {
-    const res = await getLoanAction(input.loanId);
+    const { isFiscal, label } = readScope(input.scope);
+    const res = await getLoanAction(input.loanId, { isFiscal });
     if (!res.ok) return errResult(res.error);
     return okResult(
-      `${res.data.description}: ${res.data.installments.length} cuotas · pendiente ${res.data.currency} ${money(
+      `${label} · canal ${res.data.channel_name ?? "sin canal"}: ${res.data.description}: ${res.data.installments.length} cuotas · pendiente ${res.data.currency} ${money(
         res.data.pending_total,
       )}.`,
       res.data,

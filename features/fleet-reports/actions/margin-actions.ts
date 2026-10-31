@@ -2,6 +2,7 @@
 
 import { gatedRead } from "@/lib/actions/gated-read";
 import type { ActionResult } from "@/lib/query/run-action";
+import { isFiscalFor } from "@/lib/scope";
 
 import { FleetMarginInputSchema, type FleetMarginRow } from "../schema";
 
@@ -26,6 +27,7 @@ export async function getFleetMarginAction(
         p_to: v.to,
         p_group_by: v.groupBy ?? "vehicle",
         p_limit: v.limit ?? 50,
+        p_is_fiscal: isFiscalFor(v.scope ?? "all") ?? undefined,
       }),
   });
 }

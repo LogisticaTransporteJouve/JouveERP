@@ -11,6 +11,9 @@ import {
   listLibroIvaVentasAction,
 } from "@/features/libro-iva/actions/libro-iva-actions";
 
+import { SCOPE_LABEL, type FiscalFilter } from "@/lib/scope";
+import { ScopeInputSchema } from "@/lib/validation/common";
+
 import { defineAiAction } from "../define";
 import {
   type AiRunResult,
@@ -19,6 +22,7 @@ import {
   okResult,
   reachedCap,
 } from "../result";
+import { readScope } from "../scope";
 
 // Tool inputs stay loose (plain strings); the underlying actions re-validate
 // strictly with their own Zod schemas (period regex, UUID, ISO date).
@@ -104,15 +108,11 @@ const LIBRO_IVA_CURRENCY_NOTE =
 
 export async function runLibroIvaVentas(input: {
   period: string;
-  channelId?: string | null;
 }): Promise<AiRunResult> {
-  const res = await listLibroIvaVentasAction({
-    period: input.period,
-    channelId: input.channelId ?? null,
-  });
+  const res = await listLibroIvaVentasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
+    `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
     res.data,
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
@@ -131,25 +131,17 @@ export const getLibroIvaVentas = defineAiAction({
     "cotizacion keep the original currency.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
-    channelId: z
-      .string()
-      .nullish()
-      .describe("Optional fiscal channel to filter."),
   }),
   run: (_ctx, input) => runLibroIvaVentas(input),
 });
 
 export async function runLibroIvaCompras(input: {
   period: string;
-  channelId?: string | null;
 }): Promise<AiRunResult> {
-  const res = await listLibroIvaComprasAction({
-    period: input.period,
-    channelId: input.channelId ?? null,
-  });
+  const res = await listLibroIvaComprasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
+    `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
     res.data,
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
@@ -168,10 +160,6 @@ export const getLibroIvaCompras = defineAiAction({
     "cotizacion keep the original currency.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
-    channelId: z
-      .string()
-      .nullish()
-      .describe("Optional fiscal channel to filter."),
   }),
   run: (_ctx, input) => runLibroIvaCompras(input),
 });
@@ -210,17 +198,18 @@ export const getChartOfAccounts = defineAiAction({
 
 export async function runJournalEntries(input: {
   period?: string | null;
-  channelId?: string | null;
+  scope?: FiscalFilter | null;
   limit?: number | null;
 }): Promise<AiRunResult> {
+  const { isFiscal, label } = readScope(input.scope);
   const res = await listJournalEntriesAction({
     period: input.period ?? null,
-    channelId: input.channelId ?? null,
+    isFiscal,
     limit: input.limit ?? 25,
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
-    `${res.data.items.length} journal entries${
+    `${label}: ${res.data.items.length} journal entries${
       input.period ? ` for ${input.period}` : ""
     }${res.data.nextOffset !== null ? " (more available, narrow by period)" : ""}.`,
     res.data,
@@ -237,10 +226,11 @@ export const getJournalEntries = defineAiAction({
   description:
     "General journal: journal entries with date, accrual period, description " +
     "and their lines (debit/credit per account). Filterable by period YYYY-MM " +
-    "and channel. Fiscal channels only (accounting books).",
+    "and scope. The books hold fiscal channels only; entries without a " +
+    "channel (general fiscal) only appear with scope 'all'.",
   input: z.object({
     period: z.string().nullish().describe("Period YYYY-MM, optional."),
-    channelId: z.string().nullish().describe("Channel UUID, optional."),
+    scope: ScopeInputSchema,
     limit: z.number().nullish().describe("Max entries (default 25)."),
   }),
   run: (_ctx, input) => runJournalEntries(input),

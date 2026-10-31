@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
-import { IsoDateSchema } from "@/lib/validation/common";
+import { IsoDateSchema, ScopeInputSchema } from "@/lib/validation/common";
 
 // Input of the fleet margin read. The `.describe()` texts double as the
 // assistant's tool parameter docs.
@@ -21,6 +21,7 @@ export const FleetMarginInputSchema = z
       .enum(FLEET_MARGIN_GROUPS)
       .nullish()
       .describe("Agrupar por viaje, chofer, vehículo (default) o cliente."),
+    scope: ScopeInputSchema,
     limit: z
       .number()
       .int()

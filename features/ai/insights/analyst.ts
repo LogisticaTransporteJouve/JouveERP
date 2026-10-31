@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { SCOPE_LABEL } from "@/lib/scope";
 import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -52,6 +53,7 @@ function cashflowInsight(projection: CashFlowProjection): InsightRow {
     total_out: projection.totalOut,
     horizon_weeks: HORIZON_WEEKS,
     weeks: projection.weeks,
+    scope: "all",
   });
 
   if (projection.deficit) {
@@ -59,7 +61,7 @@ function cashflowInsight(projection: CashFlowProjection): InsightRow {
       kind: "cashflow",
       severity: "critical",
       title: "Déficit de caja proyectado",
-      finding: `La caja proyectada (ARS) cae a ${money(
+      finding: `${SCOPE_LABEL.all}: la caja proyectada (ARS) cae a ${money(
         projection.deficit.closing,
       )} la semana del ${projection.deficit.weekStart}. Hoy: ${money(
         projection.startingBalance,
@@ -80,7 +82,7 @@ function cashflowInsight(projection: CashFlowProjection): InsightRow {
       severity === "warning"
         ? "Caja proyectada ajustada"
         : "Caja proyectada estable",
-    finding: `En ${HORIZON_WEEKS} semanas la caja (ARS) toca un mínimo de ${money(
+    finding: `${SCOPE_LABEL.all}: en ${HORIZON_WEEKS} semanas la caja (ARS) toca un mínimo de ${money(
       projection.lowestClosing,
     )} (hoy ${money(projection.startingBalance)}). Sin déficit proyectado.`,
     metrics,
@@ -95,7 +97,7 @@ function receivablesInsight(risk: ReceivablesRisk): InsightRow {
     kind: "receivables_risk",
     severity,
     title: "Cobranzas en riesgo (+90 días)",
-    finding: `${risk.clientCount} clientes con ${money(
+    finding: `${SCOPE_LABEL.all}: ${risk.clientCount} clientes con ${money(
       risk.total90Plus,
     )} a más de 90 días${
       top ? `; el mayor: ${top.name} (${money(top.amount)})` : ""
@@ -104,6 +106,7 @@ function receivablesInsight(risk: ReceivablesRisk): InsightRow {
       total_90_plus: risk.total90Plus,
       client_count: risk.clientCount,
       top: risk.top,
+      scope: "all",
     }),
     source_refs: toJson([]),
   };
