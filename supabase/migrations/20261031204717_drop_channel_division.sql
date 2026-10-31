@@ -11,14 +11,24 @@ SET LOCAL statement_timeout = '15min';
 -- view column is a contract change: code older than this migration selects
 -- channel_division and breaks, so a rollback must not cross it.
 
+-- Recreated below without channel_division; the code that ships with this
+-- migration no longer selects it.
+-- squawk-ignore ban-drop-view
 drop view public.v_client_account_movements;
+-- squawk-ignore ban-drop-view
 drop view public.v_supplier_account_movements;
+-- squawk-ignore ban-drop-view
 drop view public.v_transactions_tagged;
 
 -- The channel-config guard watched division too; it now watches is_fiscal only.
 drop trigger guard_invoicing_channel_config on public.invoicing_channels;
 
+-- The CHECK only listed the divisions ('dz', 'jouve'); it goes with the column.
+-- squawk-ignore ban-drop-constraint
 alter table public.invoicing_channels drop constraint invoicing_channels_division_check;
+-- No code reads the column (lib/channels.ts, the PDFs and the account views
+-- moved off it in this change); production has no rows that depend on it.
+-- squawk-ignore ban-drop-column
 alter table public.invoicing_channels drop column division;
 
 create or replace function public.guard_invoicing_channel_config()
