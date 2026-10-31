@@ -56,7 +56,15 @@ export default async function ComprobanteDetailPage({
     !c.channel.is_fiscal &&
     INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
 
-  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, { whenNullNumero: "pendiente" })}`;
+  const numeroLabel = formatInvoiceNumero(
+    c.kind,
+    c.letter,
+    c.punto_venta,
+    c.numero ?? c.expected_numero,
+    { whenNullNumero: null },
+  );
+  const isProvisional = c.numero == null && c.expected_numero != null;
+  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${numeroLabel}`;
 
   return (
     <div className="space-y-6">
@@ -76,10 +84,13 @@ export default async function ComprobanteDetailPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             {INVOICE_KIND_LABEL[c.kind]}{" "}
             <span className="font-mono text-base text-muted-foreground">
-              {formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero, {
-                whenNullNumero: "pendiente",
-              })}
+              {numeroLabel}
             </span>
+            {isProvisional && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                (provisorio, lo confirma AFIP)
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground">
             {c.channel.name} · {c.fecha}

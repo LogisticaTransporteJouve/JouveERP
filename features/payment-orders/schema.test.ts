@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PaymentOrderCancelSchema,
+  PaymentOrderCreateSchema,
   formatPaymentOrderNumber,
   isPaymentOrderCurrency,
   isPaymentOrderStatus,
@@ -39,5 +40,45 @@ describe("PaymentOrderCancelSchema", () => {
 
   it("rechaza id no-UUID", () => {
     expect(PaymentOrderCancelSchema.safeParse({ id: "x" }).success).toBe(false);
+  });
+});
+
+describe("PaymentOrderCreateSchema cotización", () => {
+  const base = {
+    channel_id: "jouve_fiscal",
+    numero: 1,
+    supplier_id: UUID,
+    payment_date: "2026-10-31",
+    total_amount: 80,
+    currency: "USD" as const,
+    notes: null,
+    payment_lines: [
+      { line_kind: "account" as const, account_id: UUID, amount: 80 },
+    ],
+    allocations: [],
+  };
+
+  it("requires a rate on a USD payment order", () => {
+    const r = PaymentOrderCreateSchema.safeParse(base);
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(["cotizacion"]);
+  });
+
+  it("accepts a USD rate above 1 and rejects one below", () => {
+    const ok = PaymentOrderCreateSchema.safeParse({
+      ...base,
+      cotizacion: 950.25,
+    });
+    const low = PaymentOrderCreateSchema.safeParse({
+      ...base,
+      cotizacion: 0.9,
+    });
+    expect(ok.success).toBe(true);
+    expect(low.success).toBe(false);
+  });
+
+  it("does not ask an ARS payment order for a rate", () => {
+    const r = PaymentOrderCreateSchema.safeParse({ ...base, currency: "ARS" });
+    expect(r.success).toBe(true);
   });
 });

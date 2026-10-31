@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -27,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { UsdRateField } from "@/components/usd-rate-field";
+import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
 import type { Account, AccountNameJoin } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
 import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-actions";
@@ -44,11 +46,13 @@ import {
   todayInAR,
 } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
+import { USD_RATE_REQUIRED_MESSAGE } from "@/lib/validation/common";
 
 import type { PaymentOrderDetail } from "../actions/payment-orders-actions";
 import {
   useCreatePaymentOrder,
   useNextPaymentOrderNumero,
+  usePaymentOrderUsdRate,
   useUpdatePaymentOrder,
 } from "../hooks/use-payment-orders";
 import {
@@ -85,6 +89,7 @@ const FormSchema = z.object({
   numero: z.string().regex(/^\d+$/, "Número inválido."),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   currency: z.enum(PAYMENT_ORDER_CURRENCIES),
+  cotizacion: z.string(),
   supplier: z.custom<PickedSupplier>().nullable(),
   notes: z.string().trim().max(500),
   paymentLines: z.custom<PaymentLineDraft[]>(),
@@ -183,6 +188,10 @@ export function PaymentOrderForm({
       currency:
         (paymentOrder?.paymentOrder.currency as
           PaymentOrderCurrency | undefined) ?? "ARS",
+      cotizacion:
+        paymentOrder?.paymentOrder.cotizacion != null
+          ? String(Number(paymentOrder.paymentOrder.cotizacion))
+          : "",
       supplier: initialSupplier ?? null,
       notes: paymentOrder?.paymentOrder.notes ?? "",
       paymentLines: initialPaymentLines,
@@ -193,6 +202,8 @@ export function PaymentOrderForm({
   const channelId = useWatch({ control: form.control, name: "channelId" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const supplier = useWatch({ control: form.control, name: "supplier" });
+  const paymentDate = useWatch({ control: form.control, name: "paymentDate" });
+  const cotizacion = useWatch({ control: form.control, name: "cotizacion" });
   const paymentLines = useWatch({
     control: form.control,
     name: "paymentLines",
@@ -203,6 +214,13 @@ export function PaymentOrderForm({
     mode === "create" ? channelId : null,
   );
   const isFirst = nextNumero.isFirst;
+  const isUsd = currency === "USD";
+  const usdRate = usePaymentOrderUsdRate(paymentDate, isUsd);
+  const setCotizacion = useCallback(
+    (next: string) => form.setValue("cotizacion", next),
+    [form],
+  );
+  useUsdRatePrefill(usdRate.data?.rate, cotizacion, setCotizacion);
 
   // In edit mode we also fetch the on-hand checks in case the user wants to
   // endorse a new one on top of the ones the OP already had.
@@ -265,6 +283,12 @@ export function PaymentOrderForm({
     const numeroParsed = Number.parseInt(values.numero, 10);
     if (!Number.isFinite(numeroParsed) || numeroParsed < 1) {
       toast.error("Número inválido.");
+      return;
+    }
+
+    const rate = values.currency === "USD" ? Number(values.cotizacion) : null;
+    if (rate !== null && !(rate > 1)) {
+      form.setError("cotizacion", { message: USD_RATE_REQUIRED_MESSAGE });
       return;
     }
 
@@ -352,6 +376,7 @@ export function PaymentOrderForm({
           payment_date: values.paymentDate,
           total_amount: totalAmount,
           currency: values.currency,
+          cotizacion: rate,
           notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
@@ -372,6 +397,7 @@ export function PaymentOrderForm({
           id: paymentOrder.paymentOrder.id,
           payment_date: values.paymentDate,
           total_amount: totalAmount,
+          cotizacion: rate,
           notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
@@ -486,6 +512,14 @@ export function PaymentOrderForm({
             )}
           />
         </div>
+
+        {isUsd && (
+          <UsdRateField
+            control={form.control}
+            name="cotizacion"
+            noLoadedRate={usdRate.isSuccess && usdRate.data === null}
+          />
+        )}
 
         {mode === "create" && isFirst && (
           <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">

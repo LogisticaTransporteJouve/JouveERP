@@ -23,6 +23,7 @@ import {
   createReceiptAction,
   getNextReceiptNumeroAction,
   getReceiptByIdAction,
+  getReceiptUsdRateAction,
   listPendingComprobantesForClientAction,
   listReceiptsAction,
   updateReceiptAction,
@@ -101,6 +102,15 @@ export function useNextReceiptNumero(channelId: string | null) {
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
   };
+}
+
+/** Loaded USD rate for `date` (null: none loaded), fetched only when enabled. */
+export function useReceiptUsdRate(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: receiptsKeys.usdRate(date),
+    queryFn: () => runAction(() => getReceiptUsdRateAction(date)),
+    enabled,
+  });
 }
 
 // Mutations -----------------------------------------------------------------

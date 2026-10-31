@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { UsdRateField } from "@/components/usd-rate-field";
+import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
 import {
   ClientPicker,
   type PickedClient,
@@ -39,12 +41,14 @@ import {
   sumArAmountsBy,
   todayInAR,
 } from "@/lib/format";
+import { USD_RATE_REQUIRED_MESSAGE } from "@/lib/validation/common";
 
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
   useCreateReceipt,
   useNextReceiptNumero,
+  useReceiptUsdRate,
   useUpdateReceipt,
 } from "../hooks/use-receipts";
 import {
@@ -81,6 +85,7 @@ const FormSchema = z.object({
   numero: z.string().regex(/^\d+$/, "Número inválido."),
   receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   currency: z.enum(RECEIPT_CURRENCIES),
+  cotizacion: z.string(),
   client: z.custom<PickedClient>().nullable(),
   notes: z.string().trim().max(500),
   paymentLines: z.custom<PaymentLineDraft[]>(),
@@ -161,6 +166,10 @@ export function ReceiptForm({
       receiptDate: receipt?.receipt.receipt_date ?? todayInAR(),
       currency:
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
+      cotizacion:
+        receipt?.receipt.cotizacion != null
+          ? String(Number(receipt.receipt.cotizacion))
+          : "",
       client: initialClient ?? null,
       notes: receipt?.receipt.notes ?? "",
       paymentLines: initialPaymentLines,
@@ -173,6 +182,7 @@ export function ReceiptForm({
   const receiptDate = useWatch({ control: form.control, name: "receiptDate" });
   const currency = useWatch({ control: form.control, name: "currency" });
   const client = useWatch({ control: form.control, name: "client" });
+  const cotizacion = useWatch({ control: form.control, name: "cotizacion" });
   const paymentLines = useWatch({
     control: form.control,
     name: "paymentLines",
@@ -181,6 +191,13 @@ export function ReceiptForm({
   const retentions = useWatch({ control: form.control, name: "retentions" });
 
   const nextNumero = useNextReceiptNumero(mode === "create" ? channelId : null);
+  const isUsd = currency === "USD";
+  const usdRate = useReceiptUsdRate(receiptDate, isUsd);
+  const setCotizacion = useCallback(
+    (next: string) => form.setValue("cotizacion", next),
+    [form],
+  );
+  useUsdRatePrefill(usdRate.data?.rate, cotizacion, setCotizacion);
   const isFirst = nextNumero.isFirst;
 
   // Pre-load the picked client when editing.
@@ -241,6 +258,12 @@ export function ReceiptForm({
     const numeroParsed = Number.parseInt(values.numero, 10);
     if (!Number.isFinite(numeroParsed) || numeroParsed < 1) {
       toast.error("Número inválido.");
+      return;
+    }
+
+    const rate = values.currency === "USD" ? Number(values.cotizacion) : null;
+    if (rate !== null && !(rate > 1)) {
+      form.setError("cotizacion", { message: USD_RATE_REQUIRED_MESSAGE });
       return;
     }
 
@@ -306,6 +329,7 @@ export function ReceiptForm({
           receipt_date: values.receiptDate,
           total_amount: totalAmount,
           currency: values.currency,
+          cotizacion: rate,
           notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
@@ -327,6 +351,7 @@ export function ReceiptForm({
           id: receipt.receipt.id,
           receipt_date: values.receiptDate,
           total_amount: totalAmount,
+          cotizacion: rate,
           notes: values.notes,
           payment_lines: lines,
           allocations: allocs,
@@ -441,6 +466,14 @@ export function ReceiptForm({
             )}
           />
         </div>
+
+        {isUsd && (
+          <UsdRateField
+            control={form.control}
+            name="cotizacion"
+            noLoadedRate={usdRate.isSuccess && usdRate.data === null}
+          />
+        )}
 
         {mode === "create" && isFirst && (
           <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">

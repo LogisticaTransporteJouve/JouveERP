@@ -23,6 +23,7 @@ import {
   createPaymentOrderAction,
   getNextPaymentOrderNumeroAction,
   getPaymentOrderByIdAction,
+  getPaymentOrderUsdRateAction,
   listPaymentOrdersAction,
   listPendingInvoicesForSupplierAction,
   updatePaymentOrderAction,
@@ -90,6 +91,15 @@ export function useNextPaymentOrderNumero(channelId: string | null) {
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
   };
+}
+
+/** Loaded USD rate for `date` (null: none loaded), fetched only when enabled. */
+export function usePaymentOrderUsdRate(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: paymentOrdersKeys.usdRate(date),
+    queryFn: () => runAction(() => getPaymentOrderUsdRateAction(date)),
+    enabled,
+  });
 }
 
 /** A payment order moves cash, settles purchase invoices (supplier account

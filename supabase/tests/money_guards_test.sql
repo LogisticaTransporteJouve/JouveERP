@@ -134,9 +134,9 @@ values
   ('00000000-0000-0000-0000-0000000073a3', 'jouve_internal', '00000000-0000-0000-0000-00000000b701',
    'nc', 1, 7303, current_date, 400, 400, 'PES', 1, 'received', '00000000-0000-0000-0000-0000000073a2');
 
-insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency) values
-  ('00000000-0000-0000-0000-0000000074a1', 'jouve_internal', 1, 7401, '00000000-0000-0000-0000-00000000b701', current_date, 1000, 'ARS'),
-  ('00000000-0000-0000-0000-0000000074a2', 'jouve_internal', 1, 7402, '00000000-0000-0000-0000-00000000b701', current_date, 10, 'USD');
+insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion) values
+  ('00000000-0000-0000-0000-0000000074a1', 'jouve_internal', 1, 7401, '00000000-0000-0000-0000-00000000b701', current_date, 1000, 'ARS', null),
+  ('00000000-0000-0000-0000-0000000074a2', 'jouve_internal', 1, 7402, '00000000-0000-0000-0000-00000000b701', current_date, 10, 'USD', 1000);
 
 select throws_ok(
   $$insert into public.payment_order_allocations (payment_order_id, purchase_invoice_id, amount_applied)
