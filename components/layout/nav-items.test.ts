@@ -14,6 +14,14 @@ describe("navItemForPath", () => {
     expect(navItemForPath("/aging-suppliers")?.label).toBe("Aging proveedores");
   });
 
+  it("resolves a sales page to the current scope's section", () => {
+    const fiscal = navItemForPath("/invoices/abc", "fiscal")!;
+    const internal = navItemForPath("/invoices/abc", "internal")!;
+    expect(navSectionForItem(fiscal)?.label).toBe("Ventas");
+    expect(navSectionForItem(internal)?.label).toBe("Otras ventas");
+    expect(navSectionForItem(navItemForPath("/aging")!)?.label).toBe("Ventas");
+  });
+
   it("returns undefined for unknown routes", () => {
     expect(navItemForPath("/nope")).toBeUndefined();
   });

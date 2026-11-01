@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useScope } from "@/components/providers/scope-provider";
 import {
   Collapsible,
   CollapsibleContent,
@@ -45,17 +46,18 @@ const ACTIVE_ITEM =
 
 function NavLink({
   item,
-  activeHref,
+  activeItem,
   badge = 0,
   primary = false,
 }: {
   item: NavItem;
-  activeHref: string | undefined;
+  activeItem: NavItem | undefined;
   badge?: number;
   primary?: boolean;
 }) {
   const { setOpenMobile } = useSidebar();
-  const isActive = item.href === activeHref;
+  const { fiscalFilter, setFiscalFilter } = useScope();
+  const isActive = item === activeItem;
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -67,7 +69,12 @@ function NavLink({
         <Link
           href={item.href}
           aria-current={isActive ? "page" : undefined}
-          onClick={() => setOpenMobile(false)}
+          onClick={() => {
+            setOpenMobile(false);
+            if (item.scope && item.scope !== fiscalFilter) {
+              setFiscalFilter(item.scope);
+            }
+          }}
         >
           <item.icon />
           <span className={cn("truncate", isActive && "font-semibold")}>
@@ -99,7 +106,8 @@ export function AppSidebar({
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const chatUnread = useChatUnreadCountLite();
-  const activeHref = navItemForPath(pathname)?.href;
+  const { fiscalFilter } = useScope();
+  const activeItem = navItemForPath(pathname, fiscalFilter);
   const sections = visibleSections(userAccess);
 
   return (
@@ -128,7 +136,7 @@ export function AppSidebar({
               <SidebarMenu>
                 <NavLink
                   item={ASSISTANT_ITEM}
-                  activeHref={activeHref}
+                  activeItem={activeItem}
                   primary
                 />
               </SidebarMenu>
@@ -137,9 +145,7 @@ export function AppSidebar({
           {sections.map((section, index) => (
             <Collapsible
               key={section.label}
-              defaultOpen={section.items.some(
-                (item) => item.href === activeHref,
-              )}
+              defaultOpen={section.items.some((item) => item === activeItem)}
               className="group/collapsible"
             >
               <SidebarGroup className={cn(index > 0 && "pt-0")}>
@@ -156,7 +162,7 @@ export function AppSidebar({
                         <NavLink
                           key={item.href}
                           item={item}
-                          activeHref={activeHref}
+                          activeItem={activeItem}
                           badge={item.href === "/chat" ? chatUnread : 0}
                         />
                       ))}

@@ -46,24 +46,63 @@ import {
 
 import {
   CLIENT_AGING_PERMISSIONS,
+  isFiscalOnly,
   SUPPLIER_AGING_PERMISSIONS,
   TREASURY_PERMISSIONS,
   userCanAll,
   type Access,
   type Permission,
 } from "@/lib/auth/permissions";
+import type { FiscalFilter } from "@/lib/scope";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   permission?: Permission | readonly Permission[];
+  /** Opening the item switches the header scope to this one. */
+  scope?: Exclude<FiscalFilter, "all">;
 };
 
 export type NavSection = {
   label: string;
   items: NavItem[];
 };
+
+// The same sales pages, once per scope: "Ventas" opens them fiscal and
+// "Otras ventas" internal.
+function salesItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
+  return [
+    {
+      href: "/clients",
+      label: "Clientes",
+      icon: Users,
+      permission: "clients:read",
+      scope,
+    },
+    {
+      href: "/invoices",
+      label: "Comprobantes",
+      icon: ReceiptText,
+      permission: "invoices:read",
+      scope,
+    },
+    {
+      href: "/receipts",
+      label: "Recibos",
+      icon: ScrollText,
+      permission: "receipts:read",
+      scope,
+    },
+    {
+      href: "/aging",
+      label: "Aging clientes",
+      icon: AlertTriangle,
+      permission: CLIENT_AGING_PERMISSIONS,
+      scope,
+    },
+  ];
+}
 
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
@@ -96,35 +135,8 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       },
     ],
   },
-  {
-    label: "Ventas",
-    items: [
-      {
-        href: "/clients",
-        label: "Clientes",
-        icon: Users,
-        permission: "clients:read",
-      },
-      {
-        href: "/invoices",
-        label: "Comprobantes",
-        icon: ReceiptText,
-        permission: "invoices:read",
-      },
-      {
-        href: "/receipts",
-        label: "Recibos",
-        icon: ScrollText,
-        permission: "receipts:read",
-      },
-      {
-        href: "/aging",
-        label: "Aging clientes",
-        icon: AlertTriangle,
-        permission: CLIENT_AGING_PERMISSIONS,
-      },
-    ],
-  },
+  { label: "Ventas", items: salesItems("fiscal") },
+  { label: "Otras ventas", items: salesItems("internal") },
   {
     label: "Compras",
     items: [
@@ -446,6 +458,8 @@ const ALL_ITEMS = [
 ];
 
 export function canSee(access: Access, item: NavItem): boolean {
+  // A fiscal-only user is pinned to the fiscal scope.
+  if (item.scope === "internal" && isFiscalOnly(access)) return false;
   return !item.permission || userCanAll(access, item.permission);
 }
 
@@ -457,13 +471,25 @@ export function visibleSections(access: Access): NavSection[] {
 }
 
 // The deepest item whose href is the path or one of its ancestors, so
-// /suppliers/categories picks "Categorías" and not "Proveedores".
-export function navItemForPath(pathname: string): NavItem | undefined {
+// /suppliers/categories picks "Categorías" and not "Proveedores". A sales page
+// listed under both scopes resolves to the current scope's entry ("Ventas"
+// under "all").
+export function navItemForPath(
+  pathname: string,
+  scope: FiscalFilter = "all",
+): NavItem | undefined {
   let best: NavItem | undefined;
   for (const item of ALL_ITEMS) {
     const matches =
       pathname === item.href || pathname.startsWith(`${item.href}/`);
-    if (matches && (!best || item.href.length > best.href.length)) best = item;
+    if (!matches) continue;
+    if (
+      !best ||
+      item.href.length > best.href.length ||
+      (item.href === best.href && item.scope === scope)
+    ) {
+      best = item;
+    }
   }
   return best;
 }
