@@ -27,6 +27,12 @@ export type CitiExport = {
 
 const CRLF = "\r\n";
 
+/** DocTipo 99: "Sin identificar / venta global diaria". */
+const DOC_SIN_IDENTIFICAR = 99;
+
+/** Rounding slack when checking that a total adds up (1 cent per field). */
+const TOTAL_TOLERANCE = 0.05;
+
 /** iva_rate_id (AFIP) → percent, for inferring the rate of header-only rows. */
 const RATE_PCT: Record<number, number> = {
   3: 0,
@@ -215,6 +221,18 @@ export function buildVentasTxt(
     if (currency.warning) warnings.push(`Venta ${label}: ${currency.warning}.`);
     const { moneda, rate: cotiz } = currency;
     const ivaTotal = alicuotas.reduce((s, a) => s + a.iva, 0);
+    // Spec campo 6/7/8: code 99 is an unidentified consumidor final, number 0.
+    const unidentified = doc.doc_tipo === DOC_SIN_IDENTIFICAR;
+    const parts =
+      orig.imp_tot_conc +
+      orig.imp_op_ex +
+      orig.imp_trib +
+      alicuotas.reduce((s, a) => s + a.neto + a.iva, 0);
+    if (Math.abs(orig.imp_total - parts) > TOTAL_TOLERANCE) {
+      warnings.push(
+        `Venta ${label}: el total (${orig.imp_total.toFixed(2)}) no es la suma de sus partes (${parts.toFixed(2)}); ARCA lo va a rechazar.`,
+      );
+    }
     const codOperacion =
       ivaTotal === 0
         ? orig.imp_op_ex > 0
@@ -231,8 +249,8 @@ export function buildVentasTxt(
         num(doc.numero, 20) +
         num(doc.numero, 20) +
         num(doc.doc_tipo, 2) +
-        docDigits(doc.doc_nro, 20) +
-        text(doc.client_legal_name, 30) +
+        (unidentified ? num(0, 20) : docDigits(doc.doc_nro, 20)) +
+        text(unidentified ? "CONSUMIDOR FINAL" : doc.client_legal_name, 30) +
         amount(orig.imp_total) +
         amount(orig.imp_tot_conc) +
         amount(0) +
@@ -324,6 +342,17 @@ export function buildComprasTxt(
       alicuotas = resolved;
     }
     const ivaComputable = alicuotas.reduce((s, a) => s + a.iva, 0);
+    // Spec campo 20: an A voucher whose only alícuota is 0% is exempt.
+    const codOperacion = discriminated && ivaComputable === 0 ? "E" : "0";
+    if (discriminated) {
+      const parts =
+        doc.orig.imp_trib + alicuotas.reduce((s, a) => s + a.neto + a.iva, 0);
+      if (Math.abs(doc.orig.imp_total - parts) > TOTAL_TOLERANCE) {
+        warnings.push(
+          `Compra ${label}: el total (${doc.orig.imp_total.toFixed(2)}) no es la suma de sus partes (${parts.toFixed(2)}); ARCA lo va a rechazar.`,
+        );
+      }
+    }
     const currency = resolveCurrency(doc.moneda, doc.cotizacion);
     if (!currency.ok) {
       warnings.push(`Compra ${label}: ${currency.reason} — excluida.`);
@@ -354,7 +383,7 @@ export function buildComprasTxt(
         text(moneda, 3) +
         exchangeRate(cotiz) +
         num(alicuotas.length, 1) +
-        "0" +
+        codOperacion +
         amount(ivaComputable) +
         amount(doc.orig.imp_trib) +
         num(0, 11) +

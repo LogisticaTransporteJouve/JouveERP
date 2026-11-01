@@ -44,6 +44,11 @@ export function ExportTxtButton({
           for (const f of data.files) download(f.name, f.content);
           toast.success(
             `${data.documents} comprobante(s) exportados en 2 archivos TXT.`,
+            {
+              // The files carry each voucher's own currency and rate.
+              description:
+                "Al importarlos en ARCA elegí “Los importes están expresados en la Moneda Original del Comprobante”.",
+            },
           );
           for (const w of data.warnings) toast.warning(w);
         },

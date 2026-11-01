@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import { renderMarkdown } from "./markdown";
@@ -8,7 +9,9 @@ describe("renderMarkdown", () => {
   });
 
   it("renders bold with **", () => {
-    expect(renderMarkdown("texto **fuerte**")).toContain("<strong>fuerte</strong>");
+    expect(renderMarkdown("texto **fuerte**")).toContain(
+      "<strong>fuerte</strong>",
+    );
   });
 
   it("renders italic with _", () => {
