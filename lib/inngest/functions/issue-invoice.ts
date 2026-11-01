@@ -21,6 +21,7 @@ import {
   INVOICE_ISSUE_REQUESTED,
   InvoiceIssueRequestedSchema,
 } from "../events";
+import { creditBilledRemito } from "./credit-billed-remito";
 import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
@@ -375,6 +376,18 @@ export const issueInvoice = inngest.createFunction(
         return rpcAs<number>(data);
       });
 
+      // A factura billed from a remito interno credits it now that it is
+      // emitted (docs/otras-ventas.md §4).
+      const remitoNcCaea = await step.run("credit-billed-remito-caea", () =>
+        creditBilledRemito(invoice_id),
+      );
+      if (remitoNcCaea) {
+        await step.sendEvent("issue-remito-nc-caea", {
+          name: INVOICE_ISSUE_REQUESTED,
+          data: remitoNcCaea,
+        });
+      }
+
       await step.run("hash-pdf-caea", async () => {
         try {
           const { generateAndPersistInvoicePdfHash } =
@@ -466,6 +479,18 @@ export const issueInvoice = inngest.createFunction(
         .eq("id", invoice_id);
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
+
+    // A factura billed from a remito interno credits it now that it is
+    // emitted (docs/otras-ventas.md §4).
+    const remitoNc = await step.run("credit-billed-remito", () =>
+      creditBilledRemito(invoice_id),
+    );
+    if (remitoNc) {
+      await step.sendEvent("issue-remito-nc", {
+        name: INVOICE_ISSUE_REQUESTED,
+        data: remitoNc,
+      });
+    }
 
     // M.0: PDF hash runs after persist-cae and is best-effort. The PDF
     // is regenerated on-demand from /api/invoices/[id]/pdf; here we only

@@ -208,6 +208,8 @@ export const CreateComprobanteSchema = z
     cotizacion: z.number().positive().default(1),
     motivo_nc_nd: z.string().trim().max(500).nullable().optional(),
     invoice_origin_id: z.string().uuid().nullable().optional(),
+    /** A factura billed from this remito interno (Otras ventas). */
+    source_remito_id: z.string().uuid().nullable().optional(),
     items: z
       .array(ComprobanteItemInputSchema)
       .min(1, "Agregá al menos un ítem"),

@@ -25,6 +25,7 @@ import {
   type InvoiceListItem,
   type InvoiceStatusSnapshot,
 } from "../actions/invoices-actions";
+import { billRemitoAction } from "../actions/bill-remito-actions";
 import { INVOICE_EFFECT_KEYS } from "../lib/invoice-effect-keys";
 import {
   invoiceListActionInput,
@@ -203,6 +204,15 @@ export function useIssueFiscalInvoice() {
       runAction(() => issueFiscalInvoiceAction(input)),
     // Internal invoices are emitted here; fiscal ones may still be queued,
     // and the status poll invalidates again when they settle.
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+  });
+}
+
+export function useBillRemito() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof billRemitoAction>[0]) =>
+      runAction(() => billRemitoAction(input)),
     onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

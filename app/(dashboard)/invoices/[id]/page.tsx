@@ -19,7 +19,9 @@ import {
   type OriginInvoice,
 } from "@/features/invoices/components/issue-nc-nd-dialog";
 import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-pdf-button";
+import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
+import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
 import type { IvaCondition } from "@/features/clients/schema";
 import {
   INTERNAL_CANCELLABLE_STATUSES,
@@ -51,6 +53,10 @@ export default async function ComprobanteDetailPage({
   if (!res.ok) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.access, "invoices:issue");
+  const linksRes = await getRemitoLinksAction(c.id);
+  const links = linksRes.ok
+    ? linksRes.data
+    : { billedAs: null, sourceRemito: null };
   const canCancel =
     userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
@@ -100,6 +106,28 @@ export default async function ComprobanteDetailPage({
           <p className="text-sm text-muted-foreground">
             {c.channel.name} · {c.fecha}
           </p>
+          {links.billedAs && (
+            <p className="text-sm">
+              Facturado en{" "}
+              <a
+                href={`/invoices/${links.billedAs.id}`}
+                className="font-mono underline"
+              >
+                {links.billedAs.label}
+              </a>
+            </p>
+          )}
+          {links.sourceRemito && (
+            <p className="text-sm">
+              Origen: remito interno{" "}
+              <a
+                href={`/invoices/${links.sourceRemito.id}`}
+                className="font-mono underline"
+              >
+                {links.sourceRemito.label}
+              </a>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <InvoiceJobStatus
@@ -122,6 +150,20 @@ export default async function ComprobanteDetailPage({
             <RegeneratePdfButton id={c.id} />
           )}
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
+          {canIssue &&
+            isInternal &&
+            c.kind === "factura" &&
+            c.status === "emitted" &&
+            !links.billedAs && (
+              <BillRemitoDialog
+                remitoId={c.id}
+                remitoLabel={invoiceLabel}
+                items={c.items.map((it) => ({
+                  quantity: Number(it.quantity),
+                  unit_price: Number(it.unit_price),
+                }))}
+              />
+            )}
           {canIssue &&
             c.status === "emitted" &&
             c.kind === "factura" &&

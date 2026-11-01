@@ -436,6 +436,7 @@ export async function issueFiscalInvoiceAction(
     cotizacion,
     status: "draft",
     invoice_origin_id: data.invoice_origin_id ?? null,
+    source_remito_id: data.source_remito_id ?? null,
     motivo_nc_nd: data.motivo_nc_nd ?? null,
     idempotency_key,
     created_by: ctx.userId,
