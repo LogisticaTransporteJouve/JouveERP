@@ -278,7 +278,7 @@ describe("syncIssuedPair", () => {
     expect(db.invoices).toHaveLength(1);
   });
 
-  it("links an NC to its imported origin and skips one without origin", async () => {
+  it("links an NC to its imported origin and stores one without origin unlinked", async () => {
     const db = {
       clients: [] as Row[],
       invoices: [
@@ -306,10 +306,17 @@ describe("syncIssuedPair", () => {
 
     const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
 
-    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 1 });
-    expect(db.invoices.find((r) => r.kind === "nc")).toMatchObject({
-      numero: 1,
+    expect(res).toMatchObject({ imported: 2, unlinked: 1 });
+    expect(db.invoices.find((r) => r.numero === 1)).toMatchObject({
+      kind: "nc",
       invoice_origin_id: "inv-6",
+      origin_unlinked: false,
+    });
+    // Origin on a point of sale the ERP does not import: stored unlinked.
+    expect(db.invoices.find((r) => r.numero === 2)).toMatchObject({
+      kind: "nc",
+      invoice_origin_id: null,
+      origin_unlinked: true,
     });
   });
 
@@ -346,7 +353,7 @@ describe("syncIssuedPair", () => {
 
     const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
 
-    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 0 });
+    expect(res).toMatchObject({ imported: 1, unlinked: 0 });
     expect(res.stopped).toMatch(/espera su comprobante de origen \(50\)/);
     expect(
       db.invoices.filter((r) => r.kind === "nc").map((r) => r.numero),
@@ -503,7 +510,7 @@ describe("NC without CbtesAsoc", () => {
 
     const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
 
-    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 0 });
+    expect(res).toMatchObject({ imported: 1, unlinked: 0 });
     expect(db.invoices.find((r) => r.numero === 610)).toMatchObject({
       kind: "nc",
       invoice_origin_id: "fa-15538",
