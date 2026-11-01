@@ -20,7 +20,8 @@ import {
  * "Reintentar acreditación" on the factura when a run failed.
  *
  * Idempotent: the NC's idempotency key is the factura's id, so a rerun finds
- * the NC it already drafted, and the issue event dedupes on that key.
+ * the NC it already drafted. The issue event is keyed per run, so an NC that
+ * failed can be issued again.
  */
 export const creditBilledRemito = inngest.createFunction(
   {

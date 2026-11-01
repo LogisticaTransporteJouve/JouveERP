@@ -159,14 +159,21 @@ begin
     return new;
   end if;
 
-  -- The settlement's own NC is the one change allowed. (Nested: plpgsql does
-  -- not short-circuit, and only invoices has idempotency_key.)
+  -- The settlement's own NC is the one change allowed: settle_billed_remito
+  -- marks its transaction (a key or any column of the row could be chosen by
+  -- whoever drafts an NC).
   if tg_table_name = 'invoices' and tg_op = 'INSERT' then
-    if new.idempotency_key::text = v_factura::text then
+    if current_setting('jouve.settling_remito', true) = v_remito_id::text then
       return new;
     end if;
   end if;
 
+  if tg_table_name = 'invoices' and tg_op = 'UPDATE' then
+    if new.kind = 'nc' then
+      raise exception 'Esta nota de crédito acredita un remito facturado en Ventas: no se puede anular mientras la factura esté vigente.'
+        using errcode = '23514', hint = 'jouve_guard';
+    end if;
+  end if;
   raise exception 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.'
     using errcode = '23514', hint = 'jouve_guard';
 end;
@@ -218,6 +225,7 @@ declare
   v_open    numeric;
   v_motivo  text;
   v_nc_id   uuid;
+  v_existing record;
 begin
   select i.id, i.client_id, i.channel_id, i.source_remito_id, i.status,
          i.letter, i.punto_venta, i.numero, i.created_by
@@ -233,10 +241,18 @@ begin
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
-  select n.id into v_nc_id
+  -- Only this function can draft an NC on a frozen remito, so an NC of the
+  -- remito holding the factura's key is the settlement's own.
+  select n.id, n.kind, n.invoice_origin_id into v_existing
   from public.invoices n
   where n.idempotency_key::text = p_factura_id::text;
-  if v_nc_id is not null then
+  if v_existing is not null then
+    if v_existing.kind <> 'nc'
+       or v_existing.invoice_origin_id is distinct from v_factura.source_remito_id then
+      raise exception 'Otro comprobante usa la clave de esta acreditación: revisalo antes de reintentar.'
+        using errcode = '23514', hint = 'jouve_guard';
+    end if;
+    v_nc_id := v_existing.id;
     update public.invoices
     set status = 'draft'
     where id = v_nc_id and status = 'failed';
@@ -339,6 +355,7 @@ begin
     || lpad(v_factura.punto_venta::text, 4, '0') || '-'
     || lpad(coalesce(v_factura.numero, 0)::text, 8, '0');
 
+  perform set_config('jouve.settling_remito', v_remito.id::text, true);
   insert into public.invoices (
     channel_id, client_id, kind, letter, punto_venta, fecha, concepto,
     doc_tipo, doc_nro, iva_condition_receptor, imp_neto, imp_iva, imp_trib,
@@ -352,6 +369,7 @@ begin
     v_remito.id, v_motivo, p_factura_id, v_factura.created_by
   )
   returning id into v_nc_id;
+  perform set_config('jouve.settling_remito', '', true);
 
   insert into public.invoice_items (
     invoice_id, sort_order, description, quantity, unit_price, iva_rate_id,

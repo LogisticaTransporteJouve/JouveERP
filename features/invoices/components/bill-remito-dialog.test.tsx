@@ -202,6 +202,31 @@ describe("BillRemitoDialog — point of sale", () => {
     if (message) expect(screen.getByText(message)).toBeTruthy();
   });
 
+  it("says it is loading the POS while the query is pending, then stops", () => {
+    setPos({ isPending: true, isError: false });
+    open();
+    expect(screen.getByText("Cargando puntos de venta…")).toBeTruthy();
+    expect(submitButton().disabled).toBe(true);
+
+    setPos({
+      isPending: false,
+      isError: false,
+      data: [{ numero: 3, channel_id: "jouve_fiscal", nickname: null }],
+    });
+    fireEvent.click(screen.getByText("pick-client"));
+    expect(screen.queryByText("Cargando puntos de venta…")).toBeNull();
+    expect(submitButton().disabled).toBe(false);
+  });
+
+  it("with no usable fiscal channel, a pending (disabled) query shows the channel message, not loading", () => {
+    setPos({ isPending: true, isError: false });
+    open([INTERNAL]);
+    expect(
+      screen.getByText("Configurá un único canal fiscal activo para facturar."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Cargando puntos de venta…")).toBeNull();
+  });
+
   it.each([
     ["no fiscal channel", [INTERNAL]],
     [

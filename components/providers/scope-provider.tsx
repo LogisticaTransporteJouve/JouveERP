@@ -101,8 +101,13 @@ export function ScopeProvider({
       persist(filter);
       if (opts?.navigating) {
         // Batched with the navigation: the page being left does not remount
-        // (SideKeyed) and refetch under the new side first.
-        startTransition(() => setFiscalFilterState(filter));
+        // (SideKeyed) and refetch under the new side first. The refresh is
+        // superseded by the navigation but still drops the router's cached
+        // pages, so Back renders them under the new side too.
+        startTransition(() => {
+          setFiscalFilterState(filter);
+          router.refresh();
+        });
         return;
       }
       setFiscalFilterState(filter);

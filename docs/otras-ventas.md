@@ -87,14 +87,17 @@ Botón **Facturar** en un remito interno emitido:
    y crea la **nota de crédito interna** por lo que el remito tenga abierto, con
    motivo "Facturado como A0003-…"; después la emite del lado interno.
 4. Mientras la factura está viva, el remito queda **congelado**: no admite
-   cobros, ajustes de saldo, NC ni anulación (`guard_billed_remito_frozen`).
-5. Si la acreditación falla, la factura muestra "El remito todavía no se
-   acreditó" y el botón **Reintentar acreditación**.
+   cobros, ajustes de saldo, NC ni anulación, y la NC de la acreditación no se
+   puede anular (`guard_billed_remito_frozen`).
+5. Mientras corre, la factura muestra "Acreditando…". Si la acreditación
+   falla o queda trabada, muestra "El remito todavía no se acreditó" y el
+   botón **Reintentar acreditación**.
 
 Qué impide facturar (`billed_remito_blocker`, se revisa al crear la factura y
 otra vez al acreditar): una NC previa, un ajuste de saldo aplicado, o un recibo
-interno que no se pueda pasar entero (paga otros comprobantes, tiene cheques o
-retenciones, está en otra moneda o en un período contable cerrado).
+interno que no se pueda pasar entero (paga otros comprobantes o un cheque
+rechazado, tiene saldo a cuenta, cheques o retenciones, está en otra moneda o
+en un período contable cerrado).
 
 ### 5. Remito ya cobrado
 

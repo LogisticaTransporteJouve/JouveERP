@@ -178,15 +178,19 @@ function creditStateOf(
     emitted_at: string | null;
     source_remito_id: string | null;
   } | null,
-  nc: { status: string } | null,
+  nc: { status: string; created_at: string | null } | null,
 ): RemitoLinks["creditState"] {
   if (!factura?.source_remito_id || factura.status !== "emitted") {
     return "settled";
   }
   if (nc?.status === "emitted") return "settled";
-  if (nc?.status === "draft" || nc?.status === "emitting") return "running";
-  const emittedAt = factura.emitted_at ? Date.parse(factura.emitted_at) : 0;
-  return Date.now() - emittedAt < SETTLE_WINDOW_MS ? "running" : "pending";
+  if (nc?.status === "emitting") return "running";
+  if (nc?.status === "failed") return "pending";
+  // A draft NC is waiting for its issue run; the job gives up after a few
+  // minutes, so an old one is as stuck as a missing one.
+  const since = nc?.status === "draft" ? nc.created_at : factura.emitted_at;
+  const startedAt = since ? Date.parse(since) : 0;
+  return Date.now() - startedAt < SETTLE_WINDOW_MS ? "running" : "pending";
 }
 
 export async function getRemitoLinksAction(
@@ -214,7 +218,7 @@ export async function getRemitoLinksAction(
     supabase.from("invoices").select(cols).eq("id", id.data).maybeSingle(),
     supabase
       .from("invoices")
-      .select("id, status")
+      .select("id, status, created_at")
       .eq("idempotency_key", id.data)
       .maybeSingle(),
   ]);
@@ -310,17 +314,26 @@ export async function retryRemitoCreditAction(
         "Solo una factura emitida que facturó un remito se puede acreditar.",
     };
   }
-  // A refusal the settlement would hit again: say it instead of re-queueing.
-  // (The settlement's own NC, failed or pending, is what the retry fixes.)
-  const blocker = await supabase.rpc("billed_remito_blocker", {
-    p_remito_id: data.source_remito_id,
-  });
-  if (blocker.error) {
-    logger.error("bill_remito.blocker_failed", { error: blocker.error });
+  // Once the settlement drafted its NC, the retry only re-issues it. Before
+  // that, a refusal the settlement would hit again is said, not re-queued.
+  const ownNc = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("idempotency_key", data.id)
+    .maybeSingle();
+  if (ownNc.error) {
+    logger.error("bill_remito.blocker_failed", { error: ownNc.error });
     return { ok: false, error: "No se pudo verificar el remito." };
   }
-  if (blocker.data && !blocker.data.startsWith("El remito ya tiene una nota")) {
-    return { ok: false, error: blocker.data };
+  if (!ownNc.data) {
+    const blocker = await supabase.rpc("billed_remito_blocker", {
+      p_remito_id: data.source_remito_id,
+    });
+    if (blocker.error) {
+      logger.error("bill_remito.blocker_failed", { error: blocker.error });
+      return { ok: false, error: "No se pudo verificar el remito." };
+    }
+    if (blocker.data) return { ok: false, error: blocker.data };
   }
   try {
     await inngest.send({

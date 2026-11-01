@@ -201,6 +201,12 @@ describe("SideKeyed", () => {
         <button type="button" onClick={() => setFiscalFilter("fiscal")}>
           to-fiscal
         </button>
+        <button
+          type="button"
+          onClick={() => setFiscalFilter("internal", { navigating: true })}
+        >
+          nav-internal
+        </button>
       </>
     );
   }
@@ -232,6 +238,19 @@ describe("SideKeyed", () => {
     fireEvent.click(screen.getByText("to-internal"));
     expect(screen.getByText("count 0")).toBeTruthy();
     expect(mounts).toBe(2);
+  });
+
+  it("a navigating switch remounts under the new side", () => {
+    render(<Tree />);
+    fireEvent.click(screen.getByText("count 0"));
+    expect(mounts).toBe(1);
+
+    act(() => {
+      fireEvent.click(screen.getByText("nav-internal"));
+    });
+    expect(screen.getByText("count 0")).toBeTruthy();
+    expect(mounts).toBe(2);
+    expect(h.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the page mounted when the same side is chosen again", () => {

@@ -202,6 +202,16 @@ describe("getRemitoLinksAction — creditState", () => {
     expect(res.ok && res.data.creditState).toBe("pending");
   });
 
+  it("is pending when the settlement NC failed right after the CAE", async () => {
+    h.byId[FACTURA] = {
+      ...factura("emitted"),
+      emitted_at: new Date().toISOString(),
+    };
+    h.ncByKey[FACTURA] = { id: NC, status: "failed" };
+    const res = await getRemitoLinksAction(FACTURA);
+    expect(res.ok && res.data.creditState).toBe("pending");
+  });
+
   it("looks for the NC by the factura id as idempotency key, any status", async () => {
     await getRemitoLinksAction(FACTURA);
     const ncQuery = fake.calls.find(
@@ -217,10 +227,27 @@ describe("getRemitoLinksAction — creditState", () => {
     expect(res.ok && res.data.creditState).toBe("settled");
   });
 
-  it("is running while the settlement NC is drafted or emitting", async () => {
-    h.ncByKey[FACTURA] = { id: NC, status: "draft" };
-    const res = await getRemitoLinksAction(FACTURA);
+  it("is running while the settlement NC is freshly drafted or emitting", async () => {
+    h.ncByKey[FACTURA] = {
+      id: NC,
+      status: "draft",
+      created_at: new Date().toISOString(),
+    };
+    let res = await getRemitoLinksAction(FACTURA);
     expect(res.ok && res.data.creditState).toBe("running");
+    h.ncByKey[FACTURA] = { id: NC, status: "emitting", created_at: null };
+    res = await getRemitoLinksAction(FACTURA);
+    expect(res.ok && res.data.creditState).toBe("running");
+  });
+
+  it("is pending when the settlement NC sat in draft past the window", async () => {
+    h.ncByKey[FACTURA] = {
+      id: NC,
+      status: "draft",
+      created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    };
+    const res = await getRemitoLinksAction(FACTURA);
+    expect(res.ok && res.data.creditState).toBe("pending");
   });
 
   it.each(["draft", "emitting", "failed"])(

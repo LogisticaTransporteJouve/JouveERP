@@ -122,11 +122,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NavLink side switch", () => {
-  it("a plain click to another page switches the side without refreshing the page left", () => {
+  it("a plain click to another page switches the side inside the navigation's transition", () => {
     renderSidebar("fiscal");
     fireEvent.click(otrasVentasComprobantes(), { button: 0 });
     expect(side()).toBe("internal");
-    expect(h.refresh).not.toHaveBeenCalled();
+    // Superseded by the navigation; it only drops the router's cached pages.
+    expect(h.refresh).toHaveBeenCalledTimes(1);
     expect(h.setOpenMobile).toHaveBeenCalledWith(false);
   });
 

@@ -174,3 +174,56 @@ describe("usePageIsFiscal / useSideChannels", () => {
     expect(result.current).toEqual([{ id: "jouve_fiscal" }]);
   });
 });
+
+describe("setFiscalFilter while navigating", () => {
+  const cookieFor = (side: ScopeSide) =>
+    `${SCOPE_COOKIE}=${encodeURIComponent(serializeFiscalFilter(side))}`;
+
+  it("persists the cookie and storage before the state flips and the router cache is dropped", () => {
+    const { result } = renderHook(() => useScope(), {
+      wrapper: wrapper({ initial: "fiscal" }),
+    });
+    act(() => {
+      result.current.setFiscalFilter("internal", { navigating: true });
+      // Written synchronously, so the link's RSC request carries the new side.
+      expect(document.cookie).toContain(cookieFor("internal"));
+      expect(window.localStorage.getItem("jouve_scope_v1")).toBe(
+        serializeFiscalFilter("internal"),
+      );
+    });
+    expect(result.current.fiscalFilter).toBe("internal");
+    expect(h.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("without navigating, writes cookie and storage first, then refreshes once", () => {
+    const seenAtRefresh: string[] = [];
+    h.refresh.mockImplementationOnce(() => {
+      seenAtRefresh.push(document.cookie);
+      seenAtRefresh.push(window.localStorage.getItem("jouve_scope_v1") ?? "");
+    });
+    const { result } = renderHook(() => useScope(), {
+      wrapper: wrapper({ initial: "fiscal" }),
+    });
+    act(() => result.current.setFiscalFilter("internal"));
+    expect(h.refresh).toHaveBeenCalledTimes(1);
+    expect(seenAtRefresh[0]).toContain(cookieFor("internal"));
+    expect(seenAtRefresh[1]).toBe(serializeFiscalFilter("internal"));
+    expect(result.current.fiscalFilter).toBe("internal");
+  });
+
+  it.each([{ navigating: true }, { navigating: false }, undefined])(
+    "a locked user ignores the switch (%o): no write, no state, no refresh",
+    (opts) => {
+      const { result } = renderHook(() => useScope(), {
+        wrapper: wrapper({ initial: "fiscal", locked: true }),
+      });
+      act(() => result.current.setFiscalFilter("internal", opts));
+      expect(result.current.fiscalFilter).toBe("fiscal");
+      expect(document.cookie).not.toContain(cookieFor("internal"));
+      expect(window.localStorage.getItem("jouve_scope_v1")).not.toBe(
+        serializeFiscalFilter("internal"),
+      );
+      expect(h.refresh).not.toHaveBeenCalled();
+    },
+  );
+});

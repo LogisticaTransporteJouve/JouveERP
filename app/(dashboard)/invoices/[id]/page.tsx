@@ -63,6 +63,7 @@ export default async function ComprobanteDetailPage({
   const canCancel =
     userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
+    !links?.billedAs &&
     INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
 
   const numeroLabel = formatInvoiceNumero(
