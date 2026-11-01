@@ -37,4 +37,6 @@ export const purchaseInvoicesKeys = {
   items: (id: string) => [...purchaseInvoicesKeys.all, "items", id] as const,
   duplicate: (lookup: PurchaseInvoiceDuplicateLookup) =>
     [...purchaseInvoicesKeys.all, "duplicate", lookup] as const,
+  imputableRemitos: (supplierId: string) =>
+    [...purchaseInvoicesKeys.all, "imputableRemitos", supplierId] as const,
 };

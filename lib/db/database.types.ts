@@ -3747,6 +3747,7 @@ export type Database = {
           imp_neto: number
           imp_total: number
           imp_trib: number
+          imputed_to_id: string | null
           invoice_origin_id: string | null
           kind: string
           letter: string | null
@@ -3777,6 +3778,7 @@ export type Database = {
           imp_neto?: number
           imp_total: number
           imp_trib?: number
+          imputed_to_id?: string | null
           invoice_origin_id?: string | null
           kind: string
           letter?: string | null
@@ -3807,6 +3809,7 @@ export type Database = {
           imp_neto?: number
           imp_total?: number
           imp_trib?: number
+          imputed_to_id?: string | null
           invoice_origin_id?: string | null
           kind?: string
           letter?: string | null
@@ -3847,6 +3850,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cost_centers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_imputed_to_id_fkey"
+            columns: ["imputed_to_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_imputed_to_id_fkey"
+            columns: ["imputed_to_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_imputed_to_id_fkey"
+            columns: ["imputed_to_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
           },
           {
             foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
@@ -6654,6 +6678,14 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      impute_purchase_remitos: {
+        Args: {
+          p_factura_id: string
+          p_remito_ids: string[]
+          p_user_id: string
+        }
+        Returns: string[]
+      }
       invoice_list_totals: {
         Args: {
           p_client_id?: string
@@ -6869,6 +6901,21 @@ export type Database = {
           status: string
           supplier_id: string
         }[]
+      }
+      purchase_remito_blocker: {
+        Args: { p_remito_id: string }
+        Returns: string
+      }
+      purchase_remito_blockers: {
+        Args: { p_remito_ids: string[] }
+        Returns: {
+          blocker: string
+          remito_id: string
+        }[]
+      }
+      purchase_remito_imputed_to: {
+        Args: { p_remito_id: string }
+        Returns: string
       }
       receipt_list_totals: {
         Args: {

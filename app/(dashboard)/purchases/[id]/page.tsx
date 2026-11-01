@@ -11,6 +11,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
+import { getPurchaseImputationsAction } from "@/features/purchase-invoices/actions/impute-remitos-actions";
+import { ImputeRemitosDialog } from "@/features/purchase-invoices/components/impute-remitos-dialog";
 import {
   getPurchaseInvoiceAllocationsAction,
   getPurchaseInvoiceByIdAction,
@@ -46,15 +48,17 @@ export default async function PurchaseInvoiceDetailPage({
   }
 
   const { id } = await params;
-  const [invRes, allocRes, itemsRes] = await Promise.all([
+  const [invRes, allocRes, itemsRes, imputationsRes] = await Promise.all([
     getPurchaseInvoiceByIdAction(id),
     getPurchaseInvoiceAllocationsAction(id),
     getPurchaseInvoiceItemsAction(id),
+    getPurchaseImputationsAction(id),
   ]);
   if (!invRes.ok || !invRes.data) notFound();
   const invoice = invRes.data;
   const allocations = allocRes.ok ? allocRes.data : [];
   const items = itemsRes.ok ? itemsRes.data : [];
+  const imputations = imputationsRes.ok ? imputationsRes.data : null;
 
   const supabase = await createClient();
   const { data: channelRow } = await supabase
@@ -66,11 +70,22 @@ export default async function PurchaseInvoiceDetailPage({
 
   const number = formatInvoiceNumber(invoice);
   const isCancelled = invoice.status === "cancelled";
+  const canImpute =
+    channelRow?.is_fiscal === true &&
+    invoice.kind === "factura" &&
+    invoice.moneda === "PES" &&
+    !isCancelled &&
+    userCan(ctx.access, "purchase_invoices:write") &&
+    userCan(ctx.access, "payment_orders:write");
 
   const paidByActive = allocations
     .filter((a) => a.payment_order_status !== "canceled")
     .reduce((acc, a) => acc + a.amount_applied, 0);
-  const outstanding = Math.max(0, invoice.imp_total - paidByActive);
+  const creditedByImputation = imputations?.imputedTo?.credited ?? 0;
+  const outstanding = Math.max(
+    0,
+    invoice.imp_total - paidByActive - creditedByImputation,
+  );
 
   return (
     <div className="space-y-6">
@@ -113,7 +128,28 @@ export default async function PurchaseInvoiceDetailPage({
               </Badge>
             )}
           </p>
+          {imputations?.imputedTo && (
+            <p className="text-sm text-muted-foreground">
+              Imputado a la factura{" "}
+              <Link
+                href={`/purchases/${imputations.imputedTo.id}`}
+                className="font-mono font-medium text-foreground hover:underline"
+              >
+                {imputations.imputedTo.label}
+              </Link>
+            </p>
+          )}
         </div>
+        {canImpute && (
+          <ImputeRemitosDialog
+            facturaId={invoice.id}
+            facturaLabel={number}
+            available={
+              invoice.imp_total -
+              (imputations?.remitos ?? []).reduce((acc, r) => acc + r.amount, 0)
+            }
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -165,6 +201,12 @@ export default async function PurchaseInvoiceDetailPage({
               emphasize
             />
             <Row label="Pagado" value={money(paidByActive, invoice.moneda)} />
+            {creditedByImputation > 0 && (
+              <Row
+                label="Acreditado"
+                value={money(creditedByImputation, invoice.moneda)}
+              />
+            )}
             <Row label="Saldo" value={money(outstanding, invoice.moneda)} />
           </dl>
         </div>
@@ -297,6 +339,46 @@ export default async function PurchaseInvoiceDetailPage({
             })}
           </dl>
         </div>
+      )}
+
+      {imputations && imputations.remitos.length > 0 && (
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="text-sm font-medium">Remitos internos imputados</h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            {imputations.remitos.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between border-b py-1 last:border-b-0"
+              >
+                <span>
+                  <Link
+                    href={`/purchases/${r.id}`}
+                    className="font-mono font-medium hover:underline"
+                  >
+                    {r.label}
+                  </Link>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    · acreditado con{" "}
+                    <Link
+                      href={`/purchases/${r.nc_id}`}
+                      className="hover:underline"
+                    >
+                      nota de crédito interna
+                    </Link>
+                  </span>
+                </span>
+                <span className="font-mono">
+                  {money(r.amount, invoice.moneda)}
+                </span>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      {!imputationsRes.ok && (
+        <p className="text-sm text-muted-foreground">
+          No se pudieron leer los remitos imputados.
+        </p>
       )}
 
       {invoice.notes && (
