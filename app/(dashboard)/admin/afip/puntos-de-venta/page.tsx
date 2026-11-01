@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import {
   getCaeaStatusAction,
+  listInvoicingChannelsAction,
   loadAfipAdminAction,
 } from "@/features/afip-admin/actions/afip-admin-actions";
 import { CaeaPanel } from "@/features/afip-admin/components/caea-panel";
@@ -32,6 +33,12 @@ export default async function AfipSalesPointsPage() {
     {
       queryKey: afipAdminKeys.caea(),
       queryFn: () => runAction(() => getCaeaStatusAction()),
+    },
+    // The sales points table names each channel; a suspense query left to
+    // the client would call the server action during the server render.
+    {
+      queryKey: afipAdminKeys.channels(),
+      queryFn: () => runAction(() => listInvoicingChannelsAction()),
     },
   ]);
 
