@@ -16,6 +16,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import type { Database } from "@/lib/db/database.types";
 import type { PairReconciliation } from "@/lib/afip/sync-issued";
+import type { ArcaSyncStatus } from "@/lib/afip/sync-runs";
 
 import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
 
@@ -465,6 +466,13 @@ export async function requestArcaSyncAction(): Promise<
     };
   }
 
+  const { getSyncStatus } = await import("@/lib/afip/sync-runs");
+  const status = await getSyncStatus(getServiceClient()).catch(() => null);
+  if (status?.running) {
+    // Already importing: the caller follows that run instead of queuing one.
+    return { ok: true, data: { requestedAt: status.running.startedAt } };
+  }
+
   const requestedAt = new Date().toISOString();
   const { inngest } = await import("@/lib/inngest/client");
   const { ARCA_ISSUED_SYNC_REQUESTED } = await import("@/lib/inngest/events");
@@ -488,25 +496,47 @@ export async function requestArcaSyncAction(): Promise<
   return { ok: true, data: { requestedAt } };
 }
 
-/** How many vouchers the ARCA import stored since `since` (ISO timestamp). */
-export async function countArcaImportedSinceAction(
-  since: string,
-): Promise<ActionResult<number>> {
+export interface ArcaSyncProgress {
+  /** The run in progress and how many vouchers it stored so far. */
+  running: { startedAt: string; imported: number } | null;
+  last: ArcaSyncStatus["last"];
+}
+
+/** Whether an ARCA import is running (any trigger) and its progress. */
+export async function getArcaSyncProgressAction(): Promise<
+  ActionResult<ArcaSyncProgress>
+> {
   const ctx = await requireAfipAdmin();
   if (!ctx) {
     return { ok: false, error: "No tenés permiso para administrar AFIP." };
   }
-  if (Number.isNaN(Date.parse(since))) {
-    return { ok: false, error: "Fecha inválida." };
+  const supabase = getServiceClient();
+  const { getSyncStatus } = await import("@/lib/afip/sync-runs");
+  let status: ArcaSyncStatus;
+  try {
+    status = await getSyncStatus(supabase);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "No se pudo leer el estado.",
+    };
   }
+  if (!status.running)
+    return { ok: true, data: { running: null, last: status.last } };
 
-  const { count, error } = await getServiceClient()
+  const { count, error } = await supabase
     .from("invoices")
     .select("id", { count: "exact", head: true })
     .like("idempotency_key", "arca-sync-%")
-    .gte("created_at", since);
+    .gte("created_at", status.running.startedAt);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: count ?? 0 };
+  return {
+    ok: true,
+    data: {
+      running: { startedAt: status.running.startedAt, imported: count ?? 0 },
+      last: status.last,
+    },
+  };
 }
 
 /** Per point of sale and cbte tipo, what ARCA authorized against what the

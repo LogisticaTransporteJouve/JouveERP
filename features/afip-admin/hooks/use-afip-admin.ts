@@ -19,6 +19,8 @@ import {
   requestCaeaNowAction,
   syncAfipPosAction,
 } from "../actions/afip-admin-actions";
+import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
+
 import { afipAdminKeys } from "../lib/afip-admin-keys";
 
 export function useAfipAdminPanel() {
@@ -54,6 +56,8 @@ export function useConfigurePos() {
       runAction(() => configurePosAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: afipAdminKeys.panel() });
+      // The emission form lists the enabled POS per channel.
+      qc.invalidateQueries({ queryKey: [...invoicesKeys.all, "enabledPos"] });
     },
   });
 }

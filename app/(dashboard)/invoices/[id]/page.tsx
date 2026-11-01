@@ -64,6 +64,8 @@ export default async function ComprobanteDetailPage({
     { whenNullNumero: null },
   );
   const isProvisional = c.numero == null && c.expected_numero != null;
+  // Only A vouchers (and internal ones, which mirror them) itemize IVA.
+  const discriminatesIva = c.letter !== "B" && c.letter !== "C";
   const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${numeroLabel}`;
 
   return (
@@ -248,38 +250,44 @@ export default async function ComprobanteDetailPage({
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm font-mono">
-            <DetailRow
-              label="Neto"
-              value={`$${formatARS(c.imp_neto)}`}
-              monoValue
-            />
-            {c.imp_tot_conc > 0 && (
-              <DetailRow
-                label="No gravado"
-                value={`$${formatARS(c.imp_tot_conc)}`}
-                monoValue
-              />
-            )}
-            {c.imp_op_ex > 0 && (
-              <DetailRow
-                label="Exento"
-                value={`$${formatARS(c.imp_op_ex)}`}
-                monoValue
-              />
-            )}
-            <DetailRow
-              label="IVA"
-              value={`$${formatARS(c.imp_iva)}`}
-              monoValue
-            />
-            {c.imp_trib > 0 && (
-              <DetailRow
-                label="Otros tributos"
-                value={`$${formatARS(c.imp_trib)}`}
-                monoValue
-              />
-            )}
-            <div className="border-t pt-1 mt-1">
+            {discriminatesIva ? (
+              <>
+                <DetailRow
+                  label="Neto"
+                  value={`$${formatARS(c.imp_neto)}`}
+                  monoValue
+                />
+                {c.imp_tot_conc > 0 && (
+                  <DetailRow
+                    label="No gravado"
+                    value={`$${formatARS(c.imp_tot_conc)}`}
+                    monoValue
+                  />
+                )}
+                {c.imp_op_ex > 0 && (
+                  <DetailRow
+                    label="Exento"
+                    value={`$${formatARS(c.imp_op_ex)}`}
+                    monoValue
+                  />
+                )}
+                <DetailRow
+                  label="IVA"
+                  value={`$${formatARS(c.imp_iva)}`}
+                  monoValue
+                />
+                {c.imp_trib > 0 && (
+                  <DetailRow
+                    label="Otros tributos"
+                    value={`$${formatARS(c.imp_trib)}`}
+                    monoValue
+                  />
+                )}
+              </>
+            ) : null}
+            <div
+              className={discriminatesIva ? "border-t pt-1 mt-1" : undefined}
+            >
               <DetailRow
                 label="Total"
                 value={`$${formatARS(c.imp_total)}`}
@@ -287,6 +295,15 @@ export default async function ComprobanteDetailPage({
                 emphasize
               />
             </div>
+            {!discriminatesIva && c.imp_iva > 0 && (
+              // RG 1415: a B voucher does not discriminate IVA; Ley 27.743
+              // asks to inform the IVA it contains, outside the sum.
+              <DetailRow
+                label="IVA contenido (Ley 27.743)"
+                value={`$${formatARS(c.imp_iva)}`}
+                monoValue
+              />
+            )}
           </dl>
         </div>
 

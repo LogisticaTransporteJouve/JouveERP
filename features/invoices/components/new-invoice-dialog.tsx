@@ -548,15 +548,18 @@ function NewInvoiceForm({
                     ))}
                   </SelectContent>
                 </Select>
-                {channelId && !isNote && posOptions.length === 0 && (
-                  <p className="text-xs text-destructive">
-                    Sin POS habilitados — configurá uno en{" "}
-                    <code className="font-mono">
-                      /admin/afip/puntos-de-venta
-                    </code>
-                    .
-                  </p>
-                )}
+                {channelId &&
+                  !isNote &&
+                  posQuery.isSuccess &&
+                  posOptions.length === 0 && (
+                    <p className="text-xs text-destructive">
+                      Sin POS habilitados — configurá uno en{" "}
+                      <code className="font-mono">
+                        /admin/afip/puntos-de-venta
+                      </code>
+                      .
+                    </p>
+                  )}
                 <FormMessage />
               </FormItem>
             )}
