@@ -37,7 +37,9 @@ export function DocumentsTray() {
     scan.mutate(file, {
       onSuccess: () => toast.success("Documento en proceso…"),
       onError: (err) =>
-        toast.error(err instanceof Error ? err.message : "No se pudo escanear."),
+        toast.error(
+          err instanceof Error ? err.message : "No se pudo escanear.",
+        ),
     });
   }
 

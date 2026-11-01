@@ -39,7 +39,10 @@ const ARS = { format: (n: number) => formatMoney(n, "ARS") };
 
 function parseNumber(v: string): number {
   if (v === "") return 0;
-  const cleaned = v.replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
+  const cleaned = v
+    .replace(/[^0-9.,-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
@@ -48,10 +51,11 @@ export function computeLine(draft: PurchaseInvoiceItemDraft) {
   const qty = parseNumber(draft.quantity);
   const price = parseNumber(draft.unit_price);
   const neto = +(qty * price).toFixed(2);
-  const rate = draft.iva_rate_id != null
-    ? PURCHASE_IVA_RATE_PERCENT[draft.iva_rate_id]
-    : 0;
-  const iva = +(neto * rate / 100).toFixed(2);
+  const rate =
+    draft.iva_rate_id != null
+      ? PURCHASE_IVA_RATE_PERCENT[draft.iva_rate_id]
+      : 0;
+  const iva = +((neto * rate) / 100).toFixed(2);
   const total = +(neto + iva).toFixed(2);
   return { line_neto: neto, line_iva: iva, line_total: total };
 }
@@ -160,11 +164,17 @@ export function PurchaseInvoiceItemsEditor({
                   </td>
                   <td className="px-2 py-1">
                     <Select
-                      value={it.iva_rate_id != null ? String(it.iva_rate_id) : "__none"}
+                      value={
+                        it.iva_rate_id != null
+                          ? String(it.iva_rate_id)
+                          : "__none"
+                      }
                       onValueChange={(v) =>
                         updateAt(idx, {
                           iva_rate_id:
-                            v === "__none" ? null : (Number(v) as PurchaseIvaRateId),
+                            v === "__none"
+                              ? null
+                              : (Number(v) as PurchaseIvaRateId),
                         })
                       }
                     >

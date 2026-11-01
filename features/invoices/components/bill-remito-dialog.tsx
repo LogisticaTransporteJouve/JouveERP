@@ -24,21 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { IVA_RATE, type IvaRateId } from "@/lib/afip/codes";
+import { IVA_RATE, type IvaRateId, IVA_RATE_OPTIONS } from "@/lib/afip/codes";
 import { formatNumber2 } from "@/lib/format";
 
 import { useBillRemito, useEnabledPos } from "../hooks/use-invoices";
 import { computeTotals } from "../schema";
 import { ClientPicker, type PickedClient } from "./client-picker";
-
-const RATE_OPTIONS: Array<{ value: IvaRateId; label: string }> = [
-  { value: IVA_RATE.TWENTY_ONE, label: "21%" },
-  { value: IVA_RATE.TEN_FIVE, label: "10.5%" },
-  { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
-  { value: IVA_RATE.FIVE, label: "5%" },
-  { value: IVA_RATE.TWO_FIVE, label: "2.5%" },
-  { value: IVA_RATE.ZERO, label: "0%" },
-];
 
 /**
  * "Facturar" on a remito interno: a fiscal factura to a Ventas client with
@@ -58,13 +49,30 @@ export function BillRemitoDialog({
   const [open, setOpen] = useState(false);
   const [client, setClient] = useState<PickedClient | null>(null);
   const [rate, setRate] = useState<IvaRateId>(IVA_RATE.TWENTY_ONE);
-  const [key, setKey] = useState(() => crypto.randomUUID());
+  // One key per billing attempt: a retry after a lost response returns the
+  // factura already drafted instead of tripping the one-live-factura index.
+  const [key] = useState(() => crypto.randomUUID());
   const bill = useBillRemito();
 
+  // Same rule as a new comprobante: the only active fiscal channel and its
+  // only enabled POS are taken; several POS → the user picks.
   const { channels } = useScope();
-  const fiscalChannel = channels.find((c) => c.is_fiscal && c.is_active);
+  const fiscalChannels = channels.filter((c) => c.is_fiscal && c.is_active);
+  const fiscalChannel = fiscalChannels.length === 1 ? fiscalChannels[0] : null;
   const pos = useEnabledPos(fiscalChannel?.id ?? null, { enabled: open });
-  const puntoVenta = pos.data?.[0]?.numero ?? null;
+  const posOptions = pos.data ?? [];
+  const [pickedPos, setPickedPos] = useState<number | null>(null);
+  const puntoVenta =
+    posOptions.length === 1 ? posOptions[0]!.numero : pickedPos;
+  const posProblem = !fiscalChannel
+    ? "Configurá un único canal fiscal activo para facturar."
+    : pos.isPending
+      ? null
+      : pos.isError
+        ? "No se pudieron cargar los puntos de venta fiscales."
+        : posOptions.length === 0
+          ? "No hay un punto de venta fiscal habilitado."
+          : null;
 
   const totals = useMemo(
     () =>
@@ -81,7 +89,7 @@ export function BillRemitoDialog({
       return;
     }
     if (!fiscalChannel || puntoVenta === null) {
-      toast.error("No hay un punto de venta fiscal habilitado.");
+      toast.error(posProblem ?? "Elegí el punto de venta.");
       return;
     }
     bill.mutate(
@@ -96,15 +104,12 @@ export function BillRemitoDialog({
       {
         onSuccess: (data) => {
           toast.success(
-            "Factura en cola: cuando AFIP dé el CAE se anula el remito con una nota de crédito interna.",
+            "Factura en cola: con el CAE, el remito se acredita con una nota de crédito interna.",
           );
           setOpen(false);
           router.push(`/invoices/${data.id}`);
         },
-        onError: (err) => {
-          toast.error(err.message);
-          setKey(crypto.randomUUID());
-        },
+        onError: (err) => toast.error(err.message),
       },
     );
   }
@@ -122,8 +127,11 @@ export function BillRemitoDialog({
           <DialogTitle>Facturar {remitoLabel}</DialogTitle>
           <DialogDescription>
             Se emite una factura en Ventas con los mismos ítems: el precio del
-            remito es el neto y se suma el IVA. Con el CAE, el remito se anula
-            con una nota de crédito interna para no contar la venta dos veces.
+            remito es el neto y se suma el IVA. Con el CAE, el remito se
+            acredita con una nota de crédito interna para no contar la venta dos
+            veces. Si estaba cobrado, el recibo interno se anula y el cobro pasa
+            a un recibo de Ventas aplicado a la factura: el cliente queda
+            debiendo el IVA.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,7 +145,9 @@ export function BillRemitoDialog({
             <Select
               value={String(rate)}
               onValueChange={(v) => {
-                const next = RATE_OPTIONS.find((r) => String(r.value) === v);
+                const next = IVA_RATE_OPTIONS.find(
+                  (r) => String(r.value) === v,
+                );
                 if (next) setRate(next.value);
               }}
             >
@@ -145,7 +155,7 @@ export function BillRemitoDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
-                {RATE_OPTIONS.map((r) => (
+                {IVA_RATE_OPTIONS.map((r) => (
                   <SelectItem key={r.value} value={String(r.value)}>
                     {r.label}
                   </SelectItem>
@@ -153,7 +163,34 @@ export function BillRemitoDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3 text-sm">
+          {posOptions.length > 1 && (
+            <div className="space-y-2">
+              <Label>Punto de venta</Label>
+              <Select
+                value={pickedPos === null ? "" : String(pickedPos)}
+                onValueChange={(v) => setPickedPos(Number(v))}
+              >
+                <SelectTrigger
+                  className="w-full sm:w-40"
+                  aria-label="Punto de venta"
+                >
+                  <SelectValue placeholder="Elegí uno" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {posOptions.map((p) => (
+                    <SelectItem key={p.numero} value={String(p.numero)}>
+                      {String(p.numero).padStart(4, "0")}
+                      {p.nickname ? ` · ${p.nickname}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {posProblem && (
+            <p className="text-sm text-muted-foreground">{posProblem}</p>
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border bg-muted/30 p-3 text-sm">
             <span>
               Neto:{" "}
               <span className="font-mono">
@@ -183,7 +220,10 @@ export function BillRemitoDialog({
           >
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={bill.isPending}>
+          <Button
+            onClick={submit}
+            disabled={bill.isPending || pos.isPending || posProblem !== null}
+          >
             {bill.isPending ? "Emitiendo…" : "Emitir factura"}
           </Button>
         </DialogFooter>

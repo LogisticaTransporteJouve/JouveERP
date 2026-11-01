@@ -280,7 +280,7 @@ update public.notifications
 
 ### 6.1 `<NotificationBell>` (header global)
 
-Vive en `app/(dashboard)/layout.tsx` al lado del `<ScopeSelector>`.
+Vive en `app/(dashboard)/layout.tsx`, en la barra superior.
 
 - Ícono `Bell` (lucide).
 - Badge con `unread_count` (max display `99+`).

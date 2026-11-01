@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { verifyCuitAction, type VerifyCuitResult } from "../actions/afip-actions";
+import {
+  verifyCuitAction,
+  type VerifyCuitResult,
+} from "../actions/afip-actions";
 
 export function PadronLookup() {
   const [cuit, setCuit] = useState("");
@@ -57,9 +60,7 @@ export function PadronLookup() {
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {result.fromCache && (
-              <span className="rounded-full bg-muted px-2 py-0.5">
-                cache
-              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5">cache</span>
             )}
             {result.stale && (
               <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground dark:text-muted-foreground">

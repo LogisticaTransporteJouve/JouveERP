@@ -58,7 +58,9 @@ export function buildDocumentColumns(opts: {
       header: "Contraparte",
       enableSorting: false,
       cell: ({ row }) => matchName(row.original.matches),
-      meta: { cellClassName: "max-w-[12rem] truncate text-muted-foreground text-sm" },
+      meta: {
+        cellClassName: "max-w-[12rem] truncate text-muted-foreground text-sm",
+      },
     },
     {
       id: "confidence",

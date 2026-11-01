@@ -12,10 +12,14 @@ insert into auth.users (id, email) values
 insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000f1', 'finance');
 
-insert into public.clients (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000c101', '20333333334', 'Cliente Cheques', 'responsable_inscripto');
+-- The internal receipt and payment order need internal counterparties
+-- (guard_document_side); the fiscal payment orders keep the fiscal supplier.
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000c101', false, null, 'Cliente Cheques', null);
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b201', '30999999990', 'Proveedor Cheques', 'responsable_inscripto');
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b202', false, null, 'Proveedor Cheques Interno', null);
 
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-00000000a001', 'Cartera test', 'checks', 'ARS'),
@@ -27,7 +31,7 @@ insert into public.receipts (id, channel_id, punto_venta, numero, client_id, rec
   ('00000000-0000-0000-0000-0000000006a1', 'jouve_internal', 1, 901, '00000000-0000-0000-0000-00000000c101', current_date, 100, 'ARS');
 
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency) values
-  ('00000000-0000-0000-0000-0000000007a1', 'jouve_internal', 1, 901, '00000000-0000-0000-0000-00000000b201', current_date, 100, 'ARS');
+  ('00000000-0000-0000-0000-0000000007a1', 'jouve_internal', 1, 901, '00000000-0000-0000-0000-00000000b202', current_date, 100, 'ARS');
 
 set local role authenticated;
 select set_config('request.jwt.claims',

@@ -19,6 +19,9 @@ insert into public.clients (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000c902', '20444444446', 'Otro Cliente', 'responsable_inscripto');
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b901', '30444444447', 'Proveedor Pagar', 'responsable_inscripto');
+-- The internal purchase needs an internal supplier (guard_document_side).
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b902', false, null, 'Proveedor Pagar Interno', null);
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-00000000a901', 'Cartera cobrar', 'checks', 'ARS'),
   ('00000000-0000-0000-0000-00000000a902', 'Banco cobrar', 'bank', 'ARS'),
@@ -28,7 +31,7 @@ insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago,
    imp_neto, imp_total, moneda, cotizacion, status)
 values
-  ('00000000-0000-0000-0000-0000000091a1', 'jouve_internal', '00000000-0000-0000-0000-00000000b901',
+  ('00000000-0000-0000-0000-0000000091a1', 'jouve_internal', '00000000-0000-0000-0000-00000000b902',
    'factura', null, 9, 9101, current_date - 50, current_date - 10, 500, 500, 'PES', 1, 'received');
 
 create temp table settle_lines on commit drop as

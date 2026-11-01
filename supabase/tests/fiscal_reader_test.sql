@@ -17,6 +17,11 @@ insert into public.clients (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000fc01', '20111111112', 'Cliente Contador', 'responsable_inscripto');
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000fd01', '30555555556', 'Proveedor Contador', 'responsable_inscripto');
+-- Internal documents need internal counterparties (guard_document_side).
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000fc02', false, null, 'Cliente Contador Interno', null);
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000fd02', false, null, 'Proveedor Contador Interno', null);
 
 insert into public.invoices
   (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
@@ -25,7 +30,7 @@ insert into public.invoices
 values
   ('00000000-0000-0000-0000-0000000fa0f1', 'jouve_fiscal', '00000000-0000-0000-0000-00000000fc01',
    'factura', 'A', 3, 99991, current_date, 2, 80, '20111111112', 100, 21, 121, 1, 1, 'emitted', 'fr-f1'),
-  ('00000000-0000-0000-0000-0000000fa0a1', 'jouve_internal', '00000000-0000-0000-0000-00000000fc01',
+  ('00000000-0000-0000-0000-0000000fa0a1', 'jouve_internal', '00000000-0000-0000-0000-00000000fc02',
    'factura', null, 1, 99991, current_date, 2, 80, '20111111112', 100, 0, 100, null, null, 'emitted', 'fr-i1');
 
 insert into public.purchase_invoices
@@ -33,7 +38,7 @@ insert into public.purchase_invoices
 values
   ('00000000-0000-0000-0000-0000000fb0f1', 'jouve_fiscal', '00000000-0000-0000-0000-00000000fd01',
    'factura', 'A', 1, 99991, current_date, 100, 21, 121, 'received'),
-  ('00000000-0000-0000-0000-0000000fb0a1', 'jouve_internal', '00000000-0000-0000-0000-00000000fd01',
+  ('00000000-0000-0000-0000-0000000fb0a1', 'jouve_internal', '00000000-0000-0000-0000-00000000fd02',
    'factura', null, 1, 99992, current_date, 50, 0, 50, 'received');
 
 set local role authenticated;
@@ -82,7 +87,7 @@ select throws_ok(
 select throws_ok(
   $$insert into public.invoices
       (channel_id, client_id, kind, punto_venta, fecha, concepto, doc_tipo, doc_nro, imp_total, status, idempotency_key)
-    values ('jouve_internal', '00000000-0000-0000-0000-00000000fc01', 'factura', 1, current_date, 2, 80,
+    values ('jouve_internal', '00000000-0000-0000-0000-00000000fc02', 'factura', 1, current_date, 2, 80,
             '20111111112', 10, 'draft', 'fr-new')$$,
   null, null, 'a fiscal_reader cannot create an invoice (a channel trigger or RLS rejects it)');
 select throws_ok(

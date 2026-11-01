@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -120,13 +121,32 @@ export function useScope() {
   return ctx;
 }
 
-/** The scope a page reads: the menu's side on a split page (Ventas, Compras
- *  and their "Otras"), every channel on a shared one (treasury, dashboard…).
- *  A fiscal-only user is always fiscal. */
+const PageSideContext = createContext<ScopeSide | null>(null);
+
+/** Pins the side of everything below it to a record's own side (a client's or
+ *  supplier's detail page, a fiscal document), whatever the menu last chose. */
+export function PageSideProvider({
+  side,
+  children,
+}: {
+  side: ScopeSide;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageSideContext.Provider value={side}>{children}</PageSideContext.Provider>
+  );
+}
+
+/** The scope a page reads: a pinned record's side (PageSideProvider), else the
+ *  menu's side on a split page (Ventas, Compras and their "Otras"), every
+ *  channel on a shared one (treasury, dashboard…). A fiscal-only user is
+ *  always fiscal. */
 export function usePageScope(): FiscalFilter {
   const { fiscalFilter, locked } = useScope();
+  const pinned = useContext(PageSideContext);
   const pathname = usePathname();
   if (locked) return "fiscal";
+  if (pinned) return pinned;
   return isScopedPath(pathname) ? fiscalFilter : "all";
 }
 
@@ -165,4 +185,12 @@ export function useSideChannels<T extends { id: string }>(
         : options.filter((o) => channelIsFiscal(o.id, channels) === isFiscal),
     [options, channels, isFiscal],
   );
+}
+
+/** Remounts the page when the menu switches side: Ventas › Comprobantes and
+ *  Otras ventas › Comprobantes share a URL, and list state (filters, open
+ *  dialogs) from one side must not carry over to the other. */
+export function SideKeyed({ children }: { children: React.ReactNode }) {
+  const { fiscalFilter } = useScope();
+  return <Fragment key={fiscalFilter}>{children}</Fragment>;
 }

@@ -48,6 +48,7 @@ import {
   letterFor,
   voucherReceptor,
   type IvaRateId,
+  IVA_RATE_OPTIONS,
 } from "@/lib/afip/codes";
 import {
   counterpartyIdentityLabel,
@@ -116,15 +117,6 @@ function defaultItems(): ItemDraft[] {
 // number that gets stored as quantity (= pct/100) on submit.
 const SEGURO_PERCENTAGES = [1, 2, 3, 5] as const;
 const SEGURO_CUSTOM_VALUE = "__custom__";
-
-const RATE_OPTIONS: Array<{ value: IvaRateId; label: string }> = [
-  { value: IVA_RATE.ZERO, label: "0%" },
-  { value: IVA_RATE.TWO_FIVE, label: "2.5%" },
-  { value: IVA_RATE.FIVE, label: "5%" },
-  { value: IVA_RATE.TEN_FIVE, label: "10.5%" },
-  { value: IVA_RATE.TWENTY_ONE, label: "21%" },
-  { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
-];
 
 export function NewInvoiceDialog({
   channels,
@@ -807,7 +799,7 @@ function NewInvoiceForm({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent position="popper">
-                            {RATE_OPTIONS.map((r) => (
+                            {IVA_RATE_OPTIONS.map((r) => (
                               <SelectItem key={r.value} value={String(r.value)}>
                                 {r.label}
                               </SelectItem>

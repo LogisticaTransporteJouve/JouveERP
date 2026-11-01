@@ -13,8 +13,9 @@ insert into auth.users (id, email) values
 insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000f1', 'finance');
 
-insert into public.clients (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000c101', '20333333334', 'Cliente Rechazos', 'responsable_inscripto');
+-- The client's only receipt is internal, so is the client (guard_document_side).
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000c101', false, null, 'Cliente Rechazos', null);
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b201', '30999999990', 'Proveedor Rechazos', 'responsable_inscripto');
 

@@ -18,13 +18,16 @@ select set_config('request.jwt.claims',
 
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000d301', '30999999987', 'Proveedor IA', 'responsable_inscripto');
+-- A supplier belongs to one side: the internal invoice needs an internal one.
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000d302', false, null, 'Proveedor IA Interno', null);
 
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)
 values
   ('00000000-0000-0000-0000-0000000007a1', 'jouve_fiscal', '00000000-0000-0000-0000-00000000d301',
    'factura', 'A', 1, 51, current_date, 100, 21, 121, 'received'),
-  ('00000000-0000-0000-0000-0000000007a2', 'jouve_internal', '00000000-0000-0000-0000-00000000d301',
+  ('00000000-0000-0000-0000-0000000007a2', 'jouve_internal', '00000000-0000-0000-0000-00000000d302',
    'factura', null, 1, 52, current_date, 50, 0, 50, 'received');
 
 insert into public.accounts (id, name, type, currency) values
@@ -50,13 +53,15 @@ select is(
 );
 select is(
   (select purchased_ars from public.ai_supplier_purchases_summary(
-     current_date, current_date, '00000000-0000-0000-0000-00000000d301', null, 50, false)),
+     current_date, current_date, '00000000-0000-0000-0000-00000000d302', null, 50, false)),
   50::numeric,
   'purchases summary, internal: only the internal invoice'
 );
 select is(
   (select purchased_ars from public.ai_supplier_purchases_summary(
-     current_date, current_date, '00000000-0000-0000-0000-00000000d301')),
+     current_date, current_date, '00000000-0000-0000-0000-00000000d301'))
+  + (select purchased_ars from public.ai_supplier_purchases_summary(
+     current_date, current_date, '00000000-0000-0000-0000-00000000d302')),
   171::numeric,
   'purchases summary, NULL: every channel'
 );
@@ -68,19 +73,21 @@ select is(
 );
 select is(
   (select count(*)::int from public.ai_supplier_upcoming_dues(
-     365, '00000000-0000-0000-0000-00000000d301', 100, true)),
-  1,
+     365, '00000000-0000-0000-0000-00000000d302', 100, true)),
+  0,
   'upcoming dues, fiscal: the internal document is left out'
 );
 select is(
   (select count(*)::int from public.ai_supplier_upcoming_dues(
-     365, '00000000-0000-0000-0000-00000000d301')),
+     365, '00000000-0000-0000-0000-00000000d301'))
+  + (select count(*)::int from public.ai_supplier_upcoming_dues(
+     365, '00000000-0000-0000-0000-00000000d302')),
   2,
   'upcoming dues, NULL: both documents'
 );
 select is(
   (select net_ars from public.ai_supplier_price_evolution(
-     current_date, current_date, 'supplier', '00000000-0000-0000-0000-00000000d301',
+     current_date, current_date, 'supplier', '00000000-0000-0000-0000-00000000d302',
      null, null, 300, false)),
   50::numeric,
   'price evolution, internal: only the internal net'

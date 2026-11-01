@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
-import { ScopeProvider } from "@/components/providers/scope-provider";
+import {
+  ScopeProvider,
+  SideKeyed,
+} from "@/components/providers/scope-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BrowserNotifier } from "@/features/notifications/components/browser-notifier";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
@@ -92,7 +95,7 @@ export default async function DashboardLayout({
             }
           />
           <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
-            {children}
+            <SideKeyed>{children}</SideKeyed>
           </div>
           <MobileTabBar userAccess={ctx.access} />
           <BrowserNotifier currentUserId={ctx.userId} />

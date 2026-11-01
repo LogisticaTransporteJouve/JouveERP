@@ -1,6 +1,6 @@
 # Otras ventas — diseño
 
-Estado: **en curso** (2026-11-01). Sigue a
+Estado: **fases 1–3 implementadas** (2026-11-01); fase 4 pendiente. Sigue a
 [`separacion-fiscal-interno.md`](separacion-fiscal-interno.md) y su
 [plan](plan-separacion-fiscal-interno.md): las invariantes de canal en la DB se
 mantienen; lo que cambia es la **vista**. La tesorería se ve compartida (todos
@@ -30,90 +30,81 @@ CUIT), sus comprobantes de compra, órdenes de pago y aging de proveedores.
 Lo único compartido es la tesorería: caja, cuentas, cheques, préstamos, pagos
 recurrentes. Sueldos: a confirmar (por ahora compartido).
 
-## Hoy (relevamiento)
+## Antes de este cambio (relevamiento del 2026-11-01)
 
-- `clients.cuit` es `NOT NULL UNIQUE` y `iva_condition` `NOT NULL`
-  (`20260508210000_clients.sql`). No hay forma de cargar un cliente sin CUIT.
-- Nada en la base impide un comprobante o recibo interno a un cliente fiscal ni
-  al revés. Solo hay guardas de mismo cliente + mismo canal en imputaciones y
-  NC/ND.
-- Listas, buscador, pickers, búsqueda global y export de clientes **no** reciben
-  el alcance fiscal/interno. Solo la cuenta corriente lo usa.
-- El rol `fiscal_reader` ve todos los clientes.
-- El diálogo de comprobante muestra IVA y "CAE" aunque el canal sea interno
-  (el servidor ya calcula sin IVA y numera localmente).
-- PDFs de recibo y comprobante siempre imprimen "CUIT" y "Condición IVA".
-- Cargas, facturación de depósito y documentos IA exigen CUIT para facturar.
-- En prod no hay comprobantes ni recibos internos: no hay datos que migrar.
+- `clients.cuit` era `NOT NULL UNIQUE` e `iva_condition` `NOT NULL`: no había
+  forma de cargar un cliente sin CUIT.
+- Nada impedía un comprobante o recibo interno a un cliente fiscal ni al revés.
+- Listas, pickers y export de clientes no recibían el alcance fiscal/interno.
+- El rol `fiscal_reader` veía todos los clientes.
 
-## Diseño
+## Cómo quedó
 
-### 1. Base de datos
+### 1. Base de datos (`20261101174000_counterparty_sides.sql`)
 
-- `clients.is_fiscal boolean not null default true` — todos los actuales quedan
-  fiscales. Inmutable (trigger).
-- `cuit` e `iva_condition` pasan a nullable con un check:
-  fiscal ⇒ ambos presentes; interno ⇒ ambos nulos.
-- El `UNIQUE (cuit)` pasa a índice único parcial `where is_fiscal`.
-- Guarda nueva: el canal de un comprobante y de un recibo tiene que coincidir con
-  el lado del cliente (`channel.is_fiscal = client.is_fiscal`).
-- RLS: `fiscal_reader` solo ve clientes fiscales.
-- Índice de búsqueda global: guarda el lado del cliente para filtrar por alcance.
+- `clients.is_fiscal` / `suppliers.is_fiscal` (`default true`: los existentes
+  quedaron fiscales), inmutable por trigger.
+- `cuit` e `iva_condition` nullable con check: fiscal ⇒ ambos; interno ⇒
+  ninguno. El `UNIQUE (cuit)` se mantiene completo: los internos tienen CUIT
+  NULL y los NULL no chocan (la sync de ARCA sigue haciendo upsert por CUIT).
+- `guard_document_side`: comprobantes y recibos (cliente), compras y órdenes de
+  pago (proveedor) solo en un canal del lado de su contraparte.
+- RLS: `fiscal_reader` solo ve contrapartes fiscales.
+- `search_clients` / `search_suppliers` aceptan `p_is_fiscal`.
 
-### 2. Clientes en la app
+### 2. Lados en la app
 
-- El alcance del menú manda: **Ventas → Clientes** lista fiscales, **Otras
-  ventas → Clientes** lista internos. No existe "Todos los canales".
-- Alta interna: nombre, nombre de fantasía, teléfono, email, dirección, notas.
-  Sin CUIT, sin AFIP.
-- Pickers de cliente (comprobante, recibo) filtran por el lado del canal
-  elegido. El buscador global y el export respetan el alcance.
+- No hay selector global: la sección del menú (Ventas / Otras ventas / Compras /
+  Otras compras) fija el lado en las páginas partidas (`lib/scope.ts`
+  `isScopedPath`). Tesorería, dashboard, contabilidad y sueldos leen todo.
+- La ficha de un cliente o proveedor usa **su** lado, no el del menú
+  (`PageSideProvider`); los formularios de documentos IA quedan del lado fiscal.
+- Alta interna: nombre, nombre de fantasía, teléfono, email, domicilio, notas.
+  Sin CUIT ni AFIP. Pickers, listas y export filtran por lado.
+- Pendiente: la búsqueda global (`search_global`) todavía mezcla los dos lados.
 
 ### 3. Remito interno
 
 - En la base sigue siendo `kind = 'factura'` en el canal interno; la app lo
-  muestra como **Remito interno** (y NC como **Nota de crédito interna**).
-- Diálogo en Otras ventas: sin tipo A/B, sin IVA, "Precio final", botón
-  "Guardar". Receptor: `doc_tipo 99`, `doc_nro '0'`.
-- PDF interno sin CUIT ni condición de IVA.
-- Cargas / depósito / documentos IA: si el cliente es interno usan el canal
-  interno en vez de exigir CUIT (fase 2).
+  muestra como **Remito interno** (`X9001-…`) y la NC como **Nota de crédito
+  interna**. Punto de venta propio: 9001 (`20261101190000_internal_sales_point.sql`).
+- Diálogo de Otras ventas: sin tipo ni letra, sin IVA, "Precio final", botón
+  "Guardar". Receptor doc 99 (`voucherReceptor`).
+- PDF y ficha sin CUIT ni condición de IVA.
+- Cargas y facturación de depósito emiten remito a un cliente interno.
+- Pendiente: la creación de facturas desde documentos IA sigue siendo solo fiscal.
 
 ### 4. Facturar un remito interno
 
-Botón **Facturar** en un remito interno:
+Botón **Facturar** en un remito interno emitido:
 
-1. Elegís (o creás) el **cliente fiscal**.
-2. Se arma una **Factura A/B** con los mismos ítems: el monto del remito es el
-   **neto** y se suma el IVA (21% por defecto, editable).
-3. Al obtener el CAE se crea automáticamente una **nota de crédito interna**
-   por el total del remito, vinculada, con motivo "Facturado como A 0003-…".
-   Si AFIP rechaza, no se crea la NC y el remito queda como estaba.
-4. Vínculo en las dos puntas: el remito muestra "Facturado en A 0003-…", la
-   factura "Origen: Remito interno 0001-…". Un remito se factura una sola vez.
+1. Elegís el **cliente de Ventas** y la alícuota (21% por defecto).
+2. Se emite una **Factura A/B** con los mismos ítems: el precio del remito es el
+   **neto** y se suma el IVA (`invoices.source_remito_id`, una factura viva por
+   remito).
+3. Con el CAE (o CAEA), el job `credit-billed-remito` corre
+   `settle_billed_remito`, en una sola transacción: pasa los cobros (sección 5)
+   y crea la **nota de crédito interna** por lo que el remito tenga abierto, con
+   motivo "Facturado como A0003-…"; después la emite del lado interno.
+4. Mientras la factura está viva, el remito queda **congelado**: no admite
+   cobros, ajustes de saldo, NC ni anulación (`guard_billed_remito_frozen`).
+5. Si la acreditación falla, la factura muestra "El remito todavía no se
+   acreditó" y el botón **Reintentar acreditación**.
 
-Resultado: la venta interna neta queda en 0 y la venta existe una sola vez, del
-lado fiscal, con su IVA.
+Qué impide facturar (`billed_remito_blocker`, se revisa al crear la factura y
+otra vez al acreditar): una NC previa, un ajuste de saldo aplicado, o un recibo
+interno que no se pueda pasar entero (paga otros comprobantes, tiene cheques o
+retenciones, está en otra moneda o en un período contable cerrado).
 
-Implementado (fase 3): `billRemitoAction` + `creditBilledRemito` en el flujo de
-emisión. Por ahora solo se factura un remito **sin cobros ni NC aplicados**; el
-pase automático del cobro (sección 5) queda pendiente.
+### 5. Remito ya cobrado
 
-### 5. Remito ya cobrado (decidido: el cobro pasa al lado fiscal — pendiente)
+Cada recibo interno aplicado al remito se **anula** (sus movimientos de caja se
+van con él) y se emite un **recibo de Ventas** al cliente de la factura, con las
+mismas líneas de pago y la misma fecha, aplicado a la factura. La plata cuenta
+una sola vez y el cliente queda debiendo el IVA.
 
-Si el remito tiene un recibo interno aplicado, al obtener el CAE además:
-
-- El recibo interno se **anula** (no se borra) y se emite un **recibo fiscal**
-  por el mismo importe, al cliente fiscal, aplicado a la factura.
-- El recibo fiscal reusa los **mismos medios de pago** (movimiento de caja,
-  transferencia, cheques): el dinero no entra dos veces ni se revierte.
-- El cliente fiscal queda debiendo la diferencia (el IVA).
-
-Casos a resolver en el diseño fino de la fase 3:
-
-- Un recibo interno que pagó varios remitos (solo se mueve la parte de este).
-- Cheques del recibo ya depositados, endosados o rechazados.
-- Recibos en otra moneda.
+Los casos que no se pasan solos (sección 4) se resuelven a mano: anular el
+recibo interno, facturar el remito y cargar el cobro en Ventas.
 
 ## Decisiones abiertas
 

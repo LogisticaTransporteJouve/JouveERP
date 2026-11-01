@@ -111,7 +111,12 @@ beforeEach(() => {
     { id: "jouve_fiscal", is_fiscal: true, is_active: true },
   ];
   h.db.clients = [
-    { id: CLIENT, is_active: true, iva_condition: "responsable_inscripto" },
+    {
+      id: CLIENT,
+      is_active: true,
+      iva_condition: "responsable_inscripto",
+      is_fiscal: true,
+    },
   ];
   h.db.sales_points = [
     { numero: 3, channel_id: "jouve_fiscal", is_enabled: true },
@@ -185,6 +190,10 @@ describe("issueFiscalInvoiceAction on an internal channel", () => {
     ];
     h.db.sales_points = [
       { numero: 4, channel_id: "jouve_interno", is_enabled: true },
+    ];
+    // An Otras ventas client: no IVA condition, on the internal side.
+    h.db.clients = [
+      { id: CLIENT, is_active: true, iva_condition: null, is_fiscal: false },
     ];
     const res = await issueFiscalInvoiceAction({
       ...noteInput(),
@@ -312,38 +321,25 @@ describe("issueFiscalInvoiceAction with an idempotency key", () => {
 // action of its own — must not let a caller link a remito past those checks:
 // once the factura is emitted, credit-billed-remito moves the remito's
 // recibos and credits it in full.
-describe("issueFiscalInvoiceAction with a source remito", () => {
-  const REMITO = "66666666-6666-4666-8666-666666666666";
+// Billing a remito: the refusals (prior NC, ajuste de saldo, recibos that
+// cannot move) are the DB's — guard_invoice_source_remito runs
+// billed_remito_blocker on the draft insert, whoever drafts it. Pinned in
+// supabase/tests/otras_ventas_sides_test.sql.
 
-  it("does not link a remito that billRemitoAction would refuse (prior NC)", async () => {
-    h.db.invoices = [
-      ...(h.db.invoices ?? []),
-      {
-        id: REMITO,
-        client_id: CLIENT,
-        channel_id: "jouve_internal",
-        status: "emitted",
-        kind: "factura",
-        letter: null,
-        numero: 4,
-      },
-      {
-        id: "nc-on-remito",
-        channel_id: "jouve_internal",
-        status: "emitted",
-        kind: "nc",
-        invoice_origin_id: REMITO,
-      },
+describe("issueFiscalInvoiceAction across sides", () => {
+  it("refuses an Otras ventas client on a Ventas channel before writing", async () => {
+    h.db.clients = [
+      { id: CLIENT, is_active: true, iva_condition: null, is_fiscal: false },
     ];
     const res = await issueFiscalInvoiceAction({
       ...noteInput(),
       kind: "factura",
       invoice_origin_id: null,
-      motivo_nc_nd: null,
-      source_remito_id: REMITO,
     });
-    const draft = h.inserts.find((i) => i.table === "invoices")?.values as
-      Row | undefined;
-    expect(res.ok === false || draft?.source_remito_id == null).toBe(true);
+    expect(res).toEqual({
+      ok: false,
+      error: "Un comprobante de Ventas necesita un cliente de Ventas.",
+    });
+    expect(h.inserts).toHaveLength(0);
   });
 });

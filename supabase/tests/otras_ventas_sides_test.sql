@@ -1,11 +1,11 @@
 -- Otras ventas / Otras compras (docs/otras-ventas.md): counterparty sides,
 -- guard_document_side, guard_invoice_source_remito, the one-live-factura index,
--- move_billed_remito_receipts, fiscal_reader on clients/suppliers and the ACLs
+-- settle_billed_remito, the frozen remito, fiscal_reader on clients/suppliers and the ACLs
 -- of the new functions. One transaction, rolled back.
 
 begin;
 
-select plan(44);
+select plan(49);
 
 -- The auto-journal triggers call create_journal_entry, which wants a writer.
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
@@ -206,25 +206,69 @@ select throws_ok(
   '23505', null,
   'a remito has one live factura');
 
--- 5. move_billed_remito_receipts ---------------------------------------------
+-- While a live factura bills the remito, the remito is frozen.
+select throws_ok(
+  $$select public.create_receipt('jouve_internal', 9001, 99953, '00000000-0000-0000-0000-00000005c0a1',
+      current_date, 100, 'ARS', 'otro cobro',
+      '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":100}]'::jsonb,
+      '[{"invoice_id":"00000000-0000-0000-0000-00000005e0a1","amount_applied":100}]'::jsonb,
+      '[]'::jsonb)$$,
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a remito being billed takes no new cobro');
+select throws_ok(
+  $$update public.invoices set status = 'cancelled' where id = '00000000-0000-0000-0000-00000005e0a1'$$,
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a remito being billed cannot be anulado');
+select throws_ok(
+  $$insert into public.invoices
+      (channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+       doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, status, idempotency_key, invoice_origin_id)
+    values ('jouve_internal', '00000000-0000-0000-0000-00000005c0a1', 'nc', null, 9001, null,
+       current_date, 2, 99, '0', 100, 0, 100, 'draft', 'ov-user-nc',
+       '00000000-0000-0000-0000-00000005e0a1')$$,
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a remito being billed takes no NC but its settlement''s');
+
+-- What blocks billing is checked on the factura's insert, whoever drafts it.
+insert into public.invoices
+  (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+   doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, status, idempotency_key, invoice_origin_id)
+values
+  ('00000000-0000-0000-0000-00000005e0b1', 'jouve_internal', '00000000-0000-0000-0000-00000005c0a1',
+   'factura', null, 9001, 99954, current_date, 2, 99, '0', 300, 0, 300, 'emitted', 'ov-remito-b', null),
+  ('00000000-0000-0000-0000-00000005e0b2', 'jouve_internal', '00000000-0000-0000-0000-00000005c0a1',
+   'nc', null, 9001, 99955, current_date, 2, 99, '0', 100, 0, 100, 'emitted', 'ov-remito-b-nc',
+   '00000000-0000-0000-0000-00000005e0b1');
+select throws_ok(
+  $$insert into public.invoices
+      (channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+       doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, cbte_tipo_afip,
+       iva_condition_receptor, status, idempotency_key, source_remito_id)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000005c0f1', 'factura', 'A', 3, null,
+       current_date, 2, 80, '20999999992', 300, 63, 363, 1, 1, 'draft', 'ov-src-5',
+       '00000000-0000-0000-0000-00000005e0b1')$$,
+  '23514', 'El remito ya tiene una nota de crédito: no se puede facturar.',
+  'a remito with an NC cannot be billed, even outside billRemitoAction');
+
+-- 5. settle_billed_remito ----------------------------------------------------
 
 select throws_ok(
-  $$select public.move_billed_remito_receipts('00000000-0000-0000-0000-00000005e0f1')$$,
+  $$select public.settle_billed_remito('00000000-0000-0000-0000-00000005e0f1')$$,
   '23514', 'La factura todavía no está emitida.',
-  'nothing moves before the factura is emitted');
+  'nothing settles before the factura is emitted');
 
 update public.invoices set status = 'emitted', numero = 99953
  where id = '00000000-0000-0000-0000-00000005e0f1';
 
 create temp table t_before on commit drop as
 select
-  (select count(*) from public.transactions t where t.account_id = '00000000-0000-0000-0000-00000005ac01') as tx_rows,
   (select coalesce(sum(t.amount), 0) from public.transactions t
      where t.account_id = '00000000-0000-0000-0000-00000005ac01') as tx_sum;
 
-select is(
-  public.move_billed_remito_receipts('00000000-0000-0000-0000-00000005e0f1'),
-  1, 'the recibo interno of the remito moves');
+create temp table t_nc on commit drop as
+select public.settle_billed_remito('00000000-0000-0000-0000-00000005e0f1') as nc_id;
+
+select isnt((select nc_id from t_nc), null, 'settling drafts the remito''s NC');
 
 select is(
   (select status from public.receipts
@@ -259,17 +303,24 @@ select is(
   public.invoice_open_amount('00000000-0000-0000-0000-00000005e0f1'),
   610::numeric, 'the factura owes its total less the moved cobro (1210 - 600)');
 
+select ok(
+  (select n.kind = 'nc' and n.status = 'draft' and n.imp_total = 1000
+          and n.invoice_origin_id = '00000000-0000-0000-0000-00000005e0a1'
+          and n.channel_id = 'jouve_internal'
+     from public.invoices n where n.id = (select nc_id from t_nc)),
+  'the NC credits the remito''s open 1000 on the internal side');
+
 select is(
   public.invoice_open_amount('00000000-0000-0000-0000-00000005e0a1'),
-  1000::numeric, 'the remito is open for its whole total, ready for the NC');
+  0::numeric, 'the remito is left with nothing open');
 
 select is(
-  public.move_billed_remito_receipts('00000000-0000-0000-0000-00000005e0f1'),
-  0, 'a retry moves nothing');
+  public.settle_billed_remito('00000000-0000-0000-0000-00000005e0f1'),
+  (select nc_id from t_nc), 'a retry returns the NC it already drafted');
 
 select is(
-  public.move_billed_remito_receipts('00000000-0000-0000-0000-00000005e0a1'),
-  0, 'a document with no source remito moves nothing');
+  public.settle_billed_remito('00000000-0000-0000-0000-00000005e0a1'),
+  null::uuid, 'a document with no source remito settles nothing');
 
 -- 6. fiscal_reader sees only fiscal counterparties ---------------------------
 
@@ -296,15 +347,18 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 -- 7. Function ACLs ------------------------------------------------------------
 
 select ok(
-  not has_function_privilege('authenticated', 'public.move_billed_remito_receipts(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.move_billed_remito_receipts(uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.move_billed_remito_receipts(uuid)', 'execute'),
-  'move_billed_remito_receipts runs for the service role alone');
+  not has_function_privilege('authenticated', 'public.settle_billed_remito(uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.settle_billed_remito(uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.settle_billed_remito(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.billed_remito_blocker(uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.billed_remito_blocker(uuid)', 'execute'),
+  'settle_billed_remito and billed_remito_blocker run for the service role alone');
 
 select ok(
   not has_function_privilege('authenticated', 'public.guard_document_side()', 'execute')
   and not has_function_privilege('authenticated', 'public.guard_invoice_source_remito()', 'execute')
   and not has_function_privilege('authenticated', 'public.guard_counterparty_side_immutable()', 'execute')
+  and not has_function_privilege('authenticated', 'public.guard_billed_remito_frozen()', 'execute')
   and not has_function_privilege('anon', 'public.guard_document_side()', 'execute'),
   'the new guard functions are not callable through the API');
 
@@ -318,11 +372,12 @@ select ok(
 select is(
   (select count(*)::int from pg_proc p
     where p.pronamespace = 'public'::regnamespace
-      and p.proname in ('move_billed_remito_receipts', 'guard_document_side',
+      and p.proname in ('settle_billed_remito', 'billed_remito_blocker',
+                        'guard_billed_remito_frozen', 'guard_document_side',
                         'guard_invoice_source_remito')
       and p.prosecdef
       and p.proconfig @> array['search_path=""']),
-  3, 'every new SECURITY DEFINER pins an empty search_path');
+  5, 'every new SECURITY DEFINER pins an empty search_path');
 
 select * from finish();
 rollback;

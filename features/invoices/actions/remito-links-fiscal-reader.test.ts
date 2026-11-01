@@ -93,7 +93,9 @@ describe("getRemitoLinksAction", () => {
     h.access = resolveAccess(["fiscal_reader"]);
     const res = await getRemitoLinksAction(REMITO);
     expect(res.ok ? res.data : null).toEqual(
-      res.ok ? { billedAs: null, sourceRemito: null } : null,
+      res.ok
+        ? { billedAs: null, sourceRemito: null, creditPending: false }
+        : null,
     );
   });
 

@@ -5,8 +5,10 @@ import { z } from "zod";
 import { isIvaCondition } from "@/features/clients/schema";
 import { IVA_RATE, voucherReceptor, type IvaRateId } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
+import { inngest } from "@/lib/inngest/client";
+import { INVOICE_REMITO_BILLED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -78,30 +80,18 @@ export async function billRemitoAction(
     return { ok: false, error: "El remito todavía no está emitido." };
   }
 
-  // A prior NC already credits the remito: billing it would count it twice.
-  const ncs = await supabase
-    .from("invoices")
-    .select("id")
-    .eq("invoice_origin_id", remito.id)
-    .in("status", ["draft", "emitting", "emitted"])
-    .limit(1);
-  if (ncs.error) {
-    logger.error("bill_remito.balance_failed", { error: ncs.error });
+  // What keeps a remito from being billed lives in the DB
+  // (billed_remito_blocker), which checks it again when the factura is drafted
+  // and when it is settled: a prior NC or ajuste de saldo, or recibos internos
+  // that cannot move whole to the fiscal side.
+  const blocker = await supabase.rpc("billed_remito_blocker", {
+    p_remito_id: remito.id,
+  });
+  if (blocker.error) {
+    logger.error("bill_remito.blocker_failed", { error: blocker.error });
     return { ok: false, error: "No se pudo verificar el saldo del remito." };
   }
-  if ((ncs.data ?? []).length > 0) {
-    return {
-      ok: false,
-      error: "El remito ya tiene una nota de crédito: no se puede facturar.",
-    };
-  }
-
-  // Recibos internos already applied pass to the fiscal side once the factura
-  // is emitted (move_billed_remito_receipts). Only the ones that can move
-  // whole: applied to this remito alone, in pesos, without cheques or
-  // retentions.
-  const blocker = await receiptMoveBlocker(supabase, remito.id);
-  if (blocker) return { ok: false, error: blocker };
+  if (blocker.data) return { ok: false, error: blocker.data };
 
   const { data: client, error: clientErr } = await supabase
     .from("clients")
@@ -160,72 +150,21 @@ export async function billRemitoAction(
   });
 }
 
-async function receiptMoveBlocker(
-  supabase: ReturnType<typeof getServiceClient>,
-  remitoId: string,
-): Promise<string | null> {
-  const { data: allocs, error } = await supabase
-    .from("receipt_allocations")
-    .select("receipt_id, receipt:receipts!inner(status, currency, numero)")
-    .eq("invoice_id", remitoId)
-    .eq("receipt.status", "issued");
-  if (error) {
-    logger.error("bill_remito.receipts_failed", { error });
-    return "No se pudieron verificar los cobros del remito.";
-  }
-  const receiptIds = [...new Set((allocs ?? []).map((a) => a.receipt_id))];
-  if (receiptIds.length === 0) return null;
-  if ((allocs ?? []).some((a) => a.receipt?.currency !== "ARS")) {
-    return "El remito tiene un cobro en otra moneda: anulá ese recibo interno y cargá el cobro en Ventas.";
-  }
-
-  const [otherAllocs, rejected, retentions, cheques] = await Promise.all([
-    supabase
-      .from("receipt_allocations")
-      .select("id")
-      .in("receipt_id", receiptIds)
-      .neq("invoice_id", remitoId)
-      .limit(1),
-    supabase
-      .from("receipt_rejected_check_allocations")
-      .select("id")
-      .in("receipt_id", receiptIds)
-      .limit(1),
-    supabase
-      .from("receipt_retentions")
-      .select("id")
-      .in("receipt_id", receiptIds)
-      .limit(1),
-    supabase
-      .from("checks")
-      .select("id")
-      .in("source_receipt_id", receiptIds)
-      .limit(1),
-  ]);
-  const failed =
-    otherAllocs.error ?? rejected.error ?? retentions.error ?? cheques.error;
-  if (failed) {
-    logger.error("bill_remito.receipts_failed", { error: failed });
-    return "No se pudieron verificar los cobros del remito.";
-  }
-  if ((otherAllocs.data ?? []).length > 0 || (rejected.data ?? []).length > 0) {
-    return "Un recibo interno de este remito también paga otros comprobantes: anulalo, facturá el remito y cargá el cobro en Ventas.";
-  }
-  if ((cheques.data ?? []).length > 0) {
-    return "El remito se cobró con cheques: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.";
-  }
-  if ((retentions.data ?? []).length > 0) {
-    return "El cobro del remito tiene retenciones: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.";
-  }
-  return null;
-}
-
 export interface RemitoLinks {
   /** On a remito: the live factura it was billed on. */
   billedAs: { id: string; label: string } | null;
   /** On a factura: the remito interno it billed. */
   sourceRemito: { id: string; label: string } | null;
+  /** On an emitted factura that billed a remito: the remito is not credited
+   *  yet (its settlement failed or is still running). */
+  creditPending: boolean;
 }
+
+const NO_LINKS: RemitoLinks = {
+  billedAs: null,
+  sourceRemito: null,
+  creditPending: false,
+};
 
 export async function getRemitoLinksAction(
   invoiceId: string,
@@ -236,10 +175,13 @@ export async function getRemitoLinksAction(
   }
   const id = z.string().uuid().safeParse(invoiceId);
   if (!id.success) return { ok: false, error: "Comprobante inválido." };
+  // Every link points at a remito interno: a fiscal-only user sees none.
+  if (isFiscalOnly(ctx.access)) return { ok: true, data: NO_LINKS };
 
   const supabase = getServiceClient();
-  const cols = "id, kind, letter, punto_venta, numero, source_remito_id";
-  const [billed, self] = await Promise.all([
+  const cols =
+    "id, kind, letter, punto_venta, numero, status, source_remito_id";
+  const [billed, self, nc] = await Promise.all([
     supabase
       .from("invoices")
       .select(cols)
@@ -247,26 +189,47 @@ export async function getRemitoLinksAction(
       .not("status", "in", "(failed,cancelled)")
       .maybeSingle(),
     supabase.from("invoices").select(cols).eq("id", id.data).maybeSingle(),
+    supabase
+      .from("invoices")
+      .select("id")
+      .eq("idempotency_key", id.data)
+      .eq("status", "emitted")
+      .maybeSingle(),
   ]);
-  if (billed.error || self.error) {
-    return { ok: false, error: "No se pudieron leer los vínculos." };
+  const failed = billed.error ?? self.error ?? nc.error;
+  if (failed) {
+    logger.error("bill_remito.links_failed", {
+      invoiceId: id.data,
+      error: failed,
+    });
+    return { ok: false, error: "No se pudieron leer los vínculos del remito." };
   }
 
   let sourceRemito: RemitoLinks["sourceRemito"] = null;
   if (self.data?.source_remito_id) {
-    const { data: remito } = await supabase
+    const remito = await supabase
       .from("invoices")
       .select(cols)
       .eq("id", self.data.source_remito_id)
       .maybeSingle();
-    if (remito) {
+    if (remito.error) {
+      logger.error("bill_remito.links_failed", {
+        invoiceId: id.data,
+        error: remito.error,
+      });
+      return {
+        ok: false,
+        error: "No se pudieron leer los vínculos del remito.",
+      };
+    }
+    if (remito.data) {
       sourceRemito = {
-        id: remito.id,
+        id: remito.data.id,
         label: formatInvoiceNumero(
-          remito.kind,
-          remito.letter,
-          remito.punto_venta,
-          remito.numero,
+          remito.data.kind,
+          remito.data.letter,
+          remito.data.punto_venta,
+          remito.data.numero,
         ),
       };
     }
@@ -288,6 +251,53 @@ export async function getRemitoLinksAction(
           }
         : null,
       sourceRemito,
+      creditPending:
+        !!self.data?.source_remito_id &&
+        self.data.status === "emitted" &&
+        !nc.data,
     },
   };
+}
+
+/** Re-runs the settlement of a billed remito (credit-billed-remito) when the
+ *  factura is emitted but the remito was not credited. */
+export async function retryRemitoCreditAction(
+  facturaId: string,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso para emitir comprobantes." };
+  }
+  const id = z.string().uuid().safeParse(facturaId);
+  if (!id.success) return { ok: false, error: "Comprobante inválido." };
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("id, status, source_remito_id")
+    .eq("id", id.data)
+    .maybeSingle();
+  if (error) {
+    logger.error("bill_remito.retry_load_failed", {
+      facturaId: id.data,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer la factura." };
+  }
+  if (!data?.source_remito_id || data.status !== "emitted") {
+    return {
+      ok: false,
+      error:
+        "Solo una factura emitida que facturó un remito se puede acreditar.",
+    };
+  }
+  await inngest.send({
+    name: INVOICE_REMITO_BILLED,
+    data: { factura_id: data.id },
+  });
+  logger.info("bill_remito.credit_retried", {
+    userId: ctx.userId,
+    factura_id: data.id,
+  });
+  return { ok: true, data: undefined };
 }

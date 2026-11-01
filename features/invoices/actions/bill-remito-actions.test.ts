@@ -15,16 +15,12 @@ type Row = Record<string, unknown>;
 const h = vi.hoisted(() => ({
   access: null as Access | null,
   remito: null as Row | null,
-  ncs: [] as Row[],
-  allocs: [] as Row[],
-  otherAllocs: [] as Row[],
-  rejected: [] as Row[],
-  retentions: [] as Row[],
-  cheques: [] as Row[],
   client: null as Row | null,
   invoicesById: {} as Record<string, Row>,
   billed: null as Row | null,
   failTable: null as string | null,
+  blocker: null as string | null,
+  blockerErr: null as unknown,
 }));
 
 function eqValue(call: RecordedCall, column: string): unknown {
@@ -32,14 +28,14 @@ function eqValue(call: RecordedCall, column: string): unknown {
 }
 
 function respond(call: RecordedCall) {
+  if (call.op === "rpc" && call.table === "billed_remito_blocker") {
+    return { data: h.blocker, error: h.blockerErr };
+  }
   if (h.failTable === call.table) {
     return { data: null, error: { message: "boom" } };
   }
   switch (call.table) {
     case "invoices": {
-      if (eqValue(call, "invoice_origin_id") !== undefined) {
-        return { data: h.ncs, error: null };
-      }
       if (eqValue(call, "source_remito_id") !== undefined) {
         return { data: h.billed, error: null };
       }
@@ -49,16 +45,6 @@ function respond(call: RecordedCall) {
       }
       return { data: h.remito, error: null };
     }
-    case "receipt_allocations":
-      return call.filters.some(([k]) => k === "neq")
-        ? { data: h.otherAllocs, error: null }
-        : { data: h.allocs, error: null };
-    case "receipt_rejected_check_allocations":
-      return { data: h.rejected, error: null };
-    case "receipt_retentions":
-      return { data: h.retentions, error: null };
-    case "checks":
-      return { data: h.cheques, error: null };
     case "clients":
       return { data: h.client, error: null };
     default:
@@ -122,12 +108,6 @@ beforeEach(() => {
       { description: "A", quantity: 1, unit_price: 800, sort_order: 0 },
     ],
   };
-  h.ncs = [];
-  h.allocs = [];
-  h.otherAllocs = [];
-  h.rejected = [];
-  h.retentions = [];
-  h.cheques = [];
   h.client = {
     id: CLIENT,
     cuit: "30714637432",
@@ -137,6 +117,8 @@ beforeEach(() => {
   h.invoicesById = {};
   h.billed = null;
   h.failTable = null;
+  h.blocker = null;
+  h.blockerErr = null;
 });
 
 describe("billRemitoAction — gate", () => {
@@ -214,33 +196,6 @@ describe("billRemitoAction — the remito", () => {
     expect(issue).not.toHaveBeenCalled();
   });
 
-  it("refuses a remito with a live NC and counts draft/emitting/emitted NCs", async () => {
-    h.ncs = [{ id: "nc" }];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(!res.ok && res.error).toMatch(/nota de crédito/);
-    expect(issue).not.toHaveBeenCalled();
-    const ncQuery = fake.calls.find(
-      (c) => c.table === "invoices" && eqValue(c, "invoice_origin_id"),
-    );
-    expect(
-      ncQuery?.filters.find(([k, c]) => k === "in" && c === "status")?.[2],
-    ).toEqual(["draft", "emitting", "emitted"]);
-  });
-
-  it("fails closed when the NC check errors", async () => {
-    h.ncs = [];
-    const realRespond = respond;
-    fake = recordingSupabase((call) =>
-      call.table === "invoices" && eqValue(call, "invoice_origin_id")
-        ? { data: null, error: { message: "boom" } }
-        : realRespond(call),
-    );
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
   it("refuses a remito without items", async () => {
     h.remito = { ...h.remito, items: [] };
     const res = await billRemitoAction(input());
@@ -249,81 +204,28 @@ describe("billRemitoAction — the remito", () => {
   });
 });
 
-describe("billRemitoAction — recibos internos that cannot move", () => {
-  beforeEach(() => {
-    h.allocs = [
-      {
-        receipt_id: RECIBO,
-        receipt: { status: "issued", currency: "ARS", numero: 1 },
-      },
-    ];
+describe("billRemitoAction — billed_remito_blocker (the DB owns the rule)", () => {
+  it("asks the DB whether the remito can be billed and returns its reason", async () => {
+    h.blocker = "El remito se cobró con cheques: anulá ese recibo interno.";
+    const res = await billRemitoAction(input());
+    expect(res).toEqual({ ok: false, error: h.blocker });
+    const rpc = fake.calls.find((c) => c.op === "rpc");
+    expect(rpc?.table).toBe("billed_remito_blocker");
+    expect(rpc?.payload).toEqual({ p_remito_id: REMITO });
+    expect(issue).not.toHaveBeenCalled();
   });
 
-  it("lets a plain ARS recibo applied only to the remito through", async () => {
+  it("fails closed when the check errors", async () => {
+    h.blockerErr = { message: "boom" };
+    const res = await billRemitoAction(input());
+    expect(res.ok).toBe(false);
+    expect(issue).not.toHaveBeenCalled();
+  });
+
+  it("lets a remito the DB does not block through", async () => {
     const res = await billRemitoAction(input());
     expect(res.ok).toBe(true);
-    expect(issue).toHaveBeenCalledOnce();
-  });
-
-  it("refuses a recibo in another currency", async () => {
-    h.allocs = [
-      {
-        receipt_id: RECIBO,
-        receipt: { status: "issued", currency: "USD", numero: 1 },
-      },
-    ];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it("refuses a recibo that also pays another comprobante", async () => {
-    h.otherAllocs = [{ id: "a2" }];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it("refuses a recibo that also settles a rejected cheque", async () => {
-    h.rejected = [{ id: "r1" }];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it("refuses a recibo paid with cheques", async () => {
-    h.cheques = [{ id: "ch1" }];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(!res.ok && res.error).toMatch(/cheques/);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it("refuses a recibo with retentions", async () => {
-    h.retentions = [{ id: "ret1" }];
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    "receipt_allocations",
-    "receipt_retentions",
-    "checks",
-    "receipt_rejected_check_allocations",
-  ])("fails closed when the %s read errors", async (table) => {
-    h.failTable = table;
-    const res = await billRemitoAction(input());
-    expect(res.ok).toBe(false);
-    expect(issue).not.toHaveBeenCalled();
-  });
-
-  it("only looks at issued recibos (a cancelled one does not block)", async () => {
-    await billRemitoAction(input());
-    const allocQuery = fake.calls.find(
-      (c) => c.table === "receipt_allocations" && eqValue(c, "invoice_id"),
-    );
-    expect(eqValue(allocQuery!, "receipt.status")).toBe("issued");
+    expect(issue).toHaveBeenCalledTimes(1);
   });
 });
 

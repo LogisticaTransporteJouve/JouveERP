@@ -95,7 +95,9 @@ export function OpeningBalanceDialog({
       {
         onSuccess: () => {
           toast.success(
-            existing ? "Ajuste de saldo actualizado." : "Ajuste de saldo registrado.",
+            existing
+              ? "Ajuste de saldo actualizado."
+              : "Ajuste de saldo registrado.",
           );
           setOpen(false);
         },
@@ -108,7 +110,8 @@ export function OpeningBalanceDialog({
     if (!existing) return;
     const ok = await confirm({
       title: "Borrar el ajuste de saldo",
-      description: "Las imputaciones del ajuste se revierten. Esta acción no se puede deshacer.",
+      description:
+        "Las imputaciones del ajuste se revierten. Esta acción no se puede deshacer.",
       confirmLabel: "Borrar",
       tone: "destructive",
     });
@@ -138,8 +141,8 @@ export function OpeningBalanceDialog({
         <DialogHeader>
           <DialogTitle>Ajustar saldo</DialogTitle>
           <DialogDescription>
-            Fijá la deuda real del cliente a una fecha. El sistema reconcilia
-            el saldo al valor ingresado e imputa FIFO contra las facturas
+            Fijá la deuda real del cliente a una fecha. El sistema reconcilia el
+            saldo al valor ingresado e imputa FIFO contra las facturas
             anteriores. Editable: re-correr sobrescribe.
           </DialogDescription>
         </DialogHeader>
@@ -148,10 +151,7 @@ export function OpeningBalanceDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de corte</Label>
-              <DatePicker
-                value={openingDate}
-                onChange={setOpeningDate}
-              />
+              <DatePicker value={openingDate} onChange={setOpeningDate} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Saldo real al corte ($)</Label>
@@ -178,8 +178,9 @@ export function OpeningBalanceDialog({
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p className="font-medium">Registrado actualmente</p>
               <p className="font-mono">
-                Corte: {existing.opening_date} · Saldo: ${formatNumber2(existing.target_balance)} ·
-                Imputado a facturas: ${formatNumber2(existing.total_settled)}
+                Corte: {existing.opening_date} · Saldo: $
+                {formatNumber2(existing.target_balance)} · Imputado a facturas:
+                ${formatNumber2(existing.total_settled)}
               </p>
             </div>
           )}

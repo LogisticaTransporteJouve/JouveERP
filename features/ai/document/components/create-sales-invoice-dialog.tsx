@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   useDefaultChannel,
   useScope,
+  useSideChannels,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +54,7 @@ export function CreateSalesInvoiceDialog({
   onCreated: () => void;
 }) {
   const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
+  const activeChannels = useSideChannels(channels.filter((c) => c.is_active));
   const defaultChannel = useDefaultChannel();
 
   const [channelId, setChannelId] = useState("");

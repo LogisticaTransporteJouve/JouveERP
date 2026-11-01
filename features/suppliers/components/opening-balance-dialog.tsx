@@ -95,7 +95,8 @@ export function SupplierOpeningBalanceDialog({
     if (!existing) return;
     const ok = await confirm({
       title: "Borrar el ajuste de saldo",
-      description: "Las imputaciones del ajuste se revierten. Esta acción no se puede deshacer.",
+      description:
+        "Las imputaciones del ajuste se revierten. Esta acción no se puede deshacer.",
       confirmLabel: "Borrar",
       tone: "destructive",
     });
@@ -163,8 +164,8 @@ export function SupplierOpeningBalanceDialog({
               <p className="font-medium">Registrado actualmente</p>
               <p className="font-mono">
                 Corte: {existing.opening_date} · Saldo: $
-                {formatNumber2(existing.target_balance)} · Imputado a facturas: $
-                {formatNumber2(existing.total_settled)}
+                {formatNumber2(existing.target_balance)} · Imputado a facturas:
+                ${formatNumber2(existing.total_settled)}
               </p>
             </div>
           )}

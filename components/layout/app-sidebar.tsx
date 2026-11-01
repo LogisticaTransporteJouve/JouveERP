@@ -69,7 +69,9 @@ function NavLink({
         <Link
           href={item.href}
           aria-current={isActive ? "page" : undefined}
-          onClick={() => {
+          onClick={(e) => {
+            // A click that opens another tab leaves this tab's side alone.
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             setOpenMobile(false);
             if (item.scope && item.scope !== fiscalFilter) {
               setFiscalFilter(item.scope);

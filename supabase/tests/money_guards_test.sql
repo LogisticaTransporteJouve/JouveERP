@@ -13,10 +13,12 @@ insert into auth.users (id, email) values
 insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000f7', 'finance');
 
-insert into public.clients (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000c701', '20777777771', 'Cliente Guardas', 'responsable_inscripto');
-insert into public.suppliers (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000b701', '30777777772', 'Proveedor Guardas', 'responsable_inscripto');
+-- Every document below is internal, so are the counterparties
+-- (guard_document_side).
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000c701', false, null, 'Cliente Guardas', null);
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b701', false, null, 'Proveedor Guardas', null);
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-00000000a701', 'Caja Guardas', 'cash', 'ARS'),
   ('00000000-0000-0000-0000-00000000a702', 'Banco Guardas', 'bank', 'ARS');

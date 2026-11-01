@@ -27,7 +27,7 @@ import {
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { PeriodEmptyNotice, PeriodFilter } from "@/components/period-filter";
-import { useScope } from "@/components/providers/scope-provider";
+import { usePageScope } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { useUrlPeriod } from "@/hooks/use-url-period";
@@ -117,7 +117,7 @@ export function ClientAccountTab({
   const movements = data.movements;
   const balances = data.balances;
   const { runningBalance } = data;
-  const { fiscalFilter } = useScope();
+  const fiscalFilter = usePageScope();
   const canIssueInvoice = userCan(actorAccess, "invoices:issue");
   const canWriteReceipt = userCan(actorAccess, "receipts:write");
   // Only the owner can touch the balance adjustment (the backend actions
@@ -482,7 +482,9 @@ export function ClientAccountTab({
               resource="client-account"
               params={{
                 clientId,
-                name: `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`,
+                name: client.cuit
+                  ? `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`
+                  : (client.display_name ?? client.legal_name),
               }}
               label="Exportar resumen"
             />

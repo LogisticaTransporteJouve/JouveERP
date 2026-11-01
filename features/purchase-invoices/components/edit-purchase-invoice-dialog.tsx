@@ -41,7 +41,8 @@ export function EditPurchaseInvoiceDialog({
             {formatInvoiceNumber(invoice)}
           </DialogTitle>
           <DialogDescription>
-            {invoice.supplier_legal_name} · CUIT {invoice.supplier_cuit}
+            {invoice.supplier_legal_name}
+            {invoice.supplier_cuit ? ` · CUIT ${invoice.supplier_cuit}` : ""}
           </DialogDescription>
         </DialogHeader>
         <PurchaseInvoiceForm

@@ -10,7 +10,7 @@ import { useUrlPeriod } from "@/hooks/use-url-period";
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { PeriodEmptyNotice, PeriodFilter } from "@/components/period-filter";
-import { useScope } from "@/components/providers/scope-provider";
+import { usePageScope } from "@/components/providers/scope-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,7 +128,7 @@ export function SupplierAccountTab({
       ? ["ARS", "USD"]
       : ["ARS"];
   const { runningBalance } = data;
-  const { fiscalFilter } = useScope();
+  const fiscalFilter = usePageScope();
   const canWriteOP = userCan(actorAccess, "payment_orders:write");
   const canWritePI = userCan(actorAccess, "purchase_invoices:write");
   const canSetOpening = userCan(actorAccess, "opening_balances:write");
@@ -482,7 +482,9 @@ export function SupplierAccountTab({
               resource="supplier-account"
               params={{
                 supplierId,
-                name: `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`,
+                name: supplier.cuit
+                  ? `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`
+                  : (supplier.display_name ?? supplier.legal_name),
               }}
               label="Exportar resumen"
             />

@@ -30,7 +30,7 @@ export function EditSupplierDialog({ supplier }: { supplier: Supplier }) {
         <DialogHeader>
           <DialogTitle>{supplier.legal_name}</DialogTitle>
           <DialogDescription>
-            CUIT {supplier.cuit}
+            {supplier.cuit ? `CUIT ${supplier.cuit}` : "Sin CUIT · interno"}
             {!supplier.is_active && " · Inactivo"}
           </DialogDescription>
         </DialogHeader>

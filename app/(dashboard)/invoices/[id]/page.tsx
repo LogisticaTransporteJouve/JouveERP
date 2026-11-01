@@ -22,6 +22,7 @@ import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-p
 import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
+import { RetryRemitoCreditButton } from "@/features/invoices/components/retry-remito-credit-button";
 import type { IvaCondition } from "@/features/clients/schema";
 import {
   INTERNAL_CANCELLABLE_STATUSES,
@@ -49,14 +50,17 @@ export default async function ComprobanteDetailPage({
   }
 
   const { id } = await params;
-  const res = await getInvoiceDetailAction(id);
+  const [res, linksRes] = await Promise.all([
+    getInvoiceDetailAction(id),
+    getRemitoLinksAction(id),
+  ]);
   if (!res.ok) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.access, "invoices:issue");
-  const linksRes = await getRemitoLinksAction(c.id);
-  const links = linksRes.ok
-    ? linksRes.data
-    : { billedAs: null, sourceRemito: null };
+  // An unreadable link must not read as "not billed" (it would offer
+  // Facturar on a billed remito): the error boundary shows the failure.
+  if (!linksRes.ok) throw new Error(linksRes.error);
+  const links = linksRes.data;
   const canCancel =
     userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
@@ -128,6 +132,12 @@ export default async function ComprobanteDetailPage({
               </a>
             </p>
           )}
+          {links.creditPending && (
+            <p className="text-sm text-muted-foreground">
+              El remito todavía no se acreditó: la venta figura en Ventas y en
+              Otras ventas hasta que se complete.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <InvoiceJobStatus
@@ -150,6 +160,9 @@ export default async function ComprobanteDetailPage({
             <RegeneratePdfButton id={c.id} />
           )}
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
+          {canIssue && links.creditPending && (
+            <RetryRemitoCreditButton facturaId={c.id} />
+          )}
           {canIssue &&
             isInternal &&
             c.kind === "factura" &&

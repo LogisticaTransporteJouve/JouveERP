@@ -31,6 +31,7 @@ import {
   ivaRatePercent,
   condicionIvaReceptorFor,
   type IvaRateId,
+  IVA_RATE_OPTIONS,
 } from "@/lib/afip/codes";
 import type { IvaCondition } from "@/features/clients/schema";
 
@@ -38,15 +39,6 @@ import { formatNumber2, todayInAR } from "@/lib/format";
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
 import { computeTotals } from "../schema";
-
-const RATE_OPTIONS: Array<{ value: IvaRateId; label: string }> = [
-  { value: IVA_RATE.ZERO, label: "0%" },
-  { value: IVA_RATE.TWO_FIVE, label: "2.5%" },
-  { value: IVA_RATE.FIVE, label: "5%" },
-  { value: IVA_RATE.TEN_FIVE, label: "10.5%" },
-  { value: IVA_RATE.TWENTY_ONE, label: "21%" },
-  { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
-];
 
 export type Kind = "nc" | "nd";
 
@@ -324,7 +316,7 @@ export function NcNdForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    {RATE_OPTIONS.map((r) => (
+                    {IVA_RATE_OPTIONS.map((r) => (
                       <SelectItem key={r.value} value={String(r.value)}>
                         {ivaRatePercent(r.value)}%
                       </SelectItem>

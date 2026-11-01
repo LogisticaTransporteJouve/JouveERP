@@ -85,8 +85,9 @@ select ok(
 
 -- 2. Trip revenue from invoiced shipments --------------------------------------
 
-insert into public.clients (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000fb01', '30777777778', 'Cliente Fletes', 'responsable_inscripto');
+-- The freight invoice is internal, so is its client (guard_document_side).
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000fb01', false, null, 'Cliente Fletes', null);
 insert into public.invoices
   (id, channel_id, client_id, kind, punto_venta, numero, fecha, concepto,
    doc_tipo, doc_nro, imp_neto, imp_total, moneda, cotizacion, status, idempotency_key)

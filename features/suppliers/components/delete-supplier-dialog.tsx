@@ -75,7 +75,8 @@ export function DeleteSupplierDialog({ supplier }: { supplier: Supplier }) {
         <DialogHeader>
           <DialogTitle>Eliminar proveedor</DialogTitle>
           <DialogDescription>
-            {supplier.legal_name} · CUIT {supplier.cuit}
+            {supplier.legal_name}
+            {supplier.cuit ? ` · CUIT ${supplier.cuit}` : ""}
           </DialogDescription>
         </DialogHeader>
 

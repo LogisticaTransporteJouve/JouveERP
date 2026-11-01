@@ -72,7 +72,8 @@ const GUARDS = [
   "guard_counterparty_side_immutable",
   "guard_document_side",
   "guard_invoice_source_remito",
-  "move_billed_remito_receipts",
+  "settle_billed_remito",
+  "guard_billed_remito_frozen",
 ];
 
 describe("guard hints in migrations", () => {

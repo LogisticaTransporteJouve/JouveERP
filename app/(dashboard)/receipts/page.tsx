@@ -95,7 +95,10 @@ export default async function RecibosPage({
               ? "Cobros de clientes con imputación a comprobantes."
               : "Cobros de clientes de Otras ventas, imputados a remitos internos."}{" "}
             Numerador independiente por canal:{" "}
-            <span className="font-mono">R0003-…</span>.
+            <span className="font-mono">
+              {isFiscalSide ? "R0003-…" : "R9001-…"}
+            </span>
+            .
           </p>
         </div>
       </div>

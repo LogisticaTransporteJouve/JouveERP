@@ -29,7 +29,7 @@
           <ul>
             <li><a href="#ingreso">Ingreso y cierre de sesión</a></li>
             <li><a href="#layout">Layout: sidebar + topbar</a></li>
-            <li><a href="#scope">Selector de canal (división + fiscal)</a></li>
+            <li><a href="#scope">Ventas y Otras ventas</a></li>
             <li><a href="#buscar">Búsqueda global ⌘ K</a></li>
             <li><a href="#notificaciones">Campana de notificaciones</a></li>
             <li><a href="#tema">Tema claro / oscuro</a></li>
@@ -68,9 +68,8 @@
           <div class="card">
             <div class="meta">Arriba</div>
             <div class="title">Topbar</div>
-            <p>Botón colapsar sidebar, <strong>búsqueda global</strong>,
-              <strong>selector de canal</strong> y <strong>campana de
-              notificaciones</strong>.</p>
+            <p>Botón colapsar sidebar, <strong>búsqueda global</strong> y
+              <strong>campana de notificaciones</strong>.</p>
           </div>
           <div class="card">
             <div class="meta">Centro</div>
@@ -80,34 +79,32 @@
           </div>
         </div>
 
-        <h2 id="scope">Selector de canal (división + fiscal)</h2>
+        <h2 id="scope">Ventas y Otras ventas</h2>
         <p>
-          El selector en el topbar afecta a <strong>todos los listados que
-          dependen de canal</strong>: comprobantes, recibos, facturas de
-          compra, órdenes de pago, transacciones y reportes contables.
+          Jouve trabaja como <strong>dos puntos de venta separados</strong>
+          que comparten solo la tesorería. En el menú lateral:
         </p>
-        <div class="fields">
-          <div class="field-name">División</div>
-          <div class="field-req">Filtro</div>
-          <div class="field-desc">Todas / DZ Instalaciones / Logística Jouve.</div>
-
-          <div class="field-name">Tipo de canal</div>
-          <div class="field-req">Filtro</div>
-          <div class="field-desc">Todos / Solo fiscal / Solo interno.</div>
-        </div>
+        <ul>
+          <li><strong>Ventas</strong> y <strong>Compras</strong>: lo fiscal.
+            Clientes y proveedores con CUIT y condición de IVA, facturas con
+            CAE de AFIP.</li>
+          <li><strong>Otras ventas</strong> y <strong>Otras compras</strong>:
+            lo interno. Clientes y proveedores propios, sin CUIT ni AFIP;
+            remitos y recibos internos, con precio final y sin IVA.</li>
+        </ul>
         <p>
-          El scope queda persistido en cookie, así que cada usuario tiene su
-          última selección al volver al sistema.
+          Entrar por una sección deja Clientes, Comprobantes, Recibos y Aging
+          (o Proveedores, Compras, Órdenes de pago y Aging) del lado de esa
+          sección. Caja, cuentas, cheques, préstamos, pagos recurrentes,
+          sueldos, contabilidad y el dashboard muestran siempre los dos lados.
+          La ficha de un cliente o proveedor muestra siempre su propio lado.
         </p>
-
-        <div class="diagram">
-          <div class="mermaid">
-flowchart LR
-    A[División: Todas / DZ / Jouve] --> C{Combinación}
-    B[Tipo: Todos / Fiscal / Interno] --> C
-    C --> D[Listados filtrados<br/>Comprobantes · Recibos · Compras · Pagos · Caja · Contabilidad]
-          </div>
-        </div>
+        <p>
+          Un remito interno se puede <strong>facturar</strong> desde su ficha:
+          se emite la factura en Ventas (precio del remito + IVA) y, con el CAE,
+          el remito se acredita solo con una nota de crédito interna. Si estaba
+          cobrado, el cobro pasa a un recibo de Ventas.
+        </p>
 
         <h2 id="buscar">Búsqueda global ⌘ K</h2>
         <ol class="steps">
