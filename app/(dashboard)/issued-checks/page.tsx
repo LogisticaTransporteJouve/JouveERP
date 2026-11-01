@@ -3,7 +3,6 @@ import { Suspense } from "react";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
-import { ExportButton } from "@/components/export-button";
 import { listIssuedChecksAction } from "@/features/issued-checks/actions/issued-checks-actions";
 import { IssuedChecksTable } from "@/features/issued-checks/components/issued-checks-table";
 import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
@@ -58,7 +57,6 @@ export default async function IssuedChecksPage() {
             vista es informativa para seguir qué cheques siguen en circulación.
           </p>
         </div>
-        <ExportButton resource="issued-checks" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

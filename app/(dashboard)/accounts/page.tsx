@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportButton } from "@/components/export-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { AccountsTable } from "@/features/accounts/components/accounts-table";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
@@ -43,7 +42,6 @@ export default async function CuentasPage() {
             movimientos y saldos en vivo se agregan en una fase posterior.
           </p>
         </div>
-        <ExportButton resource="accounts" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

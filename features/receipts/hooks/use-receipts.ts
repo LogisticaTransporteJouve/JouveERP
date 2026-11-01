@@ -5,7 +5,6 @@ import {
   useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -58,14 +57,18 @@ export function useReceiptsSearchInfinite(filters: ReceiptListFilters) {
   return { ...query, items };
 }
 
+/** Subtotals of a grouped view (the "Por día" header rows); nothing to
+ *  fetch for the plain list. Never suspends: the rows render first and the
+ *  headers fill in. */
 export function useReceiptListTotals(
   filters: ReceiptListFilters,
   group: ListGroup | null,
 ) {
-  return useSuspenseQuery({
+  return useQuery({
     queryKey: receiptsKeys.totals(filters, group),
     queryFn: () =>
       runAction(() => getReceiptListTotalsAction({ ...filters, group })),
+    enabled: group !== null,
   });
 }
 

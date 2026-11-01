@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
-import { DateRangeProvider } from "@/components/providers/date-range-provider";
 import { ScopeProvider } from "@/components/providers/scope-provider";
 import { ScopeSelector } from "@/components/scope-selector";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -69,40 +68,38 @@ export default async function DashboardLayout({
       initialFiscalFilter={initialFiscalFilter}
       locked={scopeLocked}
     >
-      <DateRangeProvider>
-        <SidebarProvider
-          defaultOpen={defaultOpen}
-          className="h-svh min-h-0 overflow-hidden"
-        >
-          <AppSidebar
-            userEmail={ctx.email}
-            userAccess={ctx.access}
-            profile={{
-              firstName: ctx.profile.firstName,
-              lastName: ctx.profile.lastName,
-              avatarUrl: resolveAvatarUrl(supabase, ctx.profile.avatarPath),
-              avatarColor: ctx.profile.avatarColor,
-            }}
+      <SidebarProvider
+        defaultOpen={defaultOpen}
+        className="h-svh min-h-0 overflow-hidden"
+      >
+        <AppSidebar
+          userEmail={ctx.email}
+          userAccess={ctx.access}
+          profile={{
+            firstName: ctx.profile.firstName,
+            lastName: ctx.profile.lastName,
+            avatarUrl: resolveAvatarUrl(supabase, ctx.profile.avatarPath),
+            avatarColor: ctx.profile.avatarColor,
+          }}
+        />
+        {/* The canvas card scrolls on its own, under its sticky header. */}
+        <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
+          <AppHeader
+            actions={
+              <>
+                <GlobalSearchTrigger />
+                <ScopeSelector />
+                <NotificationBell currentUserId={ctx.userId} />
+              </>
+            }
           />
-          {/* The canvas card scrolls on its own, under its sticky header. */}
-          <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
-            <AppHeader
-              actions={
-                <>
-                  <GlobalSearchTrigger />
-                  <ScopeSelector />
-                  <NotificationBell currentUserId={ctx.userId} />
-                </>
-              }
-            />
-            <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
-              {children}
-            </div>
-            <MobileTabBar userAccess={ctx.access} />
-            <BrowserNotifier currentUserId={ctx.userId} />
-          </SidebarInset>
-        </SidebarProvider>
-      </DateRangeProvider>
+          <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
+            {children}
+          </div>
+          <MobileTabBar userAccess={ctx.access} />
+          <BrowserNotifier currentUserId={ctx.userId} />
+        </SidebarInset>
+      </SidebarProvider>
     </ScopeProvider>
   );
 }

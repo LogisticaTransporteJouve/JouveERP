@@ -13,6 +13,7 @@ import {
   paymentCurrencyOf,
   type UsdRate,
 } from "@/lib/fx";
+import { parseSearchTerm } from "@/lib/list-search";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -30,6 +31,7 @@ import {
   PaymentOrderUpdateSchema,
   isPaymentOrderCurrency,
   isPaymentOrderStatus,
+  type PaymentOrderStatus,
   type PaymentLineInput,
   type PaymentOrder,
   type PaymentOrderAllocation,
@@ -85,9 +87,15 @@ function serializePaymentLine(line: PaymentLineInput) {
 }
 
 export async function listPaymentOrdersAction(input?: {
+  offset?: number;
   limit?: number;
   /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
   isFiscal?: boolean | null;
+  /** OP number (digits) or supplier legal name (`parseSearchTerm`). */
+  query?: string | null;
+  status?: PaymentOrderStatus | null;
+  from?: string | null;
+  to?: string | null;
 }): Promise<
   ActionResult<{
     items: (PaymentOrder & { supplier_legal_name: string })[];
@@ -99,20 +107,34 @@ export async function listPaymentOrdersAction(input?: {
     return { ok: false, error: "No tenés permiso para ver órdenes de pago." };
   }
 
+  const offset = input?.offset ?? 0;
   const limit = input?.limit ?? 100;
   const supabase = await createSupabaseClient();
-  const { data, error } = await applyFiscalFilter(
-    supabase
-      .from("payment_orders")
-      .select(
-        `${COLUMNS}, suppliers ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
-      ),
+  let query = applyFiscalFilter(
+    supabase.from("payment_orders").select(
+      // !inner so the supplier-name search narrows the orders; every order
+      // has a supplier by FK.
+      `${COLUMNS}, suppliers!inner ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+    ),
     input?.isFiscal,
     "channel",
   )
     .order("payment_date", { ascending: false })
     .order("numero", { ascending: false })
-    .range(0, limit - 1);
+    // Tie-breaker: numero is unique per channel only.
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (input?.status) query = query.eq("status", input.status);
+  if (input?.from) query = query.gte("payment_date", input.from);
+  if (input?.to) query = query.lte("payment_date", input.to);
+  const term = parseSearchTerm(input?.query);
+  if (term.numero !== null) query = query.eq("numero", term.numero);
+  if (term.name !== null) {
+    query = query.ilike("suppliers.legal_name", `%${term.name}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     logger.error("payment_orders.list.failed", { userId: ctx.userId, error });
@@ -132,7 +154,10 @@ export async function listPaymentOrdersAction(input?: {
 
   return {
     ok: true,
-    data: { items, nextOffset: items.length === limit ? limit : null },
+    data: {
+      items,
+      nextOffset: items.length === limit ? offset + limit : null,
+    },
   };
 }
 

@@ -2,26 +2,21 @@
 
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
-import {
-  Suspense,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Suspense, useDeferredValue, useMemo } from "react";
 
+import { ExportButton } from "@/components/export-button";
+import { ListGroupHeader, ListGroupToggle } from "@/components/list-totals";
 import {
-  ListGroupHeader,
-  ListGroupToggle,
-  ListTotalsBar,
-} from "@/components/list-totals";
+  ListPending,
+  ListSearch,
+  ListToolbar,
+} from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -30,29 +25,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
+import { useListParams } from "@/hooks/use-list-params";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 import { bucketOf, type ListGroup } from "@/lib/list-period";
-import { grandTotal, totalsByBucket } from "@/lib/list-totals";
+import { totalsByBucket } from "@/lib/list-totals";
 
 import type { Account } from "@/features/accounts/schema";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
-import {
-  ClientFilter,
-  type ClientFilterValue,
-} from "@/features/clients/components/client-filter";
 
 import {
   useReceiptListTotals,
   useReceiptsSearchInfinite,
 } from "../hooks/use-receipts";
 import {
+  DEFAULT_RECEIPT_LIST_PARAMS,
   receiptListFilters,
   receiptListParamsToUrl,
   type ReceiptListFilters,
@@ -69,7 +60,6 @@ type ReceiptListItem = Receipt & { client_legal_name: string };
 
 const ANY = "__any__";
 const NOUN = ["recibo", "recibos"] as const;
-const TOTALS_NOTE = "Los anulados no suman.";
 
 function buildReceiptColumns({
   channels,
@@ -102,6 +92,8 @@ function buildReceiptColumns({
       id: "cliente",
       header: "Cliente",
       enableSorting: false,
+      // Long legal names wrap so the other columns stay in view.
+      meta: { cellClassName: "min-w-48 whitespace-normal" },
       cell: ({ row }) => (
         <Link
           href={`/clients/${row.original.client_id}`}
@@ -195,53 +187,45 @@ function buildReceiptColumns({
   ];
 }
 
+const VIEW_KEYS = ["group"] as const;
+
 export function ReceiptsTable({
   channels,
   actorAccess,
   initialParams,
-  initialClient,
 }: {
   channels: ChannelOption[];
   actorAccess: Access;
   initialParams: ReceiptListParams;
-  initialClient: ClientFilterValue | null;
 }) {
   const { data: accounts } = useAccountsList();
   const canWrite = userCan(actorAccess, "receipts:write");
   const canSendEmail = userCan(actorAccess, "email:send");
 
-  const [params, setParams] = useState<ReceiptListParams>(initialParams);
-  const [client, setClient] = useState<ClientFilterValue | null>(initialClient);
-  const [queryInput, setQueryInput] = useState(initialParams.query);
-  const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
-  const setUrlFilters = useUrlFilter();
+  const { params, committed, update, reset, isFiltered } = useListParams({
+    initial: initialParams,
+    defaults: DEFAULT_RECEIPT_LIST_PARAMS,
+    toUrl: receiptListParamsToUrl,
+    viewKeys: VIEW_KEYS,
+  });
   const isFiscal = useScopeIsFiscal();
-
-  const current = useMemo<ReceiptListParams>(
-    () => ({ ...params, query: debouncedQuery, clientId: client?.id ?? null }),
-    [params, debouncedQuery, client],
+  const filters = useMemo(
+    () => receiptListFilters(committed, isFiscal),
+    [committed, isFiscal],
   );
-  const filters = useDeferredValue(
-    useMemo(() => receiptListFilters(current, isFiscal), [current, isFiscal]),
-  );
-  const group = useDeferredValue(current.group);
+  const deferredFilters = useDeferredValue(filters);
+  const group = useDeferredValue(committed.group);
+  const pending = deferredFilters !== filters || group !== committed.group;
 
-  // Realtime: invalidate the list, its totals (and aging, since allocations
-  // live on the parent's updated_at) whenever any receipt changes server-side.
+  // Realtime: invalidate the list, its subtotals (and aging, since
+  // allocations live on the parent's updated_at) whenever any receipt
+  // changes server-side.
   useRealtimeInvalidate([
     {
       table: "receipts",
       queryKeys: [receiptsKeys.all, agingKeys.all],
     },
   ]);
-
-  useEffect(() => {
-    setUrlFilters(receiptListParamsToUrl(current));
-  }, [current, setUrlFilters]);
-
-  function update(patch: Partial<ReceiptListParams>) {
-    setParams((prev) => ({ ...prev, ...patch }));
-  }
 
   const columns = useMemo(
     () => buildReceiptColumns({ channels, accounts, canWrite, canSendEmail }),
@@ -250,20 +234,31 @@ export function ReceiptsTable({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          inputMode="numeric"
-          placeholder="Buscar por número"
-          aria-label="Buscar por número"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value.replace(/\D/g, ""))}
-          className="w-full sm:max-w-[200px]"
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={reset}
+        actions={
+          <>
+            <ListGroupToggle
+              value={params.group}
+              onChange={(next) => update({ group: next })}
+            />
+            <ExportButton resource="receipts" />
+            {canWrite && (
+              <NewReceiptDialog channels={channels} accounts={accounts} />
+            )}
+          </>
+        }
+      >
+        <ListSearch
+          placeholder="Buscar por cliente o número"
+          value={params.query}
+          onChange={(query) => update({ query })}
         />
         <PeriodFilter
           value={params.period}
           onChange={(period) => update({ period })}
         />
-        <ClientFilter value={client} onChange={setClient} />
         <Select
           value={params.status ?? ANY}
           onValueChange={(v) =>
@@ -279,17 +274,7 @@ export function ReceiptsTable({
             <SelectItem value="canceled">Anulado</SelectItem>
           </SelectContent>
         </Select>
-
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <ListGroupToggle
-            value={params.group}
-            onChange={(next) => update({ group: next })}
-          />
-          {canWrite && (
-            <NewReceiptDialog channels={channels} accounts={accounts} />
-          )}
-        </div>
-      </div>
+      </ListToolbar>
 
       <div className="mt-4">
         <Suspense
@@ -297,11 +282,13 @@ export function ReceiptsTable({
             <DataTable columns={columns} data={[]} isLoading skeletonRows={6} />
           }
         >
-          <ReceiptsTableRows
-            filters={filters}
-            group={group}
-            columns={columns}
-          />
+          <ListPending pending={pending}>
+            <ReceiptsTableRows
+              filters={deferredFilters}
+              group={group}
+              columns={columns}
+            />
+          </ListPending>
         </Suspense>
       </div>
     </>
@@ -328,43 +315,39 @@ function ReceiptsTableRows({
     { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
   );
 
-  const total = useMemo(() => grandTotal(totalRows), [totalRows]);
-  const byBucket = useMemo(() => totalsByBucket(totalRows), [totalRows]);
+  const byBucket = useMemo(() => totalsByBucket(totalRows ?? []), [totalRows]);
 
   return (
-    <div className="space-y-3">
-      <ListTotalsBar summary={total} noun={NOUN} note={TOTALS_NOTE} />
-      <DataTable
-        columns={columns}
-        data={items}
-        getRowId={(row) => row.id}
-        emptyMessage="No hay recibos que coincidan."
-        groupBy={
-          group
-            ? {
-                key: (row) => bucketOf(row.receipt_date, group),
-                header: (bucket) => (
-                  <ListGroupHeader
-                    bucket={bucket}
-                    group={group}
-                    summary={byBucket.get(bucket)}
-                    noun={NOUN}
-                  />
-                ),
-              }
-            : undefined
-        }
-        footer={
-          hasNextPage ? (
-            <div
-              ref={sentinelRef}
-              className="py-4 text-center text-xs text-muted-foreground"
-            >
-              Cargando más…
-            </div>
-          ) : null
-        }
-      />
-    </div>
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(row) => row.id}
+      emptyMessage="No hay recibos que coincidan."
+      groupBy={
+        group
+          ? {
+              key: (row) => bucketOf(row.receipt_date, group),
+              header: (bucket) => (
+                <ListGroupHeader
+                  bucket={bucket}
+                  group={group}
+                  summary={byBucket.get(bucket)}
+                  noun={NOUN}
+                />
+              ),
+            }
+          : undefined
+      }
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
+          >
+            Cargando más…
+          </div>
+        ) : null
+      }
+    />
   );
 }

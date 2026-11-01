@@ -1,5 +1,7 @@
 "use client";
 
+import { ExportButton } from "@/components/export-button";
+import { ListToolbar } from "@/components/list-toolbar";
 import { Ban, CheckCircle2, XCircle } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
@@ -207,11 +209,16 @@ export function IssuedChecksTable({
 
   return (
     <>
-      {canWrite && (
-        <div className="flex justify-end">
-          <NewIssuedCheckDialog accounts={accounts} channels={channels} />
-        </div>
-      )}
+      <ListToolbar
+        actions={
+          <>
+            <ExportButton resource="issued-checks" />
+            {canWrite && (
+              <NewIssuedCheckDialog accounts={accounts} channels={channels} />
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

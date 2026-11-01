@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { ExportButton } from "@/components/export-button";
 import { searchClientsAction } from "@/features/clients/actions/clients-actions";
 import { ClientsTable } from "@/features/clients/components/clients-table";
 import {
@@ -56,7 +55,6 @@ export default async function ClientesPage({
             Instalaciones.
           </p>
         </div>
-        <ExportButton resource="clients" />
       </div>
       <Hydrate state={dehydratedState}>
         <ClientsTable

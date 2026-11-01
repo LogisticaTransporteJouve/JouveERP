@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportButton } from "@/components/export-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listPaymentOrdersAction } from "@/features/payment-orders/actions/payment-orders-actions";
 import { PaymentOrdersTable } from "@/features/payment-orders/components/payment-orders-table";
-import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
+import {
+  parsePaymentOrderListParams,
+  paymentOrderListActionInput,
+  paymentOrderListFilters,
+} from "@/features/payment-orders/lib/payment-order-list-filters";
+import {
+  PAYMENT_ORDERS_PAGE_SIZE,
+  paymentOrdersKeys,
+} from "@/features/payment-orders/lib/payment-orders-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
@@ -20,7 +27,11 @@ import Loading from "./loading";
 
 export const dynamic = "force-dynamic";
 
-export default async function PaymentOrdersPage() {
+export default async function PaymentOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "payment_orders:read")) {
     redirect("/dashboard");
@@ -34,11 +45,26 @@ export default async function PaymentOrdersPage() {
     name: c.name,
   }));
 
-  const isFiscal = isFiscalFor(await readScopeCookie());
+  const params = parsePaymentOrderListParams(await searchParams);
+  const filters = paymentOrderListFilters(
+    params,
+    isFiscalFor(await readScopeCookie()),
+  );
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: paymentOrdersKeys.list(isFiscal),
-      queryFn: () => runAction(() => listPaymentOrdersAction({ isFiscal })),
+      infinite: true,
+      queryKey: paymentOrdersKeys.searchInfinite(filters),
+      queryFn: ({ pageParam }: { pageParam: number }) =>
+        runAction(() =>
+          listPaymentOrdersAction(
+            paymentOrderListActionInput(
+              filters,
+              pageParam,
+              PAYMENT_ORDERS_PAGE_SIZE,
+            ),
+          ),
+        ),
+      initialPageParam: 0,
     },
     {
       queryKey: accountsKeys.list(),
@@ -59,11 +85,14 @@ export default async function PaymentOrdersPage() {
             .
           </p>
         </div>
-        <ExportButton resource="payment-orders" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <PaymentOrdersTable channels={channels} actorAccess={ctx.access} />
+          <PaymentOrdersTable
+            channels={channels}
+            actorAccess={ctx.access}
+            initialParams={params}
+          />
         </Suspense>
       </Hydrate>
     </div>

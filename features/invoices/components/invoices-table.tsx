@@ -2,22 +2,21 @@
 
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
+import { Suspense, useDeferredValue, useMemo } from "react";
 
 import { ExportButton } from "@/components/export-button";
-import { SendByEmailDialog } from "@/components/send-by-email-dialog";
+import { ListGroupHeader, ListGroupToggle } from "@/components/list-totals";
 import {
-  Suspense,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-} from "react";
-
+  ListPending,
+  ListSearch,
+  ListToolbar,
+} from "@/components/list-toolbar";
+import { PeriodFilter } from "@/components/period-filter";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,17 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ListGroupHeader,
-  ListGroupToggle,
-  ListTotalsBar,
-} from "@/components/list-totals";
-import { PeriodFilter } from "@/components/period-filter";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { useListParams } from "@/hooks/use-list-params";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import {
@@ -44,13 +35,9 @@ import {
   formatNumber2,
 } from "@/lib/format";
 import { bucketOf, type ListGroup } from "@/lib/list-period";
-import { grandTotal, totalsByBucket } from "@/lib/list-totals";
+import { totalsByBucket } from "@/lib/list-totals";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
-import {
-  ClientFilter,
-  type ClientFilterValue,
-} from "@/features/clients/components/client-filter";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import {
@@ -58,9 +45,9 @@ import {
   useInvoicesSearchInfinite,
 } from "../hooks/use-invoices";
 import {
+  DEFAULT_INVOICE_LIST_PARAMS,
   invoiceListFilters,
   invoiceListParamsToUrl,
-  parsePuntoVenta,
   type InvoiceListFilters,
   type InvoiceListParams,
 } from "../lib/invoice-list-filters";
@@ -88,7 +75,6 @@ function formatPdfFilename(row: InvoiceListItem): string {
 
 const ANY = "__any__";
 
-const TOTALS_NOTE = "Las NC restan; anulados y fallidos no suman.";
 const NOUN = ["comprobante", "comprobantes"] as const;
 
 const STATUS_TONE: Record<InvoiceStatus, string> = {
@@ -126,7 +112,8 @@ function buildInvoiceColumns(
       id: "cliente",
       header: "Cliente",
       enableSorting: false,
-      meta: { cellClassName: "font-medium" },
+      // Long legal names wrap so the other columns stay in view.
+      meta: { cellClassName: "min-w-48 font-medium whitespace-normal" },
       cell: ({ row }) => (
         <Link
           href={`/clients/${row.original.client_id}`}
@@ -214,49 +201,39 @@ function buildInvoiceColumns(
   ];
 }
 
+const VIEW_KEYS = ["group"] as const;
+
 export function ComprobantesTable({
   actorAccess,
   channels,
   initialParams,
-  initialClient,
 }: {
   actorAccess: Access;
   channels: ChannelOption[];
   initialParams: InvoiceListParams;
-  initialClient: ClientFilterValue | null;
 }) {
-  const [params, setParams] = useState<InvoiceListParams>(initialParams);
-  const [client, setClient] = useState<ClientFilterValue | null>(initialClient);
-  const [queryInput, setQueryInput] = useState(initialParams.query);
-  const [pvInput, setPvInput] = useState(
-    initialParams.puntoVenta === null ? "" : String(initialParams.puntoVenta),
-  );
-
-  const debouncedQuery = useDebouncedValue(queryInput.trim(), 250);
-  const debouncedPv = useDebouncedValue(pvInput.trim(), 250);
-  const setUrlFilters = useUrlFilter();
+  const { params, committed, update, reset, isFiltered } = useListParams({
+    initial: initialParams,
+    defaults: DEFAULT_INVOICE_LIST_PARAMS,
+    toUrl: invoiceListParamsToUrl,
+    viewKeys: VIEW_KEYS,
+  });
 
   const isFiscal = useScopeIsFiscal();
-  const current = useMemo<InvoiceListParams>(
-    () => ({
-      ...params,
-      query: debouncedQuery,
-      puntoVenta: parsePuntoVenta(debouncedPv),
-      clientId: client?.id ?? null,
-    }),
-    [params, debouncedQuery, debouncedPv, client],
+  const filters = useMemo(
+    () => invoiceListFilters(committed, isFiscal),
+    [committed, isFiscal],
   );
-  const filters = useDeferredValue(
-    useMemo(() => invoiceListFilters(current, isFiscal), [current, isFiscal]),
-  );
-  const group = useDeferredValue(current.group);
+  const deferredFilters = useDeferredValue(filters);
+  const group = useDeferredValue(committed.group);
+  const pending = deferredFilters !== filters || group !== committed.group;
 
   const canIssue = userCan(actorAccess, "invoices:issue");
   const canSendEmail = userCan(actorAccess, "email:send");
 
   // Realtime: any change to comprobantes invalidates the list (every
-  // filter combo), its totals and the aging summary (since unpaid invoices
-  // drive it).
+  // filter combo), its subtotals and the aging summary (since unpaid
+  // invoices drive it).
   useRealtimeInvalidate([
     {
       table: "invoices",
@@ -264,55 +241,35 @@ export function ComprobantesTable({
     },
   ]);
 
-  useEffect(() => {
-    setUrlFilters(invoiceListParamsToUrl(current));
-  }, [current, setUrlFilters]);
-
-  function update(patch: Partial<InvoiceListParams>) {
-    setParams((prev) => ({ ...prev, ...patch }));
-  }
-
-  function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
-    setQueryInput(event.target.value);
-  }
-
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={reset}
+        actions={
+          <>
+            <ListGroupToggle
+              value={params.group}
+              onChange={(next) => update({ group: next })}
+            />
+            <ExportButton resource="invoices" />
+            {canIssue && <NewInvoiceDialog channels={channels} />}
+          </>
+        }
+      >
+        <ListSearch
           placeholder="Buscar por cliente o número"
-          value={queryInput}
-          onChange={onSearchChange}
-          className="w-full sm:max-w-xs"
+          value={params.query}
+          onChange={(query) => update({ query })}
         />
         <PeriodFilter
           value={params.period}
           onChange={(period) => update({ period })}
         />
-        <ClientFilter value={client} onChange={setClient} />
-
-        <div className="ml-auto flex items-center gap-2">
-          <ExportButton resource="invoices" />
-          {canIssue && <NewInvoiceDialog channels={channels} />}
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-3">
         <InvoiceTypeFilter
           value={params.types}
           onChange={(types) => update({ types })}
         />
-
-        <Input
-          inputMode="numeric"
-          placeholder="Punto de venta"
-          aria-label="Punto de venta"
-          value={pvInput}
-          onChange={(e) => setPvInput(e.target.value.replace(/\D/g, ""))}
-          maxLength={5}
-          className="w-[140px]"
-        />
-
         <Select
           value={params.status ?? ANY}
           onValueChange={(v) =>
@@ -331,22 +288,17 @@ export function ComprobantesTable({
             ))}
           </SelectContent>
         </Select>
-
-        <div className="ml-auto">
-          <ListGroupToggle
-            value={params.group}
-            onChange={(next) => update({ group: next })}
-          />
-        </div>
-      </div>
+      </ListToolbar>
 
       <div className="mt-4">
         <Suspense fallback={<ComprobantesTableSkeleton />}>
-          <ComprobantesTableRows
-            filters={filters}
-            group={group}
-            canSendEmail={canSendEmail}
-          />
+          <ListPending pending={pending}>
+            <ComprobantesTableRows
+              filters={deferredFilters}
+              group={group}
+              canSendEmail={canSendEmail}
+            />
+          </ListPending>
         </Suspense>
       </div>
     </>
@@ -377,44 +329,40 @@ function ComprobantesTableRows({
     () => buildInvoiceColumns(canSendEmail),
     [canSendEmail],
   );
-  const total = useMemo(() => grandTotal(totalRows), [totalRows]);
-  const byBucket = useMemo(() => totalsByBucket(totalRows), [totalRows]);
+  const byBucket = useMemo(() => totalsByBucket(totalRows ?? []), [totalRows]);
 
   return (
-    <div className="space-y-3">
-      <ListTotalsBar summary={total} noun={NOUN} note={TOTALS_NOTE} />
-      <DataTable
-        columns={columns}
-        data={items}
-        getRowId={(row) => row.id}
-        emptyMessage="No hay comprobantes que coincidan."
-        groupBy={
-          group
-            ? {
-                key: (row) => bucketOf(row.fecha, group),
-                header: (bucket) => (
-                  <ListGroupHeader
-                    bucket={bucket}
-                    group={group}
-                    summary={byBucket.get(bucket)}
-                    noun={NOUN}
-                  />
-                ),
-              }
-            : undefined
-        }
-        footer={
-          hasNextPage ? (
-            <div
-              ref={sentinelRef}
-              className="py-4 text-center text-xs text-muted-foreground"
-            >
-              Cargando más…
-            </div>
-          ) : null
-        }
-      />
-    </div>
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(row) => row.id}
+      emptyMessage="No hay comprobantes que coincidan."
+      groupBy={
+        group
+          ? {
+              key: (row) => bucketOf(row.fecha, group),
+              header: (bucket) => (
+                <ListGroupHeader
+                  bucket={bucket}
+                  group={group}
+                  summary={byBucket.get(bucket)}
+                  noun={NOUN}
+                />
+              ),
+            }
+          : undefined
+      }
+      footer={
+        hasNextPage ? (
+          <div
+            ref={sentinelRef}
+            className="py-4 text-center text-xs text-muted-foreground"
+          >
+            Cargando más…
+          </div>
+        ) : null
+      }
+    />
   );
 }
 

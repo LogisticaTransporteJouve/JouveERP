@@ -15,6 +15,7 @@ import {
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { isListGroup, type ListGroup } from "@/lib/list-period";
+import { parseSearchTerm } from "@/lib/list-search";
 import type { ListTotalRow } from "@/lib/list-totals";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -22,10 +23,7 @@ import { IsoDateSchema } from "@/lib/validation/common";
 
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
-import {
-  receiptNumeroOf,
-  type ReceiptListFilters,
-} from "../lib/receipt-list-filters";
+import type { ReceiptListFilters } from "../lib/receipt-list-filters";
 
 import {
   allocationPayload,
@@ -95,7 +93,9 @@ export async function listReceiptsAction(input?: {
   let query = supabase
     .from("receipts")
     .select(
-      `${RECEIPT_COLUMNS}, clients ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+      // !inner so the client-name search narrows the receipts; every receipt
+      // has a client by FK.
+      `${RECEIPT_COLUMNS}, clients!inner ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
     )
     .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false })
@@ -110,9 +110,11 @@ export async function listReceiptsAction(input?: {
   if (input?.clientId) query = query.eq("client_id", input.clientId);
   if (input?.from) query = query.gte("receipt_date", input.from);
   if (input?.to) query = query.lte("receipt_date", input.to);
-  // Exact numero search (no fulltext here; the global ⌘K covers that).
-  const numero = receiptNumeroOf(input?.query);
-  if (numero !== null) query = query.eq("numero", numero);
+  const term = parseSearchTerm(input?.query);
+  if (term.numero !== null) query = query.eq("numero", term.numero);
+  if (term.name !== null) {
+    query = query.ilike("clients.legal_name", `%${term.name}%`);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -154,7 +156,7 @@ export async function getReceiptListTotalsAction(
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
-  const numero = receiptNumeroOf(filters.query);
+  const term = parseSearchTerm(filters.query);
   const supabase = await createSupabaseClient();
   // Ordered by (bucket, currency), unique per row: a total order to page on.
   const { data, error } = await paginateRange((from, to) =>
@@ -163,10 +165,10 @@ export async function getReceiptListTotalsAction(
         p_group: isListGroup(filters.group) ? filters.group : undefined,
         p_is_fiscal: filters.isFiscal ?? undefined,
         p_status: filters.status ?? undefined,
-        p_client_id: filters.clientId ?? undefined,
         p_from: filters.from ?? undefined,
         p_to: filters.to ?? undefined,
-        p_numero: numero ?? undefined,
+        p_numero: term.numero ?? undefined,
+        p_client_name: term.name ?? undefined,
       })
       .range(from, to),
   );

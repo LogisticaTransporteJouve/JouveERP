@@ -1,7 +1,6 @@
 /**
- * Date-period filter and grouping shared by the document lists (comprobantes,
- * recibos). Unlike the global `DateRangeSelector` (lib/date-range), the choice
- * lives in each list's URL (`period`, `from`, `to`, `group`), so a filtered
+ * Date-period filter and grouping shared by every list and account statement.
+ * The choice lives in each screen's URL (`period`, `from`, `to`, `group`), so a filtered
  * view can be shared or reloaded. Presets resolve against today's date in
  * Argentina, on the server prefetch and in the browser alike.
  */
@@ -14,6 +13,8 @@ export const PERIOD_PRESETS = [
   "this_week",
   "this_month",
   "last_month",
+  "this_year",
+  "last_year",
   "custom",
 ] as const;
 export type PeriodPreset = (typeof PERIOD_PRESETS)[number];
@@ -24,6 +25,8 @@ export const PERIOD_PRESET_LABEL: Record<PeriodPreset, string> = {
   this_week: "Esta semana",
   this_month: "Este mes",
   last_month: "Mes anterior",
+  this_year: "Este año",
+  last_year: "Año anterior",
   custom: "Personalizado",
 };
 
@@ -93,10 +96,15 @@ export function parsePeriodParams(params: {
   from?: string | null;
   to?: string | null;
 }): PeriodSelection {
-  const preset = isPeriodPreset(params.period) ? params.period : null;
-  if (preset !== "custom") return { preset, from: null, to: null };
   const from = asIsoDate(params.from);
   const to = asIsoDate(params.to);
+  // A bare from/to pair (links from before presets existed) is a custom range.
+  const preset = isPeriodPreset(params.period)
+    ? params.period
+    : from && to
+      ? "custom"
+      : null;
+  if (preset !== "custom") return { preset, from: null, to: null };
   if (!from || !to) return { preset: null, from: null, to: null };
   return from <= to ? { preset, from, to } : { preset, from: to, to: from };
 }
@@ -148,6 +156,12 @@ export function resolvePeriod(
     case "last_month": {
       const lastMonth = addDays(startOfMonth(today), -1);
       return { from: startOfMonth(lastMonth), to: lastMonth };
+    }
+    case "this_year":
+      return { from: `${today.slice(0, 4)}-01-01`, to: today };
+    case "last_year": {
+      const year = Number(today.slice(0, 4)) - 1;
+      return { from: `${year}-01-01`, to: `${year}-12-31` };
     }
     case "custom":
       return selection.from && selection.to

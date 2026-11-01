@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { ExportButton } from "@/components/export-button";
 import { listSupplierCategoriesAction } from "@/features/supplier-categories/actions/supplier-categories-actions";
 import { supplierCategoriesKeys } from "@/features/supplier-categories/lib/supplier-categories-keys";
 import { searchSuppliersAction } from "@/features/suppliers/actions/suppliers-actions";
@@ -68,7 +67,6 @@ export default async function SuppliersPage({
             Instalaciones.
           </p>
         </div>
-        <ExportButton resource="suppliers" />
       </div>
       <Hydrate state={dehydratedState}>
         <SuppliersTable

@@ -69,33 +69,6 @@ function Amounts({ summary }: { summary: TotalsSummary }) {
   );
 }
 
-/** Grand total strip above a document list. */
-export function ListTotalsBar({
-  summary,
-  noun,
-  note,
-}: {
-  summary: TotalsSummary;
-  noun: DocumentNoun;
-  /** What the amount includes, e.g. "Las NC restan; anulados no suman." */
-  note: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border bg-card px-4 py-3 text-sm">
-      <span className="text-muted-foreground">
-        {countLabel(summary.documents, noun)}
-        <span className="ml-2 text-xs">{note}</span>
-      </span>
-      <span className="flex flex-wrap gap-x-4 font-semibold">
-        <span className="font-sans font-normal text-muted-foreground">
-          Total
-        </span>
-        <Amounts summary={summary} />
-      </span>
-    </div>
-  );
-}
-
 /** Content of a group header row: the bucket and its DB subtotal. */
 export function ListGroupHeader({
   bucket,

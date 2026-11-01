@@ -26,6 +26,7 @@ import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { getLastAuthorizedNumber } from "@/lib/afip/wsfev1";
 import { formatMoney, todayInAR } from "@/lib/format";
 import { isListGroup, type ListGroup } from "@/lib/list-period";
+import { parseSearchTerm } from "@/lib/list-search";
 import { isoCurrency, type ListTotalRow } from "@/lib/list-totals";
 import { paymentCurrencyOf } from "@/lib/fx";
 import { inngest } from "@/lib/inngest/client";
@@ -52,7 +53,6 @@ import type { IvaCondition } from "@/features/clients/schema";
 import {
   invoiceTypesOrFilter,
   normalizeInvoiceListTypes,
-  parseSearchTerm,
   type InvoiceListFilters,
   type InvoiceListType,
 } from "../lib/invoice-list-filters";
@@ -611,7 +611,6 @@ export interface ListComprobantesFilters {
   kind?: InvoiceRow["kind"] | null;
   /** "Tipo" filter (facturas by letter, NC, ND); empty = every type. */
   types?: InvoiceListType[] | null;
-  punto_venta?: number | null;
   /** Only invoices of an active channel (pickers; never the lists). */
   activeChannelOnly?: boolean;
   status?: InvoiceRow["status"] | null;
@@ -688,7 +687,6 @@ export async function listInvoicesAction(
   if (filters.kind) query = query.eq("kind", filters.kind);
   const typesFilter = invoiceTypesOrFilter(filters.types ?? []);
   if (typesFilter) query = query.or(typesFilter);
-  if (filters.punto_venta) query = query.eq("punto_venta", filters.punto_venta);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.fecha_desde) query = query.gte("fecha", filters.fecha_desde);
   if (filters.fecha_hasta) query = query.lte("fecha", filters.fecha_hasta);
@@ -698,8 +696,8 @@ export async function listInvoicesAction(
   // term matches either the numero or the client's legal name, by its shape.
   const term = parseSearchTerm(filters.query);
   if (term.numero !== null) query = query.eq("numero", term.numero);
-  if (term.clientName !== null) {
-    query = query.ilike("clients.legal_name", `%${term.clientName}%`);
+  if (term.name !== null) {
+    query = query.ilike("clients.legal_name", `%${term.name}%`);
   }
 
   const { data, error } = await query;
@@ -779,12 +777,10 @@ export async function getInvoiceListTotalsAction(
           scopeIsFiscalFor(ctx.access, filters.isFiscal) ?? undefined,
         p_status: filters.status ?? undefined,
         p_types: types.length > 0 ? types : undefined,
-        p_punto_venta: filters.puntoVenta ?? undefined,
-        p_client_id: filters.clientId ?? undefined,
         p_from: filters.from ?? undefined,
         p_to: filters.to ?? undefined,
         p_numero: term.numero ?? undefined,
-        p_client_name: term.clientName ?? undefined,
+        p_client_name: term.name ?? undefined,
       })
       .range(from, to),
   );

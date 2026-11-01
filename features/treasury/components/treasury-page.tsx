@@ -4,9 +4,9 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ListSearch, ListToolbar } from "@/components/list-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -208,15 +208,30 @@ export function TreasuryPage() {
       )}
 
       {/* Filters + table */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Buscar cuenta…"
+      <ListToolbar
+        isFiltered={
+          search.trim() !== "" || currencyFilter !== ANY || typeFilter !== ANY
+        }
+        onClear={() => {
+          setSearch("");
+          setCurrencyFilter(ANY);
+          setTypeFilter(ANY);
+        }}
+        actions={
+          query.data && (
+            <span className="text-sm text-muted-foreground">
+              {filtered.length} de {query.data.accounts.length}
+            </span>
+          )
+        }
+      >
+        <ListSearch
+          placeholder="Buscar cuenta"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          onChange={setSearch}
         />
         <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[180px]" aria-label="Moneda">
             <SelectValue placeholder="Moneda" />
           </SelectTrigger>
           <SelectContent>
@@ -226,7 +241,7 @@ export function TreasuryPage() {
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger className="w-[220px]" aria-label="Tipo">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
@@ -247,12 +262,7 @@ export function TreasuryPage() {
             ))}
           </SelectContent>
         </Select>
-        {query.data && (
-          <span className="ml-auto text-sm text-muted-foreground">
-            {filtered.length} de {query.data.accounts.length}
-          </span>
-        )}
-      </div>
+      </ListToolbar>
 
       <DataTable
         columns={columns}

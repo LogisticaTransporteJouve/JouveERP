@@ -6849,6 +6849,7 @@ export type Database = {
       receipt_list_totals: {
         Args: {
           p_client_id?: string
+          p_client_name?: string
           p_from?: string
           p_group?: string
           p_is_fiscal?: boolean

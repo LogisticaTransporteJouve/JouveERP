@@ -61,14 +61,18 @@ export function useInvoicesSearchInfinite(filters: InvoiceListFilters) {
   return { ...query, items };
 }
 
+/** Subtotals of a grouped view (the "Por día" header rows); nothing to
+ *  fetch for the plain list. Never suspends: the rows render first and the
+ *  headers fill in. */
 export function useInvoiceListTotals(
   filters: InvoiceListFilters,
   group: ListGroup | null,
 ) {
-  return useSuspenseQuery({
+  return useQuery({
     queryKey: invoicesKeys.totals(filters, group),
     queryFn: () =>
       runAction(() => getInvoiceListTotalsAction({ ...filters, group })),
+    enabled: group !== null,
   });
 }
 

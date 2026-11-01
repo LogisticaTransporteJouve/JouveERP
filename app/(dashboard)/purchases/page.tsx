@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { ExportButton } from "@/components/export-button";
 import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
+import {
+  parsePurchaseListParams,
+  purchaseListFilters,
+} from "@/features/purchase-invoices/lib/purchase-list-filters";
 import {
   PURCHASE_INVOICES_PAGE_SIZE,
   purchaseInvoicesKeys,
@@ -21,27 +24,18 @@ export const dynamic = "force-dynamic";
 export default async function PurchasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:read")) {
     redirect("/dashboard");
   }
 
-  const params = await searchParams;
-  const initialQuery = (params.q ?? "").trim();
-  const initialStatus = params.status ?? null;
-  const isFiscal = isFiscalFor(await readScopeCookie());
-
-  const filters = {
-    query: initialQuery,
-    supplierId: null,
-    channelId: null,
-    status: initialStatus,
-    fechaFrom: null,
-    fechaTo: null,
-    isFiscal,
-  };
+  const params = parsePurchaseListParams(await searchParams);
+  const filters = purchaseListFilters(
+    params,
+    isFiscalFor(await readScopeCookie()),
+  );
 
   const dehydratedState = await prefetchQueries([
     {
@@ -77,14 +71,12 @@ export default async function PurchasesPage({
             gastos internos sin factura formal.
           </p>
         </div>
-        <ExportButton resource="purchase-invoices" />
       </div>
       <Hydrate state={dehydratedState}>
         <PurchaseInvoiceFileAssistBinding access={ctx.access}>
           <PurchaseInvoicesTable
             actorAccess={ctx.access}
-            initialQuery={initialQuery}
-            initialStatus={initialStatus}
+            initialParams={params}
           />
         </PurchaseInvoiceFileAssistBinding>
       </Hydrate>

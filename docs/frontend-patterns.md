@@ -1239,6 +1239,22 @@ useEffect(() => {
 
 **Para JouveERP:** mismo patrón en transactions, accounts, invoices.
 
+### 12.4 Pantallas de listado: barra de filtros única ✅
+
+Toda pantalla de listado usa `ListToolbar` (`components/list-toolbar.tsx`) arriba de su `DataTable`, con el mismo orden:
+
+- **Izquierda:** `ListSearch` (si la lista tiene búsqueda), `PeriodFilter` (si filtra por fecha), los filtros propios de la lista y **Limpiar**, visible solo con algún filtro activo.
+- **Derecha:** el toggle Lista / Por día / Por semana / Por mes (donde hay subtotales), **Exportar** y el botón de alta.
+- El encabezado de la página lleva solo el título, la descripción y acciones administrativas (p. ej. Traer de ARCA). Ni Exportar ni Nuevo van ahí.
+
+Fechas: siempre `PeriodFilter` (`lib/list-period.ts`), con los presets Hoy, Ayer, Esta semana, Este mes, Mes anterior y Personalizado, más "Todas las fechas". No se usan pares de `DatePicker` ni `<input type="date">` en un listado.
+
+Estado: `useListParams` (`hooks/use-list-params.ts`) guarda los filtros, los refleja en la URL con `history.replaceState` (vía `useUrlFilter`, sin navegar) y expone `reset` / `isFiltered` para Limpiar. Cada feature tiene su `lib/<x>-list-filters.ts` con `parse…Params` (página server) y `…ParamsToUrl`, más el armado de los filtros de la query, así la key del prefetch y la del cliente coinciden. Filtrar siempre en la server action, nunca sobre las filas cargadas.
+
+Resultados: `useDeferredValue` sobre los filtros más `ListPending`, que atenúa las filas mientras llega el resultado nuevo. Nunca se muestran filas viejas como si fueran las filtradas.
+
+Columnas con razón social: `cellClassName: "min-w-48 whitespace-normal"`, para que un nombre largo no empuje las demás columnas fuera de pantalla.
+
 ---
 
 ## 13. Dialogs, sheets, alert-dialog, command palette

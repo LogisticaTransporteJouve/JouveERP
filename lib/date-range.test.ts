@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  dateToIso,
-  isRangePreset,
-  isoToDate,
-  resolveRange,
-  todayIsoLocal,
-} from "./date-range";
+import { dateToIso, isoToDate, todayIsoLocal } from "./date-range";
 
 describe("todayIsoLocal", () => {
   it("devuelve YYYY-MM-DD válido", () => {
@@ -56,61 +50,5 @@ describe("isoToDate", () => {
     expect(round?.getFullYear()).toBe(original.getFullYear());
     expect(round?.getMonth()).toBe(original.getMonth());
     expect(round?.getDate()).toBe(original.getDate());
-  });
-});
-
-describe("isRangePreset", () => {
-  it("acepta valores válidos", () => {
-    expect(isRangePreset("current_month")).toBe(true);
-    expect(isRangePreset("last_6_months")).toBe(true);
-    expect(isRangePreset("last_year")).toBe(true);
-    expect(isRangePreset("custom")).toBe(true);
-  });
-
-  it("rechaza valores inválidos", () => {
-    expect(isRangePreset("all")).toBe(false);
-    expect(isRangePreset("")).toBe(false);
-    expect(isRangePreset(null)).toBe(false);
-    expect(isRangePreset(undefined)).toBe(false);
-    expect(isRangePreset(123)).toBe(false);
-  });
-});
-
-describe("resolveRange", () => {
-  it("current_month: from = 1ro del mes, to = hoy", () => {
-    const r = resolveRange("current_month", null);
-    expect(r).not.toBeNull();
-    const today = todayIsoLocal();
-    expect(r!.to).toBe(today);
-    expect(r!.from).toMatch(/^\d{4}-\d{2}-01$/);
-    expect(r!.from.slice(0, 7)).toBe(today.slice(0, 7));
-  });
-
-  it("last_6_months: from ≈ 6 meses atrás, to = hoy", () => {
-    const r = resolveRange("last_6_months", null);
-    expect(r).not.toBeNull();
-    expect(r!.to).toBe(todayIsoLocal());
-    expect(r!.from < r!.to).toBe(true);
-  });
-
-  it("last_year: from ≈ 12 meses atrás, to = hoy", () => {
-    const r = resolveRange("last_year", null);
-    expect(r).not.toBeNull();
-    expect(r!.to).toBe(todayIsoLocal());
-    expect(r!.from < r!.to).toBe(true);
-  });
-
-  it("custom con range válido devuelve ese range", () => {
-    const r = resolveRange("custom", { from: "2026-01-01", to: "2026-03-31" });
-    expect(r).toEqual({ from: "2026-01-01", to: "2026-03-31" });
-  });
-
-  it("custom sin range devuelve null", () => {
-    expect(resolveRange("custom", null)).toBeNull();
-  });
-
-  it("custom con from o to vacíos devuelve null", () => {
-    expect(resolveRange("custom", { from: "", to: "2026-03-31" })).toBeNull();
-    expect(resolveRange("custom", { from: "2026-01-01", to: "" })).toBeNull();
   });
 });

@@ -4,8 +4,9 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-  useSuspenseQuery,
+  useSuspenseInfiniteQuery,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
@@ -15,7 +16,6 @@ import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { getMutationId } from "@/lib/query/get-mutation-id";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -28,14 +28,40 @@ import {
   listPendingInvoicesForSupplierAction,
   updatePaymentOrderAction,
 } from "../actions/payment-orders-actions";
-import { paymentOrdersKeys } from "../lib/payment-orders-keys";
+import {
+  paymentOrderListActionInput,
+  type PaymentOrderListFilters,
+} from "../lib/payment-order-list-filters";
+import {
+  PAYMENT_ORDERS_PAGE_SIZE,
+  paymentOrdersKeys,
+} from "../lib/payment-orders-keys";
 
-export function usePaymentOrdersList() {
-  const isFiscal = useScopeIsFiscal();
-  return useSuspenseQuery({
-    queryKey: paymentOrdersKeys.list(isFiscal),
-    queryFn: () => runAction(() => listPaymentOrdersAction({ isFiscal })),
+export function usePaymentOrdersSearchInfinite(
+  filters: PaymentOrderListFilters,
+) {
+  const query = useSuspenseInfiniteQuery({
+    queryKey: paymentOrdersKeys.searchInfinite(filters),
+    queryFn: ({ pageParam }) =>
+      runAction(() =>
+        listPaymentOrdersAction(
+          paymentOrderListActionInput(
+            filters,
+            pageParam,
+            PAYMENT_ORDERS_PAGE_SIZE,
+          ),
+        ),
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset ?? undefined,
   });
+
+  const items = useMemo(
+    () => query.data.pages.flatMap((page) => page.items),
+    [query.data],
+  );
+
+  return { ...query, items };
 }
 
 export function usePaymentOrderDetail(

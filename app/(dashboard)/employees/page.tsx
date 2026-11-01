@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { ExportButton } from "@/components/export-button";
 import { searchEmployeesAction } from "@/features/hr/actions/employees-actions";
 import { EmployeesTable } from "@/features/hr/components/employees-table";
 import {
@@ -59,7 +58,6 @@ export default async function EmployeesPage({
             externo; acá manejamos identidad, sueldos cargados a mano y pagos.
           </p>
         </div>
-        <ExportButton resource="employees" />
       </div>
       <Hydrate state={dehydratedState}>
         <EmployeesTable
