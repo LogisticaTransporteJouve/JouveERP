@@ -563,3 +563,21 @@ describe("NC whose origin belongs to another client", () => {
     });
   });
 });
+
+describe("NC citing a voucher tipo the import does not bring", () => {
+  it("stores it unlinked instead of waiting forever", async () => {
+    const db = { clients: [] as Row[], invoices: [] as Row[] };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 8,
+        cbteNro: 1,
+        // 201: Factura de Crédito Electrónica MiPyME A.
+        cbtesAsoc: [{ tipo: 201, ptoVta: 3, nro: 50 }],
+      }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 8, 10);
+
+    expect(res).toMatchObject({ imported: 1, unlinked: 1, stopped: null });
+  });
+});
