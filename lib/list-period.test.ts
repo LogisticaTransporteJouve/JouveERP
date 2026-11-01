@@ -25,6 +25,8 @@ describe("resolvePeriod", () => {
     ["this_week", "2026-10-26", "2026-10-31"],
     ["this_month", "2026-10-01", "2026-10-31"],
     ["last_month", "2026-09-01", "2026-09-30"],
+    ["this_year", "2026-01-01", "2026-10-31"],
+    ["last_year", "2025-01-01", "2025-12-31"],
   ] as const)("resolves %s", (preset, from, to) => {
     expect(resolvePeriod({ preset, from: null, to: null }, TODAY)).toEqual({
       from,

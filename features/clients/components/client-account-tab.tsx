@@ -24,12 +24,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DateRangeSelector } from "@/components/date-range-selector";
 import { ExportButton } from "@/components/export-button";
-import { useDateRange } from "@/components/providers/date-range-provider";
+import { ListToolbar } from "@/components/list-toolbar";
+import { PeriodEmptyNotice, PeriodFilter } from "@/components/period-filter";
 import { useScope } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
+import { useUrlPeriod } from "@/hooks/use-url-period";
 import type { Account } from "@/features/accounts/schema";
 import type { PickedClient } from "@/features/invoices/components/client-picker";
 import { NewInvoiceDialog } from "@/features/invoices/components/new-invoice-dialog";
@@ -116,11 +117,10 @@ export function ClientAccountTab({
   const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearClientOpeningBalance();
 
-  // Global date filter (topbar). We apply it over the movements that
-  // already have the running balance computed, so each row's balance
-  // reflects the real running total and isn't reset by the filter. If the
-  // range is null (the "All" preset) we show everything.
-  const { range } = useDateRange();
+  // Period filter (in the URL, every date by default). It applies over the
+  // movements that already carry the running balance, so each row's balance
+  // stays the real running total and isn't reset by the filter.
+  const { period, range, setPeriod, reset, isFiltered } = useUrlPeriod();
   const filteredMovements = useMemo(() => {
     if (!range) return movements;
     return movements.filter(
@@ -443,11 +443,14 @@ export function ClientAccountTab({
     ],
   );
 
-  // Empty state: distinguish "no movements at all" from "filtered to empty".
+  // Empty state: distinguish "no movements at all" from "filtered to empty",
+  // which offers the way back to every date.
   const emptyMessage =
-    movements.length === 0
-      ? "Este cliente todavía no tiene movimientos."
-      : "No hay movimientos en el período seleccionado.";
+    movements.length === 0 ? (
+      "Este cliente todavía no tiene movimientos."
+    ) : (
+      <PeriodEmptyNotice total={movements.length} onShowAll={reset} />
+    );
 
   // Realtime: subscribe with a server-side filter so we only get events
   // for THIS client's comprobantes / receipts. Saves the client from
@@ -471,31 +474,29 @@ export function ClientAccountTab({
         balances={balances}
         hasUsd={movements.some((m) => m.currency === "USD")}
         count={movements.length}
+        periodCount={range ? filteredMovements.length : null}
         scopeLabel={runningBalance ? null : SCOPE_LABEL[fiscalFilter]}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <DateRangeSelector />
-        <ExportButton
-          resource="client-account"
-          params={{
-            clientId,
-            name: `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`,
-          }}
-          label="Exportar resumen"
-        />
-        {(canIssueInvoice || canWriteReceipt) && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={reset}
+        actions={
+          <>
+            <ExportButton
+              resource="client-account"
+              params={{
+                clientId,
+                name: `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`,
+              }}
+              label="Exportar resumen"
+            />
             {canIssueInvoice && (
               <OwnerOnly disabled={!canSetOpening}>
                 <OpeningBalanceDialog
                   clientId={clientId}
                   trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!canSetOpening}
-                    >
+                    <Button variant="outline" disabled={!canSetOpening}>
                       <Wallet />
                       Ajustar saldo
                     </Button>
@@ -508,7 +509,7 @@ export function ClientAccountTab({
                 channels={channels}
                 initialClient={client}
                 trigger={
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline">
                     <Plus />
                     Nuevo comprobante
                   </Button>
@@ -521,16 +522,18 @@ export function ClientAccountTab({
                 accounts={accounts}
                 initialClient={client}
                 trigger={
-                  <Button size="sm">
+                  <Button>
                     <Plus />
                     Nuevo recibo
                   </Button>
                 }
               />
             )}
-          </div>
-        )}
-      </div>
+          </>
+        }
+      >
+        <PeriodFilter value={period} onChange={setPeriod} />
+      </ListToolbar>
 
       <DataTable
         columns={columns}
@@ -591,11 +594,14 @@ function BalanceHeader({
   balances,
   hasUsd,
   count,
+  periodCount,
   scopeLabel,
 }: {
   balances: CurrencyBalances;
   hasUsd: boolean;
   count: number;
+  /** Movements inside the chosen period; null with every date shown. */
+  periodCount: number | null;
   scopeLabel: string | null;
 }) {
   const currencies: StatementCurrency[] =
@@ -617,9 +623,11 @@ function BalanceHeader({
               : balance < 0
                 ? "Le debemos al cliente"
                 : "Saldo en cero";
+          // The balance never follows the period filter: it is the whole
+          // account's, so say so.
           const title = scopeLabel
-            ? `Saldo pendiente · ${scopeLabel}`
-            : "Saldo";
+            ? `Saldo pendiente total · ${scopeLabel}`
+            : "Saldo total (todas las fechas)";
           return (
             <div key={currency} className="space-y-1">
               <div className="text-xs text-muted-foreground">
@@ -635,8 +643,11 @@ function BalanceHeader({
           );
         })}
       </div>
-      <div className="text-xs text-muted-foreground">
-        {count} movimiento{count === 1 ? "" : "s"}
+      <div className="text-right text-xs text-muted-foreground">
+        <div>
+          {count} movimiento{count === 1 ? "" : "s"} en total
+        </div>
+        {periodCount !== null && <div>{periodCount} en el período elegido</div>}
       </div>
     </div>
   );

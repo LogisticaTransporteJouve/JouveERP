@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { DateRangeSelector } from "@/components/date-range-selector";
+import { useUrlPeriod } from "@/hooks/use-url-period";
+
 import { ExportButton } from "@/components/export-button";
-import { useDateRange } from "@/components/providers/date-range-provider";
+import { ListToolbar } from "@/components/list-toolbar";
+import { PeriodEmptyNotice, PeriodFilter } from "@/components/period-filter";
 import { useScope } from "@/components/providers/scope-provider";
 import {
   AlertDialog,
@@ -132,7 +134,9 @@ export function SupplierAccountTab({
   const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearSupplierOpeningBalance();
 
-  const { range } = useDateRange();
+  // Period filter (in the URL, every date by default) over the movements that
+  // already carry the running balance.
+  const { period, range, setPeriod, reset, isFiltered } = useUrlPeriod();
   const filteredMovements = useMemo(() => {
     if (!range) return movements;
     return movements.filter(
@@ -436,9 +440,11 @@ export function SupplierAccountTab({
   );
 
   const emptyMessage =
-    movements.length === 0
-      ? "Sin movimientos todavía."
-      : "No hay movimientos en el período seleccionado.";
+    movements.length === 0 ? (
+      "Sin movimientos todavía."
+    ) : (
+      <PeriodEmptyNotice total={movements.length} onShowAll={reset} />
+    );
 
   return (
     <div className="space-y-4">
@@ -447,9 +453,11 @@ export function SupplierAccountTab({
           {balanceCurrencies.map((currency) => {
             const balance = balances[currency];
             const balLabel = balanceLabel(balance);
+            // The balance never follows the period filter: it is the
+            // whole account's, so say so.
             const title = runningBalance
-              ? "Saldo actual"
-              : `Saldo pendiente · ${SCOPE_LABEL[fiscalFilter]}`;
+              ? "Saldo total (todas las fechas)"
+              : `Saldo pendiente total · ${SCOPE_LABEL[fiscalFilter]}`;
             return (
               <div key={currency}>
                 <div className="text-xs text-muted-foreground">
@@ -470,59 +478,68 @@ export function SupplierAccountTab({
             );
           })}
         </div>
-        <div className="text-xs text-muted-foreground">
-          {movements.length} movimiento{movements.length === 1 ? "" : "s"}
+        <div className="text-right text-xs text-muted-foreground">
+          <div>
+            {movements.length} movimiento
+            {movements.length === 1 ? "" : "s"} en total
+          </div>
+          {range && <div>{filteredMovements.length} en el período elegido</div>}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <DateRangeSelector />
-        <ExportButton
-          resource="supplier-account"
-          params={{
-            supplierId,
-            name: `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`,
-          }}
-          label="Exportar resumen"
-        />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <OwnerOnly disabled={!canSetOpening}>
-            <SupplierOpeningBalanceDialog
-              supplierId={supplierId}
-              trigger={
-                <Button variant="outline" size="sm" disabled={!canSetOpening}>
-                  <Wallet />
-                  Ajustar saldo
-                </Button>
-              }
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={reset}
+        actions={
+          <>
+            <ExportButton
+              resource="supplier-account"
+              params={{
+                supplierId,
+                name: `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`,
+              }}
+              label="Exportar resumen"
             />
-          </OwnerOnly>
-          {canWritePI && (
-            <NewPurchaseInvoiceDialog
-              initialSupplier={supplier}
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus />
-                  Nueva factura
-                </Button>
-              }
-            />
-          )}
-          {canWriteOP && (
-            <NewPaymentOrderDialog
-              channels={channels}
-              accounts={accounts}
-              initialSupplier={supplier}
-              trigger={
-                <Button size="sm">
-                  <Plus />
-                  Nueva orden de pago
-                </Button>
-              }
-            />
-          )}
-        </div>
-      </div>
+            <OwnerOnly disabled={!canSetOpening}>
+              <SupplierOpeningBalanceDialog
+                supplierId={supplierId}
+                trigger={
+                  <Button variant="outline" disabled={!canSetOpening}>
+                    <Wallet />
+                    Ajustar saldo
+                  </Button>
+                }
+              />
+            </OwnerOnly>
+            {canWritePI && (
+              <NewPurchaseInvoiceDialog
+                initialSupplier={supplier}
+                trigger={
+                  <Button variant="outline">
+                    <Plus />
+                    Nueva factura
+                  </Button>
+                }
+              />
+            )}
+            {canWriteOP && (
+              <NewPaymentOrderDialog
+                channels={channels}
+                accounts={accounts}
+                initialSupplier={supplier}
+                trigger={
+                  <Button>
+                    <Plus />
+                    Nueva orden de pago
+                  </Button>
+                }
+              />
+            )}
+          </>
+        }
+      >
+        <PeriodFilter value={period} onChange={setPeriod} />
+      </ListToolbar>
 
       <DataTable
         columns={columns}

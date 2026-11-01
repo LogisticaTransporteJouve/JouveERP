@@ -142,3 +142,23 @@ export function PeriodFilter({
     </Popover>
   );
 }
+
+/** Shown instead of an empty table when the period hides every row the view
+ *  has: never leave a balance without the movements behind it. */
+export function PeriodEmptyNotice({
+  total,
+  onShowAll,
+}: {
+  /** Rows outside the period. */
+  total: number;
+  onShowAll: () => void;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-center justify-center gap-2">
+      No hay movimientos en el período elegido ({total} en total).
+      <Button type="button" variant="outline" size="sm" onClick={onShowAll}>
+        Ver todo
+      </Button>
+    </span>
+  );
+}
