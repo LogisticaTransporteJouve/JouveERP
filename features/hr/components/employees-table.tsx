@@ -37,7 +37,7 @@ import { EditEmployeeDialog } from "./edit-employee-dialog";
 import { NewEmployeeDialog } from "./new-employee-dialog";
 
 const FREQUENCY_BADGE_TONE: Record<PayFrequency, string> = {
-  semanal: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  semanal: "bg-muted text-muted-foreground dark:text-muted-foreground",
   mensual: "bg-muted text-muted-foreground dark:text-muted-foreground",
   mixto: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };

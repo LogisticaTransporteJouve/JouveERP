@@ -30,10 +30,10 @@ import { EditIssuedCheckDialog } from "./edit-issued-check-dialog";
 import { NewIssuedCheckDialog } from "./new-issued-check-dialog";
 
 const STATUS_BADGE: Record<string, string> = {
-  emitted: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  emitted: "bg-muted text-muted-foreground dark:text-muted-foreground",
   cashed: "bg-muted text-muted-foreground dark:text-muted-foreground",
   rejected: "bg-muted text-foreground dark:text-foreground",
-  cancelled: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
+  cancelled: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 
 export function IssuedChecksTable({

@@ -163,6 +163,40 @@ describe("getClientAccountAction", () => {
     expect(res.data.balances).toEqual({ ARS: 100, USD: 50 });
   });
 
+  it("orders same-day documents by number before computing the balance", async () => {
+    seed();
+    db.v_client_account_movements = [
+      movement({
+        source_type: "invoice",
+        source_id: "f2",
+        kind: "factura",
+        currency: "ARS",
+        numero: 2,
+        movement_date: "2026-10-01",
+        created_at: "2026-10-01T00:00:00Z",
+        signed_amount: 200,
+        gross_amount: 200,
+      }),
+      movement({
+        source_type: "invoice",
+        source_id: "f1",
+        kind: "factura",
+        currency: "ARS",
+        numero: 1,
+        movement_date: "2026-10-01",
+        created_at: "2026-10-01T00:00:00Z",
+        signed_amount: 100,
+        gross_amount: 100,
+      }),
+    ];
+    const res = await getClientAccountAction(CLIENT);
+    if (!res.ok) throw new Error(res.error);
+    expect(res.data.movements.map((m) => [m.source_id, m.balance])).toEqual([
+      ["f1", 100],
+      ["f2", 300],
+    ]);
+  });
+
   it("shows the rejected check's open amount and the receipt's a cuenta net of it", async () => {
     seed();
     const res = await getClientAccountAction(CLIENT);

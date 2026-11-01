@@ -121,12 +121,15 @@ export function ClientAccountTab({
   // movements that already carry the running balance, so each row's balance
   // stays the real running total and isn't reset by the filter.
   const { period, range, setPeriod, reset, isFiltered } = useUrlPeriod();
+  // The action computes each row's Saldo oldest → newest over the whole
+  // account; the table lists newest first like every other list.
+  const newestFirst = useMemo(() => movements.toReversed(), [movements]);
   const filteredMovements = useMemo(() => {
-    if (!range) return movements;
-    return movements.filter(
+    if (!range) return newestFirst;
+    return newestFirst.filter(
       (m) => m.movement_date >= range.from && m.movement_date <= range.to,
     );
-  }, [movements, range]);
+  }, [newestFirst, range]);
 
   // Client-side virtualization: the action returns up to 50k movements
   // in chunks of 1000, but rendering thousands of DOM rows at once makes
@@ -161,7 +164,7 @@ export function ClientAccountTab({
   }, [clearOpeningMut, clientId]);
 
   // Ledger columns. Rows carry a per-row running balance (Saldo) and are in
-  // chronological order, so sorting would corrupt their meaning →
+  // a fixed order (newest first), so sorting would corrupt their meaning →
   // enableSorting:false on every column.
   const columns = useMemo<ColumnDef<AccountMovement>[]>(
     () =>
@@ -185,19 +188,10 @@ export function ClientAccountTab({
             meta: { headerClassName: "w-40" },
             cell: ({ row }) => {
               const m = row.original;
-              const isOpening = m.source_type === "opening_balance";
               return (
                 <Badge
                   variant="secondary"
-                  className={
-                    isOpening
-                      ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
-                      : m.source_type === "receipt"
-                        ? "bg-muted text-muted-foreground dark:text-muted-foreground"
-                        : m.kind === "nc"
-                          ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                          : "bg-muted text-muted-foreground dark:text-muted-foreground"
-                  }
+                  className="bg-muted text-muted-foreground dark:text-muted-foreground"
                 >
                   {movementTypeLabel(m)}
                 </Badge>
@@ -293,15 +287,7 @@ export function ClientAccountTab({
               const m = row.original;
               if (m.balance === null) return "—";
               return (
-                <span
-                  className={
-                    m.balance > 0
-                      ? "text-muted-foreground dark:text-muted-foreground"
-                      : m.balance < 0
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-muted-foreground"
-                  }
-                >
+                <span className="text-muted-foreground">
                   {fmt(m.balance, m.currency)}
                 </span>
               );
@@ -611,12 +597,6 @@ function BalanceHeader({
       <div className="flex flex-wrap gap-8">
         {currencies.map((currency) => {
           const balance = balances[currency];
-          const tone =
-            balance > 0
-              ? "text-muted-foreground dark:text-muted-foreground"
-              : balance < 0
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-muted-foreground";
           const label =
             balance > 0
               ? "El cliente nos debe"
@@ -635,7 +615,7 @@ function BalanceHeader({
                   ? `${title} · ${currency === "USD" ? "Dólares" : "Pesos"}`
                   : title}
               </div>
-              <div className={`font-mono text-2xl font-semibold ${tone}`}>
+              <div className="font-mono text-2xl font-semibold text-muted-foreground">
                 {fmt(balance, currency)}
               </div>
               <div className="text-xs text-muted-foreground">{label}</div>

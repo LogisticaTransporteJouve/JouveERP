@@ -78,7 +78,7 @@ const ANY = "__any__";
 const NOUN = ["comprobante", "comprobantes"] as const;
 
 const STATUS_TONE: Record<InvoiceStatus, string> = {
-  draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
+  draft: "bg-muted text-muted-foreground dark:text-muted-foreground",
   emitting: "bg-muted text-muted-foreground dark:text-muted-foreground",
   emitted: "bg-muted text-muted-foreground dark:text-muted-foreground",
   failed: "bg-muted text-foreground dark:text-foreground",
