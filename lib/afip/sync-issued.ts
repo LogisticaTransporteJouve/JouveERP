@@ -324,6 +324,7 @@ type OriginLookup =
 
 async function resolveOrigin(
   supabase: Supabase,
+  afip: Pick<ArcaVoucherPort, "getLastAuthorizedNumber">,
   info: VoucherInfo,
 ): Promise<OriginLookup> {
   const asoc = info.cbtesAsoc[0];
@@ -349,7 +350,11 @@ async function resolveOrigin(
     return { status: "missing" };
   }
   const imported = await lastLocalNumero(supabase, asoc.ptoVta, asoc.tipo);
-  return asoc.nro > imported
+  if (asoc.nro <= imported) return { status: "missing" };
+  // A number ARCA never authorized (a typo in CbtesAsoc) will not arrive
+  // either.
+  const authorized = await afip.getLastAuthorizedNumber(asoc.ptoVta, asoc.tipo);
+  return asoc.nro <= authorized
     ? { status: "pending", nro: asoc.nro }
     : { status: "missing" };
 }
@@ -413,7 +418,9 @@ async function importVoucher(
 
   const kind = KIND_LETTER_BY_TIPO[cbteTipo]?.kind;
   const origin =
-    kind && kind !== "factura" ? await resolveOrigin(supabase, info) : null;
+    kind && kind !== "factura"
+      ? await resolveOrigin(supabase, afip, info)
+      : null;
   if (origin?.status === "pending") {
     return { kind: "waiting_origin", originNro: origin.nro };
   }
