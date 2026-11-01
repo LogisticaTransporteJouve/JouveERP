@@ -305,3 +305,45 @@ describe("issueFiscalInvoiceAction with an idempotency key", () => {
     expect(draft).toMatchObject({ idempotency_key: KEY });
   });
 });
+
+// billRemitoAction refuses a remito with a prior NC or recibos it cannot move
+// (cheques, retentions, other docs, USD). source_remito_id is also a field of
+// the public CreateComprobanteSchema, so issueFiscalInvoiceAction — a server
+// action of its own — must not let a caller link a remito past those checks:
+// once the factura is emitted, credit-billed-remito moves the remito's
+// recibos and credits it in full.
+describe("issueFiscalInvoiceAction with a source remito", () => {
+  const REMITO = "66666666-6666-4666-8666-666666666666";
+
+  it("does not link a remito that billRemitoAction would refuse (prior NC)", async () => {
+    h.db.invoices = [
+      ...(h.db.invoices ?? []),
+      {
+        id: REMITO,
+        client_id: CLIENT,
+        channel_id: "jouve_internal",
+        status: "emitted",
+        kind: "factura",
+        letter: null,
+        numero: 4,
+      },
+      {
+        id: "nc-on-remito",
+        channel_id: "jouve_internal",
+        status: "emitted",
+        kind: "nc",
+        invoice_origin_id: REMITO,
+      },
+    ];
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      kind: "factura",
+      invoice_origin_id: null,
+      motivo_nc_nd: null,
+      source_remito_id: REMITO,
+    });
+    const draft = h.inserts.find((i) => i.table === "invoices")?.values as
+      Row | undefined;
+    expect(res.ok === false || draft?.source_remito_id == null).toBe(true);
+  });
+});

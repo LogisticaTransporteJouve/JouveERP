@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { navItemForPath, navSectionForItem } from "./nav-items";
+import { resolveAccess } from "@/lib/auth/permissions";
+import { isScopedPath } from "@/lib/scope";
+
+import {
+  canSee,
+  NAV_SECTIONS,
+  navItemForPath,
+  navSectionForItem,
+  visibleSections,
+} from "./nav-items";
 
 describe("navItemForPath", () => {
   it("picks the deepest matching item", () => {
@@ -35,5 +44,80 @@ describe("navSectionForItem", () => {
     const categories = navItemForPath("/suppliers/categories")!;
     expect(navSectionForItem(categories)?.label).toBe("Compras");
     expect(navSectionForItem(navItemForPath("/ai")!)).toBeUndefined();
+  });
+});
+
+describe("navItemForPath with an href listed under both sides", () => {
+  it.each([
+    ["/clients/abc", "Clientes"],
+    ["/receipts", "Recibos"],
+    ["/aging", "Aging clientes"],
+    ["/suppliers/categories", "Categorías"],
+    ["/payment-orders/x", "Órdenes de pago"],
+    ["/aging-suppliers", "Aging proveedores"],
+  ])("%s resolves to the item of the asked side", (path, label) => {
+    const fiscal = navItemForPath(path, "fiscal");
+    const internal = navItemForPath(path, "internal");
+    expect(fiscal?.label).toBe(label);
+    expect(internal?.label).toBe(label);
+    expect(fiscal?.scope).toBe("fiscal");
+    expect(internal?.scope).toBe("internal");
+  });
+
+  it("a shared page ignores the side", () => {
+    expect(navItemForPath("/treasury", "internal")?.label).toBe("Resumen");
+    expect(navItemForPath("/treasury", "internal")?.scope).toBeUndefined();
+  });
+});
+
+describe("nav sides agree with isScopedPath", () => {
+  const items = NAV_SECTIONS.flatMap((section) => section.items);
+
+  it.each(items.map((item) => [item.href, item] as const))(
+    "%s is split by side exactly when the menu lists it per side",
+    (href, item) => {
+      expect(isScopedPath(href)).toBe(item.scope !== undefined);
+    },
+  );
+});
+
+describe("canSee / visibleSections for a fiscal-only user", () => {
+  const reader = resolveAccess(["fiscal_reader"]);
+
+  it("hides every Otras ventas / Otras compras item", () => {
+    const labels = visibleSections(reader).map((s) => s.label);
+    expect(labels).not.toContain("Otras ventas");
+    expect(labels).not.toContain("Otras compras");
+    for (const item of NAV_SECTIONS.flatMap((s) => s.items)) {
+      if (item.scope === "internal") expect(canSee(reader, item)).toBe(false);
+    }
+  });
+
+  it("still shows the fiscal sides it may read", () => {
+    const labels = visibleSections(reader).map((s) => s.label);
+    expect(labels).toContain("Ventas");
+    expect(labels).toContain("Compras");
+  });
+
+  it("a fiscal_reader with another role sees the internal sides", () => {
+    const labels = visibleSections(
+      resolveAccess(["fiscal_reader", "finance"]),
+    ).map((s) => s.label);
+    expect(labels).toContain("Otras ventas");
+    expect(labels).toContain("Otras compras");
+  });
+
+  it("finance sees both sides", () => {
+    const labels = visibleSections(resolveAccess(["finance"])).map(
+      (s) => s.label,
+    );
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Ventas",
+        "Otras ventas",
+        "Compras",
+        "Otras compras",
+      ]),
+    );
   });
 });

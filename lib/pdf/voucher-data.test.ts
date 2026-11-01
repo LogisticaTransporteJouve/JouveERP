@@ -55,3 +55,19 @@ describe("voucherParty", () => {
     ).toBe("raro");
   });
 });
+
+describe("voucherParty for an internal counterparty", () => {
+  it("carries no CUIT and no IVA condition (the PDF omits both rows)", () => {
+    expect(
+      voucherParty({
+        legal_name: "Cliente interno",
+        cuit: null,
+        iva_condition: null,
+      }),
+    ).toEqual({
+      legal_name: "Cliente interno",
+      cuit: null,
+      iva_condition_label: null,
+    });
+  });
+});

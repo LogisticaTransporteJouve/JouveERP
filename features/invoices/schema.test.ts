@@ -8,6 +8,7 @@ import {
   computeLineAmounts,
   computeTotals,
   formatInvoiceNumero,
+  invoiceKindLabel,
   isInvoiceKind,
   isInvoiceLetter,
   isInvoiceStatus,
@@ -209,5 +210,41 @@ describe("formatInvoiceNumero", () => {
     expect(
       formatInvoiceNumero("factura", "A", 3, null, { whenNullNumero: null }),
     ).toBe("A0003");
+  });
+});
+
+describe("formatInvoiceNumero for a remito interno", () => {
+  it("prints a factura without letter with the X prefix", () => {
+    expect(formatInvoiceNumero("factura", null, 9001, 12)).toBe(
+      "X9001-00000012",
+    );
+    expect(
+      formatInvoiceNumero("factura", null, 9001, null, {
+        whenNullNumero: null,
+      }),
+    ).toBe("X9001");
+  });
+
+  it("never prints X on a notes or a lettered factura", () => {
+    expect(formatInvoiceNumero("nc", null, 9001, 1)).toBe("NC9001-00000001");
+    expect(formatInvoiceNumero("nd", null, 9001, 1)).toBe("ND9001-00000001");
+    expect(formatInvoiceNumero("factura", "B", 3, 1)).toBe("B0003-00000001");
+  });
+});
+
+describe("invoiceKindLabel", () => {
+  it("never calls an internal document a factura", () => {
+    for (const kind of ["factura", "nc", "nd"] as const) {
+      expect(invoiceKindLabel(kind, false).toLowerCase()).not.toContain(
+        "factura",
+      );
+    }
+    expect(invoiceKindLabel("factura", false)).toBe("Remito interno");
+    expect(invoiceKindLabel("nc", false)).toBe("Nota de crédito interna");
+  });
+
+  it("keeps the fiscal labels", () => {
+    expect(invoiceKindLabel("factura", true)).toBe("Factura");
+    expect(invoiceKindLabel("nc", true)).toBe("Nota de Crédito");
   });
 });

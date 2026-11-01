@@ -12,7 +12,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Form } from "@/components/ui/form";
 
 import {
+  ClientCreateSchema,
+  ClientUpdateSchema,
+} from "@/features/clients/schema";
+import {
+  SupplierCreateSchema,
+  SupplierUpdateSchema,
+} from "@/features/suppliers/schema";
+
+import {
   CounterpartyIdentityFields,
+  sideValues,
   type CounterpartyIdentityValues,
 } from "./counterparty-identity-fields";
 
@@ -144,5 +154,58 @@ describe("CounterpartyIdentityFields", () => {
       expect(h.toast.error).toHaveBeenCalledWith("CUIT inválido"),
     );
     expect(screen.queryByDisplayValue("ACME SA")).toBeNull();
+  });
+});
+
+describe("sideValues", () => {
+  const typed: CounterpartyIdentityValues = {
+    ...EMPTY,
+    cuit: "20-12345678-6",
+    legal_name: "Juan Pérez",
+    iva_condition: "monotributo",
+    address: "Av. Siempre Viva 742",
+    real_address: "Depósito 2",
+  };
+  const ID = "11111111-1111-4111-8111-111111111111";
+
+  it("an internal record sends no CUIT, IVA condition or fiscal address", () => {
+    const values = sideValues(typed, false);
+    expect(values).toMatchObject({
+      is_fiscal: false,
+      real_address: "Depósito 2",
+    });
+    expect(values.cuit).toBeUndefined();
+    expect(values.iva_condition).toBeUndefined();
+    expect(values.address).toBeUndefined();
+  });
+
+  it.each([
+    ["clients", ClientCreateSchema],
+    ["suppliers", SupplierCreateSchema],
+  ])("an internal create passes the %s schema without CUIT", (_n, schema) => {
+    const parsed = schema.safeParse(sideValues(typed, false));
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.is_fiscal).toBe(false);
+      expect("cuit" in parsed.data).toBe(false);
+      expect("iva_condition" in parsed.data).toBe(false);
+    }
+  });
+
+  it.each([
+    ["clients", ClientUpdateSchema],
+    ["suppliers", SupplierUpdateSchema],
+  ])("an internal edit through the %s schema sets no CUIT", (_n, schema) => {
+    const parsed = schema.safeParse({ id: ID, ...sideValues(typed, false) });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.cuit).toBeUndefined();
+      expect(parsed.data.iva_condition).toBeUndefined();
+    }
+  });
+
+  it("a fiscal record keeps its identity", () => {
+    const parsed = ClientCreateSchema.safeParse(sideValues(typed, true));
+    expect(parsed.success && parsed.data.is_fiscal).toBe(true);
   });
 });

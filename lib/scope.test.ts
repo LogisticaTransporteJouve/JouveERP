@@ -6,8 +6,10 @@ import {
   FISCAL_FILTERS,
   isFiscalFilter,
   isFiscalFor,
+  isScopedPath,
   parseFiscalFilter,
   serializeFiscalFilter,
+  toScopeSide,
 } from "./scope";
 
 describe("serializeFiscalFilter / parseFiscalFilter", () => {
@@ -110,5 +112,55 @@ describe("isFiscalFilter", () => {
     expect(FISCAL_FILTERS.every(isFiscalFilter)).toBe(true);
     expect(isFiscalFilter("dz")).toBe(false);
     expect(isFiscalFilter(null)).toBe(false);
+  });
+});
+
+describe("isScopedPath", () => {
+  it.each([
+    "/clients",
+    "/clients/abc",
+    "/invoices",
+    "/invoices/abc",
+    "/receipts",
+    "/aging",
+    "/suppliers",
+    "/suppliers/categories",
+    "/purchases",
+    "/payment-orders/abc",
+    "/aging-suppliers",
+  ])("%s está dividida por lado", (path) => {
+    expect(isScopedPath(path)).toBe(true);
+  });
+
+  it.each([
+    "/dashboard",
+    "/treasury",
+    "/transactions",
+    "/checks",
+    "/accounting/libro-iva-ventas",
+    "/agingx",
+    "/aging-clients",
+    "/clientsx",
+    "/invoices-report",
+    "/",
+    "",
+  ])("%s es compartida (no confunde prefijos)", (path) => {
+    expect(isScopedPath(path)).toBe(false);
+  });
+});
+
+describe("toScopeSide", () => {
+  it("el valor retirado all se lee como fiscal", () => {
+    expect(toScopeSide("all")).toBe("fiscal");
+    expect(toScopeSide("fiscal")).toBe("fiscal");
+    expect(toScopeSide("internal")).toBe("internal");
+  });
+
+  it("una cookie vieja o rota nunca abre el lado interno", () => {
+    expect(toScopeSide(parseFiscalFilter(undefined))).toBe("fiscal");
+    expect(toScopeSide(parseFiscalFilter("{nope"))).toBe("fiscal");
+    expect(
+      toScopeSide(parseFiscalFilter(JSON.stringify({ fiscalFilter: "all" }))),
+    ).toBe("fiscal");
   });
 });

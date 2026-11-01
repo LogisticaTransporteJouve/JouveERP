@@ -107,3 +107,48 @@ describe("SupplierToggleActiveSchema", () => {
     ).toBe(true);
   });
 });
+
+describe("SupplierCreateSchema sides", () => {
+  it("defaults to a fiscal supplier when the side is not given", () => {
+    const res = SupplierCreateSchema.safeParse({
+      cuit: "30714637432",
+      legal_name: "Proveedor SA",
+      iva_condition: "responsable_inscripto",
+    });
+    expect(res.success && res.data.is_fiscal).toBe(true);
+  });
+
+  it("an internal supplier drops CUIT, IVA condition and fiscal address", () => {
+    const res = SupplierCreateSchema.safeParse({
+      is_fiscal: false,
+      legal_name: "Proveedor interno",
+      cuit: "30714637432",
+      iva_condition: "responsable_inscripto",
+      address: "Calle fiscal 1",
+    });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data).not.toHaveProperty("cuit");
+      expect(res.data).not.toHaveProperty("iva_condition");
+      expect(res.data).not.toHaveProperty("address");
+    }
+  });
+
+  it("a fiscal supplier still needs CUIT and IVA condition", () => {
+    expect(
+      SupplierCreateSchema.safeParse({
+        is_fiscal: true,
+        legal_name: "Sin CUIT",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a side that is not a boolean (no silent default)", () => {
+    expect(
+      SupplierCreateSchema.safeParse({
+        is_fiscal: "false",
+        legal_name: "Proveedor interno",
+      }).success,
+    ).toBe(false);
+  });
+});
