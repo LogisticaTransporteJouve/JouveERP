@@ -13,16 +13,17 @@ import {
   Suspense,
   useCallback,
   useDeferredValue,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 
+import { ExportButton } from "@/components/export-button";
+import { ListPending, ListToolbar } from "@/components/list-toolbar";
+import { PeriodFilter } from "@/components/period-filter";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { DatePicker } from "@/components/ui/date-picker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +42,7 @@ import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
-import { useUrlFilter } from "@/hooks/use-url-filter";
+import { useListParams } from "@/hooks/use-list-params";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
@@ -53,8 +54,16 @@ import {
 } from "../hooks/use-transactions";
 import { transactionsKeys } from "../lib/transactions-keys";
 import {
+  DEFAULT_TRANSACTION_LIST_PARAMS,
+  transactionListFilters,
+  transactionListParamsToUrl,
+  type TransactionListParams,
+} from "../lib/transaction-list-filters";
+import {
   TRANSACTION_KINDS,
   TRANSACTION_KIND_LABEL,
+  isTransactionKind,
+  type TransactionFilters,
   type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
@@ -259,35 +268,23 @@ function useTransactionColumns(
 export function TransactionsTable({
   channels,
   actorAccess,
-  initialAccount,
-  initialKind,
-  initialDateFrom,
-  initialDateTo,
+  initialParams,
 }: {
   channels: ChannelOption[];
   actorAccess: Access;
-  initialAccount: string | null;
-  initialKind: TransactionKind | null;
-  initialDateFrom: string | null;
-  initialDateTo: string | null;
+  initialParams: TransactionListParams;
 }) {
-  const [accountInput, setAccountInput] = useState(
-    initialAccount ?? ANY_ACCOUNT,
-  );
-  const [kindInput, setKindInput] = useState<string>(initialKind ?? ANY_KIND);
-  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? "");
-  const [dateTo, setDateTo] = useState(initialDateTo ?? "");
-
-  const setUrlFilters = useUrlFilter();
-
-  const account = accountInput === ANY_ACCOUNT ? null : accountInput;
-  const kind = kindInput === ANY_KIND ? null : (kindInput as TransactionKind);
-
+  const { params, committed, update, reset, isFiltered } = useListParams({
+    initial: initialParams,
+    defaults: DEFAULT_TRANSACTION_LIST_PARAMS,
+    toUrl: transactionListParamsToUrl,
+  });
   const isFiscal = useScopeIsFiscal();
-  const deferredAccount = useDeferredValue(account);
-  const deferredKind = useDeferredValue(kind);
-  const deferredDateFrom = useDeferredValue(dateFrom);
-  const deferredDateTo = useDeferredValue(dateTo);
+  const filters = useMemo(
+    () => transactionListFilters(committed, isFiscal),
+    [committed, isFiscal],
+  );
+  const deferredFilters = useDeferredValue(filters);
 
   const canWrite = userCan(actorAccess, "transactions:write");
   const canDelete = userCan(actorAccess, "transactions:delete");
@@ -331,22 +328,33 @@ export function TransactionsTable({
     },
   ]);
 
-  useEffect(() => {
-    setUrlFilters({
-      account: account ?? null,
-      kind: kind ?? null,
-      from: dateFrom || null,
-      to: dateTo || null,
-    });
-  }, [account, kind, dateFrom, dateTo, setUrlFilters]);
-
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <AccountFilter value={accountInput} onChange={setAccountInput} />
-
-        <Select value={kindInput} onValueChange={setKindInput}>
-          <SelectTrigger className="w-[200px]">
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={reset}
+        actions={
+          <>
+            <ExportButton resource="transactions" />
+            {canWrite && <NewTransactionDialog channels={channels} />}
+          </>
+        }
+      >
+        <PeriodFilter
+          value={params.period}
+          onChange={(period) => update({ period })}
+        />
+        <AccountFilter
+          value={params.accountId ?? ANY_ACCOUNT}
+          onChange={(v) => update({ accountId: v === ANY_ACCOUNT ? null : v })}
+        />
+        <Select
+          value={params.kind ?? ANY_KIND}
+          onValueChange={(v) =>
+            update({ kind: isTransactionKind(v) ? v : null })
+          }
+        >
+          <SelectTrigger className="w-[200px]" aria-label="Tipo">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent position="popper">
@@ -358,35 +366,18 @@ export function TransactionsTable({
             ))}
           </SelectContent>
         </Select>
-
-        <DateRange
-          from={dateFrom}
-          to={dateTo}
-          onChange={(f, t) => {
-            setDateFrom(f);
-            setDateTo(t);
-          }}
-        />
-
-        {canWrite && (
-          <div className="ml-auto">
-            <NewTransactionDialog channels={channels} />
-          </div>
-        )}
-      </div>
+      </ListToolbar>
 
       <div className="mt-4">
         <Suspense
           fallback={<DataTable columns={columns} data={[]} isLoading />}
         >
-          <TransactionsTableRows
-            columns={columns}
-            isFiscal={isFiscal}
-            accountId={deferredAccount}
-            kind={deferredKind}
-            dateFrom={deferredDateFrom || null}
-            dateTo={deferredDateTo || null}
-          />
+          <ListPending pending={deferredFilters !== filters}>
+            <TransactionsTableRows
+              columns={columns}
+              filters={deferredFilters}
+            />
+          </ListPending>
         </Suspense>
       </div>
 
@@ -410,7 +401,7 @@ function AccountFilter({
   const { data: accounts } = useAccountsList();
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[200px]">
+      <SelectTrigger className="w-[200px]" aria-label="Cuenta">
         <SelectValue placeholder="Cuenta" />
       </SelectTrigger>
       <SelectContent position="popper">
@@ -425,59 +416,15 @@ function AccountFilter({
   );
 }
 
-function DateRange({
-  from,
-  to,
-  onChange,
-}: {
-  from: string;
-  to: string;
-  onChange: (from: string, to: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      <DatePicker
-        value={from}
-        onChange={(v) => onChange(v, to)}
-        placeholder="Desde"
-        className="w-[170px]"
-        clearable
-      />
-      <span className="text-xs text-muted-foreground">→</span>
-      <DatePicker
-        value={to}
-        onChange={(v) => onChange(from, v)}
-        placeholder="Hasta"
-        className="w-[170px]"
-        clearable
-      />
-    </div>
-  );
-}
-
 function TransactionsTableRows({
   columns,
-  isFiscal,
-  accountId,
-  kind,
-  dateFrom,
-  dateTo,
+  filters,
 }: {
   columns: ColumnDef<TransactionListItem>[];
-  isFiscal: boolean | null;
-  accountId: string | null;
-  kind: TransactionKind | null;
-  dateFrom: string | null;
-  dateTo: string | null;
+  filters: TransactionFilters;
 }) {
   const { items, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useTransactionsList({
-      is_fiscal: isFiscal,
-      account_id: accountId,
-      kind,
-      date_from: dateFrom,
-      date_to: dateTo,
-    });
+    useTransactionsList(filters);
 
   const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {

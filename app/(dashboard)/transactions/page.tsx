@@ -5,13 +5,12 @@ import { listAccountsAction } from "@/features/accounts/actions/accounts-actions
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 import { TransactionsTable } from "@/features/transactions/components/transactions-table";
-import { ExportButton } from "@/components/export-button";
 import { TRANSACTIONS_PAGE_SIZE } from "@/features/transactions/lib/pagination";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import {
-  TRANSACTION_KINDS,
-  type TransactionKind,
-} from "@/features/transactions/schema";
+  parseTransactionListParams,
+  transactionListFilters,
+} from "@/features/transactions/lib/transaction-list-filters";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
@@ -25,41 +24,21 @@ import Loading from "./loading";
 
 export const dynamic = "force-dynamic";
 
-function asKind(value: string | undefined): TransactionKind | null {
-  if (!value) return null;
-  return (TRANSACTION_KINDS as readonly string[]).includes(value)
-    ? (value as TransactionKind)
-    : null;
-}
-
-function asISODate(value: string | undefined): string | null {
-  if (!value) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
-}
-
 export default async function CajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    account?: string;
-    kind?: string;
-    from?: string;
-    to?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "transactions:read")) {
     redirect("/dashboard");
   }
 
-  const params = await searchParams;
-  const filters = {
-    is_fiscal: isFiscalFor(await readScopeCookie()),
-    account_id: params.account ?? null,
-    kind: asKind(params.kind),
-    date_from: asISODate(params.from),
-    date_to: asISODate(params.to),
-  };
+  const params = parseTransactionListParams(await searchParams);
+  const filters = transactionListFilters(
+    params,
+    isFiscalFor(await readScopeCookie()),
+  );
 
   // Shared (React cache) with the dashboard layout's channel read.
   const channelsData = await getActiveInvoicingChannels();
@@ -99,17 +78,13 @@ export default async function CajaPage({
             imputa a un canal; la lista sigue el alcance elegido arriba.
           </p>
         </div>
-        <ExportButton resource="transactions" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
           <TransactionsTable
             channels={channels}
             actorAccess={ctx.access}
-            initialAccount={filters.account_id}
-            initialKind={filters.kind}
-            initialDateFrom={filters.date_from}
-            initialDateTo={filters.date_to}
+            initialParams={params}
           />
         </Suspense>
       </Hydrate>

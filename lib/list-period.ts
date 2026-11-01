@@ -93,10 +93,15 @@ export function parsePeriodParams(params: {
   from?: string | null;
   to?: string | null;
 }): PeriodSelection {
-  const preset = isPeriodPreset(params.period) ? params.period : null;
-  if (preset !== "custom") return { preset, from: null, to: null };
   const from = asIsoDate(params.from);
   const to = asIsoDate(params.to);
+  // A bare from/to pair (links from before presets existed) is a custom range.
+  const preset = isPeriodPreset(params.period)
+    ? params.period
+    : from && to
+      ? "custom"
+      : null;
+  if (preset !== "custom") return { preset, from: null, to: null };
   if (!from || !to) return { preset: null, from: null, to: null };
   return from <= to ? { preset, from, to } : { preset, from: to, to: from };
 }

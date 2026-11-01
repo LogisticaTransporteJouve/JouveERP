@@ -82,6 +82,12 @@ describe("parsePeriodParams", () => {
     ).toBe(null);
   });
 
+  it("reads a bare from/to pair as a custom range", () => {
+    expect(parsePeriodParams({ from: "2026-01-01", to: "2026-01-31" })).toEqual(
+      { preset: "custom", from: "2026-01-01", to: "2026-01-31" },
+    );
+  });
+
   it("orders a reversed custom range", () => {
     expect(
       parsePeriodParams({

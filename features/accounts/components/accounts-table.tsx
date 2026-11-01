@@ -1,5 +1,7 @@
 "use client";
 
+import { ExportButton } from "@/components/export-button";
+import { ListToolbar } from "@/components/list-toolbar";
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -147,11 +149,14 @@ export function AccountsTable({
 
   return (
     <>
-      {canWrite && (
-        <div className="flex justify-end">
-          <NewAccountDialog />
-        </div>
-      )}
+      <ListToolbar
+        actions={
+          <>
+            <ExportButton resource="accounts" />
+            {canWrite && <NewAccountDialog />}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

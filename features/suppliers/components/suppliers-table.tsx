@@ -7,13 +7,17 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ChangeEvent,
 } from "react";
 
+import { ExportButton } from "@/components/export-button";
+import {
+  ListPending,
+  ListSearch,
+  ListToolbar,
+} from "@/components/list-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -82,27 +86,42 @@ export function SuppliersTable({
     });
   }, [debouncedQuery, onlyActive, categoryId, setUrlFilters]);
 
-  function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
-    setQueryInput(event.target.value);
-  }
+  const isFiltered =
+    queryInput.trim() !== "" || !onlyActive || categoryId !== null;
+  const pending =
+    deferredQuery !== debouncedQuery ||
+    deferredOnlyActive !== onlyActive ||
+    deferredCategoryId !== categoryId;
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={() => {
+          setQueryInput("");
+          setOnlyActive(true);
+          setCategoryId(null);
+        }}
+        actions={
+          <>
+            <ExportButton resource="suppliers" />
+            {canWrite && <NewSupplierDialog />}
+          </>
+        }
+      >
+        <ListSearch
           placeholder="Buscar por razón social, nombre fantasía o CUIT"
           value={queryInput}
-          onChange={onSearchChange}
-          className="max-w-md"
+          onChange={setQueryInput}
         />
         <Select
           value={categoryId ?? "__all"}
           onValueChange={(v) => setCategoryId(v === "__all" ? null : v)}
         >
-          <SelectTrigger className="h-9 w-48">
+          <SelectTrigger className="w-48" aria-label="Categoría">
             <SelectValue placeholder="Todas las categorías" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="__all">Todas las categorías</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
@@ -118,24 +137,21 @@ export function SuppliersTable({
           />
           Solo activos
         </label>
-        {canWrite && (
-          <div className="ml-auto">
-            <NewSupplierDialog />
-          </div>
-        )}
-      </div>
+      </ListToolbar>
 
       <div className="mt-4">
         <Suspense fallback={<SuppliersTableSkeleton canWrite={canWrite} />}>
-          <SuppliersTableRows
-            query={deferredQuery}
-            onlyActive={deferredOnlyActive}
-            categoryId={deferredCategoryId}
-            categoriesById={Object.fromEntries(
-              categories.map((c) => [c.id, c.name]),
-            )}
-            canWrite={canWrite}
-          />
+          <ListPending pending={pending}>
+            <SuppliersTableRows
+              query={deferredQuery}
+              onlyActive={deferredOnlyActive}
+              categoryId={deferredCategoryId}
+              categoriesById={Object.fromEntries(
+                categories.map((c) => [c.id, c.name]),
+              )}
+              canWrite={canWrite}
+            />
+          </ListPending>
         </Suspense>
       </div>
     </>
@@ -206,7 +222,8 @@ function buildColumns({
       accessorKey: "legal_name",
       header: "Razón social",
       enableSorting: false,
-      meta: { mobile: "primary" },
+      // Long legal names wrap so the other columns stay in view.
+      meta: { mobile: "primary", cellClassName: "min-w-48 whitespace-normal" },
       cell: ({ row }) => {
         const supplier = row.original;
         return (

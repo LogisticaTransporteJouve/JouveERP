@@ -47,8 +47,8 @@ function AmountsCell({
     return <span className="text-xs text-muted-foreground/60">—</span>;
   }
   const cls = highlight
-    ? "font-mono text-sm font-semibold text-destructive"
-    : "font-mono text-sm";
+    ? "text-xs font-semibold tabular-nums text-destructive"
+    : "text-xs tabular-nums";
   return (
     <span className="inline-flex flex-col items-end">
       {amounts.ars > 0 && (
@@ -77,7 +77,11 @@ export function AgingReportView({
       {
         accessorKey: "legal_name",
         header: copy.partyHeader,
-        meta: { mobile: "primary" },
+        // Long legal names wrap so the bucket columns stay in view.
+        meta: {
+          mobile: "primary",
+          cellClassName: "min-w-40 whitespace-normal break-words",
+        },
         cell: ({ row }) => (
           <>
             <Link
@@ -123,7 +127,7 @@ export function AgingReportView({
             <span className="inline-flex flex-col items-end">
               <AmountsCell amounts={r.total} highlight={isAgingOverdue(r)} />
               {r.total.usd > 0 && r.total_ars_equivalent !== null && (
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="text-xs tabular-nums text-muted-foreground">
                   ≈ {formatMoney(r.total_ars_equivalent)}
                 </span>
               )}
@@ -139,7 +143,12 @@ export function AgingReportView({
             {row.original.document_count}
           </Badge>
         ),
-        meta: { align: "right", headerClassName: "w-24", mobile: "secondary" },
+        meta: {
+          align: "right",
+          headerClassName: "w-24 md:hidden xl:table-cell",
+          cellClassName: "md:hidden xl:table-cell",
+          mobile: "secondary",
+        },
       },
     ],
     [copy, partyHref],
@@ -149,7 +158,7 @@ export function AgingReportView({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {AGING_BUCKETS.map((bucket) => (
           <SummaryCard
             key={bucket}
@@ -220,11 +229,15 @@ function SummaryCard({
   return (
     <div className="rounded-lg border bg-card p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`mt-1 font-mono text-lg font-semibold ${valueClass}`}>
+      <p
+        className={`mt-1 font-mono text-base font-semibold break-all xl:text-sm 2xl:text-base ${valueClass}`}
+      >
         {formatMoney(amounts.ars)}
       </p>
       {showUsd && (
-        <p className={`font-mono text-sm font-semibold ${valueClass}`}>
+        <p
+          className={`font-mono text-sm font-semibold break-all ${valueClass}`}
+        >
           {formatMoney(amounts.usd, "USD")}
         </p>
       )}

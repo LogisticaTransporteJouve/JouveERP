@@ -38,20 +38,11 @@ export default async function ComprobantesPage({
 
   const params = parseInvoiceListParams(await searchParams);
   const supabase = getServiceClient();
-  const [{ data: channels }, { data: client }] = await Promise.all([
-    supabase
-      .from("invoicing_channels")
-      .select("id, name, is_fiscal, is_active")
-      .eq("is_active", true)
-      .order("name"),
-    params.clientId
-      ? supabase
-          .from("clients")
-          .select("id, legal_name")
-          .eq("id", params.clientId)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const { data: channels } = await supabase
+    .from("invoicing_channels")
+    .select("id, name, is_fiscal, is_active")
+    .eq("is_active", true)
+    .order("name");
   const visibleChannels = (channels ?? []).filter(
     (c) => !isFiscalOnly(ctx.access) || c.is_fiscal,
   );
@@ -73,13 +64,17 @@ export default async function ComprobantesPage({
         ),
       initialPageParam: 0,
     },
-    {
-      queryKey: invoicesKeys.totals(filters, params.group),
-      queryFn: () =>
-        runAction(() =>
-          getInvoiceListTotalsAction({ ...filters, group: params.group }),
-        ),
-    },
+    ...(params.group
+      ? [
+          {
+            queryKey: invoicesKeys.totals(filters, params.group),
+            queryFn: () =>
+              runAction(() =>
+                getInvoiceListTotalsAction({ ...filters, group: params.group }),
+              ),
+          },
+        ]
+      : []),
   ]);
   return (
     <div className="space-y-6">
@@ -103,7 +98,6 @@ export default async function ComprobantesPage({
             is_fiscal: c.is_fiscal,
           }))}
           initialParams={params}
-          initialClient={client ?? null}
         />
       </Hydrate>
     </div>

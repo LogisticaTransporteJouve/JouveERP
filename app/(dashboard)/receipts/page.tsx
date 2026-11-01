@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ExportButton } from "@/components/export-button";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import {
@@ -26,7 +25,6 @@ import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
 import { isFiscalFor } from "@/lib/scope";
 import { readScopeCookie } from "@/lib/scope-server";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import Loading from "./loading";
 
@@ -43,18 +41,8 @@ export default async function RecibosPage({
   }
 
   const params = parseReceiptListParams(await searchParams);
-  const supabase = await createSupabaseClient();
-  const [channelsData, { data: client }] = await Promise.all([
-    // Shared (React cache) with the dashboard layout's channel read.
-    getActiveInvoicingChannels(),
-    params.clientId
-      ? supabase
-          .from("clients")
-          .select("id, legal_name")
-          .eq("id", params.clientId)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  // Shared (React cache) with the dashboard layout's channel read.
+  const channelsData = await getActiveInvoicingChannels();
 
   const channels = channelsData.map((c) => ({
     id: c.id,
@@ -77,13 +65,17 @@ export default async function RecibosPage({
         ),
       initialPageParam: 0,
     },
-    {
-      queryKey: receiptsKeys.totals(filters, params.group),
-      queryFn: () =>
-        runAction(() =>
-          getReceiptListTotalsAction({ ...filters, group: params.group }),
-        ),
-    },
+    ...(params.group
+      ? [
+          {
+            queryKey: receiptsKeys.totals(filters, params.group),
+            queryFn: () =>
+              runAction(() =>
+                getReceiptListTotalsAction({ ...filters, group: params.group }),
+              ),
+          },
+        ]
+      : []),
     {
       queryKey: accountsKeys.list(),
       queryFn: () => runAction(() => listAccountsAction()),
@@ -100,7 +92,6 @@ export default async function RecibosPage({
             independiente por canal: <span className="font-mono">R0003-…</span>.
           </p>
         </div>
-        <ExportButton resource="receipts" />
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
@@ -108,7 +99,6 @@ export default async function RecibosPage({
             channels={channels}
             actorAccess={ctx.access}
             initialParams={params}
-            initialClient={client ?? null}
           />
         </Suspense>
       </Hydrate>

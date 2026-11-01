@@ -1,5 +1,7 @@
 "use client";
 
+import { ExportButton } from "@/components/export-button";
+import { ListToolbar } from "@/components/list-toolbar";
 import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -196,11 +198,16 @@ export function ChequesTable({
         ))}
       </div>
 
-      {canWrite && (
-        <div className="flex justify-end">
-          <NewChequeDialog channels={channels} />
-        </div>
-      )}
+      <div className="mt-4">
+        <ListToolbar
+          actions={
+            <>
+              <ExportButton resource="checks" />
+              {canWrite && <NewChequeDialog channels={channels} />}
+            </>
+          }
+        />
+      </div>
 
       <DataTable
         columns={columns}

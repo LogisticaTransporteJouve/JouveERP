@@ -7,13 +7,17 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ChangeEvent,
 } from "react";
 
+import { ExportButton } from "@/components/export-button";
+import {
+  ListPending,
+  ListSearch,
+  ListToolbar,
+} from "@/components/list-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -147,18 +151,29 @@ export function ClientsTable({
     });
   }, [debouncedQuery, onlyActive, setUrlFilters]);
 
-  function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
-    setQueryInput(event.target.value);
-  }
+  const isFiltered = queryInput.trim() !== "" || !onlyActive;
+  const pending =
+    deferredQuery !== debouncedQuery || deferredOnlyActive !== onlyActive;
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
+      <ListToolbar
+        isFiltered={isFiltered}
+        onClear={() => {
+          setQueryInput("");
+          setOnlyActive(true);
+        }}
+        actions={
+          <>
+            <ExportButton resource="clients" />
+            {canWrite && <NewClientDialog />}
+          </>
+        }
+      >
+        <ListSearch
           placeholder="Buscar por razón social, nombre fantasía o CUIT"
           value={queryInput}
-          onChange={onSearchChange}
-          className="max-w-md"
+          onChange={setQueryInput}
         />
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox
@@ -167,20 +182,17 @@ export function ClientsTable({
           />
           Solo activos
         </label>
-        {canWrite && (
-          <div className="ml-auto">
-            <NewClientDialog />
-          </div>
-        )}
-      </div>
+      </ListToolbar>
 
       <div className="mt-4">
         <Suspense fallback={<ClientsTableSkeleton canWrite={canWrite} />}>
-          <ClientsTableRows
-            query={deferredQuery}
-            onlyActive={deferredOnlyActive}
-            canWrite={canWrite}
-          />
+          <ListPending pending={pending}>
+            <ClientsTableRows
+              query={deferredQuery}
+              onlyActive={deferredOnlyActive}
+              canWrite={canWrite}
+            />
+          </ListPending>
         </Suspense>
       </div>
     </>
