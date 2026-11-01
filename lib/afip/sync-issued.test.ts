@@ -280,7 +280,9 @@ describe("syncIssuedPair", () => {
 
   it("links an NC to its imported origin and stores one without origin unlinked", async () => {
     const db = {
-      clients: [] as Row[],
+      clients: [
+        { id: "c1", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+      ] as Row[],
       invoices: [
         {
           id: "inv-6",
@@ -288,6 +290,7 @@ describe("syncIssuedPair", () => {
           cbte_tipo_afip: 1,
           numero: 6,
           status: "emitted",
+          client_id: "c1",
         },
       ] as Row[],
     };
@@ -322,7 +325,9 @@ describe("syncIssuedPair", () => {
 
   it("waits for an origin on the same point of sale that is not imported yet", async () => {
     const db = {
-      clients: [] as Row[],
+      clients: [
+        { id: "c1", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+      ] as Row[],
       invoices: [
         {
           id: "inv-6",
@@ -330,6 +335,7 @@ describe("syncIssuedPair", () => {
           cbte_tipo_afip: 1,
           numero: 6,
           status: "emitted",
+          client_id: "c1",
         },
       ] as Row[],
     };
@@ -362,7 +368,9 @@ describe("syncIssuedPair", () => {
 
   it("retries NC/ND left behind once their origin is imported", async () => {
     const db = {
-      clients: [] as Row[],
+      clients: [
+        { id: "c1", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+      ] as Row[],
       invoices: [
         {
           id: "inv-6",
@@ -370,6 +378,7 @@ describe("syncIssuedPair", () => {
           cbte_tipo_afip: 1,
           numero: 6,
           status: "emitted",
+          client_id: "c1",
         },
         {
           id: "nc-2",
@@ -514,6 +523,43 @@ describe("NC without CbtesAsoc", () => {
     expect(db.invoices.find((r) => r.numero === 610)).toMatchObject({
       kind: "nc",
       invoice_origin_id: "fa-15538",
+    });
+  });
+});
+
+describe("NC whose origin belongs to another client", () => {
+  it("stores it unlinked instead of stopping the pair", async () => {
+    const db = {
+      clients: [
+        { id: "c-cf", cuit: "00000000000", legal_name: "CONSUMIDOR FINAL" },
+      ] as Row[],
+      invoices: [
+        {
+          id: "fa-9",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 9,
+          status: "emitted",
+          client_id: "c-cf",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 1,
+        docNro: "30718543866",
+        cbtesAsoc: [{ tipo: 1, ptoVta: 3, nro: 9 }],
+      }),
+      voucher({ cbteTipo: 3, cbteNro: 2, docNro: "30718543866" }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 2, unlinked: 2, stopped: null });
+    expect(db.invoices.find((r) => r.numero === 1)).toMatchObject({
+      invoice_origin_id: null,
+      origin_unlinked: true,
     });
   });
 });

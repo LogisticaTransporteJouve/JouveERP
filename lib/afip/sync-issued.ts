@@ -316,7 +316,7 @@ async function resolveClientId(
 }
 
 type OriginLookup =
-  | { status: "found"; id: string }
+  | { status: "found"; id: string; clientId: string }
   /** Same point of sale, numbered past what is imported: a later run brings it. */
   | { status: "pending"; nro: number }
   /** No reference, another point of sale, or a number already passed. */
@@ -330,14 +330,15 @@ async function resolveOrigin(
   if (!asoc) return matchOriginByTotal(supabase, info);
   const { data, error } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, client_id")
     .eq("punto_venta", asoc.ptoVta)
     .eq("cbte_tipo_afip", asoc.tipo)
     .eq("numero", asoc.nro)
     .limit(1);
   if (error) throw new Error(`origin lookup: ${error.message}`);
-  const id = data?.[0]?.id;
-  if (id) return { status: "found", id };
+  const found = data?.[0];
+  if (found)
+    return { status: "found", id: found.id, clientId: found.client_id };
   if (asoc.ptoVta !== info.ptoVta) return { status: "missing" };
   const imported = await lastLocalNumero(supabase, asoc.ptoVta, asoc.tipo);
   return asoc.nro > imported
@@ -369,7 +370,7 @@ async function matchOriginByTotal(
   if (!facturaTipo || !fecha || !info.docNro) return { status: "missing" };
   const { data, error } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, client_id")
     .eq("punto_venta", info.ptoVta)
     .eq("cbte_tipo_afip", facturaTipo)
     .eq("doc_nro", info.docNro)
@@ -379,8 +380,10 @@ async function matchOriginByTotal(
     .order("fecha", { ascending: false })
     .limit(1);
   if (error) throw new Error(`origin match: ${error.message}`);
-  const id = data?.[0]?.id;
-  return id ? { status: "found", id } : { status: "missing" };
+  const found = data?.[0];
+  return found
+    ? { status: "found", id: found.id, clientId: found.client_id }
+    : { status: "missing" };
 }
 
 type VoucherOutcome =
@@ -406,13 +409,18 @@ async function importVoucher(
   if (origin?.status === "pending") {
     return { kind: "waiting_origin", originNro: origin.nro };
   }
-  const originId = origin?.status === "found" ? origin.id : null;
+  const clientId = await resolveClientId(supabase, afip, info, clientCache);
+  // guard_invoice_origin rejects an origin of another client; ARCA allows an
+  // NC/ND to a receiver other than the factura's (e.g. factura to consumidor
+  // final, note to a CUIT), so such a reference cannot be kept.
+  const originId =
+    origin?.status === "found" && origin.clientId === clientId
+      ? origin.id
+      : null;
   // An NC/ND ARCA ties to no factura we can find (older ones carried no
   // CbtesAsoc: interest debits, general or partial credits) is stored
   // unlinked so it still reaches the client's account and the IVA book.
   const unlinked = kind !== "factura" && !originId;
-
-  const clientId = await resolveClientId(supabase, afip, info, clientCache);
   const row = voucherToInvoiceInsert(info, {
     channelId: target.channel_id,
     clientId,
