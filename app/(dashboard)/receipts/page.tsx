@@ -53,6 +53,7 @@ export default async function RecibosPage({
     params,
     isFiscalFor(await readScopeCookie()),
   );
+  const isFiscalSide = filters.isFiscal !== false;
   const dehydratedState = await prefetchQueries([
     {
       infinite: true,
@@ -86,10 +87,15 @@ export default async function RecibosPage({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Recibos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isFiscalSide ? "Recibos" : "Recibos internos"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Cobros de clientes con imputación a comprobantes. Numerador
-            independiente por canal: <span className="font-mono">R0003-…</span>.
+            {isFiscalSide
+              ? "Cobros de clientes con imputación a comprobantes."
+              : "Cobros de clientes de Otras ventas, imputados a remitos internos."}{" "}
+            Numerador independiente por canal:{" "}
+            <span className="font-mono">R0003-…</span>.
           </p>
         </div>
       </div>

@@ -71,6 +71,7 @@ const GUARDS = [
   "repost_journal",
   "guard_counterparty_side_immutable",
   "guard_document_side",
+  "guard_invoice_source_remito",
 ];
 
 describe("guard hints in migrations", () => {

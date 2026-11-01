@@ -1,13 +1,7 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
-import {
-  CONCEPTO,
-  DOC_TIPO,
-  IVA_RATE,
-  MONEDA,
-  condicionIvaReceptorFor,
-} from "@/lib/afip/codes";
+import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
@@ -201,19 +195,23 @@ export async function invoiceStorageAction(
 
   const supabase = await createSupabaseClient();
 
-  // The client needs a CUIT + valid IVA condition to invoice.
+  // A Ventas client needs a CUIT + valid IVA condition to invoice; an Otras
+  // ventas client has neither and gets a remito interno.
   const { data: client, error: clientErr } = await supabase
     .from("clients")
-    .select("id, legal_name, cuit, iva_condition")
+    .select("id, legal_name, cuit, iva_condition, is_fiscal")
     .eq("id", client_id)
     .maybeSingle();
   if (clientErr || !client) {
     return { ok: false, error: "No se encontró el cliente." };
   }
-  if (!client.cuit) {
+  if (client.is_fiscal && !client.cuit) {
     return { ok: false, error: "El cliente necesita un CUIT para facturar." };
   }
-  if (!isIvaCondition(client.iva_condition)) {
+  const ivaCondition = isIvaCondition(client.iva_condition)
+    ? client.iva_condition
+    : null;
+  if (client.is_fiscal && !ivaCondition) {
     return { ok: false, error: "La condición de IVA del cliente es inválida." };
   }
 
@@ -349,9 +347,7 @@ export async function invoiceStorageAction(
     fch_serv_hasta: period_end,
     fch_vto_pago: today,
     concepto: CONCEPTO.SERVICIOS,
-    doc_tipo: DOC_TIPO.CUIT,
-    doc_nro: client.cuit,
-    iva_condition_receptor: condicionIvaReceptorFor(client.iva_condition),
+    ...voucherReceptor({ cuit: client.cuit, iva_condition: ivaCondition }),
     moneda: MONEDA.PESOS,
     cotizacion: 1,
     items,

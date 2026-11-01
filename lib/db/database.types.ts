@@ -2393,6 +2393,7 @@ export type Database = {
           origin_unlinked: boolean
           pdf_hash: string | null
           punto_venta: number
+          source_remito_id: string | null
           status: string
           updated_at: string
         }
@@ -2439,6 +2440,7 @@ export type Database = {
           origin_unlinked?: boolean
           pdf_hash?: string | null
           punto_venta: number
+          source_remito_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -2485,6 +2487,7 @@ export type Database = {
           origin_unlinked?: boolean
           pdf_hash?: string | null
           punto_venta?: number
+          source_remito_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -2513,6 +2516,13 @@ export type Database = {
           {
             foreignKeyName: "invoices_invoice_origin_id_fkey"
             columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_source_remito_id_fkey"
+            columns: ["source_remito_id"]
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]

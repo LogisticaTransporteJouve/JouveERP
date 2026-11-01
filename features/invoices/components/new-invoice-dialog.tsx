@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import {
   useDefaultChannel,
+  usePageIsFiscal,
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ import {
   IVA_RATE,
   ivaRatePercent,
   letterFor,
-  condicionIvaReceptorFor,
+  voucherReceptor,
   type IvaRateId,
 } from "@/lib/afip/codes";
 import {
@@ -88,9 +89,12 @@ type ItemDraft = {
 
 const SEGURO_DESCRIPTION = "Seguro";
 
-// One column template for the header and every item row, so they line up.
+// One column template for the header and every item row, so they line up. A
+// remito interno has no IVA column: its price is final.
 const ITEM_GRID =
   "grid grid-cols-[minmax(0,1fr)_5.5rem_8rem_6rem_7.5rem_2rem] gap-2";
+const ITEM_GRID_INTERNAL =
+  "grid grid-cols-[minmax(0,1fr)_5.5rem_8rem_7.5rem_2rem] gap-2";
 
 function defaultItems(): ItemDraft[] {
   return [
@@ -132,6 +136,8 @@ export function NewInvoiceDialog({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Otras ventas issues remitos internos: no AFIP, no IVA.
+  const isFiscalPage = usePageIsFiscal() !== false;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -144,9 +150,13 @@ export function NewInvoiceDialog({
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nuevo comprobante</DialogTitle>
+          <DialogTitle>
+            {isFiscalPage ? "Nuevo comprobante" : "Nuevo remito interno"}
+          </DialogTitle>
           <DialogDescription>
-            Se emite con CAE de AFIP. Una vez emitido no se puede modificar.
+            {isFiscalPage
+              ? "Se emite con CAE de AFIP. Una vez emitido no se puede modificar."
+              : "No va a AFIP ni lleva IVA: el precio es final."}
           </DialogDescription>
         </DialogHeader>
         {open && (
@@ -358,6 +368,8 @@ function NewInvoiceForm({
     return item.description === SEGURO_DESCRIPTION;
   }
 
+  const isFiscal = isNote ? true : (currentChannel?.is_fiscal ?? true);
+  const itemGrid = isFiscal ? ITEM_GRID : ITEM_GRID_INTERNAL;
   const totals = useMemo(
     () =>
       computeTotals(
@@ -366,9 +378,9 @@ function NewInvoiceForm({
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
         })),
-        true,
+        isFiscal,
       ),
-    [items],
+    [items, isFiscal],
   );
 
   // Jouve sells transport: facturas are always Servicios.
@@ -379,7 +391,6 @@ function NewInvoiceForm({
     concepto === CONCEPTO.SERVICIOS ||
     concepto === CONCEPTO.PRODUCTOS_Y_SERVICIOS;
 
-  const isFiscal = isNote ? true : (currentChannel?.is_fiscal ?? true);
   // For factura: derive letter from receiver iva_condition.
   // For NC/ND: letter inherits from origen (RG 1415).
   const letter = isNote
@@ -447,14 +458,7 @@ function NewInvoiceForm({
         fch_serv_hasta: fchServ,
         fch_vto_pago: fchServ,
         concepto: concepto as 1 | 2 | 3,
-        // An internal client has no CUIT: the remito goes to an unidentified
-        // receiver (doc 99), like a consumidor final.
-        doc_tipo: client.cuit ? 80 : 99,
-        doc_nro: client.cuit ?? "0",
-        iva_condition_receptor:
-          isFiscal && client.iva_condition
-            ? condicionIvaReceptorFor(client.iva_condition)
-            : null,
+        ...voucherReceptor(client),
         moneda: "PES",
         cotizacion: 1,
         invoice_origin_id: isNote ? (origin?.id ?? null) : null,
@@ -469,7 +473,11 @@ function NewInvoiceForm({
       },
       {
         onSuccess: (data) => {
-          toast.success("Comprobante en cola — esperando CAE.");
+          toast.success(
+            isFiscal
+              ? "Comprobante en cola — esperando CAE."
+              : "Remito interno guardado.",
+          );
           if (continueMode) {
             resetForContinue();
             return;
@@ -507,34 +515,43 @@ function NewInvoiceForm({
             and Concepto is always Servicios, so neither needs to live in the
             UI for facturas. NC/ND
             inherit canal + POS + concepto from the origen invoice. */}
-        <div className="grid gap-4 sm:grid-cols-[180px_1fr_180px]">
-          <FormField
-            control={form.control}
-            name="kind"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Tipo</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={(v) => handleKindChange(v as Kind)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {KIND_OPTIONS.map((k) => (
-                      <SelectItem key={k.value} value={k.value}>
-                        {k.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div
+          className={cn(
+            "grid gap-4",
+            isFiscal
+              ? "sm:grid-cols-[180px_1fr_180px]"
+              : "sm:grid-cols-[1fr_180px]",
+          )}
+        >
+          {isFiscal && (
+            <FormField
+              control={form.control}
+              name="kind"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Tipo</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => handleKindChange(v as Kind)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {KIND_OPTIONS.map((k) => (
+                        <SelectItem key={k.value} value={k.value}>
+                          {k.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             control={form.control}
             name="channelId"
@@ -701,28 +718,29 @@ function NewInvoiceForm({
               <div className="min-w-[36rem]">
                 <div
                   className={cn(
-                    ITEM_GRID,
+                    itemGrid,
                     "border-b px-3 py-2 text-xs text-muted-foreground",
                   )}
                 >
                   <div>Descripción</div>
                   <div>Cantidad</div>
-                  <div>Precio unitario</div>
-                  <div>IVA</div>
+                  <div>{isFiscal ? "Precio unitario" : "Precio final"}</div>
+                  {isFiscal && <div>IVA</div>}
                   <div className="text-right">Subtotal</div>
                   <div />
                 </div>
                 {items.map((item, idx) => {
                   const qty = Number(item.quantity) || 0;
                   const price = Number(item.unit_price) || 0;
-                  const lineTotal =
-                    qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100);
+                  const lineTotal = isFiscal
+                    ? qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100)
+                    : qty * price;
                   const seguro = showSeguro && isSeguroRow(item);
                   return (
                     <div
                       key={idx}
                       className={cn(
-                        ITEM_GRID,
+                        itemGrid,
                         "items-center px-3 py-2",
                         seguro && "border-t bg-muted/30",
                       )}
@@ -765,32 +783,38 @@ function NewInvoiceForm({
                         inputMode="decimal"
                         placeholder={seguro ? "Valor declarado" : "$ 0,00"}
                         aria-label={
-                          seguro ? "Valor declarado" : "Precio unitario"
+                          seguro
+                            ? "Valor declarado"
+                            : isFiscal
+                              ? "Precio unitario"
+                              : "Precio final"
                         }
                         value={item.unit_price}
                         onChange={(e) =>
                           updateItem(idx, { unit_price: e.target.value })
                         }
                       />
-                      <Select
-                        value={String(item.iva_rate_id)}
-                        onValueChange={(v) =>
-                          updateItem(idx, {
-                            iva_rate_id: Number(v) as IvaRateId,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full" aria-label="IVA">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent position="popper">
-                          {RATE_OPTIONS.map((r) => (
-                            <SelectItem key={r.value} value={String(r.value)}>
-                              {r.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {isFiscal && (
+                        <Select
+                          value={String(item.iva_rate_id)}
+                          onValueChange={(v) =>
+                            updateItem(idx, {
+                              iva_rate_id: Number(v) as IvaRateId,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full" aria-label="IVA">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            {RATE_OPTIONS.map((r) => (
+                              <SelectItem key={r.value} value={String(r.value)}>
+                                {r.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <div className="text-right font-mono text-sm tabular-nums">
                         ${formatNumber2(lineTotal)}
                       </div>
@@ -820,18 +844,22 @@ function NewInvoiceForm({
         {/* Totals */}
         {(!isNote || originDetail) && (
           <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3">
-            <div className="text-sm">
-              Neto:{" "}
-              <span className="font-mono">
-                ${formatNumber2(totals.imp_neto)}
-              </span>
-            </div>
-            <div className="text-sm">
-              IVA:{" "}
-              <span className="font-mono">
-                ${formatNumber2(totals.imp_iva)}
-              </span>
-            </div>
+            {isFiscal && (
+              <>
+                <div className="text-sm">
+                  Neto:{" "}
+                  <span className="font-mono">
+                    ${formatNumber2(totals.imp_neto)}
+                  </span>
+                </div>
+                <div className="text-sm">
+                  IVA:{" "}
+                  <span className="font-mono">
+                    ${formatNumber2(totals.imp_iva)}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="text-base font-semibold">
               Total:{" "}
               <span className="font-mono">

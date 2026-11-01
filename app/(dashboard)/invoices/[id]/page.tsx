@@ -19,11 +19,13 @@ import {
   type OriginInvoice,
 } from "@/features/invoices/components/issue-nc-nd-dialog";
 import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-pdf-button";
+import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
+import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
 import type { IvaCondition } from "@/features/clients/schema";
 import {
   INTERNAL_CANCELLABLE_STATUSES,
-  INVOICE_KIND_LABEL,
+  invoiceKindLabel,
   formatInvoiceNumero,
   type InvoiceStatus,
 } from "@/features/invoices/schema";
@@ -51,6 +53,10 @@ export default async function ComprobanteDetailPage({
   if (!res.ok) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.access, "invoices:issue");
+  const linksRes = await getRemitoLinksAction(c.id);
+  const links = linksRes.ok
+    ? linksRes.data
+    : { billedAs: null, sourceRemito: null };
   const canCancel =
     userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
@@ -64,9 +70,12 @@ export default async function ComprobanteDetailPage({
     { whenNullNumero: null },
   );
   const isProvisional = c.numero == null && c.expected_numero != null;
-  // Only A vouchers (and internal ones, which mirror them) itemize IVA.
-  const discriminatesIva = c.letter !== "B" && c.letter !== "C";
-  const invoiceLabel = `${INVOICE_KIND_LABEL[c.kind]} ${numeroLabel}`;
+  // Only A vouchers itemize IVA. A remito interno carries none: its price is
+  // final, so it shows just the total.
+  const isInternal = !c.channel.is_fiscal;
+  const discriminatesIva = !isInternal && c.letter !== "B" && c.letter !== "C";
+  const kindLabel = invoiceKindLabel(c.kind, c.channel.is_fiscal);
+  const invoiceLabel = `${kindLabel} ${numeroLabel}`;
 
   return (
     <div className="space-y-6">
@@ -84,7 +93,7 @@ export default async function ComprobanteDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {INVOICE_KIND_LABEL[c.kind]}{" "}
+            {kindLabel}{" "}
             <span className="font-mono text-base text-muted-foreground">
               {numeroLabel}
             </span>
@@ -97,6 +106,28 @@ export default async function ComprobanteDetailPage({
           <p className="text-sm text-muted-foreground">
             {c.channel.name} · {c.fecha}
           </p>
+          {links.billedAs && (
+            <p className="text-sm">
+              Facturado en{" "}
+              <a
+                href={`/invoices/${links.billedAs.id}`}
+                className="font-mono underline"
+              >
+                {links.billedAs.label}
+              </a>
+            </p>
+          )}
+          {links.sourceRemito && (
+            <p className="text-sm">
+              Origen: remito interno{" "}
+              <a
+                href={`/invoices/${links.sourceRemito.id}`}
+                className="font-mono underline"
+              >
+                {links.sourceRemito.label}
+              </a>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <InvoiceJobStatus
@@ -119,6 +150,20 @@ export default async function ComprobanteDetailPage({
             <RegeneratePdfButton id={c.id} />
           )}
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
+          {canIssue &&
+            isInternal &&
+            c.kind === "factura" &&
+            c.status === "emitted" &&
+            !links.billedAs && (
+              <BillRemitoDialog
+                remitoId={c.id}
+                remitoLabel={invoiceLabel}
+                items={c.items.map((it) => ({
+                  quantity: Number(it.quantity),
+                  unit_price: Number(it.unit_price),
+                }))}
+              />
+            )}
           {canIssue &&
             c.status === "emitted" &&
             c.kind === "factura" &&
@@ -162,12 +207,19 @@ export default async function ComprobanteDetailPage({
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Cliente</h2>
           <dl className="mt-3 space-y-1 text-sm">
-            <DetailRow label="Razón social" value={c.client.legal_name} />
-            <DetailRow label="Doc" value={`${c.doc_tipo} · ${c.doc_nro}`} />
             <DetailRow
-              label="Condición IVA"
-              value={c.client.iva_condition.replace(/_/g, " ")}
+              label={c.channel.is_fiscal ? "Razón social" : "Nombre"}
+              value={c.client.legal_name}
             />
+            {c.channel.is_fiscal && (
+              <DetailRow label="Doc" value={`${c.doc_tipo} · ${c.doc_nro}`} />
+            )}
+            {c.client.iva_condition && (
+              <DetailRow
+                label="Condición IVA"
+                value={c.client.iva_condition.replace(/_/g, " ")}
+              />
+            )}
           </dl>
         </div>
 
@@ -216,8 +268,10 @@ export default async function ComprobanteDetailPage({
             <tr>
               <th className="px-4 py-2 text-left">Descripción</th>
               <th className="px-4 py-2 text-right">Cant.</th>
-              <th className="px-4 py-2 text-right">P. Unit.</th>
-              <th className="px-4 py-2 text-right">IVA</th>
+              <th className="px-4 py-2 text-right">
+                {isInternal ? "Precio final" : "P. Unit."}
+              </th>
+              {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
               <th className="px-4 py-2 text-right">Subtotal</th>
             </tr>
           </thead>
@@ -231,11 +285,13 @@ export default async function ComprobanteDetailPage({
                 <td className="px-4 py-2 text-right font-mono">
                   ${formatARS(item.unit_price)}
                 </td>
-                <td className="px-4 py-2 text-right">
-                  {item.iva_rate_id !== null
-                    ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
-                    : "—"}
-                </td>
+                {!isInternal && (
+                  <td className="px-4 py-2 text-right">
+                    {item.iva_rate_id !== null
+                      ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
+                      : "—"}
+                  </td>
+                )}
                 <td className="px-4 py-2 text-right font-mono">
                   ${formatARS(item.line_total)}
                 </td>

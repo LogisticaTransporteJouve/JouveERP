@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
+import { usePageIsFiscal } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +30,7 @@ export function NewReceiptDialog({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const isFiscalPage = usePageIsFiscal() !== false;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -36,16 +38,18 @@ export function NewReceiptDialog({
         {trigger ?? (
           <Button>
             <Plus className="size-4" />
-            Nuevo recibo
+            {isFiscalPage ? "Nuevo recibo" : "Nuevo recibo interno"}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nuevo recibo</DialogTitle>
+          <DialogTitle>
+            {isFiscalPage ? "Nuevo recibo" : "Nuevo recibo interno"}
+          </DialogTitle>
           <DialogDescription>
-            El número se asigna automáticamente al canal. Una vez emitido,
-            podés editar montos, líneas o anular.
+            El número se asigna automáticamente al canal. Una vez emitido, podés
+            editar montos, líneas o anular.
           </DialogDescription>
         </DialogHeader>
         <ReceiptForm

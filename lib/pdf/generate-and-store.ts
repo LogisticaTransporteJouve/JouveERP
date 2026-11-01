@@ -66,7 +66,7 @@ export async function buildTemplateData(
   const client = row.client as {
     id: string;
     legal_name: string;
-    iva_condition: IvaCondition;
+    iva_condition: IvaCondition | null;
     address: string | null;
     real_address: string | null;
   } | null;
@@ -159,7 +159,10 @@ export async function buildTemplateData(
       legal_name: client.legal_name,
       doc_tipo_label: DOC_TIPO_LABEL[row.doc_tipo] ?? String(row.doc_tipo),
       doc_nro: row.doc_nro,
-      iva_condition_label: IVA_LABEL[client.iva_condition],
+      // An Otras ventas client has no IVA condition (nor CUIT).
+      iva_condition_label: client.iva_condition
+        ? IVA_LABEL[client.iva_condition]
+        : null,
       condicion_iva_receptor: row.iva_condition_receptor,
       address: client.real_address ?? client.address,
     },

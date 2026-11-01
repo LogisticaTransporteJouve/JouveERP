@@ -95,7 +95,11 @@ Botón **Facturar** en un remito interno:
 Resultado: la venta interna neta queda en 0 y la venta existe una sola vez, del
 lado fiscal, con su IVA.
 
-### 5. Remito ya cobrado (decidido: el cobro pasa al lado fiscal)
+Implementado (fase 3): `billRemitoAction` + `creditBilledRemito` en el flujo de
+emisión. Por ahora solo se factura un remito **sin cobros ni NC aplicados**; el
+pase automático del cobro (sección 5) queda pendiente.
+
+### 5. Remito ya cobrado (decidido: el cobro pasa al lado fiscal — pendiente)
 
 Si el remito tiene un recibo interno aplicado, al obtener el CAE además:
 

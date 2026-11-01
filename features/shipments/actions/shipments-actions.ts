@@ -2,13 +2,7 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
-import {
-  CONCEPTO,
-  DOC_TIPO,
-  IVA_RATE,
-  MONEDA,
-  condicionIvaReceptorFor,
-} from "@/lib/afip/codes";
+import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { getActiveInvoicingChannels } from "@/lib/channels";
 import { todayInAR } from "@/lib/format";
@@ -485,7 +479,7 @@ async function issueFreightInvoice(
   const { data: shipment, error: readErr } = await supabase
     .from("shipments")
     .select(
-      "id, client_id, channel_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition)",
+      "id, client_id, channel_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition, is_fiscal)",
     )
     .eq("id", input.shipmentId)
     .maybeSingle();
@@ -504,13 +498,20 @@ async function issueFreightInvoice(
     };
   }
   const client = shipment.client;
-  if (!shipment.client_id || !client?.cuit) {
+  if (!shipment.client_id || !client) {
+    return { ok: false, error: "La carga necesita un cliente." };
+  }
+  // An Otras ventas client has no CUIT: its freight goes on a remito interno.
+  if (client.is_fiscal && !client.cuit) {
     return { ok: false, error: "La carga necesita un cliente con CUIT." };
   }
   if (!shipment.freight_amount || Number(shipment.freight_amount) <= 0) {
     return { ok: false, error: "Cargá un monto de flete primero." };
   }
-  if (!isIvaCondition(client.iva_condition)) {
+  const ivaCondition = isIvaCondition(client.iva_condition)
+    ? client.iva_condition
+    : null;
+  if (client.is_fiscal && !ivaCondition) {
     return { ok: false, error: "La condición de IVA del cliente es inválida." };
   }
 
@@ -527,9 +528,7 @@ async function issueFreightInvoice(
     punto_venta: input.punto_venta,
     ...dates,
     concepto: CONCEPTO.SERVICIOS,
-    doc_tipo: DOC_TIPO.CUIT,
-    doc_nro: client.cuit,
-    iva_condition_receptor: condicionIvaReceptorFor(client.iva_condition),
+    ...voucherReceptor({ cuit: client.cuit, iva_condition: ivaCondition }),
     moneda: MONEDA.PESOS,
     cotizacion: 1,
     items: [
