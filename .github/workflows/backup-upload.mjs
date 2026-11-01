@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,13 +23,18 @@ if (!DUMP_FILE) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// DUMP_FILE is an absolute path; the object goes at the bucket root, where
+// the prune below lists.
+const OBJECT_NAME = basename(DUMP_FILE);
 
 // 1. Upload
 const buffer = readFileSync(DUMP_FILE);
-console.log(`Subiendo ${DUMP_FILE} (${buffer.length} bytes) a ${BUCKET}/ ...`);
+console.log(
+  `Subiendo ${OBJECT_NAME} (${buffer.length} bytes) a ${BUCKET}/ ...`,
+);
 const { error: upErr } = await supabase.storage
   .from(BUCKET)
-  .upload(DUMP_FILE, buffer, {
+  .upload(OBJECT_NAME, buffer, {
     contentType: "application/octet-stream",
     upsert: true,
     metadata: { sha256: DUMP_SHA, size: DUMP_SIZE },
@@ -63,7 +69,9 @@ const toDelete = (files ?? [])
 
 if (toDelete.length > 0) {
   console.log(`Borrando ${toDelete.length} archivos antiguos:`, toDelete);
-  const { error: delErr } = await supabase.storage.from(BUCKET).remove(toDelete);
+  const { error: delErr } = await supabase.storage
+    .from(BUCKET)
+    .remove(toDelete);
   if (delErr) {
     console.error("Delete failed:", delErr.message);
     process.exit(1);
@@ -73,4 +81,6 @@ if (toDelete.length > 0) {
   console.log("No hay archivos para podar.");
 }
 
-console.log(`\n✓ Backup ${DUMP_FILE} subido. Retenidos en bucket: ${(files ?? []).length - toDelete.length + 1}`);
+console.log(
+  `\n✓ Backup ${OBJECT_NAME} subido. Retenidos en bucket: ${(files ?? []).length - toDelete.length + 1}`,
+);
