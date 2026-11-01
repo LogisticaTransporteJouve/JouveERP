@@ -33,7 +33,7 @@ import {
   userCanAll,
 } from "@/lib/auth/permissions";
 import { isFiscalFor, SCOPE_LABEL } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readSharedScope } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   const ctx = await requireUserContext();
 
   const canTreasury = userCanAll(ctx.access, TREASURY_PERMISSIONS);
-  const scope = await readScopeCookie();
+  const scope = await readSharedScope();
   const isFiscal = isFiscalFor(scope);
   const [
     treasuryRes,

@@ -9,6 +9,8 @@ import {
   suppliersKeys,
 } from "@/features/suppliers/lib/suppliers-keys";
 import { requireUserContext } from "@/lib/auth/context";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -35,6 +37,7 @@ export default async function SuppliersPage({
     query: initialQuery,
     onlyActive: initialOnlyActive,
     categoryId: initialCategoryId,
+    isFiscal: isFiscalFor(await readScopeCookie()),
   };
   const dehydratedState = await prefetchQueries([
     {
@@ -63,8 +66,9 @@ export default async function SuppliersPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Proveedores</h1>
           <p className="text-sm text-muted-foreground">
-            Catálogo único por CUIT, compartido entre Logística Jouve y DZ
-            Instalaciones.
+            {filters.isFiscal
+              ? "Proveedores de Compras: con CUIT y condición de IVA (AFIP)."
+              : "Proveedores de Otras compras: sin CUIT ni AFIP."}
           </p>
         </div>
       </div>

@@ -32,7 +32,7 @@ const COLUMNS: TableReportColumn[] = [
   { header: "Total", width: 104, align: "right", mono: true },
 ];
 
-type SupplierJoin = { legal_name: string; cuit: string };
+type SupplierJoin = { legal_name: string; cuit: string | null };
 
 function isLetter(value: string): value is PurchaseInvoiceLetter {
   return PURCHASE_INVOICE_LETTERS.some((letter) => letter === value);
@@ -90,7 +90,9 @@ export const purchaseInvoices: Exporter = {
           punto_venta: row.punto_venta,
           numero: row.numero,
         }),
-        `${supplier.legal_name} (CUIT ${supplier.cuit})`,
+        supplier.cuit
+          ? `${supplier.legal_name} (CUIT ${supplier.cuit})`
+          : supplier.legal_name,
         channelCell(row.channel),
         PURCHASE_INVOICE_STATUS_LABEL[status],
         moneyCell(amount, {

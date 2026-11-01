@@ -69,6 +69,8 @@ const GUARDS = [
   "build_payment_order_journal_lines",
   "journal_entry_status",
   "repost_journal",
+  "guard_counterparty_side_immutable",
+  "guard_document_side",
 ];
 
 describe("guard hints in migrations", () => {

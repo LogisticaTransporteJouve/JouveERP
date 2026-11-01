@@ -70,7 +70,8 @@ export type NavSection = {
 };
 
 // The same sales pages, once per scope: "Ventas" opens them fiscal and
-// "Otras ventas" internal.
+// "Otras ventas" internal. Every other section is shared and reads all
+// channels (lib/scope `isScopedPath`).
 function salesItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
   return [
     {
@@ -99,6 +100,47 @@ function salesItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
       label: "Aging clientes",
       icon: AlertTriangle,
       permission: CLIENT_AGING_PERMISSIONS,
+      scope,
+    },
+  ];
+}
+
+// The same purchase pages, once per scope, like sales.
+function purchaseItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
+  return [
+    {
+      href: "/suppliers",
+      label: "Proveedores",
+      icon: Truck,
+      permission: "suppliers:read",
+      scope,
+    },
+    {
+      href: "/suppliers/categories",
+      label: "Categorías",
+      icon: Tags,
+      permission: "suppliers:read",
+      scope,
+    },
+    {
+      href: "/purchases",
+      label: "Compras",
+      icon: ShoppingCart,
+      permission: "purchase_invoices:read",
+      scope,
+    },
+    {
+      href: "/payment-orders",
+      label: "Órdenes de pago",
+      icon: CreditCard,
+      permission: "payment_orders:read",
+      scope,
+    },
+    {
+      href: "/aging-suppliers",
+      label: "Aging proveedores",
+      icon: AlertTriangle,
+      permission: SUPPLIER_AGING_PERMISSIONS,
       scope,
     },
   ];
@@ -137,41 +179,8 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   },
   { label: "Ventas", items: salesItems("fiscal") },
   { label: "Otras ventas", items: salesItems("internal") },
-  {
-    label: "Compras",
-    items: [
-      {
-        href: "/suppliers",
-        label: "Proveedores",
-        icon: Truck,
-        permission: "suppliers:read",
-      },
-      {
-        href: "/suppliers/categories",
-        label: "Categorías",
-        icon: Tags,
-        permission: "suppliers:read",
-      },
-      {
-        href: "/purchases",
-        label: "Compras",
-        icon: ShoppingCart,
-        permission: "purchase_invoices:read",
-      },
-      {
-        href: "/payment-orders",
-        label: "Órdenes de pago",
-        icon: CreditCard,
-        permission: "payment_orders:read",
-      },
-      {
-        href: "/aging-suppliers",
-        label: "Aging proveedores",
-        icon: AlertTriangle,
-        permission: SUPPLIER_AGING_PERMISSIONS,
-      },
-    ],
-  },
+  { label: "Compras", items: purchaseItems("fiscal") },
+  { label: "Otras compras", items: purchaseItems("internal") },
   {
     label: "Tesorería",
     items: [

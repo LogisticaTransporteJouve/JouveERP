@@ -22,10 +22,10 @@ import {
 } from "../schema";
 
 function narrowClient(row: {
-  iva_condition: string;
+  iva_condition: string | null;
   [key: string]: unknown;
 }): Client | null {
-  if (!isIvaCondition(row.iva_condition)) {
+  if (row.iva_condition !== null && !isIvaCondition(row.iva_condition)) {
     logger.error("clients.unknown_iva_condition", {
       value: row.iva_condition,
     });
@@ -44,7 +44,7 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+      "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
     )
     .order("legal_name");
 
@@ -63,6 +63,8 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
 export type SearchClientsInput = {
   query?: string;
   onlyActive?: boolean;
+  /** Ventas (true) or Otras ventas (false); null lists both. */
+  isFiscal?: boolean | null;
   offset?: number;
   limit?: number;
 };
@@ -91,6 +93,7 @@ export async function searchClientsAction(
     p_only_active: input.onlyActive ?? true,
     p_offset: offset,
     p_limit: limit + 1,
+    p_is_fiscal: input.isFiscal ?? undefined,
   });
 
   if (error) {
@@ -127,7 +130,7 @@ export async function getClientByIdAction(
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+      "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -157,7 +160,7 @@ export async function findClientByCuitAction(
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+      "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
     )
     .eq("cuit", cuitClean)
     .maybeSingle();
@@ -192,13 +195,14 @@ export async function createClientAction(
   const { data, error } = await supabase
     .from("clients")
     .insert({
-      cuit: parsed.data.cuit,
+      is_fiscal: parsed.data.is_fiscal,
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
       legal_name: parsed.data.legal_name,
       display_name: parsed.data.display_name ?? null,
-      iva_condition: parsed.data.iva_condition,
+      iva_condition: parsed.data.is_fiscal ? parsed.data.iva_condition : null,
       email: parsed.data.email ?? null,
       phone: parsed.data.phone ?? null,
-      address: parsed.data.address ?? null,
+      address: parsed.data.is_fiscal ? (parsed.data.address ?? null) : null,
       real_address: parsed.data.real_address ?? null,
       notes: parsed.data.notes ?? null,
       created_by: ctx.userId,
@@ -212,7 +216,7 @@ export async function createClientAction(
     }
     logger.error("clients.create.failed", {
       userId: ctx.userId,
-      cuit: parsed.data.cuit,
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
       error,
     });
     return { ok: false, error: "No se pudo crear el cliente." };
@@ -221,7 +225,10 @@ export async function createClientAction(
   await logAudit(
     "client.created",
     ctx.userId,
-    { cuit: parsed.data.cuit, legal_name: parsed.data.legal_name },
+    {
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
+      legal_name: parsed.data.legal_name,
+    },
     data.id,
   );
   return { ok: true, data: { id: data.id } };

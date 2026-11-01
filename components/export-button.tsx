@@ -4,7 +4,7 @@ import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { useScope } from "@/components/providers/scope-provider";
+import { usePageScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,12 +59,12 @@ export function ExportButton({
   const [from, setFrom] = useState(firstOfMonth);
   const [to, setTo] = useState(today);
   const [downloading, setDownloading] = useState(false);
-  const { fiscalFilter } = useScope();
+  const scope = usePageScope();
 
   async function exportRange(rangeFrom: string, rangeTo: string) {
     const qs = new URLSearchParams(params);
-    // Every export follows the header scope; unscoped exporters ignore it.
-    qs.set("scope", fiscalFilter);
+    // Every export follows the page scope; unscoped exporters ignore it.
+    qs.set("scope", scope);
     if (rangeFrom) qs.set("from", rangeFrom);
     if (rangeTo) qs.set("to", rangeTo);
     if (format === "pdf") {

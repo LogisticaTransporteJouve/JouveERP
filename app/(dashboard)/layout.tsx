@@ -5,7 +5,6 @@ import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { ScopeProvider } from "@/components/providers/scope-provider";
-import { ScopeSelector } from "@/components/scope-selector";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BrowserNotifier } from "@/features/notifications/components/browser-notifier";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
@@ -16,8 +15,8 @@ import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { getInvoicingChannels } from "@/lib/channels";
 import {
   SCOPE_COOKIE,
-  type FiscalFilter,
   type InvoicingChannelSummary,
+  type ScopeSide,
 } from "@/lib/scope";
 import { readScopeCookie } from "@/lib/scope-server";
 import { createClient } from "@/lib/supabase/server";
@@ -54,10 +53,10 @@ export default async function DashboardLayout({
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
   const defaultOpen = sidebarCookie !== "false";
 
-  // Read scope from the cookie to avoid the "all channels" flash
-  // during the client's first render. A fiscal-only user is pinned to fiscal.
+  // Read the side from the cookie to avoid a flash of the other side during
+  // the client's first render. A fiscal-only user is pinned to fiscal.
   const scopeLocked = isFiscalOnly(ctx.access);
-  const initialFiscalFilter: FiscalFilter | undefined =
+  const initialFiscalFilter: ScopeSide | undefined =
     scopeLocked || cookieStore.get(SCOPE_COOKIE)
       ? await readScopeCookie()
       : undefined;
@@ -88,7 +87,6 @@ export default async function DashboardLayout({
             actions={
               <>
                 <GlobalSearchTrigger />
-                <ScopeSelector />
                 <NotificationBell currentUserId={ctx.userId} />
               </>
             }

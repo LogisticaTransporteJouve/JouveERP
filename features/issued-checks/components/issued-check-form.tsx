@@ -375,7 +375,12 @@ export function IssuedCheckForm({
                 Beneficiario (proveedor)
               </FormLabel>
               <FormControl>
-                <SupplierPicker value={field.value} onChange={field.onChange} />
+                {/* Treasury: a cheque goes to a supplier of either side. */}
+                <SupplierPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  isFiscal={null}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

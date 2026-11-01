@@ -1357,12 +1357,13 @@ export type Database = {
           address: string | null
           created_at: string
           created_by: string | null
-          cuit: string
+          cuit: string | null
           display_name: string | null
           email: string | null
           id: string
           is_active: boolean
-          iva_condition: string
+          is_fiscal: boolean
+          iva_condition: string | null
           legal_name: string
           notes: string | null
           phone: string | null
@@ -1373,12 +1374,13 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
-          cuit: string
+          cuit?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
-          iva_condition: string
+          is_fiscal?: boolean
+          iva_condition?: string | null
           legal_name: string
           notes?: string | null
           phone?: string | null
@@ -1389,12 +1391,13 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
-          cuit?: string
+          cuit?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
-          iva_condition?: string
+          is_fiscal?: boolean
+          iva_condition?: string | null
           legal_name?: string
           notes?: string | null
           phone?: string | null
@@ -4773,14 +4776,15 @@ export type Database = {
           category_id: string | null
           created_at: string
           created_by: string | null
-          cuit: string
+          cuit: string | null
           default_channel_id: string | null
           default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string
           is_active: boolean
-          iva_condition: string
+          is_fiscal: boolean
+          iva_condition: string | null
           legal_name: string
           notes: string | null
           phone: string | null
@@ -4792,14 +4796,15 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string | null
-          cuit: string
+          cuit?: string | null
           default_channel_id?: string | null
           default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
-          iva_condition: string
+          is_fiscal?: boolean
+          iva_condition?: string | null
           legal_name: string
           notes?: string | null
           phone?: string | null
@@ -4811,14 +4816,15 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string | null
-          cuit?: string
+          cuit?: string | null
           default_channel_id?: string | null
           default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
           id?: string
           is_active?: boolean
-          iva_condition?: string
+          is_fiscal?: boolean
+          iva_condition?: string | null
           legal_name?: string
           notes?: string | null
           phone?: string | null
@@ -5393,12 +5399,13 @@ export type Database = {
             address: string | null
             created_at: string
             created_by: string | null
-            cuit: string
+            cuit: string | null
             display_name: string | null
             email: string | null
             id: string
             is_active: boolean
-            iva_condition: string
+            is_fiscal: boolean
+            iva_condition: string | null
             legal_name: string
             notes: string | null
             phone: string | null
@@ -5430,12 +5437,13 @@ export type Database = {
             address: string | null
             created_at: string
             created_by: string | null
-            cuit: string
+            cuit: string | null
             display_name: string | null
             email: string | null
             id: string
             is_active: boolean
-            iva_condition: string
+            is_fiscal: boolean
+            iva_condition: string | null
             legal_name: string
             notes: string | null
             phone: string | null
@@ -6400,12 +6408,13 @@ export type Database = {
               address: string | null
               created_at: string
               created_by: string | null
-              cuit: string
+              cuit: string | null
               display_name: string | null
               email: string | null
               id: string
               is_active: boolean
-              iva_condition: string
+              is_fiscal: boolean
+              iva_condition: string | null
               legal_name: string
               notes: string | null
               phone: string | null
@@ -6427,12 +6436,13 @@ export type Database = {
               address: string | null
               created_at: string
               created_by: string | null
-              cuit: string
+              cuit: string | null
               display_name: string | null
               email: string | null
               id: string
               is_active: boolean
-              iva_condition: string
+              is_fiscal: boolean
+              iva_condition: string | null
               legal_name: string
               notes: string | null
               phone: string | null
@@ -6907,6 +6917,7 @@ export type Database = {
       }
       search_clients: {
         Args: {
+          p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
           p_only_active?: boolean
@@ -6916,12 +6927,13 @@ export type Database = {
           address: string | null
           created_at: string
           created_by: string | null
-          cuit: string
+          cuit: string | null
           display_name: string | null
           email: string | null
           id: string
           is_active: boolean
-          iva_condition: string
+          is_fiscal: boolean
+          iva_condition: string | null
           legal_name: string
           notes: string | null
           phone: string | null
@@ -7026,6 +7038,7 @@ export type Database = {
       search_suppliers: {
         Args: {
           p_category_id?: string
+          p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
           p_only_active?: boolean
@@ -7036,14 +7049,15 @@ export type Database = {
           category_id: string | null
           created_at: string
           created_by: string | null
-          cuit: string
+          cuit: string | null
           default_channel_id: string | null
           default_payment_term_days: number | null
           display_name: string | null
           email: string | null
           id: string
           is_active: boolean
-          iva_condition: string
+          is_fiscal: boolean
+          iva_condition: string | null
           legal_name: string
           notes: string | null
           phone: string | null

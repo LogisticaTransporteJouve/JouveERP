@@ -36,7 +36,8 @@ export type CounterpartyIdentityValues = {
   cuit: string;
   legal_name: string;
   display_name: string;
-  iva_condition: IvaCondition;
+  /** Empty for an internal counterparty, which has none. */
+  iva_condition: IvaCondition | "";
   email: string;
   phone: string;
   address: string;
@@ -46,20 +47,41 @@ export type CounterpartyIdentityValues = {
 
 type Counterparty = { id: string; legal_name: string };
 
+/** The form values as a create / update payload for the record's side: an
+ *  internal counterparty sends no CUIT, IVA condition or fiscal address. */
+export function sideValues<V extends CounterpartyIdentityValues>(
+  values: V,
+  isFiscal: boolean,
+) {
+  if (isFiscal) return { ...values, is_fiscal: true as const };
+  return {
+    ...values,
+    cuit: undefined,
+    iva_condition: undefined,
+    address: undefined,
+    is_fiscal: false as const,
+  };
+}
+
 /**
  * CUIT (with "Verificar AFIP"), razón social, condición de IVA, contact and
  * addresses of a client or supplier form. Lives inside the form's `<Form>`
  * provider; the AFIP lookup fills razón social, IVA and domicilio fiscal and
  * flags a CUIT another record of the same kind already uses.
+ *
+ * An internal counterparty (Otras ventas / Otras compras) has no CUIT, IVA
+ * condition or fiscal address: only a typed name, contact and notes.
  */
 export function CounterpartyIdentityFields<T extends Counterparty>({
   mode,
+  isFiscal = true,
   entityId,
   noun,
   existingHref,
   findByCuit,
 }: {
   mode: "create" | "edit";
+  isFiscal?: boolean;
   /** The record being edited, so its own CUIT is not reported as taken. */
   entityId?: string;
   noun: "cliente" | "proveedor";
@@ -112,55 +134,59 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
 
   return (
     <>
-      <div className="grid gap-2">
-        <FormField
-          control={form.control}
-          name="cuit"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>CUIT</FormLabel>
-              <div className="flex gap-2">
-                <FormControl>
-                  <Input
-                    {...field}
-                    value={formatCuitInput(field.value ?? "")}
-                    onChange={(e) =>
-                      field.onChange(formatCuitInput(e.target.value))
-                    }
-                    placeholder="30-71463743-2"
-                    inputMode="numeric"
-                    disabled={cuitLocked || isVerifying}
-                    autoComplete="off"
-                  />
-                </FormControl>
-                {!cuitLocked && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onVerifyCuit}
-                    disabled={isVerifying || !field.value}
-                  >
-                    {isVerifying ? "Verificando…" : "Verificar AFIP"}
-                  </Button>
-                )}
+      {isFiscal && (
+        <>
+          <div className="grid gap-2">
+            <FormField
+              control={form.control}
+              name="cuit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CUIT</FormLabel>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={formatCuitInput(field.value ?? "")}
+                        onChange={(e) =>
+                          field.onChange(formatCuitInput(e.target.value))
+                        }
+                        placeholder="30-71463743-2"
+                        inputMode="numeric"
+                        disabled={cuitLocked || isVerifying}
+                        autoComplete="off"
+                      />
+                    </FormControl>
+                    {!cuitLocked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onVerifyCuit}
+                        disabled={isVerifying || !field.value}
+                      >
+                        {isVerifying ? "Verificando…" : "Verificar AFIP"}
+                      </Button>
+                    )}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {existing && (
+              <div className="rounded-md border border-border bg-muted p-3 text-sm">
+                Ya existe el {noun}{" "}
+                <Link
+                  href={existingHref(existing.id)}
+                  className="font-medium underline"
+                >
+                  {existing.legal_name}
+                </Link>
+                .
               </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {existing && (
-          <div className="rounded-md border border-border bg-muted p-3 text-sm">
-            Ya existe el {noun}{" "}
-            <Link
-              href={existingHref(existing.id)}
-              className="font-medium underline"
-            >
-              {existing.legal_name}
-            </Link>
-            .
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
@@ -168,13 +194,13 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
           name="legal_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Razón social</FormLabel>
+              <FormLabel>{isFiscal ? "Razón social" : "Nombre"}</FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  disabled
+                  disabled={isFiscal}
                   autoComplete="off"
-                  placeholder={fromCuitPlaceholder}
+                  placeholder={isFiscal ? fromCuitPlaceholder : undefined}
                 />
               </FormControl>
               <FormMessage />
@@ -196,30 +222,32 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
         />
       </div>
 
-      <FormField
-        control={form.control}
-        name="iva_condition"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Condición frente al IVA</FormLabel>
-            <FormControl>
-              <Select value={field.value} disabled>
-                <SelectTrigger className="w-full sm:w-[280px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {IVA_CONDITIONS.map((condition) => (
-                    <SelectItem key={condition} value={condition}>
-                      {IVA_CONDITION_LABEL[condition]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {isFiscal && (
+        <FormField
+          control={form.control}
+          name="iva_condition"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Condición frente al IVA</FormLabel>
+              <FormControl>
+                <Select value={field.value} disabled>
+                  <SelectTrigger className="w-full sm:w-[280px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {IVA_CONDITIONS.map((condition) => (
+                      <SelectItem key={condition} value={condition}>
+                        {IVA_CONDITION_LABEL[condition]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
@@ -255,36 +283,42 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
         />
       </div>
 
-      <FormField
-        control={form.control}
-        name="address"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Domicilio fiscal (AFIP)</FormLabel>
-            <FormControl>
-              <Input
-                {...field}
-                disabled
-                autoComplete="off"
-                placeholder={fromCuitPlaceholder}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {isFiscal && (
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Domicilio fiscal (AFIP)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  disabled
+                  autoComplete="off"
+                  placeholder={fromCuitPlaceholder}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
 
       <FormField
         control={form.control}
         name="real_address"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Domicilio real</FormLabel>
+            <FormLabel>{isFiscal ? "Domicilio real" : "Domicilio"}</FormLabel>
             <FormControl>
               <Input
                 {...field}
                 autoComplete="off"
-                placeholder="Sólo completar si difiere del domicilio fiscal"
+                placeholder={
+                  isFiscal
+                    ? "Sólo completar si difiere del domicilio fiscal"
+                    : undefined
+                }
               />
             </FormControl>
             <FormMessage />

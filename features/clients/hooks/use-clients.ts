@@ -44,6 +44,7 @@ export { CLIENTS_PAGE_SIZE };
 export function useClientsSearchInfinite(filters: {
   query: string;
   onlyActive: boolean;
+  isFiscal: boolean | null;
 }) {
   const query = useSuspenseInfiniteQuery({
     queryKey: clientsKeys.searchInfinite(filters),
@@ -52,6 +53,7 @@ export function useClientsSearchInfinite(filters: {
         searchClientsAction({
           query: filters.query,
           onlyActive: filters.onlyActive,
+          isFiscal: filters.isFiscal,
           offset: pageParam,
           limit: CLIENTS_PAGE_SIZE,
         }),
@@ -75,7 +77,12 @@ export function useClientsSearchInfinite(filters: {
  * keystroke triggering a Suspense fallback would flicker the popover.
  */
 export function useClientsSearch(
-  filters: { query: string; onlyActive: boolean; limit: number },
+  filters: {
+    query: string;
+    onlyActive: boolean;
+    limit: number;
+    isFiscal: boolean | null;
+  },
   options: { enabled?: boolean } = {},
 ) {
   return useQuery({
@@ -85,6 +92,7 @@ export function useClientsSearch(
         searchClientsAction({
           query: filters.query,
           onlyActive: filters.onlyActive,
+          isFiscal: filters.isFiscal,
           offset: 0,
           limit: filters.limit,
         }),

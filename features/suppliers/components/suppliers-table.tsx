@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -177,7 +178,12 @@ function SuppliersTableRows({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useSuppliersSearchInfinite({ query, onlyActive, categoryId });
+  } = useSuppliersSearchInfinite({
+    query,
+    onlyActive,
+    categoryId,
+    isFiscal: useScopeIsFiscal(),
+  });
 
   const sentinelRef = useIntersectionObserver<HTMLDivElement>(
     () => {
@@ -250,7 +256,7 @@ function buildColumns({
       enableSorting: false,
       meta: { mobile: "secondary" },
       cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.cuit}</span>
+        <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
       ),
     },
     {
@@ -258,14 +264,15 @@ function buildColumns({
       header: "Condición IVA",
       enableSorting: false,
       meta: { mobile: "secondary" },
-      cell: ({ row }) => (
-        <Badge
-          variant="secondary"
-          className={IVA_BADGE_TONE[row.original.iva_condition]}
-        >
-          {IVA_CONDITION_LABEL[row.original.iva_condition]}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const iva = row.original.iva_condition;
+        if (!iva) return <span className="text-muted-foreground">—</span>;
+        return (
+          <Badge variant="secondary" className={IVA_BADGE_TONE[iva]}>
+            {IVA_CONDITION_LABEL[iva]}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "category_id",

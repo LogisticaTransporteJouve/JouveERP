@@ -5,10 +5,7 @@ import {
   type AccountNameJoin,
   type AccountType,
 } from "@/features/accounts/schema";
-import {
-  IVA_CONDITION_LABEL,
-  type IvaCondition,
-} from "@/features/clients/schema";
+import { ivaConditionLabel } from "@/features/clients/schema";
 import type { Emisor } from "@/lib/pdf/emisor";
 
 import type {
@@ -42,17 +39,17 @@ export function voucherEmisor(emisor: Emisor): VoucherEmisor {
   };
 }
 
-/** The client or supplier box; an unknown IVA condition prints as stored. */
+/** The client or supplier box; an unknown IVA condition prints as stored.
+ *  An internal counterparty has neither CUIT nor IVA condition. */
 export function voucherParty(party: {
   legal_name: string;
-  cuit: string;
-  iva_condition: string;
+  cuit: string | null;
+  iva_condition: string | null;
 }): VoucherParty {
   return {
     legal_name: party.legal_name,
     cuit: party.cuit,
     iva_condition_label:
-      IVA_CONDITION_LABEL[party.iva_condition as IvaCondition] ??
-      party.iva_condition,
+      ivaConditionLabel(party.iva_condition) ?? party.iva_condition,
   };
 }

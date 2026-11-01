@@ -9,31 +9,36 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
+  channelIsFiscal,
   defaultChannelFor,
   isFiscalFor,
+  isScopedPath,
   parseFiscalFilter,
   SCOPE_COOKIE,
   serializeFiscalFilter,
+  toScopeSide,
   type FiscalFilter,
   type InvoicingChannelSummary,
+  type ScopeSide,
 } from "@/lib/scope";
 
 type ScopeContextValue = {
-  fiscalFilter: FiscalFilter;
+  /** The side the menu last switched to; it applies only on split pages. */
+  fiscalFilter: ScopeSide;
   channels: InvoicingChannelSummary[];
   /** The scope cannot change (a fiscal-only user is pinned to fiscal). */
   locked: boolean;
-  setFiscalFilter: (filter: FiscalFilter) => void;
+  setFiscalFilter: (filter: ScopeSide) => void;
 };
 
 const STORAGE_KEY = "jouve_scope_v1";
 
 const ScopeContext = createContext<ScopeContextValue | null>(null);
 
-function persist(filter: FiscalFilter) {
+function persist(filter: ScopeSide) {
   if (typeof window === "undefined") return;
   const serialized = serializeFiscalFilter(filter);
   try {
@@ -45,12 +50,14 @@ function persist(filter: FiscalFilter) {
   document.cookie = `${SCOPE_COOKIE}=${encodeURIComponent(serialized)}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
-function readFromStorage(): FiscalFilter {
-  if (typeof window === "undefined") return "all";
+function readFromStorage(): ScopeSide {
+  if (typeof window === "undefined") return "fiscal";
   try {
-    return parseFiscalFilter(window.localStorage.getItem(STORAGE_KEY));
+    return toScopeSide(
+      parseFiscalFilter(window.localStorage.getItem(STORAGE_KEY)),
+    );
   } catch {
-    return "all";
+    return "fiscal";
   }
 }
 
@@ -61,14 +68,14 @@ export function ScopeProvider({
   children,
 }: {
   channels: InvoicingChannelSummary[];
-  initialFiscalFilter?: FiscalFilter;
+  initialFiscalFilter?: ScopeSide;
   locked?: boolean;
   children: React.ReactNode;
 }) {
-  // The server passes the filter read from the cookie in the layout,
-  // avoiding the "all channels" flash during the first render.
-  const [fiscalFilter, setFiscalFilterState] = useState<FiscalFilter>(
-    initialFiscalFilter ?? "all",
+  // The server passes the side read from the cookie in the layout, avoiding a
+  // flash of the other side during the first render.
+  const [fiscalFilter, setFiscalFilterState] = useState<ScopeSide>(
+    initialFiscalFilter ?? "fiscal",
   );
 
   // We only hydrate from localStorage if the server didn't pass a filter
@@ -86,7 +93,7 @@ export function ScopeProvider({
   // The cookie is written before the refresh so server components (the
   // dashboard, page prefetches) re-render under the new scope.
   const setFiscalFilter = useCallback(
-    (filter: FiscalFilter) => {
+    (filter: ScopeSide) => {
       if (locked) return;
       persist(filter);
       setFiscalFilterState(filter);
@@ -113,17 +120,49 @@ export function useScope() {
   return ctx;
 }
 
-/** The read filter of the header scope, for list queries (`isFiscalFor`).
- *  Deferred so switching scope keeps the previous list on screen while the
- *  new one loads instead of suspending to the skeleton. */
-/** The channel a new-record form pre-selects (`defaultChannelFor` over every
- *  channel): the scope's only active channel, else `null` and the user picks. */
-export function useDefaultChannel(): string | null {
-  const { fiscalFilter, channels } = useScope();
-  return defaultChannelFor(fiscalFilter, channels);
+/** The scope a page reads: the menu's side on a split page (Ventas, Compras
+ *  and their "Otras"), every channel on a shared one (treasury, dashboard…).
+ *  A fiscal-only user is always fiscal. */
+export function usePageScope(): FiscalFilter {
+  const { fiscalFilter, locked } = useScope();
+  const pathname = usePathname();
+  if (locked) return "fiscal";
+  return isScopedPath(pathname) ? fiscalFilter : "all";
 }
 
+/** The channel a new-record form pre-selects (`defaultChannelFor`): the page
+ *  scope's only active channel, else `null` and the user picks. */
+export function useDefaultChannel(): string | null {
+  const { channels } = useScope();
+  return defaultChannelFor(usePageScope(), channels);
+}
+
+/** The read filter of the page scope, for list queries (`isFiscalFor`).
+ *  Deferred so switching side keeps the previous list on screen while the new
+ *  one loads instead of suspending to the skeleton. */
 export function useScopeIsFiscal(): boolean | null {
-  const { fiscalFilter } = useScope();
-  return useDeferredValue(isFiscalFor(fiscalFilter));
+  return useDeferredValue(isFiscalFor(usePageScope()));
+}
+
+/** The page's side for a form: true on Ventas/Compras, false on their "Otras",
+ *  null on a shared page (treasury…), where both sides apply. */
+export function usePageIsFiscal(): boolean | null {
+  return isFiscalFor(usePageScope());
+}
+
+/** The options of a channel select, kept to the page's side (all of them on a
+ *  shared page), so a form cannot mix a side's counterparty with the other's
+ *  channel. */
+export function useSideChannels<T extends { id: string }>(
+  options: readonly T[],
+): T[] {
+  const { channels } = useScope();
+  const isFiscal = usePageIsFiscal();
+  return useMemo(
+    () =>
+      isFiscal === null
+        ? [...options]
+        : options.filter((o) => channelIsFiscal(o.id, channels) === isFiscal),
+    [options, channels, isFiscal],
+  );
 }

@@ -24,6 +24,7 @@ import { getClientByIdAction } from "@/features/clients/actions/clients-actions"
 import { ClientForm } from "@/features/clients/components/client-form";
 import { useClientsSearch } from "@/features/clients/hooks/use-clients";
 import {
+  counterpartyIdentityLabel,
   IVA_CONDITION_LABEL,
   type Client,
   type IvaCondition,
@@ -33,8 +34,9 @@ export interface PickedClient {
   id: string;
   legal_name: string;
   display_name: string | null;
-  cuit: string;
-  iva_condition: IvaCondition;
+  cuit: string | null;
+  iva_condition: IvaCondition | null;
+  is_fiscal: boolean;
 }
 
 const RESULT_LIMIT = 8;
@@ -42,10 +44,13 @@ const RESULT_LIMIT = 8;
 export function ClientPicker({
   value,
   onChange,
+  isFiscal,
   autoFocus,
 }: {
   value: PickedClient | null;
   onChange: (client: PickedClient | null) => void;
+  /** The document's side: lists only Ventas (true) or Otras ventas clients. */
+  isFiscal: boolean;
   autoFocus?: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -55,7 +60,7 @@ export function ClientPicker({
   const debouncedQuery = useDebouncedValue(query.trim(), 200);
 
   const searchQuery = useClientsSearch(
-    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT },
+    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
     { enabled: open },
   );
   const results = searchQuery.data?.clients ?? [];
@@ -68,6 +73,7 @@ export function ClientPicker({
       display_name: client.display_name,
       cuit: client.cuit,
       iva_condition: client.iva_condition,
+      is_fiscal: client.is_fiscal,
     });
     setOpen(false);
     setQuery("");
@@ -91,6 +97,7 @@ export function ClientPicker({
       display_name: c.display_name,
       cuit: c.cuit,
       iva_condition: c.iva_condition,
+      is_fiscal: c.is_fiscal,
     });
   }
 
@@ -101,7 +108,7 @@ export function ClientPicker({
           <div className="min-w-0">
             <p className="truncate font-medium">{value.legal_name}</p>
             <p className="text-xs text-muted-foreground font-mono">
-              CUIT {value.cuit} · {IVA_CONDITION_LABEL[value.iva_condition]}
+              {counterpartyIdentityLabel(value)}
             </p>
           </div>
           <Button
@@ -163,10 +170,13 @@ export function ClientPicker({
           <DialogHeader>
             <DialogTitle>Nuevo cliente</DialogTitle>
             <DialogDescription>
-              Ingresá el CUIT y verificá AFIP para autocompletar los datos.
+              {isFiscal
+                ? "Ingresá el CUIT y verificá AFIP para autocompletar los datos."
+                : "Cliente de Otras ventas: sin CUIT ni AFIP."}
             </DialogDescription>
           </DialogHeader>
           <ClientForm
+            isFiscal={isFiscal}
             mode="create"
             onSuccess={onCreateSuccess}
             onCancel={() => setShowCreate(false)}
@@ -220,15 +230,19 @@ function ResultsList({
                 {client.display_name && (
                   <span className="mr-2">{client.display_name}</span>
                 )}
-                <span className="font-mono">CUIT {client.cuit}</span>
+                {client.cuit && (
+                  <span className="font-mono">CUIT {client.cuit}</span>
+                )}
               </p>
             </div>
-            <Badge
-              variant="secondary"
-              className="shrink-0 text-[10px] uppercase tracking-wide"
-            >
-              {IVA_CONDITION_LABEL[client.iva_condition]}
-            </Badge>
+            {client.iva_condition && (
+              <Badge
+                variant="secondary"
+                className="shrink-0 text-[10px] uppercase tracking-wide"
+              >
+                {IVA_CONDITION_LABEL[client.iva_condition]}
+              </Badge>
+            )}
           </button>
         </li>
       ))}

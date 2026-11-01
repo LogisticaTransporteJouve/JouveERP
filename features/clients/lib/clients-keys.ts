@@ -13,10 +13,17 @@ export const CLIENTS_PAGE_SIZE = 50;
  */
 export const clientsKeys = {
   all: ["clients"] as const,
-  searchInfinite: (filters: { query: string; onlyActive: boolean }) =>
-    [...clientsKeys.all, "searchInfinite", filters] as const,
-  search: (filters: { query: string; onlyActive: boolean; limit: number }) =>
-    [...clientsKeys.all, "search", filters] as const,
+  searchInfinite: (filters: {
+    query: string;
+    onlyActive: boolean;
+    isFiscal: boolean | null;
+  }) => [...clientsKeys.all, "searchInfinite", filters] as const,
+  search: (filters: {
+    query: string;
+    onlyActive: boolean;
+    limit: number;
+    isFiscal: boolean | null;
+  }) => [...clientsKeys.all, "search", filters] as const,
   byId: (id: string) => [...clientsKeys.all, "byId", id] as const,
   references: (id: string) => [...clientsKeys.all, "references", id] as const,
   account: (id: string) => [...clientsKeys.all, "account", id] as const,

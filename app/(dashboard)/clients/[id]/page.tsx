@@ -19,7 +19,7 @@ import { getClientByIdAction } from "@/features/clients/actions/clients-actions"
 import { ClientAccountTab } from "@/features/clients/components/client-account-tab";
 import { ClientForm } from "@/features/clients/components/client-form";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
-import { IVA_CONDITION_LABEL } from "@/features/clients/schema";
+import { counterpartyIdentityLabel } from "@/features/clients/schema";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -103,7 +103,7 @@ export default async function ClientDetailPage({
           {client.legal_name}
         </h1>
         <p className="text-sm text-muted-foreground">
-          CUIT {client.cuit} · {IVA_CONDITION_LABEL[client.iva_condition]}
+          {counterpartyIdentityLabel(client)}
           {!client.is_active && " · Inactivo"}
         </p>
       </div>
@@ -126,6 +126,7 @@ export default async function ClientDetailPage({
                   display_name: client.display_name,
                   cuit: client.cuit,
                   iva_condition: client.iva_condition,
+                  is_fiscal: client.is_fiscal,
                 }}
                 channels={channels}
                 accounts={accounts}

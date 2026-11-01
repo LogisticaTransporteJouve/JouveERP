@@ -241,7 +241,7 @@ export type PurchaseInvoice = {
   channel_id: string;
   supplier_id: string;
   supplier_legal_name: string;
-  supplier_cuit: string;
+  supplier_cuit: string | null;
   kind: PurchaseInvoiceKind;
   letter: PurchaseInvoiceLetter | null;
   punto_venta: number;

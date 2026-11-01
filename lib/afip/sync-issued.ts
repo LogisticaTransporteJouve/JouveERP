@@ -675,6 +675,7 @@ export async function renamePlaceholderClients(
   const { data, error } = await supabase
     .from("clients")
     .select("id, cuit, legal_name")
+    .eq("is_fiscal", true)
     .like("legal_name", "Cliente %")
     .order("created_at")
     .limit(1000);
@@ -682,7 +683,9 @@ export async function renamePlaceholderClients(
   const batch = hourlyWindow(data ?? [], limit);
   let renamed = 0;
   for (const client of batch) {
-    if (client.legal_name !== placeholderName(client.cuit)) continue;
+    if (!client.cuit || client.legal_name !== placeholderName(client.cuit)) {
+      continue;
+    }
     const found = await lookupName(afip, client.cuit);
     if (!found.legalName) continue;
     const upd = await supabase

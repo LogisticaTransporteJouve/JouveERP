@@ -20,6 +20,9 @@ describe("navItemForPath", () => {
     expect(navSectionForItem(fiscal)?.label).toBe("Ventas");
     expect(navSectionForItem(internal)?.label).toBe("Otras ventas");
     expect(navSectionForItem(navItemForPath("/aging")!)?.label).toBe("Ventas");
+    expect(
+      navSectionForItem(navItemForPath("/purchases", "internal")!)?.label,
+    ).toBe("Otras compras");
   });
 
   it("returns undefined for unknown routes", () => {

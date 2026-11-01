@@ -456,8 +456,20 @@ describe("renamePlaceholderClients", () => {
   it("names clients from the name AFIP returns without a constancia", async () => {
     const db = {
       clients: [
-        { id: "c1", cuit: "30711099057", legal_name: "Cliente 30711099057" },
-        { id: "c2", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+        {
+          id: "c1",
+          cuit: "30711099057",
+          legal_name: "Cliente 30711099057",
+          is_fiscal: true,
+        },
+        {
+          id: "c2",
+          cuit: "30718543866",
+          legal_name: "PALLET SIRANS S.R.L.",
+          is_fiscal: true,
+        },
+        // An Otras ventas client named like a placeholder is never looked up.
+        { id: "c3", cuit: null, legal_name: "Cliente 1", is_fiscal: false },
       ] as Row[],
     };
     const { PadronNoConstanciaError } = await import("./padron");
@@ -476,6 +488,7 @@ describe("renamePlaceholderClients", () => {
     expect(db.clients.map((c) => c.legal_name)).toEqual([
       "TRANSPORTE SUR SA",
       "PALLET SIRANS S.R.L.",
+      "Cliente 1",
     ]);
   });
 });

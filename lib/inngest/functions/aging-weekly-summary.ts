@@ -30,7 +30,7 @@ type AgingSummary = {
   usd_rate: AgingReport["usd_rate"];
   top: Array<{
     legal_name: string;
-    cuit: string;
+    cuit: string | null;
     total: CurrencyAmounts;
     bucket_90_plus: CurrencyAmounts;
     oldest_days: number;
