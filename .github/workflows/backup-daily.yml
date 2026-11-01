@@ -72,8 +72,17 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # Installed in its own folder: an `npm install` at the repo root resolves
+      # the whole app's package.json (a pnpm project), and one of its
+      # transitive versions was missing from the registry.
       - name: Install supabase-js
-        run: npm install --no-save @supabase/supabase-js@2
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/backup"
+          cp .github/workflows/backup-upload.mjs "$RUNNER_TEMP/backup/"
+          cd "$RUNNER_TEMP/backup"
+          echo '{"private":true,"type":"module"}' > package.json
+          npm install --no-audit --no-fund @supabase/supabase-js@2.118.0
 
       - name: Dump database
         id: dump
@@ -98,11 +107,12 @@ jobs:
           echo "Dump OK — ${SIZE} bytes, sha256=${SHA}"
 
       - name: Upload + prune old (Node)
+        working-directory: ${{ runner.temp }}/backup
         env:
-          DUMP_FILE: ${{ steps.dump.outputs.file }}
+          DUMP_FILE: ${{ github.workspace }}/${{ steps.dump.outputs.file }}
           DUMP_SIZE: ${{ steps.dump.outputs.size }}
           DUMP_SHA: ${{ steps.dump.outputs.sha }}
-        run: node .github/workflows/backup-upload.mjs
+        run: node backup-upload.mjs
 
       - name: Notify Slack on success
         if: success() && env.SLACK_WEBHOOK_URL != ''
