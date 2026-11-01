@@ -28,6 +28,7 @@ import {
   type IvaCondition,
 } from "@/features/clients/schema";
 import { useCuitVerify } from "@/hooks/use-cuit-verify";
+import { formatCuitInput } from "@/lib/validation/cuit";
 import type { ActionResult } from "@/lib/query/run-action";
 
 /** The identity fields a client and a supplier share. */
@@ -122,7 +123,12 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
                 <FormControl>
                   <Input
                     {...field}
-                    placeholder="30714637432"
+                    value={formatCuitInput(field.value ?? "")}
+                    onChange={(e) =>
+                      field.onChange(formatCuitInput(e.target.value))
+                    }
+                    placeholder="30-71463743-2"
+                    inputMode="numeric"
                     disabled={cuitLocked || isVerifying}
                     autoComplete="off"
                   />
