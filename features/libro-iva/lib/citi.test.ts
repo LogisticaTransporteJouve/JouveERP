@@ -324,3 +324,48 @@ describe("currency checks in the export", () => {
     expect(r.warnings[0]).toMatch(/tipo de cambio 1/);
   });
 });
+
+describe("RG 4597 rules (revisión 30/07/2025)", () => {
+  it("reports an unidentified consumidor final (doc 99) with number 0 and the legend", () => {
+    const out = buildVentasTxt(
+      [
+        ventaDoc({
+          letter: "B",
+          cbte_tipo_afip: 6,
+          doc_tipo: 99,
+          doc_nro: "12345678",
+          client_legal_name: "Juan Perez",
+        }),
+      ],
+      "2026-06",
+    );
+    const line = out.files[0]!.content.split("\r\n")[0]!;
+    expect(line.slice(56, 58)).toBe("99");
+    expect(line.slice(58, 78)).toBe("0".repeat(20));
+    expect(line.slice(78, 108)).toBe("CONSUMIDOR FINAL".padEnd(30, " "));
+    expect(line).toHaveLength(266);
+  });
+
+  it("codes an A purchase at 0% as exempt (código de operación E)", () => {
+    const out = buildComprasTxt(
+      [
+        compraDoc({
+          imp_trib: 0,
+          imp_total: 1000,
+          per_rate: { 3: { neto: 1000, iva: 0 } },
+        }),
+      ],
+      "2026-06",
+    );
+    const line = out.files[0]!.content.split("\r\n")[0]!;
+    // Code de operación is right after cantidad de alícuotas (position 239).
+    expect(line.slice(237, 239)).toBe("1E");
+    expect(line).toHaveLength(325);
+  });
+
+  it("warns when a voucher's total is not the sum of its parts", () => {
+    const out = buildVentasTxt([ventaDoc({ imp_total: 1500 })], "2026-06");
+    expect(out.warnings.join("\n")).toMatch(/no es la suma de sus partes/);
+    expect(out.documents).toBe(1);
+  });
+});

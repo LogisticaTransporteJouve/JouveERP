@@ -205,6 +205,22 @@ const xmlParser = new XMLParser({
 
 interface RawConstanciaErrors {
   error?: string | string[];
+  // AFIP still names the person when it refuses the constancia.
+  razonSocial?: string;
+  apellido?: string;
+  nombre?: string;
+}
+
+/** AFIP refused the constancia; `legalName` is the name it still returned,
+ *  when it returned one. */
+export class PadronNoConstanciaError extends Error {
+  constructor(
+    message: string,
+    readonly legalName: string | null,
+  ) {
+    super(message);
+    this.name = "PadronNoConstanciaError";
+  }
 }
 
 export interface RawPersonaReturn {
@@ -318,11 +334,15 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
   if (!ret?.datosGenerales) {
     // errorConstancia carries why AFIP issues no constancia (e.g. no active
     // taxes); without datosGenerales there is nothing to build a client from.
-    const reasons = asArray(ret?.errorConstancia?.error).join(" ");
-    throw new Error(
-      reasons
-        ? `AFIP no emite constancia para el CUIT ${cuitClean}: ${reasons}`
-        : `CUIT ${cuitClean} no encontrado en el padrón de AFIP.`,
+    const errors = ret?.errorConstancia;
+    const reasons = asArray(errors?.error).join(" ");
+    if (!reasons) {
+      throw new Error(`CUIT ${cuitClean} no encontrado en el padrón de AFIP.`);
+    }
+    const name = errors ? buildLegalName(errors) : "";
+    throw new PadronNoConstanciaError(
+      `AFIP no emite constancia para el CUIT ${cuitClean}: ${reasons}`,
+      name || null,
     );
   }
 

@@ -1,5 +1,9 @@
-import DOMPurify from "isomorphic-dompurify";
+"use client";
+
+import DOMPurify from "dompurify";
 import { Marked } from "marked";
+
+import { useIsClient } from "@/hooks/use-is-client";
 
 // Markdown rendering for AI assistant output. The team-chat composer
 // (features/chat/lib/markdown) deliberately strips headings and tables because
@@ -12,10 +16,31 @@ const md = new Marked({ gfm: true, breaks: true, async: false });
 
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
-    "p", "br", "hr", "strong", "em", "del", "code", "pre",
-    "ul", "ol", "li", "blockquote", "a",
-    "h1", "h2", "h3", "h4", "h5", "h6",
-    "table", "thead", "tbody", "tr", "th", "td",
+    "p",
+    "br",
+    "hr",
+    "strong",
+    "em",
+    "del",
+    "code",
+    "pre",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "a",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
   ],
   ALLOWED_ATTR: ["href", "target", "rel"],
   FORBID_TAGS: ["script", "style", "iframe", "form", "input", "img"],
@@ -28,6 +53,18 @@ export function renderAiMarkdown(body: string): string {
 }
 
 export function AiMarkdown({ body }: { body: string }) {
+  // DOMPurify needs a DOM: on the server (and the hydration pass) the text
+  // renders plain, then the sanitized HTML replaces it in the browser. The
+  // server-side sanitizer (isomorphic-dompurify → jsdom) failed to load on
+  // the serverless runtime.
+  const isClient = useIsClient();
+  if (!isClient) {
+    return (
+      <div className="prose-ai text-sm leading-relaxed whitespace-pre-wrap">
+        {body}
+      </div>
+    );
+  }
   // dangerouslySetInnerHTML is safe here: the HTML is sanitized above.
   return (
     <div

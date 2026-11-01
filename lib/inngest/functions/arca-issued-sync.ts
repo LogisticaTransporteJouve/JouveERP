@@ -1,6 +1,7 @@
 import { consultarPadron } from "@/lib/afip/padron";
 import {
   listSyncTargets,
+  renamePlaceholderClients,
   SYNC_CBTE_TIPOS,
   syncIssuedPair,
   type PairSyncResult,
@@ -100,6 +101,15 @@ export const arcaIssuedSync = inngest.createFunction(
     }
 
     const imported = results.reduce((n, r) => n + r.imported + r.recovered, 0);
+    // Clients a previous run could not name; a small batch each run.
+    await step.run("rename-placeholder-clients", () =>
+      renamePlaceholderClients(
+        getServiceClient(),
+        { lookupContributor: consultarPadron },
+        50,
+      ),
+    );
+
     await step.run("close-run", () =>
       closeSyncRun(getServiceClient(), runId, imported),
     );

@@ -13,6 +13,7 @@ import {
   type InvoiceKind,
   type InvoiceLetter,
 } from "./codes";
+import { PadronNoConstanciaError } from "./padron";
 import type { ContributorInfo } from "./types";
 import type { VoucherInfo } from "./wsfev1";
 
@@ -230,6 +231,40 @@ async function hasInFlightEmission(
   return (data ?? []).length > 0;
 }
 
+function placeholderName(cuit: string): string {
+  return cuit === CONSUMIDOR_FINAL_CUIT
+    ? "CONSUMIDOR FINAL"
+    : `Cliente ${cuit}`;
+}
+
+/** Name (and IVA condition, when the constancia comes) from the padrón. */
+async function lookupName(
+  afip: Pick<ArcaVoucherPort, "lookupContributor">,
+  cuit: string,
+): Promise<{
+  legalName: string | null;
+  ivaCondition: ClientIvaCondition | null;
+}> {
+  try {
+    const contributor = await afip.lookupContributor(cuit);
+    return {
+      legalName: contributor.legal_name || null,
+      ivaCondition: contributor.tax_condition,
+    };
+  } catch (err) {
+    logger.warn("arca_sync.padron_lookup_failed", {
+      cuit,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Without a constancia AFIP still names the person; the IVA condition
+    // stays the one printed on the voucher.
+    return {
+      legalName: err instanceof PadronNoConstanciaError ? err.legalName : null,
+      ivaCondition: null,
+    };
+  }
+}
+
 async function resolveClientId(
   supabase: Supabase,
   afip: ArcaVoucherPort,
@@ -252,20 +287,12 @@ async function resolveClientId(
     return existing.data.id;
   }
 
-  let legalName =
-    cuit === CONSUMIDOR_FINAL_CUIT ? "CONSUMIDOR FINAL" : `Cliente ${cuit}`;
+  let legalName = placeholderName(cuit);
   let ivaCondition = clientIvaConditionFor(info);
   if (cuit !== CONSUMIDOR_FINAL_CUIT) {
-    try {
-      const contributor = await afip.lookupContributor(cuit);
-      if (contributor.legal_name) legalName = contributor.legal_name;
-      ivaCondition = contributor.tax_condition;
-    } catch (err) {
-      logger.warn("arca_sync.padron_lookup_failed", {
-        cuit,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    const found = await lookupName(afip, cuit);
+    if (found.legalName) legalName = found.legalName;
+    if (found.ivaCondition) ivaCondition = found.ivaCondition;
   }
   const { error } = await supabase
     .from("clients")
@@ -553,4 +580,36 @@ export async function reconcilePair(
     gaps: gaps.length,
     gap_sample: gaps.slice(0, GAP_SAMPLE),
   };
+}
+
+/** Clients an earlier import could not name ("Cliente <CUIT>"): asks the
+ *  padrón again, `limit` per call in an hourly rotating window so the ones
+ *  AFIP never names do not starve the rest. */
+export async function renamePlaceholderClients(
+  supabase: Supabase,
+  afip: Pick<ArcaVoucherPort, "lookupContributor">,
+  limit: number,
+): Promise<{ checked: number; renamed: number }> {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, cuit, legal_name")
+    .like("legal_name", "Cliente %")
+    .order("created_at")
+    .limit(1000);
+  if (error) throw new Error(`placeholder clients: ${error.message}`);
+  const batch = hourlyWindow(data ?? [], limit);
+  let renamed = 0;
+  for (const client of batch) {
+    if (client.legal_name !== placeholderName(client.cuit)) continue;
+    const found = await lookupName(afip, client.cuit);
+    if (!found.legalName) continue;
+    const upd = await supabase
+      .from("clients")
+      .update({ legal_name: found.legalName })
+      .eq("id", client.id)
+      .eq("legal_name", client.legal_name);
+    if (upd.error) throw new Error(`client rename: ${upd.error.message}`);
+    renamed += 1;
+  }
+  return { checked: batch.length, renamed };
 }

@@ -6,6 +6,7 @@ import {
   CONSUMIDOR_FINAL_CUIT,
   hourlyWindow,
   reconcilePair,
+  renamePlaceholderClients,
   clientIvaConditionFor,
   receiverCuit,
   syncIssuedPair,
@@ -53,6 +54,7 @@ function fakeSupabase(tables: Record<string, Row[]>) {
     let order: { col: string; asc: boolean } | null = null;
     let limit = Infinity;
     let offset = 0;
+    let patch: Row | null = null;
     const rows = () => {
       let out = (tables[table] ?? []).filter((r) => filters.every((f) => f(r)));
       if (order) {
@@ -83,6 +85,15 @@ function fakeSupabase(tables: Record<string, Row[]>) {
         builder
       ),
       limit: (n: number) => ((limit = n), builder),
+      like: (c: string, pattern: string) => {
+        const prefix = pattern.replace(/%$/, "");
+        filters.push((r) => String(r[c] ?? "").startsWith(prefix));
+        return builder;
+      },
+      update: (p: Row) => {
+        patch = p;
+        return builder;
+      },
       lte: (c: string, v: number) => (
         filters.push((r) => Number(r[c]) <= v),
         builder
@@ -102,8 +113,11 @@ function fakeSupabase(tables: Record<string, Row[]>) {
         list.push({ id: `${table}-${++seq}`, ...row });
         return { error: null };
       },
-      then: (resolve: (v: { data: Row[]; error: null }) => void) =>
-        resolve({ data: rows(), error: null }),
+      then: (resolve: (v: { data: Row[]; error: null }) => void) => {
+        const matched = rows();
+        if (patch) for (const r of matched) Object.assign(r, patch);
+        resolve({ data: matched, error: null });
+      },
     };
     return builder;
   }
@@ -415,5 +429,33 @@ describe("reconcilePair", () => {
       gaps: 2,
       gap_sample: [3, 6],
     });
+  });
+});
+
+describe("renamePlaceholderClients", () => {
+  it("names clients from the name AFIP returns without a constancia", async () => {
+    const db = {
+      clients: [
+        { id: "c1", cuit: "30711099057", legal_name: "Cliente 30711099057" },
+        { id: "c2", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+      ] as Row[],
+    };
+    const { PadronNoConstanciaError } = await import("./padron");
+    const afip = {
+      lookupContributor: async () => {
+        throw new PadronNoConstanciaError(
+          "sin constancia",
+          "TRANSPORTE SUR SA",
+        );
+      },
+    };
+
+    const res = await renamePlaceholderClients(fakeSupabase(db), afip, 50);
+
+    expect(res).toEqual({ checked: 1, renamed: 1 });
+    expect(db.clients.map((c) => c.legal_name)).toEqual([
+      "TRANSPORTE SUR SA",
+      "PALLET SIRANS S.R.L.",
+    ]);
   });
 });
