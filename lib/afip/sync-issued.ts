@@ -323,7 +323,7 @@ async function resolveOrigin(
   info: VoucherInfo,
 ): Promise<OriginLookup> {
   const asoc = info.cbtesAsoc[0];
-  if (!asoc) return { status: "missing" };
+  if (!asoc) return matchOriginByTotal(supabase, info);
   const { data, error } = await supabase
     .from("invoices")
     .select("id")
@@ -339,6 +339,44 @@ async function resolveOrigin(
   return asoc.nro > imported
     ? { status: "pending", nro: asoc.nro }
     : { status: "missing" };
+}
+
+/** NC/ND tipo → the factura tipo of the same letter. */
+const FACTURA_TIPO_FOR_NOTE: Record<number, number> = {
+  2: 1,
+  3: 1,
+  7: 6,
+  8: 6,
+  12: 11,
+  13: 11,
+};
+
+/** Older NC/ND (before ARCA required CbtesAsoc) carry no reference. The
+ *  origin is then the factura of the same point of sale and letter, to the
+ *  same receiver, for the same total, on or before the note's date (latest
+ *  wins). Without a match it stays missing; the gap retry tries again once
+ *  more facturas are in. */
+async function matchOriginByTotal(
+  supabase: Supabase,
+  info: VoucherInfo,
+): Promise<OriginLookup> {
+  const facturaTipo = FACTURA_TIPO_FOR_NOTE[info.cbteTipo];
+  const fecha = afipDateToIso(info.cbteFch);
+  if (!facturaTipo || !fecha || !info.docNro) return { status: "missing" };
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("punto_venta", info.ptoVta)
+    .eq("cbte_tipo_afip", facturaTipo)
+    .eq("doc_nro", info.docNro)
+    .eq("imp_total", info.impTotal)
+    .lte("fecha", fecha)
+    .eq("status", "emitted")
+    .order("fecha", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`origin match: ${error.message}`);
+  const id = data?.[0]?.id;
+  return id ? { status: "found", id } : { status: "missing" };
 }
 
 type VoucherOutcome =

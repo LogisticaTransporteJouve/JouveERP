@@ -94,8 +94,10 @@ function fakeSupabase(tables: Record<string, Row[]>) {
         patch = p;
         return builder;
       },
-      lte: (c: string, v: number) => (
-        filters.push((r) => Number(r[c]) <= v),
+      lte: (c: string, v: number | string) => (
+        filters.push((r) =>
+          typeof v === "string" ? String(r[c]) <= v : Number(r[c]) <= v,
+        ),
         builder
       ),
       range: (from: number, to: number) => {
@@ -457,5 +459,54 @@ describe("renamePlaceholderClients", () => {
       "TRANSPORTE SUR SA",
       "PALLET SIRANS S.R.L.",
     ]);
+  });
+});
+
+describe("NC without CbtesAsoc", () => {
+  it("links to the factura with the same receiver and total, on or before its date", async () => {
+    const db = {
+      clients: [
+        { id: "c1", cuit: "30708974141", legal_name: "DEBENELUX SRL" },
+      ] as Row[],
+      invoices: [
+        {
+          id: "fa-15538",
+          punto_venta: 3,
+          cbte_tipo_afip: 1,
+          numero: 15538,
+          doc_nro: "30708974141",
+          imp_total: 5220020000,
+          fecha: "2022-10-28",
+          status: "emitted",
+          client_id: "c1",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 3,
+        cbteNro: 610,
+        cbteFch: "20221028",
+        docNro: "30708974141",
+        impTotal: 5220020000,
+        cbtesAsoc: [],
+      }),
+    ]);
+    // NC numbering starts above the local NCs at 609.
+    db.invoices.push({
+      id: "nc-609",
+      punto_venta: 3,
+      cbte_tipo_afip: 3,
+      numero: 609,
+      status: "emitted",
+    });
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 1, skipped_no_origin: 0 });
+    expect(db.invoices.find((r) => r.numero === 610)).toMatchObject({
+      kind: "nc",
+      invoice_origin_id: "fa-15538",
+    });
   });
 });
