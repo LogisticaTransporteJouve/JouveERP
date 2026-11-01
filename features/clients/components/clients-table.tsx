@@ -32,10 +32,11 @@ import { EditClientDialog } from "./edit-client-dialog";
 import { NewClientDialog } from "./new-client-dialog";
 
 const IVA_BADGE_TONE: Record<IvaCondition, string> = {
-  responsable_inscripto: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  responsable_inscripto:
+    "bg-muted text-muted-foreground dark:text-muted-foreground",
   monotributo: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  exento: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  consumidor_final: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
+  exento: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  consumidor_final: "bg-muted text-muted-foreground dark:text-muted-foreground",
   no_categorizado: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 

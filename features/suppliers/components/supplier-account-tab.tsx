@@ -137,12 +137,15 @@ export function SupplierAccountTab({
   // Period filter (in the URL, every date by default) over the movements that
   // already carry the running balance.
   const { period, range, setPeriod, reset, isFiltered } = useUrlPeriod();
+  // The action computes each row's Saldo oldest → newest over the whole
+  // account; the table lists newest first like every other list.
+  const newestFirst = useMemo(() => movements.toReversed(), [movements]);
   const filteredMovements = useMemo(() => {
-    if (!range) return movements;
-    return movements.filter(
+    if (!range) return newestFirst;
+    return newestFirst.filter(
       (m) => m.movement_date >= range.from && m.movement_date <= range.to,
     );
-  }, [movements, range]);
+  }, [newestFirst, range]);
 
   const PAGE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE);
@@ -206,19 +209,10 @@ export function SupplierAccountTab({
             meta: { headerClassName: "w-40" },
             cell: ({ row }) => {
               const m = row.original;
-              const isOpening = m.source_type === "opening_balance";
               return (
                 <Badge
                   variant="secondary"
-                  className={
-                    isOpening
-                      ? "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300"
-                      : m.source_type === "payment_order"
-                        ? "bg-muted text-muted-foreground dark:text-muted-foreground"
-                        : m.kind === "nc"
-                          ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                          : "bg-muted text-muted-foreground dark:text-muted-foreground"
-                  }
+                  className="bg-muted text-muted-foreground dark:text-muted-foreground"
                 >
                   {KIND_LABEL[m.kind] ?? m.kind}
                 </Badge>
@@ -335,15 +329,7 @@ export function SupplierAccountTab({
               const m = row.original;
               if (m.balance === null) return "—";
               return (
-                <span
-                  className={`font-mono text-sm font-medium ${
-                    m.balance > 0
-                      ? "text-muted-foreground dark:text-muted-foreground"
-                      : m.balance < 0
-                        ? "text-muted-foreground dark:text-muted-foreground"
-                        : "text-muted-foreground"
-                  }`}
-                >
+                <span className="font-mono text-sm font-medium text-muted-foreground">
                   {currencySymbol(m.currency)}
                   {amountToInput(m.balance)}
                 </span>
