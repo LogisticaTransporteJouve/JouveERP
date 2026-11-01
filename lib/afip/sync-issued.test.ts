@@ -340,6 +340,8 @@ describe("syncIssuedPair", () => {
       ] as Row[],
     };
     const afip = fakeAfip([
+      // Factura A 50 exists in ARCA but is not imported yet.
+      voucher({ cbteTipo: 1, cbteNro: 50 }),
       voucher({
         cbteTipo: 3,
         cbteNro: 1,
@@ -561,5 +563,61 @@ describe("NC whose origin belongs to another client", () => {
       invoice_origin_id: null,
       origin_unlinked: true,
     });
+  });
+});
+
+describe("NC citing a voucher tipo the import does not bring", () => {
+  it("stores it unlinked instead of waiting forever", async () => {
+    const db = { clients: [] as Row[], invoices: [] as Row[] };
+    const afip = fakeAfip([
+      voucher({
+        cbteTipo: 8,
+        cbteNro: 1,
+        // 201: Factura de Crédito Electrónica MiPyME A.
+        cbtesAsoc: [{ tipo: 201, ptoVta: 3, nro: 50 }],
+      }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 8, 10);
+
+    expect(res).toMatchObject({ imported: 1, unlinked: 1, stopped: null });
+  });
+});
+
+describe("NC citing a number ARCA never authorized", () => {
+  it("stores it unlinked instead of waiting forever", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [
+        {
+          id: "fb-741",
+          punto_venta: 3,
+          cbte_tipo_afip: 6,
+          numero: 741,
+          status: "emitted",
+        },
+      ] as Row[],
+    };
+    const afip = fakeAfip([
+      voucher({ cbteTipo: 6, cbteNro: 741 }),
+      voucher({
+        cbteTipo: 8,
+        cbteNro: 50,
+        docTipo: 99,
+        docNro: "0",
+        cbtesAsoc: [{ tipo: 6, ptoVta: 3, nro: 7410 }],
+      }),
+    ]);
+    db.invoices.push({
+      id: "ncb-49",
+      punto_venta: 3,
+      cbte_tipo_afip: 8,
+      numero: 49,
+      status: "emitted",
+    });
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 8, 10);
+
+    expect(res).toMatchObject({ imported: 1, unlinked: 1, stopped: null });
   });
 });

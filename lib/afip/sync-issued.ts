@@ -324,6 +324,7 @@ type OriginLookup =
 
 async function resolveOrigin(
   supabase: Supabase,
+  afip: Pick<ArcaVoucherPort, "getLastAuthorizedNumber">,
   info: VoucherInfo,
 ): Promise<OriginLookup> {
   const asoc = info.cbtesAsoc[0];
@@ -339,9 +340,21 @@ async function resolveOrigin(
   const found = data?.[0];
   if (found)
     return { status: "found", id: found.id, clientId: found.client_id };
-  if (asoc.ptoVta !== info.ptoVta) return { status: "missing" };
+  // Only an origin the import itself brings in can be waited for: another
+  // point of sale, or a tipo outside SYNC_CBTE_TIPOS (FCE MiPyME, tiques…),
+  // would never arrive and would stall the pair.
+  if (
+    asoc.ptoVta !== info.ptoVta ||
+    !(SYNC_CBTE_TIPOS as readonly number[]).includes(asoc.tipo)
+  ) {
+    return { status: "missing" };
+  }
   const imported = await lastLocalNumero(supabase, asoc.ptoVta, asoc.tipo);
-  return asoc.nro > imported
+  if (asoc.nro <= imported) return { status: "missing" };
+  // A number ARCA never authorized (a typo in CbtesAsoc) will not arrive
+  // either.
+  const authorized = await afip.getLastAuthorizedNumber(asoc.ptoVta, asoc.tipo);
+  return asoc.nro <= authorized
     ? { status: "pending", nro: asoc.nro }
     : { status: "missing" };
 }
@@ -405,7 +418,9 @@ async function importVoucher(
 
   const kind = KIND_LETTER_BY_TIPO[cbteTipo]?.kind;
   const origin =
-    kind && kind !== "factura" ? await resolveOrigin(supabase, info) : null;
+    kind && kind !== "factura"
+      ? await resolveOrigin(supabase, afip, info)
+      : null;
   if (origin?.status === "pending") {
     return { kind: "waiting_origin", originNro: origin.nro };
   }
@@ -529,7 +544,23 @@ export async function syncIssuedPair(
         nro,
         clientCache,
       );
-      if (outcome.kind === "imported") result.recovered += 1;
+      if (outcome.kind === "imported") {
+        result.recovered += 1;
+        continue;
+      }
+      // Leave a trace of every gap that stays open, so the reconciliation's
+      // remaining numbers always have a reason in the logs.
+      logger.warn("arca_sync.gap_unresolved", {
+        punto_venta: pv,
+        cbte_tipo: cbteTipo,
+        numero: nro,
+        reason:
+          outcome.kind === "missing"
+            ? "ARCA no devolvió el comprobante"
+            : outcome.kind === "waiting_origin"
+              ? `espera su origen ${outcome.originNro}`
+              : outcome.message,
+      });
       if (outcome.kind === "failed") {
         result.stopped = `No se pudo guardar el ${nro}: ${outcome.message}`;
         return result;
