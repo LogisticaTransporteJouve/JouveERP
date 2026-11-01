@@ -6,8 +6,8 @@ import { expect, test } from "./fixtures";
 //
 // What this proves:
 //   - The list page loads.
-//   - The "Nuevo" Dialog opens with no channel under "Todos los canales"
-//     (more than one active channel), and the user picks Jouve Fiscal.
+//   - The "Nuevo" Dialog opens in Ventas with its only channel, Jouve Fiscal,
+//     already chosen (the menu section sets the side).
 //   - The client picker hits search_clients and returns results.
 //   - Picking a client shows the calculated letter.
 //   - Cancel closes the Dialog.
@@ -24,14 +24,7 @@ test("invoices list + new dialog smoke", async ({ page }) => {
     page.getByRole("dialog", { name: /nuevo comprobante/i }),
   ).toBeVisible();
 
-  // With "Todos los canales" there are two active channels: no default.
   const dialog = page.getByRole("dialog", { name: /nuevo comprobante/i });
-  const channelTrigger = dialog
-    .getByRole("combobox")
-    .filter({ hasText: /elegí un canal/i });
-  await expect(channelTrigger).toBeVisible();
-  await channelTrigger.click();
-  await page.getByRole("option", { name: /logística jouve.*fiscal/i }).click();
   await expect(
     dialog
       .getByRole("combobox")
