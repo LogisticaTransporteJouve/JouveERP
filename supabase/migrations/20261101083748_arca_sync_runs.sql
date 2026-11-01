@@ -12,7 +12,7 @@ create table public.arca_sync_runs (
   requested_by uuid references auth.users (id) on delete set null,
   started_at   timestamptz not null default now(),
   finished_at  timestamptz,
-  imported     integer not null default 0 check (imported >= 0),
+  imported     bigint not null default 0 check (imported >= 0),
   error        text
 );
 
