@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
+import { usePageIsFiscal } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +30,7 @@ export function NewPurchaseInvoiceDialog({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<PurchaseInvoiceDraft | null>(null);
   const fileAssist = usePurchaseInvoiceFileAssist();
+  const isInternal = usePageIsFiscal() === false;
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -41,7 +43,7 @@ export function NewPurchaseInvoiceDialog({
         {trigger ?? (
           <Button>
             <Plus className="size-4" />
-            Cargar factura
+            {isInternal ? "Cargar remito" : "Cargar factura"}
           </Button>
         )}
       </DialogTrigger>

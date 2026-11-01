@@ -68,7 +68,9 @@ export function RetentionsEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <Label className="text-sm font-medium">Retenciones / Percepciones</Label>
+          <Label className="text-sm font-medium">
+            Retenciones / Percepciones
+          </Label>
           <p className="text-xs text-muted-foreground">
             Cancelan parte del recibo pero no entran como plata real (crédito
             fiscal).

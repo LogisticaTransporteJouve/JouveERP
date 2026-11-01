@@ -151,10 +151,9 @@ export function TreasuryPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Tesorería</h1>
         <p className="text-sm text-muted-foreground">
-          Caja real (todos los canales): no cambia con el alcance elegido
-          arriba. Liquidez actual por moneda y por cuenta. Saldos calculados en
-          vivo desde transacciones; el delta compara con el cierre del mes
-          anterior.
+          Caja real de todos los canales. Liquidez actual por moneda y por
+          cuenta. Saldos calculados en vivo desde transacciones; el delta
+          compara con el cierre del mes anterior.
         </p>
       </div>
 

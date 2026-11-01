@@ -49,20 +49,25 @@ describe("navSectionForItem", () => {
 
 describe("navItemForPath with an href listed under both sides", () => {
   it.each([
-    ["/clients/abc", "Clientes"],
-    ["/receipts", "Recibos"],
-    ["/aging", "Aging clientes"],
-    ["/suppliers/categories", "Categorías"],
-    ["/payment-orders/x", "Órdenes de pago"],
-    ["/aging-suppliers", "Aging proveedores"],
-  ])("%s resolves to the item of the asked side", (path, label) => {
-    const fiscal = navItemForPath(path, "fiscal");
-    const internal = navItemForPath(path, "internal");
-    expect(fiscal?.label).toBe(label);
-    expect(internal?.label).toBe(label);
-    expect(fiscal?.scope).toBe("fiscal");
-    expect(internal?.scope).toBe("internal");
-  });
+    ["/clients/abc", "Clientes", "Clientes"],
+    ["/invoices", "Comprobantes", "Remitos internos"],
+    ["/receipts", "Recibos", "Recibos internos"],
+    ["/aging", "Aging clientes", "Aging clientes"],
+    ["/suppliers/categories", "Categorías", "Categorías"],
+    ["/purchases/x", "Compras", "Remitos de compra"],
+    ["/payment-orders/x", "Órdenes de pago", "Órdenes de pago"],
+    ["/aging-suppliers", "Aging proveedores", "Aging proveedores"],
+  ])(
+    "%s resolves to the item of the asked side",
+    (path, label, internalLabel) => {
+      const fiscal = navItemForPath(path, "fiscal");
+      const internal = navItemForPath(path, "internal");
+      expect(fiscal?.label).toBe(label);
+      expect(internal?.label).toBe(internalLabel);
+      expect(fiscal?.scope).toBe("fiscal");
+      expect(internal?.scope).toBe("internal");
+    },
+  );
 
   it("a shared page ignores the side", () => {
     expect(navItemForPath("/treasury", "internal")?.label).toBe("Resumen");

@@ -42,13 +42,15 @@ const IVA_BADGE_TONE: Record<IvaCondition, string> = {
 };
 
 // Server-ordered + partially loaded (infinite scroll), so client sorting is
-// disabled on every column.
+// disabled on every column. Otras ventas clients have no CUIT or IVA
+// condition, so those columns only show in Ventas.
 function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
+  const isFiscal = useScopeIsFiscal();
   return useMemo<ColumnDef<Client>[]>(
     () => [
       {
         accessorKey: "legal_name",
-        header: "Razón social",
+        header: isFiscal ? "Razón social" : "Nombre",
         enableSorting: false,
         cell: ({ row }) => (
           <>
@@ -66,28 +68,7 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
           </>
         ),
       },
-      {
-        accessorKey: "cuit",
-        header: "CUIT",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
-        ),
-      },
-      {
-        accessorKey: "iva_condition",
-        header: "Condición IVA",
-        enableSorting: false,
-        cell: ({ row }) => {
-          const iva = row.original.iva_condition;
-          if (!iva) return <span className="text-muted-foreground">—</span>;
-          return (
-            <Badge variant="secondary" className={IVA_BADGE_TONE[iva]}>
-              {IVA_CONDITION_LABEL[iva]}
-            </Badge>
-          );
-        },
-      },
+      ...(isFiscal ? FISCAL_COLUMNS : []),
       {
         accessorKey: "is_active",
         header: "Estado",
@@ -121,9 +102,34 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         ),
       },
     ],
-    [canWrite],
+    [canWrite, isFiscal],
   );
 }
+
+const FISCAL_COLUMNS: ColumnDef<Client>[] = [
+  {
+    accessorKey: "cuit",
+    header: "CUIT",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
+    ),
+  },
+  {
+    accessorKey: "iva_condition",
+    header: "Condición IVA",
+    enableSorting: false,
+    cell: ({ row }) => {
+      const iva = row.original.iva_condition;
+      if (!iva) return <span className="text-muted-foreground">—</span>;
+      return (
+        <Badge variant="secondary" className={IVA_BADGE_TONE[iva]}>
+          {IVA_CONDITION_LABEL[iva]}
+        </Badge>
+      );
+    },
+  },
+];
 
 export function ClientsTable({
   actorAccess,
@@ -146,6 +152,7 @@ export function ClientsTable({
   const setUrlFilters = useUrlFilter();
 
   const canWrite = userCan(actorAccess, "clients:write");
+  const isFiscal = useScopeIsFiscal();
 
   useEffect(() => {
     setUrlFilters({
@@ -174,7 +181,11 @@ export function ClientsTable({
         }
       >
         <ListSearch
-          placeholder="Buscar por razón social, nombre fantasía o CUIT"
+          placeholder={
+            isFiscal
+              ? "Buscar por razón social, nombre fantasía o CUIT"
+              : "Buscar por nombre o nombre fantasía"
+          }
           value={queryInput}
           onChange={setQueryInput}
         />
