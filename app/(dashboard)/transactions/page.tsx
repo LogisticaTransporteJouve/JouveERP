@@ -18,7 +18,7 @@ import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
 import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readSharedScope } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -37,7 +37,7 @@ export default async function CajaPage({
   const params = parseTransactionListParams(await searchParams);
   const filters = transactionListFilters(
     params,
-    isFiscalFor(await readScopeCookie()),
+    isFiscalFor(await readSharedScope()),
   );
 
   // Shared (React cache) with the dashboard layout's channel read.

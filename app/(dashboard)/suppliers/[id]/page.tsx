@@ -18,7 +18,7 @@ import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-ac
 import { SupplierAccountTab } from "@/features/suppliers/components/supplier-account-tab";
 import { SupplierForm } from "@/features/suppliers/components/supplier-form";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
-import { IVA_CONDITION_LABEL } from "@/features/suppliers/schema";
+import { counterpartyIdentityLabel } from "@/features/clients/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
@@ -89,7 +89,7 @@ export default async function SupplierDetailPage({
           {supplier.legal_name}
         </h1>
         <p className="text-sm text-muted-foreground">
-          CUIT {supplier.cuit} · {IVA_CONDITION_LABEL[supplier.iva_condition]}
+          {counterpartyIdentityLabel(supplier)}
           {!supplier.is_active && " · Inactivo"}
         </p>
       </div>
@@ -113,6 +113,7 @@ export default async function SupplierDetailPage({
                     display_name: supplier.display_name,
                     cuit: supplier.cuit,
                     iva_condition: supplier.iva_condition,
+                    is_fiscal: supplier.is_fiscal,
                   }}
                   channels={channels}
                   accounts={accounts}

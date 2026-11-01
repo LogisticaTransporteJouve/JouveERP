@@ -8,7 +8,10 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { useDefaultChannel } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  useSideChannels,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,8 +49,8 @@ import {
   type IvaRateId,
 } from "@/lib/afip/codes";
 import {
-  IVA_CONDITION_LABEL,
-  type IvaCondition,
+  counterpartyIdentityLabel,
+  isIvaCondition,
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
@@ -189,8 +192,10 @@ function NewInvoiceForm({
   // One key per voucher being written: a double submit returns the same draft.
   const [issueKey, setIssueKey] = useState(() => crypto.randomUUID());
 
-  // Header — the scope's only active channel, else the user picks.
+  // Header — the scope's only active channel, else the user picks. Only the
+  // page's side is offered: Ventas fiscal, Otras ventas internal.
   const initialChannel = useDefaultChannel() ?? "";
+  const sideChannels = useSideChannels(channels);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -254,7 +259,11 @@ function NewInvoiceForm({
       legal_name: originDetail.client.legal_name,
       display_name: null,
       cuit: originDetail.doc_nro,
-      iva_condition: originDetail.client.iva_condition as IvaCondition,
+      iva_condition: isIvaCondition(originDetail.client.iva_condition)
+        ? originDetail.client.iva_condition
+        : null,
+      // NC/ND exist only on the fiscal side.
+      is_fiscal: true,
     });
     form.setValue(
       "items",
@@ -375,7 +384,7 @@ function NewInvoiceForm({
   // For NC/ND: letter inherits from origen (RG 1415).
   const letter = isNote
     ? (originDetail?.letter ?? null)
-    : isFiscal && client
+    : isFiscal && client?.iva_condition
       ? letterFor(client.iva_condition)
       : null;
 
@@ -438,11 +447,14 @@ function NewInvoiceForm({
         fch_serv_hasta: fchServ,
         fch_vto_pago: fchServ,
         concepto: concepto as 1 | 2 | 3,
-        doc_tipo: 80,
-        doc_nro: client.cuit,
-        iva_condition_receptor: isFiscal
-          ? condicionIvaReceptorFor(client.iva_condition)
-          : null,
+        // An internal client has no CUIT: the remito goes to an unidentified
+        // receiver (doc 99), like a consumidor final.
+        doc_tipo: client.cuit ? 80 : 99,
+        doc_nro: client.cuit ?? "0",
+        iva_condition_receptor:
+          isFiscal && client.iva_condition
+            ? condicionIvaReceptorFor(client.iva_condition)
+            : null,
         moneda: "PES",
         cotizacion: 1,
         invoice_origin_id: isNote ? (origin?.id ?? null) : null,
@@ -546,7 +558,7 @@ function NewInvoiceForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    {channels.map((c) => (
+                    {sideChannels.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -648,6 +660,7 @@ function NewInvoiceForm({
                     key={clientPickerKey}
                     value={field.value}
                     onChange={field.onChange}
+                    isFiscal={isFiscal}
                     autoFocus={clientPickerKey > 0}
                   />
                 </FormControl>
@@ -662,7 +675,7 @@ function NewInvoiceForm({
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <p className="font-medium">{client.legal_name}</p>
               <p className="font-mono text-xs text-muted-foreground">
-                CUIT {client.cuit} · {IVA_CONDITION_LABEL[client.iva_condition]}
+                {counterpartyIdentityLabel(client)}
               </p>
             </div>
           </div>

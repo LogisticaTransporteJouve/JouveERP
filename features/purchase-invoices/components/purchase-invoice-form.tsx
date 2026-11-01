@@ -9,7 +9,9 @@ import { toast } from "sonner";
 
 import {
   useDefaultChannel,
+  usePageIsFiscal,
   useScope,
+  useSideChannels,
 } from "@/components/providers/scope-provider";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { Button } from "@/components/ui/button";
@@ -119,8 +121,10 @@ function invoiceToValues(
           display_name: null,
           cuit: inv.supplier_cuit,
           // iva_condition isn't included in the listing, but the picker uses it
-          // only for the chip. Safe default:
-          iva_condition: "responsable_inscripto",
+          // only for the chip. Safe default; an internal supplier has none.
+          iva_condition: inv.supplier_cuit ? "responsable_inscripto" : null,
+          // Only a fiscal supplier carries a CUIT (clients_side_identity).
+          is_fiscal: inv.supplier_cuit !== null,
         }
       : null,
     channel_id: inv?.channel_id ?? initialChannelId,
@@ -165,7 +169,10 @@ function initialValues(
     values: {
       ...base,
       ...patch,
-      supplier: patch.supplier ?? initialSupplier ?? null,
+      // A draft comes from a scanned fiscal invoice: its supplier is fiscal.
+      supplier: patch.supplier
+        ? { ...patch.supplier, is_fiscal: true }
+        : (initialSupplier ?? null),
     },
     filled: new Set(filled),
   };
@@ -190,8 +197,9 @@ export function PurchaseInvoiceForm({
   const router = useRouter();
   const { channels } = useScope();
   // Edit keeps the invoice's own channel among the options even if it was retired.
-  const channelOptions = channels.filter(
-    (c) => c.is_active || c.id === invoice?.channel_id,
+  const pageIsFiscal = usePageIsFiscal();
+  const channelOptions = useSideChannels(
+    channels.filter((c) => c.is_active || c.id === invoice?.channel_id),
   );
   const scopeDefaultChannel = useDefaultChannel();
   const defaultChannelId = invoice?.channel_id ?? scopeDefaultChannel ?? "";
@@ -625,6 +633,7 @@ export function PurchaseInvoiceForm({
                 <SupplierPicker
                   value={field.value}
                   onChange={field.onChange}
+                  isFiscal={pageIsFiscal ?? true}
                   suggestedNew={createDraft?.data.unmatchedSupplier ?? null}
                 />
               </FormControl>

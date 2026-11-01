@@ -7,6 +7,8 @@ import {
   clientsKeys,
 } from "@/features/clients/lib/clients-keys";
 import { requireUserContext } from "@/lib/auth/context";
+import { isFiscalFor } from "@/lib/scope";
+import { readScopeCookie } from "@/lib/scope-server";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -28,7 +30,11 @@ export default async function ClientesPage({
   const initialQuery = (params.q ?? "").trim();
   const initialOnlyActive = params.inactive !== "1";
 
-  const filters = { query: initialQuery, onlyActive: initialOnlyActive };
+  const filters = {
+    query: initialQuery,
+    onlyActive: initialOnlyActive,
+    isFiscal: isFiscalFor(await readScopeCookie()),
+  };
   const dehydratedState = await prefetchQueries([
     {
       infinite: true,
@@ -51,8 +57,9 @@ export default async function ClientesPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">
-            Catálogo único por CUIT, compartido entre Logística Jouve y DZ
-            Instalaciones.
+            {filters.isFiscal
+              ? "Clientes de Ventas: con CUIT y condición de IVA (AFIP)."
+              : "Clientes de Otras ventas: sin CUIT ni AFIP."}
           </p>
         </div>
       </div>

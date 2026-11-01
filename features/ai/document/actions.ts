@@ -365,7 +365,8 @@ async function loadDraftSupplier(
     .select("id, legal_name, display_name, cuit, iva_condition")
     .eq("id", supplierId)
     .maybeSingle();
-  if (!data || !isIvaCondition(data.iva_condition)) return null;
+  // A scanned invoice is a fiscal document: only a fiscal supplier fits.
+  if (!data?.cuit || !isIvaCondition(data.iva_condition)) return null;
   return {
     id: data.id,
     legal_name: data.legal_name,
@@ -1168,6 +1169,7 @@ export async function createSalesInvoiceFromExtractionAction(
     return { ok: false, error: "El cliente no tiene condición de IVA válida." };
   }
   const ivaCondition = client.iva_condition;
+  const clientCuit = client.cuit;
 
   const fecha = header.data.date;
   const concepto: ConceptoCode = CONCEPTO.SERVICIOS;
@@ -1202,7 +1204,7 @@ export async function createSalesInvoiceFromExtractionAction(
         fch_vto_pago: servicios ? (header.data.due_date ?? fecha) : null,
         concepto,
         doc_tipo: DOC_TIPO.CUIT,
-        doc_nro: client.cuit,
+        doc_nro: clientCuit,
         iva_condition_receptor: channel.is_fiscal
           ? condicionIvaReceptorFor(ivaCondition)
           : null,

@@ -29,8 +29,8 @@ export interface VoucherEmisor {
 
 export interface VoucherParty {
   legal_name: string;
-  cuit: string;
-  iva_condition_label: string;
+  cuit: string | null;
+  iva_condition_label: string | null;
 }
 
 export const voucherStyles = StyleSheet.create({
@@ -218,14 +218,18 @@ export function VoucherDocument({
             <Text style={styles.metaLabel}>Razón social:</Text>
             <Text>{party.legal_name}</Text>
           </View>
-          <View style={styles.receptorRow}>
-            <Text style={styles.metaLabel}>CUIT:</Text>
-            <Text>{party.cuit}</Text>
-          </View>
-          <View style={styles.receptorRow}>
-            <Text style={styles.metaLabel}>Condición IVA:</Text>
-            <Text>{party.iva_condition_label}</Text>
-          </View>
+          {party.cuit && (
+            <View style={styles.receptorRow}>
+              <Text style={styles.metaLabel}>CUIT:</Text>
+              <Text>{party.cuit}</Text>
+            </View>
+          )}
+          {party.iva_condition_label && (
+            <View style={styles.receptorRow}>
+              <Text style={styles.metaLabel}>Condición IVA:</Text>
+              <Text>{party.iva_condition_label}</Text>
+            </View>
+          )}
         </View>
 
         {paymentLines.length > 0 && (

@@ -1,12 +1,11 @@
 import "server-only";
 
-import { IVA_CONDITION_LABEL } from "@/features/clients/schema";
-import { isIvaCondition } from "@/features/clients/schema";
+import { ivaConditionLabel } from "@/features/clients/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { type Exporter } from "../shared";
+import { exportScope, scopedSubtitle, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -21,7 +20,8 @@ type CategoryJoin = { name: string } | null;
 
 export const suppliers: Exporter = {
   permission: "suppliers:read",
-  load: async (_params, range) => {
+  load: async (params, range) => {
+    const { scope, isFiscal } = exportScope(params);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
@@ -35,6 +35,7 @@ export const suppliers: Exporter = {
         .order("legal_name", { ascending: true })
         .order("id", { ascending: true });
 
+      if (isFiscal !== null) query = query.eq("is_fiscal", isFiscal);
       if (range.from) query = query.gte("created_at", range.from);
       if (range.to) query = query.lte("created_at", range.to);
       return query;
@@ -46,15 +47,13 @@ export const suppliers: Exporter = {
 
     const rows = (data ?? []).map((row) => {
       const category: CategoryJoin = row.supplier_categories;
-      const ivaLabel = isIvaCondition(row.iva_condition)
-        ? IVA_CONDITION_LABEL[row.iva_condition]
-        : row.iva_condition;
+      const ivaLabel = ivaConditionLabel(row.iva_condition) ?? "—";
       const legalName = row.display_name
         ? `${row.legal_name} (${row.display_name})`
         : row.legal_name;
       return [
         legalName,
-        row.cuit,
+        row.cuit ?? "—",
         ivaLabel,
         category?.name ?? "—",
         row.is_active ? "Activo" : "Inactivo",
@@ -63,6 +62,7 @@ export const suppliers: Exporter = {
 
     return {
       title: "Proveedores",
+      subtitle: scopedSubtitle(scope),
       columns: COLUMNS,
       rows,
       fileName: "proveedores",

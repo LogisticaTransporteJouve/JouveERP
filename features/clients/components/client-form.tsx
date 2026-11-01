@@ -6,8 +6,10 @@ import { toast } from "sonner";
 
 import {
   CounterpartyIdentityFields,
+  sideValues,
   type CounterpartyIdentityValues,
 } from "@/components/counterparty-identity-fields";
+import { usePageIsFiscal } from "@/components/providers/scope-provider";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { Form } from "@/components/ui/form";
 
@@ -36,15 +38,21 @@ function clientToValues(client: Client | undefined): FormValues {
 export function ClientForm({
   mode,
   client,
+  isFiscal: isFiscalProp,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   client?: Client;
+  /** Create mode: the side to create on; defaults to the page's side. */
+  isFiscal?: boolean;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const pageIsFiscal = usePageIsFiscal();
+  // A client's side never changes: edit follows the record.
+  const isFiscal = client?.is_fiscal ?? isFiscalProp ?? pageIsFiscal ?? true;
   const createMut = useCreateClient();
   const updateMut = useUpdateClient();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -53,7 +61,8 @@ export function ClientForm({
     defaultValues: clientToValues(client),
   });
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(formValues: FormValues) {
+    const values = sideValues(formValues, isFiscal);
     if (mode === "create") {
       createMut.mutate(values, {
         onSuccess: (data) => {
@@ -82,6 +91,7 @@ export function ClientForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <CounterpartyIdentityFields
           mode={mode}
+          isFiscal={isFiscal}
           entityId={client?.id}
           noun="cliente"
           existingHref={(id) => `/clients/${id}`}

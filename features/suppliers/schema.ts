@@ -4,6 +4,7 @@ import type { Database } from "@/lib/db/database.types";
 import { isValidCuit } from "@/lib/validation/cuit";
 
 import {
+  defaultToFiscalSide,
   IVA_CONDITIONS,
   IVA_CONDITION_LABEL,
   type IvaCondition,
@@ -91,7 +92,27 @@ const baseSupplierFields = {
   category_id: optionalCategoryId,
 };
 
-export const SupplierCreateSchema = z.object(baseSupplierFields);
+const internalSupplierFields = {
+  legal_name: z.string().trim().min(2, "Nombre requerido.").max(120),
+  display_name: baseSupplierFields.display_name,
+  email: baseSupplierFields.email,
+  phone: baseSupplierFields.phone,
+  real_address: baseSupplierFields.real_address,
+  notes: baseSupplierFields.notes,
+  default_channel_id: baseSupplierFields.default_channel_id,
+  default_payment_term_days: baseSupplierFields.default_payment_term_days,
+  category_id: baseSupplierFields.category_id,
+};
+
+// Compras suppliers carry CUIT and IVA condition (AFIP); Otras compras
+// suppliers have neither, nor a fiscal address. Unknown keys are dropped.
+export const SupplierCreateSchema = z.preprocess(
+  defaultToFiscalSide,
+  z.discriminatedUnion("is_fiscal", [
+    z.object({ ...baseSupplierFields, is_fiscal: z.literal(true) }),
+    z.object({ ...internalSupplierFields, is_fiscal: z.literal(false) }),
+  ]),
+);
 
 export const SupplierUpdateSchema = z.object({
   id: z.string().uuid(),
@@ -123,12 +144,12 @@ export type SupplierToggleActiveInput = z.infer<
 // Narrow `iva_condition` to the union enforced by the DB CHECK.
 type SupplierRow = Database["public"]["Tables"]["suppliers"]["Row"];
 export type Supplier = Omit<SupplierRow, "iva_condition"> & {
-  iva_condition: IvaCondition;
+  iva_condition: IvaCondition | null;
 };
 
 /** Join row shape for `suppliers ( legal_name, cuit )` selected from another table. */
 export type SupplierIdentityJoin = {
-  suppliers: { legal_name: string; cuit: string };
+  suppliers: { legal_name: string; cuit: string | null };
 };
 
 /** Minimal variant for list queries that only need the supplier's
@@ -142,7 +163,7 @@ export type SupplierListLegalJoin = {
 export type SupplierFullJoin = {
   supplier: {
     legal_name: string;
-    cuit: string;
-    iva_condition: string;
+    cuit: string | null;
+    iva_condition: string | null;
   } | null;
 };

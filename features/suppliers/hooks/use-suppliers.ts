@@ -32,16 +32,16 @@ import {
   updateSupplierAction,
   type SearchSuppliersPage,
 } from "../actions/suppliers-actions";
-import { SUPPLIERS_PAGE_SIZE, suppliersKeys } from "../lib/suppliers-keys";
+import {
+  SUPPLIERS_PAGE_SIZE,
+  suppliersKeys,
+  type SuppliersSearchFilters,
+} from "../lib/suppliers-keys";
 import type { Supplier } from "../schema";
 
 export { SUPPLIERS_PAGE_SIZE };
 
-export function useSuppliersSearchInfinite(filters: {
-  query: string;
-  onlyActive: boolean;
-  categoryId: string | null;
-}) {
+export function useSuppliersSearchInfinite(filters: SuppliersSearchFilters) {
   const query = useSuspenseInfiniteQuery({
     queryKey: suppliersKeys.searchInfinite(filters),
     queryFn: ({ pageParam }) =>
@@ -50,6 +50,7 @@ export function useSuppliersSearchInfinite(filters: {
           query: filters.query,
           onlyActive: filters.onlyActive,
           categoryId: filters.categoryId,
+          isFiscal: filters.isFiscal,
           offset: pageParam,
           limit: SUPPLIERS_PAGE_SIZE,
         }),
@@ -68,7 +69,12 @@ export function useSuppliersSearchInfinite(filters: {
 }
 
 export function useSuppliersSearch(
-  filters: { query: string; onlyActive: boolean; limit: number },
+  filters: {
+    query: string;
+    onlyActive: boolean;
+    limit: number;
+    isFiscal: boolean | null;
+  },
   options: { enabled?: boolean } = {},
 ) {
   return useQuery({
@@ -78,6 +84,7 @@ export function useSuppliersSearch(
         searchSuppliersAction({
           query: filters.query,
           onlyActive: filters.onlyActive,
+          isFiscal: filters.isFiscal,
           offset: 0,
           limit: filters.limit,
         }),

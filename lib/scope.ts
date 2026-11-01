@@ -20,6 +20,33 @@ export type InvoicingChannelSummary = Pick<
   "id" | "name" | "is_fiscal" | "is_active"
 >;
 
+/** A side of the business: Ventas/Compras (fiscal) or Otras ventas/compras. */
+export type ScopeSide = Exclude<FiscalFilter, "all">;
+
+/** Pages split by side. Everything else (treasury, dashboard, accounting…) is
+ *  shared and always reads every channel. */
+const SCOPED_ROUTES = [
+  "/clients",
+  "/invoices",
+  "/receipts",
+  "/aging",
+  "/suppliers",
+  "/purchases",
+  "/payment-orders",
+  "/aging-suppliers",
+] as const;
+
+export function isScopedPath(pathname: string): boolean {
+  return SCOPED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
+
+/** A stored scope as a side; the retired "all" reads as fiscal. */
+export function toScopeSide(filter: FiscalFilter): ScopeSide {
+  return filter === "internal" ? "internal" : "fiscal";
+}
+
 export function isFiscalFilter(value: unknown): value is FiscalFilter {
   return FISCAL_FILTERS.some((f) => f === value);
 }

@@ -41,7 +41,8 @@ export function ClientSearchCombobox({
   const [query, setQuery] = useState("");
   const enabled = query.trim().length >= 2;
   const { data, isFetching } = useClientsSearch(
-    { query, onlyActive: true, limit: 25 },
+    // Cheques belong to treasury, shared by both sides.
+    { query, onlyActive: true, limit: 25, isFiscal: null },
     { enabled },
   );
   const results = data?.clients ?? [];

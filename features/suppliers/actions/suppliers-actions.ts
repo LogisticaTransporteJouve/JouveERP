@@ -23,10 +23,10 @@ import {
 } from "../schema";
 
 function narrowSupplier(row: {
-  iva_condition: string;
+  iva_condition: string | null;
   [key: string]: unknown;
 }): Supplier | null {
-  if (!isIvaCondition(row.iva_condition)) {
+  if (row.iva_condition !== null && !isIvaCondition(row.iva_condition)) {
     logger.error("suppliers.unknown_iva_condition", {
       value: row.iva_condition,
     });
@@ -36,7 +36,7 @@ function narrowSupplier(row: {
 }
 
 const SELECT_COLS =
-  "id, cuit, legal_name, display_name, iva_condition, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at";
+  "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at";
 
 export type SearchSuppliersInput = {
   query?: string;
@@ -44,6 +44,8 @@ export type SearchSuppliersInput = {
   offset?: number;
   limit?: number;
   categoryId?: string | null;
+  /** Compras (true) or Otras compras (false); null lists both. */
+  isFiscal?: boolean | null;
 };
 
 export type SearchSuppliersPage = {
@@ -69,6 +71,7 @@ export async function searchSuppliersAction(
     p_offset: offset,
     p_limit: limit + 1,
     p_category_id: input.categoryId ?? undefined,
+    p_is_fiscal: input.isFiscal ?? undefined,
   });
 
   if (error) {
@@ -166,13 +169,14 @@ export async function createSupplierAction(
   const { data, error } = await supabase
     .from("suppliers")
     .insert({
-      cuit: parsed.data.cuit,
+      is_fiscal: parsed.data.is_fiscal,
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
       legal_name: parsed.data.legal_name,
       display_name: parsed.data.display_name ?? null,
-      iva_condition: parsed.data.iva_condition,
+      iva_condition: parsed.data.is_fiscal ? parsed.data.iva_condition : null,
       email: parsed.data.email ?? null,
       phone: parsed.data.phone ?? null,
-      address: parsed.data.address ?? null,
+      address: parsed.data.is_fiscal ? (parsed.data.address ?? null) : null,
       real_address: parsed.data.real_address ?? null,
       notes: parsed.data.notes ?? null,
       default_channel_id: parsed.data.default_channel_id ?? null,
@@ -189,7 +193,7 @@ export async function createSupplierAction(
     }
     logger.error("suppliers.create.failed", {
       userId: ctx.userId,
-      cuit: parsed.data.cuit,
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
       error,
     });
     return { ok: false, error: "No se pudo crear el proveedor." };
@@ -198,7 +202,10 @@ export async function createSupplierAction(
   await logAudit(
     "supplier.created",
     ctx.userId,
-    { cuit: parsed.data.cuit, legal_name: parsed.data.legal_name },
+    {
+      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
+      legal_name: parsed.data.legal_name,
+    },
     data.id,
   );
   return { ok: true, data: { id: data.id } };

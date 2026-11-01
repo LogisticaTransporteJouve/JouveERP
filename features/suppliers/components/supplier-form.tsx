@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   CounterpartyIdentityFields,
   type CounterpartyIdentityValues,
+  sideValues,
 } from "@/components/counterparty-identity-fields";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
 import {
@@ -27,7 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useScope } from "@/components/providers/scope-provider";
+import {
+  usePageIsFiscal,
+  useScope,
+} from "@/components/providers/scope-provider";
 import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 
 import { findSupplierByCuitAction } from "../actions/suppliers-actions";
@@ -73,12 +77,15 @@ function supplierToValues(
 export function SupplierForm({
   mode,
   supplier,
+  isFiscal: isFiscalProp,
   initialValues,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   supplier?: Supplier;
+  /** Create mode: the side to create on; defaults to the page's side. */
+  isFiscal?: boolean;
   /** Create mode: CUIT / razón social to start from (e.g. read from a document). */
   initialValues?: { cuit: string | null; legal_name: string | null };
   onSuccess?: (id: string) => void;
@@ -88,10 +95,13 @@ export function SupplierForm({
   const createMut = useCreateSupplier();
   const updateMut = useUpdateSupplier();
   const isSaving = createMut.isPending || updateMut.isPending;
+  const pageIsFiscal = usePageIsFiscal();
+  // A supplier's side never changes: edit follows the record.
+  const isFiscal = supplier?.is_fiscal ?? isFiscalProp ?? pageIsFiscal ?? true;
   const { channels } = useScope();
   const activeChannels = useMemo(
-    () => channels.filter((c) => c.is_active),
-    [channels],
+    () => channels.filter((c) => c.is_active && c.is_fiscal === isFiscal),
+    [channels, isFiscal],
   );
   const categoriesQuery = useSupplierCategoriesList({ onlyActive: true });
   const categories = categoriesQuery.data ?? [];
@@ -108,7 +118,8 @@ export function SupplierForm({
     },
   });
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(formValues: FormValues) {
+    const values = sideValues(formValues, isFiscal);
     if (mode === "create") {
       createMut.mutate(values, {
         onSuccess: (data) => {
@@ -137,6 +148,7 @@ export function SupplierForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <CounterpartyIdentityFields
           mode={mode}
+          isFiscal={isFiscal}
           entityId={supplier?.id}
           noun="proveedor"
           existingHref={(id) => `/suppliers/${id}`}

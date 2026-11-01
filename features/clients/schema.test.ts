@@ -25,7 +25,9 @@ describe("ClientCreateSchema", () => {
       cuit: "30-71463743-2",
     });
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.cuit).toBe("30714637432");
+    if (result.success && result.data.is_fiscal) {
+      expect(result.data.cuit).toBe("30714637432");
+    }
   });
 
   it("rejects CUITs that are not 11 digits", () => {
@@ -66,7 +68,7 @@ describe("ClientCreateSchema", () => {
       expect(result.data.display_name).toBeNull();
       expect(result.data.email).toBeNull();
       expect(result.data.phone).toBeNull();
-      expect(result.data.address).toBeNull();
+      if (result.data.is_fiscal) expect(result.data.address).toBeNull();
       expect(result.data.notes).toBeNull();
     }
   });
@@ -113,5 +115,37 @@ describe("isIvaCondition", () => {
     expect(isIvaCondition(null)).toBe(false);
     expect(isIvaCondition(undefined)).toBe(false);
     expect(isIvaCondition(123)).toBe(false);
+  });
+});
+
+describe("ClientCreateSchema sides", () => {
+  it("defaults to a fiscal client when the side is not given", () => {
+    const result = ClientCreateSchema.safeParse({
+      cuit: "30714637432",
+      legal_name: "Cliente SA",
+      iva_condition: "responsable_inscripto",
+    });
+    expect(result.success && result.data.is_fiscal).toBe(true);
+  });
+
+  it("accepts an internal client with only a name and drops CUIT and IVA", () => {
+    const result = ClientCreateSchema.safeParse({
+      is_fiscal: false,
+      legal_name: "Juan interno",
+      cuit: "",
+      iva_condition: "",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("cuit");
+      expect(result.data).not.toHaveProperty("iva_condition");
+    }
+  });
+
+  it("still requires CUIT and IVA for a fiscal client", () => {
+    expect(
+      ClientCreateSchema.safeParse({ is_fiscal: true, legal_name: "Sin CUIT" })
+        .success,
+    ).toBe(false);
   });
 });

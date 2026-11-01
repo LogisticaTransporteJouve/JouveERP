@@ -28,7 +28,7 @@ export type AgingPartyRow = AgingAmounts & {
   id: string;
   legal_name: string;
   display_name: string | null;
-  cuit: string;
+  cuit: string | null;
   document_count: number;
   oldest_days: number;
   /** How much of `total` is rejected-check debt (clients only; already in
@@ -69,7 +69,7 @@ export type AgingPartyInput = AgingViewAmounts & {
   id: string;
   legal_name: string;
   display_name: string | null;
-  cuit: string;
+  cuit: string | null;
 };
 
 /** The columns to select from either aging view, after the party id. */
@@ -204,14 +204,14 @@ export type ClientAgingViewRow = AgingViewAmounts & {
   clients: {
     legal_name: string;
     display_name: string | null;
-    cuit: string;
+    cuit: string | null;
   } | null;
 };
 
 /** Row of `v_supplier_aging` with the embedded `suppliers` join. */
 export type SupplierAgingViewRow = AgingViewAmounts & {
   supplier_id: string | null;
-  suppliers: { legal_name: string; cuit: string } | null;
+  suppliers: { legal_name: string; cuit: string | null } | null;
 };
 
 /** Client aging report; rows without `client_id`/`clients` are discarded. */

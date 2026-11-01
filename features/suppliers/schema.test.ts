@@ -16,7 +16,9 @@ describe("SupplierCreateSchema", () => {
       iva_condition: "responsable_inscripto",
     });
     expect(res.success).toBe(true);
-    if (res.success) expect(res.data.cuit).toBe("30714637432");
+    if (res.success && res.data.is_fiscal) {
+      expect(res.data.cuit).toBe("30714637432");
+    }
   });
 
   it("rechaza CUIT corto", () => {

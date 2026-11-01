@@ -290,7 +290,7 @@ export function agingExport(
       const key = currency === "ARS" ? "ars" : "usd";
       out.push([
         r.legal_name,
-        r.cuit,
+        r.cuit ?? "—",
         currency,
         ...AGING_BUCKETS.map((b) => amount(r.buckets[b][key], currency)),
         amount(r.total[key], currency),

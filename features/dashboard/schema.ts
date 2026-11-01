@@ -48,7 +48,7 @@ export interface DashboardAgingKpis {
 export interface TopDebtor {
   client_id: string;
   name: string;
-  cuit: string;
+  cuit: string | null;
   total: CurrencyAmounts;
   total_ars_equivalent: number | null;
   oldest_days: number;

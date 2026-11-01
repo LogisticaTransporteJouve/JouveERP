@@ -22,6 +22,8 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import { getSupplierByIdAction } from "../actions/suppliers-actions";
 import { useSuppliersSearch } from "../hooks/use-suppliers";
+import { counterpartyIdentityLabel } from "@/features/clients/schema";
+
 import {
   IVA_CONDITION_LABEL,
   type Supplier,
@@ -33,8 +35,9 @@ export interface PickedSupplier {
   id: string;
   legal_name: string;
   display_name: string | null;
-  cuit: string;
-  iva_condition: IvaCondition;
+  cuit: string | null;
+  iva_condition: IvaCondition | null;
+  is_fiscal: boolean;
 }
 
 const RESULT_LIMIT = 8;
@@ -47,11 +50,15 @@ export type SuggestedNewSupplier = {
 export function SupplierPicker({
   value,
   onChange,
+  isFiscal,
   autoFocus,
   suggestedNew,
 }: {
   value: PickedSupplier | null;
   onChange: (supplier: PickedSupplier | null) => void;
+  /** The document's side: Compras (true), Otras compras (false), or both
+   *  (null, for treasury documents such as issued cheques). */
+  isFiscal: boolean | null;
   autoFocus?: boolean;
   /** A counterparty that is not loaded yet: offers creating it prefilled. */
   suggestedNew?: SuggestedNewSupplier | null;
@@ -63,7 +70,7 @@ export function SupplierPicker({
   const debouncedQuery = useDebouncedValue(query.trim(), 200);
 
   const searchQuery = useSuppliersSearch(
-    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT },
+    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
     { enabled: open },
   );
   const results = searchQuery.data?.suppliers ?? [];
@@ -76,6 +83,7 @@ export function SupplierPicker({
       display_name: supplier.display_name,
       cuit: supplier.cuit,
       iva_condition: supplier.iva_condition,
+      is_fiscal: supplier.is_fiscal,
     });
     setOpen(false);
     setQuery("");
@@ -97,6 +105,7 @@ export function SupplierPicker({
       display_name: s.display_name,
       cuit: s.cuit,
       iva_condition: s.iva_condition,
+      is_fiscal: s.is_fiscal,
     });
   }
 
@@ -107,7 +116,7 @@ export function SupplierPicker({
           <div className="min-w-0">
             <p className="truncate font-medium">{value.legal_name}</p>
             <p className="text-xs text-muted-foreground font-mono">
-              CUIT {value.cuit} · {IVA_CONDITION_LABEL[value.iva_condition]}
+              {counterpartyIdentityLabel(value)}
             </p>
           </div>
           <Button
@@ -194,10 +203,13 @@ export function SupplierPicker({
           <DialogHeader>
             <DialogTitle>Nuevo proveedor</DialogTitle>
             <DialogDescription>
-              Ingresá el CUIT y verificá AFIP para autocompletar los datos.
+              {isFiscal === false
+                ? "Proveedor de Otras compras: sin CUIT ni AFIP."
+                : "Ingresá el CUIT y verificá AFIP para autocompletar los datos."}
             </DialogDescription>
           </DialogHeader>
           <SupplierForm
+            isFiscal={isFiscal ?? undefined}
             mode="create"
             initialValues={suggestedNew ?? undefined}
             onSuccess={onCreateSuccess}
@@ -252,15 +264,19 @@ function ResultsList({
                 {supplier.display_name && (
                   <span className="mr-2">{supplier.display_name}</span>
                 )}
-                <span className="font-mono">CUIT {supplier.cuit}</span>
+                {supplier.cuit && (
+                  <span className="font-mono">CUIT {supplier.cuit}</span>
+                )}
               </p>
             </div>
-            <Badge
-              variant="secondary"
-              className="shrink-0 text-[10px] uppercase tracking-wide"
-            >
-              {IVA_CONDITION_LABEL[supplier.iva_condition]}
-            </Badge>
+            {supplier.iva_condition && (
+              <Badge
+                variant="secondary"
+                className="shrink-0 text-[10px] uppercase tracking-wide"
+              >
+                {IVA_CONDITION_LABEL[supplier.iva_condition]}
+              </Badge>
+            )}
           </button>
         </li>
       ))}

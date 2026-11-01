@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
@@ -70,21 +71,22 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         header: "CUIT",
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.cuit}</span>
+          <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
         ),
       },
       {
         accessorKey: "iva_condition",
         header: "Condición IVA",
         enableSorting: false,
-        cell: ({ row }) => (
-          <Badge
-            variant="secondary"
-            className={IVA_BADGE_TONE[row.original.iva_condition]}
-          >
-            {IVA_CONDITION_LABEL[row.original.iva_condition]}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const iva = row.original.iva_condition;
+          if (!iva) return <span className="text-muted-foreground">—</span>;
+          return (
+            <Badge variant="secondary" className={IVA_BADGE_TONE[iva]}>
+              {IVA_CONDITION_LABEL[iva]}
+            </Badge>
+          );
+        },
       },
       {
         accessorKey: "is_active",
@@ -214,7 +216,11 @@ function ClientsTableRows({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useClientsSearchInfinite({ query, onlyActive });
+  } = useClientsSearchInfinite({
+    query,
+    onlyActive,
+    isFiscal: useScopeIsFiscal(),
+  });
 
   const columns = useClientColumns(canWrite);
 

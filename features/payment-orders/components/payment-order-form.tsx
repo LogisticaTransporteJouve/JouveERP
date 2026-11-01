@@ -7,7 +7,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { useDefaultChannel } from "@/components/providers/scope-provider";
+import {
+  useDefaultChannel,
+  usePageIsFiscal,
+  useSideChannels,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -122,6 +126,8 @@ export function PaymentOrderForm({
   const defaultChannel = useDefaultChannel();
   const initialChannel =
     paymentOrder?.paymentOrder.channel_id ?? defaultChannel ?? "";
+  const sideChannels = useSideChannels(channels);
+  const pageIsFiscal = usePageIsFiscal();
 
   const initialPaymentLines: PaymentLineDraft[] = paymentOrder
     ? paymentOrder.payment_lines.map((l): PaymentLineDraft => {
@@ -244,6 +250,7 @@ export function PaymentOrderForm({
           display_name: res.data.display_name,
           cuit: res.data.cuit,
           iva_condition: res.data.iva_condition,
+          is_fiscal: res.data.is_fiscal,
         });
       }
     })();
@@ -438,7 +445,7 @@ export function PaymentOrderForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent position="popper">
-                    {channels.map((c) => (
+                    {sideChannels.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -536,7 +543,11 @@ export function PaymentOrderForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Proveedor</FormLabel>
               <FormControl>
-                <SupplierPicker value={field.value} onChange={field.onChange} />
+                <SupplierPicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  isFiscal={pageIsFiscal ?? true}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
