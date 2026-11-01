@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -81,8 +81,8 @@ export function ListSearch({
   );
 }
 
-/** Dims the rows while a new filter's results load, so stale rows never pass
- *  for the filtered ones. */
+/** While a new filter's results load: the stale rows dim and a spinner says
+ *  the list is updating, so they never pass for the filtered ones. */
 export function ListPending({
   pending,
   children,
@@ -91,14 +91,26 @@ export function ListPending({
   children: ReactNode;
 }) {
   return (
-    <div
-      aria-busy={pending}
-      className={cn(
-        "transition-opacity",
-        pending && "pointer-events-none opacity-50",
+    <div aria-busy={pending} className="relative">
+      <div
+        className={cn(
+          "transition-opacity",
+          pending && "pointer-events-none opacity-40",
+        )}
+      >
+        {children}
+      </div>
+      {pending && (
+        <div
+          role="status"
+          className="absolute inset-x-0 top-16 flex justify-center"
+        >
+          <span className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+            <Loader2 className="size-4 animate-spin" />
+            Actualizando…
+          </span>
+        </div>
       )}
-    >
-      {children}
     </div>
   );
 }
