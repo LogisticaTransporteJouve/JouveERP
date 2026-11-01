@@ -20,9 +20,7 @@ export function RetryRemitoCreditButton({ facturaId }: { facturaId: string }) {
     startTransition(async () => {
       try {
         await runAction(() => retryRemitoCreditAction(facturaId));
-        toast.success(
-          "Acreditación en cola: en unos segundos el remito queda saldado.",
-        );
+        toast.success("Acreditación en cola.");
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : String(err));

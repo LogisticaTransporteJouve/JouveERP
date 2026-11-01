@@ -69,7 +69,7 @@ describe("creditBilledRemito job", () => {
       name: "invoice/issue.requested",
       data: {
         invoice_id: NC,
-        idempotency_key: FACTURA,
+        idempotency_key: `${FACTURA}:first`,
         channel_id: "jouve_internal",
         punto_venta: 9001,
       },

@@ -94,7 +94,7 @@ describe("getRemitoLinksAction", () => {
     const res = await getRemitoLinksAction(REMITO);
     expect(res.ok ? res.data : null).toEqual(
       res.ok
-        ? { billedAs: null, sourceRemito: null, creditPending: false }
+        ? { billedAs: null, sourceRemito: null, creditState: "settled" }
         : null,
     );
   });

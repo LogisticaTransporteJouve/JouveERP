@@ -1,11 +1,11 @@
 -- Otras ventas / Otras compras (docs/otras-ventas.md): counterparty sides,
 -- guard_document_side, guard_invoice_source_remito, the one-live-factura index,
--- settle_billed_remito, the frozen remito, fiscal_reader on clients/suppliers and the ACLs
+-- settle_billed_remito and what blocks it, the frozen remito, fiscal_reader on clients/suppliers and the ACLs
 -- of the new functions. One transaction, rolled back.
 
 begin;
 
-select plan(49);
+select plan(72);
 
 -- The auto-journal triggers call create_journal_entry, which wants a writer.
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
@@ -378,6 +378,218 @@ select is(
       and p.prosecdef
       and p.proconfig @> array['search_path=""']),
   5, 'every new SECURITY DEFINER pins an empty search_path');
+
+
+-- 8. billed_remito_blocker cases, the freeze and the settlement edges --------
+
+-- Remitos 1..9 of the internal client; one recibo interno per case.
+insert into public.clients (id, is_fiscal, legal_name) values
+  ('00000000-0000-0000-0000-00000005c0a2', false, 'Cliente Otras ventas OV saldo');
+insert into public.invoices
+  (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+   doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, status, idempotency_key)
+select ('00000000-0000-0000-0000-0000000570' || lpad(n::text, 2, '0'))::uuid,
+       'jouve_internal',
+       case when n = 1 then '00000000-0000-0000-0000-00000005c0a2'::uuid
+            else '00000000-0000-0000-0000-00000005c0a1'::uuid end,
+       'factura', null, 9001, 99960 + n, current_date, 2, 99, '0',
+       500, 0, 500, 'emitted', 'ov-blk-' || n
+from generate_series(1, 9) n;
+
+-- A factura of Ventas for remito n, as billRemitoAction drafts it.
+create function pg_temp.draft_factura(p_n int) returns uuid language sql as $f$
+  insert into public.invoices
+    (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+     doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, cbte_tipo_afip,
+     iva_condition_receptor, status, idempotency_key, source_remito_id)
+  values (('00000000-0000-0000-0000-0000000571' || lpad(p_n::text, 2, '0'))::uuid,
+     'jouve_fiscal', '00000000-0000-0000-0000-00000005c0f1', 'factura', 'A', 3, null,
+     current_date, 2, 80, '20999999992', 500, 105, 605, 1, 1, 'draft',
+     'ov-blk-factura-' || p_n,
+     ('00000000-0000-0000-0000-0000000570' || lpad(p_n::text, 2, '0'))::uuid)
+  returning id;
+$f$;
+
+-- 8a. Opening-balance (ajuste de saldo) allocation.
+insert into public.client_opening_balances (client_id, opening_date, target_balance, total_settled)
+values ('00000000-0000-0000-0000-00000005c0a2', current_date, 100, 100);
+insert into public.client_opening_balance_allocations (client_id, invoice_id, amount_applied)
+values ('00000000-0000-0000-0000-00000005c0a2', '00000000-0000-0000-0000-000000057001', 100);
+select is(
+  public.billed_remito_blocker('00000000-0000-0000-0000-000000057001'),
+  'El remito está saldado en parte por un ajuste de saldo: quitá el ajuste antes de facturarlo.',
+  'an ajuste de saldo applied to the remito blocks billing');
+select throws_ok(
+  $$select pg_temp.draft_factura(1)$$,
+  '23514', 'El remito está saldado en parte por un ajuste de saldo: quitá el ajuste antes de facturarlo.',
+  'the factura insert refuses a remito with an ajuste de saldo');
+
+-- 8b. A recibo with retentions.
+select public.create_receipt('jouve_internal', 9001, 99961, '00000000-0000-0000-0000-00000005c0a1',
+  current_date, 500, 'ARS', 'recibo con retención',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":400}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057002","amount_applied":500}]'::jsonb,
+  '[{"kind":"retencion","tax_type":"iibb","certificate_number":"OV-1","certificate_date":"2026-11-01","amount":100}]'::jsonb);
+select throws_ok(
+  $$select pg_temp.draft_factura(2)$$,
+  '23514', 'El cobro del remito tiene retenciones: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.',
+  'the factura insert refuses a remito collected with retentions');
+
+-- 8c. A recibo whose cobro came in a cheque.
+create temp table t_r3 on commit drop as
+select public.create_receipt('jouve_internal', 9001, 99962, '00000000-0000-0000-0000-00000005c0a1',
+  current_date, 200, 'ARS', 'recibo con cheque',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":200}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057003","amount_applied":200}]'::jsonb,
+  '[]'::jsonb) as id;
+insert into public.checks
+  (kind, check_number, bank_name, drawer_name, issue_date, due_date, amount, currency,
+   source_kind, source_receipt_id, cartera_account_id)
+select 'fisico', 'OV-CHQ-1', 'Banco OV', 'Librador OV', current_date, current_date + 30, 200, 'ARS',
+       'receipt', id, '00000000-0000-0000-0000-00000005ac01'
+from t_r3;
+select throws_ok(
+  $$select pg_temp.draft_factura(3)$$,
+  '23514', 'El remito se cobró con cheques: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.',
+  'the factura insert refuses a remito collected with a cheque');
+
+-- 8d. A recibo that also pays another remito.
+select public.create_receipt('jouve_internal', 9001, 99963, '00000000-0000-0000-0000-00000005c0a1',
+  current_date, 400, 'ARS', 'recibo de dos remitos',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":400}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057004","amount_applied":300},
+    {"invoice_id":"00000000-0000-0000-0000-000000057009","amount_applied":100}]'::jsonb,
+  '[]'::jsonb);
+select throws_ok(
+  $$select pg_temp.draft_factura(4)$$,
+  '23514', 'Un recibo interno de este remito también paga otros comprobantes: anulalo, facturá el remito y cargá el cobro en Ventas.',
+  'the factura insert refuses a remito whose recibo also pays another document');
+
+-- 8e. A recibo in a closed accounting period.
+select public.create_receipt('jouve_internal', 9001, 99964, '00000000-0000-0000-0000-00000005c0a1',
+  '2001-01-10', 200, 'ARS', 'recibo de un período cerrado',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":200}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057005","amount_applied":200}]'::jsonb,
+  '[]'::jsonb);
+insert into public.accounting_closed_periods (period) values ('2001-01');
+select throws_ok(
+  $$select pg_temp.draft_factura(5)$$,
+  '23514', 'El remito se cobró en un período contable cerrado: no se puede pasar el cobro a Ventas.',
+  'the factura insert refuses a remito collected in a closed period');
+
+-- 8f. Once drafted, nothing can add a blocker through update_receipt or an
+-- ajuste: re-applying the recibo to the frozen remito is refused.
+create temp table t_r6 on commit drop as
+select public.create_receipt('jouve_internal', 9001, 99965, '00000000-0000-0000-0000-00000005c0a1',
+  '2001-02-10', 200, 'ARS', 'recibo del remito 6',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":200}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057006","amount_applied":200}]'::jsonb,
+  '[]'::jsonb) as id;
+select lives_ok($$select pg_temp.draft_factura(6)$$, 'a remito with a plain cash cobro is drafted');
+select throws_ok(
+  format($$select public.update_receipt(%L, '2001-02-10', 200, 'retención agregada',
+      '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":150}]'::jsonb,
+      '[{"invoice_id":"00000000-0000-0000-0000-000000057006","amount_applied":200}]'::jsonb,
+      '[{"kind":"retencion","tax_type":"iibb","certificate_number":"OV-2","certificate_date":"2026-11-01","amount":50}]'::jsonb,
+      null)$$, (select id from t_r6)),
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a frozen remito''s recibo cannot gain a retention through update_receipt');
+select throws_ok(
+  format($$select public.update_receipt(%L, '2001-02-10', 300, 'otro comprobante agregado',
+      '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":300}]'::jsonb,
+      '[{"invoice_id":"00000000-0000-0000-0000-000000057006","amount_applied":200},
+        {"invoice_id":"00000000-0000-0000-0000-000000057009","amount_applied":100}]'::jsonb,
+      '[]'::jsonb, null)$$, (select id from t_r6)),
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a frozen remito''s recibo cannot start paying another document through update_receipt');
+insert into public.client_opening_balances (client_id, opening_date, target_balance, total_settled)
+values ('00000000-0000-0000-0000-00000005c0a1', current_date, 100, 100);
+select throws_ok(
+  $$insert into public.client_opening_balance_allocations (client_id, invoice_id, amount_applied)
+    values ('00000000-0000-0000-0000-00000005c0a1', '00000000-0000-0000-0000-000000057006', 50)$$,
+  '23514', 'El remito se facturó en Ventas: no admite cobros, ajustes, notas de crédito ni anulación.',
+  'a frozen remito takes no ajuste de saldo');
+
+-- A period closed after the factura was drafted is caught when settling.
+update public.invoices set status = 'emitted', numero = 99966
+ where id = '00000000-0000-0000-0000-000000057106';
+insert into public.accounting_closed_periods (period) values ('2001-02');
+select throws_ok(
+  $$select public.settle_billed_remito('00000000-0000-0000-0000-000000057106')$$,
+  '23514', 'El remito se cobró en un período contable cerrado: no se puede pasar el cobro a Ventas.',
+  'settling re-checks the blocker: a period closed after drafting refuses the move');
+select is(
+  (select status from public.receipts where id = (select id from t_r6)),
+  'issued', 'a refused settlement leaves the recibo interno in place');
+
+-- A retention written straight to the table (no app path) is caught too.
+delete from public.accounting_closed_periods where period = '2001-02';
+insert into public.receipt_retentions (receipt_id, kind, tax_type, certificate_number, certificate_date, amount)
+select id, 'retencion', 'iibb', 'OV-3', current_date, 10 from t_r6;
+select throws_ok(
+  $$select public.settle_billed_remito('00000000-0000-0000-0000-000000057106')$$,
+  '23514', 'El cobro del remito tiene retenciones: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.',
+  'settling re-checks the blocker: a retention added after drafting refuses the move');
+
+-- 8g. A factura AFIP rejected (failed) releases the remito.
+select lives_ok($$select pg_temp.draft_factura(7)$$, 'remito 7 is drafted on a factura');
+update public.invoices set status = 'failed' where id = '00000000-0000-0000-0000-000000057107';
+select lives_ok(
+  $$select public.create_receipt('jouve_internal', 9001, 99967, '00000000-0000-0000-0000-00000005c0a1',
+      current_date, 100, 'ARS', 'cobro tras el rechazo',
+      '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":100}]'::jsonb,
+      '[{"invoice_id":"00000000-0000-0000-0000-000000057007","amount_applied":100}]'::jsonb,
+      '[]'::jsonb)$$,
+  'a remito whose factura failed takes a cobro again');
+select lives_ok(
+  $$insert into public.invoices
+      (channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+       doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, cbte_tipo_afip,
+       iva_condition_receptor, status, idempotency_key, source_remito_id)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000005c0f1', 'factura', 'A', 3, null,
+       current_date, 2, 80, '20999999992', 500, 105, 605, 1, 1, 'draft', 'ov-blk-factura-7b',
+       '00000000-0000-0000-0000-000000057007')$$,
+  'a remito whose factura failed can be billed again');
+select throws_ok(
+  $$select public.settle_billed_remito('00000000-0000-0000-0000-000000057107')$$,
+  '23514', 'La factura todavía no está emitida.',
+  'a factura AFIP rejected never settles its remito');
+
+-- 8h. A remito fully collected: its recibo moves whole, so the remito is left
+-- with all of its total open and the NC credits all of it.
+select public.create_receipt('jouve_internal', 9001, 99968, '00000000-0000-0000-0000-00000005c0a1',
+  current_date, 500, 'ARS', 'recibo total del remito 8',
+  '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":500}]'::jsonb,
+  '[{"invoice_id":"00000000-0000-0000-0000-000000057008","amount_applied":500}]'::jsonb,
+  '[]'::jsonb);
+select pg_temp.draft_factura(8);
+update public.invoices set status = 'emitted', numero = 99968
+ where id = '00000000-0000-0000-0000-000000057108';
+create temp table t_nc8 on commit drop as
+select public.settle_billed_remito('00000000-0000-0000-0000-000000057108') as nc_id;
+select ok(
+  (select n.kind = 'nc' and n.imp_total = 500
+          and n.invoice_origin_id = '00000000-0000-0000-0000-000000057008'
+     from public.invoices n where n.id = (select nc_id from t_nc8)),
+  'a fully collected remito is credited in full once its recibo moved');
+select is(
+  public.invoice_open_amount('00000000-0000-0000-0000-000000057108'),
+  105::numeric, 'the moved recibo pays the factura (605 - 500)');
+select is(
+  public.invoice_open_amount('00000000-0000-0000-0000-000000057008'),
+  0::numeric, 'the remito is left with nothing open');
+select is(
+  public.settle_billed_remito('00000000-0000-0000-0000-000000057108'),
+  (select nc_id from t_nc8), 'a rerun on a settled remito returns the same NC');
+select is(
+  (select count(*)::int from public.invoices
+    where kind = 'nc' and invoice_origin_id = '00000000-0000-0000-0000-000000057008'),
+  1, 'the rerun drafts no second NC');
+select is(
+  (select count(*)::int from public.receipts r
+     join public.receipt_allocations ra on ra.receipt_id = r.id
+    where ra.invoice_id = '00000000-0000-0000-0000-000000057108' and r.status = 'issued'),
+  1, 'the rerun does not move the recibo twice');
 
 select * from finish();
 rollback;

@@ -28,6 +28,8 @@ export const creditBilledRemito = inngest.createFunction(
     name: "Settle a billed remito interno",
     triggers: [{ event: INVOICE_REMITO_BILLED }],
     retries: 4,
+    // A retry click while the CAE's own run is still going: one at a time.
+    concurrency: { key: "event.data.factura_id", limit: 1 },
     onFailure: async ({ event, error }) => {
       const parsed = InvoiceRemitoBilledSchema.safeParse(
         (event.data as { event?: { data?: unknown } }).event?.data,
@@ -78,7 +80,9 @@ export const creditBilledRemito = inngest.createFunction(
         name: INVOICE_ISSUE_REQUESTED,
         data: {
           invoice_id: nc.id,
-          idempotency_key: nc.idempotency_key,
+          // issue-invoice dedupes on this key for 24h: a re-issue after a
+          // failed NC (a retry) needs its own, so it is keyed by this run.
+          idempotency_key: `${nc.idempotency_key}:${event.id ?? "first"}`,
           channel_id: nc.channel_id,
           punto_venta: nc.punto_venta,
         },

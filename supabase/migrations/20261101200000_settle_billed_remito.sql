@@ -24,7 +24,7 @@ security definer
 set search_path = ''
 as $$
   with recibos as (
-    select r.id, r.currency, r.receipt_date
+    select r.id, r.currency, r.receipt_date, r.total_amount, ra.amount_applied
     from public.receipt_allocations ra
     join public.receipts r on r.id = ra.receipt_id
     where ra.invoice_id = p_remito_id and r.status = 'issued'
@@ -53,6 +53,8 @@ as $$
               where rca.receipt_id = rc.id
             )
     ) then 'Un recibo interno de este remito también paga otros comprobantes: anulalo, facturá el remito y cargá el cobro en Ventas.'
+    when exists (select 1 from recibos where total_amount <> amount_applied)
+      then 'Un recibo interno de este remito tiene saldo a cuenta: anulalo, facturá el remito y cargá el cobro en Ventas.'
     when exists (
       select 1 from public.checks c join recibos rc on rc.id = c.source_receipt_id
     ) then 'El remito se cobró con cheques: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.'
@@ -135,7 +137,12 @@ declare
   v_factura   uuid;
 begin
   if tg_table_name = 'invoices' then
-    v_remito_id := case when tg_op = 'INSERT' then new.invoice_origin_id else new.id end;
+    -- An NC (insert, or the settlement's own NC being anulada) points at its
+    -- remito through invoice_origin_id; a remito being anulado is itself.
+    v_remito_id := case
+      when tg_op = 'INSERT' or new.kind = 'nc' then new.invoice_origin_id
+      else new.id
+    end;
   else
     v_remito_id := new.invoice_id;
   end if;
@@ -190,8 +197,10 @@ create trigger invoices_cancel_billed_remito_frozen
 -- 3. Settling ---------------------------------------------------------------
 
 -- Called by the credit-billed-remito Inngest job (service role) once the
--- factura is emitted. Returns the NC draft's id, or null when nothing is left
--- open. Idempotent: a second call finds the NC it already drafted.
+-- factura is emitted. Returns the NC's id (null only for a remito with nothing
+-- open, which the blocker makes unreachable). Idempotent: a second call finds
+-- the NC it already drafted, and puts it back to draft if its issue failed so
+-- the job issues it again.
 create or replace function public.settle_billed_remito(p_factura_id uuid)
 returns uuid
 language plpgsql
@@ -228,6 +237,9 @@ begin
   from public.invoices n
   where n.idempotency_key::text = p_factura_id::text;
   if v_nc_id is not null then
+    update public.invoices
+    set status = 'draft'
+    where id = v_nc_id and status = 'failed';
     return v_nc_id;
   end if;
 

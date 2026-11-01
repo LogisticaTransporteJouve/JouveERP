@@ -9,6 +9,7 @@ import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_REMITO_BILLED } from "@/lib/inngest/events";
+import { logAudit } from "@/lib/actions/audit";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -155,16 +156,38 @@ export interface RemitoLinks {
   billedAs: { id: string; label: string } | null;
   /** On a factura: the remito interno it billed. */
   sourceRemito: { id: string; label: string } | null;
-  /** On an emitted factura that billed a remito: the remito is not credited
-   *  yet (its settlement failed or is still running). */
-  creditPending: boolean;
+  /** On an emitted factura that billed a remito, while its NC interna is not
+   *  emitted: settling right after the CAE ("running"), or stuck long enough
+   *  to need "Reintentar acreditación" ("pending"). */
+  creditState: "settled" | "running" | "pending";
 }
 
 const NO_LINKS: RemitoLinks = {
   billedAs: null,
   sourceRemito: null,
-  creditPending: false,
+  creditState: "settled",
 };
+
+/** How long after the CAE a settlement still counts as running: the job
+ *  retries for a few minutes before giving up. */
+const SETTLE_WINDOW_MS = 10 * 60 * 1000;
+
+function creditStateOf(
+  factura: {
+    status: string;
+    emitted_at: string | null;
+    source_remito_id: string | null;
+  } | null,
+  nc: { status: string } | null,
+): RemitoLinks["creditState"] {
+  if (!factura?.source_remito_id || factura.status !== "emitted") {
+    return "settled";
+  }
+  if (nc?.status === "emitted") return "settled";
+  if (nc?.status === "draft" || nc?.status === "emitting") return "running";
+  const emittedAt = factura.emitted_at ? Date.parse(factura.emitted_at) : 0;
+  return Date.now() - emittedAt < SETTLE_WINDOW_MS ? "running" : "pending";
+}
 
 export async function getRemitoLinksAction(
   invoiceId: string,
@@ -180,7 +203,7 @@ export async function getRemitoLinksAction(
 
   const supabase = getServiceClient();
   const cols =
-    "id, kind, letter, punto_venta, numero, status, source_remito_id";
+    "id, kind, letter, punto_venta, numero, status, emitted_at, source_remito_id";
   const [billed, self, nc] = await Promise.all([
     supabase
       .from("invoices")
@@ -191,9 +214,8 @@ export async function getRemitoLinksAction(
     supabase.from("invoices").select(cols).eq("id", id.data).maybeSingle(),
     supabase
       .from("invoices")
-      .select("id")
+      .select("id, status")
       .eq("idempotency_key", id.data)
-      .eq("status", "emitted")
       .maybeSingle(),
   ]);
   const failed = billed.error ?? self.error ?? nc.error;
@@ -251,10 +273,7 @@ export async function getRemitoLinksAction(
           }
         : null,
       sourceRemito,
-      creditPending:
-        !!self.data?.source_remito_id &&
-        self.data.status === "emitted" &&
-        !nc.data,
+      creditState: creditStateOf(self.data, nc.data),
     },
   };
 }
@@ -291,10 +310,34 @@ export async function retryRemitoCreditAction(
         "Solo una factura emitida que facturó un remito se puede acreditar.",
     };
   }
-  await inngest.send({
-    name: INVOICE_REMITO_BILLED,
-    data: { factura_id: data.id },
+  // A refusal the settlement would hit again: say it instead of re-queueing.
+  // (The settlement's own NC, failed or pending, is what the retry fixes.)
+  const blocker = await supabase.rpc("billed_remito_blocker", {
+    p_remito_id: data.source_remito_id,
   });
+  if (blocker.error) {
+    logger.error("bill_remito.blocker_failed", { error: blocker.error });
+    return { ok: false, error: "No se pudo verificar el remito." };
+  }
+  if (blocker.data && !blocker.data.startsWith("El remito ya tiene una nota")) {
+    return { ok: false, error: blocker.data };
+  }
+  try {
+    await inngest.send({
+      name: INVOICE_REMITO_BILLED,
+      data: { factura_id: data.id },
+    });
+  } catch (err) {
+    logger.error("bill_remito.retry_enqueue_failed", {
+      factura_id: data.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      ok: false,
+      error: "No se pudo encolar la acreditación. Probá de nuevo.",
+    };
+  }
+  await logAudit("invoice.remito_credit_retried", ctx.userId, {}, data.id);
   logger.info("bill_remito.credit_retried", {
     userId: ctx.userId,
     factura_id: data.id,

@@ -187,8 +187,10 @@ export function BillRemitoDialog({
               </Select>
             </div>
           )}
-          {posProblem && (
-            <p className="text-sm text-muted-foreground">{posProblem}</p>
+          {(posProblem ?? (pos.isPending && fiscalChannel)) && (
+            <p className="text-sm text-muted-foreground">
+              {posProblem ?? "Cargando puntos de venta…"}
+            </p>
           )}
           <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border bg-muted/30 p-3 text-sm">
             <span>

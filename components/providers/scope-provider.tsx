@@ -5,7 +5,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useDeferredValue,
+  startTransition,
   useEffect,
   useMemo,
   useState,
@@ -32,7 +32,9 @@ type ScopeContextValue = {
   channels: InvoicingChannelSummary[];
   /** The scope cannot change (a fiscal-only user is pinned to fiscal). */
   locked: boolean;
-  setFiscalFilter: (filter: ScopeSide) => void;
+  /** `navigating`: a link is taking the user to another page, which renders
+   *  under the new side on its own, so the current one is not refreshed. */
+  setFiscalFilter: (filter: ScopeSide, opts?: { navigating?: boolean }) => void;
 };
 
 const STORAGE_KEY = "jouve_scope_v1";
@@ -94,9 +96,15 @@ export function ScopeProvider({
   // The cookie is written before the refresh so server components (the
   // dashboard, page prefetches) re-render under the new scope.
   const setFiscalFilter = useCallback(
-    (filter: ScopeSide) => {
+    (filter: ScopeSide, opts?: { navigating?: boolean }) => {
       if (locked) return;
       persist(filter);
+      if (opts?.navigating) {
+        // Batched with the navigation: the page being left does not remount
+        // (SideKeyed) and refetch under the new side first.
+        startTransition(() => setFiscalFilterState(filter));
+        return;
+      }
       setFiscalFilterState(filter);
       router.refresh();
     },
@@ -157,11 +165,9 @@ export function useDefaultChannel(): string | null {
   return defaultChannelFor(usePageScope(), channels);
 }
 
-/** The read filter of the page scope, for list queries (`isFiscalFor`).
- *  Deferred so switching side keeps the previous list on screen while the new
- *  one loads instead of suspending to the skeleton. */
+/** The read filter of the page scope, for list queries (`isFiscalFor`). */
 export function useScopeIsFiscal(): boolean | null {
-  return useDeferredValue(isFiscalFor(usePageScope()));
+  return isFiscalFor(usePageScope());
 }
 
 /** The page's side for a form: true on Ventas/Compras, false on their "Otras",

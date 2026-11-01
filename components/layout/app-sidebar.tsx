@@ -57,6 +57,7 @@ function NavLink({
 }) {
   const { setOpenMobile } = useSidebar();
   const { fiscalFilter, setFiscalFilter } = useScope();
+  const pathname = usePathname();
   const isActive = item === activeItem;
   return (
     <SidebarMenuItem>
@@ -74,7 +75,9 @@ function NavLink({
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             setOpenMobile(false);
             if (item.scope && item.scope !== fiscalFilter) {
-              setFiscalFilter(item.scope);
+              setFiscalFilter(item.scope, {
+                navigating: item.href !== pathname,
+              });
             }
           }}
         >
