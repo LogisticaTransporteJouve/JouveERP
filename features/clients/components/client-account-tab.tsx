@@ -79,11 +79,20 @@ function formatMovementNumber(m: AccountMovement): string {
 
 function movementTypeLabel(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "Ajuste de saldo";
-  if (m.source_type === "receipt") return "Recibo";
+  // Otras ventas: remitos and recibos internos, never "factura".
+  const internal = m.channel_is_fiscal === false;
+  if (m.source_type === "receipt")
+    return internal ? "Recibo interno" : "Recibo";
   if (m.source_type === "rejected_check") return "Cheque rechazado";
-  if (m.kind === "factura") return `Factura${m.letter ? " " + m.letter : ""}`;
-  if (m.kind === "nc") return "Nota de Crédito";
-  if (m.kind === "nd") return "Nota de Débito";
+  if (m.kind === "factura") {
+    return internal
+      ? "Remito interno"
+      : `Factura${m.letter ? " " + m.letter : ""}`;
+  }
+  if (m.kind === "nc")
+    return internal ? "Nota de crédito interna" : "Nota de Crédito";
+  if (m.kind === "nd")
+    return internal ? "Nota de débito interna" : "Nota de Débito";
   return m.kind;
 }
 

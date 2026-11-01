@@ -48,7 +48,7 @@ import {
   type CreateComprobanteInput,
 } from "../schema";
 
-import type { IvaCondition } from "@/features/clients/schema";
+import { isIvaCondition, type IvaCondition } from "@/features/clients/schema";
 
 import {
   invoiceTypesOrFilter,
@@ -807,7 +807,12 @@ export async function getInvoiceListTotalsAction(
 export interface ComprobanteDetail {
   id: string;
   channel: { id: string; name: string; is_fiscal: boolean };
-  client: { id: string; legal_name: string; iva_condition: IvaCondition };
+  /** iva_condition is null for an Otras ventas client (none). */
+  client: {
+    id: string;
+    legal_name: string;
+    iva_condition: IvaCondition | null;
+  };
   kind: InvoiceRow["kind"];
   letter: InvoiceRow["letter"];
   punto_venta: number;
@@ -955,7 +960,9 @@ export async function getInvoiceDetailAction(
       client: {
         id: row.client.id,
         legal_name: row.client.legal_name,
-        iva_condition: row.client.iva_condition as IvaCondition,
+        iva_condition: isIvaCondition(row.client.iva_condition)
+          ? row.client.iva_condition
+          : null,
       },
       kind: row.kind as InvoiceRow["kind"],
       letter: row.letter as InvoiceRow["letter"],

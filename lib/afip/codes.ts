@@ -117,6 +117,30 @@ export function condicionIvaReceptorFor(
   return IVA_CONDITION_TO_RECEPTOR[iva];
 }
 
+/** A voucher's receiver: a fiscal client by CUIT and IVA condition; an Otras
+ *  ventas client, which has neither, as an unidentified receiver (doc 99). */
+export function voucherReceptor(client: {
+  cuit: string | null;
+  iva_condition: IvaCondition | null;
+}): {
+  doc_tipo: DocTipoCode;
+  doc_nro: string;
+  iva_condition_receptor: CondicionIvaReceptorCode | null;
+} {
+  if (client.cuit && client.iva_condition) {
+    return {
+      doc_tipo: DOC_TIPO.CUIT,
+      doc_nro: client.cuit,
+      iva_condition_receptor: condicionIvaReceptorFor(client.iva_condition),
+    };
+  }
+  return {
+    doc_tipo: DOC_TIPO.CONSUMIDOR_FINAL,
+    doc_nro: "0",
+    iva_condition_receptor: null,
+  };
+}
+
 // --------------------------------------------------------------------------
 // Letter resolution — given issuer + recipient IVA conditions, what letter?
 //

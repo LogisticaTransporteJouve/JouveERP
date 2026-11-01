@@ -25,6 +25,17 @@ export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
   nd: "Nota de Débito",
 };
 
+/** Otras ventas never says "factura": its documents are remitos internos. */
+export const INTERNAL_INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
+  factura: "Remito interno",
+  nc: "Nota de crédito interna",
+  nd: "Nota de débito interna",
+};
+
+export function invoiceKindLabel(kind: InvoiceKind, isFiscal: boolean): string {
+  return (isFiscal ? INVOICE_KIND_LABEL : INTERNAL_INVOICE_KIND_LABEL)[kind];
+}
+
 export const INVOICE_STATUSES = [
   "draft",
   "emitting",
@@ -352,9 +363,12 @@ export function formatInvoiceNumero(
   opts: { whenNullNumero?: string | null } = {},
 ): string {
   const pos = String(puntoVenta).padStart(4, "0");
+  // A fiscal factura always has its letter; without one it is a remito
+  // interno (Otras ventas), shown with the usual "X" of non-fiscal documents
+  // (R is taken by receipts).
   const prefix =
     kind === "factura"
-      ? `${letter ?? ""}${pos}`
+      ? `${letter ?? "X"}${pos}`
       : `${kind === "nc" ? "NC" : "ND"}${pos}`;
   if (numero != null) return `${prefix}-${String(numero).padStart(8, "0")}`;
   const placeholder =

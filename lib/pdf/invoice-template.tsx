@@ -7,7 +7,7 @@ import {
   View,
 } from "@react-pdf/renderer";
 
-import { INVOICE_KIND_LABEL } from "@/features/invoices/schema";
+import { invoiceKindLabel } from "@/features/invoices/schema";
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import {
   CONDICION_IVA_RECEPTOR,
@@ -54,7 +54,7 @@ export interface InvoiceTemplateData {
     legal_name: string;
     doc_tipo_label: string; // "CUIT" / "DNI" / "CF"
     doc_nro: string;
-    iva_condition_label: string;
+    iva_condition_label: string | null;
     /** AFIP CondicionIVAReceptorId sent with the voucher; null when internal. */
     condicion_iva_receptor: number | null;
     address: string | null;
@@ -300,9 +300,7 @@ function InvoicePage({
       ? `Letra ${data.letter}`
       : "Sin letra"
     : "Documento no fiscal";
-  const heading = data.isFiscal
-    ? INVOICE_KIND_LABEL[data.kind]
-    : INTERNAL_KIND_LABEL[data.kind];
+  const heading = invoiceKindLabel(data.kind, data.isFiscal);
 
   return (
     <Page size="A4" style={styles.page}>
@@ -386,12 +384,16 @@ function InvoicePage({
         <Text style={styles.receptorTitle}>Receptor</Text>
         <View style={styles.receptorRow}>
           <Text style={{ flex: 2 }}>{data.receptor.legal_name}</Text>
-          <Text style={{ flex: 1, textAlign: "right" }}>
-            {data.receptor.doc_tipo_label} {data.receptor.doc_nro}
-          </Text>
+          {data.isFiscal && (
+            <Text style={{ flex: 1, textAlign: "right" }}>
+              {data.receptor.doc_tipo_label} {data.receptor.doc_nro}
+            </Text>
+          )}
         </View>
         <View style={styles.receptorRow}>
-          <Text style={{ flex: 1 }}>{data.receptor.iva_condition_label}</Text>
+          <Text style={{ flex: 1 }}>
+            {data.receptor.iva_condition_label ?? ""}
+          </Text>
           {data.receptor.address && (
             <Text style={{ flex: 2, textAlign: "right" }}>
               {data.receptor.address}
@@ -528,13 +530,6 @@ function InvoicePage({
     </Page>
   );
 }
-
-/** The title of an internal comprobante: never "Factura" (D5). */
-const INTERNAL_KIND_LABEL: Record<InvoiceKind, string> = {
-  factura: "Comprobante interno",
-  nc: "Nota de crédito interna",
-  nd: "Nota de débito interna",
-};
 
 // Mirrors the table in lib/afip/codes.ts. Kept inline because the PDF-side
 // only needs the int code as a string for display next to the letter.

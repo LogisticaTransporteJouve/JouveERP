@@ -51,6 +51,7 @@ export default async function ComprobantesPage({
     params,
     isFiscalFor(await readScopeCookie()),
   );
+  const isFiscalSide = filters.isFiscal !== false;
 
   const dehydratedState = await prefetchQueries([
     {
@@ -81,13 +82,17 @@ export default async function ComprobantesPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Comprobantes
+            {isFiscalSide ? "Comprobantes" : "Remitos internos"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Facturas, notas de crédito y débito por canal.
+            {isFiscalSide
+              ? "Facturas, notas de crédito y débito por canal."
+              : "Ventas de Otras ventas: no van a AFIP ni llevan IVA."}
           </p>
         </div>
-        {userCan(ctx.access, "afip:admin") && <ArcaSyncButton />}
+        {userCan(ctx.access, "afip:admin") && isFiscalSide && (
+          <ArcaSyncButton />
+        )}
       </div>
       <Hydrate state={dehydratedState}>
         <ComprobantesTable
