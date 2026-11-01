@@ -14,8 +14,10 @@ insert into auth.users (id, email) values
 insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-0000000000f1', 'finance');
 
+-- test_closed is internal, so its supplier is too (guard_document_side).
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition, default_channel_id) values
+  ('00000000-0000-0000-0000-00000000b101', false, null, 'Proveedor Viejo', null, 'test_closed');
 insert into public.suppliers (id, cuit, legal_name, iva_condition, default_channel_id) values
-  ('00000000-0000-0000-0000-00000000b101', '30555555556', 'Proveedor Viejo', 'responsable_inscripto', 'test_closed'),
   ('00000000-0000-0000-0000-00000000b102', '30666666667', 'Proveedor Nuevo', 'responsable_inscripto', 'jouve_internal');
 
 insert into public.purchase_invoices

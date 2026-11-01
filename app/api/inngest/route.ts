@@ -13,6 +13,7 @@ import { arcaIssuedSync } from "@/lib/inngest/functions/arca-issued-sync";
 import { bcraExchangeRate } from "@/lib/inngest/functions/bcra-exchange-rate";
 import { caeaInform } from "@/lib/inngest/functions/caea-inform";
 import { caeaRequest } from "@/lib/inngest/functions/caea-request";
+import { creditBilledRemito } from "@/lib/inngest/functions/credit-billed-remito";
 import { documentExpiryAlerts } from "@/lib/inngest/functions/document-expiry-alerts";
 import { documentExtraction } from "@/lib/inngest/functions/document-extraction";
 import { fleetDocumentExpiryAlerts } from "@/lib/inngest/functions/fleet-document-expiry-alerts";
@@ -38,6 +39,7 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     issueInvoice,
+    creditBilledRemito,
     agingWeeklySummary,
     notificationsDispatch,
     filesSweepOrphans,

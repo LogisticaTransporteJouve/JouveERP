@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+
+import { PageSideProvider } from "@/components/providers/scope-provider";
 import { Suspense } from "react";
 
 import {
@@ -27,8 +29,6 @@ import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -45,33 +45,31 @@ export default async function ClientDetailPage({
   }
 
   const { id } = await params;
-  const isFiscal = isFiscalFor(await readScopeCookie());
-  // Independent reads in parallel: the client row, the pickers' channels and
-  // accounts, and the cuenta-corriente prefetch (a not-found id just wastes
-  // the prefetch; the account actions validate the id themselves).
-  const [result, activeChannels, accountsResult, dehydratedState] =
-    await Promise.all([
-      getClientByIdAction(id),
-      getActiveInvoicingChannels(),
-      listAccountsAction(),
-      prefetchQueries([
-        {
-          queryKey: clientsKeys.accountByScope(id, isFiscal),
-          queryFn: () =>
-            runAction(() => getClientAccountAction(id, { isFiscal })),
-        },
-        {
-          queryKey: clientsKeys.openingBalance(id),
-          queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
-        },
-      ]),
-    ]);
+  const result = await getClientByIdAction(id);
   if (!result.ok) {
     redirect("/clients");
   }
   if (!result.data) {
     notFound();
   }
+  // A client lives on one side: its page shows that side, whatever the menu
+  // last chose (a dashboard link can land on either).
+  const isFiscal = result.data.is_fiscal;
+  const [activeChannels, accountsResult, dehydratedState] = await Promise.all([
+    getActiveInvoicingChannels(),
+    listAccountsAction(),
+    prefetchQueries([
+      {
+        queryKey: clientsKeys.accountByScope(id, isFiscal),
+        queryFn: () =>
+          runAction(() => getClientAccountAction(id, { isFiscal })),
+      },
+      {
+        queryKey: clientsKeys.openingBalance(id),
+        queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
+      },
+    ]),
+  ]);
 
   const client = result.data;
   const canWrite = userCan(ctx.access, "clients:write");
@@ -86,83 +84,85 @@ export default async function ClientDetailPage({
   const accounts = accountsResult.ok ? accountsResult.data : [];
 
   return (
-    <div className="space-y-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/clients">Clientes</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{client.legal_name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {client.legal_name}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {counterpartyIdentityLabel(client)}
-          {!client.is_active && " · Inactivo"}
-        </p>
+    <PageSideProvider side={isFiscal ? "fiscal" : "internal"}>
+      <div className="space-y-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/clients">Clientes</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{client.legal_name}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {client.legal_name}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {counterpartyIdentityLabel(client)}
+            {!client.is_active && " · Inactivo"}
+          </p>
+        </div>
+
+        <Tabs defaultValue="account">
+          <TabsList>
+            <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
+            <TabsTrigger value="data">Datos</TabsTrigger>
+            <TabsTrigger value="files">Adjuntos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="account" className="mt-4">
+            <Hydrate state={dehydratedState}>
+              <Suspense fallback={<Loading />}>
+                <ClientAccountTab
+                  clientId={id}
+                  client={{
+                    id: client.id,
+                    legal_name: client.legal_name,
+                    display_name: client.display_name,
+                    cuit: client.cuit,
+                    iva_condition: client.iva_condition,
+                    is_fiscal: client.is_fiscal,
+                  }}
+                  channels={channels}
+                  accounts={accounts}
+                  actorAccess={ctx.access}
+                />
+              </Suspense>
+            </Hydrate>
+          </TabsContent>
+
+          <TabsContent value="data" className="mt-4 max-w-3xl">
+            {canWrite ? (
+              <ClientForm mode="edit" client={client} />
+            ) : (
+              <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+                No tenés permiso para editar clientes.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-4 max-w-3xl">
+            <div className="rounded-lg border bg-card p-4">
+              <h2 className="text-sm font-medium">Adjuntos del cliente</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Constancia de inscripción, contratos, otros documentos.
+              </p>
+              <div className="mt-3">
+                <AttachmentsZone
+                  targetType="client"
+                  targetId={client.id}
+                  canWrite={userCan(ctx.access, "files:write") && canWrite}
+                  canDelete={userCan(ctx.access, "files:write") && canWrite}
+                />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs defaultValue="account">
-        <TabsList>
-          <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
-          <TabsTrigger value="data">Datos</TabsTrigger>
-          <TabsTrigger value="files">Adjuntos</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="account" className="mt-4">
-          <Hydrate state={dehydratedState}>
-            <Suspense fallback={<Loading />}>
-              <ClientAccountTab
-                clientId={id}
-                client={{
-                  id: client.id,
-                  legal_name: client.legal_name,
-                  display_name: client.display_name,
-                  cuit: client.cuit,
-                  iva_condition: client.iva_condition,
-                  is_fiscal: client.is_fiscal,
-                }}
-                channels={channels}
-                accounts={accounts}
-                actorAccess={ctx.access}
-              />
-            </Suspense>
-          </Hydrate>
-        </TabsContent>
-
-        <TabsContent value="data" className="mt-4 max-w-3xl">
-          {canWrite ? (
-            <ClientForm mode="edit" client={client} />
-          ) : (
-            <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
-              No tenés permiso para editar clientes.
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="files" className="mt-4 max-w-3xl">
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-medium">Adjuntos del cliente</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Constancia de inscripción, contratos, otros documentos.
-            </p>
-            <div className="mt-3">
-              <AttachmentsZone
-                targetType="client"
-                targetId={client.id}
-                canWrite={userCan(ctx.access, "files:write") && canWrite}
-                canDelete={userCan(ctx.access, "files:write") && canWrite}
-              />
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+    </PageSideProvider>
   );
 }

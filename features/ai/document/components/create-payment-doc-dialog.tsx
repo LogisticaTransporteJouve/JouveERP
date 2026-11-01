@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   useDefaultChannel,
   useScope,
+  useSideChannels,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,7 +92,7 @@ export function CreatePaymentDocDialog({
 }) {
   const copy = COPY[kind];
   const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
+  const activeChannels = useSideChannels(channels.filter((c) => c.is_active));
   const defaultChannel = useDefaultChannel();
   const { data: accounts } = useAccountsList();
 

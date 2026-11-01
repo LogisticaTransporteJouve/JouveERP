@@ -16,8 +16,9 @@ insert into public.invoicing_channels (id, business_unit_id, name, is_fiscal, is
   ('test_empty', 'dz_sons', 'Canal vacío', false, true),
   ('test_fiscal', 'dz_sons', 'Canal fiscal', true, true);
 
-insert into public.suppliers (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000b201', '30555555556', 'Proveedor Config', 'responsable_inscripto');
+-- test_used is internal, so its supplier is too (guard_document_side).
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b201', false, null, 'Proveedor Config', null);
 
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)

@@ -76,7 +76,9 @@ interface ChannelInfo {
 interface ClientInfo {
   id: string;
   is_active: boolean;
-  iva_condition: IvaCondition;
+  /** Null for an Otras ventas client (no IVA condition). */
+  iva_condition: IvaCondition | null;
+  is_fiscal: boolean;
 }
 
 async function loadChannel(
@@ -98,7 +100,7 @@ async function loadClient(
 ): Promise<ClientInfo | null> {
   const { data, error } = await supabase
     .from("clients")
-    .select("id, is_active, iva_condition")
+    .select("id, is_active, iva_condition, is_fiscal")
     .eq("id", clientId)
     .maybeSingle();
   if (error) throw new Error(`load-client: ${error.message}`);
@@ -106,7 +108,10 @@ async function loadClient(
   return {
     id: data.id,
     is_active: data.is_active,
-    iva_condition: data.iva_condition as IvaCondition,
+    iva_condition: isIvaCondition(data.iva_condition)
+      ? data.iva_condition
+      : null,
+    is_fiscal: data.is_fiscal,
   };
 }
 
@@ -201,6 +206,15 @@ export async function issueFiscalInvoiceAction(
   if (!client) return { ok: false, error: "Cliente no existe." };
   if (!client.is_active)
     return { ok: false, error: "El cliente está inactivo." };
+  // guard_document_side refuses it too; said here in the user's words.
+  if (client.is_fiscal !== channel.is_fiscal) {
+    return {
+      ok: false,
+      error: channel.is_fiscal
+        ? "Un comprobante de Ventas necesita un cliente de Ventas."
+        : "Un comprobante de Otras ventas necesita un cliente de Otras ventas.",
+    };
+  }
 
   const pos = await loadEnabledPos(supabase, data.punto_venta, data.channel_id);
   if (!pos) {
@@ -297,8 +311,13 @@ export async function issueFiscalInvoiceAction(
   let cbteTipoAfip: CbteTipoCode | null = null;
   let receptor: CondicionIvaReceptorCode | null = null;
   if (channel.is_fiscal) {
+    // A Ventas client always has one (clients_side_identity).
+    const fiscalIva = client.iva_condition;
+    if (!fiscalIva) {
+      return { ok: false, error: "Falta la condición de IVA del cliente." };
+    }
     const fiscalLetter: InvoiceLetter =
-      origin?.letter ?? data.letter ?? letterFor(client.iva_condition);
+      origin?.letter ?? data.letter ?? letterFor(fiscalIva);
     const fiscalReceptor = origin?.receptor ?? data.iva_condition_receptor;
     if (fiscalReceptor === null) {
       return {

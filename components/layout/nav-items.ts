@@ -60,7 +60,7 @@ export type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   permission?: Permission | readonly Permission[];
-  /** Opening the item switches the header scope to this one. */
+  /** Opening the item switches the side (fiscal / internal) to this one. */
   scope?: Exclude<FiscalFilter, "all">;
 };
 

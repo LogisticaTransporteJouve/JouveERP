@@ -19,6 +19,15 @@ export const InvoiceIssueRequestedSchema = z.object({
 
 export type InvoiceIssueRequested = z.infer<typeof InvoiceIssueRequestedSchema>;
 
+/** A factura billed from a remito interno was emitted: settle the remito. */
+export const INVOICE_REMITO_BILLED = "invoice/remito.billed" as const;
+
+export const InvoiceRemitoBilledSchema = z.object({
+  factura_id: z.string().uuid(),
+});
+
+export type InvoiceRemitoBilled = z.infer<typeof InvoiceRemitoBilledSchema>;
+
 export const NOTIFICATIONS_DISPATCH = "notifications/dispatch" as const;
 
 export const NotificationsDispatchSchema = z.object({

@@ -1,110 +1,99 @@
-import { todayInAR } from "@/lib/format";
+import { NonRetriableError } from "inngest";
+
+import { JOUVE_GUARD_HINT } from "@/lib/db/guard-errors";
+import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import type { InvoiceIssueRequested } from "../events";
+import { inngest } from "../client";
+import {
+  INVOICE_ISSUE_REQUESTED,
+  INVOICE_REMITO_BILLED,
+  InvoiceRemitoBilledSchema,
+} from "../events";
 
 /**
- * Once a factura billed from a remito interno is emitted, drafts the nota de
- * crédito interna that credits the remito in full, so Otras ventas nets the
- * sale to zero and it exists only on the fiscal side (docs/otras-ventas.md §4).
+ * Settles a remito interno once the factura that bills it is emitted
+ * (docs/otras-ventas.md §4–5): `settle_billed_remito` moves its recibos
+ * internos to the fiscal side and drafts the nota de crédito interna for what
+ * is left open, in one transaction; this job then issues the NC on the
+ * internal side. Sent by issue-invoice after the CAE / CAEA, and again by
+ * "Reintentar acreditación" on the factura when a run failed.
  *
- * Idempotent: the NC's idempotency key is the factura's id, so a retried step
- * finds the draft it already wrote. Returns the event that issues the NC (the
- * internal branch of issue-invoice numbers it), or null when the factura has
- * no source remito.
+ * Idempotent: the NC's idempotency key is the factura's id, so a rerun finds
+ * the NC it already drafted. The issue event is keyed per run, so an NC that
+ * failed can be issued again.
  */
-export async function creditBilledRemito(
-  invoiceId: string,
-): Promise<InvoiceIssueRequested | null> {
-  const supabase = getServiceClient();
-
-  const { data: factura, error: facturaErr } = await supabase
-    .from("invoices")
-    .select("id, letter, punto_venta, numero, source_remito_id, created_by")
-    .eq("id", invoiceId)
-    .maybeSingle();
-  if (facturaErr) throw new Error(`load-factura: ${facturaErr.message}`);
-  if (!factura?.source_remito_id) return null;
-
-  const { data: remito, error: remitoErr } = await supabase
-    .from("invoices")
-    .select(
-      "id, channel_id, client_id, punto_venta, concepto, doc_tipo, doc_nro, moneda, cotizacion, imp_total",
-    )
-    .eq("id", factura.source_remito_id)
-    .maybeSingle();
-  if (remitoErr || !remito) {
-    throw new Error(`load-remito: ${remitoErr?.message ?? "missing"}`);
-  }
-
-  const numero = `${factura.letter ?? ""}${String(factura.punto_venta).padStart(4, "0")}-${String(factura.numero ?? 0).padStart(8, "0")}`;
-  const motivo = `Facturado como ${numero}`;
-  const total = Number(remito.imp_total);
-  const fecha = todayInAR();
-
-  const { error: insertErr } = await supabase.from("invoices").upsert(
-    {
-      channel_id: remito.channel_id,
-      client_id: remito.client_id,
-      kind: "nc",
-      letter: null,
-      punto_venta: remito.punto_venta,
-      fecha,
-      concepto: remito.concepto,
-      doc_tipo: remito.doc_tipo,
-      doc_nro: remito.doc_nro,
-      iva_condition_receptor: null,
-      imp_neto: total,
-      imp_iva: 0,
-      imp_trib: 0,
-      imp_tot_conc: 0,
-      imp_op_ex: 0,
-      imp_total: total,
-      moneda: remito.moneda,
-      cotizacion: remito.cotizacion,
-      status: "draft",
-      invoice_origin_id: remito.id,
-      motivo_nc_nd: motivo,
-      idempotency_key: factura.id,
-      created_by: factura.created_by,
+export const creditBilledRemito = inngest.createFunction(
+  {
+    id: "credit-billed-remito",
+    name: "Settle a billed remito interno",
+    triggers: [{ event: INVOICE_REMITO_BILLED }],
+    retries: 4,
+    // A retry click while the CAE's own run is still going: one at a time.
+    concurrency: { key: "event.data.factura_id", limit: 1 },
+    onFailure: async ({ event, error }) => {
+      const parsed = InvoiceRemitoBilledSchema.safeParse(
+        (event.data as { event?: { data?: unknown } }).event?.data,
+      );
+      // The factura is emitted and the remito still open: the sale counts on
+      // both sides until someone retries from the factura.
+      logger.error("credit_billed_remito.failed", {
+        factura_id: parsed.success ? parsed.data.factura_id : null,
+        err: error.message,
+      });
     },
-    { onConflict: "idempotency_key", ignoreDuplicates: true },
-  );
-  if (insertErr) throw new Error(`insert-nc: ${insertErr.message}`);
+  },
+  async ({ event, step }) => {
+    const { factura_id } = InvoiceRemitoBilledSchema.parse(event.data);
 
-  const { data: nc, error: ncErr } = await supabase
-    .from("invoices")
-    .select("id, status")
-    .eq("idempotency_key", factura.id)
-    .single();
-  if (ncErr) throw new Error(`load-nc: ${ncErr.message}`);
-
-  const { count, error: countErr } = await supabase
-    .from("invoice_items")
-    .select("id", { count: "exact", head: true })
-    .eq("invoice_id", nc.id);
-  if (countErr) throw new Error(`count-nc-items: ${countErr.message}`);
-  if (!count) {
-    const { error: itemErr } = await supabase.from("invoice_items").insert({
-      invoice_id: nc.id,
-      sort_order: 0,
-      description: motivo,
-      quantity: 1,
-      unit_price: total,
-      iva_rate_id: null,
-      line_neto: total,
-      line_iva: 0,
-      line_total: total,
+    const ncId = await step.run("settle", async () => {
+      const supabase = getServiceClient();
+      const { data, error } = await supabase.rpc("settle_billed_remito", {
+        p_factura_id: factura_id,
+      });
+      if (error) {
+        // A guard's refusal is deterministic: retrying cannot help.
+        if (error.hint === JOUVE_GUARD_HINT) {
+          throw new NonRetriableError(error.message);
+        }
+        throw new Error(`settle: ${error.message}`);
+      }
+      return data;
     });
-    if (itemErr) throw new Error(`insert-nc-item: ${itemErr.message}`);
-  }
+    if (!ncId) {
+      logger.info("credit_billed_remito.nothing_open", { factura_id });
+      return { nc_id: null };
+    }
 
-  // Already issued by an earlier attempt: nothing left to send.
-  if (nc.status !== "draft") return null;
-  return {
-    invoice_id: nc.id,
-    idempotency_key: factura.id,
-    channel_id: remito.channel_id,
-    punto_venta: remito.punto_venta,
-  };
-}
+    const nc = await step.run("load-nc", async () => {
+      const supabase = getServiceClient();
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("id, status, channel_id, punto_venta, idempotency_key")
+        .eq("id", ncId)
+        .single();
+      if (error) throw new Error(`load-nc: ${error.message}`);
+      return data;
+    });
+
+    if (nc.status === "draft") {
+      await step.sendEvent("issue-remito-nc", {
+        name: INVOICE_ISSUE_REQUESTED,
+        data: {
+          invoice_id: nc.id,
+          // issue-invoice dedupes on this key for 24h: a re-issue after a
+          // failed NC (a retry) needs its own, so it is keyed by this run.
+          idempotency_key: `${nc.idempotency_key}:${event.id ?? "first"}`,
+          channel_id: nc.channel_id,
+          punto_venta: nc.punto_venta,
+        },
+      });
+    }
+    logger.info("credit_billed_remito.settled", {
+      factura_id,
+      nc_id: nc.id,
+      nc_status: nc.status,
+    });
+    return { nc_id: nc.id };
+  },
+);

@@ -97,7 +97,7 @@ function buildInvoiceColumns(
   return [
     {
       id: "numero",
-      header: "Factura",
+      header: "Número",
       enableSorting: false,
       meta: { cellClassName: "font-mono text-xs" },
       cell: ({ row }) =>

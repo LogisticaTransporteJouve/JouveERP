@@ -202,6 +202,19 @@ export const IVA_RATE = {
 
 export type IvaRateId = (typeof IVA_RATE)[keyof typeof IVA_RATE];
 
+/** Every IVA rate AFIP defines, low to high, for a form's select. */
+export const IVA_RATE_OPTIONS: ReadonlyArray<{
+  value: IvaRateId;
+  label: string;
+}> = [
+  { value: IVA_RATE.ZERO, label: "0%" },
+  { value: IVA_RATE.TWO_FIVE, label: "2.5%" },
+  { value: IVA_RATE.FIVE, label: "5%" },
+  { value: IVA_RATE.TEN_FIVE, label: "10.5%" },
+  { value: IVA_RATE.TWENTY_ONE, label: "21%" },
+  { value: IVA_RATE.TWENTY_SEVEN, label: "27%" },
+];
+
 export const IVA_RATE_PERCENT: Record<IvaRateId, number> = {
   3: 0,
   4: 10.5,

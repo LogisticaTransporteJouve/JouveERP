@@ -42,6 +42,9 @@ insert into public.clients (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000c901', '20999999992', 'Cliente Reverso', 'responsable_inscripto');
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000b901', '30999999993', 'Proveedor Reverso', 'responsable_inscripto');
+-- The internal purchase needs an internal supplier (guard_document_side).
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b902', false, null, 'Proveedor Reverso Interno', null);
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-00000000a901', 'Banco Reverso', 'bank', 'ARS'),
   ('00000000-0000-0000-0000-00000000a902', 'Banco que pasa a caja', 'bank', 'ARS');
@@ -380,7 +383,7 @@ select throws_ok(
 select lives_ok(
   $$insert into public.purchase_invoices
       (channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_total, status)
-    values ('jouve_internal', '00000000-0000-0000-0000-00000000b901', 'factura', 1, 99011, current_date, 10, 'received')$$,
+    values ('jouve_internal', '00000000-0000-0000-0000-00000000b902', 'factura', 1, 99011, current_date, 10, 'received')$$,
   'an internal purchase does not'
 );
 

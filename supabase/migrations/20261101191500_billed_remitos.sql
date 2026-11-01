@@ -24,6 +24,12 @@ create unique index invoices_source_remito_live_key
   on public.invoices (source_remito_id)
   where source_remito_id is not null and status not in ('failed', 'cancelled');
 
+-- Plain lookup by remito (the FK's delete check and the frozen-remito guard).
+-- squawk-ignore require-concurrent-index-creation
+create index invoices_source_remito_idx
+  on public.invoices (source_remito_id)
+  where source_remito_id is not null;
+
 create or replace function public.guard_invoice_source_remito()
 returns trigger
 language plpgsql

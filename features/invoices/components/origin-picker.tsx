@@ -17,7 +17,6 @@ import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
 import { formatInvoiceNumero } from "../schema";
 
-
 const formatARS = formatNumber2;
 
 /**
@@ -127,7 +126,9 @@ export function OriginPicker({
                       <span className="truncate">{it.client_legal_name}</span>
                     </div>
                     <div className="flex flex-col items-end gap-0.5 text-xs">
-                      <span className="font-mono">${formatARS(it.imp_total)}</span>
+                      <span className="font-mono">
+                        ${formatARS(it.imp_total)}
+                      </span>
                       <span className="text-muted-foreground">{it.fecha}</span>
                     </div>
                   </button>

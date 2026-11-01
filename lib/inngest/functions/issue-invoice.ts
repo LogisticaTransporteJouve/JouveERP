@@ -19,9 +19,9 @@ import { getServiceClient } from "@/lib/supabase/service";
 import { inngest } from "../client";
 import {
   INVOICE_ISSUE_REQUESTED,
+  INVOICE_REMITO_BILLED,
   InvoiceIssueRequestedSchema,
 } from "../events";
-import { creditBilledRemito } from "./credit-billed-remito";
 import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
@@ -81,6 +81,8 @@ export type DraftRow = {
   cotizacion: string | number;
   status: string;
   invoice_origin_id: string | null;
+  /** Set on a factura that bills a remito interno (docs/otras-ventas.md §4). */
+  source_remito_id: string | null;
 };
 
 export type ItemRow = {
@@ -110,6 +112,17 @@ export type DraftLoad = {
   /** AFIP EmisionTipo of the POS ("CAE" | "CAEA" | null if never synced). */
   posEmissionType: string | null;
 };
+
+/** A factura billed from a remito interno, once emitted, settles the remito
+ *  (credit-billed-remito, docs/otras-ventas.md §4). */
+function remitoBilledEvent(load: DraftLoad) {
+  return load.draft.source_remito_id
+    ? {
+        name: INVOICE_REMITO_BILLED,
+        data: { factura_id: load.draft.id },
+      }
+    : null;
+}
 
 function toNumber(value: string | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -376,17 +389,8 @@ export const issueInvoice = inngest.createFunction(
         return rpcAs<number>(data);
       });
 
-      // A factura billed from a remito interno credits it now that it is
-      // emitted (docs/otras-ventas.md §4).
-      const remitoNcCaea = await step.run("credit-billed-remito-caea", () =>
-        creditBilledRemito(invoice_id),
-      );
-      if (remitoNcCaea) {
-        await step.sendEvent("issue-remito-nc-caea", {
-          name: INVOICE_ISSUE_REQUESTED,
-          data: remitoNcCaea,
-        });
-      }
+      const billedCaea = remitoBilledEvent(load);
+      if (billedCaea) await step.sendEvent("remito-billed-caea", billedCaea);
 
       await step.run("hash-pdf-caea", async () => {
         try {
@@ -480,17 +484,8 @@ export const issueInvoice = inngest.createFunction(
       if (error) throw new Error(`persist-cae: ${error.message}`);
     });
 
-    // A factura billed from a remito interno credits it now that it is
-    // emitted (docs/otras-ventas.md §4).
-    const remitoNc = await step.run("credit-billed-remito", () =>
-      creditBilledRemito(invoice_id),
-    );
-    if (remitoNc) {
-      await step.sendEvent("issue-remito-nc", {
-        name: INVOICE_ISSUE_REQUESTED,
-        data: remitoNc,
-      });
-    }
+    const billed = remitoBilledEvent(load);
+    if (billed) await step.sendEvent("remito-billed", billed);
 
     // M.0: PDF hash runs after persist-cae and is best-effort. The PDF
     // is regenerated on-demand from /api/invoices/[id]/pdf; here we only

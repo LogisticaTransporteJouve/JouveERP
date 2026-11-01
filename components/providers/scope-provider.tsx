@@ -1,10 +1,11 @@
 "use client";
 
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
-  useDeferredValue,
+  startTransition,
   useEffect,
   useMemo,
   useState,
@@ -31,7 +32,9 @@ type ScopeContextValue = {
   channels: InvoicingChannelSummary[];
   /** The scope cannot change (a fiscal-only user is pinned to fiscal). */
   locked: boolean;
-  setFiscalFilter: (filter: ScopeSide) => void;
+  /** `navigating`: a link is taking the user to another page, which renders
+   *  under the new side on its own, so the current one is not refreshed. */
+  setFiscalFilter: (filter: ScopeSide, opts?: { navigating?: boolean }) => void;
 };
 
 const STORAGE_KEY = "jouve_scope_v1";
@@ -93,9 +96,20 @@ export function ScopeProvider({
   // The cookie is written before the refresh so server components (the
   // dashboard, page prefetches) re-render under the new scope.
   const setFiscalFilter = useCallback(
-    (filter: ScopeSide) => {
+    (filter: ScopeSide, opts?: { navigating?: boolean }) => {
       if (locked) return;
       persist(filter);
+      if (opts?.navigating) {
+        // Batched with the navigation: the page being left does not remount
+        // (SideKeyed) and refetch under the new side first. The refresh is
+        // superseded by the navigation but still drops the router's cached
+        // pages, so Back renders them under the new side too.
+        startTransition(() => {
+          setFiscalFilterState(filter);
+          router.refresh();
+        });
+        return;
+      }
       setFiscalFilterState(filter);
       router.refresh();
     },
@@ -120,13 +134,32 @@ export function useScope() {
   return ctx;
 }
 
-/** The scope a page reads: the menu's side on a split page (Ventas, Compras
- *  and their "Otras"), every channel on a shared one (treasury, dashboard…).
- *  A fiscal-only user is always fiscal. */
+const PageSideContext = createContext<ScopeSide | null>(null);
+
+/** Pins the side of everything below it to a record's own side (a client's or
+ *  supplier's detail page, a fiscal document), whatever the menu last chose. */
+export function PageSideProvider({
+  side,
+  children,
+}: {
+  side: ScopeSide;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageSideContext.Provider value={side}>{children}</PageSideContext.Provider>
+  );
+}
+
+/** The scope a page reads: a pinned record's side (PageSideProvider), else the
+ *  menu's side on a split page (Ventas, Compras and their "Otras"), every
+ *  channel on a shared one (treasury, dashboard…). A fiscal-only user is
+ *  always fiscal. */
 export function usePageScope(): FiscalFilter {
   const { fiscalFilter, locked } = useScope();
+  const pinned = useContext(PageSideContext);
   const pathname = usePathname();
   if (locked) return "fiscal";
+  if (pinned) return pinned;
   return isScopedPath(pathname) ? fiscalFilter : "all";
 }
 
@@ -137,11 +170,9 @@ export function useDefaultChannel(): string | null {
   return defaultChannelFor(usePageScope(), channels);
 }
 
-/** The read filter of the page scope, for list queries (`isFiscalFor`).
- *  Deferred so switching side keeps the previous list on screen while the new
- *  one loads instead of suspending to the skeleton. */
+/** The read filter of the page scope, for list queries (`isFiscalFor`). */
 export function useScopeIsFiscal(): boolean | null {
-  return useDeferredValue(isFiscalFor(usePageScope()));
+  return isFiscalFor(usePageScope());
 }
 
 /** The page's side for a form: true on Ventas/Compras, false on their "Otras",
@@ -165,4 +196,12 @@ export function useSideChannels<T extends { id: string }>(
         : options.filter((o) => channelIsFiscal(o.id, channels) === isFiscal),
     [options, channels, isFiscal],
   );
+}
+
+/** Remounts the page when the menu switches side: Ventas › Comprobantes and
+ *  Otras ventas › Comprobantes share a URL, and list state (filters, open
+ *  dialogs) from one side must not carry over to the other. */
+export function SideKeyed({ children }: { children: React.ReactNode }) {
+  const { fiscalFilter } = useScope();
+  return <Fragment key={fiscalFilter}>{children}</Fragment>;
 }

@@ -90,9 +90,11 @@ export function AgingReportView({
             >
               {row.original.legal_name}
             </Link>
-            <p className="font-mono text-xs text-muted-foreground">
-              CUIT {row.original.cuit}
-            </p>
+            {row.original.cuit && (
+              <p className="font-mono text-xs text-muted-foreground">
+                CUIT {row.original.cuit}
+              </p>
+            )}
             {hasAmount(row.original.rejected_checks) && (
               <p className="text-xs text-muted-foreground">
                 Incluye cheques rechazados:{" "}

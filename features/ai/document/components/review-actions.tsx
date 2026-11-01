@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { PageSideProvider } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { PurchaseInvoiceDraftDialog } from "@/features/purchase-invoices/components/purchase-invoice-draft-dialog";
 
@@ -121,16 +122,28 @@ function PurchaseDraftAction({
  * venta. Remitos and extractos stay read-only (no entity to create /
  * reconciliation handles them).
  */
-export function ReviewActions({
-  extraction,
-  onCreated,
-  onNestedOpenChange,
-}: {
+export function ReviewActions(props: ReviewActionsProps) {
+  // A scanned voucher is a fiscal document with a CUIT: its forms offer only
+  // the fiscal side (Ventas / Compras).
+  return (
+    <PageSideProvider side="fiscal">
+      <ReviewActionsInner {...props} />
+    </PageSideProvider>
+  );
+}
+
+type ReviewActionsProps = {
   extraction: ExtractionDetail;
   onCreated: () => void;
   /** Signals when a nested action dialog opens/closes (to hide the sidecar). */
   onNestedOpenChange?: (open: boolean) => void;
-}) {
+};
+
+function ReviewActionsInner({
+  extraction,
+  onCreated,
+  onNestedOpenChange,
+}: ReviewActionsProps) {
   const [nestedOpen, setNestedOpenState] = useState(false);
 
   function setNested(nextOpen: boolean) {

@@ -22,6 +22,7 @@ import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-p
 import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
+import { RetryRemitoCreditButton } from "@/features/invoices/components/retry-remito-credit-button";
 import type { IvaCondition } from "@/features/clients/schema";
 import {
   INTERNAL_CANCELLABLE_STATUSES,
@@ -49,17 +50,20 @@ export default async function ComprobanteDetailPage({
   }
 
   const { id } = await params;
-  const res = await getInvoiceDetailAction(id);
+  const [res, linksRes] = await Promise.all([
+    getInvoiceDetailAction(id),
+    getRemitoLinksAction(id),
+  ]);
   if (!res.ok) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.access, "invoices:issue");
-  const linksRes = await getRemitoLinksAction(c.id);
-  const links = linksRes.ok
-    ? linksRes.data
-    : { billedAs: null, sourceRemito: null };
+  // An unreadable link must not read as "not billed": Facturar and the retry
+  // hide, and the page says it could not tell.
+  const links = linksRes.ok ? linksRes.data : null;
   const canCancel =
     userCan(ctx.access, "invoices:cancel") &&
     !c.channel.is_fiscal &&
+    !links?.billedAs &&
     INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
 
   const numeroLabel = formatInvoiceNumero(
@@ -106,7 +110,7 @@ export default async function ComprobanteDetailPage({
           <p className="text-sm text-muted-foreground">
             {c.channel.name} · {c.fecha}
           </p>
-          {links.billedAs && (
+          {links?.billedAs && (
             <p className="text-sm">
               Facturado en{" "}
               <a
@@ -117,7 +121,7 @@ export default async function ComprobanteDetailPage({
               </a>
             </p>
           )}
-          {links.sourceRemito && (
+          {links?.sourceRemito && (
             <p className="text-sm">
               Origen: remito interno{" "}
               <a
@@ -126,6 +130,23 @@ export default async function ComprobanteDetailPage({
               >
                 {links.sourceRemito.label}
               </a>
+            </p>
+          )}
+          {links?.creditState === "running" && (
+            <p className="text-sm text-muted-foreground">
+              Acreditando el remito: en unos minutos queda saldado.
+            </p>
+          )}
+          {links?.creditState === "pending" && (
+            <p className="text-sm text-muted-foreground">
+              El remito todavía no se acreditó: la venta figura en Ventas y en
+              Otras ventas hasta que se complete.
+            </p>
+          )}
+          {links === null && (
+            <p className="text-sm text-muted-foreground">
+              No se pudo leer si el comprobante está vinculado a un remito
+              interno. Recargá la página.
             </p>
           )}
         </div>
@@ -150,10 +171,14 @@ export default async function ComprobanteDetailPage({
             <RegeneratePdfButton id={c.id} />
           )}
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
+          {canIssue && links?.creditState === "pending" && (
+            <RetryRemitoCreditButton facturaId={c.id} />
+          )}
           {canIssue &&
             isInternal &&
             c.kind === "factura" &&
             c.status === "emitted" &&
+            links !== null &&
             !links.billedAs && (
               <BillRemitoDialog
                 remitoId={c.id}

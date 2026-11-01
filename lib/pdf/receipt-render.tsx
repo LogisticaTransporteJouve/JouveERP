@@ -15,7 +15,10 @@ import {
 } from "@/features/receipts/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
-import { formatInvoiceNumero } from "@/features/invoices/schema";
+import {
+  formatInvoiceNumero,
+  invoiceKindLabel,
+} from "@/features/invoices/schema";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import {
   voucherEmisor,
@@ -118,10 +121,10 @@ export async function buildReceiptTemplateData(
       ? formatInvoiceNumero(inv.kind, inv.letter, inv.punto_venta, inv.numero)
       : "—";
     // Allocations share the receipt's channel: internal ones never read
-    // "Factura".
+    // "Factura" (remito interno).
     const label =
       inv?.kind === "factura"
-        ? `${isFiscal ? "Factura" : "Comprobante interno"} ${numero}`
+        ? `${invoiceKindLabel("factura", isFiscal)} ${numero}`
         : numero;
     return {
       invoice_label: label.trim().replace(/\s+/g, " "),

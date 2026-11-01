@@ -22,7 +22,7 @@ export class ExportInputError extends Error {}
 
 const ScopeParam = z.enum(FISCAL_FILTERS).default("all");
 
-/** The header scope the export button sent (`scope=`); missing → "all". */
+/** The page scope the export button sent (`scope=`); missing → "all". */
 export function exportScope(params: URLSearchParams): {
   scope: FiscalFilter;
   isFiscal: boolean | null;

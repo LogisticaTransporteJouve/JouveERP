@@ -78,9 +78,10 @@ export function CreateChequesDialog({
 
   const [rows, setRows] = useState<Row[]>([]);
   const [carteraId, setCarteraId] = useState("");
-  const [endosante, setEndosante] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [endosante, setEndosante] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -103,7 +104,9 @@ export function CreateChequesDialog({
   );
 
   function update(i: number, patch: Partial<Row>) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    );
   }
 
   function onSubmit() {
@@ -295,9 +298,7 @@ export function CreateChequesDialog({
           <Button
             type="button"
             onClick={onSubmit}
-            disabled={
-              createMut.isPending || rows.length === 0 || !carteraId
-            }
+            disabled={createMut.isPending || rows.length === 0 || !carteraId}
           >
             Crear {rows.length} cheque{rows.length === 1 ? "" : "s"}
           </Button>

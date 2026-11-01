@@ -87,7 +87,7 @@ export default async function ComprobantesPage({
           <p className="text-sm text-muted-foreground">
             {isFiscalSide
               ? "Facturas, notas de crédito y débito por canal."
-              : "Ventas de Otras ventas: no van a AFIP ni llevan IVA."}
+              : "No van a AFIP ni llevan IVA: el precio es final."}
           </p>
         </div>
         {userCan(ctx.access, "afip:admin") && isFiscalSide && (

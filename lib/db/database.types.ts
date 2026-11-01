@@ -6329,6 +6329,7 @@ export type Database = {
         Returns: undefined
       }
       backfill_check_channels: { Args: never; Returns: undefined }
+      billed_remito_blocker: { Args: { p_remito_id: string }; Returns: string }
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
@@ -7098,6 +7099,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       transaction_monthly_flows: {

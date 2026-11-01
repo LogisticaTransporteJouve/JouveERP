@@ -111,9 +111,11 @@ function usePurchaseInvoiceColumns({
               >
                 {inv.supplier_legal_name}
               </Link>
-              <div className="font-mono text-xs text-muted-foreground">
-                CUIT {inv.supplier_cuit}
-              </div>
+              {inv.supplier_cuit && (
+                <div className="font-mono text-xs text-muted-foreground">
+                  CUIT {inv.supplier_cuit}
+                </div>
+              )}
             </div>
           );
         },

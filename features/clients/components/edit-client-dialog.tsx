@@ -30,7 +30,7 @@ export function EditClientDialog({ client }: { client: Client }) {
         <DialogHeader>
           <DialogTitle>{client.legal_name}</DialogTitle>
           <DialogDescription>
-            CUIT {client.cuit}
+            {client.cuit ? `CUIT ${client.cuit}` : "Sin CUIT · interno"}
             {!client.is_active && " · Inactivo"}
           </DialogDescription>
         </DialogHeader>

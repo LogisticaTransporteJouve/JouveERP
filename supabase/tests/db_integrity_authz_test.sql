@@ -23,10 +23,13 @@ language sql as $$
     json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
 $$;
 
-insert into public.clients (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000c701', '20777777772', 'Cliente Integridad', 'responsable_inscripto');
+-- The documents below are internal, so are their counterparties
+-- (guard_document_side).
+insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000c701', false, null, 'Cliente Integridad', null);
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b701', false, null, 'Proveedor Integridad', null);
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000b701', '30777777773', 'Proveedor Integridad', 'responsable_inscripto'),
   ('00000000-0000-0000-0000-00000000b702', '30777777774', 'Proveedor Solo Saldo', 'responsable_inscripto');
 insert into public.supplier_categories (id, slug, name) values
   ('00000000-0000-0000-0000-0000000007ca', 'integridad_test', 'Categoría Integridad');

@@ -21,13 +21,16 @@ select set_config('request.jwt.claims',
 
 insert into public.suppliers (id, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000000c201', '30999999995', 'Proveedor Alcance', 'responsable_inscripto');
+-- A supplier belongs to one side: the internal document needs an internal one.
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000c202', false, null, 'Proveedor Alcance Interno', null);
 
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)
 values
   ('00000000-0000-0000-0000-0000000006a1', 'test_old_fiscal', '00000000-0000-0000-0000-00000000c201',
    'factura', 'A', 1, 41, current_date, 100, 21, 121, 'received'),
-  ('00000000-0000-0000-0000-0000000006a2', 'jouve_internal', '00000000-0000-0000-0000-00000000c201',
+  ('00000000-0000-0000-0000-0000000006a2', 'jouve_internal', '00000000-0000-0000-0000-00000000c202',
    'factura', null, 1, 42, current_date, 50, 0, 50, 'received');
 
 -- The fiscal channel is retired after its document: history keeps its scope.
@@ -45,7 +48,7 @@ select is(
 );
 select is(
   (select ars_total_open from public.v_supplier_aging_by_scope
-    where supplier_id = '00000000-0000-0000-0000-00000000c201' and not channel_is_fiscal),
+    where supplier_id = '00000000-0000-0000-0000-00000000c202' and not channel_is_fiscal),
   50::numeric,
   'internal scope holds only the internal document'
 );
@@ -56,8 +59,8 @@ select is(
   'one row per supplier within a scope'
 );
 select is(
-  (select ars_total_open from public.v_supplier_aging
-    where supplier_id = '00000000-0000-0000-0000-00000000c201'),
+  (select sum(ars_total_open) from public.v_supplier_aging
+    where supplier_id in ('00000000-0000-0000-0000-00000000c201', '00000000-0000-0000-0000-00000000c202')),
   171::numeric,
   'Todos still reads every channel from v_supplier_aging'
 );

@@ -75,7 +75,8 @@ export function DeleteClientDialog({ client }: { client: Client }) {
         <DialogHeader>
           <DialogTitle>Eliminar cliente</DialogTitle>
           <DialogDescription>
-            {client.legal_name} · CUIT {client.cuit}
+            {client.legal_name}
+            {client.cuit ? ` · CUIT ${client.cuit}` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -99,9 +100,7 @@ export function DeleteClientDialog({ client }: { client: Client }) {
               ))}
             </ul>
             {isAlreadyInactive ? (
-              <p className="text-muted-foreground">
-                Ya está desactivado.
-              </p>
+              <p className="text-muted-foreground">Ya está desactivado.</p>
             ) : (
               <p>
                 Lo desactivamos: queda guardado pero deja de aparecer en las

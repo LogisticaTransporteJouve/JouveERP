@@ -149,3 +149,31 @@ describe("ClientCreateSchema sides", () => {
     ).toBe(false);
   });
 });
+
+describe("ClientCreateSchema side edge cases", () => {
+  it("drops a fiscal address sent for an internal client", () => {
+    const result = ClientCreateSchema.safeParse({
+      is_fiscal: false,
+      legal_name: "Juan interno",
+      address: "Calle fiscal 1",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).not.toHaveProperty("address");
+  });
+
+  it("rejects a side that is not a boolean (no silent default)", () => {
+    expect(
+      ClientCreateSchema.safeParse({
+        is_fiscal: "false",
+        legal_name: "X interno",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("an explicit null side is not read as fiscal", () => {
+    expect(
+      ClientCreateSchema.safeParse({ is_fiscal: null, legal_name: "X interno" })
+        .success,
+    ).toBe(false);
+  });
+});
