@@ -23,7 +23,10 @@ import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-ac
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
 import { RetryRemitoCreditButton } from "@/features/invoices/components/retry-remito-credit-button";
-import type { IvaCondition } from "@/features/clients/schema";
+import {
+  ivaConditionLabel,
+  type IvaCondition,
+} from "@/features/clients/schema";
 import {
   INTERNAL_CANCELLABLE_STATUSES,
   invoiceKindLabel,
@@ -242,7 +245,10 @@ export default async function ComprobanteDetailPage({
             {c.client.iva_condition && (
               <DetailRow
                 label="Condición IVA"
-                value={c.client.iva_condition.replace(/_/g, " ")}
+                value={
+                  ivaConditionLabel(c.client.iva_condition) ??
+                  c.client.iva_condition
+                }
               />
             )}
           </dl>

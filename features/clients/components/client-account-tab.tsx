@@ -508,7 +508,7 @@ export function ClientAccountTab({
                 trigger={
                   <Button variant="outline">
                     <Plus />
-                    Nuevo comprobante
+                    {client.is_fiscal ? "Nuevo comprobante" : "Nuevo remito"}
                   </Button>
                 }
               />
@@ -521,7 +521,7 @@ export function ClientAccountTab({
                 trigger={
                   <Button>
                     <Plus />
-                    Nuevo recibo
+                    {client.is_fiscal ? "Nuevo recibo" : "Nuevo recibo interno"}
                   </Button>
                 }
               />

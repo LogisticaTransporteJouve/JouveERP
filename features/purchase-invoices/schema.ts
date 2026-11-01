@@ -10,6 +10,16 @@ export const PURCHASE_INVOICE_KIND_LABEL: Record<PurchaseInvoiceKind, string> =
     nd: "Nota de Débito",
   };
 
+/** Otras compras has no facturas: its documents are remitos internos. */
+export function purchaseKindLabel(
+  kind: PurchaseInvoiceKind,
+  isInternal: boolean,
+): string {
+  if (!isInternal) return PURCHASE_INVOICE_KIND_LABEL[kind];
+  if (kind === "factura") return "Remito interno";
+  return kind === "nc" ? "Nota de crédito interna" : "Nota de débito interna";
+}
+
 export const PURCHASE_INVOICE_LETTERS = ["A", "B", "C"] as const;
 export type PurchaseInvoiceLetter = (typeof PURCHASE_INVOICE_LETTERS)[number];
 

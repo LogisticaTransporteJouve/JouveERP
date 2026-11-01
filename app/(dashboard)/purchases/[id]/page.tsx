@@ -19,7 +19,7 @@ import {
   getPurchaseInvoiceItemsAction,
 } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import {
-  PURCHASE_INVOICE_KIND_LABEL,
+  purchaseKindLabel,
   PURCHASE_IVA_RATE_LABEL,
   formatInvoiceNumber,
 } from "@/features/purchase-invoices/schema";
@@ -104,7 +104,7 @@ export default async function PurchaseInvoiceDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {PURCHASE_INVOICE_KIND_LABEL[invoice.kind]}{" "}
+            {purchaseKindLabel(invoice.kind, isInternal)}{" "}
             <span className="font-mono text-base text-muted-foreground">
               {number}
             </span>

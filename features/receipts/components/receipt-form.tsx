@@ -527,12 +527,15 @@ export function ReceiptForm({
           defaultDate={receiptDate}
         />
 
-        {/* Retentions / Percepciones */}
-        <RetentionsEditor
-          retentions={retentions}
-          onChange={(rets) => form.setValue("retentions", rets)}
-          defaultDate={receiptDate}
-        />
+        {/* Retentions / Percepciones: fiscal only (a recibo interno has no
+            AFIP side), unless an older receipt already carries some. */}
+        {(pageIsFiscal !== false || retentions.length > 0) && (
+          <RetentionsEditor
+            retentions={retentions}
+            onChange={(rets) => form.setValue("retentions", rets)}
+            defaultDate={receiptDate}
+          />
+        )}
 
         {/* Allocations */}
         <AllocationsPicker

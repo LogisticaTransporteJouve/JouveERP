@@ -74,8 +74,8 @@ export default async function CajaPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Caja</h1>
           <p className="text-sm text-muted-foreground">
-            Ingresos, egresos y transferencias entre cuentas. Cada movimiento se
-            imputa a un canal; la lista sigue el alcance elegido arriba.
+            Ingresos, egresos y transferencias entre cuentas, de Ventas y Otras
+            ventas. Cada movimiento se imputa a un canal.
           </p>
         </div>
       </div>

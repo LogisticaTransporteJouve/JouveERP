@@ -41,7 +41,7 @@ import {
   type PurchaseListParams,
 } from "../lib/purchase-list-filters";
 import {
-  PURCHASE_INVOICE_KIND_LABEL,
+  purchaseKindLabel,
   PURCHASE_INVOICE_STATUSES,
   PURCHASE_INVOICE_STATUS_LABEL,
   formatInvoiceNumber,
@@ -83,7 +83,10 @@ function usePurchaseInvoiceColumns({
               )}
             >
               <div className="font-medium">
-                {PURCHASE_INVOICE_KIND_LABEL[inv.kind]}
+                {purchaseKindLabel(
+                  inv.kind,
+                  channelsById[inv.channel_id]?.is_fiscal === false,
+                )}
               </div>
               <div className="text-muted-foreground">
                 {formatInvoiceNumber(inv)}

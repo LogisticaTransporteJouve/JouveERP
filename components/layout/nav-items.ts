@@ -83,14 +83,14 @@ function salesItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
     },
     {
       href: "/invoices",
-      label: "Comprobantes",
+      label: scope === "internal" ? "Remitos internos" : "Comprobantes",
       icon: ReceiptText,
       permission: "invoices:read",
       scope,
     },
     {
       href: "/receipts",
-      label: "Recibos",
+      label: scope === "internal" ? "Recibos internos" : "Recibos",
       icon: ScrollText,
       permission: "receipts:read",
       scope,
@@ -124,7 +124,7 @@ function purchaseItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
     },
     {
       href: "/purchases",
-      label: "Compras",
+      label: scope === "internal" ? "Remitos de compra" : "Compras",
       icon: ShoppingCart,
       permission: "purchase_invoices:read",
       scope,

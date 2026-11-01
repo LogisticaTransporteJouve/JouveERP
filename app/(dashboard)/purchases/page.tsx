@@ -32,10 +32,8 @@ export default async function PurchasesPage({
   }
 
   const params = parsePurchaseListParams(await searchParams);
-  const filters = purchaseListFilters(
-    params,
-    isFiscalFor(await readScopeCookie()),
-  );
+  const isFiscalSide = isFiscalFor(await readScopeCookie());
+  const filters = purchaseListFilters(params, isFiscalSide);
 
   const dehydratedState = await prefetchQueries([
     {
@@ -64,11 +62,12 @@ export default async function PurchasesPage({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Facturas de compra
+            {isFiscalSide ? "Facturas de compra" : "Remitos internos de compra"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Facturas, notas de crédito y débito recibidas de proveedores +
-            gastos internos sin factura formal.
+            {isFiscalSide
+              ? "Facturas, notas de crédito y débito recibidas de proveedores de Compras."
+              : "Compras a proveedores de Otras compras, sin factura: no van al Libro IVA."}
           </p>
         </div>
       </div>
