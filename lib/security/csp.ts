@@ -63,6 +63,10 @@ export function buildContentSecurityPolicy({
       .filter(Boolean)
       .join(" "),
     "font-src": "'self' data:",
+    // Workers cannot carry a nonce, and with 'strict-dynamic' in script-src
+    // the browser ignores 'self' there, so without this the pdf.js worker is
+    // blocked and the PDF viewer hangs on "Cargando PDF…".
+    "worker-src": "'self' blob:",
     "connect-src": ["'self'", supabaseOrigin, supabaseWs, ...extraConnect]
       .filter(Boolean)
       .join(" "),

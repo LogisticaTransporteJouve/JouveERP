@@ -600,6 +600,36 @@ export type Database = {
         }
         Relationships: []
       }
+      arca_sync_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          imported: number
+          requested_by: string | null
+          started_at: string
+          trigger: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          requested_by?: string | null
+          started_at?: string
+          trigger: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          requested_by?: string | null
+          started_at?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
       attendance_records: {
         Row: {
           created_at: string

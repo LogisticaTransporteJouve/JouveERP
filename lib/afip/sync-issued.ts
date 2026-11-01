@@ -502,3 +502,55 @@ export async function syncIssuedPair(
   }
   return result;
 }
+
+export const CBTE_TIPO_LABEL: Record<number, string> = {
+  1: "Factura A",
+  2: "Nota de débito A",
+  3: "Nota de crédito A",
+  6: "Factura B",
+  7: "Nota de débito B",
+  8: "Nota de crédito B",
+};
+
+export interface PairReconciliation {
+  punto_venta: number;
+  cbte_tipo: number;
+  label: string;
+  /** Last number ARCA authorized; it numbers each (pv, tipo) without gaps. */
+  last_authorized: number;
+  /** Highest number in the ERP for this (pv, tipo). */
+  last_local: number;
+  /** Numbers above the ERP's highest: the import has not reached them yet. */
+  not_imported_yet: number;
+  /** Numbers below the ERP's highest that the ERP does not have. */
+  gaps: number;
+  gap_sample: number[];
+}
+
+const GAP_SAMPLE = 20;
+
+/** Compares one (pv, cbte tipo) in the ERP against ARCA's numbering. */
+export async function reconcilePair(
+  supabase: Supabase,
+  afip: Pick<ArcaVoucherPort, "getLastAuthorizedNumber">,
+  target: SyncTarget,
+  cbteTipo: number,
+): Promise<PairReconciliation> {
+  const pv = target.punto_venta;
+  const [lastAuthorized, lastLocal] = await Promise.all([
+    afip.getLastAuthorizedNumber(pv, cbteTipo),
+    lastLocalNumero(supabase, pv, cbteTipo),
+  ]);
+  const gaps =
+    lastLocal > 0 ? await localGaps(supabase, pv, cbteTipo, lastLocal) : [];
+  return {
+    punto_venta: pv,
+    cbte_tipo: cbteTipo,
+    label: CBTE_TIPO_LABEL[cbteTipo] ?? `Tipo ${cbteTipo}`,
+    last_authorized: lastAuthorized,
+    last_local: lastLocal,
+    not_imported_yet: Math.max(0, lastAuthorized - lastLocal),
+    gaps: gaps.length,
+    gap_sample: gaps.slice(0, GAP_SAMPLE),
+  };
+}

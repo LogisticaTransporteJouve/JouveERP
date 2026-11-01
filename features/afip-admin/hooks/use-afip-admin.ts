@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -10,6 +11,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   configurePosAction,
+  getArcaReconciliationAction,
   getCaeaStatusAction,
   listInvoicingChannelsAction,
   loadAfipAdminAction,
@@ -17,6 +19,8 @@ import {
   requestCaeaNowAction,
   syncAfipPosAction,
 } from "../actions/afip-admin-actions";
+import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
+
 import { afipAdminKeys } from "../lib/afip-admin-keys";
 
 export function useAfipAdminPanel() {
@@ -52,6 +56,8 @@ export function useConfigurePos() {
       runAction(() => configurePosAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: afipAdminKeys.panel() });
+      // The emission form lists the enabled POS per channel.
+      qc.invalidateQueries({ queryKey: [...invoicesKeys.all, "enabledPos"] });
     },
   });
 }
@@ -76,5 +82,15 @@ export function useRequestCaea() {
 export function useRequestArcaSync() {
   return useMutation({
     mutationFn: () => runAction(() => requestArcaSyncAction()),
+  });
+}
+
+/** On demand: each run asks ARCA for every (pv, tipo) last number. */
+export function useArcaReconciliation(enabled: boolean) {
+  return useQuery({
+    queryKey: afipAdminKeys.reconciliation(),
+    queryFn: () => runAction(() => getArcaReconciliationAction()),
+    enabled,
+    staleTime: 0,
   });
 }

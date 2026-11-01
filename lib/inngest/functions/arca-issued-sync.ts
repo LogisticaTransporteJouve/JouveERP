@@ -5,12 +5,20 @@ import {
   syncIssuedPair,
   type PairSyncResult,
 } from "@/lib/afip/sync-issued";
+import {
+  closeSyncRun,
+  failOpenSyncRuns,
+  openSyncRun,
+} from "@/lib/afip/sync-runs";
 import { getLastAuthorizedNumber, getVoucherInfo } from "@/lib/afip/wsfev1";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
-import { ARCA_ISSUED_SYNC_REQUESTED } from "../events";
+import {
+  ARCA_ISSUED_SYNC_REQUESTED,
+  ArcaIssuedSyncRequestedSchema,
+} from "../events";
 
 // One FECompConsultar per voucher: a batch of 100 keeps each step well under
 // the function timeout. Up to 10 batches per (pv, cbte tipo) and run, so a
@@ -38,8 +46,20 @@ export const arcaIssuedSync = inngest.createFunction(
       { cron: "TZ=America/Argentina/Buenos_Aires 0 * * * *" },
       { event: ARCA_ISSUED_SYNC_REQUESTED },
     ],
+    onFailure: async ({ error }) => {
+      await failOpenSyncRuns(getServiceClient(), error.message);
+    },
   },
-  async ({ step }) => {
+  async ({ event, step }) => {
+    const manual = ArcaIssuedSyncRequestedSchema.safeParse(event.data);
+    const runId = await step.run("open-run", () =>
+      openSyncRun(
+        getServiceClient(),
+        manual.success ? "manual" : "cron",
+        manual.success ? manual.data.requested_by : null,
+      ),
+    );
+
     const targets = await step.run("list-targets", () =>
       listSyncTargets(getServiceClient()),
     );
@@ -80,6 +100,9 @@ export const arcaIssuedSync = inngest.createFunction(
     }
 
     const imported = results.reduce((n, r) => n + r.imported + r.recovered, 0);
+    await step.run("close-run", () =>
+      closeSyncRun(getServiceClient(), runId, imported),
+    );
     logger.info("arca_sync.done", {
       imported,
       pending: results.some(hasPending),

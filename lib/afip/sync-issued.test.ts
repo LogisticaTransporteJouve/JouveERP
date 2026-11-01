@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 import {
   CONSUMIDOR_FINAL_CUIT,
   hourlyWindow,
+  reconcilePair,
   clientIvaConditionFor,
   receiverCuit,
   syncIssuedPair,
@@ -389,5 +390,30 @@ describe("hourlyWindow", () => {
     expect(hourlyWindow(gaps, 2, hour)).toEqual([3, 4]);
     expect(hourlyWindow(gaps, 2, 2 * hour)).toEqual([5]);
     expect(hourlyWindow(gaps, 2, 3 * hour)).toEqual([1, 2]);
+  });
+});
+
+describe("reconcilePair", () => {
+  it("splits what is missing into not imported yet and gaps", async () => {
+    const db = {
+      invoices: [1, 2, 4, 5, 7].map((numero) => ({
+        id: `nc-${numero}`,
+        punto_venta: 3,
+        cbte_tipo_afip: 3,
+        numero,
+      })) as Row[],
+    };
+    const afip = { getLastAuthorizedNumber: async () => 10 };
+
+    const res = await reconcilePair(fakeSupabase(db), afip, target, 3);
+
+    expect(res).toMatchObject({
+      label: "Nota de crédito A",
+      last_authorized: 10,
+      last_local: 7,
+      not_imported_yet: 3,
+      gaps: 2,
+      gap_sample: [3, 6],
+    });
   });
 });

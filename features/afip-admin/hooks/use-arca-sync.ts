@@ -1,74 +1,95 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
+import { runAction } from "@/lib/query/run-action";
 
-import { countArcaImportedSinceAction } from "../actions/afip-admin-actions";
+import { getArcaSyncProgressAction } from "../actions/afip-admin-actions";
+import { afipAdminKeys } from "../lib/afip-admin-keys";
 import { useRequestArcaSync } from "./use-afip-admin";
 
 const POLL_MS = 3_000;
-// The job reports nothing back; once the count stops moving for this many
-// polls (~1 min) the import is taken as finished.
-const IDLE_POLLS = 20;
+// After a click the job may take a moment to open its run row.
+const START_GRACE_MS = 2 * 60 * 1000;
+const TOAST_ID = "arca-sync";
 
-/** Queues the ARCA import and keeps one toast updated with how many
- *  vouchers have landed so far. */
+/** Follows the ARCA import from the server's run record, so the progress
+ *  toast and the disabled button survive reloads and other tabs. */
 export function useArcaSync() {
   const request = useRequestArcaSync();
   const qc = useQueryClient();
-  const [running, setRunning] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [waitingSince, setWaitingSince] = useState<number | null>(null);
 
-  const stop = useCallback(() => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    setRunning(false);
-  }, []);
+  const progress = useQuery({
+    queryKey: afipAdminKeys.syncProgress(),
+    queryFn: () => runAction(() => getArcaSyncProgressAction()),
+    refetchInterval: (query) =>
+      query.state.data?.running || waitingSince !== null ? POLL_MS : false,
+  });
 
-  useEffect(() => stop, [stop]);
+  const running = progress.data?.running ?? null;
+  const sawRunning = useRef(false);
+  const lastCount = useRef(-1);
 
-  const start = useCallback(() => {
+  useEffect(() => {
+    if (running) {
+      sawRunning.current = true;
+      if (waitingSince !== null) setWaitingSince(null);
+      toast.loading(
+        `Importando comprobantes de ARCA… ${running.imported} hasta ahora`,
+        { id: TOAST_ID },
+      );
+      if (running.imported !== lastCount.current) {
+        lastCount.current = running.imported;
+        if (running.imported > 0) {
+          qc.invalidateQueries({ queryKey: invoicesKeys.all });
+        }
+      }
+      return;
+    }
+    if (sawRunning.current && progress.data) {
+      sawRunning.current = false;
+      lastCount.current = -1;
+      const last = progress.data.last;
+      if (last?.error) {
+        toast.error(`La importación de ARCA falló: ${last.error}`, {
+          id: TOAST_ID,
+        });
+      } else {
+        toast.success(
+          last && last.imported > 0
+            ? `Se importaron ${last.imported} comprobantes de ARCA.`
+            : "No había comprobantes nuevos en ARCA.",
+          { id: TOAST_ID },
+        );
+      }
+      qc.invalidateQueries({ queryKey: invoicesKeys.all });
+      return;
+    }
+    if (waitingSince !== null && Date.now() - waitingSince > START_GRACE_MS) {
+      setWaitingSince(null);
+      toast.error("La importación no arrancó. Probá de nuevo en un rato.", {
+        id: TOAST_ID,
+      });
+    }
+  }, [running, progress.data, waitingSince, qc]);
+
+  function start() {
     request.mutate(undefined, {
       onError: (err) => toast.error(err.message),
-      onSuccess: ({ requestedAt }) => {
-        const toastId = toast.loading("Importando comprobantes de ARCA…");
-        let last = -1;
-        let idle = 0;
-        setRunning(true);
-        timer.current = setInterval(async () => {
-          const res = await countArcaImportedSinceAction(requestedAt);
-          if (!res.ok) {
-            stop();
-            toast.error(res.error, { id: toastId });
-            return;
-          }
-          const count = res.data;
-          if (count !== last) {
-            last = count;
-            idle = 0;
-            toast.loading(
-              `Importando comprobantes de ARCA… ${count} hasta ahora`,
-              { id: toastId },
-            );
-            if (count > 0) qc.invalidateQueries({ queryKey: invoicesKeys.all });
-            return;
-          }
-          idle += 1;
-          if (idle < IDLE_POLLS) return;
-          stop();
-          toast.success(
-            count > 0
-              ? `Se importaron ${count} comprobantes de ARCA.`
-              : "No había comprobantes nuevos en ARCA.",
-            { id: toastId },
-          );
-        }, POLL_MS);
+      onSuccess: () => {
+        setWaitingSince(Date.now());
+        toast.loading("Importando comprobantes de ARCA…", { id: TOAST_ID });
+        void progress.refetch();
       },
     });
-  }, [qc, request, stop]);
+  }
 
-  return { start, busy: request.isPending || running };
+  return {
+    start,
+    busy: request.isPending || running !== null || waitingSince !== null,
+  };
 }
