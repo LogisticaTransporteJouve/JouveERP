@@ -2387,6 +2387,7 @@ export type Database = {
           motivo_nc_nd: string | null
           notified_at: string | null
           numero: number | null
+          origin_unlinked: boolean
           pdf_hash: string | null
           punto_venta: number
           status: string
@@ -2432,6 +2433,7 @@ export type Database = {
           motivo_nc_nd?: string | null
           notified_at?: string | null
           numero?: number | null
+          origin_unlinked?: boolean
           pdf_hash?: string | null
           punto_venta: number
           status?: string
@@ -2477,6 +2479,7 @@ export type Database = {
           motivo_nc_nd?: string | null
           notified_at?: string | null
           numero?: number | null
+          origin_unlinked?: boolean
           pdf_hash?: string | null
           punto_venta?: number
           status?: string

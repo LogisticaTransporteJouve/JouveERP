@@ -48,7 +48,8 @@ export interface PairSyncResult {
   /** NC/ND below the last number that came in on a retry. */
   recovered: number;
   missing: number;
-  skipped_no_origin: number;
+  /** NC/ND stored without an origin factura (also counted in imported). */
+  unlinked: number;
   last_authorized: number;
   last_local: number;
   /** Why the pair stopped early (in-flight emission, insert error). */
@@ -133,6 +134,8 @@ export function voucherToInvoiceInsert(
     channelId: string;
     clientId: string;
     originId: string | null;
+    /** NC/ND whose origin the ERP cannot resolve (see origin_unlinked). */
+    originUnlinked?: boolean;
   },
 ): InvoiceInsert | null {
   const kl = KIND_LETTER_BY_TIPO[info.cbteTipo];
@@ -155,6 +158,7 @@ export function voucherToInvoiceInsert(
     cbte_tipo_origen_afip:
       kl.kind === "factura" ? null : (info.cbtesAsoc[0]?.tipo ?? null),
     invoice_origin_id: ctx.originId,
+    origin_unlinked: ctx.originUnlinked ?? false,
     imp_neto: info.impNeto,
     imp_iva: info.impIva,
     imp_trib: info.impTrib,
@@ -380,9 +384,8 @@ async function matchOriginByTotal(
 }
 
 type VoucherOutcome =
-  | { kind: "imported" }
+  | { kind: "imported"; unlinked: boolean }
   | { kind: "missing" }
-  | { kind: "no_origin" }
   | { kind: "waiting_origin"; originNro: number }
   | { kind: "failed"; message: string };
 
@@ -404,15 +407,17 @@ async function importVoucher(
     return { kind: "waiting_origin", originNro: origin.nro };
   }
   const originId = origin?.status === "found" ? origin.id : null;
-  // invoices_nc_nd_requires_origen: an NC/ND whose origin the ERP lacks
-  // cannot be stored.
-  if (kind !== "factura" && !originId) return { kind: "no_origin" };
+  // An NC/ND ARCA ties to no factura we can find (older ones carried no
+  // CbtesAsoc: interest debits, general or partial credits) is stored
+  // unlinked so it still reaches the client's account and the IVA book.
+  const unlinked = kind !== "factura" && !originId;
 
   const clientId = await resolveClientId(supabase, afip, info, clientCache);
   const row = voucherToInvoiceInsert(info, {
     channelId: target.channel_id,
     clientId,
     originId,
+    originUnlinked: unlinked,
   });
   if (!row) return { kind: "missing" };
 
@@ -422,7 +427,7 @@ async function importVoucher(
   if (error && error.code !== PG_UNIQUE_VIOLATION) {
     return { kind: "failed", message: error.message };
   }
-  return error ? { kind: "missing" } : { kind: "imported" };
+  return error ? { kind: "missing" } : { kind: "imported", unlinked };
 }
 
 const GAP_PAGE = 1000;
@@ -485,7 +490,7 @@ export async function syncIssuedPair(
     imported: 0,
     recovered: 0,
     missing: 0,
-    skipped_no_origin: 0,
+    unlinked: 0,
     last_authorized: 0,
     last_local: 0,
     stopped: null,
@@ -537,17 +542,17 @@ export async function syncIssuedPair(
     switch (outcome.kind) {
       case "imported":
         result.imported += 1;
+        if (outcome.unlinked) {
+          result.unlinked += 1;
+          logger.info("arca_sync.nc_nd_unlinked", {
+            punto_venta: pv,
+            cbte_tipo: cbteTipo,
+            numero: nro,
+          });
+        }
         break;
       case "missing":
         result.missing += 1;
-        break;
-      case "no_origin":
-        result.skipped_no_origin += 1;
-        logger.warn("arca_sync.nc_nd_without_origin", {
-          punto_venta: pv,
-          cbte_tipo: cbteTipo,
-          numero: nro,
-        });
         break;
       case "waiting_origin":
         // The facturas walk a long history slower than the NC/ND do; passing

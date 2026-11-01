@@ -28,10 +28,7 @@ const VOUCHERS_PER_BATCH = 100;
 const BATCHES_PER_PAIR = 10;
 
 function hasPending(r: PairSyncResult): boolean {
-  return (
-    r.last_local + r.imported + r.missing + r.skipped_no_origin <
-    r.last_authorized
-  );
+  return r.last_local + r.imported + r.missing < r.last_authorized;
 }
 
 // Brings the vouchers issued in ARCA outside the ERP into `invoices`. Runs
