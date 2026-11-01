@@ -29,9 +29,9 @@ import { NewChequeDialog } from "./new-check-dialog";
 
 const STATUS_TONE: Record<ChequeStatus, string> = {
   en_cartera: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  depositado: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  depositado: "bg-muted text-muted-foreground dark:text-muted-foreground",
   acreditado: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  endosado: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  endosado: "bg-muted text-muted-foreground dark:text-muted-foreground",
   rechazado: "bg-muted text-foreground dark:text-foreground",
 };
 

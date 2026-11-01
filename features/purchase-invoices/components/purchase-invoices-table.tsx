@@ -180,7 +180,7 @@ function usePurchaseInvoiceColumns({
               variant="secondary"
               className={
                 inv.status === "cancelled"
-                  ? "bg-zinc-500/15 text-zinc-700 opacity-60 dark:text-zinc-300"
+                  ? "bg-muted text-muted-foreground opacity-60 dark:text-muted-foreground"
                   : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >

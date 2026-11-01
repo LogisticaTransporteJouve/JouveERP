@@ -186,7 +186,8 @@ export async function getClientAccountAction(
   // the peso balance "jumps" to target_balance. Effective signed_amount =
   // target - balance_computed_just_before. To keep the ordering clear, on a
   // date tie the opening row goes last (after the invoices/receipts of that
-  // same day) — so the adjustment reconciles the full day.
+  // same day) — so the adjustment reconciles the full day. Same-day documents
+  // follow their number, the order the statement lists them in.
   const rows = movementsRes.data.slice().sort((a, b) => {
     const dateA = a.movement_date ?? "";
     const dateB = b.movement_date ?? "";
@@ -194,6 +195,8 @@ export async function getClientAccountAction(
     const aOpen = a.source_type === "opening_balance" ? 1 : 0;
     const bOpen = b.source_type === "opening_balance" ? 1 : 0;
     if (aOpen !== bOpen) return aOpen - bOpen;
+    const byNumero = (a.numero ?? 0) - (b.numero ?? 0);
+    if (byNumero !== 0) return byNumero;
     return (a.created_at ?? "").localeCompare(b.created_at ?? "");
   });
 

@@ -11,7 +11,7 @@ import { INVOICE_STATUS_LABEL, type InvoiceStatus } from "../schema";
 const TERMINAL_STATES: InvoiceStatus[] = ["emitted", "failed", "cancelled"];
 
 const TONE: Record<InvoiceStatus, string> = {
-  draft: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
+  draft: "bg-muted text-muted-foreground dark:text-muted-foreground",
   emitting: "bg-muted text-muted-foreground dark:text-muted-foreground",
   emitted: "bg-muted text-muted-foreground dark:text-muted-foreground",
   failed: "bg-muted text-foreground dark:text-foreground",

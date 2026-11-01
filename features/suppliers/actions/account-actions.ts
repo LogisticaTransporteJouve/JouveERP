@@ -246,6 +246,7 @@ export async function getSupplierAccountAction(
         )
         .eq("supplier_id", supplierId)
         .order("movement_date", { ascending: true })
+        .order("numero", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .order("source_type", { ascending: true })
         .order("source_id", { ascending: true, nullsFirst: true })
@@ -301,8 +302,8 @@ export async function getSupplierAccountAction(
     if (o.invoice_origin_id === null) unlinkedNc.add(o.purchase_invoice_id);
   }
 
-  // Rows arrive ordered by movement_date + created_at (asc). Opening balance
-  // rows have movement_date = opening_date, so they sit where they belong.
+  // Rows arrive ordered by movement_date + numero (asc). Opening balance rows
+  // have movement_date = opening_date and no numero, so they close their day.
   const running = zeroBalances();
   const movements: SupplierAccountMovement[] = [];
   for (const r of movementsRes.data) {

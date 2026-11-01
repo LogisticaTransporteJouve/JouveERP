@@ -78,8 +78,8 @@ const ANY_KIND = "__any_kind__";
 const KIND_TONE: Record<TransactionKind, string> = {
   income: "bg-muted text-muted-foreground dark:text-muted-foreground",
   expense: "bg-muted text-foreground dark:text-foreground",
-  transfer_in: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  transfer_out: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  transfer_in: "bg-muted text-muted-foreground dark:text-muted-foreground",
+  transfer_out: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 
 const KIND_ICON: Record<TransactionKind, typeof ArrowUpCircle> = {
