@@ -4,8 +4,9 @@ import { getServiceClient } from "@/lib/supabase/service";
 import type { InvoiceIssueRequested } from "../events";
 
 /**
- * Once a factura billed from a remito interno is emitted, drafts the nota de
- * crédito interna that credits the remito in full, so Otras ventas nets the
+ * Once a factura billed from a remito interno is emitted, passes the remito's
+ * recibos internos to the fiscal side and drafts the nota de crédito interna
+ * that credits the remito in full, so Otras ventas nets the
  * sale to zero and it exists only on the fiscal side (docs/otras-ventas.md §4).
  *
  * Idempotent: the NC's idempotency key is the factura's id, so a retried step
@@ -25,6 +26,13 @@ export async function creditBilledRemito(
     .maybeSingle();
   if (facturaErr) throw new Error(`load-factura: ${facturaErr.message}`);
   if (!factura?.source_remito_id) return null;
+
+  // The remito's recibos internos pass to the fiscal side first, so the NC
+  // below credits the remito's whole total.
+  const { error: moveErr } = await supabase.rpc("move_billed_remito_receipts", {
+    p_factura_id: factura.id,
+  });
+  if (moveErr) throw new Error(`move-receipts: ${moveErr.message}`);
 
   const { data: remito, error: remitoErr } = await supabase
     .from("invoices")

@@ -6827,6 +6827,10 @@ export type Database = {
         Args: { p_channel: string }
         Returns: undefined
       }
+      move_billed_remito_receipts: {
+        Args: { p_factura_id: string }
+        Returns: number
+      }
       next_internal_invoice_numero_atomic: {
         Args: {
           p_channel_id: string

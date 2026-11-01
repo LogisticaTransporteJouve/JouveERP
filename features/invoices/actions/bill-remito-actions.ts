@@ -78,33 +78,16 @@ export async function billRemitoAction(
     return { ok: false, error: "El remito todavía no está emitido." };
   }
 
-  // Only a remito with nothing applied yet: no cobro and no prior NC.
-  const [allocs, ncs] = await Promise.all([
-    supabase
-      .from("receipt_allocations")
-      .select("id, receipt:receipts!inner(status)")
-      .eq("invoice_id", remito.id)
-      .eq("receipt.status", "issued")
-      .limit(1),
-    supabase
-      .from("invoices")
-      .select("id")
-      .eq("invoice_origin_id", remito.id)
-      .in("status", ["draft", "emitting", "emitted"])
-      .limit(1),
-  ]);
-  if (allocs.error || ncs.error) {
-    logger.error("bill_remito.balance_failed", {
-      error: allocs.error ?? ncs.error,
-    });
+  // A prior NC already credits the remito: billing it would count it twice.
+  const ncs = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("invoice_origin_id", remito.id)
+    .in("status", ["draft", "emitting", "emitted"])
+    .limit(1);
+  if (ncs.error) {
+    logger.error("bill_remito.balance_failed", { error: ncs.error });
     return { ok: false, error: "No se pudo verificar el saldo del remito." };
-  }
-  if ((allocs.data ?? []).length > 0) {
-    return {
-      ok: false,
-      error:
-        "El remito tiene un recibo interno aplicado. Anulá el recibo, facturá el remito y cargá el cobro en Ventas.",
-    };
   }
   if ((ncs.data ?? []).length > 0) {
     return {
@@ -112,6 +95,13 @@ export async function billRemitoAction(
       error: "El remito ya tiene una nota de crédito: no se puede facturar.",
     };
   }
+
+  // Recibos internos already applied pass to the fiscal side once the factura
+  // is emitted (move_billed_remito_receipts). Only the ones that can move
+  // whole: applied to this remito alone, in pesos, without cheques or
+  // retentions.
+  const blocker = await receiptMoveBlocker(supabase, remito.id);
+  if (blocker) return { ok: false, error: blocker };
 
   const { data: client, error: clientErr } = await supabase
     .from("clients")
@@ -168,6 +158,66 @@ export async function billRemitoAction(
     items,
     idempotency_key: data.idempotency_key,
   });
+}
+
+async function receiptMoveBlocker(
+  supabase: ReturnType<typeof getServiceClient>,
+  remitoId: string,
+): Promise<string | null> {
+  const { data: allocs, error } = await supabase
+    .from("receipt_allocations")
+    .select("receipt_id, receipt:receipts!inner(status, currency, numero)")
+    .eq("invoice_id", remitoId)
+    .eq("receipt.status", "issued");
+  if (error) {
+    logger.error("bill_remito.receipts_failed", { error });
+    return "No se pudieron verificar los cobros del remito.";
+  }
+  const receiptIds = [...new Set((allocs ?? []).map((a) => a.receipt_id))];
+  if (receiptIds.length === 0) return null;
+  if ((allocs ?? []).some((a) => a.receipt?.currency !== "ARS")) {
+    return "El remito tiene un cobro en otra moneda: anulá ese recibo interno y cargá el cobro en Ventas.";
+  }
+
+  const [otherAllocs, rejected, retentions, cheques] = await Promise.all([
+    supabase
+      .from("receipt_allocations")
+      .select("id")
+      .in("receipt_id", receiptIds)
+      .neq("invoice_id", remitoId)
+      .limit(1),
+    supabase
+      .from("receipt_rejected_check_allocations")
+      .select("id")
+      .in("receipt_id", receiptIds)
+      .limit(1),
+    supabase
+      .from("receipt_retentions")
+      .select("id")
+      .in("receipt_id", receiptIds)
+      .limit(1),
+    supabase
+      .from("checks")
+      .select("id")
+      .in("source_receipt_id", receiptIds)
+      .limit(1),
+  ]);
+  const failed =
+    otherAllocs.error ?? rejected.error ?? retentions.error ?? cheques.error;
+  if (failed) {
+    logger.error("bill_remito.receipts_failed", { error: failed });
+    return "No se pudieron verificar los cobros del remito.";
+  }
+  if ((otherAllocs.data ?? []).length > 0 || (rejected.data ?? []).length > 0) {
+    return "Un recibo interno de este remito también paga otros comprobantes: anulalo, facturá el remito y cargá el cobro en Ventas.";
+  }
+  if ((cheques.data ?? []).length > 0) {
+    return "El remito se cobró con cheques: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.";
+  }
+  if ((retentions.data ?? []).length > 0) {
+    return "El cobro del remito tiene retenciones: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.";
+  }
+  return null;
 }
 
 export interface RemitoLinks {
