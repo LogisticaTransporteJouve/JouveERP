@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -51,6 +51,7 @@ import {
 } from "@/features/clients/schema";
 import { computeTotals } from "@/features/invoices/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
 import {
@@ -83,6 +84,10 @@ type ItemDraft = {
 };
 
 const SEGURO_DESCRIPTION = "Seguro";
+
+// One column template for the header and every item row, so they line up.
+const ITEM_GRID =
+  "grid grid-cols-[minmax(0,1fr)_5.5rem_8rem_6rem_7.5rem_2rem] gap-2";
 
 function defaultItems(): ItemDraft[] {
   return [
@@ -235,7 +240,7 @@ function NewInvoiceForm({
 
   const currentChannel = channels.find((c) => c.id === channelId) ?? null;
 
-  // Bumped after "Emitir y continuar" to force a fresh ClientPicker mount,
+  // Bumped after "Guardar y cargar otra" to force a fresh ClientPicker mount,
   // which auto-focuses its search input.
   const [clientPickerKey, setClientPickerKey] = useState(0);
 
@@ -679,38 +684,53 @@ function NewInvoiceForm({
                 Agregar ítem
               </Button>
             </div>
-            <div className="space-y-2 rounded-md border p-2">
-              <div className="grid grid-cols-12 gap-2 px-1 text-xs text-muted-foreground">
-                <div className="col-span-5">Descripción</div>
-                <div className="col-span-2">Cantidad</div>
-                <div className="col-span-2">Precio unitario</div>
-                <div className="col-span-2">IVA</div>
-                <div className="col-span-1" />
-              </div>
-              {items.map((item, idx) => {
-                const qty = Number(item.quantity) || 0;
-                const price = Number(item.unit_price) || 0;
-                const lineTotal =
-                  qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100);
-                const seguro = showSeguro && isSeguroRow(item);
-                return (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2 rounded-md p-1"
-                  >
-                    <div className="col-span-5">
-                      {seguro && <CellLabel />}
-                      <Input
-                        placeholder="Descripción"
-                        value={item.description}
-                        onChange={(e) =>
-                          updateItem(idx, { description: e.target.value })
-                        }
-                        disabled={seguro}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {seguro && <CellLabel>Porcentaje</CellLabel>}
+            <div className="overflow-x-auto rounded-md border">
+              <div className="min-w-[36rem]">
+                <div
+                  className={cn(
+                    ITEM_GRID,
+                    "border-b px-3 py-2 text-xs text-muted-foreground",
+                  )}
+                >
+                  <div>Descripción</div>
+                  <div>Cantidad</div>
+                  <div>Precio unitario</div>
+                  <div>IVA</div>
+                  <div className="text-right">Subtotal</div>
+                  <div />
+                </div>
+                {items.map((item, idx) => {
+                  const qty = Number(item.quantity) || 0;
+                  const price = Number(item.unit_price) || 0;
+                  const lineTotal =
+                    qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100);
+                  const seguro = showSeguro && isSeguroRow(item);
+                  return (
+                    <div
+                      key={idx}
+                      className={cn(
+                        ITEM_GRID,
+                        "items-center px-3 py-2",
+                        seguro && "border-t bg-muted/30",
+                      )}
+                    >
+                      {seguro ? (
+                        <div className="min-w-0 text-sm">
+                          <div className="font-medium">Seguro</div>
+                          <div className="text-xs text-muted-foreground">
+                            % sobre el valor declarado
+                          </div>
+                        </div>
+                      ) : (
+                        <Input
+                          placeholder="Descripción"
+                          aria-label="Descripción"
+                          value={item.description}
+                          onChange={(e) =>
+                            updateItem(idx, { description: e.target.value })
+                          }
+                        />
+                      )}
                       {seguro ? (
                         <SeguroPercentInput
                           value={item.quantity}
@@ -720,28 +740,25 @@ function NewInvoiceForm({
                         <Input
                           type="text"
                           inputMode="decimal"
-                          placeholder="Cantidad"
+                          aria-label="Cantidad"
                           value={item.quantity}
                           onChange={(e) =>
                             updateItem(idx, { quantity: e.target.value })
                           }
                         />
                       )}
-                    </div>
-                    <div className="col-span-2">
-                      {seguro && <CellLabel>Valor declarado</CellLabel>}
                       <Input
                         type="text"
                         inputMode="decimal"
-                        placeholder="$ 0,00"
+                        placeholder={seguro ? "Valor declarado" : "$ 0,00"}
+                        aria-label={
+                          seguro ? "Valor declarado" : "Precio unitario"
+                        }
                         value={item.unit_price}
                         onChange={(e) =>
                           updateItem(idx, { unit_price: e.target.value })
                         }
                       />
-                    </div>
-                    <div className="col-span-2">
-                      {seguro && <CellLabel />}
                       <Select
                         value={String(item.iva_rate_id)}
                         onValueChange={(v) =>
@@ -750,7 +767,7 @@ function NewInvoiceForm({
                           })
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full" aria-label="IVA">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent position="popper">
@@ -761,27 +778,28 @@ function NewInvoiceForm({
                           ))}
                         </SelectContent>
                       </Select>
+                      <div className="text-right font-mono text-sm tabular-nums">
+                        ${formatNumber2(lineTotal)}
+                      </div>
+                      <div className="flex justify-end">
+                        {!seguro && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => removeItem(idx)}
+                            disabled={items.length <= (showSeguro ? 2 : 1)}
+                            aria-label="Quitar ítem"
+                          >
+                            <X />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="col-span-1 text-right">
-                      {!seguro && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(idx)}
-                          disabled={items.length <= (showSeguro ? 2 : 1)}
-                          aria-label="Quitar ítem"
-                        >
-                          ×
-                        </Button>
-                      )}
-                    </div>
-                    <div className="col-span-12 text-right text-xs text-muted-foreground font-mono">
-                      Subtotal: ${formatNumber2(lineTotal)}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -836,7 +854,7 @@ function NewInvoiceForm({
           >
             Cancelar
           </Button>
-          {/* "Emitir y continuar" only applies to facturas — for NC/ND the flow
+          {/* "Guardar y cargar otra" only applies to facturas — for NC/ND the flow
               is one-shot per origin. */}
           {!isNote && (
             <Button
@@ -846,34 +864,15 @@ function NewInvoiceForm({
               disabled={isSubmitting}
               title="⌘+Enter"
             >
-              Emitir y continuar
+              Guardar y cargar otra
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Emitiendo…" : "Emitir y solicitar CAE"}
+            {isSubmitting ? "Guardando…" : "Guardar"}
           </Button>
         </div>
       </form>
     </Form>
-  );
-}
-
-// Cell label used in the Seguro row. Visible labels render the prop;
-// unlabeled cells render an invisible spacer so every cell reserves the
-// same vertical space and the inputs/selects align across the row.
-function CellLabel({ children }: { children?: React.ReactNode }) {
-  const isSpacer = children == null;
-  return (
-    <div
-      aria-hidden={isSpacer || undefined}
-      className={
-        isSpacer
-          ? "mb-1 block text-[11px] text-transparent select-none"
-          : "mb-1 block text-[11px] text-muted-foreground"
-      }
-    >
-      {isSpacer ? " " : children}
-    </div>
   );
 }
 
@@ -916,6 +915,7 @@ function SeguroPercentInput({
             if (Number(value) === 0) setIsCustom(false);
           }}
           placeholder="%"
+          aria-label="Porcentaje del seguro"
         />
       </div>
     );
@@ -937,7 +937,7 @@ function SeguroPercentInput({
         onChange(String(preset / 100));
       }}
     >
-      <SelectTrigger>
+      <SelectTrigger className="w-full" aria-label="Porcentaje del seguro">
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper">

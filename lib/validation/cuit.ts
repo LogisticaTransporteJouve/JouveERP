@@ -19,3 +19,11 @@ export function isValidCuit(value: string): boolean {
   const check = mod === 11 ? 0 : mod === 10 ? 9 : mod;
   return check === digits[10];
 }
+
+/** Formats typed input as XX-XXXXXXXX-X, keeping at most 11 digits. */
+export function formatCuitInput(value: string): string {
+  const digits = value.replace(/[^0-9]/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
+}

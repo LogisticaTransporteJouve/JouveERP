@@ -75,7 +75,7 @@ function Harness({
 }
 
 function typeCuitAndVerify(cuit: string) {
-  fireEvent.change(screen.getByPlaceholderText("30714637432"), {
+  fireEvent.change(screen.getByLabelText("CUIT"), {
     target: { value: cuit },
   });
   fireEvent.click(screen.getByRole("button", { name: "Verificar AFIP" }));

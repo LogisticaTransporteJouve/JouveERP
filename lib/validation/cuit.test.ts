@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isValidCuit, normalizeCuit } from "./cuit";
+import { formatCuitInput, isValidCuit, normalizeCuit } from "./cuit";
 
 describe("isValidCuit", () => {
   it("accepts valid CUITs (check digit correct)", () => {
@@ -26,5 +26,21 @@ describe("normalizeCuit", () => {
   it("strips separators and validates length", () => {
     expect(normalizeCuit("20-12345678-6")).toBe("20123456786");
     expect(normalizeCuit("2012345678")).toBeNull();
+  });
+});
+
+describe("formatCuitInput", () => {
+  it("adds the dashes as the digits are typed", () => {
+    expect(formatCuitInput("")).toBe("");
+    expect(formatCuitInput("20")).toBe("20");
+    expect(formatCuitInput("201")).toBe("20-1");
+    expect(formatCuitInput("2012345678")).toBe("20-12345678");
+    expect(formatCuitInput("20123456786")).toBe("20-12345678-6");
+  });
+
+  it("drops non-digits and anything past 11 digits", () => {
+    expect(formatCuitInput("20-12345678-6")).toBe("20-12345678-6");
+    expect(formatCuitInput("2012345678612345")).toBe("20-12345678-6");
+    expect(formatCuitInput("20a12")).toBe("20-12");
   });
 });

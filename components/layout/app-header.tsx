@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { useScope } from "@/components/providers/scope-provider";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,7 +18,8 @@ import { navItemForPath, navSectionForItem } from "./nav-items";
 // Sticky over the scrolling canvas, on the canvas's own surface and hairline
 // so it reads as part of the card.
 export function AppHeader({ actions }: { actions: React.ReactNode }) {
-  const item = navItemForPath(usePathname());
+  const { fiscalFilter } = useScope();
+  const item = navItemForPath(usePathname(), fiscalFilter);
   const section = item ? navSectionForItem(item) : undefined;
 
   return (
