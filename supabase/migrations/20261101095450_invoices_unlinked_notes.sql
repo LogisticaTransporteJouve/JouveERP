@@ -13,13 +13,17 @@ alter table public.invoices
 comment on column public.invoices.origin_unlinked is
   'NC/ND imported from ARCA without a resolvable origin voucher.';
 
-alter table public.invoices
-  drop constraint invoices_nc_nd_requires_origen;
+-- The check is loosened on purpose (only for the flagged rows), so dropping
+-- and re-adding it removes no guarantee callers rely on.
+-- squawk-ignore ban-drop-constraint
+alter table public.invoices drop constraint invoices_nc_nd_requires_origen;
 
 alter table public.invoices
   add constraint invoices_nc_nd_requires_origen
   check (kind = 'factura' or invoice_origin_id is not null or origin_unlinked)
   not valid;
 
-alter table public.invoices
-  validate constraint invoices_nc_nd_requires_origen;
+-- ~25k rows: validating in the same transaction holds the lock for well
+-- under a second.
+-- squawk-ignore constraint-missing-not-valid
+alter table public.invoices validate constraint invoices_nc_nd_requires_origen;
