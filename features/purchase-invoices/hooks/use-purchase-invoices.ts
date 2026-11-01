@@ -9,6 +9,7 @@ import {
 import { useMemo } from "react";
 
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { libroIvaKeys } from "@/features/libro-iva/lib/libro-iva-keys";
 import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
@@ -26,6 +27,10 @@ import {
   updatePurchaseInvoiceAction,
   type SearchPurchaseInvoicesPage,
 } from "../actions/purchase-invoices-actions";
+import {
+  imputePurchaseRemitosAction,
+  listImputableRemitosAction,
+} from "../actions/impute-remitos-actions";
 import {
   PURCHASE_INVOICES_PAGE_SIZE,
   purchaseInvoicesKeys,
@@ -190,6 +195,31 @@ export function useCancelPurchaseInvoice() {
       runAction(() => cancelPurchaseInvoiceAction({ id })),
     onSuccess: () => {
       invalidatePurchaseEffects(qc);
+    },
+  });
+}
+
+/** An internal supplier's remitos that can be imputed to a factura. */
+export function useImputableRemitos(
+  supplierId: string | null,
+  opts: { enabled: boolean },
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.imputableRemitos(supplierId ?? ""),
+    queryFn: () => runAction(() => listImputableRemitosAction(supplierId!)),
+    enabled: opts.enabled && supplierId !== null,
+  });
+}
+
+export function useImputePurchaseRemitos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { factura_id: string; remito_ids: string[] }) =>
+      runAction(() => imputePurchaseRemitosAction(input)),
+    // Moved payment orders take their treasury movements along.
+    onSuccess: () => {
+      invalidatePurchaseEffects(qc);
+      invalidateKeys(qc, CASH_KEYS);
     },
   });
 }

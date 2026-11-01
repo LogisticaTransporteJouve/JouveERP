@@ -1,6 +1,6 @@
 # Otras ventas — diseño
 
-Estado: **fases 1–3 implementadas** (2026-11-01); fase 4 pendiente. Sigue a
+Estado: **fases 1–4 implementadas** (2026-11-01). Sigue a
 [`separacion-fiscal-interno.md`](separacion-fiscal-interno.md) y su
 [plan](plan-separacion-fiscal-interno.md): las invariantes de canal en la DB se
 mantienen; lo que cambia es la **vista**. La tesorería se ve compartida (todos
@@ -108,6 +108,31 @@ una sola vez y el cliente queda debiendo el IVA.
 
 Los casos que no se pasan solos (sección 4) se resuelven a mano: anular el
 recibo interno, facturar el remito y cargar el cobro en Ventas.
+
+### 6. Imputar remitos internos de compra
+
+En una **factura de Compras** recibida, el botón **Imputar remitos internos**
+elige un proveedor de Otras compras y los remitos que esa factura incluye
+(`impute_purchase_remitos`, en una sola transacción; las compras no pasan por
+AFIP):
+
+1. Cada remito se cancela con una **nota de crédito interna de compra** por lo
+   que tenga abierto, con motivo "Imputado a la factura A00007-…" y vinculada a
+   la factura (`purchase_invoices.imputed_to_id`).
+2. Cada orden de pago interna aplicada al remito se **anula** (sus movimientos
+   de caja se van con ella) y se emite una **orden de pago de Compras** al
+   proveedor de la factura, con las mismas líneas y fecha, aplicada a la
+   factura.
+3. Los remitos no pueden sumar más que la factura.
+4. Mientras la NC está viva el remito queda congelado: no admite pagos, saldo
+   inicial, NC/ND, cambios de importe ni anulación, y la NC no se puede
+   cambiar ni anular. **Anular la factura** (después de anular sus órdenes de
+   pago) anula esas NC: los remitos vuelven a deberse en Otras compras.
+
+Qué impide imputar (`purchase_remito_blocker`): una NC/ND previa, saldo
+inicial aplicado, otra moneda, o una orden de pago interna que no se pueda
+pasar entera (paga otros comprobantes, tiene saldo a cuenta o cheques, o está
+en un período contable cerrado). Esos casos se resuelven a mano.
 
 ## Decisiones abiertas
 
