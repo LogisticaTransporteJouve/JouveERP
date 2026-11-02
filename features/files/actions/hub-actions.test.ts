@@ -112,6 +112,7 @@ describe("listHubFilesAction", () => {
           "ai_document",
           "ai_chat_message",
           "fleet_document",
+          "fuel_load",
         ],
       ],
     ]);
@@ -224,6 +225,7 @@ describe("getHubFileUrlAction", () => {
       "ai_document",
       "ai_chat_message",
       "fleet_document",
+      "fuel_load",
     ]);
     expect(callsOf("or")).toEqual([
       ["v_files_hub.or", "owner_id.is.null,owner_id.eq.u-1"],

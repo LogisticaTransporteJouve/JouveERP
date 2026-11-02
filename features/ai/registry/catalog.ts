@@ -26,6 +26,7 @@ import {
   getMaintenance,
   getShipmentsSummary,
   getTrips,
+  getVehicleKm,
   getVehicles,
 } from "./actions/fleet";
 import { getAttachments, searchGlobal } from "./actions/general";
@@ -153,6 +154,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getFuelLoads,
   getMaintenance,
   getFleetDocuments,
+  getVehicleKm,
   getFleetProfitability,
   getFleetMargin,
   getDrivers,

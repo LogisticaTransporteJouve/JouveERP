@@ -4,8 +4,7 @@ import { inflateRawSync } from "node:zlib";
 
 import { XMLParser } from "fast-xml-parser";
 
-import { capTable, type ParsedTable } from "./csv";
-import { CHAT_TABLE_LIMITS } from "./limits";
+import { capTable, type ParsedTable, type TableLimits } from "./csv";
 
 // First worksheet of an .xlsx as a text table, without a spreadsheet
 // dependency: an .xlsx is a zip of XML parts. Only what a table needs is read
@@ -264,7 +263,10 @@ type RawCell = {
 };
 
 /** First worksheet of an .xlsx file as rows of text, capped. */
-export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
+export function readXlsxFirstSheet(
+  bytes: Uint8Array,
+  limits: TableLimits,
+): ParsedTable {
   const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const entries = readZipDirectory(buf);
   const read = (name: string): string | null => {
@@ -279,7 +281,7 @@ export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
   );
   if (!fullSheet) throw new XlsxReadError("missing worksheet");
 
-  const maxRows = CHAT_TABLE_LIMITS.rows + 1;
+  const maxRows = limits.rows + 1;
   const sheet = truncateSheetXml(fullSheet, maxRows);
   const rowNodes = list(
     get(parseXml(sheet.xml), "worksheet", "sheetData", "row"),
@@ -290,7 +292,7 @@ export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
     for (const cell of list(get(rowNode, "c"))) {
       const ref = str(get(cell, "@_r"));
       const col = ref ? columnIndex(ref) : out.length;
-      if (col < 0 || col >= CHAT_TABLE_LIMITS.columns * 2) continue;
+      if (col < 0 || col >= limits.columns * 2) continue;
       out.push({
         col,
         type: str(get(cell, "@_t")),
@@ -329,5 +331,5 @@ export function readXlsxFirstSheet(bytes: Uint8Array): ParsedTable {
     }
     return row;
   });
-  return capTable(rows, sheet.cut);
+  return capTable(rows, limits, sheet.cut);
 }

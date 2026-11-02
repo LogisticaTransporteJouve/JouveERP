@@ -48,6 +48,7 @@ describe("hubScope", () => {
       "ai_document",
       "ai_chat_message",
       "fleet_document",
+      "fuel_load",
     ]);
     expect(scope.entityTypes).not.toContain("employee_document");
     expect(scope.entityTypes).not.toContain("purchase_invoice");

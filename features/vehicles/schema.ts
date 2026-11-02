@@ -38,6 +38,7 @@ export interface Vehicle {
   model: string | null;
   year: number | null;
   fleet: string | null;
+  fuel_card: string | null;
   capacity_kg: number | null;
   is_active: boolean;
   notes: string | null;
@@ -60,6 +61,23 @@ const optionalYear = z
   .nullable()
   .optional();
 
+/** A fuel card number as stored: digits and letters, without spaces or
+ *  dashes (vehicles.fuel_card). Empty means none. */
+const optionalFuelCard = z
+  .string()
+  .transform((v) => v.toUpperCase().replace(/[\s.-]/g, ""))
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^([0-9A-Z]{4,30})?$/,
+        "Tarjeta inválida (4 a 30 dígitos o letras).",
+      ),
+  )
+  .transform((v) => (v.length === 0 ? null : v))
+  .nullable()
+  .optional();
+
 const optionalCapacity = z
   .union([z.literal(""), z.coerce.number().min(0)])
   .transform((v) => (v === "" ? null : v))
@@ -74,6 +92,7 @@ export const VehicleCreateSchema = z.object({
   model: optionalText(60),
   year: optionalYear,
   fleet: optionalText(60),
+  fuel_card: optionalFuelCard,
   capacity_kg: optionalCapacity,
   notes: optionalText(2000),
 });
@@ -89,6 +108,7 @@ export const VehicleUpdateSchema = z.object({
   model: optionalText(60),
   year: optionalYear,
   fleet: optionalText(60),
+  fuel_card: optionalFuelCard,
   capacity_kg: optionalCapacity,
   is_active: z.boolean().optional(),
   notes: optionalText(2000),

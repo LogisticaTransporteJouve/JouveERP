@@ -10,6 +10,7 @@ import { listMaintenanceAction } from "@/features/maintenance/actions/maintenanc
 import { getShipmentsSummaryAction } from "@/features/shipments/actions/shipments-summary-actions";
 import { ShipmentsSummaryInputSchema } from "@/features/shipments/schema";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
+import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { todayInAR } from "@/lib/format";
 
@@ -24,7 +25,8 @@ import {
 import { readScope } from "../scope";
 
 // Fleet read tools. Each wraps an existing read action, inheriting its
-// `userCan` gate (trips/vehicles/fuel/maintenance/fleet_documents :read) + RLS,
+// `userCan` gate (trips/vehicles/fuel/maintenance/fleet_documents/fleet_km
+// :read) + RLS,
 // so the agent adds no new data access.
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -155,6 +157,37 @@ export const getFleetDocuments = defineAiAction({
     "expirations of vehicle/driver paperwork.",
   input: z.object({}),
   run: () => runFleetDocuments(),
+});
+
+export const getVehicleKm = defineAiAction({
+  name: "getVehicleKm",
+  domain: "flota",
+  permission: "fleet_km:read",
+  sideEffect: "read",
+  sources: ["vehicle_km_readings", "vehicles"],
+  description:
+    "Monthly odometer readings for one month (YYYY-MM, default the current " +
+    "one): each active motor vehicle with that month's km, the previous " +
+    "reading and the km driven between them (negative = the odometer went " +
+    "down), plus how many vehicles still lack the reading.",
+  input: z.object({
+    period: z
+      .string()
+      .nullish()
+      .describe("Month YYYY-MM (default: the current month)."),
+  }),
+  run: async (_ctx, input) => {
+    const period = input.period ?? todayInAR().slice(0, 7);
+    const res = await getVehicleKmMonthAction({ period });
+    if (!res.ok) return errResult(res.error);
+    const driven = res.data.rows.reduce((s, r) => s + (r.driven ?? 0), 0);
+    return okResult(
+      `Km ${period}: ${res.data.rows.length} vehicles, ` +
+        `${res.data.missing} without a reading · ` +
+        `${driven.toLocaleString("es-AR")} km driven (vehicles with both readings).`,
+      res.data,
+    );
+  },
 });
 
 export async function runFleetProfitability(input: {

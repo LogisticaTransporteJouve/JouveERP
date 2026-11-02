@@ -1,6 +1,13 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  FileUp,
+  MoreHorizontal,
+  Paperclip,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,6 +27,8 @@ import { useDeleteFuelLoad, useFuelLoads } from "../hooks/use-fuel";
 import type { FuelLoad } from "../schema";
 
 import { FuelDialog } from "./fuel-dialog";
+import { FuelImportDialog } from "./fuel-import-dialog";
+import { FuelTicketDialog, type FuelFileAccess } from "./fuel-ticket-dialog";
 
 function formatMoney(n: number) {
   return `$${n.toLocaleString("es-AR")}`;
@@ -29,6 +38,7 @@ export function FuelTable({
   vehicleOptions,
   tripOptions,
   voucherAccess,
+  fileAccess,
 }: {
   vehicleOptions: { id: string; patente: string }[];
   tripOptions: {
@@ -38,6 +48,8 @@ export function FuelTable({
     destination: string | null;
   }[];
   voucherAccess: CostVoucherAccess;
+  /** null: the user cannot read files, so tickets are not offered. */
+  fileAccess: FuelFileAccess | null;
 }) {
   const { data: items } = useFuelLoads();
   const deleteMut = useDeleteFuelLoad();
@@ -45,6 +57,8 @@ export function FuelTable({
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; fuelLoad: FuelLoad } | null
   >(null);
+  const [importing, setImporting] = useState(false);
+  const [ticketOf, setTicketOf] = useState<FuelLoad | null>(null);
 
   const columns = useMemo<ColumnDef<FuelLoad>[]>(() => {
     async function handleDelete(f: FuelLoad) {
@@ -127,6 +141,12 @@ export function FuelTable({
                 <Pencil className="size-4" />
                 Editar
               </DropdownMenuItem>
+              {fileAccess && (
+                <DropdownMenuItem onClick={() => setTicketOf(row.original)}>
+                  <Paperclip className="size-4" />
+                  Ticket o remito
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={() => handleDelete(row.original)}
@@ -139,7 +159,7 @@ export function FuelTable({
         ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [confirm, deleteMut, fileAccess]);
 
   return (
     <>
@@ -154,6 +174,10 @@ export function FuelTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="fuel" />
+          <Button variant="outline" onClick={() => setImporting(true)}>
+            <FileUp />
+            Importar resumen
+          </Button>
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
             Nueva carga
@@ -167,6 +191,17 @@ export function FuelTable({
         getRowId={(f) => f.id}
         emptyMessage="Sin cargas. Agregá la primera."
       />
+
+      <FuelImportDialog open={importing} onOpenChange={setImporting} />
+      {fileAccess && (
+        <FuelTicketDialog
+          fuelLoad={ticketOf}
+          access={fileAccess}
+          onOpenChange={(o) => {
+            if (!o) setTicketOf(null);
+          }}
+        />
+      )}
 
       {dialog && (
         <FuelDialog

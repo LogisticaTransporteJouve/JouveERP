@@ -105,6 +105,9 @@ export const PERMISSIONS = [
   "maintenance:write",
   "fleet_documents:read",
   "fleet_documents:write",
+  // Monthly odometer reading per vehicle (roadmap 1.6)
+  "fleet_km:read",
+  "fleet_km:write",
 
   // Accounting (Phase L)
   "accounting:read",
@@ -235,6 +238,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "maintenance:write",
     "fleet_documents:read",
     "fleet_documents:write",
+    "fleet_km:read",
+    "fleet_km:write",
     "channels:read",
     "ai:chat",
     "ai:read",

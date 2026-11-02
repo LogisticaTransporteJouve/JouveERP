@@ -235,6 +235,22 @@ export function parseArAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** A number from an imported statement cell, in either shape a spreadsheet
+ *  hands over: es-AR text ("$ 1.234,56", "12.500") or a raw cell value
+ *  ("1234.56"). A comma is always the decimal mark; without one, dots that
+ *  group exact thousands ("1.234.567") are thousands, any other single dot is
+ *  the decimal mark. Null when it is not a finite number. */
+export function parseStatementNumber(raw: string): number | null {
+  const cleaned = raw.replace(/[\s$]|ARS/gi, "");
+  if (cleaned.includes(",")) return parseArAmount(cleaned);
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    return parseArAmount(cleaned);
+  }
+  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
+  const n = Number.parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Sums es-AR amounts (string `"1.234,56"`) from a collection, extracting the
  *  string with a picker. Invalid / empty values contribute 0. Consolidates the
  *  `sumDraftAllocations` logic that was duplicated in receipt-form and

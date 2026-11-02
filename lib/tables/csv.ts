@@ -1,24 +1,31 @@
-import { CHAT_TABLE_LIMITS } from "./limits";
-
 export type ParsedTable = { rows: string[][]; truncated: boolean };
 
-/** `;` is the default list separator in Spanish-locale Excel exports. */
+/** How much of a table a reader keeps: rows, columns and characters per cell. */
+export type TableLimits = {
+  readonly rows: number;
+  readonly columns: number;
+  readonly cellChars: number;
+};
+
+/** `;` is the default list separator in Spanish-locale Excel exports. Read
+ *  over the first lines, so a title line above the header does not decide. */
 function detectDelimiter(text: string): string {
-  const firstLine = text.slice(0, text.search(/\r?\n|$/));
+  const head = text.split(/\r?\n/, 5).join("\n");
   const counts = [",", ";", "\t"].map((d) => ({
     d,
-    n: firstLine.split(d).length - 1,
+    n: head.split(d).length - 1,
   }));
   counts.sort((a, b) => b.n - a.n);
   return counts[0] && counts[0].n > 0 ? counts[0].d : ",";
 }
 
-/** Trims a table to CHAT_TABLE_LIMITS and drops empty trailing rows. */
+/** Trims a table to `limits` and drops empty rows. */
 export function capTable(
   rows: string[][],
+  limits: TableLimits,
   alreadyTruncated = false,
 ): ParsedTable {
-  const { rows: maxRows, columns, cellChars } = CHAT_TABLE_LIMITS;
+  const { rows: maxRows, columns, cellChars } = limits;
   let truncated = alreadyTruncated;
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   if (nonEmpty.length > maxRows) truncated = true;
@@ -38,7 +45,7 @@ export function capTable(
  * RFC 4180 CSV (quoted fields, doubled quotes, CRLF or LF). Stops reading
  * past the row cap so a huge file costs no more than the rows kept.
  */
-export function parseCsv(input: string): ParsedTable {
+export function parseCsv(input: string, limits: TableLimits): ParsedTable {
   const text = input.replace(/^﻿/, "");
   const delimiter = detectDelimiter(text);
   const rows: string[][] = [];
@@ -46,7 +53,7 @@ export function parseCsv(input: string): ParsedTable {
   let field = "";
   let quoted = false;
   let stoppedEarly = false;
-  const maxRows = CHAT_TABLE_LIMITS.rows + 1;
+  const maxRows = limits.rows + 1;
 
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
@@ -86,5 +93,5 @@ export function parseCsv(input: string): ParsedTable {
     row.push(field);
     rows.push(row);
   }
-  return capTable(rows, stoppedEarly);
+  return capTable(rows, limits, stoppedEarly);
 }

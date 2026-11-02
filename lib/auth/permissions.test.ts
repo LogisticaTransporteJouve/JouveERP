@@ -119,6 +119,23 @@ describe("userCan", () => {
     );
   });
 
+  it("monthly km readings are loaded by owner/admin/operations", () => {
+    for (const role of ["owner", "admin", "operations"] as const) {
+      expect(userCan(resolveAccess([role]), "fleet_km:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "fleet_km:write")).toBe(true);
+    }
+    for (const role of [
+      "finance",
+      "warehouse",
+      "driver",
+      "fiscal_reader",
+    ] as const) {
+      expect(userCan(resolveAccess([role]), "fleet_km:read")).toBe(false);
+    }
+    const denied = resolveAccess(["operations"], ["fleet_km:read"]);
+    expect(userCan(denied, "fleet_km:write")).toBe(false);
+  });
+
   it("recurring_payments is managed by owner/admin/finance only", () => {
     for (const role of ["owner", "admin", "finance"] as const) {
       expect(userCan(resolveAccess([role]), "recurring_payments:read")).toBe(
@@ -492,6 +509,8 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "files:write",
           "fleet_documents:read",
           "fleet_documents:write",
+          "fleet_km:read",
+          "fleet_km:write",
           "fuel:read",
           "fuel:write",
           "maintenance:read",
