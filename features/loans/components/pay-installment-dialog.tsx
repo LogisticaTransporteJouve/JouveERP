@@ -21,13 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { todayInAR } from "@/lib/format";
 
 import { usePayInstallment } from "../hooks/use-loans";
 import type { LoanInstallment } from "../schema";
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function PayInstallmentDialog({
   installment,
@@ -40,13 +37,13 @@ export function PayInstallmentDialog({
 }) {
   const payMut = usePayInstallment();
   const open = installment !== null;
-  const [paidDate, setPaidDate] = useState(today());
+  const [paidDate, setPaidDate] = useState(todayInAR());
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
 
   useEffect(() => {
     if (open && installment) {
-      setPaidDate(today());
+      setPaidDate(todayInAR());
       setAccountId("");
       setAmount(String(installment.amount));
     }

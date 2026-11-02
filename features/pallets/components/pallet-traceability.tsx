@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { todayInAR } from "@/lib/format";
 
 import { usePallets } from "../hooks/use-pallets";
 import { storedDays } from "../lib/pallet-days";
@@ -34,7 +35,7 @@ export function PalletTraceability({
   const [clientFilter, setClientFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
 
   const rows = useMemo<Row[]>(
     () =>

@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
 
 import { useCaeaStatus, useRequestCaea } from "../hooks/use-afip-admin";
 
@@ -31,7 +31,7 @@ function quincenaLabel(periodo: number, orden: number): string {
 export function CaeaPanel() {
   const { data } = useCaeaStatus();
   const requestMut = useRequestCaea();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
   const active = data.codes.find(
     (c) => c.fch_vig_desde <= today && c.fch_vig_hasta >= today,
   );
@@ -54,8 +54,8 @@ export function CaeaPanel() {
           <h2 className="text-sm font-medium">CAEA (contingencia)</h2>
           <p className="text-xs text-muted-foreground">
             Código anticipado por quincena para emitir con AFIP caído desde un
-            PV de contingencia. El uso se informa automáticamente hasta la
-            fecha tope.
+            PV de contingencia. El uso se informa automáticamente hasta la fecha
+            tope.
           </p>
         </div>
         <Button

@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { todayInAR } from "@/lib/format";
 
 import { useFleetProfitability } from "../hooks/use-fleet-reports";
 
@@ -25,9 +26,6 @@ function monthStart(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function ProfitabilityReport() {
   const [start, setStart] = useState("");
@@ -35,7 +33,7 @@ export function ProfitabilityReport() {
 
   useEffect(() => {
     setStart(monthStart());
-    setEnd(today());
+    setEnd(todayInAR());
   }, []);
 
   const { data, isLoading } = useFleetProfitability(start, end);

@@ -338,8 +338,8 @@ function NewLeaveForm({
 }) {
   const form = useForm<FormValues>({
     defaultValues: {
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: new Date().toISOString().slice(0, 10),
+      start_date: todayInAR(),
+      end_date: todayInAR(),
       kind: "vacaciones",
       notes: "",
     },
@@ -348,8 +348,8 @@ function NewLeaveForm({
   function onSubmit(values: FormValues) {
     onCreate(values);
     form.reset({
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: new Date().toISOString().slice(0, 10),
+      start_date: todayInAR(),
+      end_date: todayInAR(),
       kind: values.kind,
       notes: "",
     });

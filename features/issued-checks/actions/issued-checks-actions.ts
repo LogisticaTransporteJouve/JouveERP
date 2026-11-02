@@ -10,6 +10,7 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient } from "@/lib/supabase/server";
+import { todayInAR } from "@/lib/format";
 
 import type { AccountsListNameJoin } from "@/features/accounts/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
@@ -262,7 +263,7 @@ export async function transitionIssuedCheckAction(
   const parsed = IssuedCheckTransitionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
   const eventDate = parsed.data.event_date ?? today;
 
   const supabase = await createClient();

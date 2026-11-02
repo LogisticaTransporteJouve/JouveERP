@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney as money } from "@/lib/format";
+import { formatMoney as money, todayInAR } from "@/lib/format";
 
 import {
   useCreateManualJournalEntry,
@@ -42,10 +42,6 @@ const NO_CHANNEL = "_none";
 
 /** Code of the RECPAM account seeded for RG 4667 (prefill target). */
 const RECPAM_CODE = "4.2.2";
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function toNumber(v: string): number {
   const n = Number(v.replace(",", "."));
@@ -76,14 +72,14 @@ export function ManualEntryDialog({
   const { accounts } = usePostableAccounts(open);
   const create = useCreateManualJournalEntry();
 
-  const [fecha, setFecha] = useState(todayISO());
+  const [fecha, setFecha] = useState(todayInAR());
   const [descripcion, setDescripcion] = useState("");
   const [channelId, setChannelId] = useState(NO_CHANNEL);
   const [lines, setLines] = useState<LineDraft[]>([EMPTY_LINE, EMPTY_LINE]);
 
   useEffect(() => {
     if (!open) return;
-    setFecha(todayISO());
+    setFecha(todayInAR());
     setDescripcion(defaultDescription ?? "");
     setChannelId(NO_CHANNEL);
     setLines([EMPTY_LINE, EMPTY_LINE]);

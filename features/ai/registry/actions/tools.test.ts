@@ -268,7 +268,7 @@ describe("runLedger", () => {
   it("flags truncation in the summary", async () => {
     vi.mocked(getLedgerAction).mockResolvedValue({
       ok: true,
-      data: { rows: [], truncated: true },
+      data: { rows: [], truncated: true, opening: 0 },
     });
     const r = await runLedger({ accountId: "acc-1" });
     expect(getLedgerAction).toHaveBeenCalledWith({
@@ -278,6 +278,17 @@ describe("runLedger", () => {
     });
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("truncated");
+  });
+
+  it("reports the opening balance of a dated range", async () => {
+    vi.mocked(getLedgerAction).mockResolvedValue({
+      ok: true,
+      data: { rows: [], truncated: false, opening: 1500 },
+    });
+    const r = await runLedger({ accountId: "acc-1", from: "2026-05-01" });
+    expect(r.ok).toBe(true);
+    expect(r.summary).toContain("opening balance");
+    expect(r.summary).toContain("closing balance");
   });
 });
 

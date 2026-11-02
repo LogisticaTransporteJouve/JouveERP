@@ -37,7 +37,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { todayIsoLocal } from "@/lib/date-range";
 import { channelIsFiscal } from "@/lib/scope";
-import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
   SupplierPicker,
   type PickedSupplier,
@@ -48,6 +47,7 @@ import {
   usePurchaseInvoiceByIdOptional,
   usePurchaseInvoiceItems,
   useCreatePurchaseInvoice,
+  useNextInternalPurchaseNumero,
   usePurchaseInvoiceDuplicate,
   useUpdatePurchaseInvoice,
 } from "../hooks/use-purchase-invoices";
@@ -402,9 +402,6 @@ export function PurchaseInvoiceForm({
     }
   }, [mode, supplierDetail, defaultChannelId, channels, form]);
 
-  // K.12 Part C — Internal expense auto-numero. When the channel is internal
-  // and the supplier is picked, fetch the next numero for that pair. Only
-  // in mode=create and only if the numero field is empty.
   const watchedChannelId = useWatch({
     control: form.control,
     name: "channel_id",
@@ -424,33 +421,6 @@ export function PurchaseInvoiceForm({
     }
   }, [watchedChannelId, form]);
 
-  useEffect(() => {
-    if (mode !== "create") return;
-    if (!isInternalChannel) return;
-    if (!watchedSupplierId || !watchedChannelId) return;
-    if (form.getValues("numero")) return; // already typed something
-
-    let cancelled = false;
-    (async () => {
-      const supabase = createBrowserClient();
-      const { data, error } = await supabase.rpc(
-        "next_internal_purchase_numero",
-        {
-          p_channel_id: watchedChannelId,
-          p_supplier_id: watchedSupplierId,
-        },
-      );
-      if (cancelled || error || data == null) return;
-      form.setValue("numero", String(data), { shouldDirty: false });
-      if (!form.getValues("punto_venta")) {
-        form.setValue("punto_venta", "1", { shouldDirty: false });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, isInternalChannel, watchedSupplierId, watchedChannelId, form]);
-
   const debouncedPv = useDebouncedValue(
     useWatch({ control: form.control, name: "punto_venta" }),
     300,
@@ -459,6 +429,39 @@ export function PurchaseInvoiceForm({
     useWatch({ control: form.control, name: "numero" }),
     300,
   );
+
+  // Internal purchases number themselves: once the supplier is picked, the
+  // next número of its (kind, PV) series fills an empty numero field.
+  const nextNumeroPv = Number(debouncedPv);
+  const nextNumero = useNextInternalPurchaseNumero(
+    mode === "create" &&
+      isInternalChannel &&
+      watchedSupplierId &&
+      watchedChannelId
+      ? {
+          channelId: watchedChannelId,
+          supplierId: watchedSupplierId,
+          kind: watchedKind,
+          puntoVenta:
+            Number.isInteger(nextNumeroPv) && nextNumeroPv >= 1
+              ? nextNumeroPv
+              : 1,
+        }
+      : null,
+  );
+  useEffect(() => {
+    if (nextNumero.data == null) return;
+    if (form.getValues("numero")) return; // already typed something
+    form.setValue("numero", String(nextNumero.data), { shouldDirty: false });
+    if (!form.getValues("punto_venta")) {
+      form.setValue("punto_venta", "1", { shouldDirty: false });
+    }
+  }, [nextNumero.data, form]);
+  useEffect(() => {
+    if (nextNumero.error) {
+      toast.error(`No se pudo sugerir el número: ${nextNumero.error.message}`);
+    }
+  }, [nextNumero.error]);
   const duplicateLookup = useMemo(() => {
     const pv = Number(debouncedPv);
     const numero = Number(debouncedNumero);

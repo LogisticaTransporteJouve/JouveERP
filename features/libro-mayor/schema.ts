@@ -20,8 +20,10 @@ export type LedgerSummary = {
   finalBalance: number;
 };
 
+/** Totals of the shown lines; with no lines the balance is the opening. */
 export function computeLedgerSummary(
   rows: readonly LedgerRow[],
+  opening = 0,
 ): LedgerSummary {
   let totalDebit = 0;
   let totalCredit = 0;
@@ -32,6 +34,7 @@ export function computeLedgerSummary(
   return {
     totalDebit,
     totalCredit,
-    finalBalance: rows.length > 0 ? Number(rows[rows.length - 1]!.running) : 0,
+    finalBalance:
+      rows.length > 0 ? Number(rows[rows.length - 1]!.running) : opening,
   };
 }

@@ -15,15 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 
 import { useChangeShipmentStatus } from "../hooks/use-shipments";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
-export type ShipmentStatusAction =
-  | "start"
-  | "deliver"
-  | "cancel"
-  | "reprogram";
+export type ShipmentStatusAction = "start" | "deliver" | "cancel" | "reprogram";
 
 const ACTION_STATUS: Record<ShipmentStatusAction, ShipmentStatus> = {
   start: "in_progress",
@@ -46,10 +43,6 @@ const ACTION_DESCRIPTION: Record<ShipmentStatusAction, string> = {
   reprogram: "Definí la nueva fecha y el motivo.",
 };
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export function ShipmentStatusDialog({
   shipment,
   action,
@@ -61,7 +54,7 @@ export function ShipmentStatusDialog({
 }) {
   const changeMut = useChangeShipmentStatus();
   const [comment, setComment] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState(today());
+  const [deliveryDate, setDeliveryDate] = useState(todayInAR());
   const [failureReason, setFailureReason] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
 
@@ -70,7 +63,7 @@ export function ShipmentStatusDialog({
   useEffect(() => {
     if (open) {
       setComment("");
-      setDeliveryDate(today());
+      setDeliveryDate(todayInAR());
       setFailureReason("");
       setScheduledDate(shipment?.scheduled_date ?? "");
     }

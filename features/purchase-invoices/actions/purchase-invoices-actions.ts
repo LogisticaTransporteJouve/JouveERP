@@ -12,6 +12,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
@@ -651,4 +652,64 @@ export async function cancelPurchaseInvoiceAction(
 
   await logAudit("purchase_invoice.cancelled", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
+}
+
+const NextInternalNumeroSchema = z.object({
+  channelId: z.string().min(1),
+  supplierId: z.string().uuid(),
+  kind: z.enum(PURCHASE_INVOICE_KINDS),
+  puntoVenta: z.number().int().min(1).max(99999).default(1),
+});
+
+/**
+ * The next número of an internal (non-fiscal) purchase for the supplier, kind
+ * and punto de venta. Fiscal purchases carry the supplier's own número.
+ */
+export async function nextInternalPurchaseNumeroAction(
+  input: unknown,
+): Promise<ActionResult<number>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "purchase_invoices:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para cargar facturas de compra.",
+    };
+  }
+  const parsed = NextInternalNumeroSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+
+  const supabase = getServiceClient();
+  const { data: channel, error: channelError } = await supabase
+    .from("invoicing_channels")
+    .select("is_fiscal")
+    .eq("id", parsed.data.channelId)
+    .maybeSingle();
+  if (channelError) {
+    logger.error("purchase_invoices.next_numero.channel_failed", {
+      userId: ctx.userId,
+      error: channelError,
+    });
+    return { ok: false, error: "No se pudo calcular el próximo número." };
+  }
+  if (!channel) return { ok: false, error: "El canal elegido no existe." };
+  if (channel.is_fiscal) {
+    return {
+      ok: false,
+      error: "Las compras fiscales llevan el número del comprobante.",
+    };
+  }
+
+  const { data, error } = await supabase.rpc("next_internal_purchase_numero", {
+    p_supplier_id: parsed.data.supplierId,
+    p_kind: parsed.data.kind,
+    p_punto_venta: parsed.data.puntoVenta,
+  });
+  if (error || typeof data !== "number") {
+    logger.error("purchase_invoices.next_numero.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return { ok: false, error: "No se pudo calcular el próximo número." };
+  }
+  return { ok: true, data };
 }

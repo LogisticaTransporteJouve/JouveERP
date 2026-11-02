@@ -60,9 +60,8 @@ export async function listJournalEntriesAction(
   const limit = filters.limit ?? JOURNAL_PAGE_SIZE;
 
   const supabase = await createClient();
-  const query = applyFiscalFilter(
-    supabase.from("journal_entries").select(
-      `
+  const select = supabase.from("journal_entries").select(
+    `
       *,
       lines:journal_entry_lines(
         *,
@@ -70,10 +69,30 @@ export async function listJournalEntriesAction(
       ),
       channel:invoicing_channels(id, name, is_fiscal)
       `,
-    ),
-    filters.isFiscal,
-    "channel",
-  )
+  );
+  let scoped: typeof select;
+  if (filters.isFiscal === true) {
+    // A manual entry without channel is fiscal ("fiscal general"), so the
+    // fiscal scope keeps it; applyFiscalFilter would drop it with the embed.
+    const { data: channels, error: channelsError } = await supabase
+      .from("invoicing_channels")
+      .select("id")
+      .eq("is_fiscal", true);
+    if (channelsError) {
+      logger.error("journal_entries.list.channels_failed", {
+        userId: ctx.userId,
+        error: channelsError,
+      });
+      return { ok: false, error: "No se pudo leer el libro diario." };
+    }
+    const ids = (channels ?? []).map((c) => `"${c.id}"`).join(",");
+    scoped = select.or(
+      ids ? `channel_id.is.null,channel_id.in.(${ids})` : "channel_id.is.null",
+    );
+  } else {
+    scoped = applyFiscalFilter(select, filters.isFiscal, "channel");
+  }
+  const query = scoped
     .order("entry_date", { ascending: false })
     .order("created_at", { ascending: false })
     // Tie-breaker: two entries created in the same tx (e.g. emit_journal_*
