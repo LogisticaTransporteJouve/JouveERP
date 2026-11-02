@@ -3617,6 +3617,33 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_journal_entries: {
+        Row: {
+          accrual_period: string
+          created_at: string
+          error_code: string
+          last_try_at: string
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          accrual_period: string
+          created_at?: string
+          error_code: string
+          last_try_at?: string
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          accrual_period?: string
+          created_at?: string
+          error_code?: string
+          last_try_at?: string
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           client_id: string
@@ -6609,6 +6636,10 @@ export type Database = {
         Args: { p_id: string; p_source: string }
         Returns: string
       }
+      emit_journal_or_record: {
+        Args: { p_id: string; p_period: string; p_source: string }
+        Returns: undefined
+      }
       fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
         Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
@@ -6891,6 +6922,10 @@ export type Database = {
       pick_default_avatar_color: {
         Args: { p_user_id: string }
         Returns: string
+      }
+      post_pending_journals: {
+        Args: { p_limit?: number; p_period?: string }
+        Returns: Json
       }
       purchase_invoices_fiscal_without_letter: {
         Args: never

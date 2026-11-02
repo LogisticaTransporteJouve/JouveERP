@@ -54,6 +54,11 @@ function from(table: string) {
       filters.push((r) => (r[col] ?? null) !== v);
       return builder;
     },
+    neq: (col: string, v: unknown) => {
+      filters.push((r) => r[col] !== v);
+      return builder;
+    },
+    or: () => builder,
     lt: () => builder,
     gte: () => builder,
     order: () => builder,
@@ -118,8 +123,10 @@ vi.mock("@/lib/pdf/generate-and-hash", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
+vi.mock("@/lib/observability", () => ({ captureException: vi.fn() }));
 
 await import("./issue-invoice");
+const { getVoucherInfo } = await import("@/lib/afip/wsfev1");
 await import("./caea-inform");
 
 const step = {
@@ -157,6 +164,8 @@ function draft(overrides: Row = {}): Row {
     cotizacion: 1,
     status: "draft",
     invoice_origin_id: null,
+    source_remito_id: null,
+    afip_attempted_numero: null,
     channel: { id: "jouve_fiscal", is_fiscal: true, name: "Jouve fiscal" },
     ...overrides,
   };
@@ -296,5 +305,51 @@ describe("issue-invoice onFailure", () => {
   it("fails a pending emission", async () => {
     await failure("emitting");
     expect(h.db.invoices?.[0]?.status).toBe("failed");
+  });
+
+  const failureWithAttempt = () => {
+    h.db.invoices = [draft({ status: "emitting", afip_attempted_numero: 6 })];
+    return h.onFailures.get("issue-invoice")?.({
+      event: {
+        data: {
+          event: {
+            data: { invoice_id: INVOICE_ID, idempotency_key: "k1" },
+          },
+        },
+      },
+      error: new Error("persist-cae: db down"),
+    });
+  };
+
+  it("keeps the CAE AFIP authorized for this invoice", async () => {
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce({
+      ptoVta: 9,
+      cbteTipo: 1,
+      cbteNro: 6,
+      cae: "75000000000006",
+      caeFchVto: "20261024",
+      impTotal: 121,
+      cbteFch: "20261014",
+      docTipo: 80,
+      docNro: "30712345678",
+    } as never);
+    await failureWithAttempt();
+    expect(h.db.invoices?.[0]).toMatchObject({
+      status: "emitted",
+      numero: 6,
+      cae: "75000000000006",
+    });
+  });
+
+  it("fails it when AFIP has no voucher at that number", async () => {
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
+    await failureWithAttempt();
+    expect(h.db.invoices?.[0]?.status).toBe("failed");
+  });
+
+  it("leaves it emitting when AFIP does not answer", async () => {
+    vi.mocked(getVoucherInfo).mockRejectedValueOnce(new Error("timeout"));
+    await failureWithAttempt();
+    expect(h.db.invoices?.[0]?.status).toBe("emitting");
   });
 });

@@ -4,7 +4,7 @@
 > caja/transactions, libros (diario, mayor, IVA), balances, centros de costo y
 > ajuste por inflación. Generado de una auditoría del código (migraciones
 > `20260516200000`–`20260517200000` + hotfixes/round-audits, `features/{chart-of-accounts,
-> journal-entries,libro-mayor,libro-iva,balance,transactions,cost-centers,inflation}/`).
+journal-entries,libro-mayor,libro-iva,balance,transactions,cost-centers,inflation}/`).
 > Ver también `docs/roadmap.md` §4.2 (Fase L) y §3.1 (Fase D).
 
 ---
@@ -44,6 +44,7 @@ la app — no hay actions de alta/edición. Los asientos los generan triggers
 > ✅ **Asimetría action vs RLS en DELETE — corregido** (`deleteChartAccountAction`
 > y `deleteTransactionAction`). Antes chequeaban solo el permiso de escritura y la
 > policy de DELETE de RLS, más estricta, bloqueaba después en la DB:
+>
 > - `deleteChartAccountAction` ahora exige **owner/admin** (= RLS de `chart_of_accounts`).
 > - `deleteTransactionAction` ahora exige **owner** (= RLS de `transactions`).
 > - RPCs de apertura: `apply_account_opening_balance` / `apply_supplier_opening_balance`
@@ -66,14 +67,14 @@ UNIQUE` (regex `^[0-9]+(\.[0-9]+)*$`, ej. `1.1.2.3`), `name`, `level int` (CHECK
 `is_active`.
 
 - **`account_type`** (enum `coa_account_type`, 6): `activo, pasivo, patrimonio,
-  resultado_positivo, resultado_negativo, orden` (`orden` = cuentas de orden, sin
+resultado_positivo, resultado_negativo, orden` (`orden` = cuentas de orden, sin
   impacto patrimonial).
 - **`system_role`** (enum `coa_system_role`, **21**): `caja, banco, clientes,
-  proveedores, iva_debito, iva_credito, iva_percibido, iva_retenido,
-  percepciones_iibb_pagadas, percepciones_iibb_cobradas, retenciones_pagadas,
-  retenciones_cobradas, ventas, compras, gastos, cheques_cartera,
-  cheques_rechazados, cheques_diferidos_emitidos, caja_apertura, ajustes_caja,
-  sueldos`. `cheques_rechazados` es "Deudores por cheques rechazados" (activo, bajo
+proveedores, iva_debito, iva_credito, iva_percibido, iva_retenido,
+percepciones_iibb_pagadas, percepciones_iibb_cobradas, retenciones_pagadas,
+retenciones_cobradas, ventas, compras, gastos, cheques_cartera,
+cheques_rechazados, cheques_diferidos_emitidos, caja_apertura, ajustes_caja,
+sueldos`. `cheques_rechazados` es "Deudores por cheques rechazados" (activo, bajo
   1.1.2); `sueldos` es 5.3.1 "Sueldos y jornales" (`…193031`).
 
 **`system_role` es el puente a los asientos automáticos (§3).** El RPC
@@ -144,14 +145,14 @@ todas las líneas en una transacción antes del check.
 
 Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asiento:
 
-| Origen | Trigger / regla |
-|---|---|
-| `transactions` | AFTER INSERT → un asiento; **saltea** `invoice_id` (L.2c), `receipt_id`/`payment_order_id` (L.2d, anti-doble-conteo), `transfer_out` (solo `transfer_in` emite), y canal no fiscal. Editar importe, fechas, cuenta, canal, tipo o centro de costo **re-asienta** (la descripción no). |
-| `invoices` (ventas) | INSERT si `emitted`; `emitted→cancelled` emite **reversal**; guard que **bloquea** cancelar si hay allocations de recibo activas (`22023`). |
-| `purchase_invoices` | INSERT si `received`; `received→cancelled` reversal; editar importes, fecha, moneda, cuenta, centro de costo, tipo o canal (cabecera o ítems) **re-asienta** una vez al COMMIT. Guards: no cambia de canal una vez recibida, no cambia de tipo con imputaciones, no cambia el Libro IVA en un período cerrado, no queda con pendiente negativo, y una fiscal lleva letra. |
+| Origen                        | Trigger / regla                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `transactions`                | AFTER INSERT → un asiento; **saltea** `invoice_id` (L.2c), `receipt_id`/`payment_order_id` (L.2d, anti-doble-conteo), `transfer_out` (solo `transfer_in` emite), y canal no fiscal. Editar importe, fechas, cuenta, canal, tipo o centro de costo **re-asienta** (la descripción no).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `invoices` (ventas)           | INSERT si `emitted`; `emitted→cancelled` emite **reversal**; guard que **bloquea** cancelar si hay allocations de recibo activas (`22023`). Un comprobante fiscal no entra en `draft`/`emitting` con fecha en un período cerrado (`guard_invoice_period_closed`, `55006`): se rechaza antes de pedir el CAE. Si AFIP ya lo autorizó (tiene `cae`), el paso a `emitted` **no se aborta** cuando el asiento falla: queda emitido y el asiento espera en `pending_journal_entries` hasta que se reabre el período (`post_pending_journals`).                                                                                                                                                                                                                                                                                               |
+| `purchase_invoices`           | INSERT si `received`; `received→cancelled` reversal; editar importes, fecha, moneda, cuenta, centro de costo, tipo o canal (cabecera o ítems) **re-asienta** una vez al COMMIT. Guards: no cambia de canal una vez recibida, no cambia de tipo con imputaciones, no cambia el Libro IVA en un período cerrado, no queda con pendiente negativo, y una fiscal lleva letra.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `receipts` / `payment_orders` | **CONSTRAINT TRIGGER DEFERRED en el header** (dispara en COMMIT, así las payment-lines hijas ya son visibles); `issued`; `issued→canceled` reversal; editar (`update_receipt` / `update_payment_order`) **re-asienta** al COMMIT (también si cambia la `cotizacion`). `notified_at` y notas no. **USD:** cada línea (pagos y retenciones) se asienta en pesos a la `cotizacion` del documento, redondeada por línea, y clientes/proveedores es la suma de esas líneas redondeadas. La cotización es obligatoria (> 1) en un recibo u OP en USD nuevo (trigger `guard_document_cotizacion`; una edición que no la manda conserva la guardada) y un documento en pesos no lleva; los USD anteriores a `20261031203102` quedan con `NULL` y se asientan a `get_exchange_rate('USD', fecha)` o, sin cotización, a 1, como los comprobantes. |
-| `issued_checks` | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. Un cheque propio **sin OP** escribe además, al cobrarse, el egreso de caja (ver §4). |
-| `checks` (endosados) | `endosado→rechazado` → Debe `cheques_rechazados` / Haber `proveedores`. |
+| `issued_checks`               | `emitted→cashed/rejected/cancelled` → egreso banco / reversa de pasivo. Un cheque propio **sin OP** escribe además, al cobrarse, el egreso de caja (ver §4).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `checks` (endosados)          | `endosado→rechazado` → Debe `cheques_rechazados` / Haber `proveedores`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### 3.5 Reglas de negocio (asientos)
 
@@ -204,6 +205,7 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   cheque, `invoice_id` NULL) que envejece desde el día del rechazo;
   `v_client_aging(_by_scope)` dicen cuánto de cada total es cheque rechazado
   (`ars_/usd_rejected_checks_open`). Saldo abierto: `v_rejected_check_open`.
+
 - **Recibo que cancela un cheque rechazado:** una imputación con
   `rejected_check_id` va a `receipt_rejected_check_allocations` (mismo cliente,
   canal y moneda que el recibo de origen; nunca más de lo que queda abierto, con
@@ -246,6 +248,7 @@ al otro (requiere el FK DEFERRABLE, hotfix `…216000`). Solo misma moneda
 transfers requieren `transfer_pair_id`, income/expense lo prohíben.
 
 **Saldos de apertura** (3 niveles, todos por RPC `SECURITY DEFINER`):
+
 - **Por cuenta** (`account_opening_balances`): materializa una **transacción de
   ajuste** = diff entre `target_balance` y el saldo calculado. Owner-only.
 - **Por cliente / proveedor** (`client/supplier_opening_balances` + `…allocations`):
@@ -292,7 +295,7 @@ Ambos **solo lectura** sobre `journal_entries`/`_lines`.
 - **Libro mayor** = feature `libro-mayor`, `/accounting/libro-mayor`, RPC
   **`get_ledger(account_id, from, to)`** (`SECURITY INVOKER`): líneas de una cuenta
   con **saldo running** = `Σ(debit−credit) OVER (ORDER BY entry_date, entry_id,
-  line_id)`. Filtra por `entry_date` (no `accrual_period`). El action
+line_id)`. Filtra por `entry_date` (no `accrual_period`). El action
   `getLedgerAction` trunca a **`LEDGER_MAX_ROWS=1000`** en app (no en DB) y avisa.
 
 `get_ledger` y `get_account_balances` viven en `20260517200000_l_closure.sql`.
@@ -323,7 +326,7 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   - **Tipo de cambio:** `PES` (o sin moneda) = 1; si no, la `cotizacion` guardada
     (la informada a AFIP); si es 0, `get_exchange_rate('USD', fecha)`; si no hay,
     1. La columna `cotizacion` del RPC devuelve el tipo de cambio efectivamente
-    usado.
+       usado.
   - **Redondeo por comprobante:** IVA = `round(imp_iva × tc, 2)`, percepciones =
     `round(imp_trib × tc, 2)`; en ventas el ingreso
     `round((imp_neto + imp_op_ex + imp_tot_conc) × tc, 2)` se reparte en
@@ -382,6 +385,7 @@ página de Balance tiene un control "Desde (opcional)" que acota a movimientos d
 rango `[desde, corte]` (antes la UI siempre pasaba `period_start=null`).
 
 Tres tabs (un solo fetch las alimenta):
+
 - **Balance de saldos:** `Σdebe = Σhaber` (banner verde/rojo, tolerancia 0.01).
 - **Estado de Resultados (EERR):** agrupa por `eerr_category`; convención de signo:
   `resultado_positivo` lleva saldo negativo → `computeEERR` lo flipea (Ingresos
@@ -464,7 +468,7 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 3. **Centros de costo escritos pero no reportables** (§8): ahora se **escriben**
    (purchase-invoices, recurring-payments, Document Intelligence) pero
    `create_journal_entry` no propaga el centro al asiento (`journal_entries.
-   cost_center_id` siempre NULL) y EERR no filtra por centro. Falta el
+cost_center_id` siempre NULL) y EERR no filtra por centro. Falta el
    wire-through hasta el asiento + filtro.
 4. **Inflación apply/revert no implementado** (§9): solo CRUD de coeficientes;
    `journal_entry_id`/`applied_at` nunca se escriben; "Estado" siempre "Sin aplicar".

@@ -11,9 +11,11 @@ import {
 } from "@/lib/afip/wsfev1";
 import type { CbteTipoCode, IvaRateId } from "@/lib/afip/codes";
 import { isServiciosConcepto } from "@/lib/afip/codes";
+import { JOUVE_GUARD_HINT } from "@/lib/db/guard-errors";
 import { rpcAs } from "@/lib/db/rpc";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/observability";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
@@ -22,7 +24,10 @@ import {
   INVOICE_REMITO_BILLED,
   InvoiceIssueRequestedSchema,
 } from "../events";
-import { reserveNumberAndRequestCae } from "./issue-invoice-cae";
+import {
+  recoverAttempt,
+  reserveNumberAndRequestCae,
+} from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
 // Branches on `channel.is_fiscal` and, for fiscal, on the POS emission type:
@@ -188,6 +193,135 @@ export function buildAfipInput(
   };
 }
 
+/** Stores the number and CAE AFIP authorized and marks the invoice emitted.
+ *  The journal entry is posted by the database; when it cannot be posted the
+ *  voucher is still saved and the entry waits in pending_journal_entries. */
+async function persistAuthorizedCae(
+  invoiceId: string,
+  cae: InvoiceCAEResult,
+): Promise<void> {
+  const supabase = getServiceClient();
+  const caeFchVtoIso = `${cae.caeFchVto.slice(0, 4)}-${cae.caeFchVto.slice(4, 6)}-${cae.caeFchVto.slice(6, 8)}`;
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      numero: cae.cbteNro,
+      cae: cae.cae,
+      cae_vencimiento: caeFchVtoIso,
+      status: "emitted",
+      emitted_at: new Date().toISOString(),
+      afip_observaciones:
+        cae.observaciones.length > 0
+          ? ({ obs: cae.observaciones } as never)
+          : null,
+    })
+    .eq("id", invoiceId)
+    .in("status", ["draft", "emitting"]);
+  if (error) throw new Error(`persist-cae: ${error.message}`);
+}
+
+type FailureRow = {
+  status: string;
+  afip_attempted_numero: number | null;
+  punto_venta: number;
+  cbte_tipo_afip: number | null;
+  imp_total: string | number;
+  fecha: string;
+  doc_tipo: number;
+  doc_nro: string;
+  source_remito_id: string | null;
+};
+
+/**
+ * Before a failed run marks the invoice failed: if it sent a number to AFIP,
+ * ask AFIP whether that voucher is this invoice's. A CAE AFIP holds is never
+ * thrown away (a failed invoice frees its billing links for re-billing).
+ * Returns "recovered", "not_authorized" or "unknown" (AFIP did not answer).
+ */
+async function recoverOnFailure(
+  invoiceId: string,
+): Promise<"recovered" | "not_authorized" | "unknown"> {
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select(
+      "status, afip_attempted_numero, punto_venta, cbte_tipo_afip, imp_total, fecha, doc_tipo, doc_nro, source_remito_id",
+    )
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (error) return "unknown";
+  const row: FailureRow | null = data;
+  if (
+    !row ||
+    row.status !== "emitting" ||
+    row.afip_attempted_numero === null ||
+    row.cbte_tipo_afip === null
+  ) {
+    return "not_authorized";
+  }
+  const attempted = row.afip_attempted_numero;
+  const cbteTipo = row.cbte_tipo_afip;
+
+  let recovered: InvoiceCAEResult | null;
+  try {
+    recovered = await recoverAttempt({
+      invoiceId,
+      ptoVta: row.punto_venta,
+      cbteTipo,
+      expected: {
+        impTotal: toNumber(row.imp_total),
+        fecha: row.fecha,
+        docTipo: row.doc_tipo,
+        docNro: row.doc_nro,
+      },
+      afip: { getVoucherInfo },
+      attempts: {
+        read: async () => attempted,
+        takenByOther: async (cbteNro) => {
+          const { data: other, error: otherErr } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("punto_venta", row.punto_venta)
+            .eq("cbte_tipo_afip", cbteTipo)
+            .neq("id", invoiceId)
+            .neq("status", "failed")
+            .or(`numero.eq.${cbteNro},afip_attempted_numero.eq.${cbteNro}`)
+            .limit(1);
+          if (otherErr) throw new Error(`check-attempt: ${otherErr.message}`);
+          return (other ?? []).length > 0;
+        },
+      },
+    });
+  } catch (err) {
+    captureException(err, {
+      op: "issue_invoice.cae_outcome_unknown",
+      invoice_id: invoiceId,
+    });
+    return "unknown";
+  }
+  if (!recovered) return "not_authorized";
+
+  try {
+    await persistAuthorizedCae(invoiceId, recovered);
+  } catch (err) {
+    captureException(err, {
+      op: "issue_invoice.cae_outcome_unknown",
+      invoice_id: invoiceId,
+    });
+    return "unknown";
+  }
+  logger.warn("issue_invoice.cae_recovered_on_failure", {
+    invoice_id: invoiceId,
+  });
+  if (row.source_remito_id) {
+    await inngest.send({
+      name: INVOICE_REMITO_BILLED,
+      data: { factura_id: invoiceId },
+    });
+  }
+  return "recovered";
+}
+
 export const issueInvoice = inngest.createFunction(
   {
     id: "issue-invoice",
@@ -220,6 +354,12 @@ export const issueInvoice = inngest.createFunction(
         invoice_id: parsed.data.invoice_id,
         err: error.message,
       });
+      const outcome = await recoverOnFailure(parsed.data.invoice_id);
+      if (outcome !== "not_authorized") {
+        // Recovered: it is emitted. Unknown: AFIP may hold the CAE, so it
+        // stays emitting rather than failed (failed would free its links).
+        return;
+      }
       await supabase
         .from("invoices")
         .update({
@@ -277,6 +417,15 @@ export const issueInvoice = inngest.createFunction(
         .from("invoices")
         .update({ status: "emitting" })
         .eq("id", invoice_id);
+      if (updErr?.hint === JOUVE_GUARD_HINT) {
+        // A guard's refusal (e.g. the period closed after the draft was
+        // created) is deterministic: fail now, before any AFIP call.
+        logger.info("issue_invoice.rejected_by_guard", {
+          invoice_id,
+          code: updErr.code,
+        });
+        throw new NonRetriableError(updErr.message);
+      }
       if (updErr) throw new Error(`mark-emitting: ${updErr.message}`);
 
       return {
@@ -465,23 +614,7 @@ export const issueInvoice = inngest.createFunction(
     );
 
     await step.run("persist-cae", async () => {
-      const supabase = getServiceClient();
-      const caeFchVtoIso = `${cae.caeFchVto.slice(0, 4)}-${cae.caeFchVto.slice(4, 6)}-${cae.caeFchVto.slice(6, 8)}`;
-      const { error } = await supabase
-        .from("invoices")
-        .update({
-          numero: cae.cbteNro,
-          cae: cae.cae,
-          cae_vencimiento: caeFchVtoIso,
-          status: "emitted",
-          emitted_at: new Date().toISOString(),
-          afip_observaciones:
-            cae.observaciones.length > 0
-              ? ({ obs: cae.observaciones } as never)
-              : null,
-        })
-        .eq("id", invoice_id);
-      if (error) throw new Error(`persist-cae: ${error.message}`);
+      await persistAuthorizedCae(invoice_id, cae);
     });
 
     const billed = remitoBilledEvent(load);
