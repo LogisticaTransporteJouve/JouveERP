@@ -9,6 +9,7 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   PalletBulkCreateSchema,
@@ -59,7 +60,9 @@ export async function listPalletsAction(): Promise<ActionResult<Pallet[]>> {
   if (!userCan(ctx.access, "pallets:read")) {
     return { ok: false, error: "No tenés permiso para ver pallets." };
   }
-  const supabase = await createSupabaseClient();
+  // Service client after the gate: the embedded client name sits behind the
+  // clients RLS, which leaves the warehouse role out ("—" in every row).
+  const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("pallets")
     .select(SELECT_COLUMNS)
@@ -73,6 +76,31 @@ export async function listPalletsAction(): Promise<ActionResult<Pallet[]>> {
     .map((row) => narrow(row))
     .filter((row): row is Pallet => row !== null);
   return { ok: true, data: rows };
+}
+
+/** Clients a pallet can belong to (id + name), for the pallet pickers. The
+ *  warehouse role loads pallets but cannot read the clients module, so the
+ *  picker reads through the service client after the pallets gate. */
+export async function listPalletClientOptionsAction(): Promise<
+  ActionResult<{ id: string; legal_name: string }[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "pallets:read")) {
+    return { ok: false, error: "No tenés permiso para ver pallets." };
+  }
+  const { data, error } = await getServiceClient()
+    .from("clients")
+    .select("id, legal_name")
+    .eq("is_active", true)
+    .order("legal_name");
+  if (error) {
+    logger.error("pallets.client_options.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return { ok: false, error: "No se pudieron cargar los clientes." };
+  }
+  return { ok: true, data: data ?? [] };
 }
 
 export async function createPalletAction(

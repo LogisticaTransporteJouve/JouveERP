@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { listClientsAction } from "@/features/clients/actions/clients-actions";
-import { listPalletsAction } from "@/features/pallets/actions/pallets-actions";
+import {
+  listPalletClientOptionsAction,
+  listPalletsAction,
+} from "@/features/pallets/actions/pallets-actions";
 import { PalletTraceability } from "@/features/pallets/components/pallet-traceability";
 import { palletsKeys } from "@/features/pallets/lib/pallets-keys";
 import { requireUserContext } from "@/lib/auth/context";
@@ -25,7 +27,7 @@ export default async function PalletTraceabilityRoute() {
         queryFn: () => runAction(() => listPalletsAction()),
       },
     ]),
-    listClientsAction(),
+    listPalletClientOptionsAction(),
   ]);
 
   const clientOptions = clientsRes.ok
