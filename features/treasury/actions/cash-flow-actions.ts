@@ -14,8 +14,10 @@ import { createClient } from "@/lib/supabase/server";
 import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 
 import {
+  addMonths,
   buildCashFlow,
   placementMonth,
+  projectionEndExclusive,
   type CashFlow,
   type CashFlowEvent,
   type CashScope,
@@ -24,12 +26,6 @@ import { monthlyFlowsToEvents } from "../lib/movement-totals";
 
 function monthKey(isoDate: string): string {
   return isoDate.slice(0, 7);
-}
-
-function addMonths(ym: string, n: number): string {
-  const [y, m] = ym.split("-").map(Number);
-  const d = new Date(Date.UTC(y!, m! - 1 + n, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function addByFrequency(iso: string, freq: string): string {
@@ -86,7 +82,7 @@ export async function getCashFlowAction(input: {
   const curMonth = monthKey(today);
   const firstFwd = addMonths(curMonth, 1);
   const rangeStartDate = `${addMonths(curMonth, -monthsBack)}-01`;
-  const rangeEndDate = `${addMonths(curMonth, monthsFwd)}-31`;
+  const rangeEndExclusive = projectionEndExclusive(curMonth, monthsFwd);
 
   const months: { month: string; realized: boolean }[] = [];
   for (let i = -monthsBack; i <= monthsFwd; i++) {
@@ -209,7 +205,7 @@ export async function getCashFlowAction(input: {
     if (amount === null) continue;
     let occ = rp.next_due_date;
     let guard = 0;
-    while (occ <= rangeEndDate && guard < 400) {
+    while (occ < rangeEndExclusive && guard < 400) {
       guard++;
       if (occ >= `${firstFwd}-01` && (!rp.end_date || occ <= rp.end_date)) {
         const m = monthKey(occ);
@@ -328,7 +324,7 @@ export async function getCashFlowAction(input: {
         .select("id, loan_id, due_date, amount")
         .eq("status", "pendiente")
         .gte("due_date", `${firstFwd}-01`)
-        .lte("due_date", rangeEndDate)
+        .lt("due_date", rangeEndExclusive)
         .order("id", { ascending: true })
         .range(from, to),
     );

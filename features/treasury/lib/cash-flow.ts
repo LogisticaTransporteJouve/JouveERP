@@ -41,6 +41,26 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Shifts a YYYY-MM month by `n` months (negative goes back). */
+export function addMonths(ym: string, n: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y!, m! - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Exclusive upper bound (YYYY-MM-DD) of a projection running `monthsFwd`
+ * months past `curMonth`: the first day of the month after the last projected
+ * one. Compare with `<`; a `-31` suffix is not a valid date in 30-day months
+ * or February and Postgres rejects it.
+ */
+export function projectionEndExclusive(
+  curMonth: string,
+  monthsFwd: number,
+): string {
+  return `${addMonths(curMonth, monthsFwd + 1)}-01`;
+}
+
 /**
  * Month (YYYY-MM) to place an open document in the projection: the month of its
  * payment due date (or invoice date if there's no due date), clamped forward to
