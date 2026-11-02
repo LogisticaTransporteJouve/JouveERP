@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  computeBalanceSheetEquity,
   computeBalanceTotals,
   computeEERR,
   groupByType,
@@ -38,7 +39,11 @@ describe("groupByType", () => {
       row({ account_type: "activo", balance: 1000 }),
       row({ account_type: "patrimonio", balance: -500 }),
     ]);
-    expect(grouped.map((g) => g.type)).toEqual(["activo", "pasivo", "patrimonio"]);
+    expect(grouped.map((g) => g.type)).toEqual([
+      "activo",
+      "pasivo",
+      "patrimonio",
+    ]);
   });
 });
 
@@ -63,11 +68,44 @@ describe("computeEERR", () => {
 
   it("agrupa ingresos por eerr_category", () => {
     const eerr = computeEERR([
-      row({ account_type: "resultado_positivo", eerr_category: "ventas", balance: -1000 }),
-      row({ account_type: "resultado_positivo", eerr_category: "ventas", balance: -500 }),
-      row({ account_type: "resultado_positivo", eerr_category: "otros", balance: -200 }),
+      row({
+        account_type: "resultado_positivo",
+        eerr_category: "ventas",
+        balance: -1000,
+      }),
+      row({
+        account_type: "resultado_positivo",
+        eerr_category: "ventas",
+        balance: -500,
+      }),
+      row({
+        account_type: "resultado_positivo",
+        eerr_category: "otros",
+        balance: -200,
+      }),
     ]);
     const ventas = eerr.ingresos.categories.find((c) => c.name === "ventas");
     expect(ventas?.total).toBe(1500);
+  });
+});
+
+describe("computeBalanceSheetEquity", () => {
+  it("shows the period's result, and earlier results apart", () => {
+    // Since inception: sales 1000, expenses 300; in the period: sales 400,
+    // expenses 100. Capital 500.
+    const cumulative = [
+      row({ account_type: "patrimonio", balance: -500 }),
+      row({ account_type: "resultado_positivo", balance: -1000 }),
+      row({ account_type: "resultado_negativo", balance: 300 }),
+    ];
+    const period = [
+      row({ account_type: "resultado_positivo", balance: -400 }),
+      row({ account_type: "resultado_negativo", balance: 100 }),
+    ];
+    const equity = computeBalanceSheetEquity(cumulative, period);
+    expect(equity.resultadoPeriodo).toBe(300);
+    expect(equity.resultadosAnteriores).toBe(400);
+    // Capital + every result: the equation Activo = Pasivo + PN still holds.
+    expect(equity.totalPatrimonio).toBe(1200);
   });
 });

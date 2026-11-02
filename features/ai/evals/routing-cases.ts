@@ -103,6 +103,34 @@ export const ROUTING_CASES: RoutingCase[] = [
     dispatch: { fn: "getTreasurySummaryAction", args: {} },
   },
   {
+    id: "management-month",
+    question: "¿Ganamos plata en septiembre 2026?",
+    roles: ["owner"],
+    expect: {
+      tool: "getManagementPnL",
+      input: { fromPeriod: "2026-09", toPeriod: "2026-09" },
+    },
+    dispatch: {
+      fn: "getManagementPnlAction",
+      args: {
+        fromPeriod: "2026-09",
+        toPeriod: "2026-09",
+        basis: "accrual",
+        inflation: false,
+      },
+    },
+  },
+  {
+    id: "bank-balance",
+    question: "Armame el balance para el banco a septiembre 2026.",
+    roles: ["finance"],
+    expect: { tool: "getBalanceSheet", input: { periodEnd: "2026-09" } },
+    dispatch: {
+      fn: "getAccountTypeTotalsAction",
+      args: { periodEnd: "2026-09" },
+    },
+  },
+  {
     id: "recurring-task",
     question: "Todos los lunes a las 8 resumime las cobranzas vencidas.",
     roles: ["finance"],
@@ -121,6 +149,12 @@ export const ROUTING_CASES: RoutingCase[] = [
 ];
 
 export const DENIED_CASES: DeniedCase[] = [
+  {
+    id: "management-fiscal-reader",
+    question: "¿Ganamos plata en septiembre 2026?",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["getManagementPnL"],
+  },
   {
     id: "payroll-operations",
     question: "¿Cuánto pagamos de sueldo en octubre 2025?",

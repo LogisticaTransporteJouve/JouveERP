@@ -38,7 +38,7 @@ import type { IvaCondition } from "@/features/clients/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
-import { computeTotals } from "../schema";
+import { computeTotals, type RevenueKind } from "../schema";
 
 export type Kind = "nc" | "nd";
 
@@ -47,6 +47,7 @@ type ItemDraft = {
   quantity: string;
   unit_price: string;
   iva_rate_id: IvaRateId;
+  revenue_kind?: RevenueKind;
 };
 
 export interface OriginInvoice {
@@ -69,6 +70,7 @@ export interface OriginInvoice {
     quantity: number;
     unit_price: number;
     iva_rate_id: number | null;
+    revenue_kind?: RevenueKind;
   }>;
 }
 
@@ -126,6 +128,7 @@ export function NcNdForm({
           quantity: String(it.quantity),
           unit_price: String(it.unit_price),
           iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
+          revenue_kind: it.revenue_kind,
         })),
   );
 
@@ -205,6 +208,8 @@ export function NcNdForm({
           quantity: Number(it.quantity) || 0,
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
+          // A note on an asset sale adjusts that sale, not services.
+          revenue_kind: it.revenue_kind,
         })),
         idempotency_key: issueKey,
       },

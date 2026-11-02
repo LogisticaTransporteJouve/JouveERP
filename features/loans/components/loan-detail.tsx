@@ -43,7 +43,7 @@ export function LoanDetail({
   accountOptions,
 }: {
   loanId: string;
-  accountOptions: { id: string; name: string }[];
+  accountOptions: { id: string; name: string; currency: string }[];
 }) {
   const { data: loan } = useLoan(loanId);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
@@ -142,7 +142,10 @@ export function LoanDetail({
 
       <PayInstallmentDialog
         installment={payTarget}
-        accountOptions={accountOptions}
+        // An installment is paid from an account in the loan's currency.
+        accountOptions={accountOptions.filter(
+          (a) => a.currency === loan.currency,
+        )}
         onClose={() => setPayTarget(null)}
       />
       <EditInstallmentDialog

@@ -32,7 +32,11 @@ import {
   useCreateTransaction,
   useCreateTransfer,
 } from "../hooks/use-transactions";
-import { defaultAccrualMonth, TRANSACTION_CURRENCIES } from "../schema";
+import {
+  defaultAccrualMonth,
+  isTransactionCurrency,
+  TRANSACTION_CURRENCIES,
+} from "../schema";
 
 export interface ChannelOption {
   id: string;
@@ -134,6 +138,15 @@ export function TransactionForm({
   });
 
   const kind = useWatch({ control: form.control, name: "kind" });
+
+  // A movement carries its account's currency (the DB refuses a mismatch).
+  function pickAccount(onChange: (id: string) => void, id: string) {
+    onChange(id);
+    const account = activeAccounts.find((a) => a.id === id);
+    if (account && isTransactionCurrency(account.currency)) {
+      form.setValue("currency", account.currency);
+    }
+  }
   const accountFromId = useWatch({
     control: form.control,
     name: "account_from_id",
@@ -231,7 +244,7 @@ export function TransactionForm({
                   <FormLabel className="text-xs">Cuenta origen</FormLabel>
                   <Select
                     value={field.value ?? ""}
-                    onValueChange={field.onChange}
+                    onValueChange={(v) => pickAccount(field.onChange, v)}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -295,7 +308,7 @@ export function TransactionForm({
                 <FormLabel className="text-xs">Cuenta</FormLabel>
                 <Select
                   value={field.value ?? ""}
-                  onValueChange={field.onChange}
+                  onValueChange={(v) => pickAccount(field.onChange, v)}
                 >
                   <FormControl>
                     <SelectTrigger>
