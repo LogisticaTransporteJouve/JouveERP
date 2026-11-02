@@ -17,6 +17,7 @@ import {
   SetBucketSchema,
   toPayrollControlRow,
   type ManagementBucket,
+  type ManagementCostCenter,
   type ManagementRow,
   type PayrollControlRow,
   type Subbucket,
@@ -104,7 +105,39 @@ export type ManagementReport = {
   previousRows: ManagementRow[];
   payroll: PayrollControlRow[];
   accounts: ManagementAccount[];
+  /** Every cost center, inactive ones included (they name past rows). */
+  costCenters: ManagementCostCenter[];
 };
+
+async function readCostCenters(
+  userId: string,
+): Promise<ManagementCostCenter[] | null> {
+  const { data, error } = await getServiceClient()
+    .from("cost_centers")
+    .select("id, code, name")
+    .order("code");
+  if (error) {
+    logger.error("management.cost_centers.failed", { userId, error });
+    return null;
+  }
+  return data ?? [];
+}
+
+/** The cost centers the management rows name (management:read, so whoever
+ *  reads gestión can name its centers without accounting:read). */
+export async function listManagementCostCentersAction(): Promise<
+  ActionResult<ManagementCostCenter[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "management:read")) {
+    return { ok: false, error: DENIED };
+  }
+  const centers = await readCostCenters(ctx.userId);
+  if (!centers) {
+    return { ok: false, error: "No se pudieron leer los centros de costo." };
+  }
+  return { ok: true, data: centers };
+}
 
 async function readAccounts(
   userId: string,
@@ -163,28 +196,30 @@ export async function getManagementReportAction(
   const from = months[0]!;
   const to = months[11]!;
 
-  const [rows, previousRows, payrollRes, accounts] = await Promise.all([
-    readPnl(ctx.userId, from, to, basis, inflation),
-    readPnl(
-      ctx.userId,
-      previousMonths[0]!,
-      previousMonths[11]!,
-      basis,
-      inflation,
-    ),
-    getServiceClient().rpc("get_management_payroll_control", {
-      p_from: `${from}-01`,
-      p_to: endOfMonth(to),
-    }),
-    readAccounts(ctx.userId),
-  ]);
+  const [rows, previousRows, payrollRes, accounts, costCenters] =
+    await Promise.all([
+      readPnl(ctx.userId, from, to, basis, inflation),
+      readPnl(
+        ctx.userId,
+        previousMonths[0]!,
+        previousMonths[11]!,
+        basis,
+        inflation,
+      ),
+      getServiceClient().rpc("get_management_payroll_control", {
+        p_from: `${from}-01`,
+        p_to: endOfMonth(to),
+      }),
+      readAccounts(ctx.userId),
+      readCostCenters(ctx.userId),
+    ]);
   if (payrollRes.error) {
     logger.error("management.payroll_control.failed", {
       userId: ctx.userId,
       error: payrollRes.error,
     });
   }
-  if (!rows || !previousRows || !accounts || payrollRes.error) {
+  if (!rows || !previousRows || !accounts || !costCenters || payrollRes.error) {
     return { ok: false, error: "No se pudo calcular el resultado de gestión." };
   }
   return {
@@ -195,6 +230,7 @@ export async function getManagementReportAction(
       previousRows,
       payroll: (payrollRes.data ?? []).map(toPayrollControlRow),
       accounts,
+      costCenters,
     },
   };
 }

@@ -113,7 +113,7 @@ export async function searchPurchaseInvoicesAction(
 }
 
 const DETAIL_COLS =
-  "id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
+  "id, channel_id, account_id, cost_center_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
 
 export async function getPurchaseInvoiceByIdAction(
   id: string,
@@ -354,32 +354,8 @@ export async function createPurchaseInvoiceAction(
 
   const supabase = await createClient();
 
-  // If an expense account is set (AI-suggested or manual), it must be a leaf
-  // expense account — otherwise the posting (build_purchase_invoice_journal_lines)
-  // would debit a parent or non-expense account and distort the EERR.
-  if (parsed.data.account_id) {
-    const { data: leaf, error: leafError } = await supabase
-      .from("expense_leaf_accounts")
-      .select("id")
-      .eq("id", parsed.data.account_id)
-      .maybeSingle();
-    if (leafError) {
-      logger.error("purchase_invoices.account_check.failed", {
-        userId: ctx.userId,
-        account_id: parsed.data.account_id,
-        error: leafError,
-      });
-      return { ok: false, error: "No se pudo validar la cuenta de gasto." };
-    }
-    if (!leaf) {
-      return {
-        ok: false,
-        error:
-          "La cuenta de gasto debe ser una cuenta hoja de resultado (sin subcuentas).",
-      };
-    }
-  }
-
+  // An expense account (picked, a supplier default or AI-suggested) must be a
+  // postable leaf: guard_expense_account rejects any other with a message.
   const { data, error } = await supabase
     .from("purchase_invoices")
     .insert({
@@ -466,6 +442,8 @@ export async function createPurchaseInvoiceAction(
       numero: parsed.data.numero,
       imp_total: parsed.data.imp_total,
       items_count: parsed.data.items?.length ?? 0,
+      account_id: parsed.data.account_id ?? null,
+      cost_center_id: parsed.data.cost_center_id ?? null,
     },
     data.id,
   );
@@ -518,6 +496,12 @@ export async function updatePurchaseInvoiceAction(
     .from("purchase_invoices")
     .update({
       ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
+      ...(rest.account_id !== undefined && {
+        account_id: rest.account_id ?? null,
+      }),
+      ...(rest.cost_center_id !== undefined && {
+        cost_center_id: rest.cost_center_id ?? null,
+      }),
       ...(rest.supplier_id !== undefined && { supplier_id: rest.supplier_id }),
       ...(rest.kind !== undefined && { kind: rest.kind }),
       ...(rest.letter !== undefined && { letter: rest.letter ?? null }),

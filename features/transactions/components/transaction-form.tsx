@@ -27,6 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
 
 import {
   useCreateTransaction,
@@ -59,6 +60,9 @@ const FormSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Mes devengado inválido."),
     description: z.string().trim().max(500),
+    // Expense only: "" = none.
+    expense_account_id: z.string(),
+    cost_center_id: z.string(),
   })
   .superRefine((data, ctx) => {
     if (data.kind === "transfer") {
@@ -134,6 +138,8 @@ export function TransactionForm({
       transaction_date: today,
       accrual_month: defaultAccrualMonth(today),
       description: "",
+      expense_account_id: "",
+      cost_center_id: "",
     },
   });
 
@@ -196,6 +202,10 @@ export function TransactionForm({
         transaction_date: values.transaction_date,
         accrual_month: values.accrual_month,
         description: values.description,
+        ...(values.kind === "expense" && {
+          expense_account_id: values.expense_account_id,
+          cost_center_id: values.cost_center_id,
+        }),
       },
       {
         onSuccess: () => {
@@ -445,6 +455,46 @@ export function TransactionForm({
             )}
           />
         </div>
+
+        {kind === "expense" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="expense_account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Cuenta de gasto</FormLabel>
+                  <FormControl>
+                    <CostTagSelect
+                      kind="expenseAccount"
+                      value={field.value}
+                      onChange={field.onChange}
+                      noneLabel="Sin cuenta (Gastos)"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="cost_center_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Centro de costo</FormLabel>
+                  <FormControl>
+                    <CostTagSelect
+                      kind="costCenter"
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         {/* Description */}
         <FormField

@@ -47,22 +47,40 @@ const accrualMonth = isoDate.refine(
   "El mes devengado debe ser el día 1 (YYYY-MM-01).",
 );
 
+/** Expense account (a postable leaf of the chart) or cost center; "" = none. */
+const optionalCostTagId = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
+const EXPENSE_ACCOUNT_ONLY_ON_EXPENSE =
+  "La cuenta de gasto es solo para egresos.";
+
 // ---------------------------------------------------------------------------
 // Single-row create (income | expense)
 // ---------------------------------------------------------------------------
 
-export const TransactionCreateSchema = z.object({
-  account_id: z.string().uuid("Cuenta requerida."),
-  channel_id: z.string().min(1, "Canal requerido."),
-  kind: z.enum(["income", "expense"]),
-  amount: moneyAmount,
-  currency: z.enum(TRANSACTION_CURRENCIES),
-  transaction_date: isoDate,
-  accrual_month: accrualMonth,
-  description: trimmedNullable,
-  invoice_id: z.string().uuid().nullable().optional(),
-  counterparty_client_id: z.string().uuid().nullable().optional(),
-});
+export const TransactionCreateSchema = z
+  .object({
+    account_id: z.string().uuid("Cuenta requerida."),
+    channel_id: z.string().min(1, "Canal requerido."),
+    kind: z.enum(["income", "expense"]),
+    amount: moneyAmount,
+    currency: z.enum(TRANSACTION_CURRENCIES),
+    transaction_date: isoDate,
+    accrual_month: accrualMonth,
+    description: trimmedNullable,
+    invoice_id: z.string().uuid().nullable().optional(),
+    counterparty_client_id: z.string().uuid().nullable().optional(),
+    /** Manual expense only: the account the entry debits instead of gastos. */
+    expense_account_id: optionalCostTagId,
+    cost_center_id: optionalCostTagId,
+  })
+  .refine((d) => d.kind === "expense" || !d.expense_account_id, {
+    message: EXPENSE_ACCOUNT_ONLY_ON_EXPENSE,
+    path: ["expense_account_id"],
+  });
 
 export type TransactionCreateInput = z.infer<typeof TransactionCreateSchema>;
 
@@ -101,6 +119,10 @@ export const TransactionUpdateSchema = z.object({
   accrual_month: accrualMonth,
   description: trimmedNullable,
   counterparty_client_id: z.string().uuid().nullable().optional(),
+  /** Absent leaves the column as is (the database refuses an account on a
+   *  movement that is not a manual expense). */
+  expense_account_id: optionalCostTagId,
+  cost_center_id: optionalCostTagId,
 });
 
 export type TransactionUpdateInput = z.infer<typeof TransactionUpdateSchema>;

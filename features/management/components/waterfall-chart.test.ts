@@ -14,6 +14,7 @@ describe("waterfall bars", () => {
         accountId: null,
         amount: 1000,
         pendingUsd: 0,
+        costCenterId: null,
       },
       {
         month: "2026-09",
@@ -23,6 +24,7 @@ describe("waterfall bars", () => {
         accountId: null,
         amount: -400,
         pendingUsd: 0,
+        costCenterId: null,
       },
     ]);
     const bars = waterfallBars(waterfallSteps(w));
