@@ -30,8 +30,10 @@ describe("VehicleCreateSchema", () => {
 
   it("rejects an unknown vehicle_type", () => {
     expect(
-      VehicleCreateSchema.safeParse({ patente: "AB123CD", vehicle_type: "tank" })
-        .success,
+      VehicleCreateSchema.safeParse({
+        patente: "AB123CD",
+        vehicle_type: "tank",
+      }).success,
     ).toBe(false);
   });
 
@@ -43,5 +45,22 @@ describe("VehicleCreateSchema", () => {
         year: 1900,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("fuel_card", () => {
+  it("is stored without spaces or dashes, uppercase, or null when empty", () => {
+    const parse = (fuel_card: string) =>
+      VehicleCreateSchema.safeParse({
+        patente: "AB123CD",
+        vehicle_type: "camion",
+        fuel_card,
+      });
+    const ok = parse("7069 0012-3456 ab");
+    expect(ok.success && ok.data.fuel_card).toBe("706900123456AB");
+    const empty = parse("");
+    expect(empty.success && empty.data.fuel_card).toBeNull();
+    expect(parse("12").success).toBe(false);
+    expect(parse("7069/12").success).toBe(false);
   });
 });

@@ -16,6 +16,7 @@ export const AUTOMATIC_TASK_KINDS = [
   "issued_check",
   "fleet_document",
   "employee_document",
+  "vehicle_km",
 ] as const;
 export type AutomaticTaskKind = (typeof AUTOMATIC_TASK_KINDS)[number];
 

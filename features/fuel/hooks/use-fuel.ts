@@ -11,12 +11,17 @@ import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  confirmFuelImportAction,
+  previewFuelImportAction,
+} from "../actions/fuel-import-actions";
+import {
   createFuelLoadAction,
   deleteFuelLoadAction,
   listFuelLoadsAction,
   updateFuelLoadAction,
 } from "../actions/fuel-actions";
 import { fuelKeys } from "../lib/fuel-keys";
+import type { FuelImportConfirmInput } from "../schema";
 
 export function useFuelLoads() {
   return useSuspenseQuery({
@@ -51,6 +56,22 @@ export function useDeleteFuelLoad() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runAction(() => deleteFuelLoadAction({ id })),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function usePreviewFuelImport() {
+  return useMutation({
+    mutationFn: (formData: FormData) =>
+      runAction(() => previewFuelImportAction(formData)),
+  });
+}
+
+export function useConfirmFuelImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FuelImportConfirmInput) =>
+      runAction(() => confirmFuelImportAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

@@ -49,6 +49,7 @@ const FormSchema = z.object({
   model: z.string().trim().max(60),
   year: z.string().trim(),
   fleet: z.string().trim().max(60),
+  fuel_card: z.string().trim().max(40),
   capacity_kg: z.string().trim(),
   notes: z.string().trim().max(2000),
 });
@@ -64,7 +65,9 @@ function toDefaults(vehicle?: Vehicle): FormValues {
     model: vehicle?.model ?? "",
     year: vehicle?.year != null ? String(vehicle.year) : "",
     fleet: vehicle?.fleet ?? "",
-    capacity_kg: vehicle?.capacity_kg != null ? String(vehicle.capacity_kg) : "",
+    fuel_card: vehicle?.fuel_card ?? "",
+    capacity_kg:
+      vehicle?.capacity_kg != null ? String(vehicle.capacity_kg) : "",
     notes: vehicle?.notes ?? "",
   };
 }
@@ -103,6 +106,7 @@ export function VehicleDialog({
       model: values.model,
       year: values.year,
       fleet: values.fleet,
+      fuel_card: values.fuel_card,
       capacity_kg: values.capacity_kg,
       notes: values.notes,
     };
@@ -136,8 +140,8 @@ export function VehicleDialog({
             {isEdit ? "Editar vehículo" : "Nuevo vehículo"}
           </DialogTitle>
           <DialogDescription>
-            Vehículo de la flota. La documentación vencible (VTV, seguro) se carga
-            aparte.
+            Vehículo de la flota. La documentación vencible (VTV, seguro) se
+            carga aparte.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -164,9 +168,7 @@ export function VehicleDialog({
                     <FormLabel>Tipo</FormLabel>
                     <Select
                       value={field.value}
-                      onValueChange={(v) =>
-                        field.onChange(v as VehicleType)
-                      }
+                      onValueChange={(v) => field.onChange(v as VehicleType)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -263,6 +265,23 @@ export function VehicleDialog({
                   <FormLabel>Flota</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="Logística Jouve" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fuel_card"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tarjeta de combustible</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      inputMode="numeric"
+                      placeholder="Número de YPF en Ruta o Axion Card"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -32,6 +32,7 @@ type VehicleSelectRow = Pick<
   | "model"
   | "year"
   | "fleet"
+  | "fuel_card"
   | "capacity_kg"
   | "is_active"
   | "notes"
@@ -51,8 +52,14 @@ function narrowVehicle(row: VehicleSelectRow): Vehicle | null {
   };
 }
 
+function uniqueViolationMessage(message: string): string {
+  return message.includes("vehicles_fuel_card_unique")
+    ? "Esa tarjeta de combustible ya es de otro vehículo."
+    : "Ya existe un vehículo con esa patente.";
+}
+
 const SELECT_COLUMNS =
-  "id, patente, alias, vehicle_type, brand, model, year, fleet, capacity_kg, is_active, notes, created_at, updated_at";
+  "id, patente, alias, vehicle_type, brand, model, year, fleet, fuel_card, capacity_kg, is_active, notes, created_at, updated_at";
 
 export async function listVehiclesAction(
   input: { onlyActive?: boolean } = {},
@@ -109,6 +116,7 @@ export async function createVehicleAction(
       model: parsed.data.model ?? null,
       year: parsed.data.year ?? null,
       fleet: parsed.data.fleet ?? null,
+      fuel_card: parsed.data.fuel_card ?? null,
       capacity_kg: parsed.data.capacity_kg ?? null,
       notes: parsed.data.notes ?? null,
       created_by: ctx.userId,
@@ -117,10 +125,7 @@ export async function createVehicleAction(
     .single();
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Ya existe un vehículo con esa patente.",
-      };
+      return { ok: false, error: uniqueViolationMessage(error.message) };
     }
     logger.error("vehicles.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear el vehículo." };
@@ -164,6 +169,7 @@ export async function updateVehicleAction(
       ...(rest.model !== undefined && { model: rest.model }),
       ...(rest.year !== undefined && { year: rest.year }),
       ...(rest.fleet !== undefined && { fleet: rest.fleet }),
+      ...(rest.fuel_card !== undefined && { fuel_card: rest.fuel_card }),
       ...(rest.capacity_kg !== undefined && { capacity_kg: rest.capacity_kg }),
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
@@ -171,10 +177,7 @@ export async function updateVehicleAction(
     .eq("id", id);
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Ya existe un vehículo con esa patente.",
-      };
+      return { ok: false, error: uniqueViolationMessage(error.message) };
     }
     logger.error("vehicles.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el vehículo." };

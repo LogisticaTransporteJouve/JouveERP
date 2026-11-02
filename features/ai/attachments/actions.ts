@@ -6,11 +6,11 @@ import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { RateLimitError, enforceRateLimit } from "@/lib/rate-limit";
+import type { ParsedTable } from "@/lib/tables/csv";
 import { UuidSchema } from "@/lib/validation/common";
 
 import { canViewChatAttachment } from "./access";
 import { attachmentMetadata, parseTable } from "./content";
-import type { ParsedTable } from "./csv";
 import {
   CHAT_PDF_MAX_PAGES,
   normalizeChatAttachmentMime,

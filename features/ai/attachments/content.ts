@@ -5,8 +5,9 @@ import { z } from "zod";
 
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { parseCsv, type ParsedTable } from "@/lib/tables/csv";
+import { readXlsxFirstSheet } from "@/lib/tables/xlsx";
 
-import { parseCsv, type ParsedTable } from "./csv";
 import {
   attachmentsNewestFirst,
   selectWithinBudget,
@@ -15,10 +16,10 @@ import {
 } from "./expand";
 import {
   CHAT_ATTACHMENT_BUDGET,
+  CHAT_TABLE_LIMITS,
   XLSX_MIME,
   type AttachmentBudget,
 } from "./limits";
-import { readXlsxFirstSheet } from "./xlsx";
 
 /** A linked chat attachment as stored (store.ts). */
 export type StoredAttachment = {
@@ -48,8 +49,8 @@ export function isTableMime(mime: string): boolean {
 }
 
 export function parseTable(mime: string, bytes: Uint8Array): ParsedTable {
-  if (mime === XLSX_MIME) return readXlsxFirstSheet(bytes);
-  return parseCsv(new TextDecoder("utf-8").decode(bytes));
+  if (mime === XLSX_MIME) return readXlsxFirstSheet(bytes, CHAT_TABLE_LIMITS);
+  return parseCsv(new TextDecoder("utf-8").decode(bytes), CHAT_TABLE_LIMITS);
 }
 
 /** Larger tables are not cached in files.metadata (parsed on demand). */

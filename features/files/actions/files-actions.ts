@@ -33,6 +33,7 @@ const TARGET_WRITE_PERMISSION: Record<AttachmentTargetType, Permission> = {
   client: "clients:write",
   supplier: "suppliers:write",
   transaction: "transactions:write",
+  fuel_load: "fuel:write",
 };
 
 const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> =
@@ -210,7 +211,7 @@ export async function getSignedFileUrlAction(
   const { data: links, error: linksErr } = await supabase
     .from("file_attachments")
     .select(
-      "purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id",
+      "purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id, fuel_load_id",
     )
     .eq("file_id", parsed.data);
   if (linksErr) {
@@ -273,7 +274,7 @@ export async function detachFileAction(
   const { data: attRow, error: loadErr } = await supabase
     .from("file_attachments")
     .select(
-      "file_id, kind, purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id",
+      "file_id, kind, purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id, fuel_load_id",
     )
     .eq("id", parsed.data)
     .maybeSingle();

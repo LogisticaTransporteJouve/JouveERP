@@ -2,16 +2,21 @@ import { crc32, deflateRawSync, deflateSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
-import { parseCsv } from "./csv";
-import { CHAT_TABLE_LIMITS } from "./limits";
-import { countPdfPages, isEncryptedPdf } from "./pdf-pages";
+import { parseCsv as parseCsvWith } from "@/lib/tables/csv";
 import {
   excelSerialToIso,
   readSharedStrings,
-  readXlsxFirstSheet,
+  readXlsxFirstSheet as readXlsxWith,
   truncateSheetXml,
   XlsxReadError,
-} from "./xlsx";
+} from "@/lib/tables/xlsx";
+
+import { CHAT_TABLE_LIMITS } from "./limits";
+import { countPdfPages, isEncryptedPdf } from "./pdf-pages";
+
+const parseCsv = (text: string) => parseCsvWith(text, CHAT_TABLE_LIMITS);
+const readXlsxFirstSheet = (bytes: Uint8Array) =>
+  readXlsxWith(bytes, CHAT_TABLE_LIMITS);
 
 /** A minimal zip (deflated entries) — enough to stand in for an .xlsx. */
 function zip(entries: Record<string, string>): Uint8Array {
