@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCashFlow, placementMonth, type CashFlowEvent } from "./cash-flow";
+import {
+  addMonths,
+  buildCashFlow,
+  placementMonth,
+  projectionEndExclusive,
+  type CashFlowEvent,
+} from "./cash-flow";
 
 const months = [
   { month: "2026-05", realized: true },
@@ -65,5 +71,40 @@ describe("buildCashFlow", () => {
     expect(r.months.find((m) => m.month === "2026-07")!.closing).toBe(-1000);
     expect(r.deficitMonth).toBe("2026-07");
     expect(r.lowestClosing).toBe(-1000);
+  });
+});
+
+describe("addMonths", () => {
+  it("rolls across year boundaries both ways", () => {
+    expect(addMonths("2026-12", 1)).toBe("2027-01");
+    expect(addMonths("2026-01", -1)).toBe("2025-12");
+    expect(addMonths("2026-11", 0)).toBe("2026-11");
+  });
+});
+
+describe("projectionEndExclusive", () => {
+  const isValidIsoDate = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toISOString().slice(0, 10) === iso;
+
+  it("ends after a 30-day month without inventing a 31st", () => {
+    // Dec 2026 + 6 months = June 2027 (30 days): `2027-06-31` broke Postgres.
+    const end = projectionEndExclusive("2026-12", 6);
+    expect(end).toBe("2027-07-01");
+    expect(isValidIsoDate(end)).toBe(true);
+    expect("2027-06-30" < end).toBe(true);
+    expect("2027-07-01" < end).toBe(false);
+  });
+
+  it("ends after February, leap year or not", () => {
+    expect(projectionEndExclusive("2026-08", 6)).toBe("2027-03-01");
+    expect("2027-02-28" < projectionEndExclusive("2026-08", 6)).toBe(true);
+    expect(projectionEndExclusive("2027-08", 6)).toBe("2028-03-01");
+    expect("2028-02-29" < projectionEndExclusive("2027-08", 6)).toBe(true);
+  });
+
+  it("is a valid date for every horizon month", () => {
+    for (let fwd = 1; fwd <= 24; fwd++) {
+      expect(isValidIsoDate(projectionEndExclusive("2026-11", fwd))).toBe(true);
+    }
   });
 });
