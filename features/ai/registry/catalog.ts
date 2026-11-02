@@ -9,6 +9,7 @@ import {
   getTrialBalance,
 } from "./actions/accounting";
 import { getAfipStatus } from "./actions/afip";
+import { getAuditEvents } from "./actions/audit";
 import {
   getAccounts,
   getChecks,
@@ -170,6 +171,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   searchGlobal,
   getAttachments,
   getTasks,
+  getAuditEvents,
   proposeAiWorkflow,
   proposeDocumentScan,
 ];

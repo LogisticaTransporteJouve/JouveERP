@@ -11,6 +11,7 @@ import {
   CreditCard,
   DatabaseBackup,
   DollarSign,
+  FileSearch,
   FileText,
   FolderOpen,
   Fuel,
@@ -463,6 +464,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Preview PDF",
         icon: FileText,
         permission: "afip:admin",
+      },
+      {
+        href: "/admin/audit",
+        label: "Auditoría",
+        icon: FileSearch,
+        permission: "audit:read",
       },
       {
         href: "/admin/backups",
