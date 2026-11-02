@@ -6609,6 +6609,7 @@ export type Database = {
         Args: { p_id: string; p_source: string }
         Returns: string
       }
+      fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
         Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
         Returns: string

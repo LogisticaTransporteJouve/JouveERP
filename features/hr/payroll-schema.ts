@@ -99,10 +99,24 @@ export const CreatePayrollPaymentSchema = z.object({
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500).nullable().optional(),
+  /** The user confirmed paying more than the entry's balance. */
+  allow_overpay: z.boolean().optional(),
 });
+
+export const UpdatePayrollPaymentSchema = CreatePayrollPaymentSchema.omit({
+  entry_id: true,
+}).extend({ id: z.string().uuid() });
+
+export type UpdatePayrollPaymentInput = z.infer<
+  typeof UpdatePayrollPaymentSchema
+>;
 
 export const DeletePayrollPaymentSchema = z.object({
   id: z.string().uuid(),
+});
+
+export const AddMissingPayrollEntriesSchema = z.object({
+  period_id: z.string().uuid(),
 });
 
 export type CreatePayrollPaymentInput = z.infer<
@@ -125,6 +139,8 @@ export const BulkCreatePayrollPaymentsSchema = z.object({
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500).nullable().optional(),
+  /** The user confirmed paying more than some employees' balance. */
+  allow_overpay: z.boolean().optional(),
 });
 
 export type BulkCreatePayrollPaymentsInput = z.infer<
