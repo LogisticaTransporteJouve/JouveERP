@@ -10,6 +10,7 @@ import {
   formatMoney,
   formatMoneySigned,
   formatNumber2,
+  parseStatementNumber,
   todayInAR,
 } from "./format";
 
@@ -241,5 +242,22 @@ describe("todayInAR", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("parseStatementNumber", () => {
+  it("reads es-AR text and raw cell values", () => {
+    expect(parseStatementNumber("$ 1.234,56")).toBe(1234.56);
+    expect(parseStatementNumber("12.500")).toBe(12500);
+    expect(parseStatementNumber("1.234.567")).toBe(1234567);
+    expect(parseStatementNumber("1234.56")).toBe(1234.56);
+    expect(parseStatementNumber("250,5")).toBe(250.5);
+    expect(parseStatementNumber("ARS 300")).toBe(300);
+  });
+
+  it("returns null for what is not a number", () => {
+    expect(parseStatementNumber("")).toBeNull();
+    expect(parseStatementNumber("abc")).toBeNull();
+    expect(parseStatementNumber("12a")).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ export const ENTITY_TYPES = [
   "ai_chat_message",
   "employee_document",
   "fleet_document",
+  "fuel_load",
 ] as const;
 
 export type EntityType = (typeof ENTITY_TYPES)[number];
@@ -36,4 +37,5 @@ export const ENTITY_READ_PERMISSION: Record<EntityType, Permission> = {
   ai_chat_message: "ai:chat",
   employee_document: "hr:read",
   fleet_document: "fleet_documents:read",
+  fuel_load: "fuel:read",
 };

@@ -2,6 +2,12 @@ import { z } from "zod";
 
 import { CostVoucherShape } from "@/lib/cost-vouchers";
 
+import {
+  FUEL_IMPORT_LIMITS,
+  FUEL_IMPORT_PROVIDERS,
+  type FuelImportMapping,
+} from "./lib/import";
+
 export interface FuelLoad {
   id: string;
   vehicle_id: string;
@@ -71,3 +77,53 @@ export const FuelLoadUpdateSchema = z.object({
   notes: optionalText(2000),
   ...CostVoucherShape,
 });
+
+// ─── Statement import (roadmap 1.7) ───────────────────────────────────────────
+
+const ImportColumnSchema = z
+  .number()
+  .int()
+  .min(0)
+  .lt(FUEL_IMPORT_LIMITS.columns)
+  .optional();
+
+/** The user's column choices (FUEL_IMPORT_FIELDS); absent means "use the
+ *  suggested mapping". */
+export const FuelImportMappingSchema = z.object({
+  date: ImportColumnSchema,
+  patente: ImportColumnSchema,
+  card: ImportColumnSchema,
+  liters: ImportColumnSchema,
+  amount: ImportColumnSchema,
+  station: ImportColumnSchema,
+  odometer: ImportColumnSchema,
+  product: ImportColumnSchema,
+}) satisfies z.ZodType<FuelImportMapping>;
+
+export const FuelImportPreviewSchema = z.object({
+  provider: z.enum(FUEL_IMPORT_PROVIDERS),
+  mapping: FuelImportMappingSchema.nullish(),
+});
+
+export const FuelImportConfirmSchema = z.object({
+  provider: z.enum(FUEL_IMPORT_PROVIDERS),
+  rows: z
+    .array(
+      z.object({
+        vehicle_id: z.string().uuid(),
+        load_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        liters: z.number().finite().gt(0).lt(1e8),
+        amount: z.number().finite().min(0).lt(1e12),
+        odometer_km: z.number().finite().gt(0).lt(1e9).nullable(),
+        station: z.string().trim().max(120).nullable(),
+        card: z.string().trim().max(120).nullable(),
+        product: z.string().trim().max(120).nullable(),
+        /** The user kept a row that looks like a load already in the system. */
+        allow_duplicate: z.boolean(),
+      }),
+    )
+    .min(1, "No hay filas para importar.")
+    .max(FUEL_IMPORT_LIMITS.rows, "Demasiadas filas para una importación."),
+});
+
+export type FuelImportConfirmInput = z.infer<typeof FuelImportConfirmSchema>;

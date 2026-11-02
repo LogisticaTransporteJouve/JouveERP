@@ -27,6 +27,7 @@ export const HUB_ENTITY_LABEL: Record<HubEntityType, string> = {
   ai_chat_message: "Chat con IA",
   employee_document: "Documento de empleado",
   fleet_document: "Documento de flota",
+  fuel_load: "Carga de combustible",
 };
 
 /** Entities that belong to one user (owner_id): only ai:admin sees others'. */
@@ -139,6 +140,8 @@ export function hubEntityHref(row: {
       return row.parentId ? `/employees/${row.parentId}` : "/employees";
     case "fleet_document":
       return "/fleet-documents";
+    case "fuel_load":
+      return "/fuel";
   }
 }
 

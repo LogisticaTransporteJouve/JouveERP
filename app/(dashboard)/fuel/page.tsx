@@ -50,6 +50,16 @@ export default async function FuelPageRoute() {
           vehicleOptions={vehicleOptions}
           tripOptions={tripOptions}
           voucherAccess={costVoucherAccess(ctx.access)}
+          fileAccess={
+            userCan(ctx.access, "files:read")
+              ? {
+                  write:
+                    userCan(ctx.access, "files:write") &&
+                    userCan(ctx.access, "fuel:write"),
+                  delete: userCan(ctx.access, "files:write"),
+                }
+              : null
+          }
         />
       </div>
     </Hydrate>

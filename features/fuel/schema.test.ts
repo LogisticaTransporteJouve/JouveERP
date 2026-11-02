@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FuelLoadCreateSchema } from "./schema";
+import { FuelImportConfirmSchema, FuelLoadCreateSchema } from "./schema";
 
 const VEHICLE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -89,6 +89,44 @@ describe("FuelLoadCreateSchema", () => {
     }
     expect(
       FuelLoadCreateSchema.safeParse({ ...base, transaction_id: "x" }).success,
+    ).toBe(false);
+  });
+});
+
+describe("FuelImportConfirmSchema", () => {
+  const row = {
+    vehicle_id: VEHICLE_ID,
+    load_date: "2026-10-01",
+    liters: 250.5,
+    amount: 450900,
+    odometer_km: null,
+    station: "YPF",
+    card: null,
+    product: "Diesel",
+    allow_duplicate: false,
+  };
+
+  it("accepts confirmed rows", () => {
+    expect(
+      FuelImportConfirmSchema.safeParse({ provider: "axion_card", rows: [row] })
+        .success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty import, zero liters and an unknown provider", () => {
+    expect(
+      FuelImportConfirmSchema.safeParse({ provider: "axion_card", rows: [] })
+        .success,
+    ).toBe(false);
+    expect(
+      FuelImportConfirmSchema.safeParse({
+        provider: "axion_card",
+        rows: [{ ...row, liters: 0 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      FuelImportConfirmSchema.safeParse({ provider: "shell", rows: [row] })
+        .success,
     ).toBe(false);
   });
 });
