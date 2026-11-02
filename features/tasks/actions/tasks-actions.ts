@@ -11,6 +11,7 @@ import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
+import { UuidSchema } from "@/lib/validation/common";
 
 import { assigneesError } from "../lib/assignees";
 import {
@@ -137,6 +138,9 @@ export async function getTaskDetailAction(
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "tasks:read")) {
     return { ok: false, error: "No tenés permiso para ver tareas." };
+  }
+  if (!UuidSchema.safeParse(id).success) {
+    return { ok: false, error: "La tarea no existe." };
   }
 
   const service = getServiceClient();
