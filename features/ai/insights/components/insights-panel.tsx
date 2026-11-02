@@ -12,9 +12,12 @@ import { useInsights, useRunAnalyst } from "../hooks/use-insights";
 
 export function InsightsPanel({
   canManage,
+  canRecalculate = canManage,
   onAsk,
 }: {
   canManage: boolean;
+  /** Recalculating lives in the AI assistant; the dashboard only shows cards. */
+  canRecalculate?: boolean;
   onAsk: (question: string) => void;
 }) {
   const { data: insights = [], isLoading } = useInsights();
@@ -30,7 +33,7 @@ export function InsightsPanel({
   }
 
   if (isLoading) return null;
-  if (insights.length === 0 && !canManage) return null;
+  if (insights.length === 0 && !canRecalculate) return null;
 
   return (
     <section className="space-y-2">
@@ -46,7 +49,7 @@ export function InsightsPanel({
             className={cn("size-4 transition-transform", !open && "-rotate-90")}
           />
         </button>
-        {canManage && (
+        {canRecalculate && (
           <Button
             variant="ghost"
             size="sm"

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
+import { formatArgentineDate } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { SCOPE_LABEL } from "@/lib/scope";
 import { fetchInChunks } from "@/lib/supabase/paginate";
@@ -46,48 +47,72 @@ function toJson(value: unknown): Json {
 }
 
 function cashflowInsight(projection: CashFlowProjection): InsightRow {
+  // Key order is the chip order on the card.
   const metrics = toJson({
     starting_balance: projection.startingBalance,
-    lowest_closing: projection.lowestClosing,
     total_in: projection.totalIn,
     total_out: projection.totalOut,
+    lowest_closing: projection.lowestClosing,
     horizon_weeks: HORIZON_WEEKS,
     weeks: projection.weeks,
     scope: "all",
   });
+  const today = money(projection.startingBalance);
+  const flows = `En las próximas ${HORIZON_WEEKS} semanas se esperan entradas por ${money(
+    projection.totalIn,
+  )} y salidas por ${money(projection.totalOut)}`;
 
   if (projection.deficit) {
     return {
       kind: "cashflow",
       severity: "critical",
       title: "Déficit de caja proyectado",
-      finding: `${SCOPE_LABEL.all}: la caja proyectada (ARS) cae a ${money(
+      finding: `${SCOPE_LABEL.all}: hoy hay ${today} en las cuentas en pesos. ${flows}; la caja quedaría en ${money(
         projection.deficit.closing,
-      )} la semana del ${projection.deficit.weekStart}. Hoy: ${money(
-        projection.startingBalance,
-      )}.`,
+      )} la semana del ${formatArgentineDate(projection.deficit.weekStart)}.`,
       metrics,
       source_refs: toJson([]),
     };
   }
 
-  const severity =
-    projection.lowestClosing < projection.startingBalance * 0.2
-      ? "warning"
-      : "info";
+  if (projection.startingBalance <= 0) {
+    return {
+      kind: "cashflow",
+      severity: "warning",
+      title: "Caja sin saldo cargado",
+      finding: `${SCOPE_LABEL.all}: las cuentas en pesos suman ${today} hoy. ${flows}. Revisá los saldos iniciales de las cuentas para que la proyección sea real.`,
+      metrics,
+      source_refs: toJson([]),
+    };
+  }
+
+  const tight = projection.lowestClosing < projection.startingBalance * 0.2;
+  const lowest = lowestWeek(projection);
   return {
     kind: "cashflow",
-    severity,
-    title:
-      severity === "warning"
-        ? "Caja proyectada ajustada"
-        : "Caja proyectada estable",
-    finding: `${SCOPE_LABEL.all}: en ${HORIZON_WEEKS} semanas la caja (ARS) toca un mínimo de ${money(
-      projection.lowestClosing,
-    )} (hoy ${money(projection.startingBalance)}). Sin déficit proyectado.`,
+    severity: tight ? "warning" : "info",
+    title: tight ? "Caja proyectada ajustada" : "Caja proyectada estable",
+    finding: `${SCOPE_LABEL.all}: hoy hay ${today} en las cuentas en pesos. ${flows}. ${
+      lowest
+        ? `El saldo más bajo sería ${money(lowest.closing)} la semana del ${formatArgentineDate(lowest.weekStart)}.`
+        : `El saldo no baja de ${today}.`
+    }`,
     metrics,
     source_refs: toJson([]),
   };
+}
+
+/** The week the balance bottoms out, when it dips below today's. */
+function lowestWeek(
+  projection: CashFlowProjection,
+): { weekStart: string; closing: number } | null {
+  let lowest: { weekStart: string; closing: number } | null = null;
+  for (const w of projection.weeks) {
+    if (w.closing < (lowest?.closing ?? projection.startingBalance)) {
+      lowest = { weekStart: w.weekStart, closing: w.closing };
+    }
+  }
+  return lowest;
 }
 
 function receivablesInsight(risk: ReceivablesRisk): InsightRow {
@@ -170,9 +195,11 @@ export function withoutIgnored(
 }
 
 /**
- * Regenerates the analyst's insights: replaces prior OPEN rows of its kinds
- * (acknowledged/dismissed are kept) with the freshly computed set, minus the
- * findings someone ignored.
+ * Regenerates the analyst's insights: replaces every prior open or
+ * acknowledged row of its kinds with the freshly computed set, so each finding
+ * shows once. A finding someone ignored is skipped; one someone acknowledged
+ * keeps that status (matched by fingerprint). Aggregate cards (cash flow,
+ * receivables) have no fingerprint and come back open with today's figures.
  */
 export async function regenerateInsights(today: string): Promise<number> {
   const computed = await buildInsights(today);
@@ -183,31 +210,40 @@ export async function regenerateInsights(today: string): Promise<number> {
   const candidates = computed
     .map((row) => insightFingerprint(row.kind, row.source_refs))
     .filter((f): f is string => f !== null);
-  const dismissed = await fetchInChunks(candidates, (chunk) =>
+  const reviewed = await fetchInChunks(candidates, (chunk) =>
     service
       .from("ai_insights")
-      .select("fingerprint")
-      .eq("status", "dismissed")
+      .select("fingerprint, status")
+      .in("status", ["dismissed", "acknowledged"])
       .in("fingerprint", chunk),
   );
-  if (dismissed.error) {
-    logger.error("ai.insights.dismissed.failed", { error: dismissed.error });
-    throw new Error(dismissed.error.message);
+  if (reviewed.error) {
+    logger.error("ai.insights.dismissed.failed", { error: reviewed.error });
+    throw new Error(reviewed.error.message);
   }
-  const rows = withoutIgnored(
-    computed,
+  const fingerprintsWith = (status: string) =>
     new Set(
-      dismissed.data
+      reviewed.data
+        .filter((r) => r.status === status)
         .map((r) => r.fingerprint)
         .filter((f): f is string => f !== null),
-    ),
+    );
+  const acknowledged = fingerprintsWith("acknowledged");
+  const rows = withoutIgnored(computed, fingerprintsWith("dismissed")).map(
+    (row) => ({
+      ...row,
+      status:
+        row.fingerprint && acknowledged.has(row.fingerprint)
+          ? ("acknowledged" as const)
+          : ("open" as const),
+    }),
   );
 
   const { error: delError } = await service
     .from("ai_insights")
     .delete()
     .in("kind", [...ANALYST_KINDS])
-    .eq("status", "open");
+    .in("status", ["open", "acknowledged"]);
   if (delError) {
     logger.error("ai.insights.delete.failed", { error: delError });
     throw delError;

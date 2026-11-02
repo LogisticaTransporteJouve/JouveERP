@@ -26,10 +26,10 @@ const SEVERITY_ICON = {
 
 const MONEY_KEY = /balance|closing|total|amount|90_plus|in$|out$|loss/i;
 const METRIC_LABELS: Record<string, string> = {
-  starting_balance: "Hoy",
-  lowest_closing: "Mínimo",
-  total_in: "Ingresos",
-  total_out: "Egresos",
+  starting_balance: "Caja hoy",
+  total_in: "Entradas",
+  total_out: "Salidas",
+  lowest_closing: "Saldo más bajo",
   total_90_plus: "+90 días",
   client_count: "Clientes",
   expired: "Vencidos",

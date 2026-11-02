@@ -5,7 +5,9 @@ import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/
 import { listCostCentersAction } from "@/features/cost-centers/actions/cost-centers-actions";
 import { listInflationAdjustmentsAction } from "@/features/inflation/actions/inflation-actions";
 import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
+import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import {
   listLibroIvaComprasAction,
   listLibroIvaVentasAction,
@@ -104,7 +106,7 @@ export const getLedger = defineAiAction({
 });
 
 const LIBRO_IVA_CURRENCY_NOTE =
-  "neto/iva/imp_* are pesos (amount × the document's cotizacion); *_orig are in the document's moneda.";
+  "Importes en pesos, a la cotización de cada comprobante; las columnas *_orig quedan en la moneda original.";
 
 export async function runLibroIvaVentas(input: {
   period: string;
@@ -113,7 +115,10 @@ export async function runLibroIvaVentas(input: {
   if (!res.ok) return errResult(res.error);
   return okResult(
     `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
-    res.data,
+    res.data.map((r) => ({
+      comprobante: `${formatInvoiceNumero(r.kind, r.letter, r.punto_venta, r.numero)} · ${r.client_legal_name}`,
+      ...r,
+    })),
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
@@ -128,7 +133,8 @@ export const getLibroIvaVentas = defineAiAction({
     "VAT Sales book (RG 1361) for a YYYY-MM period: one row per document × rate " +
     "(net/VAT per rate), fiscal channels only. Output VAT for the period. " +
     "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
-    "cotizacion keep the original currency.",
+    "cotizacion keep the original currency. `comprobante` is the readable " +
+    "document label (number · counterparty): use it as a chart's x axis.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),
@@ -142,7 +148,10 @@ export async function runLibroIvaCompras(input: {
   if (!res.ok) return errResult(res.error);
   return okResult(
     `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
-    res.data,
+    res.data.map((r) => ({
+      comprobante: `${formatInvoiceNumber(r)} · ${r.supplier_legal_name}`,
+      ...r,
+    })),
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
@@ -157,7 +166,8 @@ export const getLibroIvaCompras = defineAiAction({
     "VAT Purchases book (RG 1361) for a YYYY-MM period: one row per purchase " +
     "invoice × rate, fiscal channels only. Input VAT for the period. " +
     "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
-    "cotizacion keep the original currency.",
+    "cotizacion keep the original currency. `comprobante` is the readable " +
+    "document label (number · counterparty): use it as a chart's x axis.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),
