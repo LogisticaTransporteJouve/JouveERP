@@ -4881,6 +4881,8 @@ export type Database = {
           created_by: string | null
           cuit: string | null
           default_channel_id: string | null
+          default_cost_center_id: string | null
+          default_expense_account_id: string | null
           default_payment_term_days: number | null
           display_name: string | null
           email: string | null
@@ -4901,6 +4903,8 @@ export type Database = {
           created_by?: string | null
           cuit?: string | null
           default_channel_id?: string | null
+          default_cost_center_id?: string | null
+          default_expense_account_id?: string | null
           default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
@@ -4921,6 +4925,8 @@ export type Database = {
           created_by?: string | null
           cuit?: string | null
           default_channel_id?: string | null
+          default_cost_center_id?: string | null
+          default_expense_account_id?: string | null
           default_payment_term_days?: number | null
           display_name?: string | null
           email?: string | null
@@ -4949,6 +4955,27 @@ export type Database = {
             referencedRelation: "invoicing_channels"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "suppliers_default_cost_center_id_fkey"
+            columns: ["default_cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       transactions: {
@@ -4964,6 +4991,7 @@ export type Database = {
           created_by: string | null
           currency: string
           description: string | null
+          expense_account_id: string | null
           id: string
           invoice_id: string | null
           is_payroll: boolean
@@ -4989,6 +5017,7 @@ export type Database = {
           created_by?: string | null
           currency: string
           description?: string | null
+          expense_account_id?: string | null
           id?: string
           invoice_id?: string | null
           is_payroll?: boolean
@@ -5014,6 +5043,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           description?: string | null
+          expense_account_id?: string | null
           id?: string
           invoice_id?: string | null
           is_payroll?: boolean
@@ -5061,6 +5091,20 @@ export type Database = {
             columns: ["counterparty_supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -5970,11 +6014,13 @@ export type Database = {
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
+          cost_center_id: string | null
           counterparty_client_id: string | null
           created_at: string | null
           created_by: string | null
           currency: string | null
           description: string | null
+          expense_account_id: string | null
           id: string | null
           invoice_id: string | null
           is_payroll: boolean | null
@@ -6004,10 +6050,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transactions_counterparty_client_id_fkey"
             columns: ["counterparty_client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -6776,6 +6843,7 @@ export type Database = {
           bucket: string
           channel_side: string
           chart_account_id: string
+          cost_center_id: string
           month: string
           pending_usd: number
           subbucket: string
@@ -6835,6 +6903,10 @@ export type Database = {
         Returns: boolean
       }
       is_fleet_document_file: { Args: { p_file_id: string }; Returns: boolean }
+      is_postable_expense_account: {
+        Args: { p_account_id: string }
+        Returns: boolean
+      }
       journal_document_entry: {
         Args: { p_fiscal_only?: boolean; p_id: string; p_source: string }
         Returns: Json
@@ -7196,11 +7268,13 @@ export type Database = {
           p_supplier_id?: string
         }
         Returns: {
+          account_id: string
           cae_proveedor: string
           cae_vto_proveedor: string
           cancelled_at: string
           cancelled_by: string
           channel_id: string
+          cost_center_id: string
           cotizacion: number
           created_at: string
           created_by: string
