@@ -28,6 +28,7 @@ import { IVA_RATE, type IvaRateId, IVA_RATE_OPTIONS } from "@/lib/afip/codes";
 import { formatNumber2 } from "@/lib/format";
 
 import { useBillRemito, useEnabledPos } from "../hooks/use-invoices";
+import { posLabel } from "../lib/pos-label";
 import { computeTotals } from "../schema";
 import { ClientPicker, type PickedClient } from "./client-picker";
 
@@ -179,8 +180,7 @@ export function BillRemitoDialog({
                 <SelectContent position="popper">
                   {posOptions.map((p) => (
                     <SelectItem key={p.numero} value={String(p.numero)}>
-                      {String(p.numero).padStart(4, "0")}
-                      {p.nickname ? ` · ${p.nickname}` : ""}
+                      {posLabel(p)}
                     </SelectItem>
                   ))}
                 </SelectContent>

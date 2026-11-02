@@ -59,6 +59,7 @@ import { formatNumber2, todayInAR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
+import { posLabel } from "../lib/pos-label";
 import {
   useEnabledPos,
   useInvoiceDetailOnDemand,
@@ -239,7 +240,10 @@ function NewInvoiceForm({
     if (isNote) return;
     if (posOptions.length === 1) {
       form.setValue("puntoVenta", String(posOptions[0]!.numero));
-    } else if (posOptions.length === 0) {
+    } else if (
+      !posOptions.some((p) => String(p.numero) === form.getValues("puntoVenta"))
+    ) {
+      // None, or several and the current one is not among them: pick by hand.
       form.setValue("puntoVenta", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -590,6 +594,32 @@ function NewInvoiceForm({
               </FormItem>
             )}
           />
+          {!isNote && posOptions.length > 1 && (
+            <FormField
+              control={form.control}
+              name="puntoVenta"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Punto de venta</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elegí un punto de venta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {posOptions.map((p) => (
+                        <SelectItem key={p.numero} value={String(p.numero)}>
+                          {posLabel(p)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             control={form.control}
             name="fecha"
