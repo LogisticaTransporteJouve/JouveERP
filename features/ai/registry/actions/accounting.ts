@@ -7,6 +7,7 @@ import { listInflationAdjustmentsAction } from "@/features/inflation/actions/inf
 import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
+import { LEDGER_MAX_ROWS } from "@/features/libro-mayor/lib/libro-mayor-pagination";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import {
   listLibroIvaComprasAction,
@@ -77,10 +78,15 @@ export async function runLedger(input: {
   });
   if (!res.ok) return errResult(res.error);
   const last = res.data.rows.at(-1);
-  const balance = last ? Number(last.running) : 0;
+  const balance = last ? Number(last.running) : res.data.opening;
+  const opening = input.from
+    ? `opening balance ${money(res.data.opening)} before ${input.from} · `
+    : "";
   return okResult(
-    `${res.data.rows.length} movements${
-      res.data.truncated ? " (truncated to 1000 — narrow by date)" : ""
+    `${opening}${res.data.rows.length} movements${
+      res.data.truncated
+        ? ` (truncated to the first ${LEDGER_MAX_ROWS} — narrow by date; the balance shown is at the last line returned)`
+        : ""
     } · closing balance ${money(balance)}.`,
     res.data,
     { partial: res.data.truncated },
@@ -95,7 +101,8 @@ export const getLedger = defineAiAction({
   sources: ["get_ledger"],
   description:
     "General ledger of ONE ledger account: movements with running balance " +
-    "between dates. Requires the account UUID (obtainable from the chart of " +
+    "between dates; the running balance starts from `opening` (the balance " +
+    "before `from`). Requires the account UUID (obtainable from the chart of " +
     "accounts / getTrialBalance).",
   input: z.object({
     accountId: z.string().describe("UUID of the chart of accounts account."),

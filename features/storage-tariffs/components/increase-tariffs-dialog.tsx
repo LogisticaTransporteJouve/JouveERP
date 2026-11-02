@@ -14,13 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { todayInAR } from "@/lib/format";
 
 import { useIncreaseStorageTariffs } from "../hooks/use-storage-tariffs";
 import type { StorageTariff } from "../schema";
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /**
  * Bulk % increase: every tariff in effect at the chosen date gets a new
@@ -37,13 +34,13 @@ export function IncreaseTariffsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [percent, setPercent] = useState("");
-  const [validFrom, setValidFrom] = useState(todayISO());
+  const [validFrom, setValidFrom] = useState(todayInAR());
   const increaseMut = useIncreaseStorageTariffs();
 
   useEffect(() => {
     if (open) {
       setPercent("");
-      setValidFrom(todayISO());
+      setValidFrom(todayInAR());
     }
   }, [open]);
 
@@ -59,7 +56,8 @@ export function IncreaseTariffsDialog({
   );
 
   const pct = Number(percent.replace(",", "."));
-  const valid = Number.isFinite(pct) && pct !== 0 && pct > -100 && validFrom !== "";
+  const valid =
+    Number.isFinite(pct) && pct !== 0 && pct > -100 && validFrom !== "";
 
   function onSubmit() {
     increaseMut.mutate(

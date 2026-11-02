@@ -7,6 +7,7 @@ import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { todayInAR } from "@/lib/format";
 
 import { regenerateInsights } from "./analyst";
 import { IgnoreInsightSchema } from "./lib/ignore-schema";
@@ -77,7 +78,7 @@ export async function runAnalystAction(): Promise<
     return { ok: false, error: "No tenés permiso para recalcular insights." };
   }
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInAR();
     const count = await regenerateInsights(today);
     await logAudit("ai.insights.regenerated", ctx.userId, { count });
     return { ok: true, data: { count } };

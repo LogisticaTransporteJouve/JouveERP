@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { todayInAR } from "@/lib/format";
 
 import { useDispatchPalletsBulk } from "../hooks/use-pallets";
 
@@ -32,10 +33,6 @@ const FormSchema = z.object({
 });
 
 type FormValues = z.infer<typeof FormSchema>;
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function DispatchPalletsDialog({
   palletIds,
@@ -54,11 +51,11 @@ export function DispatchPalletsDialog({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { exit_date: today() },
+    defaultValues: { exit_date: todayInAR() },
   });
 
   useEffect(() => {
-    if (open) form.reset({ exit_date: today() });
+    if (open) form.reset({ exit_date: todayInAR() });
   }, [open, form]);
 
   function onSubmit(values: FormValues) {

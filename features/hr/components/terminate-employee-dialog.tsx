@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInAR } from "@/lib/format";
 
 import {
   useReactivateEmployee,
@@ -35,9 +36,7 @@ import {
 import type { Employee } from "../schema";
 
 const FormSchema = z.object({
-  termination_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  termination_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500),
 });
 
@@ -52,7 +51,7 @@ export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      termination_date: new Date().toISOString().slice(0, 10),
+      termination_date: todayInAR(),
       notes: "",
     },
   });
@@ -114,17 +113,17 @@ export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
               >
                 Cancelar
               </Button>
-              <Button onClick={() => onSubmit(form.getValues())} disabled={busy}>
+              <Button
+                onClick={() => onSubmit(form.getValues())}
+                disabled={busy}
+              >
                 {busy ? "Reactivando…" : "Reactivar"}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-4"
-            >
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <DialogHeader>
                 <DialogTitle>Dar de baja a {employee.legal_name}</DialogTitle>
                 <DialogDescription>
