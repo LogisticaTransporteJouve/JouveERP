@@ -7316,6 +7316,8 @@ export type Database = {
           created_by: string | null
           cuit: string | null
           default_channel_id: string | null
+          default_cost_center_id: string | null
+          default_expense_account_id: string | null
           default_payment_term_days: number | null
           display_name: string | null
           email: string | null
