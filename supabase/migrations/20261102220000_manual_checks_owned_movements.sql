@@ -25,6 +25,7 @@ SET LOCAL statement_timeout = '15min';
 -- drained the cartera; how to correct them is listed in the PR.
 
 alter table public.transactions
+  -- squawk-ignore adding-foreign-key-constraint
   add column manual_check_id uuid references public.checks (id) on delete restrict;
 
 comment on column public.transactions.manual_check_id is
