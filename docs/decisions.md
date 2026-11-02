@@ -3,6 +3,65 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-02 — Dashboard "Hoy y esta semana" (D12)
+
+**Decisión.** Arriba de los widgets del dashboard, una sección fija (no
+personalizable) con tres tiles, cada uno solo para quien lee su módulo:
+
+- **Vencimientos** (`tasks:read`): las tareas abiertas vencidas o que vencen en
+  los próximos 7 días, de Tareas (que ya junta pagos a proveedores, cobranzas,
+  cuotas, cheques propios y documentos con las manuales y recurrentes). Una
+  tarea de un módulo que el usuario no lee no se muestra.
+- **Viajes de hoy** (`trips:read`): los no cancelados de la fecha, con camión,
+  chofer, clientes de sus cargas y estado.
+- **Papeles por vencer** (`fleet_documents:read` para camiones y choferes,
+  `hr:read` para empleados): vencidos o que vencen en 30 días, agrupados por
+  titular. Un papel ya renovado (otro más nuevo del mismo tipo y titular) no
+  cuenta, igual que en Tareas.
+
+Un tile que no se pudo leer lo dice; no se muestra vacío. El asistente lo lee
+con `getTodayOverview` (vencimientos con `getTasks`).
+
+**Por qué fija.** Es lo primero que se mira al entrar; como widget, quien ya
+guardó su layout no la vería hasta agregarla a mano.
+
+**Pendiente.** El tile de km mensual pendiente espera a `vehicle_km_readings`,
+que todavía no está en `main`.
+
+## 2026-11-02 — Auditoría (D13)
+
+**Decisión.** Pantalla Admin › Auditoría (`/admin/audit`, `features/audit`,
+migración `20261103030000_audit_log`) sobre `audit_events`, con `audit:read`
+(owner y admin, el mismo techo que la policy de la tabla). Lista fecha, quién
+(usuario; "Asistente IA (por X)" cuando `actor_type = 'ai-agent'`, con X el
+usuario que lo pidió o aprobó; "Sistema"), acción (`event_type`), módulo (la
+primera palabra del `event_type`), link al registro y un resumen del payload
+(`before`/`after`, `from`/`to` o los primeros campos). Filtros por fechas,
+usuario, módulo y acción; "Ver detalle" muestra el payload completo; exportar
+CSV (hasta 10.000 filas, queda auditado como `audit.exported`). El detalle del
+comprobante tiene su "Historial" con el componente compartido
+`RecordHistory`. Tool `getAuditEvents` para el asistente con el mismo permiso.
+
+**Enmascarado.** En el servidor, por nombre de clave y a cualquier
+profundidad: CBU, CVU y CUIL quedan con los últimos 4 caracteres; token,
+secret, password, key, cert, credentials y firmas se reemplazan enteros. El
+navegador nunca recibe el valor.
+
+**Retención.** 400 días: el cron diario `audit-retention` (03:41 AR) llama a
+`purge_audit_events()`, que tiene el corte fijo adentro y solo borra
+`audit_events`. Los documentos contables no se tocan.
+
+**Cobertura.** `lib/actions/audit-coverage.test.ts` falla si un archivo
+`"use server"` de `features/` escribe (insert/update/upsert/delete o un RPC de
+escritura) y nunca llama a `logAudit`, salvo los exentos listados con su
+motivo (preferencias propias, chat, notificaciones, caché de padrón). Se
+cerraron los huecos de adjuntos (`file.attached` / `file.detached`, sobre el
+registro adjuntado) y de saldos iniciales de clientes y proveedores.
+
+**Descartado.** Triggers de auditoría genéricos en la base (duplican lo que ya
+registra cada acción y no saben quién aprobó en nombre de la IA); un historial
+por registro en todas las páginas de detalle en este PR (queda el componente).
+
 ## 2026-11-02 — Km mensual por vehículo e importación de combustible
 
 **Decisión.** Flota → Km mensual (`/vehicle-km`, `features/vehicle-km`,

@@ -9,6 +9,7 @@ import {
   getTrialBalance,
 } from "./actions/accounting";
 import { getAfipStatus } from "./actions/afip";
+import { getAuditEvents } from "./actions/audit";
 import {
   getAccounts,
   getChecks,
@@ -77,7 +78,9 @@ import {
   getLoans,
 } from "./actions/statements";
 import { getManagementPnL } from "./actions/management";
+import { getMonthlyPackageStatus } from "./actions/monthly-package";
 import { getTasks } from "./actions/tasks";
+import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
 import {
   getPalletsSummary,
@@ -133,6 +136,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLoans,
   getLoanDetail,
   getExchangeRates,
+  getMonthlyPackageStatus,
   proposeJournalEntry,
   proposeExchangeRate,
   // RRHH / sueldos
@@ -159,6 +163,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getFleetMargin,
   getDrivers,
   getShipmentsSummary,
+  getTodayOverview,
   // Depósito
   getPalletsSummary,
   getWarehouses,
@@ -172,6 +177,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   searchGlobal,
   getAttachments,
   getTasks,
+  getAuditEvents,
   proposeAiWorkflow,
   proposeDocumentScan,
 ];

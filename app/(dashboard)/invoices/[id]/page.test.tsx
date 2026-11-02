@@ -55,6 +55,9 @@ vi.mock("@/features/invoices/components/revenue-kind-select", () => ({
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: () => null,
 }));
+vi.mock("@/features/audit/components/record-history", () => ({
+  RecordHistory: () => <p>stub-historial</p>,
+}));
 
 const { default: ComprobanteDetailPage } = await import("./page");
 
@@ -209,5 +212,24 @@ describe("invoice detail — remito links", () => {
     h.links = okLinks({});
     await renderPage();
     expect(screen.queryByText("stub-facturar")).toBeNull();
+  });
+});
+
+describe("invoice detail — Historial", () => {
+  it.each([
+    ["owner", () => resolveAccess(["owner"]), true],
+    ["admin", () => resolveAccess(["admin"]), true],
+    ["finance (no audit:read)", () => resolveAccess(["finance"]), false],
+    [
+      "admin with audit:read denied",
+      () => resolveAccess(["admin"], ["audit:read"]),
+      false,
+    ],
+  ])("%s sees it: %s", async (_, access, visible) => {
+    h.access = access();
+    h.detail = base(true);
+    h.links = okLinks({});
+    await renderPage();
+    expect(screen.queryByText("stub-historial") !== null).toBe(visible);
   });
 });

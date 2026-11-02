@@ -1,5 +1,6 @@
 "use server";
 
+import { addDaysIso } from "@/lib/date-range";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import {
@@ -12,11 +13,23 @@ import { logger } from "@/lib/logger";
 import { todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { EMPLOYEE_DOCUMENT_KIND_LABEL } from "@/features/employee-documents/schema";
+import { FLEET_DOC_KIND_LABELS } from "@/features/fleet-documents/schema";
+
+import {
+  pendingPapers,
+  PAPERS_HORIZON_DAYS,
+  type PaperDoc,
+} from "../lib/papers";
 import {
   DashboardLayoutSchema,
   type DashboardLayout,
+  type DashboardToday,
   type DueDateItem,
   type OpsKpis,
+  type PendingPaper,
+  type TodayTile,
+  type TodayTrip,
 } from "../schema";
 
 const HORIZON_DAYS = 14;
@@ -29,13 +42,6 @@ const SECTION_PERMISSIONS: Permission[] = [
   "fleet_documents:read",
   "hr:read",
 ];
-
-function addDaysIso(iso: string, days: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y!, m! - 1, d!));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
-}
 
 // Unified 14-day agenda: checks maturing (both directions), loan
 // installments, recurring payments and document expiries. Each section is
@@ -251,6 +257,157 @@ export async function getDashboardDueDatesAction(): Promise<
 
   items.sort((a, b) => a.date.localeCompare(b.date));
   return { ok: true, data: items };
+}
+
+const FLEET_KIND_LABEL: Readonly<Record<string, string>> =
+  FLEET_DOC_KIND_LABELS;
+
+const TILE_ERROR = "No se pudo leer. Recargá la página.";
+
+/** Today's trips (not cancelled) with truck, driver and the clients of their
+ *  loads. */
+async function todayTrips(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  userId: string,
+  today: string,
+): Promise<TodayTile<TodayTrip[]>> {
+  const { data, error } = await supabase
+    .from("trips")
+    .select(
+      "id, status, origin, destination, vehicle:vehicles(patente), driver:drivers(full_name), shipments(client:clients(legal_name, display_name))",
+    )
+    .eq("trip_date", today)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (error) {
+    logger.warn("dashboard.today.trips_failed", { userId, error });
+    return { ok: false, error: TILE_ERROR };
+  }
+  return {
+    ok: true,
+    data: (data ?? []).map((t) => {
+      const vehicle = Array.isArray(t.vehicle) ? t.vehicle[0] : t.vehicle;
+      const driver = Array.isArray(t.driver) ? t.driver[0] : t.driver;
+      const clients = new Set<string>();
+      for (const sh of t.shipments ?? []) {
+        const client = Array.isArray(sh.client) ? sh.client[0] : sh.client;
+        if (client) clients.add(client.display_name ?? client.legal_name);
+      }
+      return {
+        id: t.id,
+        status: t.status,
+        patente: vehicle?.patente ?? null,
+        driver: driver?.full_name ?? null,
+        clients: [...clients],
+        origin: t.origin,
+        destination: t.destination,
+      };
+    }),
+  };
+}
+
+/** Papers to renew of trucks and drivers (fleet_documents:read) and of
+ *  employees (hr:read): the sections the caller cannot read are left out. */
+async function todayPapers(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  userId: string,
+  today: string,
+  sections: { fleet: boolean; hr: boolean },
+): Promise<TodayTile<PendingPaper[]>> {
+  // A renewal is a newer row of the same holder and kind, so every document
+  // is read and each holder's latest decides.
+  const [fleet, employees] = await Promise.all([
+    sections.fleet
+      ? supabase
+          .from("fleet_documents")
+          .select(
+            "id, kind, expires_at, vehicle_id, driver_id, vehicle:vehicles(patente, is_active), driver:drivers(full_name, is_active)",
+          )
+      : null,
+    sections.hr
+      ? supabase
+          .from("employee_documents")
+          .select(
+            "id, kind, expires_at, employee_id, employee:employees(legal_name, is_active)",
+          )
+      : null,
+  ]);
+  const error = fleet?.error ?? employees?.error;
+  if (error) {
+    logger.warn("dashboard.today.papers_failed", { userId, error });
+    return { ok: false, error: TILE_ERROR };
+  }
+
+  const docs: PaperDoc[] = [];
+  for (const d of fleet?.data ?? []) {
+    const vehicle = Array.isArray(d.vehicle) ? d.vehicle[0] : d.vehicle;
+    const driver = Array.isArray(d.driver) ? d.driver[0] : d.driver;
+    const common = {
+      id: d.id,
+      kind: d.kind,
+      kindLabel: FLEET_KIND_LABEL[d.kind] ?? d.kind,
+      expires_at: d.expires_at,
+      href: "/fleet-documents",
+    };
+    if (d.vehicle_id) {
+      docs.push({
+        ...common,
+        holderKind: "vehicle",
+        holderId: d.vehicle_id,
+        holderName: vehicle?.patente ?? "Camión",
+        holderActive: vehicle?.is_active ?? false,
+      });
+    } else if (d.driver_id) {
+      docs.push({
+        ...common,
+        holderKind: "driver",
+        holderId: d.driver_id,
+        holderName: driver?.full_name ?? "Chofer",
+        holderActive: driver?.is_active ?? false,
+      });
+    }
+  }
+  for (const d of employees?.data ?? []) {
+    const employee = Array.isArray(d.employee) ? d.employee[0] : d.employee;
+    docs.push({
+      id: d.id,
+      kind: d.kind,
+      kindLabel: EMPLOYEE_DOCUMENT_KIND_LABEL[d.kind],
+      expires_at: d.expires_at,
+      holderKind: "employee",
+      holderId: d.employee_id,
+      holderName: employee?.legal_name ?? "Empleado",
+      holderActive: employee?.is_active ?? false,
+      href: `/employees/${d.employee_id}`,
+    });
+  }
+  return { ok: true, data: pendingPapers(docs, today, PAPERS_HORIZON_DAYS) };
+}
+
+/** "Hoy y esta semana" (D12): today's trips and the papers to renew. Each
+ *  tile is null when the caller lacks its read permission. */
+export async function getDashboardTodayAction(): Promise<
+  ActionResult<DashboardToday>
+> {
+  const ctx = await requireUserContext();
+  const canTrips = userCan(ctx.access, "trips:read");
+  const sections = {
+    fleet: userCan(ctx.access, "fleet_documents:read"),
+    hr: userCan(ctx.access, "hr:read"),
+  };
+  if (!canTrips && !sections.fleet && !sections.hr) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createSupabaseClient();
+  const today = todayInAR();
+  const [trips, papers] = await Promise.all([
+    canTrips ? todayTrips(supabase, ctx.userId, today) : null,
+    sections.fleet || sections.hr
+      ? todayPapers(supabase, ctx.userId, today, sections)
+      : null,
+  ]);
+  return { ok: true, data: { trips, papers } };
 }
 
 // Operational counters for the landing page. Each counter is null when the

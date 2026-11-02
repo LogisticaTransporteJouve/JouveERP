@@ -4,7 +4,7 @@ import { resolveAccess } from "@/lib/auth/permissions";
 // Rows visible to the caller (RLS client) and to the service role.
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
 const ATTACHMENT_ID = "55555555-5555-4555-8555-555555555555";
-let attachments: { id: string; file_id: string }[] = [];
+let attachments: { id: string; file_id: string; invoice_id?: string }[] = [];
 let extractionRefs = 0;
 let employeeDocRefs = 0;
 const removedBlobs: string[] = [];
@@ -66,7 +66,10 @@ function serviceFrom(table: string) {
   return builder;
 }
 
+const logAudit = vi.fn(async () => undefined);
+
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
@@ -93,7 +96,8 @@ vi.mock("@/lib/supabase/service", () => ({
 const { detachFileAction } = await import("./files-actions");
 
 beforeEach(() => {
-  attachments = [{ id: ATTACHMENT_ID, file_id: FILE_ID }];
+  attachments = [{ id: ATTACHMENT_ID, file_id: FILE_ID, invoice_id: "inv-1" }];
+  logAudit.mockClear();
   extractionRefs = 0;
   employeeDocRefs = 0;
   removedBlobs.length = 0;
@@ -105,6 +109,19 @@ describe("detachFileAction", () => {
     const res = await detachFileAction(ATTACHMENT_ID);
     expect(res).toEqual({ ok: true, data: { deletedBlob: true } });
     expect(deletedFiles).toEqual([FILE_ID]);
+  });
+
+  it("audits the detach on the record it was attached to", async () => {
+    await detachFileAction(ATTACHMENT_ID);
+    expect(logAudit).toHaveBeenCalledWith(
+      "file.detached",
+      "u1",
+      expect.objectContaining({
+        target_type: "invoice",
+        attachment_id: ATTACHMENT_ID,
+      }),
+      "inv-1",
+    );
   });
 
   it("keeps a scanned file its extraction still references", async () => {

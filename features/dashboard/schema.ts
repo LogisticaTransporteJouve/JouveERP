@@ -83,6 +83,58 @@ export interface OpsKpis {
 }
 
 // ---------------------------------------------------------------------------
+// "Hoy y esta semana" (decision D12)
+// ---------------------------------------------------------------------------
+
+/** A trip of today, with the clients of its loads. */
+export interface TodayTrip {
+  id: string;
+  status: string;
+  patente: string | null;
+  driver: string | null;
+  clients: string[];
+  origin: string | null;
+  destination: string | null;
+}
+
+export const PAPER_HOLDER_KINDS = ["vehicle", "driver", "employee"] as const;
+export type PaperHolderKind = (typeof PAPER_HOLDER_KINDS)[number];
+
+export const PAPER_HOLDER_LABEL: Record<PaperHolderKind, string> = {
+  vehicle: "Camiones",
+  driver: "Choferes",
+  employee: "Empleados",
+};
+
+/** A document to renew: expired, or expiring within 30 days. */
+export interface PendingPaper {
+  id: string;
+  holder_kind: PaperHolderKind;
+  holder: string;
+  kind: string;
+  expires_at: string;
+  expired: boolean;
+  href: string;
+}
+
+/** null = the caller lacks that tile's read permission (the tile hides);
+ *  a failed read is an error the tile shows, never an empty list. */
+export type TodayTile<T> = { ok: true; data: T } | { ok: false; error: string };
+
+export interface DashboardToday {
+  trips: TodayTile<TodayTrip[]> | null;
+  papers: TodayTile<PendingPaper[]> | null;
+}
+
+/** An open task due by the end of the week (or already overdue). */
+export interface TodayTask {
+  id: string;
+  title: string;
+  due_date: string;
+  href: string;
+}
+
+// ---------------------------------------------------------------------------
 // Customizable layout (dashboard_layouts table)
 // ---------------------------------------------------------------------------
 

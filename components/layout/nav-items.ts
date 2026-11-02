@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Archive,
   ArrowLeftRight,
   BookCheck,
   BookOpen,
@@ -11,6 +12,7 @@ import {
   CreditCard,
   DatabaseBackup,
   DollarSign,
+  FileSearch,
   FileText,
   FolderOpen,
   Fuel,
@@ -247,6 +249,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     label: "Contabilidad",
     items: [
       {
+        href: "/accounting/package",
+        label: "Paquete del mes",
+        icon: Archive,
+        permission: "accounting:read",
+      },
+      {
         href: "/accounting/chart",
         label: "Plan de cuentas",
         icon: ListTree,
@@ -469,6 +477,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Preview PDF",
         icon: FileText,
         permission: "afip:admin",
+      },
+      {
+        href: "/admin/audit",
+        label: "Auditoría",
+        icon: FileSearch,
+        permission: "audit:read",
       },
       {
         href: "/admin/backups",

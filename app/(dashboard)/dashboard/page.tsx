@@ -5,6 +5,7 @@ import { DashboardInsights } from "@/features/ai/insights/components/dashboard-i
 import {
   getDashboardDueDatesAction,
   getDashboardOpsAction,
+  getDashboardTodayAction,
   getMyDashboardLayoutAction,
 } from "@/features/dashboard/actions/dashboard-actions";
 import { CashFlowChart } from "@/features/dashboard/components/cash-flow-chart";
@@ -13,18 +14,23 @@ import { DueDatesCard } from "@/features/dashboard/components/due-dates-card";
 import { FinanceKpis } from "@/features/dashboard/components/finance-kpis";
 import { OpsKpisRow } from "@/features/dashboard/components/ops-kpis";
 import { QuickActions } from "@/features/dashboard/components/quick-actions";
+import { TodayWeek } from "@/features/dashboard/components/today-week";
 import { TopDebtorsCard } from "@/features/dashboard/components/top-debtors-card";
 import {
   defaultLayoutForRoles,
   type DashboardAgingKpis,
+  type TodayTask,
+  type TodayTile,
   type TopDebtor,
   type WidgetId,
 } from "@/features/dashboard/schema";
+import { listTasksAction } from "@/features/tasks/actions/tasks-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
 import { getCashFlowAction } from "@/features/treasury/actions/cash-flow-actions";
 import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
 import type { AgingReport } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
+import { addDaysIso } from "@/lib/date-range";
 import {
   CLIENT_AGING_PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
@@ -32,12 +38,15 @@ import {
   userCan,
   userCanAll,
 } from "@/lib/auth/permissions";
+import { todayInAR } from "@/lib/format";
 import { isFiscalFor, SCOPE_LABEL } from "@/lib/scope";
 import { readSharedScope } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
 const TOP_DEBTORS = 5;
+/** "Esta semana": open tasks due within this many days (and the overdue). */
+const WEEK_DAYS = 7;
 
 export default async function DashboardPage() {
   const ctx = await requireUserContext();
@@ -53,6 +62,8 @@ export default async function DashboardPage() {
     cashFlowRes,
     opsRes,
     layoutRes,
+    todayRes,
+    tasksRes,
   ] = await Promise.all([
     canTreasury ? getTreasurySummaryAction() : null,
     userCanAll(ctx.access, CLIENT_AGING_PERMISSIONS)
@@ -65,6 +76,10 @@ export default async function DashboardPage() {
     canTreasury ? getCashFlowAction({ monthsBack: 3, monthsFwd: 6 }) : null,
     getDashboardOpsAction(),
     getMyDashboardLayoutAction(),
+    getDashboardTodayAction(),
+    userCan(ctx.access, "tasks:read")
+      ? listTasksAction({ scope: "all", status: "open" })
+      : null,
   ]);
 
   const treasury = treasuryRes?.ok ? treasuryRes.data : null;
@@ -73,6 +88,46 @@ export default async function DashboardPage() {
   const cashFlow = cashFlowRes?.ok ? cashFlowRes.data : null;
   const ops = opsRes.ok ? opsRes.data : null;
   const savedLayout = layoutRes.ok ? layoutRes.data : null;
+
+  // Vencimientos come from Tareas, which already gathers the automatic ones
+  // (supplier payments, collections, loan installments, own checks, papers)
+  // with the manual and recurring ones. A task from a module the user cannot
+  // read is left out rather than shown with its neutral title.
+  const today = todayInAR();
+  const weekEnd = addDaysIso(today, WEEK_DAYS);
+  const weekTasks: TodayTile<TodayTask[]> | null = !tasksRes
+    ? null
+    : tasksRes.ok
+      ? {
+          ok: true,
+          data: tasksRes.data.rows.flatMap((t) =>
+            !t.restricted && t.due_date !== null && t.due_date <= weekEnd
+              ? [
+                  {
+                    id: t.id,
+                    title: t.title,
+                    due_date: t.due_date,
+                    href: `/tasks?task=${t.id}`,
+                  },
+                ]
+              : [],
+          ),
+        }
+      : { ok: false, error: tasksRes.error };
+  const todayData = todayRes.ok ? todayRes.data : null;
+  const todaySection = (
+    <TodayWeek
+      today={today}
+      tasks={weekTasks}
+      trips={todayData?.trips ?? null}
+      papers={todayData?.papers ?? null}
+      papersHref={
+        userCan(ctx.access, "fleet_documents:read")
+          ? "/fleet-documents"
+          : "/hr/document-expirations"
+      }
+    />
+  );
 
   const toKpis = (report: AgingReport): DashboardAgingKpis => ({
     total: report.totals.total,
@@ -167,6 +222,7 @@ export default async function DashboardPage() {
       {Object.keys(widgets).length === 0 ? (
         <>
           <QuickActions access={ctx.access} />
+          {todaySection}
           <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
             Usá el menú lateral para acceder a tus módulos habilitados.
           </div>
@@ -177,6 +233,7 @@ export default async function DashboardPage() {
           defaultLayout={template}
           widgets={widgets}
           toolbar={<QuickActions access={ctx.access} />}
+          header={todaySection}
         />
       )}
     </div>

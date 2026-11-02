@@ -6753,6 +6753,7 @@ export type Database = {
         Args: { p_delta: number; p_employee_id: string }
         Returns: undefined
       }
+      audit_event_types: { Args: never; Returns: string[] }
       backfill_check_channels: { Args: never; Returns: undefined }
       billed_remito_blocker: { Args: { p_remito_id: string }; Returns: string }
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
@@ -7374,6 +7375,7 @@ export type Database = {
         Args: { p_remito_id: string }
         Returns: string
       }
+      purge_audit_events: { Args: never; Returns: number }
       receipt_list_totals: {
         Args: {
           p_client_id?: string

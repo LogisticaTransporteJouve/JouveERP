@@ -3,6 +3,7 @@
 import type { ActionResult } from "@/lib/query/run-action";
 import { z } from "zod";
 
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
@@ -431,6 +432,15 @@ export async function setClientOpeningBalanceAction(input: {
       error: error.message ?? "No se pudo aplicar el saldo de apertura.",
     };
   }
+  await logAudit(
+    "client.opening_balance.applied",
+    ctx.userId,
+    {
+      opening_date: input.opening_date,
+      target_balance: input.target_balance,
+    },
+    input.client_id,
+  );
   return { ok: true, data: undefined };
 }
 
@@ -461,5 +471,6 @@ export async function clearClientOpeningBalanceAction(
     });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
+  await logAudit("client.opening_balance.cleared", ctx.userId, {}, clientId);
   return { ok: true, data: undefined };
 }
