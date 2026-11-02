@@ -2,12 +2,8 @@ import { notFound } from "next/navigation";
 
 import { getChannelHeaderAction } from "@/features/chat/actions/channels";
 import { listChannelsAction } from "@/features/chat/actions/list-channels";
-import {
-  listMessagesAction,
-  listReactionsAction,
-} from "@/features/chat/actions/messages";
 import { ChatShell } from "@/features/chat/components/chat-shell";
-import { CHAT_MESSAGES_PAGE_SIZE, chatKeys } from "@/features/chat/keys";
+import { chatKeys } from "@/features/chat/keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { getDisplayName } from "@/lib/avatars";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -24,38 +20,23 @@ export default async function ChannelPage({
   const ctx = await requireUserContext();
   const { channelId } = await params;
 
-  // Pre-check membership: if the header RPC fails, we return 404.
-  // This avoids spending Suspense on something that's going to break.
-  const header = await getChannelHeaderAction(channelId);
-  if (!header.ok) notFound();
-
-  const dehydratedState = await prefetchQueries([
-    {
-      queryKey: chatKeys.channels(),
-      queryFn: () => runAction(() => listChannelsAction()),
-    },
-    {
-      queryKey: chatKeys.channel(channelId),
-      queryFn: () => runAction(() => getChannelHeaderAction(channelId)),
-    },
-    {
-      infinite: true,
-      queryKey: chatKeys.messages(channelId),
-      queryFn: ({ pageParam }: { pageParam: string | null }) =>
-        runAction(() =>
-          listMessagesAction({
-            channelId,
-            cursor: pageParam ?? null,
-            limit: CHAT_MESSAGES_PAGE_SIZE,
-          }),
-        ),
-      initialPageParam: null as string | null,
-    },
-    {
-      queryKey: chatKeys.reactions(channelId),
-      queryFn: () => runAction(() => listReactionsAction(channelId)),
-    },
+  // Membership check and the chat list in parallel. The messages are not
+  // awaited here: the thread loads them when it mounts, so the list and the
+  // header show at once instead of waiting for the whole history.
+  const [header, dehydratedState] = await Promise.all([
+    getChannelHeaderAction(channelId),
+    prefetchQueries([
+      {
+        queryKey: chatKeys.channels(),
+        queryFn: () => runAction(() => listChannelsAction()),
+      },
+      {
+        queryKey: chatKeys.channel(channelId),
+        queryFn: () => runAction(() => getChannelHeaderAction(channelId)),
+      },
+    ]),
   ]);
+  if (!header.ok) notFound();
 
   const displayName = getDisplayName(
     ctx.profile.firstName,
