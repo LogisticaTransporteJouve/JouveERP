@@ -50,10 +50,10 @@ export default async function TripDetailPage({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-medium tracking-tight">Cargas del viaje</h2>
-        <ShipmentsForTrip tripId={id} />
-      </div>
+      <ShipmentsForTrip
+        tripId={id}
+        canWrite={userCan(ctx.access, "shipments:write")}
+      />
     </div>
   );
 }

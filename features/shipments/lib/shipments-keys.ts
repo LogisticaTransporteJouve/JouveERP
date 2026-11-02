@@ -4,4 +4,5 @@ export const shipmentsKeys = {
   options: () => [...shipmentsKeys.all, "options"] as const,
   history: (id: string) => [...shipmentsKeys.all, "history", id] as const,
   byTrip: (tripId: string) => [...shipmentsKeys.all, "byTrip", tripId] as const,
+  unassigned: () => [...shipmentsKeys.all, "unassigned"] as const,
 };

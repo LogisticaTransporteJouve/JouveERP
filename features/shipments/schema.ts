@@ -44,7 +44,13 @@ export interface Shipment {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  client: { legal_name: string } | null;
+  client: {
+    legal_name: string;
+    display_name: string | null;
+    cuit: string | null;
+    iva_condition: string | null;
+    is_fiscal: boolean;
+  } | null;
   trip: { trip_date: string } | null;
 }
 
@@ -120,6 +126,18 @@ export const ShipmentUpdateSchema = z.object({
   freight_amount: optionalAmount,
   notes: optionalText(2000),
 });
+
+/** Assigns cargas to a trip (tripId) or takes them off it (null). */
+export const ShipmentTripAssignSchema = z.object({
+  tripId: z.string().uuid().nullable(),
+  shipmentIds: z.array(z.string().uuid()).min(1).max(100),
+});
+
+/** Statuses a carga can still be put on a trip in. */
+export const ASSIGNABLE_SHIPMENT_STATUSES = [
+  "not_started",
+  "reprogrammed",
+] as const satisfies readonly ShipmentStatus[];
 
 /** Status transition: start / deliver / cancel / reprogram. The relevant extra
  *  fields per status are validated/applied in the action. */

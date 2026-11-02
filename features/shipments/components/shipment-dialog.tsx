@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -34,6 +34,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
+import { isIvaCondition } from "@/features/clients/schema";
+import {
+  ClientPicker,
+  type PickedClient,
+} from "@/features/invoices/components/client-picker";
+
 import {
   useCreateShipment,
   useShipmentOptions,
@@ -47,7 +53,6 @@ const NONE = "__none__";
 const FormSchema = z.object({
   client_id: z.string(),
   trip_id: z.string(),
-  channel_id: z.string(),
   origin: z.string().trim().max(160),
   destination: z.string().trim().max(160),
   description: z.string().trim().max(500),
@@ -58,11 +63,23 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
+function pickedFrom(shipment?: Shipment): PickedClient | null {
+  if (!shipment?.client_id || !shipment.client) return null;
+  const c = shipment.client;
+  return {
+    id: shipment.client_id,
+    legal_name: c.legal_name,
+    display_name: c.display_name,
+    cuit: c.cuit,
+    iva_condition: isIvaCondition(c.iva_condition) ? c.iva_condition : null,
+    is_fiscal: c.is_fiscal,
+  };
+}
+
 function toDefaults(shipment?: Shipment): FormValues {
   return {
     client_id: shipment?.client_id ?? "",
     trip_id: shipment?.trip_id ?? "",
-    channel_id: shipment?.channel_id ?? "",
     origin: shipment?.origin ?? "",
     destination: shipment?.destination ?? "",
     description: shipment?.description ?? "",
@@ -95,15 +112,20 @@ export function ShipmentDialog({
     defaultValues: toDefaults(shipment),
   });
 
+  const [client, setClient] = useState<PickedClient | null>(() =>
+    pickedFrom(shipment),
+  );
+
   useEffect(() => {
-    if (open) form.reset(toDefaults(shipment));
+    if (!open) return;
+    form.reset(toDefaults(shipment));
+    setClient(pickedFrom(shipment));
   }, [open, shipment, form]);
 
   function onSubmit(values: FormValues) {
     const payload = {
       client_id: values.client_id,
       trip_id: values.trip_id,
-      channel_id: values.channel_id,
       origin: values.origin,
       destination: values.destination,
       description: values.description,
@@ -139,7 +161,8 @@ export function ShipmentDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar carga" : "Nueva carga"}</DialogTitle>
           <DialogDescription>
-            Carga a transportar: cliente, viaje, ruta y flete.
+            Carga a transportar: cliente, ruta y flete. El viaje se asigna
+            después, desde el viaje.
           </DialogDescription>
         </DialogHeader>
         {optionsLoading ? (
@@ -158,29 +181,21 @@ export function ShipmentDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
-                    <Select
-                      value={field.value === "" ? NONE : field.value}
-                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sin asignar" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Sin asignar</SelectItem>
-                        {(options?.clients ?? []).map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.legal_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ClientPicker
+                      value={client}
+                      onChange={(picked) => {
+                        setClient(picked);
+                        field.onChange(picked?.id ?? "");
+                      }}
+                      isFiscal={null}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-3">
+              {/* A new carga waits unassigned; trips pick their cargas from
+                  the trip page. Editing can still move or unassign it. */}
+              {isEdit && (
                 <FormField
                   control={form.control}
                   name="trip_id"
@@ -211,37 +226,7 @@ export function ShipmentDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="channel_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Canal</FormLabel>
-                      <Select
-                        value={field.value === "" ? NONE : field.value}
-                        onValueChange={(v) =>
-                          field.onChange(v === NONE ? "" : v)
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sin asignar" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NONE}>Sin asignar</SelectItem>
-                          {(options?.channels ?? []).map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}

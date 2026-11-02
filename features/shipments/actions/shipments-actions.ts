@@ -17,10 +17,12 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import {
+  ASSIGNABLE_SHIPMENT_STATUSES,
   FreightInvoiceSchema,
   type FreightInvoiceInput,
   ShipmentCreateSchema,
   ShipmentStatusChangeSchema,
+  ShipmentTripAssignSchema,
   ShipmentUpdateSchema,
   isShipmentStatus,
   type Shipment,
@@ -29,8 +31,10 @@ import {
 } from "../schema";
 import { freightInvoiceDates } from "../lib/freight-invoice";
 
+const UNASSIGNED_LIMIT = 200;
+
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
 function narrow(row: {
   status: string;
@@ -70,12 +74,12 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
 }
 
 type ShipmentOptions = {
-  clients: { id: string; legal_name: string }[];
   trips: { id: string; trip_date: string; status: string }[];
   channels: { id: string; name: string }[];
 };
 
-/** Select options for the shipment form (clients, trips, active channels). */
+/** Select options for the shipment forms (recent trips, active channels).
+ *  Clients are searched on demand with the client picker. */
 export async function listShipmentOptionsAction(): Promise<
   ActionResult<ShipmentOptions>
 > {
@@ -84,8 +88,7 @@ export async function listShipmentOptionsAction(): Promise<
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createSupabaseClient();
-  const [clients, trips, channels] = await Promise.all([
-    supabase.from("clients").select("id, legal_name").order("legal_name"),
+  const [trips, channels] = await Promise.all([
     supabase
       .from("trips")
       .select("id, trip_date, status")
@@ -93,17 +96,16 @@ export async function listShipmentOptionsAction(): Promise<
       .limit(200),
     getActiveInvoicingChannels(),
   ]);
-  if (clients.error || trips.error) {
+  if (trips.error) {
     logger.error("shipments.options.failed", {
       userId: ctx.userId,
-      error: clients.error ?? trips.error,
+      error: trips.error,
     });
     return { ok: false, error: "No se pudieron cargar las opciones." };
   }
   return {
     ok: true,
     data: {
-      clients: clients.data ?? [],
       trips: trips.data ?? [],
       channels: channels.map((c) => ({ id: c.id, name: c.name })),
     },
@@ -365,6 +367,83 @@ export async function listShipmentsByTripAction(
     .map((row) => narrow(row))
     .filter((row): row is Shipment => row !== null);
   return { ok: true, data: rows };
+}
+
+/** Cargas without a trip that can still go on one (the trip's "Asignar"). */
+export async function listUnassignedShipmentsAction(): Promise<
+  ActionResult<Shipment[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "shipments:read")) {
+    return { ok: false, error: "No tenés permiso para ver cargas." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("shipments")
+    .select(SELECT_COLUMNS)
+    .is("trip_id", null)
+    .in("status", [...ASSIGNABLE_SHIPMENT_STATUSES])
+    .order("scheduled_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
+    .limit(UNASSIGNED_LIMIT);
+  if (error) {
+    logger.error("shipments.unassigned.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
+  }
+  const rows = (data ?? [])
+    .map((row) => narrow(row))
+    .filter((row): row is Shipment => row !== null);
+  return { ok: true, data: rows };
+}
+
+/**
+ * Puts cargas on a trip, or takes them off it (tripId null). Assigning only
+ * takes cargas still without a trip, so two people assigning at once cannot
+ * move a carga another trip already took; the count says how many moved.
+ */
+export async function setShipmentsTripAction(
+  input: unknown,
+): Promise<ActionResult<{ count: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "shipments:write")) {
+    return { ok: false, error: "No tenés permiso para asignar cargas." };
+  }
+  const parsed = ShipmentTripAssignSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { tripId, shipmentIds } = parsed.data;
+  const supabase = await createSupabaseClient();
+  const base = supabase
+    .from("shipments")
+    .update({ trip_id: tripId })
+    .in("id", shipmentIds);
+  const { data, error } = await (
+    tripId
+      ? base.is("trip_id", null).in("status", [...ASSIGNABLE_SHIPMENT_STATUSES])
+      : base
+  ).select("id");
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "shipments.trip_set.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("shipments.trip_set.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron actualizar las cargas." };
+  }
+  for (const row of data) {
+    await logAudit(
+      "shipment.trip_set",
+      ctx.userId,
+      { trip_id: tripId },
+      row.id,
+    );
+  }
+  return { ok: true, data: { count: data.length } };
 }
 
 /**

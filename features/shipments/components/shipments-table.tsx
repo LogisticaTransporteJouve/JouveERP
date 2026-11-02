@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
+import { formatRoute } from "../lib/format";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
 import { FreightInvoiceDialog } from "./freight-invoice-dialog";
@@ -48,11 +49,6 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString("es-AR");
 }
 
-function formatRoute(origin: string | null, destination: string | null): string {
-  if (!origin && !destination) return "—";
-  return `${origin ?? "—"} → ${destination ?? "—"}`;
-}
-
 const STATUS_ACTIONS: Record<ShipmentStatus, ShipmentStatusAction[]> = {
   not_started: ["start", "deliver", "cancel", "reprogram"],
   in_progress: ["deliver", "cancel", "reprogram"],
@@ -68,10 +64,7 @@ const ACTION_LABEL: Record<ShipmentStatusAction, string> = {
   reprogram: "Reprogramar",
 };
 
-const ACTION_ICON: Record<
-  ShipmentStatusAction,
-  typeof Play
-> = {
+const ACTION_ICON: Record<ShipmentStatusAction, typeof Play> = {
   start: Play,
   deliver: CheckCircle2,
   cancel: XCircle,
@@ -79,9 +72,7 @@ const ACTION_ICON: Record<
 };
 
 type DialogState =
-  | { mode: "create" }
-  | { mode: "edit"; shipment: Shipment }
-  | null;
+  { mode: "create" } | { mode: "edit"; shipment: Shipment } | null;
 
 type StatusState = {
   shipment: Shipment;
@@ -190,8 +181,8 @@ export function ShipmentsTable() {
           const statusActions = STATUS_ACTIONS[shipment.status];
           const canInvoiceFreight = Boolean(
             shipment.freight_amount &&
-              shipment.client_id &&
-              !shipment.invoice_id,
+            shipment.client_id &&
+            !shipment.invoice_id,
           );
           return (
             <DropdownMenu>
