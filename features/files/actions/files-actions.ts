@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { ENTITY_READ_PERMISSION } from "@/lib/auth/entity-permissions";
 import { userCan, type Permission } from "@/lib/auth/permissions";
@@ -109,6 +110,17 @@ export async function uploadFileAction(
     return { ok: false, error: "No se pudo asociar el archivo." };
   }
 
+  await logAudit(
+    "file.attached",
+    ctx.userId,
+    {
+      target_type: targetType,
+      kind,
+      file_id: fileId,
+      attachment_id: attRow.id,
+    },
+    targetId,
+  );
   return { ok: true, data: { fileId, attachmentId: attRow.id } };
 }
 
@@ -260,7 +272,9 @@ export async function detachFileAction(
   // — both rows are tiny and the same supabase client is reused.
   const { data: attRow, error: loadErr } = await supabase
     .from("file_attachments")
-    .select("file_id")
+    .select(
+      "file_id, kind, purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id",
+    )
     .eq("id", parsed.data)
     .maybeSingle();
   if (loadErr || !attRow) {
@@ -283,6 +297,23 @@ export async function detachFileAction(
   if (delErr) {
     return { ok: false, error: delErr.message };
   }
+
+  // The entity it was attached to, so the event lands in that record's
+  // history.
+  const target = ATTACHMENT_TARGETS.find(
+    (t) => attRow[ATTACHMENT_FK_COLUMN[t]] != null,
+  );
+  await logAudit(
+    "file.detached",
+    ctx.userId,
+    {
+      target_type: target ?? null,
+      kind: attRow.kind,
+      file_id: attRow.file_id,
+      attachment_id: parsed.data,
+    },
+    target ? (attRow[ATTACHMENT_FK_COLUMN[target]] ?? undefined) : undefined,
+  );
 
   const { count } = await supabase
     .from("file_attachments")

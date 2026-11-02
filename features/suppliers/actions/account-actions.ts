@@ -8,6 +8,7 @@ import {
   aggregateSupplierAging,
   type AgingReport,
 } from "@/lib/aging";
+import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import {
   SUPPLIER_AGING_PERMISSIONS,
@@ -135,6 +136,15 @@ export async function setSupplierOpeningBalanceAction(input: {
       error: error.message ?? "No se pudo aplicar el saldo de apertura.",
     };
   }
+  await logAudit(
+    "supplier.opening_balance.applied",
+    ctx.userId,
+    {
+      opening_date: input.opening_date,
+      target_balance: input.target_balance,
+    },
+    input.supplier_id,
+  );
   return { ok: true, data: undefined };
 }
 
@@ -165,6 +175,12 @@ export async function clearSupplierOpeningBalanceAction(
     });
     return { ok: false, error: "No se pudo borrar el saldo de apertura." };
   }
+  await logAudit(
+    "supplier.opening_balance.cleared",
+    ctx.userId,
+    {},
+    supplierId,
+  );
   return { ok: true, data: undefined };
 }
 
