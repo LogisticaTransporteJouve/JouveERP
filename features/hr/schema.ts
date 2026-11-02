@@ -79,6 +79,42 @@ const hireDateRequired = z
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
+// ─── Position ────────────────────────────────────────────────────────────────
+
+/** Positions offered in the employee form. A driver also works as companion,
+ *  so both are one option. Rows saved before the list keep their free text. */
+export const EMPLOYEE_POSITIONS = [
+  "Chofer / Acompañante",
+  "Administrativo",
+  "Mecánico",
+  "Depósito",
+  "Socio / Dirección",
+  "Otro",
+] as const;
+
+export const DRIVER_POSITION = "Chofer / Acompañante";
+
+/** Whether this position drives: the employee gets a driver record (Flota). */
+export function isDriverPosition(position: string | null | undefined): boolean {
+  return position === DRIVER_POSITION;
+}
+
+const driverText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((value) => (value.length === 0 ? null : value))
+    .nullable()
+    .optional();
+
+/** Driver data kept on the employee's driver record (Flota → Choferes). */
+const driverFields = {
+  license_number: driverText(40),
+  license_category: driverText(20),
+  driver_phone: driverText(40),
+};
+
 const baseEmployeeFields = {
   legal_name: z.string().trim().min(2, "Apellido y nombre requerido.").max(120),
   position: shortTextNullable,
@@ -102,6 +138,7 @@ const optionalVacationDays = z.coerce
 
 export const EmployeeCreateSchema = z.object({
   ...baseEmployeeFields,
+  ...driverFields,
   /** Days of the vacation period in course; empty = leave it to the 1/10 job. */
   vacation_current_days: optionalVacationDays,
   /** Days still pending from earlier years, as one figure. */
@@ -120,6 +157,7 @@ export const EmployeeUpdateSchema = z.object({
   is_monotributo: baseEmployeeFields.is_monotributo.optional(),
   hire_date: baseEmployeeFields.hire_date.optional(),
   notes: baseEmployeeFields.notes,
+  ...driverFields,
 });
 
 export const EmployeeTerminateSchema = z

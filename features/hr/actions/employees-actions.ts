@@ -9,11 +9,18 @@ import { logger } from "@/lib/logger";
 import { todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import {
+  deactivateEmployeeDriver,
+  readEmployeeDriver,
+  syncEmployeeDriver,
+  type EmployeeDriver,
+} from "../lib/employee-driver";
 import { applyVacationOpening } from "../lib/vacation-opening";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   EmployeeCreateSchema,
+  isDriverPosition,
   EmployeeReactivateSchema,
   EmployeeTerminateSchema,
   EmployeeUpdateSchema,
@@ -198,6 +205,30 @@ export async function createEmployeeAction(
     data.id,
   );
 
+  // A driver position creates the employee's driver record (Flota → Choferes).
+  if (isDriverPosition(parsed.data.position)) {
+    const driver = await syncEmployeeDriver({
+      employeeId: data.id,
+      fullName: parsed.data.legal_name,
+      cuil: parsed.data.cuil ?? null,
+      isDriver: true,
+      licenseNumber: parsed.data.license_number ?? null,
+      licenseCategory: parsed.data.license_category ?? null,
+      phone: parsed.data.driver_phone ?? null,
+      userId: ctx.userId,
+    });
+    if (!driver.ok) {
+      logger.warn("employees.create.driver_failed", {
+        userId: ctx.userId,
+        employeeId: data.id,
+      });
+      return {
+        ok: false,
+        error: `El empleado se creó, pero no su ficha de chofer: ${driver.error} Guardalo de nuevo desde su ficha.`,
+      };
+    }
+  }
+
   // Vacation days loaded with the employee (owner/admin only, like the
   // balances' RLS). The employee already exists, so a failure here is
   // reported but does not undo it: the days can be loaded again from the
@@ -259,7 +290,7 @@ export async function updateEmployeeAction(
   const supabase = await createSupabaseClient();
   const { data: previous, error: prevErr } = await supabase
     .from("employees")
-    .select("base_salary, legal_name")
+    .select("base_salary, legal_name, position, cuil")
     .eq("id", id)
     .maybeSingle();
   if (prevErr) {
@@ -287,15 +318,65 @@ export async function updateEmployeeAction(
   if (rest.hire_date !== undefined) patch.hire_date = rest.hire_date;
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
 
-  if (Object.keys(patch).length === 0) {
+  const driverTouched =
+    rest.license_number !== undefined ||
+    rest.license_category !== undefined ||
+    rest.driver_phone !== undefined;
+  if (Object.keys(patch).length === 0 && !driverTouched) {
     return { ok: true, data: undefined };
   }
 
-  const { error } = await supabase.from("employees").update(patch).eq("id", id);
+  if (Object.keys(patch).length > 0) {
+    const { error } = await supabase
+      .from("employees")
+      .update(patch)
+      .eq("id", id);
+    if (error) {
+      logger.error("employees.update.failed", {
+        userId: ctx.userId,
+        id,
+        error,
+      });
+      return { ok: false, error: "No se pudo actualizar el empleado." };
+    }
+  }
 
-  if (error) {
-    logger.error("employees.update.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo actualizar el empleado." };
+  // The driver record follows the employee. Only a change away from the
+  // driver position deactivates it: rows saved before the positions list
+  // (free text) keep their driver as it is.
+  if (previous) {
+    const position =
+      rest.position !== undefined ? (rest.position ?? null) : previous.position;
+    const isDriver = isDriverPosition(position);
+    const leftDriver = isDriverPosition(previous.position) && !isDriver;
+    let existing: EmployeeDriver | null = null;
+    try {
+      existing = await readEmployeeDriver(id);
+    } catch {
+      existing = null;
+    }
+    if (isDriver || leftDriver || existing) {
+      const driver = await syncEmployeeDriver({
+        employeeId: id,
+        fullName: rest.legal_name ?? previous.legal_name,
+        cuil: rest.cuil !== undefined ? (rest.cuil ?? null) : previous.cuil,
+        isDriver: isDriver || (!leftDriver && existing?.is_active === true),
+        licenseNumber: rest.license_number,
+        licenseCategory: rest.license_category,
+        phone: rest.driver_phone,
+        userId: ctx.userId,
+      });
+      if (!driver.ok) {
+        logger.warn("employees.update.driver_failed", {
+          userId: ctx.userId,
+          id,
+        });
+        return {
+          ok: false,
+          error: `Se guardó el empleado, pero no su ficha de chofer: ${driver.error}`,
+        };
+      }
+    }
   }
 
   // Granular audit: salary is the most sensitive field.
@@ -368,6 +449,16 @@ export async function terminateEmployeeAction(
     { termination_date: parsed.data.termination_date },
     parsed.data.id,
   );
+
+  // A terminated employee no longer drives: their driver record leaves the
+  // trip pickers (history stays).
+  const driverOff = await deactivateEmployeeDriver(parsed.data.id);
+  if (!driverOff.ok) {
+    logger.warn("employees.terminate.driver_failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+  }
   return { ok: true, data: undefined };
 }
 
@@ -404,4 +495,24 @@ export async function reactivateEmployeeAction(
 
   await logAudit("employee.reactivated", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
+}
+
+/** The employee's driver data (license, phone), for the employee form. */
+export async function getEmployeeDriverAction(
+  employeeId: string,
+): Promise<ActionResult<EmployeeDriver | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:read")) {
+    return { ok: false, error: "No tenés permiso para ver empleados." };
+  }
+  try {
+    return { ok: true, data: await readEmployeeDriver(employeeId) };
+  } catch (error) {
+    logger.error("employees.driver.read_failed", {
+      userId: ctx.userId,
+      employeeId,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer la ficha de chofer." };
+  }
 }
