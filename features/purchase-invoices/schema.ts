@@ -203,6 +203,8 @@ export const PurchaseInvoiceUpdateSchema = z
   .object({
     id: z.string().uuid(),
     channel_id: baseFields.channel_id.optional(),
+    account_id: baseFields.account_id,
+    cost_center_id: baseFields.cost_center_id,
     supplier_id: baseFields.supplier_id.optional(),
     kind: baseFields.kind.optional(),
     letter: baseFields.letter,
@@ -249,6 +251,9 @@ export type PurchaseInvoiceUpdateInput = z.infer<
 export type PurchaseInvoice = {
   id: string;
   channel_id: string;
+  /** Expense account the neto posts to; null posts to the 'compras' role. */
+  account_id: string | null;
+  cost_center_id: string | null;
   supplier_id: string;
   supplier_legal_name: string;
   supplier_cuit: string | null;

@@ -5,6 +5,8 @@ import {
   SetBucketSchema,
   buildMonthTable,
   computeWaterfall,
+  costCenterBreakdown,
+  filterByCostCenter,
   narrowManagementRows,
   toPayrollControlRow,
   unclassifiedAccounts,
@@ -19,6 +21,7 @@ const row = (over: Partial<ManagementRow>): ManagementRow => ({
   accountId: "a",
   amount: 0,
   pendingUsd: 0,
+  costCenterId: null,
   ...over,
 });
 
@@ -134,6 +137,63 @@ describe("narrowManagementRows", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.amount).toBe(-50);
     expect(unknown).toHaveLength(1);
+  });
+});
+
+describe("cost centers", () => {
+  const rows = [
+    row({ amount: 1000, costCenterId: "truck" }),
+    row({
+      bucket: "operating_cost",
+      subbucket: "combustible",
+      amount: -300,
+      costCenterId: "truck",
+    }),
+    row({
+      bucket: "operating_cost",
+      subbucket: "administracion",
+      amount: -500,
+      costCenterId: "admin",
+    }),
+    row({ bucket: "operating_cost", amount: -50 }),
+  ];
+
+  it("filters one center, the rows without one, or all", () => {
+    expect(filterByCostCenter(rows, "truck")).toHaveLength(2);
+    expect(filterByCostCenter(rows, "none")).toHaveLength(1);
+    expect(filterByCostCenter(rows, "all")).toHaveLength(4);
+  });
+
+  it("breaks the cascade down by center and adds up to the whole", () => {
+    const breakdown = costCenterBreakdown(rows);
+    expect(breakdown.map((c) => c.costCenterId)).toEqual([
+      "admin",
+      "truck",
+      null,
+    ]);
+    expect(breakdown[1]?.waterfall.operatingMargin).toBe(700);
+    const margin = breakdown.reduce(
+      (a, c) => a + c.waterfall.operatingMargin,
+      0,
+    );
+    expect(margin).toBe(computeWaterfall(rows).operatingMargin);
+  });
+
+  it("reads the center from the RPC row, none when absent", () => {
+    const base = {
+      month: "2026-09",
+      bucket: "operating_cost",
+      subbucket: null,
+      channel_side: "fiscal",
+      chart_account_id: "a",
+      amount_ars: "-1",
+      pending_usd: "0",
+    };
+    const { rows: narrowed } = narrowManagementRows([
+      { ...base, cost_center_id: "truck" },
+      base,
+    ]);
+    expect(narrowed.map((r) => r.costCenterId)).toEqual(["truck", null]);
   });
 });
 

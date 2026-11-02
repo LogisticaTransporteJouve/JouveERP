@@ -83,7 +83,9 @@ export const getTransactions = defineAiAction({
   sources: ["v_transactions_tagged"],
   description:
     "Cash/treasury movements (inflows, outflows, transfers) with account, " +
-    "channel, date, amount and counterparty. Filterable by account, scope " +
+    "channel, date, amount, counterparty, and for a manual expense its " +
+    "expense account (expense_account_id, null = generic 'gastos') and " +
+    "cost center (cost_center_id). Filterable by account, scope " +
     "(fiscal/internal/all) and " +
     "date range (YYYY-MM-DD). For viewing cash flow or a specific movement.",
   input: z.object({

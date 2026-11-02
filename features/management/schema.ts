@@ -132,6 +132,8 @@ export type ManagementRow = {
   accountId: string | null;
   amount: number;
   pendingUsd: number;
+  /** The entry's, internal document's or movement's cost center. */
+  costCenterId: string | null;
 };
 
 export type RawManagementRow = {
@@ -142,6 +144,8 @@ export type RawManagementRow = {
   chart_account_id: string | null;
   amount_ars: number | string;
   pending_usd: number | string;
+  /** Absent before 20261103010000. */
+  cost_center_id?: string | null;
 };
 
 /** Narrows RPC rows; a row with an unknown bucket, subbucket or side is
@@ -170,10 +174,13 @@ export function narrowManagementRows(raw: readonly RawManagementRow[]): {
       accountId: r.chart_account_id,
       amount: Number(r.amount_ars),
       pendingUsd: Number(r.pending_usd),
+      costCenterId: r.cost_center_id ?? null,
     });
   }
   return { rows, unknown };
 }
+
+export type ManagementCostCenter = { id: string; code: string; name: string };
 
 export const ManagementPnlInputSchema = z
   .object({
@@ -471,6 +478,53 @@ export function unclassifiedAccounts(
   return [...map.entries()]
     .map(([accountId, amount]) => ({ accountId, amount: round2(amount) }))
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+}
+
+// ---------------------------------------------------------------------------
+// Cost centers
+// ---------------------------------------------------------------------------
+
+/** Cost-center filter values besides a center's id. */
+export const ALL_COST_CENTERS = "all";
+export const NO_COST_CENTER = "none";
+
+/** The rows of one cost center ("none": the rows without one; "all": every
+ *  row). */
+export function filterByCostCenter(
+  rows: readonly ManagementRow[],
+  filter: string,
+): ManagementRow[] {
+  if (filter === ALL_COST_CENTERS) return [...rows];
+  const target = filter === NO_COST_CENTER ? null : filter;
+  return rows.filter((r) => r.costCenterId === target);
+}
+
+export type CostCenterResult = {
+  costCenterId: string | null;
+  waterfall: Waterfall;
+};
+
+/** The cascade of each cost center with rows, "sin centro" last; the rest
+ *  by operating cost, the largest first. Their sum is the whole cascade. */
+export function costCenterBreakdown(
+  rows: readonly ManagementRow[],
+): CostCenterResult[] {
+  const groups = new Map<string | null, ManagementRow[]>();
+  for (const r of rows) {
+    const list = groups.get(r.costCenterId);
+    if (list) list.push(r);
+    else groups.set(r.costCenterId, [r]);
+  }
+  return [...groups.entries()]
+    .map(([costCenterId, list]) => ({
+      costCenterId,
+      waterfall: computeWaterfall(list),
+    }))
+    .sort((a, b) => {
+      if (a.costCenterId === null) return 1;
+      if (b.costCenterId === null) return -1;
+      return a.waterfall.operatingCost - b.waterfall.operatingCost;
+    });
 }
 
 // ---------------------------------------------------------------------------

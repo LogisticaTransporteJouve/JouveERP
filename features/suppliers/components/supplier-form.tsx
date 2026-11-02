@@ -32,6 +32,7 @@ import {
   usePageIsFiscal,
   useScope,
 } from "@/components/providers/scope-provider";
+import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
 import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 
 import { findSupplierByCuitAction } from "../actions/suppliers-actions";
@@ -44,17 +45,11 @@ type FormValues = CounterpartyIdentityValues & {
   default_channel_id: string;
   default_payment_term_days: string;
   category_id: string;
+  default_expense_account_id: string;
+  default_cost_center_id: string;
 };
 
-function supplierToValues(
-  supplier:
-    | (Supplier & {
-        default_channel_id?: string | null;
-        default_payment_term_days?: number | null;
-        category_id?: string | null;
-      })
-    | undefined,
-): FormValues {
+function supplierToValues(supplier: Supplier | undefined): FormValues {
   return {
     cuit: supplier?.cuit ?? "",
     legal_name: supplier?.legal_name ?? "",
@@ -71,6 +66,8 @@ function supplierToValues(
         ? String(supplier.default_payment_term_days)
         : "",
     category_id: supplier?.category_id ?? "",
+    default_expense_account_id: supplier?.default_expense_account_id ?? "",
+    default_cost_center_id: supplier?.default_cost_center_id ?? "",
   };
 }
 
@@ -249,6 +246,45 @@ export function SupplierForm({
               </FormItem>
             )}
           />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="default_expense_account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cuenta de gasto por defecto</FormLabel>
+                  <FormControl>
+                    <CostTagSelect
+                      kind="expenseAccount"
+                      value={field.value}
+                      onChange={field.onChange}
+                      noneLabel="Sin default"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="default_cost_center_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Centro de costo por defecto</FormLabel>
+                  <FormControl>
+                    <CostTagSelect
+                      kind="costCenter"
+                      value={field.value}
+                      onChange={field.onChange}
+                      noneLabel="Sin default"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <DialogFormFooter

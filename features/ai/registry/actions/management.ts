@@ -1,10 +1,17 @@
 import { z } from "zod";
 
-import { getManagementPnlAction } from "@/features/management/actions/management-actions";
 import {
+  getManagementPnlAction,
+  listManagementCostCentersAction,
+} from "@/features/management/actions/management-actions";
+import {
+  ALL_COST_CENTERS,
   MANAGEMENT_BASES,
+  NO_COST_CENTER,
   buildMonthTable,
   computeWaterfall,
+  costCenterBreakdown,
+  filterByCostCenter,
 } from "@/features/management/schema";
 import { PeriodSchema } from "@/lib/validation/common";
 
@@ -23,6 +30,12 @@ const ManagementPnlToolInputSchema = z
       .default("accrual")
       .describe(
         "'accrual' (devengado, por mes de comprobante y de liquidación de sueldos) o 'cash' (percibido, por fecha de cobro/pago).",
+      ),
+    costCenterId: z
+      .union([z.string().uuid(), z.literal(NO_COST_CENTER)])
+      .nullish()
+      .describe(
+        "Opcional: UUID de un centro de costo (ver getCostCenters) para ver solo su resultado, o 'none' para lo cargado sin centro. Sin valor: todos.",
       ),
   })
   .refine((v) => v.fromPeriod <= v.toPeriod, "Rango de períodos invertido.");
@@ -54,23 +67,53 @@ export const getManagementPnL = defineAiAction({
     "journal_entry_lines",
     "journal_document_entry",
     "management_buckets",
+    "cost_centers",
   ],
   description:
-    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, generación de caja) y la tabla por mes. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
+    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, generación de caja), la tabla por mes y la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
   input: ManagementPnlToolInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
-    const res = await getManagementPnlAction({
-      fromPeriod: input.fromPeriod,
-      toPeriod: input.toPeriod,
-      basis: input.basis,
-      inflation: false,
-    });
+    const [res, centersRes] = await Promise.all([
+      getManagementPnlAction({
+        fromPeriod: input.fromPeriod,
+        toPeriod: input.toPeriod,
+        basis: input.basis,
+        inflation: false,
+      }),
+      listManagementCostCentersAction(),
+    ]);
     if (!res.ok) return errResult(res.error);
-    const waterfall = computeWaterfall(res.data);
+    if (!centersRes.ok) return errResult(centersRes.error);
+    const names = new Map(
+      centersRes.data.map((c) => [c.id, `${c.code} · ${c.name}`]),
+    );
+    const rows = filterByCostCenter(
+      res.data,
+      input.costCenterId ?? ALL_COST_CENTERS,
+    );
+    const waterfall = computeWaterfall(rows);
     const months = monthsBetween(input.fromPeriod, input.toPeriod);
-    const { totals } = buildMonthTable(res.data, months);
+    const { totals } = buildMonthTable(rows, months);
+    const byCostCenter = costCenterBreakdown(res.data).map((c) => ({
+      costCenterId: c.costCenterId,
+      costCenter:
+        c.costCenterId === null
+          ? "Sin centro"
+          : (names.get(c.costCenterId) ?? "Centro eliminado"),
+      serviceRevenue: c.waterfall.serviceRevenue,
+      operatingCost: c.waterfall.operatingCost,
+      operatingMargin: c.waterfall.operatingMargin,
+      fleetInvestment: c.waterfall.fleetInvestment,
+    }));
+    const scopeLabel = input.costCenterId
+      ? ` · centro ${
+          input.costCenterId === NO_COST_CENTER
+            ? "Sin centro"
+            : (names.get(input.costCenterId) ?? input.costCenterId)
+        }`
+      : "";
     return okResult(
-      `Gestión ${input.fromPeriod}→${input.toPeriod} (uso interno): servicios ${money(
+      `Gestión ${input.fromPeriod}→${input.toPeriod}${scopeLabel} (uso interno): servicios ${money(
         waterfall.serviceRevenue,
       )} · costos operativos ${money(waterfall.operatingCost)} · margen operativo ${money(
         waterfall.operatingMargin,
@@ -78,7 +121,7 @@ export const getManagementPnL = defineAiAction({
         (waterfall.pendingUsd !== 0
           ? ` Hay USD sin cotización (US$${waterfall.pendingUsd}) no sumados.`
           : ""),
-      { basis: input.basis, waterfall, totals },
+      { basis: input.basis, waterfall, totals, byCostCenter },
       { currency: "ARS", note: INTERNAL_NOTE },
     );
   },
