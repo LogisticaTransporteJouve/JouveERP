@@ -6709,6 +6709,10 @@ export type Database = {
           source_table: string
         }[]
       }
+      get_ledger_opening: {
+        Args: { p_account_id: string; p_date_from: string }
+        Returns: number
+      }
       get_my_notification_settings: {
         Args: never
         Returns: {
@@ -6919,11 +6923,7 @@ export type Database = {
         Returns: number
       }
       next_internal_purchase_numero: {
-        Args: {
-          p_kind: string
-          p_punto_venta?: number
-          p_supplier_id: string
-        }
+        Args: { p_kind: string; p_punto_venta?: number; p_supplier_id: string }
         Returns: number
       }
       notification_type_enabled: {

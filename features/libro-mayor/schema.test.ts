@@ -35,4 +35,9 @@ describe("computeLedgerSummary", () => {
     const s = computeLedgerSummary([]);
     expect(s.finalBalance).toBe(0);
   });
+
+  it("sin filas en el rango, el saldo final es el saldo anterior", () => {
+    const s = computeLedgerSummary([], 450);
+    expect(s.finalBalance).toBe(450);
+  });
 });

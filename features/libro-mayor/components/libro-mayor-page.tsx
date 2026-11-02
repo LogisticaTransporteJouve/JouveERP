@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Undo2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -22,7 +22,7 @@ import {
 import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { useLedger } from "../hooks/use-libro-mayor";
+import { LEDGER_MAX_ROWS, useLedger } from "../hooks/use-libro-mayor";
 import { computeLedgerSummary } from "../schema";
 
 export function LibroMayorPage() {
@@ -34,7 +34,11 @@ export function LibroMayorPage() {
   const ledger = useLedger(accountId, from || null, to || null);
   const rows = useMemo(() => ledger.data?.rows ?? [], [ledger.data]);
   const truncated = ledger.data?.truncated ?? false;
-  const summary = useMemo(() => computeLedgerSummary(rows), [rows]);
+  const opening = ledger.data?.opening ?? 0;
+  const summary = useMemo(
+    () => computeLedgerSummary(rows, opening),
+    [rows, opening],
+  );
 
   const sortedAccounts = useMemo(
     () =>
@@ -59,7 +63,8 @@ export function LibroMayorPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Libro mayor</h1>
         <p className="text-sm text-muted-foreground">
-          Movimientos de una cuenta con saldo running por línea.
+          Movimientos de una cuenta con saldo acumulado por línea, desde el
+          saldo anterior a la fecha &quot;Desde&quot;.
         </p>
       </div>
 
@@ -116,16 +121,38 @@ export function LibroMayorPage() {
           <div className="px-6 py-12 text-center text-sm text-muted-foreground">
             Cargando…
           </div>
+        ) : ledger.isError ? (
+          <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+            {ledger.error.message}
+          </div>
         ) : rows.length === 0 ? (
           <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
             La cuenta no tiene movimientos en el rango.
+            {from && (
+              <>
+                {" "}
+                Saldo anterior al {formatArgentineDate(from)}:{" "}
+                <span className="font-mono text-foreground">
+                  {money(opening)}
+                </span>
+                .
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
             {truncated && (
-              <div className="rounded-lg border border-border bg-muted p-3 text-sm">
-                ⚠ La cuenta tiene más de 1000 movimientos. Mostrando los
-                primeros 1000 — filtrá por rango de fechas para ver el resto.
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-lg border border-border bg-muted p-3 text-sm"
+              >
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  Datos parciales: el rango tiene más de {LEDGER_MAX_ROWS}{" "}
+                  movimientos y se muestran solo los primeros {LEDGER_MAX_ROWS}.
+                  Los totales y el saldo final corresponden a esas líneas, no a
+                  todo el rango. Acotá las fechas para ver el resto.
+                </span>
               </div>
             )}
             <div className="overflow-x-auto rounded-lg border bg-card">
@@ -144,6 +171,20 @@ export function LibroMayorPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {from && (
+                    <tr className="border-b bg-muted/30">
+                      <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
+                        {formatArgentineDate(from)}
+                      </td>
+                      <td className="px-2 py-1" />
+                      <td className="px-2 py-1 font-medium" colSpan={4}>
+                        Saldo anterior
+                      </td>
+                      <td className="px-2 py-1 text-right font-mono font-medium">
+                        {money(opening)}
+                      </td>
+                    </tr>
+                  )}
                   {rows.map((r) => {
                     const debit = Number(r.debit);
                     const credit = Number(r.credit);

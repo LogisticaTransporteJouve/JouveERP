@@ -41,11 +41,24 @@ export async function getLedgerAction(input: {
   }
   input = parsed.data;
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_ledger", {
-    p_account_id: input.accountId,
-    p_date_from: input.from ?? undefined,
-    p_date_to: input.to ?? undefined,
-  });
+  // One row past the cap: PostgREST stops at max_rows (1000), so a full
+  // page means the ledger has more lines than LEDGER_MAX_ROWS.
+  const [ledger, opening] = await Promise.all([
+    supabase
+      .rpc("get_ledger", {
+        p_account_id: input.accountId,
+        p_date_from: input.from ?? undefined,
+        p_date_to: input.to ?? undefined,
+      })
+      .range(0, LEDGER_MAX_ROWS),
+    input.from
+      ? supabase.rpc("get_ledger_opening", {
+          p_account_id: input.accountId,
+          p_date_from: input.from,
+        })
+      : Promise.resolve({ data: 0, error: null }),
+  ]);
+  const error = ledger.error ?? opening.error;
   if (error) {
     logger.error("get_ledger.failed", {
       userId: ctx.userId,
@@ -54,13 +67,14 @@ export async function getLedgerAction(input: {
     });
     return { ok: false, error: "No se pudo leer el libro mayor." };
   }
-  const all = (data ?? []) as LedgerRow[];
+  const all: LedgerRow[] = ledger.data ?? [];
   const truncated = all.length > LEDGER_MAX_ROWS;
   return {
     ok: true,
     data: {
       rows: truncated ? all.slice(0, LEDGER_MAX_ROWS) : all,
       truncated,
+      opening: Number(opening.data ?? 0),
     },
   };
 }
