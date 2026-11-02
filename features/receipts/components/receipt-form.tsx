@@ -521,7 +521,9 @@ export function ReceiptForm({
 
         {/* Payment lines */}
         <PaymentLinesEditor
-          accounts={accounts.filter((a) => a.is_active)}
+          accounts={accounts.filter(
+            (a) => a.is_active && a.currency === currency,
+          )}
           lines={paymentLines}
           onChange={(lines) => form.setValue("paymentLines", lines)}
           defaultDate={receiptDate}

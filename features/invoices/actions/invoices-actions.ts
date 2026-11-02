@@ -44,8 +44,11 @@ import {
   computeTotals,
   isInvoiceLetter,
   isInvoiceStatus,
+  isRevenueKind,
+  SetRevenueKindSchema,
   type InvoiceRow,
   type CreateComprobanteInput,
+  type RevenueKind,
 } from "../schema";
 
 import { isIvaCondition, type IvaCondition } from "@/features/clients/schema";
@@ -498,6 +501,7 @@ export async function issueFiscalInvoiceAction(
     quantity: item.quantity,
     unit_price: item.unit_price,
     iva_rate_id: item.iva_rate_id,
+    revenue_kind: item.revenue_kind ?? "service",
     ...computeLineAmounts(item, channel.is_fiscal),
   }));
 
@@ -871,6 +875,7 @@ export interface ComprobanteDetail {
     quantity: number;
     unit_price: number;
     iva_rate_id: number | null;
+    revenue_kind: RevenueKind;
     line_neto: number;
     line_iva: number;
     line_total: number;
@@ -883,7 +888,7 @@ export interface ComprobanteDetail {
  *  because Postgres NUMERIC is serialized as a string in supabase-js. */
 type InvoiceItemJoinedRow = Pick<
   Database["public"]["Tables"]["invoice_items"]["Row"],
-  "id" | "description" | "iva_rate_id" | "sort_order"
+  "id" | "description" | "iva_rate_id" | "revenue_kind" | "sort_order"
 > & {
   quantity: number | string;
   unit_price: number | string;
@@ -952,7 +957,7 @@ export async function getInvoiceDetailAction(
       `*,
        channel:invoicing_channels(id, name, is_fiscal),
        client:clients(id, legal_name, iva_condition),
-       items:invoice_items(id, description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)`,
+       items:invoice_items(id, description, quantity, unit_price, iva_rate_id, revenue_kind, line_neto, line_iva, line_total, sort_order)`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -1021,6 +1026,9 @@ export async function getInvoiceDetailAction(
           quantity: Number(it.quantity),
           unit_price: Number(it.unit_price),
           iva_rate_id: it.iva_rate_id,
+          revenue_kind: isRevenueKind(it.revenue_kind)
+            ? it.revenue_kind
+            : "service",
           line_neto: Number(it.line_neto),
           line_iva: Number(it.line_iva),
           line_total: Number(it.line_total),
@@ -1209,4 +1217,69 @@ export async function cancelInvoiceAction(
     id,
   );
   return { ok: true, data: { id } };
+}
+
+/** Marks an item as a service or an asset sale (Resultado de gestión). It
+ *  changes no entry, Libro IVA or AFIP data, so an emitted or cancelled
+ *  comprobante takes it too. */
+export async function setInvoiceItemRevenueKindAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso para editar comprobantes." };
+  }
+  const parsed = SetRevenueKindSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const { item_id, revenue_kind } = parsed.data;
+
+  const supabase = getServiceClient();
+  const { data: before, error: readErr } = await supabase
+    .from("invoice_items")
+    .select("id, invoice_id, revenue_kind")
+    .eq("id", item_id)
+    .maybeSingle();
+  if (readErr) {
+    logger.error("invoices.revenue_kind.read_failed", {
+      userId: ctx.userId,
+      id: item_id,
+      err: readErr.message,
+    });
+    return { ok: false, error: "No se pudo leer el ítem." };
+  }
+  if (!before) return { ok: false, error: "No se encontró el ítem." };
+  if (before.revenue_kind === revenue_kind) {
+    return { ok: true, data: { id: item_id } };
+  }
+
+  const { error } = await supabase
+    .from("invoice_items")
+    .update({ revenue_kind })
+    .eq("id", item_id);
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "invoices.revenue_kind.rejected",
+      userId: ctx.userId,
+      id: item_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("invoices.revenue_kind.update_failed", {
+      userId: ctx.userId,
+      id: item_id,
+      err: error.message,
+    });
+    return { ok: false, error: "No se pudo guardar la clasificación." };
+  }
+
+  await logAudit(
+    "invoice_item.revenue_kind_set",
+    ctx.userId,
+    {
+      invoice_id: before.invoice_id,
+      from: before.revenue_kind,
+      to: revenue_kind,
+    },
+    item_id,
+  );
+  return { ok: true, data: { id: item_id } };
 }

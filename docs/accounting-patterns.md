@@ -169,7 +169,12 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   con `invoice_id`/`receipt_id`/`payment_order_id` (ya cubiertas por su header).
 - **Un builder por origen:** `build_{invoice,purchase_invoice,receipt,payment_order,transaction}_journal_lines`;
   `journal_expected_entry(src, id)` dice qué asiento corresponde a la fila actual y
-  `emit_journal(src, id)` lo emite.
+  `emit_journal(src, id)` lo emite. Desde `…20261102250000`
+  `journal_expected_entry` es `journal_document_entry(src, id, true)`:
+  `journal_document_entry` arma el asiento de un documento de **cualquier**
+  canal con los mismos builders (sin la puerta `is_channel_fiscal`, salvo con
+  `p_fiscal_only`). No escribe nada; lo lee el Resultado de gestión para los
+  documentos internos.
 - **Zero-total guard** (fix `…517860000`): un comprobante o compra con
   `imp_total <= 0` no asienta — crearía una línea `debit=0/credit=0` (viola el CHECK,
   `23514`) y voltearía un batch entero de import AFIP.
@@ -186,6 +191,24 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   Un documento sin asiento vigente no se toca: lo lista `journal_missing_entries()`.
 - **Mapeo cuenta→rol** (`coa_role_for_account`): `bank/investment→banco`,
   `cash/wallet→caja`, `checks/echeq→cheques_cartera`.
+- **Movimientos de caja en USD (decisión 2026-11-02, `…20261102240000`):** el
+  libro es en pesos. Un movimiento suelto en USD (ingreso/egreso manual,
+  transferencia entre cuentas USD, cuota de préstamo, cheque USD depositado,
+  rechazado o cargado a mano) se asienta a `get_exchange_rate('USD',
+transaction_date)` (la cotización de esa fecha o la anterior más cercana),
+  redondeado a centavos: es el mismo respaldo que usan los recibos y OP sin
+  `cotizacion` propia; `transactions` no guarda cotización. Si no hay ninguna
+  cotización hasta esa fecha **no asienta** (nunca a 1) y
+  `journal_missing_entries()` lo lista como `sin_cotizacion`. Los movimientos
+  USD asentados antes como pesos quedan como estaban y la misma función los
+  lista como `differs` (se corrigen editándolos en un período abierto).
+  Descartado: guardar una cotización por movimiento (otro PR; hoy ningún
+  escritor la conoce salvo recibos y OP, que asientan con la suya).
+- **Moneda del movimiento = moneda de la cuenta:** el trigger
+  `guard_transaction_account_currency` rechaza (`23514`) un movimiento cuya
+  `currency` no es la de su cuenta, y `guard_account_currency_change` rechaza
+  cambiar la moneda de una cuenta con movimientos. Recibos y OP solo ofrecen
+  cuentas de su moneda; el alta manual toma la moneda de la cuenta elegida.
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/
   `percepciones_iibb_cobradas`. NC invierte (`v_kind_factor=-1`). Compra: Debe
   `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`. El neto
@@ -477,6 +500,70 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
   server actions en el render inicial con período elegido por el cliente.
 - **UI:** `Dialog` centrado, botones a la derecha, monocromo. Páginas `force-dynamic`
   con gate de permiso + RLS de defensa en profundidad.
+
+---
+
+## 10b. Resultado de gestión (uso interno, roadmap 1.0)
+
+Vista interna de "¿la operación deja plata?", fiscal + interno. **No** escribe
+asientos ni cambia `journal_expected_entry`, los builders,
+`get_account_balances` ni el EERR fiscal. Migraciones `20261102250000`
+(`journal_document_entry`, `invoice_items.revenue_kind`) y `20261102260000`
+(catálogo y RPCs); feature `features/management`, ruta `/management`.
+
+- **Permisos:** `management:read` (owner, admin, finance) y
+  `management:write` (owner, admin: el catálogo). `fiscal_reader` nunca. Los
+  RPCs son `SECURITY DEFINER` con chequeo de rol adentro y **revocados de
+  `authenticated`**: solo los llama el service role desde las actions, que
+  gatean con `userCan`.
+- **Catálogo `management_buckets`:** cuenta del plan → caja
+  (`service_revenue`, `operating_cost` + subrubro, `financing_cost` +
+  subrubro, `loan_principal`, `fleet_investment`, `asset_sale`, `neutral`,
+  `excluded_noncash`). Precargado por código del plan (4.1.1, 5.2.x, 5.3.x,
+  5.4.x, 4.2.2 RECPAM), por `system_role` (`ventas`, `compras`, `gastos`,
+  `sueldos`, `ajustes_caja` = neutro) y por nombre (amortizaciones, cargas
+  sociales, seguros, rodados). Una cuenta de resultado sin fila es "Sin
+  clasificar": suma en el margen operativo y la pantalla la lista para
+  clasificarla. Las cuentas patrimoniales sin fila no suman.
+- **`get_management_pnl(desde, hasta, base, inflación)`** devuelve filas
+  `(mes, caja, subrubro, lado fiscal/interno, cuenta, importe en pesos,
+USD pendiente)`; importe > 0 suma al resultado.
+  - **Devengado:** líneas de `journal_entry_lines` (lo fiscal, una sola vez)
+    \+ las líneas que `journal_document_entry` arma para los documentos
+    **internos** vivos (comprobantes emitidos, compras recibidas, movimientos
+    por `accrual_month`). La NC interna que acredita un remito facturado lo
+    neutraliza sola. Sueldos internos = la cuenta `sueldos` del lado interno.
+    Una cuota de préstamo se reclasifica a `loan_principal`. La parte de una
+    venta marcada `asset_sale` (proporción del neto de sus ítems) va a "Venta
+    de bienes de uso".
+  - **Percibido:** `transactions` de todas las cuentas y canales por fecha:
+    recibos/comprobantes/cheques de cliente = servicios; OP y cheques propios =
+    costo operativo (pagos a proveedores); sueldos por canal; cuotas =
+    capital; transferencias, movimientos de cheques, rechazos y saldos
+    iniciales = neutros; un movimiento suelto va a la caja de su contrapartida
+    (`gastos` / `ajustes_caja`).
+  - **USD:** los builders convierten como en el libro; un movimiento USD sin
+    cotización no se suma: vuelve como fila `pending_usd` con el importe en
+    dólares, y la pantalla lo avisa.
+  - **Inflación:** multiplica cada mes por el `coefficient` de
+    `inflation_adjustments` de ese período (sin coeficiente, 1).
+- **`get_management_payroll_control`:** por mes, liquidado
+  (`v_payroll_entries_resolved`), pagado para ese período y pagado en el mes.
+- **Pantalla:** cascada (Servicios − Costos operativos = Margen operativo −
+  Costo financiero = Resultado después de financiación − Capital de préstamos
+  − Inversión en flota + Venta de bienes de uso = Generación de caja) del año
+  fiscal oct–sep con comparativo del anterior, tabla mes a mes (Fiscal /
+  Interno / Total, "Sueldos" y "Sueldos internos (extras)" con "Total
+  personal"), "Sin clasificar" y el control de sueldos.
+- **Limitaciones v1:** compras a cuenta de empleados cuentan como costo;
+  cuotas sin separar capital/interés; sin apertura por centro de costo; en
+  percibido un cobro o pago de un bien de uso cuenta como operativo; el
+  detalle llega a la cuenta, no al comprobante.
+
+**Balance general (fix del mismo PR):** el balance es acumulado al corte
+aunque se elija "Desde"; el PN muestra "Resultados de períodos anteriores" y
+"Resultado del período" (desde "Desde" o, sin él, desde el octubre del año
+fiscal). Antes todo el resultado acumulado figuraba como del período.
 
 ---
 

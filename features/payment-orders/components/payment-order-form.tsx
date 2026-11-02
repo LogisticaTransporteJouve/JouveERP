@@ -555,7 +555,9 @@ export function PaymentOrderForm({
         />
 
         <PaymentLinesEditor
-          accounts={accounts.filter((a) => a.is_active)}
+          accounts={accounts.filter(
+            (a) => a.is_active && a.currency === currency,
+          )}
           // A check is endorsed only in a payment order of its own channel;
           // one without channel takes the payment order's.
           carteraChecks={(carteraChecksQuery.data ?? []).filter(

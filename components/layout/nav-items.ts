@@ -14,6 +14,7 @@ import {
   FileText,
   FolderOpen,
   Fuel,
+  Gauge,
   History,
   IdCard,
   LayoutDashboard,
@@ -280,6 +281,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Balance / EERR",
         icon: Scale,
         permission: "accounting:read",
+      },
+      {
+        href: "/management",
+        label: "Resultado de gestión",
+        icon: Gauge,
+        permission: "management:read",
       },
       {
         href: "/accounting/cost-centers",

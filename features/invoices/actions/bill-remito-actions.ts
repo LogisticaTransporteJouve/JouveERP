@@ -14,7 +14,7 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { formatInvoiceNumero } from "../schema";
+import { formatInvoiceNumero, isRevenueKind } from "../schema";
 import {
   issueFiscalInvoiceAction,
   type IssueInvoiceResult,
@@ -62,7 +62,7 @@ export async function billRemitoAction(
   const { data: remito, error: remitoErr } = await supabase
     .from("invoices")
     .select(
-      "id, kind, status, concepto, imp_total, channel:invoicing_channels(is_fiscal), items:invoice_items(description, quantity, unit_price, sort_order)",
+      "id, kind, status, concepto, imp_total, channel:invoicing_channels(is_fiscal), items:invoice_items(description, quantity, unit_price, revenue_kind, sort_order)",
     )
     .eq("id", data.remito_id)
     .maybeSingle();
@@ -120,6 +120,9 @@ export async function billRemitoAction(
       quantity: Number(it.quantity),
       unit_price: Number(it.unit_price),
       iva_rate_id: data.iva_rate_id,
+      revenue_kind: isRevenueKind(it.revenue_kind)
+        ? it.revenue_kind
+        : ("service" as const),
     }));
   if (items.length === 0) {
     return { ok: false, error: "El remito no tiene ítems." };

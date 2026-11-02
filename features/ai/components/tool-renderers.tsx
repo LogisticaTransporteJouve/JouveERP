@@ -50,6 +50,7 @@ const TOOL_LABELS: Record<string, string> = {
   getRecurringPayments: "Pagos recurrentes",
   getIncomeStatement: "Estado de resultados",
   getBalanceSheet: "Balance general",
+  getManagementPnL: "Resultado de gestión",
   getCostCenterBreakdown: "Resultados por centro de costo",
   getExpenseByCategory: "Gastos por categoría",
   getLoans: "Préstamos",

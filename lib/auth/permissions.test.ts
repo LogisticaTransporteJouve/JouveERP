@@ -329,6 +329,18 @@ describe("fiscal_reader", () => {
     ).toEqual([]);
   });
 
+  it("never reads the Resultado de gestión", () => {
+    const reader = resolveAccess(["fiscal_reader"]);
+    expect(userCan(reader, "management:read")).toBe(false);
+    expect(userCan(reader, "management:write")).toBe(false);
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(userCan(resolveAccess([role]), "management:read"), role).toBe(
+        true,
+      );
+    }
+    expect(userCan(resolveAccess(["finance"]), "management:write")).toBe(false);
+  });
+
   it("does not reach treasury, cash flow or loans through accounting:read", () => {
     expect(
       userCanAll(resolveAccess(["fiscal_reader"]), TREASURY_PERMISSIONS),
@@ -438,6 +450,7 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "invoices:read",
           "issued_checks:read",
           "issued_checks:write",
+          "management:read",
           "padron:lookup",
           "payment_orders:read",
           "payment_orders:write",

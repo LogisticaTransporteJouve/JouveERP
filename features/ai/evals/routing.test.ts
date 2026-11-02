@@ -53,6 +53,19 @@ vi.mock("@/features/treasury/actions/treasury-actions", async (orig) => ({
   getTreasurySummaryAction: stub("getTreasurySummaryAction"),
 }));
 
+vi.mock("@/features/management/actions/management-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/management/actions/management-actions")
+  >()),
+  getManagementPnlAction: stub("getManagementPnlAction"),
+}));
+vi.mock("@/features/balance/actions/statements-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/balance/actions/statements-actions")
+  >()),
+  getAccountTypeTotalsAction: stub("getAccountTypeTotalsAction"),
+}));
+
 const { buildAiTools, buildCapabilitiesSummary } = await import("../registry");
 
 const proposals = {

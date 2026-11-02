@@ -19,6 +19,7 @@ import {
   type OriginInvoice,
 } from "@/features/invoices/components/issue-nc-nd-dialog";
 import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-pdf-button";
+import { RevenueKindSelect } from "@/features/invoices/components/revenue-kind-select";
 import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
@@ -218,6 +219,7 @@ export default async function ComprobanteDetailPage({
                   quantity: it.quantity,
                   unit_price: it.unit_price,
                   iva_rate_id: it.iva_rate_id,
+                  revenue_kind: it.revenue_kind,
                 })),
               };
               return (
@@ -304,6 +306,7 @@ export default async function ComprobanteDetailPage({
               </th>
               {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
               <th className="px-4 py-2 text-right">Subtotal</th>
+              {canIssue && <th className="px-4 py-2 text-left">Gestión</th>}
             </tr>
           </thead>
           <tbody>
@@ -326,6 +329,14 @@ export default async function ComprobanteDetailPage({
                 <td className="px-4 py-2 text-right font-mono">
                   ${formatARS(item.line_total)}
                 </td>
+                {canIssue && (
+                  <td className="px-4 py-2">
+                    <RevenueKindSelect
+                      itemId={item.id}
+                      value={item.revenue_kind}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -114,6 +114,48 @@ export function narrowComprobanteRow(row: InvoiceDbRow): InvoiceRow {
 }
 
 // --------------------------------------------------------------------------
+// Revenue kind of an item (Resultado de gestión only: no entry, Libro IVA or
+// AFIP request reads it).
+// --------------------------------------------------------------------------
+
+export const REVENUE_KINDS = ["service", "asset_sale"] as const;
+export type RevenueKind = (typeof REVENUE_KINDS)[number];
+
+export const REVENUE_KIND_LABEL: Record<RevenueKind, string> = {
+  service: "Servicio",
+  asset_sale: "Venta de bien de uso",
+};
+
+export function isRevenueKind(value: unknown): value is RevenueKind {
+  return (
+    typeof value === "string" &&
+    (REVENUE_KINDS as readonly string[]).includes(value)
+  );
+}
+
+// A vehicle sold is a fixed asset leaving, not transport revenue. Vehicles
+// carry 10.5 % IVA (Ley 23.349 art. 28); a transport service carries 21 %.
+const VEHICLE_WORDS =
+  /\b(cami[oó]n|camiones|tractor|semi(rremolque)?|acoplado|chasis|veh[ií]culo|rodado|utilitario|furg[oó]n|camioneta|pick-?up|autom[oó]vil|dominio)\b/i;
+
+/** The revenue kind to propose for an item: an asset sale for a vehicle at
+ *  10.5 %, a service otherwise. The user can change it. */
+export function suggestRevenueKind(item: {
+  description: string;
+  iva_rate_id: number | null;
+}): RevenueKind {
+  return item.iva_rate_id === IVA_RATE.TEN_FIVE &&
+    VEHICLE_WORDS.test(item.description)
+    ? "asset_sale"
+    : "service";
+}
+
+export const SetRevenueKindSchema = z.object({
+  item_id: z.string().uuid(),
+  revenue_kind: z.enum(REVENUE_KINDS),
+});
+
+// --------------------------------------------------------------------------
 // Item input schema (used by the new-comprobante form).
 // --------------------------------------------------------------------------
 
@@ -131,6 +173,7 @@ export const ComprobanteItemInputSchema = z.object({
       z.literal(IVA_RATE.TWO_FIVE),
     ])
     .nullable(),
+  revenue_kind: z.enum(REVENUE_KINDS).optional(),
 });
 
 export type ComprobanteItemInput = z.infer<typeof ComprobanteItemInputSchema>;
