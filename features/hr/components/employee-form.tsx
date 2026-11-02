@@ -80,7 +80,7 @@ function employeeToValues(employee: Employee | undefined): FormValues {
         ? String(employee.viatico_monthly)
         : "20000",
     is_monotributo: employee?.is_monotributo ?? false,
-    hire_date: employee?.hire_date ?? new Date().toISOString().slice(0, 10),
+    hire_date: employee?.hire_date ?? todayInAR(),
     notes: employee?.notes ?? "",
     vacation_current_days: "",
     vacation_previous_days: "",

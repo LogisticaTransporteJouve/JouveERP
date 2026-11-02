@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   amountToInput,
@@ -231,5 +231,15 @@ describe("todayInAR", () => {
       .toISOString()
       .slice(0, 10);
     expect(today).toBe(ar);
+  });
+
+  it("after 21:00 in Argentina it is still the Argentine day, not UTC's", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-11-03T02:30:00Z"));
+      expect(todayInAR()).toBe("2026-11-02");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

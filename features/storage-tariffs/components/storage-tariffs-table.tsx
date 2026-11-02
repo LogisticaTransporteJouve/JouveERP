@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { todayInAR } from "@/lib/format";
 
 import {
   useDeleteStorageTariff,
@@ -129,10 +130,7 @@ export function StorageTariffsTable({
         enableSorting: false,
         meta: { headerClassName: "w-24" },
         cell: ({ row }) => {
-          const state = tariffVigencia(
-            row.original,
-            new Date().toISOString().slice(0, 10),
-          );
+          const state = tariffVigencia(row.original, todayInAR());
           return (
             <Badge
               variant={state === "vigente" ? "secondary" : "outline"}

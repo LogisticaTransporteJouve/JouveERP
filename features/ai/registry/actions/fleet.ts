@@ -11,6 +11,7 @@ import { getShipmentsSummaryAction } from "@/features/shipments/actions/shipment
 import { ShipmentsSummaryInputSchema } from "@/features/shipments/schema";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
+import { todayInAR } from "@/lib/format";
 
 import { defineAiAction } from "../define";
 import {
@@ -133,7 +134,7 @@ export const getMaintenance = defineAiAction({
 export async function runFleetDocuments(): Promise<AiRunResult> {
   const res = await listFleetDocumentsAction();
   if (!res.ok) return errResult(res.error);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInAR();
   const expired = res.data.filter((d) => d.expires_at < today).length;
   return okResult(
     `${res.data.length} fleet documents (VTV, insurance, licenses, etc.)` +
