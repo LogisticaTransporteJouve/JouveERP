@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import { PosSelect } from "@/features/invoices/components/pos-select";
 
 import { useInvoiceFreight, useShipmentOptions } from "../hooks/use-shipments";
 import { type Shipment } from "../schema";
@@ -58,7 +59,7 @@ export function FreightInvoiceDialog({
       return;
     }
     if (puntoVenta.trim() === "") {
-      toast.error("Ingresá el punto de venta.");
+      toast.error("Elegí un punto de venta.");
       return;
     }
     invoiceMut.mutate(
@@ -127,13 +128,11 @@ export function FreightInvoiceDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="freight-pos">Punto de venta</Label>
-            <Input
+            <PosSelect
               id="freight-pos"
-              type="number"
-              inputMode="numeric"
-              min="1"
+              channelId={channelId || null}
               value={puntoVenta}
-              onChange={(e) => setPuntoVenta(e.target.value)}
+              onChange={setPuntoVenta}
             />
           </div>
         </div>
