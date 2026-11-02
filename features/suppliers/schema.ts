@@ -65,6 +65,8 @@ const optionalCategoryId = z
   .nullable()
   .optional();
 
+const optionalCostTagId = optionalCategoryId;
+
 const optionalPaymentTermDays = z
   .union([z.literal(""), z.coerce.number().int().min(1).max(365)])
   .transform((v) => (v === "" ? null : v))
@@ -90,6 +92,8 @@ const baseSupplierFields = {
   default_channel_id: optionalChannelId,
   default_payment_term_days: optionalPaymentTermDays,
   category_id: optionalCategoryId,
+  default_expense_account_id: optionalCostTagId,
+  default_cost_center_id: optionalCostTagId,
 };
 
 const internalSupplierFields = {
@@ -102,6 +106,8 @@ const internalSupplierFields = {
   default_channel_id: baseSupplierFields.default_channel_id,
   default_payment_term_days: baseSupplierFields.default_payment_term_days,
   category_id: baseSupplierFields.category_id,
+  default_expense_account_id: baseSupplierFields.default_expense_account_id,
+  default_cost_center_id: baseSupplierFields.default_cost_center_id,
 };
 
 // Compras suppliers carry CUIT and IVA condition (AFIP); Otras compras
@@ -128,6 +134,8 @@ export const SupplierUpdateSchema = z.object({
   default_channel_id: baseSupplierFields.default_channel_id,
   default_payment_term_days: baseSupplierFields.default_payment_term_days,
   category_id: baseSupplierFields.category_id,
+  default_expense_account_id: baseSupplierFields.default_expense_account_id,
+  default_cost_center_id: baseSupplierFields.default_cost_center_id,
 });
 
 export const SupplierToggleActiveSchema = z.object({

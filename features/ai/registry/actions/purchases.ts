@@ -79,7 +79,9 @@ export const getPurchaseInvoices = defineAiAction({
     "Purchase invoices (expenses/suppliers): list filterable by supplier/number " +
     "(query), scope (fiscal/internal/all) and date range (YYYY-MM-DD). For VAT " +
     "credit use scope 'fiscal'. Returns number, supplier, " +
-    "date, net/VAT/total and status. For purchases, expenses or VAT credit.",
+    "date, net/VAT/total, status, expense account (account_id, null = " +
+    "generic 'compras') and cost center (cost_center_id). For purchases, " +
+    "expenses or VAT credit.",
   input: z.object({
     query: z
       .string()

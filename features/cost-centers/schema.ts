@@ -26,3 +26,10 @@ export const CostCenterUpdateSchema = z.object({
 });
 
 export const CostCenterDeleteSchema = z.object({ id: z.string().uuid() });
+
+/** What a cost picker offers: postable expense accounts and active centers. */
+export type CostTagOption = { id: string; code: string; name: string };
+export type CostTagOptions = {
+  expenseAccounts: CostTagOption[];
+  costCenters: CostTagOption[];
+};

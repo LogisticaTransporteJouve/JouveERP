@@ -9,6 +9,7 @@ import {
   PG_FOREIGN_KEY_VIOLATION,
   PG_UNIQUE_VIOLATION,
 } from "@/lib/db/pg-error-codes";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -36,7 +37,7 @@ function narrowSupplier(row: {
 }
 
 const SELECT_COLS =
-  "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at";
+  "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at, default_channel_id, default_payment_term_days, category_id, default_expense_account_id, default_cost_center_id";
 
 export type SearchSuppliersInput = {
   query?: string;
@@ -182,6 +183,9 @@ export async function createSupplierAction(
       default_channel_id: parsed.data.default_channel_id ?? null,
       default_payment_term_days: parsed.data.default_payment_term_days ?? null,
       category_id: parsed.data.category_id ?? null,
+      default_expense_account_id:
+        parsed.data.default_expense_account_id ?? null,
+      default_cost_center_id: parsed.data.default_cost_center_id ?? null,
       created_by: ctx.userId,
     })
     .select("id")
@@ -191,6 +195,11 @@ export async function createSupplierAction(
     if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
+    const guardError = mapDbGuardError(error, {
+      slug: "suppliers.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("suppliers.create.failed", {
       userId: ctx.userId,
       cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
@@ -255,6 +264,12 @@ export async function updateSupplierAction(
       ...(rest.category_id !== undefined && {
         category_id: rest.category_id ?? null,
       }),
+      ...(rest.default_expense_account_id !== undefined && {
+        default_expense_account_id: rest.default_expense_account_id ?? null,
+      }),
+      ...(rest.default_cost_center_id !== undefined && {
+        default_cost_center_id: rest.default_cost_center_id ?? null,
+      }),
     })
     .eq("id", id);
 
@@ -262,6 +277,12 @@ export async function updateSupplierAction(
     if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
     }
+    const guardError = mapDbGuardError(error, {
+      slug: "suppliers.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("suppliers.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el proveedor." };
   }

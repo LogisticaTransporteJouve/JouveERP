@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,7 +14,6 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
-import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
@@ -42,6 +41,7 @@ import {
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
 import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
+import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
 
 import {
   usePurchaseInvoiceByIdOptional,
@@ -88,6 +88,9 @@ type Mode = "create" | "edit";
 type FormValues = {
   supplier: PickedSupplier | null;
   channel_id: string;
+  /** Expense account and cost center ids; "" for none. */
+  account_id: string;
+  cost_center_id: string;
   kind: PurchaseInvoiceKind;
   letter: PurchaseInvoiceLetter | "";
   punto_venta: string;
@@ -128,6 +131,8 @@ function invoiceToValues(
         }
       : null,
     channel_id: inv?.channel_id ?? initialChannelId,
+    account_id: inv?.account_id ?? "",
+    cost_center_id: inv?.cost_center_id ?? "",
     kind: inv?.kind ?? "factura",
     letter: inv?.letter ?? "",
     punto_venta: inv ? String(inv.punto_venta) : "",
@@ -169,6 +174,8 @@ function initialValues(
     values: {
       ...base,
       ...patch,
+      account_id: draft.data.account?.id ?? "",
+      cost_center_id: draft.data.cost_center_id ?? "",
       // A draft comes from a scanned fiscal invoice: its supplier is fiscal.
       supplier: patch.supplier
         ? { ...patch.supplier, is_fiscal: true }
@@ -223,9 +230,6 @@ export function PurchaseInvoiceForm({
     return <AiFilledMark />;
   }
 
-  const [suggestedAccount, setSuggestedAccount] = useState(
-    createDraft?.data.account ?? null,
-  );
   const [acceptTotalsGap, setAcceptTotalsGap] = useState(false);
 
   const watchedKind = useWatch({ control: form.control, name: "kind" });
@@ -370,6 +374,20 @@ export function PurchaseInvoiceForm({
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
+    // Expense account and cost center: the supplier's, over the AI's
+    // suggestion, unless the user already picked one. An NC/ND left empty
+    // takes its origin's (purchase_invoices_nc_nd_inherit_account).
+    if (form.getValues("kind") === "factura") {
+      const defaults = [
+        ["account_id", supplierDetail.default_expense_account_id],
+        ["cost_center_id", supplierDetail.default_cost_center_id],
+      ] as const;
+      for (const [name, id] of defaults) {
+        if (id && !form.getFieldState(name).isDirty) {
+          form.setValue(name, id, { shouldDirty: false });
+        }
+      }
+    }
     // Channel: pre-fill only if the form still has the default-from-scope channel
     // and the supplier has one saved.
     if (
@@ -564,6 +582,8 @@ export function PurchaseInvoiceForm({
     const payload: PurchaseInvoiceCreateRawInput = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
+      account_id: values.account_id || null,
+      cost_center_id: values.cost_center_id || null,
       kind: values.kind,
       letter,
       punto_venta: Number(values.punto_venta),
@@ -586,14 +606,7 @@ export function PurchaseInvoiceForm({
     };
 
     if (mode === "create") {
-      const createPayload: PurchaseInvoiceCreateRawInput = createDraft
-        ? {
-            ...payload,
-            account_id: suggestedAccount?.id ?? null,
-            cost_center_id: createDraft.data.cost_center_id,
-          }
-        : payload;
-      createMut.mutate(createPayload, {
+      createMut.mutate(payload, {
         onSuccess: (data) => {
           toast.success(
             createDraft
@@ -1024,27 +1037,55 @@ export function PurchaseInvoiceForm({
           </div>
         )}
 
-        {suggestedAccount && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs">
-            <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1">
-              <span className="text-muted-foreground">
-                Cuenta de gasto sugerida por IA:{" "}
-              </span>
-              {suggestedAccount.label}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label="Quitar cuenta sugerida"
-              onClick={() => setSuggestedAccount(null)}
-            >
-              <X className="size-3.5" />
-            </Button>
-          </div>
-        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="account_id"
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel>
+                  Cuenta de gasto
+                  {createDraft?.data.account &&
+                    field.value === createDraft.data.account.id &&
+                    !fieldState.isDirty && <AiFilledMark />}
+                </FormLabel>
+                <FormControl>
+                  <CostTagSelect
+                    kind="expenseAccount"
+                    value={field.value}
+                    onChange={field.onChange}
+                    noneLabel={
+                      isNcOrNd
+                        ? "La del comprobante de origen"
+                        : "Sin cuenta (Compras)"
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="cost_center_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Centro de costo</FormLabel>
+                <FormControl>
+                  <CostTagSelect
+                    kind="costCenter"
+                    value={field.value}
+                    onChange={field.onChange}
+                    noneLabel={
+                      isNcOrNd ? "El del comprobante de origen" : undefined
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField

@@ -76,7 +76,8 @@ describe("TransactionCreateSchema", () => {
       TransactionCreateSchema.safeParse({ ...validIncome, amount: 0 }).success,
     ).toBe(false);
     expect(
-      TransactionCreateSchema.safeParse({ ...validIncome, amount: -10 }).success,
+      TransactionCreateSchema.safeParse({ ...validIncome, amount: -10 })
+        .success,
     ).toBe(false);
   });
 
@@ -117,6 +118,37 @@ describe("TransferCreateSchema", () => {
       const msg = r.error.issues[0]?.message ?? "";
       expect(msg).toMatch(/distintas/);
     }
+  });
+});
+
+describe("expense account and cost center", () => {
+  it("an expense takes them; an empty pick is none", () => {
+    const r = TransactionCreateSchema.safeParse({
+      ...validIncome,
+      kind: "expense" as const,
+      expense_account_id: ACCOUNT_TO,
+      cost_center_id: "",
+    });
+    expect(r.success && r.data.expense_account_id).toBe(ACCOUNT_TO);
+    expect(r.success && r.data.cost_center_id).toBeNull();
+  });
+
+  it("an income takes no expense account", () => {
+    const r = TransactionCreateSchema.safeParse({
+      ...validIncome,
+      expense_account_id: ACCOUNT_TO,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("an update without them leaves them as they are", () => {
+    const r = TransactionUpdateSchema.safeParse({
+      id: TX_ID,
+      amount: 200,
+      transaction_date: "2026-05-11",
+      accrual_month: "2026-05-01",
+    });
+    expect(r.success && r.data.expense_account_id).toBeUndefined();
   });
 });
 

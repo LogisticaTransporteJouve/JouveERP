@@ -217,6 +217,23 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   origen** (y su centro de costo si no tiene), así revierte la misma cuenta que
   la factura (trigger `purchase_invoices_nc_nd_inherit_account`,
   `20261102230100`); una cuenta elegida en la NC/ND se respeta.
+- **Costo cargado una vez con rubro y centro (roadmap 1.1/1.2/1.8,
+  `20261103010000`):** el formulario de compras (fiscal e interno) tiene
+  "Cuenta de gasto" y "Centro de costo"; una factura nueva arranca con los
+  defaults del proveedor (`suppliers.default_expense_account_id` /
+  `default_cost_center_id`, editables en su ficha) y, si no tiene, con lo que
+  sugiere la IA del escaneo. Una NC/ND vacía hereda los del origen. Un egreso
+  manual de caja también lleva cuenta de gasto (`transactions.expense_account_id`)
+  y centro: el asiento debita esa cuenta en vez de `gastos` (NULL = igual que
+  antes) y cambiarla re-asienta. La cuenta tiene que ser **imputable**: hoja
+  activa de resultado negativo (`expense_leaf_accounts`,
+  `is_postable_expense_account`); lo exige la base en compras, proveedores y
+  movimientos (`guard_expense_account`, `guard_transaction_expense_account`,
+  `23514`). Solo un egreso **manual** la lleva: uno de un documento (recibo,
+  OP, sueldo, cuota, cheque, saldo inicial) o un ingreso se rechaza. El
+  contador sigue viendo la cuenta del plan; gestión la lee como rubro
+  (`management_buckets`) y la abre por centro (§10b). No hay cuenta por ítem:
+  la compra entera va a una cuenta.
 - **Cheque rechazado (D11):** no es gasto. Con la constancia del banco el cheque es
   título ejecutivo contra el librador y los endosantes (Ley 24.452), así que el
   importe pasa a `cheques_rechazados` contra la cuenta donde estaba el cheque.
@@ -272,7 +289,8 @@ Ledger de movimientos etiquetado por canal. Cada movimiento va a un canal
 transfer_in|transfer_out`), `amount > 0`, `currency` (`ARS|USD`), `transaction_date`,
 `accrual_month` (CHECK día=1, mes de devengado del cashflow), `transfer_pair_id`
 (self-FK **DEFERRABLE**), `invoice_id`/`receipt_id`/`payment_order_id`/
-`counterparty_*` (FKs). **Realtime ON.** Vista `v_transactions_tagged`
+`counterparty_*` (FKs), `cost_center_id` y `expense_account_id` (solo egreso
+manual, §3.5). **Realtime ON.** Vista `v_transactions_tagged`
 (`security_invoker`) enriquece con división/fiscal/cuenta.
 
 **RLS:** SELECT owner/admin/finance; INSERT/UPDATE owner/finance; **DELETE owner** only.
@@ -452,16 +470,24 @@ RLS: SELECT `authenticated`; manage owner/admin/finance. CRUD vía
 `{list,create,update,delete}CostCenterAction` (`accounting:read`/`write`),
 `/accounting/cost-centers`.
 
-> ⚠️ **Dimensión escrita a medias — no reportable.** La columna `cost_center_id`
-> (FK nullable, `ON DELETE SET NULL`) existe en **6 tablas**. Update 2026-07:
-> ahora **se escribe** desde `createPurchaseInvoiceAction`, `recurring-payments`
-> y el mapeo de Document Intelligence — pero **`create_journal_entry` no recibe
-> el centro**, así que `journal_entries.cost_center_id` queda **siempre NULL**
-> (contradice el comentario de `l_closure.sql:22`), `get_account_balances` **no**
-> filtra por centro y **ningún read** lo consume. Resultado: se guarda en el
-> origen pero es **imposible reportar por centro end-to-end**. Falta: propagar el
-> centro al asiento + filtro de EERR. (La premisa de columnas `is_required`/
-> `show_in_sales`/`show_in_purchases` es falsa — no existen.)
+La columna `cost_center_id` (FK nullable, `ON DELETE SET NULL`) existe en
+`transactions`, `invoices`, `purchase_invoices`, `payment_orders`, `receipts`,
+`journal_entries` y `recurring_payments`, y `suppliers.default_cost_center_id`
+da el default de compras.
+
+- **Se carga** en el formulario de compras (fiscal e interno), en el egreso
+  manual de caja (alta y edición), en Document Intelligence y en pagos
+  recurrentes. El selector ofrece los centros activos
+  (`listCostTagOptionsAction`, que lee quien carga costos o lee la
+  contabilidad).
+- **Llega al asiento:** `set_journal_cost_center` (BEFORE INSERT,
+  `20260701120000`, rehecho en `20261031180534`) copia el centro del documento
+  al asiento; cambiarlo re-asienta; la reversa conserva el del original.
+- **Se reporta:** `get_account_balances(…, p_cost_center_id)` filtra por centro
+  y el Resultado de gestión abre por centro (§10b).
+- **Falta:** un costo de flota (combustible, mantenimiento) no toma el centro
+  del camión: `vehicles` no tiene centro y la carga de combustible solo
+  referencia la compra. Ver `docs/pendientes.md`.
 
 ---
 
@@ -547,6 +573,14 @@ USD pendiente)`; importe > 0 suma al resultado.
     dólares, y la pantalla lo avisa.
   - **Inflación:** multiplica cada mes por el `coefficient` de
     `inflation_adjustments` de ese período (sin coeficiente, 1).
+  - **Centro de costo (`20261103010000`):** cada fila trae `cost_center_id`:
+    el del asiento (fiscal), el del documento interno, o el del movimiento
+    (USD pendiente y percibido). En percibido, un egreso manual va a la caja
+    de su propia cuenta de gasto si tiene. La pantalla filtra por centro
+    ("Todos", un centro, "Sin centro"; también el comparativo) y muestra la
+    tabla "Por centro de costo" (servicios, costos operativos, sin
+    clasificar, margen operativo, inversión en flota); `getManagementPnL`
+    acepta `costCenterId` y devuelve `byCostCenter`.
 - **`get_management_payroll_control`:** por mes, liquidado
   (`v_payroll_entries_resolved`), pagado para ese período y pagado en el mes.
 - **Pantalla:** cascada (Servicios − Costos operativos = Margen operativo −
@@ -556,7 +590,8 @@ USD pendiente)`; importe > 0 suma al resultado.
   Interno / Total, "Sueldos" y "Sueldos internos (extras)" con "Total
   personal"), "Sin clasificar" y el control de sueldos.
 - **Limitaciones v1:** compras a cuenta de empleados cuentan como costo;
-  cuotas sin separar capital/interés; sin apertura por centro de costo; en
+  cuotas sin separar capital/interés; por centro cuenta solo lo cargado con
+  centro (en percibido, un pago con OP no lleva el centro de la compra); en
   percibido un cobro o pago de un bien de uso cuenta como operativo; el
   detalle llega a la cuenta, no al comprobante.
 
@@ -573,11 +608,9 @@ fiscal). Antes todo el resultado acumulado figuraba como del período.
    `IVA_RATES` ahora `8→5/9→2.5` (= AFIP/RPCs), con test.
 2. ✅ **Asimetría action vs RLS en DELETE** (§1) — **corregido**:
    `deleteChartAccountAction` exige owner/admin, `deleteTransactionAction` exige owner.
-3. **Centros de costo escritos pero no reportables** (§8): ahora se **escriben**
-   (purchase-invoices, recurring-payments, Document Intelligence) pero
-   `create_journal_entry` no propaga el centro al asiento (`journal_entries.
-cost_center_id` siempre NULL) y EERR no filtra por centro. Falta el
-   wire-through hasta el asiento + filtro.
+3. ✅ **Centros de costo reportables** (§8): llegan al asiento, el balance
+   filtra por centro y gestión abre por centro (`20261103010000`). Falta el
+   centro por camión en los costos de flota.
 4. **Inflación apply/revert no implementado** (§9): solo CRUD de coeficientes;
    `journal_entry_id`/`applied_at` nunca se escriben; "Estado" siempre "Sin aplicar".
 5. **`auto_journal_mapping` sin uso** (§3.1): tabla + RLS existen, ningún generador

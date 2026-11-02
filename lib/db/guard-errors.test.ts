@@ -79,6 +79,8 @@ const GUARDS = [
   "guard_transaction_account_currency",
   "guard_account_currency_change",
   "guard_task_identity",
+  "guard_expense_account",
+  "guard_transaction_expense_account",
 ];
 
 describe("guard hints in migrations", () => {
