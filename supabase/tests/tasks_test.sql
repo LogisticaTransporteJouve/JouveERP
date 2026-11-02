@@ -51,8 +51,14 @@ insert into public.fleet_documents (id, vehicle_id, kind, expires_at) values
   ('00000000-0000-0000-0000-0000000007c2', '00000000-0000-0000-0000-0000000007b1', 'seguro',
    (select today from t_day) + 200);
 
+-- Run the sync on its own first: joined to tasks in one query, the planner
+-- may never execute it (tasks is empty), and the outer snapshot would not
+-- see the rows it inserts anyway.
+create temporary table t_sync1 as
+  select * from public.sync_automatic_tasks((select today from t_day));
+
 select is(
-  (select count(*)::int from public.sync_automatic_tasks((select today from t_day)) s
+  (select count(*)::int from t_sync1 s
     join public.tasks t on t.id = s.task_id
    where t.source_id = '00000000-0000-0000-0000-0000000007c1' and s.change = 'created'),
   1,
