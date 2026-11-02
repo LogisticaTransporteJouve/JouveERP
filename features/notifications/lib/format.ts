@@ -15,6 +15,10 @@ export function getNotificationHref(notif: Notification): string | null {
     const workflowId = getMetadataString(notif.metadata, "workflow_id");
     return workflowId ? `/ai/tasks?workflow=${workflowId}` : "/ai/tasks";
   }
+  if (notif.type === "task_due") {
+    const taskId = getMetadataString(notif.metadata, "task_id");
+    return taskId ? `/tasks?task=${taskId}` : "/tasks";
+  }
   return null;
 }
 
@@ -28,6 +32,10 @@ export function getNotificationTitle(notif: Notification): string {
       return "documento por vencer";
     case "ai_workflow_run":
       return "tarea de IA lista";
+    case "task_due":
+      return getMetadataString(notif.metadata, "stage") === "overdue"
+        ? "tarea vencida"
+        : "tarea que vence hoy";
     case "chat_message":
     default:
       return "te mandó un mensaje";
