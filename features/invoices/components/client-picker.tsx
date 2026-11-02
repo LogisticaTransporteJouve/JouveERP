@@ -49,8 +49,9 @@ export function ClientPicker({
 }: {
   value: PickedClient | null;
   onChange: (client: PickedClient | null) => void;
-  /** The document's side: lists only Ventas (true) or Otras ventas clients. */
-  isFiscal: boolean;
+  /** The document's side: lists only Ventas (true) or Otras ventas clients;
+   *  null lists both and offers no "Nuevo" (the side would be a guess). */
+  isFiscal: boolean | null;
   autoFocus?: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -157,36 +158,40 @@ export function ClientPicker({
               />
             </PopoverContent>
           </Popover>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setShowCreate(true)}
-            aria-label="Nuevo cliente"
-          >
-            <Plus />
-            Nuevo
-          </Button>
+          {isFiscal !== null && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreate(true)}
+              aria-label="Nuevo cliente"
+            >
+              <Plus />
+              Nuevo
+            </Button>
+          )}
         </div>
       )}
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nuevo cliente</DialogTitle>
-            <DialogDescription>
-              {isFiscal
-                ? "Ingresá el CUIT y verificá AFIP para autocompletar los datos."
-                : "Cliente de Otras ventas: sin CUIT ni AFIP."}
-            </DialogDescription>
-          </DialogHeader>
-          <ClientForm
-            isFiscal={isFiscal}
-            mode="create"
-            onSuccess={onCreateSuccess}
-            onCancel={() => setShowCreate(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {isFiscal !== null && (
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Nuevo cliente</DialogTitle>
+              <DialogDescription>
+                {isFiscal
+                  ? "Ingresá el CUIT y verificá AFIP para autocompletar los datos."
+                  : "Cliente de Otras ventas: sin CUIT ni AFIP."}
+              </DialogDescription>
+            </DialogHeader>
+            <ClientForm
+              isFiscal={isFiscal}
+              mode="create"
+              onSuccess={onCreateSuccess}
+              onCancel={() => setShowCreate(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

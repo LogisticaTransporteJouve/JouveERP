@@ -20,6 +20,8 @@ import {
   listShipmentOptionsAction,
   listShipmentsAction,
   listShipmentsByTripAction,
+  listUnassignedShipmentsAction,
+  setShipmentsTripAction,
   updateShipmentAction,
 } from "../actions/shipments-actions";
 import { shipmentsKeys } from "../lib/shipments-keys";
@@ -36,6 +38,24 @@ export function useShipmentsByTrip(tripId: string | null) {
     queryKey: shipmentsKeys.byTrip(tripId ?? "none"),
     queryFn: () => runAction(() => listShipmentsByTripAction(tripId ?? "")),
     enabled: tripId !== null,
+  });
+}
+
+/** Cargas without a trip, fetched when the "Asignar cargas" dialog opens. */
+export function useUnassignedShipments(enabled: boolean) {
+  return useQuery({
+    queryKey: shipmentsKeys.unassigned(),
+    queryFn: () => runAction(() => listUnassignedShipmentsAction()),
+    enabled,
+  });
+}
+
+export function useSetShipmentsTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { tripId: string | null; shipmentIds: string[] }) =>
+      runAction(() => setShipmentsTripAction(input)),
+    onSuccess: () => invalidate(qc),
   });
 }
 
