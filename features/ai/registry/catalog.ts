@@ -77,6 +77,7 @@ import {
   getLoans,
 } from "./actions/statements";
 import { getManagementPnL } from "./actions/management";
+import { getMonthlyPackageStatus } from "./actions/monthly-package";
 import { getTasks } from "./actions/tasks";
 import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
@@ -134,6 +135,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLoans,
   getLoanDetail,
   getExchangeRates,
+  getMonthlyPackageStatus,
   proposeJournalEntry,
   proposeExchangeRate,
   // RRHH / sueldos

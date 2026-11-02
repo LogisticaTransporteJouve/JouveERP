@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Archive,
   ArrowLeftRight,
   BookCheck,
   BookOpen,
@@ -247,6 +248,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     label: "Contabilidad",
     items: [
+      {
+        href: "/accounting/package",
+        label: "Paquete del mes",
+        icon: Archive,
+        permission: "accounting:read",
+      },
       {
         href: "/accounting/chart",
         label: "Plan de cuentas",

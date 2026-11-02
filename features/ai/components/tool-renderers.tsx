@@ -83,6 +83,7 @@ const TOOL_LABELS: Record<string, string> = {
   searchGlobal: "Búsqueda",
   getAttachments: "Adjuntos",
   getTasks: "Tareas",
+  getMonthlyPackageStatus: "Paquete del mes",
   getAuditEvents: "Auditoría",
   openAttachment: "Adjunto del chat",
   proposeDocumentScan: "Propuesta de escaneo",
