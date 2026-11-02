@@ -106,6 +106,8 @@ export function PayInstallmentDialog({
                 inputMode="decimal"
                 step="0.01"
                 value={amount}
+                // A split cuota is paid for its amount.
+                disabled={installment?.split != null}
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>

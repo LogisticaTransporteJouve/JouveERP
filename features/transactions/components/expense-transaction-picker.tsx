@@ -27,24 +27,36 @@ function shiftDate(iso: string, days: number): string {
 }
 
 /**
- * Links a record to an expense movement of treasury, picked among the
- * expenses within 45 days of `aroundDate`. Used by fleet costs (fuel loads,
- * maintenance) to point at the movement that paid them.
+ * Links a record to a movement of treasury, picked among the expenses (or,
+ * with `kind`, the incomes) within 45 days of `aroundDate`. Used by fleet
+ * costs (fuel loads, maintenance) to point at the movement that paid them,
+ * and by loans to adopt a manual movement (`manualOnly`, same channel and
+ * currency) as a cuota's payment or the disbursement.
  */
 export function ExpenseTransactionPicker({
   value,
   onChange,
   aroundDate,
   disabled,
+  kind = "expense",
+  channelId,
+  currency,
+  manualOnly = false,
 }: {
   value: string | null;
   onChange: (id: string | null) => void;
   aroundDate: string;
   disabled?: boolean;
+  kind?: "expense" | "income";
+  channelId?: string;
+  currency?: string;
+  /** Only movements no document owns (the ones a loan can adopt). */
+  manualOnly?: boolean;
 }) {
   const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(aroundDate);
   const filters: TransactionFilters = {
-    kind: "expense",
+    kind,
+    ...(channelId ? { channel_id: channelId } : {}),
     date_from: hasDate ? shiftDate(aroundDate, -WINDOW_DAYS) : null,
     date_to: hasDate ? shiftDate(aroundDate, WINDOW_DAYS) : null,
     limit: LIMIT,
@@ -54,7 +66,12 @@ export function ExpenseTransactionPicker({
     queryFn: () => runAction(() => listTransactionsAction(filters)),
     enabled: hasDate,
   });
-  const items = query.data?.items ?? [];
+  const items = (query.data?.items ?? []).filter(
+    (t) =>
+      (!currency || t.currency === currency) &&
+      (!manualOnly ||
+        (t.source_document === null && t.transfer_pair_id === null)),
+  );
   const linkedMissing = value !== null && !items.some((t) => t.id === value);
 
   return (

@@ -16,10 +16,14 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { generateInstallments } from "../lib/amortization";
 import {
+  AdoptInstallmentPaymentSchema,
   CancelLoanSchema,
   CreateLoanSchema,
   PayInstallmentSchema,
+  RecordDisbursementSchema,
   UpdateInstallmentSchema,
+  splitTotal,
+  type InstallmentSplit,
   type LoanDetail,
   type LoanInstallment,
   type LoanListItem,
@@ -29,7 +33,7 @@ import {
 } from "../schema";
 
 const LOAN_COLUMNS =
-  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, channel:invoicing_channels(name, is_fiscal)";
+  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, channel:invoicing_channels(name, is_fiscal)";
 
 function readChannelName(
   channel: { name: string } | { name: string }[] | null,
@@ -44,21 +48,29 @@ type InstallmentAgg = {
   status: string;
   due_date: string;
   paid_amount: number | null;
+  capital_amount: number | null;
 };
 
 function summarize(
   rows: InstallmentAgg[],
+  principal: number,
 ): Pick<
   LoanListItem,
-  "paid_total" | "pending_total" | "pending_count" | "next_due_date"
+  | "paid_total"
+  | "pending_total"
+  | "pending_count"
+  | "next_due_date"
+  | "capital_outstanding"
 > {
   let paid = 0;
+  let capitalPaid = 0;
   let pendingTotal = 0;
   let pendingCount = 0;
   let nextDue: string | null = null;
   for (const r of rows) {
     if (r.status === "pagada") {
       paid += Number(r.paid_amount ?? 0);
+      capitalPaid += Number(r.capital_amount ?? r.paid_amount ?? 0);
     } else {
       pendingTotal += Number(r.amount);
       pendingCount += 1;
@@ -70,6 +82,27 @@ function summarize(
     pending_total: Math.round(pendingTotal * 100) / 100,
     pending_count: pendingCount,
     next_due_date: nextDue,
+    capital_outstanding: Math.max(
+      0,
+      Math.round((principal - capitalPaid) * 100) / 100,
+    ),
+  };
+}
+
+function readSplit(i: {
+  capital_amount: number | null;
+  interest_amount: number | null;
+  iva_amount: number | null;
+  perception_amount: number | null;
+  other_charges_amount: number | null;
+}): InstallmentSplit | null {
+  if (i.capital_amount === null) return null;
+  return {
+    capital: Number(i.capital_amount),
+    interest: Number(i.interest_amount ?? 0),
+    iva: Number(i.iva_amount ?? 0),
+    perception: Number(i.perception_amount ?? 0),
+    other: Number(i.other_charges_amount ?? 0),
   };
 }
 
@@ -87,6 +120,7 @@ function toListItem(
     status: string;
     notes: string | null;
     created_at: string;
+    disbursement_transaction_id: string | null;
     channel: { name: string } | { name: string }[] | null;
   },
   agg: ReturnType<typeof summarize>,
@@ -105,6 +139,7 @@ function toListItem(
     status: isLoanStatus(loan.status) ? loan.status : "active",
     notes: loan.notes,
     created_at: loan.created_at,
+    disbursement_transaction_id: loan.disbursement_transaction_id ?? null,
     ...agg,
   };
 }
@@ -141,7 +176,9 @@ export async function listLoansAction(input?: {
       paginateRange((from, to) =>
         supabase
           .from("loan_installments")
-          .select("loan_id, amount, status, due_date, paid_amount")
+          .select(
+            "loan_id, amount, status, due_date, paid_amount, capital_amount",
+          )
           .in("loan_id", chunkIds)
           .order("id")
           .range(from, to),
@@ -162,6 +199,8 @@ export async function listLoansAction(input?: {
         status: i.status,
         due_date: i.due_date,
         paid_amount: i.paid_amount === null ? null : Number(i.paid_amount),
+        capital_amount:
+          i.capital_amount == null ? null : Number(i.capital_amount),
       });
       byLoan.set(i.loan_id, arr);
     }
@@ -169,7 +208,7 @@ export async function listLoansAction(input?: {
   return {
     ok: true,
     data: (loans ?? []).map((l) =>
-      toListItem(l, summarize(byLoan.get(l.id) ?? [])),
+      toListItem(l, summarize(byLoan.get(l.id) ?? [], Number(l.principal))),
     ),
   };
 }
@@ -198,7 +237,7 @@ export async function getLoanAction(
     supabase
       .from("loan_installments")
       .select(
-        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes",
+        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, other_charges_amount",
       )
       .eq("loan_id", id)
       .order("number")
@@ -223,6 +262,7 @@ export async function getLoanAction(
     paid_amount: i.paid_amount === null ? null : Number(i.paid_amount),
     transaction_id: i.transaction_id,
     notes: i.notes,
+    split: readSplit(i),
   }));
   const agg = summarize(
     installments.map((i) => ({
@@ -231,7 +271,9 @@ export async function getLoanAction(
       status: i.status,
       due_date: i.due_date,
       paid_amount: i.paid_amount,
+      capital_amount: i.split?.capital ?? null,
     })),
+    Number(loan.principal),
   );
   return { ok: true, data: { ...toListItem(loan, agg), installments } };
 }
@@ -315,18 +357,50 @@ export async function updateInstallmentAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { id, ...rest } = parsed.data;
+  const { id, split, ...rest } = parsed.data;
   const supabase = await createSupabaseClient();
 
   const { data: inst } = await supabase
     .from("loan_installments")
-    .select("status")
+    .select("status, capital_amount")
     .eq("id", id)
     .maybeSingle();
   if (!inst) return { ok: false, error: "No se encontró la cuota." };
   if (inst.status === "pagada") {
     return { ok: false, error: "No se puede editar una cuota ya pagada." };
   }
+  if (
+    split === undefined &&
+    rest.amount !== undefined &&
+    inst.capital_amount !== null
+  ) {
+    return {
+      ok: false,
+      error: "La cuota tiene desglose: cambiá el importe desde el desglose.",
+    };
+  }
+
+  // A split fixes the amount to its sum (the table checks it); removing it
+  // keeps the amount.
+  const splitColumns =
+    split === undefined
+      ? {}
+      : split === null
+        ? {
+            capital_amount: null,
+            interest_amount: null,
+            iva_amount: null,
+            perception_amount: null,
+            other_charges_amount: null,
+          }
+        : {
+            amount: splitTotal(split),
+            capital_amount: split.capital,
+            interest_amount: split.interest,
+            iva_amount: split.iva,
+            perception_amount: split.perception,
+            other_charges_amount: split.other,
+          };
 
   const { error } = await supabase
     .from("loan_installments")
@@ -334,9 +408,16 @@ export async function updateInstallmentAction(
       ...(rest.amount !== undefined && { amount: rest.amount }),
       ...(rest.due_date !== undefined && { due_date: rest.due_date }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
+      ...splitColumns,
     })
     .eq("id", id);
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.installment.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("loans.installment.update.failed", {
       userId: ctx.userId,
       id,
@@ -344,7 +425,108 @@ export async function updateInstallmentAction(
     });
     return { ok: false, error: "No se pudo actualizar la cuota." };
   }
+  if (split !== undefined) {
+    await logAudit(
+      "loan.installment_split_updated",
+      ctx.userId,
+      { split: split === null ? null : { ...split } },
+      id,
+    );
+  }
   return { ok: true, data: undefined };
+}
+
+export async function adoptInstallmentPaymentAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:write")) {
+    return { ok: false, error: "Sin permiso para registrar pagos." };
+  }
+  const parsed = AdoptInstallmentPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { id, transaction_id } = parsed.data;
+  const supabase = await createSupabaseClient();
+  // One transaction: claims the pending cuota, takes ownership of the
+  // expense (no second movement) and re-posts it as the cuota's payment.
+  const { error } = await supabase.rpc("adopt_loan_installment_payment", {
+    p_installment_id: id,
+    p_transaction_id: transaction_id,
+  });
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.installment.adopt.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.installment.adopt.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return { ok: false, error: "No se pudo vincular el egreso a la cuota." };
+  }
+  await logAudit(
+    "loan.installment_payment_adopted",
+    ctx.userId,
+    { installment_id: id },
+    transaction_id,
+  );
+  return { ok: true, data: undefined };
+}
+
+export async function recordLoanDisbursementAction(
+  input: unknown,
+): Promise<ActionResult<{ transactionId: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:write")) {
+    return { ok: false, error: "Sin permiso para registrar el desembolso." };
+  }
+  const parsed = RecordDisbursementSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const d = parsed.data;
+  const supabase = await createSupabaseClient();
+  const { data: transactionId, error } = await supabase.rpc(
+    "record_loan_disbursement",
+    {
+      p_loan_id: d.loan_id,
+      p_account_id: d.account_id ?? undefined,
+      p_date: d.date ?? undefined,
+      p_transaction_id: d.transaction_id ?? undefined,
+    },
+  );
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.disbursement.rejected",
+      userId: ctx.userId,
+      id: d.loan_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.disbursement.failed", {
+      userId: ctx.userId,
+      id: d.loan_id,
+      error,
+    });
+    return { ok: false, error: "No se pudo registrar el desembolso." };
+  }
+  await logAudit(
+    "loan.disbursement_recorded",
+    ctx.userId,
+    { transaction_id: transactionId, adopted: !!d.transaction_id },
+    d.loan_id,
+  );
+  return { ok: true, data: { transactionId } };
 }
 
 export async function payInstallmentAction(
