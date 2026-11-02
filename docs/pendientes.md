@@ -97,9 +97,8 @@
       manuales "fiscal general" (sin canal) y sus líneas; los internos siguen
       ocultos. El alcance "Solo fiscal" del libro diario también los incluye.
 - [ ] Las NC/ND de compra cargadas antes de esta corrección siguen asentadas
-      contra `compras`. Volver a guardar cada una desde "Editar" (período
-      abierto) le asigna la cuenta del origen y la re-asienta; no hay backfill
-      masivo.
+      contra `compras` (no hay backfill, y el formulario de edición no cambia
+      la cuenta de gasto): decidir si se corrigen y cómo.
 
 ---
 

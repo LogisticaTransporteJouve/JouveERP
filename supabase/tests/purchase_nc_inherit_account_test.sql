@@ -3,7 +3,7 @@
 
 begin;
 
-select plan(6);
+select plan(7);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -85,6 +85,27 @@ select is(
     where id = '00000000-0000-0000-0000-0000000851b4'),
   null,
   'a factura without account stays without one');
+
+-- 5. A save that re-sends the same origin does not inherit (no re-post of an
+--    old NC); only a new origin does.
+insert into public.purchase_invoices
+  (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
+   imp_neto, imp_iva, imp_total, status, invoice_origin_id)
+values
+  ('00000000-0000-0000-0000-0000000851b5', 'jouve_fiscal', '00000000-0000-0000-0000-0000000851f1',
+   'nc', 'A', 8, 5, current_date, 10, 2.1, 12.1, 'received',
+   '00000000-0000-0000-0000-0000000851b4');
+update public.purchase_invoices set account_id = '00000000-0000-0000-0000-0000000851a2'
+ where id = '00000000-0000-0000-0000-0000000851b4';
+update public.purchase_invoices
+   set notes = 'solo notas', invoice_origin_id = '00000000-0000-0000-0000-0000000851b4'
+ where id = '00000000-0000-0000-0000-0000000851b5';
+
+select is(
+  (select account_id from public.purchase_invoices
+    where id = '00000000-0000-0000-0000-0000000851b5'),
+  null,
+  'saving an NC with the same origin leaves its account alone');
 
 select * from finish();
 rollback;
