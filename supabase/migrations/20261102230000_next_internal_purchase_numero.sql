@@ -15,6 +15,9 @@ SET LOCAL statement_timeout = '15min';
 -- internal purchase has no letter, so the series is the letterless one. Only
 -- the server action calls it, through the service client.
 
+-- The old signature had no working caller (revoked from authenticated), so
+-- code rolled back to it loses nothing.
+-- squawk-ignore ban-drop-function
 drop function if exists public.next_internal_purchase_numero(text, uuid);
 
 create function public.next_internal_purchase_numero(
