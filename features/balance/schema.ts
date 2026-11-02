@@ -144,6 +144,47 @@ export function computeEERR(rows: readonly AccountBalanceRow[]): {
   };
 }
 
+/** Net result (income − expenses) of the result accounts in `rows`. */
+export function netResult(rows: readonly AccountBalanceRow[]): number {
+  let result = 0;
+  for (const r of rows) {
+    if (
+      r.account_type === "resultado_positivo" ||
+      r.account_type === "resultado_negativo"
+    ) {
+      result -= Number(r.balance);
+    }
+  }
+  return result;
+}
+
+/**
+ * Equity of the balance sheet. Assets and liabilities are balances up to the
+ * cut-off (`cumulative`); no closing entry moves results to equity, so the
+ * results also come from `cumulative` and split into the period's
+ * (`periodRows`, from the period's start to the cut-off) and the earlier ones.
+ * Before, the whole cumulative result showed as "Resultado del período".
+ */
+export function computeBalanceSheetEquity(
+  cumulative: readonly AccountBalanceRow[],
+  periodRows: readonly AccountBalanceRow[],
+): {
+  resultadoPeriodo: number;
+  resultadosAnteriores: number;
+  totalPatrimonio: number;
+} {
+  const patrimonio = cumulative
+    .filter((r) => r.account_type === "patrimonio")
+    .reduce((a, r) => a - Number(r.balance), 0);
+  const total = netResult(cumulative);
+  const resultadoPeriodo = netResult(periodRows);
+  return {
+    resultadoPeriodo,
+    resultadosAnteriores: total - resultadoPeriodo,
+    totalPatrimonio: patrimonio + total,
+  };
+}
+
 export function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

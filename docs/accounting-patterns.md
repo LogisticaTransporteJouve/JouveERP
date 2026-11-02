@@ -482,6 +482,70 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 
 ---
 
+## 10b. Resultado de gestión (uso interno, roadmap 1.0)
+
+Vista interna de "¿la operación deja plata?", fiscal + interno. **No** escribe
+asientos ni cambia `journal_expected_entry`, los builders,
+`get_account_balances` ni el EERR fiscal. Migraciones `20261102250000`
+(`journal_document_entry`, `invoice_items.revenue_kind`) y `20261102260000`
+(catálogo y RPCs); feature `features/management`, ruta `/management`.
+
+- **Permisos:** `management:read` (owner, admin, finance) y
+  `management:write` (owner, admin: el catálogo). `fiscal_reader` nunca. Los
+  RPCs son `SECURITY DEFINER` con chequeo de rol adentro y **revocados de
+  `authenticated`**: solo los llama el service role desde las actions, que
+  gatean con `userCan`.
+- **Catálogo `management_buckets`:** cuenta del plan → caja
+  (`service_revenue`, `operating_cost` + subrubro, `financing_cost` +
+  subrubro, `loan_principal`, `fleet_investment`, `asset_sale`, `neutral`,
+  `excluded_noncash`). Precargado por código del plan (4.1.1, 5.2.x, 5.3.x,
+  5.4.x, 4.2.2 RECPAM), por `system_role` (`ventas`, `compras`, `gastos`,
+  `sueldos`, `ajustes_caja` = neutro) y por nombre (amortizaciones, cargas
+  sociales, seguros, rodados). Una cuenta de resultado sin fila es "Sin
+  clasificar": suma en el margen operativo y la pantalla la lista para
+  clasificarla. Las cuentas patrimoniales sin fila no suman.
+- **`get_management_pnl(desde, hasta, base, inflación)`** devuelve filas
+  `(mes, caja, subrubro, lado fiscal/interno, cuenta, importe en pesos,
+USD pendiente)`; importe > 0 suma al resultado.
+  - **Devengado:** líneas de `journal_entry_lines` (lo fiscal, una sola vez)
+    \+ las líneas que `journal_document_entry` arma para los documentos
+    **internos** vivos (comprobantes emitidos, compras recibidas, movimientos
+    por `accrual_month`). La NC interna que acredita un remito facturado lo
+    neutraliza sola. Sueldos internos = la cuenta `sueldos` del lado interno.
+    Una cuota de préstamo se reclasifica a `loan_principal`. La parte de una
+    venta marcada `asset_sale` (proporción del neto de sus ítems) va a "Venta
+    de bienes de uso".
+  - **Percibido:** `transactions` de todas las cuentas y canales por fecha:
+    recibos/comprobantes/cheques de cliente = servicios; OP y cheques propios =
+    costo operativo (pagos a proveedores); sueldos por canal; cuotas =
+    capital; transferencias, movimientos de cheques, rechazos y saldos
+    iniciales = neutros; un movimiento suelto va a la caja de su contrapartida
+    (`gastos` / `ajustes_caja`).
+  - **USD:** los builders convierten como en el libro; un movimiento USD sin
+    cotización no se suma: vuelve como fila `pending_usd` con el importe en
+    dólares, y la pantalla lo avisa.
+  - **Inflación:** multiplica cada mes por el `coefficient` de
+    `inflation_adjustments` de ese período (sin coeficiente, 1).
+- **`get_management_payroll_control`:** por mes, liquidado
+  (`v_payroll_entries_resolved`), pagado para ese período y pagado en el mes.
+- **Pantalla:** cascada (Servicios − Costos operativos = Margen operativo −
+  Costo financiero = Resultado después de financiación − Capital de préstamos
+  − Inversión en flota + Venta de bienes de uso = Generación de caja) del año
+  fiscal oct–sep con comparativo del anterior, tabla mes a mes (Fiscal /
+  Interno / Total, "Sueldos" y "Sueldos internos (extras)" con "Total
+  personal"), "Sin clasificar" y el control de sueldos.
+- **Limitaciones v1:** compras a cuenta de empleados cuentan como costo;
+  cuotas sin separar capital/interés; sin apertura por centro de costo; en
+  percibido un cobro o pago de un bien de uso cuenta como operativo; el
+  detalle llega a la cuenta, no al comprobante.
+
+**Balance general (fix del mismo PR):** el balance es acumulado al corte
+aunque se elija "Desde"; el PN muestra "Resultados de períodos anteriores" y
+"Resultado del período" (desde "Desde" o, sin él, desde el octubre del año
+fiscal). Antes todo el resultado acumulado figuraba como del período.
+
+---
+
 ## 11. Gaps conocidos (candidatos a fix)
 
 1. ✅ **Etiqueta de alícuota IVA swapeada (SQL ↔ TS)** (§6) — **corregido**:

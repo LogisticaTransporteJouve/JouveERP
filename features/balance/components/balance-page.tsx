@@ -13,17 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fiscalYearStart } from "@/lib/fiscal-year";
 import { formatNumber2 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { useAccountBalances } from "../hooks/use-balance";
 import {
+  computeBalanceSheetEquity,
   computeBalanceTotals,
   computeEERR,
   currentMonth,
@@ -58,7 +55,9 @@ export function BalancePage({
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Período de corte</label>
+          <label className="text-xs text-muted-foreground">
+            Período de corte
+          </label>
           <Input
             type="month"
             value={periodEnd}
@@ -139,7 +138,11 @@ function BalanceTabs({
   periodStart: string | null;
   costCenterId: string | null;
 }) {
-  const { data: rows } = useAccountBalances(periodEnd, periodStart, costCenterId);
+  const { data: rows } = useAccountBalances(
+    periodEnd,
+    periodStart,
+    costCenterId,
+  );
 
   return (
     <Tabs defaultValue="saldos">
@@ -155,7 +158,11 @@ function BalanceTabs({
         <EERRTab rows={rows} />
       </TabsContent>
       <TabsContent value="bg" className="mt-4">
-        <BGTab rows={rows} />
+        <BGTab
+          periodEnd={periodEnd}
+          periodStart={periodStart}
+          costCenterId={costCenterId}
+        />
       </TabsContent>
     </Tabs>
   );
@@ -179,13 +186,13 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
           <AlertTriangle className="size-4 text-foreground" />
         )}
         <span>
-          {totals.isBalanced
-            ? "Balance balanceado"
-            : "Balance DESBALANCEADO"}
-          : Σ Debe {money(totals.totalDebit)} · Σ Haber {money(totals.totalCredit)}
+          {totals.isBalanced ? "Balance balanceado" : "Balance DESBALANCEADO"}:
+          Σ Debe {money(totals.totalDebit)} · Σ Haber{" "}
+          {money(totals.totalCredit)}
           {!totals.isBalanced && (
             <span className="ml-2 text-foreground">
-              (diferencia {money(Math.abs(totals.totalDebit - totals.totalCredit))})
+              (diferencia{" "}
+              {money(Math.abs(totals.totalDebit - totals.totalCredit))})
             </span>
           )}
         </span>
@@ -207,22 +214,32 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-3 py-12 text-center text-sm text-muted-foreground"
+                >
                   Sin movimientos hasta el período de corte.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.account_id} className="group border-b last:border-b-0 hover:bg-muted/20">
+                <tr
+                  key={r.account_id}
+                  className="group border-b last:border-b-0 hover:bg-muted/20"
+                >
                   <td className="sticky left-0 z-10 bg-card px-3 py-1 font-mono text-xs group-hover:bg-muted/20">
                     {r.account_code}
                   </td>
                   <td className="px-3 py-1">{r.account_name}</td>
                   <td className="px-3 py-1 text-right font-mono">
-                    {Number(r.total_debit) > 0 ? money(Number(r.total_debit)) : ""}
+                    {Number(r.total_debit) > 0
+                      ? money(Number(r.total_debit))
+                      : ""}
                   </td>
                   <td className="px-3 py-1 text-right font-mono">
-                    {Number(r.total_credit) > 0 ? money(Number(r.total_credit)) : ""}
+                    {Number(r.total_credit) > 0
+                      ? money(Number(r.total_credit))
+                      : ""}
                   </td>
                   <td className="px-3 py-1 text-right font-mono font-medium">
                     {signed(Number(r.balance))}
@@ -233,11 +250,18 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
           </tbody>
           <tfoot className="border-t-2 bg-muted/30 font-semibold">
             <tr>
-              <td colSpan={2} className="sticky left-0 z-10 bg-card px-3 py-2 text-right text-xs">
+              <td
+                colSpan={2}
+                className="sticky left-0 z-10 bg-card px-3 py-2 text-right text-xs"
+              >
                 Totales
               </td>
-              <td className="px-3 py-2 text-right font-mono">{money(totals.totalDebit)}</td>
-              <td className="px-3 py-2 text-right font-mono">{money(totals.totalCredit)}</td>
+              <td className="px-3 py-2 text-right font-mono">
+                {money(totals.totalDebit)}
+              </td>
+              <td className="px-3 py-2 text-right font-mono">
+                {money(totals.totalCredit)}
+              </td>
               <td />
             </tr>
           </tfoot>
@@ -253,7 +277,13 @@ function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
     <div className="space-y-6">
       <Section title={eerr.ingresos.title} total={eerr.ingresos.total}>
         {eerr.ingresos.categories.map((c) => (
-          <CategoryBlock key={c.name} name={c.name} total={c.total} rows={c.rows} sign={-1} />
+          <CategoryBlock
+            key={c.name}
+            name={c.name}
+            total={c.total}
+            rows={c.rows}
+            sign={-1}
+          />
         ))}
         {eerr.ingresos.categories.length === 0 && (
           <p className="px-3 py-4 text-sm text-muted-foreground">
@@ -264,7 +294,13 @@ function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
 
       <Section title={eerr.gastos.title} total={eerr.gastos.total}>
         {eerr.gastos.categories.map((c) => (
-          <CategoryBlock key={c.name} name={c.name} total={c.total} rows={c.rows} sign={1} />
+          <CategoryBlock
+            key={c.name}
+            name={c.name}
+            total={c.total}
+            rows={c.rows}
+            sign={1}
+          />
         ))}
         {eerr.gastos.categories.length === 0 && (
           <p className="px-3 py-4 text-sm text-muted-foreground">
@@ -290,18 +326,33 @@ function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
   );
 }
 
-function BGTab({ rows }: { rows: AccountBalanceRow[] }) {
+function BGTab({
+  periodEnd,
+  periodStart,
+  costCenterId,
+}: {
+  periodEnd: string;
+  periodStart: string | null;
+  costCenterId: string | null;
+}) {
+  // A balance sheet is cumulative to the cut-off whatever "Desde" says; the
+  // period (from "Desde", else the fiscal year's October) only splits results.
+  const { data: rows } = useAccountBalances(periodEnd, null, costCenterId);
+  const { data: periodRows } = useAccountBalances(
+    periodEnd,
+    periodStart ?? fiscalYearStart(periodEnd),
+    costCenterId,
+  );
   const grouped = useMemo(() => groupByType(rows), [rows]);
 
   const activo = grouped.find((g) => g.type === "activo");
   const pasivo = grouped.find((g) => g.type === "pasivo");
   const patrimonio = grouped.find((g) => g.type === "patrimonio");
-  const respositivo = grouped.find((g) => g.type === "resultado_positivo");
-  const resnegativo = grouped.find((g) => g.type === "resultado_negativo");
 
-  const resultadoPeriodo =
-    (respositivo ? -respositivo.total : 0) - (resnegativo ? resnegativo.total : 0);
-  const totalPatrimonio = (patrimonio ? -patrimonio.total : 0) + resultadoPeriodo;
+  const { resultadoPeriodo, resultadosAnteriores, totalPatrimonio } = useMemo(
+    () => computeBalanceSheetEquity(rows, periodRows),
+    [rows, periodRows],
+  );
   const totalActivo = activo ? activo.total : 0;
   const totalPasivo = pasivo ? -pasivo.total : 0;
   const sumaPN = totalPasivo + totalPatrimonio;
@@ -310,24 +361,30 @@ function BGTab({ rows }: { rows: AccountBalanceRow[] }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
-        {activo && <TypeBlock label="Activo" rows={activo.rows} total={totalActivo} />}
+        {activo && (
+          <TypeBlock label="Activo" rows={activo.rows} total={totalActivo} />
+        )}
       </div>
       <div className="space-y-4">
-        {pasivo && <TypeBlock label="Pasivo" rows={pasivo.rows} total={totalPasivo} />}
-        {patrimonio && (
-          <TypeBlock
-            label="Patrimonio neto"
-            rows={patrimonio.rows}
-            total={totalPatrimonio}
-            extraRow={{ label: "Resultado del período", amount: resultadoPeriodo }}
-          />
+        {pasivo && (
+          <TypeBlock label="Pasivo" rows={pasivo.rows} total={totalPasivo} />
         )}
+        <TypeBlock
+          label="Patrimonio neto"
+          rows={patrimonio?.rows ?? []}
+          total={totalPatrimonio}
+          extraRows={[
+            {
+              label: "Resultados de períodos anteriores",
+              amount: resultadosAnteriores,
+            },
+            { label: "Resultado del período", amount: resultadoPeriodo },
+          ]}
+        />
         <div
           className={cn(
             "rounded-lg border p-3 text-sm font-semibold",
-            cuadra
-              ? "border-border bg-muted"
-              : "border-border bg-muted",
+            cuadra ? "border-border bg-muted" : "border-border bg-muted",
           )}
         >
           Total Pasivo + PN = {signed(sumaPN)} {cuadra ? "✓" : "✗"}
@@ -376,12 +433,17 @@ function CategoryBlock({
       </summary>
       <ul className="mt-2 space-y-1 pl-3 text-xs">
         {rows.map((r) => (
-          <li key={r.account_id} className="flex justify-between text-muted-foreground">
+          <li
+            key={r.account_id}
+            className="flex justify-between text-muted-foreground"
+          >
             <span>
               <span className="mr-2 font-mono">{r.account_code}</span>
               {r.account_name}
             </span>
-            <span className="font-mono">{signed(Number(r.balance) * sign)}</span>
+            <span className="font-mono">
+              {signed(Number(r.balance) * sign)}
+            </span>
           </li>
         ))}
       </ul>
@@ -393,12 +455,12 @@ function TypeBlock({
   label,
   rows,
   total,
-  extraRow,
+  extraRows = [],
 }: {
   label: string;
   rows: AccountBalanceRow[];
   total: number;
-  extraRow?: { label: string; amount: number };
+  extraRows?: { label: string; amount: number }[];
 }) {
   return (
     <div className="rounded-lg border bg-card">
@@ -409,25 +471,35 @@ function TypeBlock({
       <ul className="divide-y text-sm">
         {rows.map((r) => {
           const sign =
-            r.account_type === "pasivo" || r.account_type === "patrimonio" ? -1 : 1;
+            r.account_type === "pasivo" || r.account_type === "patrimonio"
+              ? -1
+              : 1;
           return (
-            <li key={r.account_id} className="flex justify-between px-4 py-1.5 text-xs">
+            <li
+              key={r.account_id}
+              className="flex justify-between px-4 py-1.5 text-xs"
+            >
               <span>
                 <span className="mr-2 font-mono text-muted-foreground">
                   {r.account_code}
                 </span>
                 {r.account_name}
               </span>
-              <span className="font-mono">{signed(Number(r.balance) * sign)}</span>
+              <span className="font-mono">
+                {signed(Number(r.balance) * sign)}
+              </span>
             </li>
           );
         })}
-        {extraRow && (
-          <li className="flex justify-between bg-muted/20 px-4 py-1.5 text-xs italic">
-            <span>{extraRow.label}</span>
-            <span className="font-mono">{signed(extraRow.amount)}</span>
+        {extraRows.map((extra) => (
+          <li
+            key={extra.label}
+            className="flex justify-between bg-muted/20 px-4 py-1.5 text-xs italic"
+          >
+            <span>{extra.label}</span>
+            <span className="font-mono">{signed(extra.amount)}</span>
           </li>
-        )}
+        ))}
       </ul>
     </div>
   );

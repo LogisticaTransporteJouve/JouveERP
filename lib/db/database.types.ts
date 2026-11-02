@@ -3025,6 +3025,45 @@ export type Database = {
           },
         ]
       }
+      management_buckets: {
+        Row: {
+          bucket: string
+          chart_of_accounts_id: string
+          subbucket: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bucket: string
+          chart_of_accounts_id: string
+          subbucket?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          chart_of_accounts_id?: string
+          subbucket?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "management_buckets_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: true
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_buckets_chart_of_accounts_id_fkey"
+            columns: ["chart_of_accounts_id"]
+            isOneToOne: true
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           enabled: boolean
@@ -6712,6 +6751,32 @@ export type Database = {
           source_table: string
         }[]
       }
+      get_management_payroll_control: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          liquidated: number
+          month: string
+          paid_for_period: number
+          paid_in_month: number
+        }[]
+      }
+      get_management_pnl: {
+        Args: {
+          p_basis?: string
+          p_from: string
+          p_inflation?: boolean
+          p_to: string
+        }
+        Returns: {
+          amount_ars: number
+          bucket: string
+          channel_side: string
+          chart_account_id: string
+          month: string
+          pending_usd: number
+          subbucket: string
+        }[]
+      }
       get_my_notification_settings: {
         Args: never
         Returns: {
@@ -6910,6 +6975,10 @@ export type Database = {
           sender_last_name: string
           type: string
         }[]
+      }
+      management_invoice_asset_share: {
+        Args: { p_invoice_id: string }
+        Returns: number
       }
       mark_all_my_notifications_read: { Args: never; Returns: number }
       mark_chat_channel_read: {

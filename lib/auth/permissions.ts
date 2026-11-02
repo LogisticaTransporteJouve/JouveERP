@@ -110,6 +110,11 @@ export const PERMISSIONS = [
   "accounting:read",
   "accounting:write",
 
+  // Resultado de gestión (roadmap 1.0): internal use, never fiscal_reader.
+  // write = the account → bucket catalog.
+  "management:read",
+  "management:write",
+
   // Personnel / Payroll (Phase N)
   "hr:read",
   "hr:write",
@@ -196,6 +201,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "channels:read",
     "accounting:read",
     "accounting:write",
+    "management:read",
     "hr:read",
     "hr:write",
     "ai:chat",

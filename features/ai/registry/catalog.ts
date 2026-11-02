@@ -75,6 +75,7 @@ import {
   getLoanDetail,
   getLoans,
 } from "./actions/statements";
+import { getManagementPnL } from "./actions/management";
 import { getTreasurySummary } from "./actions/treasury";
 import {
   getPalletsSummary,
@@ -124,6 +125,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getInflationAdjustments,
   getIncomeStatement,
   getBalanceSheet,
+  getManagementPnL,
   getCostCenterBreakdown,
   getExpenseByCategory,
   getLoans,
