@@ -178,6 +178,24 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   Un documento sin asiento vigente no se toca: lo lista `journal_missing_entries()`.
 - **Mapeo cuenta→rol** (`coa_role_for_account`): `bank/investment→banco`,
   `cash/wallet→caja`, `checks/echeq→cheques_cartera`.
+- **Movimientos de caja en USD (decisión 2026-11-02, `…20261102240000`):** el
+  libro es en pesos. Un movimiento suelto en USD (ingreso/egreso manual,
+  transferencia entre cuentas USD, cuota de préstamo, cheque USD depositado,
+  rechazado o cargado a mano) se asienta a `get_exchange_rate('USD',
+transaction_date)` (la cotización de esa fecha o la anterior más cercana),
+  redondeado a centavos: es el mismo respaldo que usan los recibos y OP sin
+  `cotizacion` propia; `transactions` no guarda cotización. Si no hay ninguna
+  cotización hasta esa fecha **no asienta** (nunca a 1) y
+  `journal_missing_entries()` lo lista como `sin_cotizacion`. Los movimientos
+  USD asentados antes como pesos quedan como estaban y la misma función los
+  lista como `differs` (se corrigen editándolos en un período abierto).
+  Descartado: guardar una cotización por movimiento (otro PR; hoy ningún
+  escritor la conoce salvo recibos y OP, que asientan con la suya).
+- **Moneda del movimiento = moneda de la cuenta:** el trigger
+  `guard_transaction_account_currency` rechaza (`23514`) un movimiento cuya
+  `currency` no es la de su cuenta, y `guard_account_currency_change` rechaza
+  cambiar la moneda de una cuenta con movimientos. Recibos y OP solo ofrecen
+  cuentas de su moneda; el alta manual toma la moneda de la cuenta elegida.
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/
   `percepciones_iibb_cobradas`. NC invierte (`v_kind_factor=-1`). Compra: Debe
   `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`.

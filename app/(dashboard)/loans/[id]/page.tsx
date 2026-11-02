@@ -36,7 +36,7 @@ export default async function LoanDetailRoute({
   const accountOptions = accountsRes.ok
     ? accountsRes.data
         .filter((a) => a.is_active && a.type !== "checks" && a.type !== "echeq")
-        .map((a) => ({ id: a.id, name: a.name }))
+        .map((a) => ({ id: a.id, name: a.name, currency: a.currency }))
     : [];
 
   return (
