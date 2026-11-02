@@ -20,9 +20,8 @@ export function ChatShell({
   currentUserId,
   currentUserDisplayName,
 }: Props) {
-  // Below md the shell shows ONE pane at a time (list ↔ thread); there is no
-  // list-only route (/chat redirects to the self channel), so this is local
-  // view state: picking a channel switches to the thread, back returns here.
+  // Below md the shell shows ONE pane at a time (list ↔ thread): /chat opens
+  // on the list, picking a channel switches to the thread, back returns here.
   const [mobileView, setMobileView] = useState<"list" | "thread">(
     activeChannelId ? "thread" : "list",
   );
