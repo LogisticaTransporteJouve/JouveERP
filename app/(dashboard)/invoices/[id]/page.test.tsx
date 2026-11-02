@@ -10,6 +10,11 @@ const h = vi.hoisted(() => ({
   access: null as Access | null,
   detail: null as Record<string, unknown> | null,
   links: null as ActionResult<RemitoLinks> | null,
+  pending: [] as {
+    id: string;
+    document_type: "invoice" | "rejected_check";
+    outstanding: number;
+  }[],
 }));
 
 vi.mock("next/navigation", () => ({
@@ -54,6 +59,23 @@ vi.mock("@/features/invoices/components/revenue-kind-select", () => ({
 }));
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: () => null,
+}));
+vi.mock("@/features/receipts/actions/receipts-actions", () => ({
+  listPendingComprobantesForClientAction: async () => ({
+    ok: true,
+    data: h.pending,
+  }),
+}));
+vi.mock("@/features/receipts/components/collect-dialog", () => ({
+  CollectDialog: ({
+    initialAllocations,
+  }: {
+    initialAllocations?: { amount_applied: string }[];
+  }) => (
+    <button type="button">
+      stub-cobrar {initialAllocations?.[0]?.amount_applied}
+    </button>
+  ),
 }));
 vi.mock("@/features/audit/components/record-history", () => ({
   RecordHistory: () => <p>stub-historial</p>,
@@ -212,6 +234,32 @@ describe("invoice detail — remito links", () => {
     h.links = okLinks({});
     await renderPage();
     expect(screen.queryByText("stub-facturar")).toBeNull();
+  });
+});
+
+describe("invoice detail — Cobrar", () => {
+  beforeEach(() => {
+    h.links = okLinks({});
+  });
+
+  it("offers Cobrar for what the comprobante still owes", async () => {
+    h.detail = base(true);
+    h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
+    await renderPage();
+    expect(screen.getByText("stub-cobrar 60,50")).toBeTruthy();
+  });
+
+  it("hides Cobrar when nothing is open or the user cannot write receipts", async () => {
+    h.detail = base(true);
+    h.pending = [];
+    await renderPage();
+    expect(screen.queryByText(/stub-cobrar/)).toBeNull();
+
+    cleanup();
+    h.access = resolveAccess(["fiscal_reader"]);
+    h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
+    await renderPage();
+    expect(screen.queryByText(/stub-cobrar/)).toBeNull();
   });
 });
 

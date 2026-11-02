@@ -1,7 +1,11 @@
+import { Banknote } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { listPendingInvoicesForSupplierAction } from "@/features/payment-orders/actions/payment-orders-actions";
+import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,6 +31,7 @@ import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import {
+  amountToInput,
   formatArgentineDate,
   formatMoneyWithCode,
   formatNumber2,
@@ -81,6 +86,25 @@ export default async function PurchaseInvoiceDetailPage({
   const paidByActive = allocations
     .filter((a) => a.payment_order_status !== "canceled")
     .reduce((acc, a) => acc + a.amount_applied, 0);
+  // "Pagar" opens the OP form with this purchase picked for what it still
+  // owes (the same pending list the OP form reads).
+  let payOpen: { outstanding: number } | null = null;
+  if (
+    !isCancelled &&
+    channelRow &&
+    (invoice.kind === "factura" || invoice.kind === "nd") &&
+    userCan(ctx.access, "payment_orders:write")
+  ) {
+    const pendingRes = await listPendingInvoicesForSupplierAction(
+      invoice.supplier_id,
+      channelRow.id,
+    );
+    const mine = pendingRes.ok
+      ? pendingRes.data.find((p) => p.id === invoice.id)
+      : undefined;
+    if (mine && mine.outstanding > 0)
+      payOpen = { outstanding: mine.outstanding };
+  }
   const creditedByImputation = imputations?.imputedTo?.credited ?? 0;
   const outstanding = Math.max(
     0,
@@ -140,16 +164,46 @@ export default async function PurchaseInvoiceDetailPage({
             </p>
           )}
         </div>
-        {canImpute && (
-          <ImputeRemitosDialog
-            facturaId={invoice.id}
-            facturaLabel={number}
-            available={
-              invoice.imp_total -
-              (imputations?.remitos ?? []).reduce((acc, r) => acc + r.amount, 0)
-            }
-          />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canImpute && (
+            <ImputeRemitosDialog
+              facturaId={invoice.id}
+              facturaLabel={number}
+              available={
+                invoice.imp_total -
+                (imputations?.remitos ?? []).reduce(
+                  (acc, r) => acc + r.amount,
+                  0,
+                )
+              }
+            />
+          )}
+          {payOpen && channelRow && (
+            <PayDialog
+              side={channelRow.is_fiscal ? "fiscal" : "internal"}
+              initialSupplier={{
+                id: invoice.supplier_id,
+                legal_name: invoice.supplier_legal_name,
+                display_name: null,
+                cuit: invoice.supplier_cuit,
+                iva_condition: null,
+                is_fiscal: channelRow.is_fiscal,
+              }}
+              initialAllocations={[
+                {
+                  purchase_invoice_id: invoice.id,
+                  amount_applied: amountToInput(payOpen.outstanding),
+                },
+              ]}
+              trigger={
+                <Button>
+                  <Banknote className="size-4" />
+                  Pagar
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

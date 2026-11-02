@@ -110,11 +110,17 @@ export const getSupplierAging = defineAiAction({
   domain: "compras",
   permission: SUPPLIER_AGING_PERMISSIONS,
   sideEffect: "read",
-  sources: ["v_supplier_aging", "v_supplier_aging_by_scope"],
+  sources: [
+    "v_supplier_aging",
+    "v_supplier_aging_by_scope",
+    "v_payment_order_unapplied",
+  ],
   description:
     "Accounts payable aging: outstanding balance with each supplier per bucket " +
     "(0-30 / 30-60 / 60-90 / +90 days), pesos and dollars separately, with " +
-    "totals and their ARS equivalent at the latest official rate. Optional " +
+    "totals and their ARS equivalent at the latest official rate. What was " +
+    "paid on account and is not yet applied to invoices comes apart as " +
+    "on_account_* (not subtracted from the buckets). Optional " +
     "scope (fiscal/internal/all). For " +
     "'how much do I owe?', 'who do I owe the most to?' or planning payments.",
   input: z.object({ scope: ScopeInputSchema }),

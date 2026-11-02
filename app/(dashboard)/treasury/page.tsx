@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { TreasuryPage } from "@/features/treasury/components/treasury-page";
 import { treasurySummaryQuery } from "@/features/treasury/lib/treasury-queries";
 import { requireUserContext } from "@/lib/auth/context";
-import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 
@@ -17,7 +21,10 @@ export default async function TreasuryRoute() {
   const dehydratedState = await prefetchQueries([treasurySummaryQuery()]);
   return (
     <Hydrate state={dehydratedState}>
-      <TreasuryPage />
+      <TreasuryPage
+        canCollect={userCan(ctx.access, "receipts:write")}
+        canPay={userCan(ctx.access, "payment_orders:write")}
+      />
     </Hydrate>
   );
 }

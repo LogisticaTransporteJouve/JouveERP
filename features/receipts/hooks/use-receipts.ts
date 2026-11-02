@@ -20,8 +20,10 @@ import type { ListGroup } from "@/lib/list-period";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  allocateReceiptAction,
   cancelReceiptAction,
   createReceiptAction,
+  getReceiptUnappliedAction,
   getNextReceiptNumeroAction,
   getReceiptByIdAction,
   getReceiptListTotalsAction,
@@ -178,6 +180,26 @@ export function useUpdateReceipt() {
       invalidateKeys(qc, RECEIPT_EFFECT_KEYS);
       const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: receiptsKeys.detail(id) });
+    },
+  });
+}
+
+/** What a receipt holds a cuenta; fetched when the "Imputar" dialog opens. */
+export function useReceiptUnapplied(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: receiptsKeys.unapplied(id),
+    queryFn: () => runAction(() => getReceiptUnappliedAction(id)),
+    enabled,
+  });
+}
+
+export function useAllocateReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => allocateReceiptAction(input)),
+    onSuccess: () => {
+      invalidateKeys(qc, RECEIPT_EFFECT_KEYS);
     },
   });
 }

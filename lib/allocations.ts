@@ -111,6 +111,38 @@ export function allocateFifo(
   return out;
 }
 
+/** How a new receipt or payment order is applied: FIFO over the open
+ *  documents (oldest first), the documents the user picked, or nothing ("a
+ *  cuenta": the whole amount waits to be applied later with "Imputar"). */
+export const ALLOCATION_MODES = ["fifo", "manual", "a_cuenta"] as const;
+export type AllocationMode = (typeof ALLOCATION_MODES)[number];
+
+export const ALLOCATION_MODE_LABEL: Record<AllocationMode, string> = {
+  fifo: "Automática (los más viejos primero)",
+  manual: "Elegir comprobantes",
+  a_cuenta: "A cuenta (imputar después)",
+};
+
+/** The allocations a new payer goes out with. `mode` undefined keeps the
+ *  older contract: no allocations means FIFO. Returns a Spanish issue when
+ *  manual has nothing picked. */
+export function resolveAllocations<T>(
+  mode: AllocationMode | undefined,
+  picked: readonly T[],
+  fifo: () => T[],
+): { allocations: T[]; manual: boolean } | { issue: string } {
+  if (mode === "a_cuenta") return { allocations: [], manual: false };
+  if (mode === "fifo" || (mode === undefined && picked.length === 0)) {
+    return { allocations: fifo(), manual: false };
+  }
+  if (picked.length === 0) {
+    return {
+      issue: "Elegí al menos un comprobante, o cobrá/pagá a cuenta.",
+    };
+  }
+  return { allocations: [...picked], manual: true };
+}
+
 /** Why a set of allocations can't be applied (Spanish, for the user), or null.
  *  Each document must be pending and receive at most its outstanding; the sum
  *  can't exceed the payer's total. */

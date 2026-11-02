@@ -28,6 +28,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
+import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
+import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
 import {
   useCreateTransaction,
@@ -106,10 +108,15 @@ type FormValues = z.infer<typeof FormSchema>;
 
 export function TransactionForm({
   channels,
+  canCollect = false,
+  canPay = false,
   onSuccess,
   onCancel,
 }: {
   channels: ChannelOption[];
+  /** receipts:write / payment_orders:write: offer "Cobrar" / "Pagar". */
+  canCollect?: boolean;
+  canPay?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
 }) {
@@ -242,6 +249,39 @@ export function TransactionForm({
             label="Transferencia"
           />
         </div>
+
+        {/* A client's payment or a supplier's is a receipt / OP: it settles
+            their documents instead of posting to ajustes de caja / gastos. */}
+        {kind === "income" && canCollect && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <span>
+              ¿Es un cobro de un cliente? Registralo como recibo: cancela sus
+              comprobantes o queda a cuenta.
+            </span>
+            <CollectDialog
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Cobrar a cliente
+                </Button>
+              }
+            />
+          </div>
+        )}
+        {kind === "expense" && canPay && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <span>
+              ¿Es un pago a un proveedor? Registralo como orden de pago: cancela
+              sus facturas o queda a cuenta.
+            </span>
+            <PayDialog
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Pagar a proveedor
+                </Button>
+              }
+            />
+          </div>
+        )}
 
         {/* Account(s) */}
         {kind === "transfer" ? (

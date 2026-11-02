@@ -48,6 +48,7 @@ import {
 } from "../schema";
 import { CancelPaymentOrderDialog } from "./cancel-payment-order-dialog";
 import { EditPaymentOrderDialog } from "./edit-payment-order-dialog";
+import { ImputePaymentOrderDialog } from "./impute-payment-order-dialog";
 import { NewPaymentOrderDialog } from "./new-payment-order-dialog";
 import type { ChannelOption } from "./payment-order-form";
 
@@ -149,6 +150,12 @@ function buildPaymentOrderColumns({
                 <Eye className="size-4" />
               </Link>
             </Button>
+            {canWrite && !isCanceled && (
+              <ImputePaymentOrderDialog
+                paymentOrderId={op.id}
+                label={formatPaymentOrderNumber(op.punto_venta, op.numero)}
+              />
+            )}
             {canWrite && !isCanceled && (
               <EditPaymentOrderDialog
                 paymentOrderId={op.id}

@@ -81,6 +81,13 @@ const GUARDS = [
   "guard_task_identity",
   "guard_expense_account",
   "guard_transaction_expense_account",
+  "guard_loan_installment_paid",
+  "pay_loan_installment",
+  "adopt_loan_installment_payment",
+  "record_loan_disbursement",
+  "allocate_receipt",
+  "allocate_payment_order",
+  "guard_transaction_owned_by_document",
 ];
 
 describe("guard hints in migrations", () => {

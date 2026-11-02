@@ -45,6 +45,8 @@ import {
   sumArAmountsBy,
   todayInAR,
 } from "@/lib/format";
+import { AllocationModeSelect } from "@/components/allocation-mode-select";
+import { ALLOCATION_MODES } from "@/lib/allocations";
 import { USD_RATE_REQUIRED_MESSAGE } from "@/lib/validation/common";
 
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
@@ -94,6 +96,7 @@ const FormSchema = z.object({
   notes: z.string().trim().max(500),
   paymentLines: z.custom<PaymentLineDraft[]>(),
   allocations: z.custom<AllocationDraft[]>(),
+  allocationMode: z.enum(ALLOCATION_MODES),
   retentions: z.custom<RetentionDraft[]>(),
 });
 
@@ -105,6 +108,7 @@ export function ReceiptForm({
   accounts,
   receipt,
   initialClient,
+  initialAllocations: presetAllocations,
   onSuccess,
   onCancel,
 }: {
@@ -113,6 +117,9 @@ export function ReceiptForm({
   accounts: Account[];
   receipt?: ReceiptDetail;
   initialClient?: PickedClient | null;
+  /** Create mode: comprobantes picked beforehand (e.g. "Cobrar" from a
+   *  comprobante); the form starts in manual allocation. */
+  initialAllocations?: AllocationDraft[];
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -158,7 +165,7 @@ export function ReceiptForm({
           amount_applied: amountToInput(a.amount_applied),
         })),
       ]
-    : [];
+    : (presetAllocations ?? []);
 
   const initialRetentions: RetentionDraft[] = receipt
     ? receipt.retentions.map((r) => ({
@@ -188,8 +195,14 @@ export function ReceiptForm({
       notes: receipt?.receipt.notes ?? "",
       paymentLines: initialPaymentLines,
       allocations: initialAllocations,
+      allocationMode:
+        initialAllocations.length > 0 || mode === "edit" ? "manual" : "fifo",
       retentions: initialRetentions,
     },
+  });
+  const allocationMode = useWatch({
+    control: form.control,
+    name: "allocationMode",
   });
 
   const channelId = useWatch({ control: form.control, name: "channelId" });
@@ -253,8 +266,11 @@ export function ReceiptForm({
   );
   const totalAmount = round2(paymentSum + retentionSum);
   const allocatedAmount = useMemo(
-    () => round2(sumArAmountsBy(allocations, (a) => a.amount_applied)),
-    [allocations],
+    () =>
+      allocationMode === "manual"
+        ? round2(sumArAmountsBy(allocations, (a) => a.amount_applied))
+        : 0,
+    [allocations, allocationMode],
   );
   const aCuenta = Math.max(0, totalAmount - allocatedAmount);
 
@@ -298,7 +314,16 @@ export function ReceiptForm({
           }
         : undefined,
     }));
-    const allocs = values.allocations.map((a) => ({
+    const picked = values.allocationMode === "manual" ? values.allocations : [];
+    if (
+      mode === "create" &&
+      values.allocationMode === "manual" &&
+      picked.length === 0
+    ) {
+      toast.error("Elegí al menos un comprobante, o cobrá a cuenta.");
+      return;
+    }
+    const allocs = picked.map((a) => ({
       ...(a.document_type === "rejected_check"
         ? { rejected_check_id: a.document_id }
         : { invoice_id: a.document_id }),
@@ -349,6 +374,7 @@ export function ReceiptForm({
           cotizacion: rate,
           notes: values.notes,
           payment_lines: lines,
+          allocation_mode: values.allocationMode,
           allocations: allocs,
           retentions: rets,
         },
@@ -539,14 +565,23 @@ export function ReceiptForm({
           />
         )}
 
-        {/* Allocations */}
-        <AllocationsPicker
-          clientId={client?.id ?? null}
-          channelId={channelId || null}
-          excludeReceiptId={receipt?.receipt.id}
-          allocations={allocations}
-          onChange={(allocs) => form.setValue("allocations", allocs)}
-        />
+        {/* Allocations: FIFO, picked, or a cuenta (create); picked (edit). */}
+        {mode === "create" && (
+          <AllocationModeSelect
+            payer="receipt"
+            value={allocationMode}
+            onChange={(m) => form.setValue("allocationMode", m)}
+          />
+        )}
+        {(mode === "edit" || allocationMode === "manual") && (
+          <AllocationsPicker
+            clientId={client?.id ?? null}
+            channelId={channelId || null}
+            excludeReceiptId={receipt?.receipt.id}
+            allocations={allocations}
+            onChange={(allocs) => form.setValue("allocations", allocs)}
+          />
+        )}
 
         {/* Totals strip */}
         <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
@@ -571,13 +606,17 @@ export function ReceiptForm({
           <div>
             <div className="text-xs text-muted-foreground">Imputado</div>
             <div className="font-mono">
-              {formatMoney(allocatedAmount)} {currency}
+              {allocationMode === "fifo"
+                ? "Automático"
+                : `${formatMoney(allocatedAmount)} ${currency}`}
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">A cuenta</div>
             <div className="font-mono">
-              {formatMoney(aCuenta)} {currency}
+              {allocationMode === "fifo"
+                ? "Lo que sobre"
+                : `${formatMoney(aCuenta)} ${currency}`}
             </div>
           </div>
         </div>

@@ -9,7 +9,8 @@ export type CashFlowEvent = {
   /** YYYY-MM. */
   month: string;
   direction: "in" | "out";
-  /** Positive amount. */
+  /** Positive amount; negative only to net what was already paid or
+   *  collected a cuenta off the projected open documents. */
   amount: number;
   scope: CashScope;
 };
