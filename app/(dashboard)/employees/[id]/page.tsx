@@ -144,6 +144,8 @@ export default async function EmployeeDetailPage({
         <div className="mt-3">
           <EmployeeVacationsCard
             employeeId={employee.id}
+            employeeName={employee.legal_name}
+            hireDate={employee.hire_date}
             actorAccess={ctx.access}
           />
         </div>

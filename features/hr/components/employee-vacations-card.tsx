@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
 
 import {
   useCreateLeave,
@@ -41,12 +41,15 @@ import {
   useEmployeeLeaves,
   useVacationBalances,
 } from "../hooks/use-vacations";
+import { currentVacationPeriodYear } from "../lib/vacation-periods";
 import {
   LEAVE_KIND_LABEL,
   LEAVE_KINDS,
   VACATION_BALANCE_STATUS_LABEL,
   type LeaveKind,
 } from "../vacation-schema";
+
+import { VacationOpeningDialog } from "./vacation-opening-dialog";
 
 type FormValues = {
   start_date: string;
@@ -57,12 +60,17 @@ type FormValues = {
 
 export function EmployeeVacationsCard({
   employeeId,
+  employeeName,
+  hireDate,
   actorAccess,
 }: {
   employeeId: string;
+  employeeName: string;
+  hireDate: string;
   actorAccess: Access;
 }) {
   const canWrite = userCan(actorAccess, "hr:write");
+  const canSetVacations = userCan(actorAccess, "hr:admin");
   const { data: balances = [], isLoading: balancesLoading } =
     useVacationBalances(employeeId);
   const { data: leaves = [], isLoading: leavesLoading } =
@@ -71,9 +79,29 @@ export function EmployeeVacationsCard({
   const deleteMut = useDeleteLeave();
 
   const activeBalance = balances.find((b) => b.status !== "expired");
+  const period = currentVacationPeriodYear(todayInAR());
+  const currentBalance = balances.find((b) => b.period_year === period);
+  const previousPending = balances
+    .filter((b) => b.period_year < period && b.status !== "expired")
+    .reduce((sum, b) => sum + Math.max(b.remaining_days, 0), 0);
 
   return (
     <div className="space-y-6">
+      {canSetVacations && !balancesLoading && (
+        <div className="flex justify-end">
+          <VacationOpeningDialog
+            employeeId={employeeId}
+            employeeName={employeeName}
+            hireDate={hireDate}
+            currentDays={
+              currentBalance
+                ? currentBalance.entitled_days + currentBalance.bonus_days
+                : null
+            }
+            previousDays={previousPending}
+          />
+        </div>
+      )}
       <BalancesSection balances={balances} loading={balancesLoading} />
 
       <LeavesSection
@@ -141,7 +169,8 @@ function BalancesSection({
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : balances.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Sin saldos. Se generan solos el 1 de octubre de cada año.
+          Sin saldos. Se generan solos el 1 de octubre de cada año; los días de
+          antes de usar la app se cargan con “Cargar saldo”.
         </p>
       ) : (
         <div className="rounded-lg border bg-card">

@@ -22,6 +22,7 @@ import {
   ListTree,
   MessageSquare,
   Package,
+  Palmtree,
   Receipt,
   ReceiptText,
   Repeat,
@@ -400,6 +401,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/hr/payroll",
         label: "Sueldos",
         icon: Receipt,
+        permission: "hr:read",
+      },
+      {
+        href: "/hr/vacations",
+        label: "Vacaciones",
+        icon: Palmtree,
         permission: "hr:read",
       },
       {

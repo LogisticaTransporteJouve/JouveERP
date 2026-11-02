@@ -92,7 +92,21 @@ const baseEmployeeFields = {
   notes: trimmedNullable,
 };
 
-export const EmployeeCreateSchema = z.object(baseEmployeeFields);
+const optionalVacationDays = z.coerce
+  .number()
+  .int("Tiene que ser un número entero de días.")
+  .min(0, "No puede ser negativo.")
+  .max(365, "Demasiados días.")
+  .nullable()
+  .optional();
+
+export const EmployeeCreateSchema = z.object({
+  ...baseEmployeeFields,
+  /** Days of the vacation period in course; empty = leave it to the 1/10 job. */
+  vacation_current_days: optionalVacationDays,
+  /** Days still pending from earlier years, as one figure. */
+  vacation_previous_days: optionalVacationDays,
+});
 
 export const EmployeeUpdateSchema = z.object({
   id: z.string().uuid(),

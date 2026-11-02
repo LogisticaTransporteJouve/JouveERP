@@ -9,6 +9,8 @@ import {
   deleteLeaveAction,
   listEmployeeLeavesAction,
   listVacationBalancesAction,
+  listVacationOverviewAction,
+  setVacationOpeningAction,
 } from "../actions/vacations-actions";
 
 const vacationKeys = {
@@ -16,6 +18,7 @@ const vacationKeys = {
   balances: (employeeId: string) =>
     ["vacations", "balances", employeeId] as const,
   all: ["vacations"] as const,
+  overview: () => ["vacations", "overview"] as const,
 };
 
 export function useEmployeeLeaves(employeeId: string) {
@@ -56,6 +59,7 @@ export function useCreateLeave() {
       qc.invalidateQueries({
         queryKey: vacationKeys.balances(vars.employee_id),
       });
+      qc.invalidateQueries({ queryKey: vacationKeys.overview() });
     },
   });
 }
@@ -72,6 +76,34 @@ export function useDeleteLeave() {
       qc.invalidateQueries({
         queryKey: vacationKeys.balances(vars.employee_id),
       });
+      qc.invalidateQueries({ queryKey: vacationKeys.overview() });
+    },
+  });
+}
+
+export function useVacationOverview() {
+  return useQuery({
+    queryKey: vacationKeys.overview(),
+    queryFn: () => runAction(() => listVacationOverviewAction()),
+  });
+}
+
+type SetOpeningVars = {
+  employee_id: string;
+  current_days: number;
+  previous_days: number;
+};
+
+export function useSetVacationOpening() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SetOpeningVars) =>
+      runAction(() => setVacationOpeningAction(input)),
+    onSettled: (_data, _err, vars) => {
+      qc.invalidateQueries({
+        queryKey: vacationKeys.balances(vars.employee_id),
+      });
+      qc.invalidateQueries({ queryKey: vacationKeys.overview() });
     },
   });
 }

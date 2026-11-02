@@ -69,6 +69,7 @@ export function EmployeesTable({
   const setUrlFilters = useUrlFilter();
 
   const canWrite = userCan(actorAccess, "hr:write");
+  const canSetVacations = userCan(actorAccess, "hr:admin");
 
   useEffect(() => {
     setUrlFilters({
@@ -92,7 +93,9 @@ export function EmployeesTable({
         actions={
           <>
             <ExportButton resource="employees" />
-            {canWrite && <NewEmployeeDialog />}
+            {canWrite && (
+              <NewEmployeeDialog canSetVacations={canSetVacations} />
+            )}
           </>
         }
       >
