@@ -53,6 +53,26 @@ describe("getNotificationHref", () => {
     const notif = { ...baseNotif, type: "something_else" };
     expect(getNotificationHref(notif)).toBeNull();
   });
+
+  it("links a task_due notification to its task", () => {
+    const notif: Notification = {
+      ...baseNotif,
+      type: "task_due",
+      metadata: { task_id: "t1", stage: "due" },
+    };
+    expect(getNotificationHref(notif)).toBe("/tasks?task=t1");
+    expect(getNotificationHref({ ...notif, metadata: {} })).toBe("/tasks");
+  });
+
+  it("titles a task_due notification by its stage", () => {
+    const notif: Notification = { ...baseNotif, type: "task_due" };
+    expect(getNotificationTitle({ ...notif, metadata: { stage: "due" } })).toBe(
+      "tarea que vence hoy",
+    );
+    expect(
+      getNotificationTitle({ ...notif, metadata: { stage: "overdue" } }),
+    ).toBe("tarea vencida");
+  });
 });
 
 describe("getNotificationTitle", () => {

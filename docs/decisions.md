@@ -3,6 +3,30 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-02 — Tareas (D11)
+
+**Decisión.** Módulo `/tasks` (`features/tasks`, migración `20261103000000_tasks`):
+tareas manuales, recurrentes (todos los meses el día N, recortado al último día
+del mes) y automáticas desde documentos: compras con saldo que vencen en 7 días,
+ventas vencidas con saldo, cuotas de préstamo, cheques propios emitidos que
+vencen en 7 días y documentos de flota o de empleados que vencen en 30 días. Una
+automática es única por `(source_table, source_id, kind)` y se cierra sola
+cuando el documento se salda; el cron diario `tasks-daily` (06:17 AR) crea,
+actualiza y cierra, materializa las recurrentes, asigna las nuevas automáticas a
+quien puede actuar sobre el documento y avisa a los responsables el día del
+vencimiento y una vez vencida. `tasks:read`/`tasks:write`: owner, admin,
+finance, operations, warehouse.
+
+**Por qué.** Lo pendiente vivía en la cabeza de cada uno; los documentos ya
+saben qué vence.
+
+**Reglas.** Una tarea que un usuario cerró no se reabre sola; un vencimiento que
+un usuario movió le gana al del documento. Quien no lee el módulo de origen ve
+"Tarea de un módulo sin acceso" y no puede editarla; la RLS además oculta la
+fila a los roles fuera del techo de ese módulo. El aviso de vencida solo sale
+en la semana posterior al vencimiento, para no inundar con lo viejo al
+lanzar.
+
 ## 2026-11-02 — Gestión ≠ EERR; uso interno; sueldos por mes de liquidación
 
 **Decisión.** El Resultado de gestión (`/management`, permiso

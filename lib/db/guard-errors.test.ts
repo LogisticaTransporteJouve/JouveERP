@@ -78,6 +78,7 @@ const GUARDS = [
   "guard_issued_check_cancel_live_order",
   "guard_transaction_account_currency",
   "guard_account_currency_change",
+  "guard_task_identity",
 ];
 
 describe("guard hints in migrations", () => {

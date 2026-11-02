@@ -16,6 +16,9 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
   sueldos si el rol no tiene `hr:read`— y cada ejecución vuelve a chequear el permiso. Debajo, cada
   acción llama a un server action con `requireUserContext()` + `userCan()` y las RPC son `SECURITY
   INVOKER`, así que RLS aplica igual que en la app.
+- **Cada módulo tiene su tool de lectura.** Toda feature nueva suma al registry al menos un tool
+  `read` con el mismo permiso que su página (ej. `getTasks` con `tasks:read` sobre `/tasks`), que
+  envuelve el server action de lectura de la feature y hereda su gate.
 - **Cifras del servidor, nunca del modelo.** Los totales salen de SQL (RPC/vistas); el JS solo combina
   agregados ya calculados. Cada resultado trae `meta: { sources, asOf, partial, currency?,
   exchangeRate?, note? }` y el prompt obliga a citarlo y a avisar si es parcial.
