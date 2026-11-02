@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   LineChart,
   ListChecks,
+  ListTodo,
   ListTree,
   MessageSquare,
   Package,
@@ -154,6 +155,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/chat", label: "Chat", icon: MessageSquare },
+      {
+        href: "/tasks",
+        label: "Tareas",
+        icon: ListTodo,
+        permission: "tasks:read",
+      },
       {
         href: "/files",
         label: "Archivos",

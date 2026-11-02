@@ -155,6 +155,25 @@ describe("userCan", () => {
     expect(userCan(resolveAccess(["driver"]), "ai:read")).toBe(false);
   });
 
+  it("tasks reach every staff role, not driver or fiscal_reader", () => {
+    for (const role of [
+      "owner",
+      "admin",
+      "finance",
+      "operations",
+      "warehouse",
+    ] as const) {
+      expect(userCan(resolveAccess([role]), "tasks:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "tasks:write")).toBe(true);
+    }
+    for (const role of ["driver", "fiscal_reader"] as const) {
+      expect(userCan(resolveAccess([role]), "tasks:read")).toBe(false);
+      expect(userCan(resolveAccess([role]), "tasks:write")).toBe(false);
+    }
+    const denied = resolveAccess(["finance"], ["tasks:read"]);
+    expect(userCan(denied, "tasks:write")).toBe(false);
+  });
+
   it("ai:admin is restricted to owner and admin", () => {
     expect(userCan(resolveAccess(["owner"]), "ai:admin")).toBe(true);
     expect(userCan(resolveAccess(["admin"]), "ai:admin")).toBe(true);
@@ -448,6 +467,8 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "storage_billing:read",
           "suppliers:read",
           "suppliers:write",
+          "tasks:read",
+          "tasks:write",
           "transactions:read",
           "transactions:write",
         ],
@@ -478,6 +499,8 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "shipments:read",
           "shipments:write",
           "suppliers:read",
+          "tasks:read",
+          "tasks:write",
           "trips:read",
           "trips:write",
           "vehicles:read",
@@ -491,6 +514,8 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "products:read",
           "stock_movements:read",
           "stock_movements:write",
+          "tasks:read",
+          "tasks:write",
           "warehouses:read",
           "warehouses:write",
         ],
