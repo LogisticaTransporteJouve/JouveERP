@@ -74,6 +74,7 @@ const GUARDS = [
   "guard_invoice_source_remito",
   "settle_billed_remito",
   "guard_billed_remito_frozen",
+  "guard_invoice_period_closed",
 ];
 
 describe("guard hints in migrations", () => {

@@ -91,6 +91,37 @@ function adopt(info: VoucherInfo): InvoiceCAEResult | null {
   };
 }
 
+/**
+ * The CAE AFIP holds for the number this invoice last sent, when the voucher
+ * registered there is this invoice's (same total, date and receptor) and no
+ * other live invoice attempted or holds that number. Null otherwise.
+ */
+export async function recoverAttempt(params: {
+  invoiceId: string;
+  ptoVta: number;
+  cbteTipo: number;
+  expected: VoucherIdentity;
+  afip: Pick<AfipCaePort, "getVoucherInfo">;
+  attempts: Pick<AttemptStore, "read" | "takenByOther">;
+}): Promise<InvoiceCAEResult | null> {
+  const { invoiceId, ptoVta, cbteTipo, expected, afip, attempts } = params;
+  const previous = await attempts.read();
+  if (previous === null || (await attempts.takenByOther(previous))) {
+    return null;
+  }
+  const info = await afip.getVoucherInfo(ptoVta, cbteTipo, previous);
+  const recovered = info && voucherMatches(info, expected) ? adopt(info) : null;
+  if (recovered) {
+    logger.info("issue_invoice.recovered_previous_attempt", {
+      invoice_id: invoiceId,
+      ptoVta,
+      cbteTipo,
+      cbteNro: previous,
+    });
+  }
+  return recovered;
+}
+
 export async function reserveNumberAndRequestCae(params: {
   invoiceId: string;
   ptoVta: number;
@@ -106,21 +137,15 @@ export async function reserveNumberAndRequestCae(params: {
   // A previous attempt of this step may have reached AFIP and lost the
   // response (or crashed before the step finished). Recover that CAE instead
   // of authorizing the same invoice a second time under a new number.
-  const previous = await attempts.read();
-  if (previous !== null && !(await attempts.takenByOther(previous))) {
-    const info = await afip.getVoucherInfo(ptoVta, cbteTipo, previous);
-    const recovered =
-      info && voucherMatches(info, expected) ? adopt(info) : null;
-    if (recovered) {
-      logger.info("issue_invoice.recovered_previous_attempt", {
-        invoice_id: invoiceId,
-        ptoVta,
-        cbteTipo,
-        cbteNro: previous,
-      });
-      return recovered;
-    }
-  }
+  const recovered = await recoverAttempt({
+    invoiceId,
+    ptoVta,
+    cbteTipo,
+    expected,
+    afip,
+    attempts,
+  });
+  if (recovered) return recovered;
 
   const cbteNro = (await afip.getLastAuthorizedNumber(ptoVta, cbteTipo)) + 1;
   await attempts.record(cbteNro);

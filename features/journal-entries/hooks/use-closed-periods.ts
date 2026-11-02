@@ -35,7 +35,7 @@ export function useReopenAccountingPeriod() {
   return useMutation({
     mutationFn: (period: string) =>
       runAction(() => reopenAccountingPeriodAction(period)),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: journalEntriesKeys.closedPeriods() }),
+    // Reopening can post pending entries: the journal lists change too.
+    onSuccess: () => qc.invalidateQueries({ queryKey: journalEntriesKeys.all }),
   });
 }

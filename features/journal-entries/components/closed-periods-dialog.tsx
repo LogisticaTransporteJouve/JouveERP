@@ -68,7 +68,12 @@ export function ClosedPeriodsDialog({ open, onOpenChange }: Props) {
     });
     if (!ok) return;
     reopenMut.mutate(target, {
-      onSuccess: () => toast.success(`${formatPeriod(target)} reabierto.`),
+      onSuccess: ({ posted }) =>
+        toast.success(
+          posted > 0
+            ? `${formatPeriod(target)} reabierto. Se generaron ${posted} asiento(s) pendiente(s).`
+            : `${formatPeriod(target)} reabierto.`,
+        ),
       onError: (err) => toast.error(err.message),
     });
   }
@@ -79,8 +84,8 @@ export function ClosedPeriodsDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Períodos cerrados</DialogTitle>
           <DialogDescription>
-            Un período cerrado no admite asientos nuevos, ediciones ni reversas
-            con fecha en ese mes.
+            Un período cerrado no admite asientos nuevos, ediciones, reversas ni
+            emisión de comprobantes fiscales con fecha en ese mes.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,6 +142,12 @@ export function ClosedPeriodsDialog({ open, onOpenChange }: Props) {
                       Cerrado el {formatArgentineDateTime(p.closed_at)}
                       {p.note ? ` · ${p.note}` : ""}
                     </p>
+                    {p.pending_entries > 0 && (
+                      <p className="text-xs text-foreground">
+                        {p.pending_entries} comprobante(s) autorizado(s) por
+                        AFIP sin asiento: se generan al reabrir.
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="outline"
