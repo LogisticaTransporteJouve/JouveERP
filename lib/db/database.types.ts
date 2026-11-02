@@ -5043,6 +5043,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_manual_check_id_fkey"
+            columns: ["manual_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
             foreignKeyName: "transactions_payment_order_id_fkey"
             columns: ["payment_order_id"]
             isOneToOne: false

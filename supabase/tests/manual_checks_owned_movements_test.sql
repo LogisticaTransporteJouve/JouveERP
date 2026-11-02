@@ -67,6 +67,15 @@ select throws_ok(
   'the inflow of a hand-loaded check cannot be edited by hand'
 );
 
+select lives_ok(
+  $$update public.transactions set description = 'Cheque MC-1 (nota)'
+     where manual_check_id = '00000000-0000-0000-0000-0000000008c1'$$,
+  'its description can still be edited'
+);
+
+reset role;
+
+-- As the table owner: RLS would filter the delete before the guard runs.
 select throws_ok(
   $$delete from public.transactions
      where manual_check_id = '00000000-0000-0000-0000-0000000008c1'$$,
@@ -75,13 +84,6 @@ select throws_ok(
   'the inflow of a hand-loaded check cannot be deleted by hand'
 );
 
-select lives_ok(
-  $$update public.transactions set description = 'Cheque MC-1 (nota)'
-     where manual_check_id = '00000000-0000-0000-0000-0000000008c1'$$,
-  'its description can still be edited'
-);
-
-reset role;
 
 select is(
   (select v.source_document from public.v_transactions_tagged v
