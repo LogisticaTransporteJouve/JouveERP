@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { listClientsAction } from "@/features/clients/actions/clients-actions";
-import { listPalletsAction } from "@/features/pallets/actions/pallets-actions";
+import {
+  listPalletClientOptionsAction,
+  listPalletsAction,
+} from "@/features/pallets/actions/pallets-actions";
 import { PalletsTable } from "@/features/pallets/components/pallets-table";
 import { palletsKeys } from "@/features/pallets/lib/pallets-keys";
 import { listProductsAction } from "@/features/products/actions/products-actions";
@@ -29,7 +31,7 @@ export default async function PalletsPageRoute() {
         },
       ]),
       listWarehousesAction({ onlyActive: true }),
-      listClientsAction(),
+      listPalletClientOptionsAction(),
       listProductsAction(),
     ]);
 
