@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Link2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -63,6 +65,22 @@ export function DriversTable({
         cell: ({ row }) => (
           <span className="font-medium">{row.original.full_name}</span>
         ),
+      },
+      {
+        id: "employee",
+        header: "Tipo",
+        cell: ({ row }) =>
+          row.original.employee_id ? (
+            <Link
+              href={`/employees/${row.original.employee_id}`}
+              className="text-sm hover:underline"
+            >
+              Empleado
+            </Link>
+          ) : (
+            <span className="text-muted-foreground text-sm">Contratado</span>
+          ),
+        meta: { headerClassName: "w-28" },
       },
       {
         accessorKey: "cuit",
@@ -159,14 +177,15 @@ export function DriversTable({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Choferes</h1>
           <p className="text-muted-foreground text-sm">
-            Choferes propios y contratados de la flota.
+            Los choferes propios se dan de alta en Personal → Empleados
+            (posición “Chofer / Acompañante”). Acá se cargan los contratados.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="drivers" />
           <Button onClick={() => setDialog({ mode: "create" })}>
             <Plus />
-            Nuevo chofer
+            Nuevo chofer contratado
           </Button>
         </div>
       </div>

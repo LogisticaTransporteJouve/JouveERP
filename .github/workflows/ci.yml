@@ -183,9 +183,11 @@ jobs:
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
 
+      # inbucket (test mail server) stays off: no e2e test reads mail, and its
+      # host port 54324 intermittently fails to bind on hosted runners.
       - name: Start Supabase
         run: |
-          supabase start -x imgproxy,studio,edge-runtime,logflare,vector,supavisor \
+          supabase start -x imgproxy,studio,edge-runtime,logflare,vector,supavisor,inbucket \
             > "$RUNNER_TEMP/supabase-start.log" 2>&1 || { cat "$RUNNER_TEMP/supabase-start.log"; exit 1; }
 
       # The local stack's well-known keys, for the build, the server and the

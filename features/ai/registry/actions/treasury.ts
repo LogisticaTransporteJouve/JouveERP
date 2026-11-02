@@ -15,7 +15,7 @@ export async function runTreasurySummary(): Promise<AiRunResult> {
       `${d.checks_due_soon.count} checks due soon (7 days).`,
     d,
     {
-      note: "Treasury is the real cash of every channel; it is never split by scope.",
+      note: "Tesorería es la caja real de todos los canales: no se separa por canal.",
     },
   );
 }

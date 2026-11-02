@@ -66,6 +66,8 @@ export function DriverDialog({
   const updateMut = useUpdateDriver();
   const isSaving = createMut.isPending || updateMut.isPending;
   const isEdit = mode === "edit";
+  // An own driver mirrors its employee: name and CUIT live on the legajo.
+  const isEmployee = !!driver?.employee_id;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -103,10 +105,13 @@ export function DriverDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar chofer" : "Nuevo chofer"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Editar chofer" : "Nuevo chofer contratado"}
+          </DialogTitle>
           <DialogDescription>
-            Chofer propio o contratado. La documentación vencible (licencia, ART)
-            se carga aparte.
+            {isEmployee
+              ? "Chofer propio: el nombre y el CUIT se editan en su legajo (Personal → Empleados)."
+              : "Chofer sin legajo. Los propios se dan de alta en Personal → Empleados. La documentación vencible (licencia, ART) se carga aparte."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -118,7 +123,11 @@ export function DriverDialog({
                 <FormItem>
                   <FormLabel>Nombre completo</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Juan Pérez" />
+                    <Input
+                      {...field}
+                      placeholder="Juan Pérez"
+                      readOnly={isEmployee}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -132,7 +141,11 @@ export function DriverDialog({
                   <FormItem>
                     <FormLabel>CUIT</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="20-12345678-9" />
+                      <Input
+                        {...field}
+                        placeholder="20-12345678-9"
+                        readOnly={isEmployee}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
