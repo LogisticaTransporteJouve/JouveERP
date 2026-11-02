@@ -55,6 +55,12 @@ export const TASK_SOURCES: Record<AutomaticTaskKind, TaskSource> = {
     assign: ["hr:write"],
     href: "/hr/document-expirations",
   },
+  vehicle_km: {
+    label: "Km mensual",
+    read: ["fleet_km:read"],
+    assign: ["fleet_km:write"],
+    href: "/vehicle-km",
+  },
 };
 
 /** What a viewer without the source module's permission sees as the title. */

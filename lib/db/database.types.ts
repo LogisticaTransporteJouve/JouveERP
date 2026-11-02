@@ -1822,6 +1822,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           file_id: string
+          fuel_load_id: string | null
           id: string
           invoice_id: string | null
           issued_check_id: string | null
@@ -1839,6 +1840,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           file_id: string
+          fuel_load_id?: string | null
           id?: string
           invoice_id?: string | null
           issued_check_id?: string | null
@@ -1856,6 +1858,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           file_id?: string
+          fuel_load_id?: string | null
           id?: string
           invoice_id?: string | null
           issued_check_id?: string | null
@@ -1900,6 +1903,13 @@ export type Database = {
             columns: ["file_id"]
             isOneToOne: false
             referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_fuel_load_id_fkey"
+            columns: ["fuel_load_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_loads"
             referencedColumns: ["id"]
           },
           {
@@ -5495,6 +5505,50 @@ export type Database = {
           },
         ]
       }
+      vehicle_km_readings: {
+        Row: {
+          created_at: string
+          id: string
+          km: number
+          loaded_by: string | null
+          notes: string | null
+          period: string
+          read_on: string
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          km: number
+          loaded_by?: string | null
+          notes?: string | null
+          period: string
+          read_on: string
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          km?: number
+          loaded_by?: string | null
+          notes?: string | null
+          period?: string
+          read_on?: string
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_km_readings_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           alias: string | null
@@ -5503,6 +5557,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           fleet: string | null
+          fuel_card: string | null
           id: string
           is_active: boolean
           model: string | null
@@ -5519,6 +5574,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           fleet?: string | null
+          fuel_card?: string | null
           id?: string
           is_active?: boolean
           model?: string | null
@@ -5535,6 +5591,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           fleet?: string | null
+          fuel_card?: string | null
           id?: string
           is_active?: boolean
           model?: string | null

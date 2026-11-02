@@ -30,6 +30,15 @@ describe("canSeeTaskSource", () => {
       true,
     );
     expect(canSeeTaskSource(resolveAccess(["finance"]), fleetTask)).toBe(false);
+    const kmTask = { origin: "automatic", kind: "vehicle_km" } as const;
+    expect(canSeeTaskSource(resolveAccess(["operations"]), kmTask)).toBe(true);
+    expect(canSeeTaskSource(resolveAccess(["finance"]), kmTask)).toBe(false);
+    expect(
+      canSeeTaskSource(
+        resolveAccess(["operations"], ["fleet_km:read"]),
+        kmTask,
+      ),
+    ).toBe(false);
   });
 
   it("hides an automatic task of an unknown kind", () => {

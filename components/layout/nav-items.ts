@@ -342,6 +342,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: "fuel:read",
       },
       {
+        href: "/vehicle-km",
+        label: "Km mensual",
+        icon: Gauge,
+        permission: "fleet_km:read",
+      },
+      {
         href: "/maintenance",
         label: "Mantenimiento",
         icon: Wrench,
