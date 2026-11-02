@@ -187,41 +187,6 @@ export async function getCashFlowAction(input: {
   }
   cashToday = round2(cashToday);
 
-  // Recurring payments → future outflows (dated), channel-split.
-  const { data: recurring, error: recurringErr } = await paginateRange(
-    (from, to) =>
-      supabase
-        .from("recurring_payments")
-        .select(
-          "id, amount, currency, frequency, next_due_date, end_date, channel_id",
-        )
-        .eq("is_active", true)
-        .order("id", { ascending: true })
-        .range(from, to),
-  );
-  if (recurringErr) return failed("recurring", recurringErr);
-  for (const rp of recurring) {
-    const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
-    if (amount === null) continue;
-    let occ = rp.next_due_date;
-    let guard = 0;
-    while (occ < rangeEndExclusive && guard < 400) {
-      guard++;
-      if (occ >= `${firstFwd}-01` && (!rp.end_date || occ <= rp.end_date)) {
-        const m = monthKey(occ);
-        if (monthSet.has(m)) {
-          events.push({
-            month: m,
-            direction: "out",
-            amount,
-            scope: scopeOfChannel(rp.channel_id),
-          });
-        }
-      }
-      occ = addByFrequency(occ, rp.frequency);
-    }
-  }
-
   // Open client receivables → expected collection in the month of their due
   // date (overdue ones clamp to the first projected month), channel-split.
   // Drained past max_rows (1000): open documents grow with the business.
@@ -323,7 +288,9 @@ export async function getCashFlowAction(input: {
         .from("loan_installments")
         .select("id, loan_id, due_date, amount")
         .eq("status", "pendiente")
-        .gte("due_date", `${firstFwd}-01`)
+        // Overdue and current-month installments still unpaid are cash to
+        // pay: they land in the first projected month, like overdue
+        // receivables and payables.
         .lt("due_date", rangeEndExclusive)
         .order("id", { ascending: true })
         .range(from, to),
@@ -334,7 +301,7 @@ export async function getCashFlowAction(input: {
       if (!loan) continue;
       const amt = arsAtRate(Math.abs(Number(li.amount)), loan.currency);
       if (amt === null) continue;
-      const m = monthKey(li.due_date);
+      const m = placementMonth(li.due_date, null, firstFwd);
       if (monthSet.has(m)) {
         events.push({
           month: m,
@@ -343,6 +310,50 @@ export async function getCashFlowAction(input: {
           scope: loan.scope,
         });
       }
+    }
+  }
+  const loanScopes = new Set([...loanInfo.values()].map((l) => l.scope));
+
+  // Recurring payments → future outflows (dated), channel-split.
+  const { data: recurring, error: recurringErr } = await paginateRange(
+    (from, to) =>
+      supabase
+        .from("recurring_payments")
+        .select(
+          "id, amount, currency, frequency, next_due_date, end_date, channel_id, category",
+        )
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  if (recurringErr) return failed("recurring", recurringErr);
+  for (const rp of recurring) {
+    // A recurring "Préstamo" next to a loaded loan of the same channel is
+    // the same payment its installments already project: count it once.
+    if (
+      rp.category === "prestamo" &&
+      loanScopes.has(scopeOfChannel(rp.channel_id))
+    ) {
+      continue;
+    }
+    const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
+    if (amount === null) continue;
+    let occ = rp.next_due_date;
+    let guard = 0;
+    while (occ < rangeEndExclusive && guard < 400) {
+      guard++;
+      if (occ >= `${firstFwd}-01` && (!rp.end_date || occ <= rp.end_date)) {
+        const m = monthKey(occ);
+        if (monthSet.has(m)) {
+          events.push({
+            month: m,
+            direction: "out",
+            amount,
+            scope: scopeOfChannel(rp.channel_id),
+          });
+        }
+      }
+      occ = addByFrequency(occ, rp.frequency);
     }
   }
 

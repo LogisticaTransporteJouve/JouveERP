@@ -20,6 +20,7 @@ function builder(rows: Row[]) {
     eq: () => b,
     gte: () => b,
     lte: () => b,
+    lt: () => b,
     order: () => b,
     range: async () => ({ data: rows, error: null }),
   };
@@ -114,5 +115,54 @@ describe("getCashFlowAction and the USD rate", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.usdSkipped).toBe(false);
+  });
+});
+
+describe("getCashFlowAction and loans", () => {
+  const firstProjected = () => {
+    const now = new Date();
+    const d = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    return d.toISOString().slice(0, 7);
+  };
+
+  beforeEach(() => {
+    rateRead = { ok: true, rate: null };
+    db.accounts = db.accounts!.filter((a) => a.currency === "ARS");
+    db.loans = [{ id: "l1", currency: "ARS", channel_id: "jouve_fiscal" }];
+  });
+
+  it("projects an overdue unpaid installment in the first projected month", async () => {
+    db.loan_installments = [
+      { id: "i1", loan_id: "l1", due_date: "2020-01-10", amount: 500 },
+    ];
+    const res = await getCashFlowAction({});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const first = res.data.months.find((m) => m.month === firstProjected());
+    expect(first?.outTotal).toBe(500);
+  });
+
+  it("does not count a recurring “Préstamo” next to a loaded loan twice", async () => {
+    db.loan_installments = [];
+    db.recurring_payments = [
+      {
+        id: "r1",
+        amount: 700,
+        currency: "ARS",
+        frequency: "monthly",
+        next_due_date: `${firstProjected()}-05`,
+        end_date: null,
+        channel_id: "jouve_fiscal",
+        category: "prestamo",
+      },
+    ];
+    const res = await getCashFlowAction({});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.months.every((m) => m.realized || m.outTotal === 0)).toBe(
+      true,
+    );
   });
 });
