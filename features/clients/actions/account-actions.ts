@@ -32,10 +32,11 @@ const SetOpeningInput = z.object({
   notes: NotesSchema,
 });
 
-/** `rejected_check`: a check of an issued receipt that bounced; the client
- *  owes it again (D11). Numbered with the receipt that brought it. */
+/** `rejected_check`: a check of an issued receipt (or one handed over
+ *  without a receipt) that bounced; the client owes it again (D11).
+ *  `manual_check`: a check handed over without a receipt, paid on account. */
 export type AccountMovementSourceType =
-  "invoice" | "receipt" | "opening_balance" | "rejected_check";
+  "invoice" | "receipt" | "opening_balance" | "rejected_check" | "manual_check";
 
 export interface AccountMovement {
   source_type: AccountMovementSourceType;

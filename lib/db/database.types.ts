@@ -4927,6 +4927,7 @@ export type Database = {
           is_payroll: boolean
           issued_check_id: string | null
           kind: string
+          manual_check_id: string | null
           payment_order_id: string | null
           receipt_id: string | null
           rejected_check_id: string | null
@@ -4951,6 +4952,7 @@ export type Database = {
           is_payroll?: boolean
           issued_check_id?: string | null
           kind: string
+          manual_check_id?: string | null
           payment_order_id?: string | null
           receipt_id?: string | null
           rejected_check_id?: string | null
@@ -4975,6 +4977,7 @@ export type Database = {
           is_payroll?: boolean
           issued_check_id?: string | null
           kind?: string
+          manual_check_id?: string | null
           payment_order_id?: string | null
           receipt_id?: string | null
           rejected_check_id?: string | null
@@ -5031,6 +5034,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "issued_checks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_manual_check_id_fkey"
+            columns: ["manual_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_manual_check_id_fkey"
+            columns: ["manual_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
           },
           {
             foreignKeyName: "transactions_payment_order_id_fkey"
