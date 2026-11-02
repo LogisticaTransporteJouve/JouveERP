@@ -23,7 +23,7 @@
 - [ ] **CAEA — alta del punto de venta de contingencia.** Todo el flujo (código
       por quincena, emisión offline, régimen informativo) está shippeado, pero
       requiere crear una única vez el PV **"CAEA — Contingencias"** en
-      *Administración de Puntos de Venta y Domicilios* de ARCA. Hasta entonces
+      _Administración de Puntos de Venta y Domicilios_ de ARCA. Hasta entonces
       `FECAEASolicitar` responde 15003 y el panel de `/admin/afip` lo muestra.
 - [ ] **Tarifas de storage — cargar los valores reales.** El CRUD + versionado
       está; los importes vigentes son estimados hasta que se confirmen con el
@@ -36,12 +36,10 @@
       pago, factura de venta (emite por el flujo normal, con guard de
       duplicados) y NC/ND de compra (#195). Remitos quedan como archivo (no hay
       entidad remito en el ERP); extractos van por conciliación.
-- [x] **Asientos manuales** (`source_table = null`) + cuenta **RECPAM 4.2.2**
-      + aplicación **RG 4667** (generar/vincular/desvincular asiento desde la
+- [x] **Asientos manuales** (`source_table = null`) + cuenta **RECPAM 4.2.2** + aplicación **RG 4667** (generar/vincular/desvincular asiento desde la
       página de inflación) (#196). Decisión: el ajuste se calcula afuera y se
       carga manual — no hay RPC de reexpresión automática.
-- [x] **H.5 tarifas** — snapshot de tarifas aplicadas en `storage_billing_runs`
-      + aumento masivo por % con historial (#197). La emisión AFIP de storage ya
+- [x] **H.5 tarifas** — snapshot de tarifas aplicadas en `storage_billing_runs` + aumento masivo por % con historial (#197). La emisión AFIP de storage ya
       estaba cableada vía `issueFiscalInvoiceAction` (el doc estaba desactualizado).
 - [x] **Flujo de caja USD** — cuentas, cheques, aging, recurrentes y cuotas en
       USD convertidos al último TC oficial; las vistas de aging ahora exponen
@@ -97,8 +95,37 @@
       manuales "fiscal general" (sin canal) y sus líneas; los internos siguen
       ocultos. El alcance "Solo fiscal" del libro diario también los incluye.
 - [ ] Las NC/ND de compra cargadas antes de esta corrección siguen asentadas
-      contra `compras` (no hay backfill, y el formulario de edición no cambia
-      la cuenta de gasto): decidir si se corrigen y cómo.
+      contra `compras` (no hay backfill). Desde 1.1/1.2 el formulario de
+      edición cambia la cuenta de gasto (re-asienta en un período abierto):
+      decidir si se corrigen una por una o con un backfill.
+
+---
+
+## Bases contables: costo con rubro y centro (roadmap 1.1 + 1.2 + 1.8, 2026-11-02)
+
+- [x] **Compras con cuenta de gasto y centro de costo** (fiscal e interno, alta
+      y edición). Default: el del proveedor; si no tiene, la sugerencia de la
+      IA del escaneo. La base rechaza una cuenta que no sea hoja activa de
+      resultado negativo.
+- [x] **Proveedor con cuenta de gasto y centro de costo por defecto**, en su
+      ficha.
+- [x] **Egreso manual de caja con cuenta de gasto y centro** (alta y edición):
+      asienta contra esa cuenta en vez de `gastos`; sin cuenta, igual que
+      antes. Los movimientos de documentos no la llevan.
+- [x] **Resultado de gestión por centro de costo:** filtro y tabla "Por
+      centro de costo"; la herramienta de IA `getManagementPnL` también.
+- [ ] **Centro de costo del camión en combustible y mantenimiento.** `vehicles`
+      no tiene centro y la carga de combustible / el service solo referencian
+      la compra (`purchase_invoice_id`): falta `vehicles.cost_center_id` y que
+      vincular una carga a una compra sin centro le ponga el del camión.
+- [ ] **Percibido por centro para pagos con OP:** el movimiento de la OP no
+      lleva el centro de las compras que paga (podría repartirse por
+      imputación).
+- [ ] **Compras y egresos cargados antes** quedan sin cuenta ni centro (van a
+      `compras`/`gastos` y a "Sin centro"): no hay backfill; se corrigen
+      editándolos en un período abierto.
+- [ ] Cuenta de gasto por ítem de compra (hoy la compra entera va a una
+      cuenta): solo si aparece un caso real.
 
 ---
 
