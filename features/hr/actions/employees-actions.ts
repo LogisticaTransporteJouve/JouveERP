@@ -6,7 +6,10 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
+import { todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+
+import { applyVacationOpening } from "../lib/vacation-opening";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
@@ -194,6 +197,45 @@ export async function createEmployeeAction(
     },
     data.id,
   );
+
+  // Vacation days loaded with the employee (owner/admin only, like the
+  // balances' RLS). The employee already exists, so a failure here is
+  // reported but does not undo it: the days can be loaded again from the
+  // employee's page.
+  const currentDays = parsed.data.vacation_current_days ?? null;
+  const previousDays = parsed.data.vacation_previous_days ?? null;
+  if (
+    (currentDays !== null || previousDays !== null) &&
+    userCan(ctx.access, "hr:admin")
+  ) {
+    const opening = await applyVacationOpening(supabase, {
+      employeeId: data.id,
+      currentDays,
+      previousDays,
+      today: todayInAR(),
+      userId: ctx.userId,
+    });
+    if (!opening.ok) {
+      logger.warn("employees.create.vacations_failed", {
+        userId: ctx.userId,
+        employeeId: data.id,
+      });
+      return {
+        ok: false,
+        error: `El empleado se creó, pero no se pudieron guardar las vacaciones: ${opening.error} Cargalas desde su ficha.`,
+      };
+    }
+    await logAudit(
+      "employee.vacation_balance_set",
+      ctx.userId,
+      {
+        period_year: opening.periodYear,
+        current_days: currentDays,
+        previous_days: previousDays,
+      },
+      data.id,
+    );
+  }
   return { ok: true, data: { id: data.id } };
 }
 

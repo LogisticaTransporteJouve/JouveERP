@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { todayInAR } from "@/lib/format";
+
 import { useCreateEmployee, useUpdateEmployee } from "../hooks/use-employees";
+import {
+  currentVacationPeriodYear,
+  suggestedVacationDays,
+} from "../lib/vacation-periods";
 import {
   PAY_FREQUENCIES,
   PAY_FREQUENCY_LABEL,
@@ -46,6 +52,8 @@ type FormValues = {
   is_monotributo: boolean;
   hire_date: string;
   notes: string;
+  vacation_current_days: string;
+  vacation_previous_days: string;
 };
 
 function employeeToValues(employee: Employee | undefined): FormValues {
@@ -64,6 +72,24 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     is_monotributo: employee?.is_monotributo ?? false,
     hire_date: employee?.hire_date ?? new Date().toISOString().slice(0, 10),
     notes: employee?.notes ?? "",
+    vacation_current_days: "",
+    vacation_previous_days: "",
+  };
+}
+
+/** The employee's own fields: the vacation days go to their balances. */
+function withoutVacationFields(values: FormValues) {
+  return {
+    legal_name: values.legal_name,
+    position: values.position,
+    cuil: values.cuil,
+    cbu: values.cbu,
+    pay_frequency: values.pay_frequency,
+    base_salary: values.base_salary,
+    viatico_monthly: values.viatico_monthly,
+    is_monotributo: values.is_monotributo,
+    hire_date: values.hire_date,
+    notes: values.notes,
   };
 }
 
@@ -72,8 +98,11 @@ export function EmployeeForm({
   employee,
   onSuccess,
   onCancel,
+  canSetVacations = false,
 }: {
   mode: Mode;
+  /** Create mode, owner/admin: show the vacation days fields. */
+  canSetVacations?: boolean;
   employee?: Employee;
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
@@ -87,9 +116,24 @@ export function EmployeeForm({
     defaultValues: employeeToValues(employee),
   });
 
+  const hireDate = useWatch({ control: form.control, name: "hire_date" });
+  const vacationPeriod = currentVacationPeriodYear(todayInAR());
+  const suggestedDays = /^\d{4}-\d{2}-\d{2}$/.test(hireDate)
+    ? suggestedVacationDays(hireDate, vacationPeriod)
+    : null;
+
   function onSubmit(values: FormValues) {
     if (mode === "create") {
-      createMut.mutate(values, {
+      const employeeValues = withoutVacationFields(values);
+      const withVacations = canSetVacations
+        ? {
+            ...employeeValues,
+            vacation_current_days: values.vacation_current_days.trim() || null,
+            vacation_previous_days:
+              values.vacation_previous_days.trim() || null,
+          }
+        : employeeValues;
+      createMut.mutate(withVacations, {
         onSuccess: (data) => {
           toast.success("Empleado creado.");
           if (onSuccess) onSuccess(data.id);
@@ -99,7 +143,7 @@ export function EmployeeForm({
       });
     } else if (employee) {
       updateMut.mutate(
-        { id: employee.id, ...values },
+        { id: employee.id, ...withoutVacationFields(values) },
         {
           onSuccess: () => {
             toast.success("Cambios guardados.");
@@ -300,6 +344,70 @@ export function EmployeeForm({
             )}
           />
         </div>
+
+        {mode === "create" && canSetVacations && (
+          <div className="space-y-3 rounded-md border p-4">
+            <div>
+              <h3 className="text-sm font-medium">Vacaciones</h3>
+              <p className="text-xs text-muted-foreground">
+                Opcional. Si lo dejás vacío, el período nuevo se otorga solo el
+                1 de octubre.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="vacation_current_days"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Días del período en curso ({vacationPeriod}-
+                      {vacationPeriod + 1})
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        inputMode="numeric"
+                        placeholder={
+                          suggestedDays !== null ? String(suggestedDays) : ""
+                        }
+                        autoComplete="off"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {suggestedDays !== null
+                        ? `Por antigüedad le corresponden ${suggestedDays} días (LCT art. 150).`
+                        : "Según la antigüedad: 14, 21, 28 o 35 días."}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="vacation_previous_days"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Días pendientes de años anteriores</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        inputMode="numeric"
+                        placeholder="0"
+                        autoComplete="off"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Lo que le queda sin tomar de períodos anteriores. Se usa
+                      primero.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
 
         <FormField
           control={form.control}

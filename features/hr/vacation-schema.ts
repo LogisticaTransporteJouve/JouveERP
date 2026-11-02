@@ -93,3 +93,40 @@ export type VacationBalance = {
   created_at: string;
   updated_at: string;
 };
+
+// ─── Opening balance (days loaded by hand) ──────────────────────────────────
+
+const vacationDays = z.coerce
+  .number()
+  .int("Tiene que ser un número entero de días.")
+  .min(0, "No puede ser negativo.")
+  .max(365, "Demasiados días.");
+
+/** The two numbers HR loads per employee: the current period's days and the
+ *  days still pending from earlier years, as one figure. */
+export const SetVacationOpeningSchema = z.object({
+  employee_id: z.string().uuid(),
+  current_days: vacationDays,
+  previous_days: vacationDays,
+});
+
+export type SetVacationOpeningInput = z.infer<typeof SetVacationOpeningSchema>;
+
+/** One row of Personal → Vacaciones. */
+export type VacationOverviewRow = {
+  employee_id: string;
+  legal_name: string;
+  hire_date: string;
+  period_year: number;
+  /** Days of the current period (entitled + extra), null when not granted. */
+  current_days: number | null;
+  /** Automatic carryover into the current period. */
+  carryover_days: number;
+  /** Still pending from earlier periods kept open (extended or active). */
+  previous_days: number;
+  /** Days taken in the current period. */
+  used_days: number;
+  /** Available now: current period plus earlier pending days. */
+  remaining_days: number;
+  expires_at: string | null;
+};

@@ -15,7 +15,12 @@ import {
 
 import { EmployeeForm } from "./employee-form";
 
-export function NewEmployeeDialog() {
+export function NewEmployeeDialog({
+  canSetVacations,
+}: {
+  /** Owner/admin: may load vacation days with the employee. */
+  canSetVacations: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,6 +41,7 @@ export function NewEmployeeDialog() {
         </DialogHeader>
         <EmployeeForm
           mode="create"
+          canSetVacations={canSetVacations}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />
