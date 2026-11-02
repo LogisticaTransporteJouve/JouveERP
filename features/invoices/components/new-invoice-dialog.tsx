@@ -31,6 +31,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,7 +55,12 @@ import {
   counterpartyIdentityLabel,
   isIvaCondition,
 } from "@/features/clients/schema";
-import { computeTotals } from "@/features/invoices/schema";
+import {
+  computeTotals,
+  REVENUE_KIND_LABEL,
+  suggestRevenueKind,
+  type RevenueKind,
+} from "@/features/invoices/schema";
 import { formatNumber2, todayInAR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -87,9 +93,22 @@ type ItemDraft = {
   quantity: string;
   unit_price: string;
   iva_rate_id: IvaRateId;
+  // Unset: suggestRevenueKind decides until the user ticks the box.
+  revenue_kind?: RevenueKind;
 };
 
 const SEGURO_DESCRIPTION = "Seguro";
+
+// A remito interno has no IVA rate on screen: the suggestion reads none.
+function itemRevenueKind(item: ItemDraft, isFiscal: boolean): RevenueKind {
+  return (
+    item.revenue_kind ??
+    suggestRevenueKind({
+      description: item.description,
+      iva_rate_id: isFiscal ? item.iva_rate_id : null,
+    })
+  );
+}
 
 // One column template for the header and every item row, so they line up. A
 // remito interno has no IVA column: its price is final.
@@ -287,6 +306,7 @@ function NewInvoiceForm({
             quantity: String(it.quantity),
             unit_price: String(it.unit_price),
             iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
+            revenue_kind: it.revenue_kind,
           })),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -464,6 +484,7 @@ function NewInvoiceForm({
           quantity: Number(it.quantity) || 0,
           unit_price: Number(it.unit_price) || 0,
           iva_rate_id: it.iva_rate_id,
+          revenue_kind: itemRevenueKind(it, isFiscal),
         })),
         idempotency_key: issueKey,
       },
@@ -775,14 +796,30 @@ function NewInvoiceForm({
                           </div>
                         </div>
                       ) : (
-                        <Input
-                          placeholder="Descripción"
-                          aria-label="Descripción"
-                          value={item.description}
-                          onChange={(e) =>
-                            updateItem(idx, { description: e.target.value })
-                          }
-                        />
+                        <div className="min-w-0 space-y-1">
+                          <Input
+                            placeholder="Descripción"
+                            aria-label="Descripción"
+                            value={item.description}
+                            onChange={(e) =>
+                              updateItem(idx, { description: e.target.value })
+                            }
+                          />
+                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Checkbox
+                              checked={
+                                itemRevenueKind(item, isFiscal) === "asset_sale"
+                              }
+                              onCheckedChange={(checked) =>
+                                updateItem(idx, {
+                                  revenue_kind:
+                                    checked === true ? "asset_sale" : "service",
+                                })
+                              }
+                            />
+                            {REVENUE_KIND_LABEL.asset_sale}
+                          </label>
+                        </div>
                       )}
                       {seguro ? (
                         <SeguroPercentInput

@@ -103,8 +103,20 @@ beforeEach(() => {
     imp_total: 1000,
     channel: { is_fiscal: false },
     items: [
-      { description: "B", quantity: 2, unit_price: 100, sort_order: 1 },
-      { description: "A", quantity: 1, unit_price: 800, sort_order: 0 },
+      {
+        description: "B",
+        quantity: 2,
+        unit_price: 100,
+        revenue_kind: "service",
+        sort_order: 1,
+      },
+      {
+        description: "A",
+        quantity: 1,
+        unit_price: 800,
+        revenue_kind: "asset_sale",
+        sort_order: 0,
+      },
     ],
   };
   h.client = {
@@ -282,12 +294,15 @@ describe("billRemitoAction — the factura it issues", () => {
         quantity: 1,
         unit_price: 800,
         iva_rate_id: IVA_RATE.TWENTY_ONE,
+        // The remito's revenue kind carries over to the factura.
+        revenue_kind: "asset_sale",
       },
       {
         description: "B",
         quantity: 2,
         unit_price: 100,
         iva_rate_id: IVA_RATE.TWENTY_ONE,
+        revenue_kind: "service",
       },
     ]);
   });

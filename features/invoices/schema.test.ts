@@ -12,6 +12,7 @@ import {
   isInvoiceKind,
   isInvoiceLetter,
   isInvoiceStatus,
+  suggestRevenueKind,
 } from "./schema";
 
 describe("type guards", () => {
@@ -246,5 +247,41 @@ describe("invoiceKindLabel", () => {
   it("keeps the fiscal labels", () => {
     expect(invoiceKindLabel("factura", true)).toBe("Factura");
     expect(invoiceKindLabel("nc", true)).toBe("Nota de Crédito");
+  });
+});
+
+describe("suggestRevenueKind", () => {
+  it("proposes an asset sale for a vehicle at 10.5 %", () => {
+    expect(
+      suggestRevenueKind({
+        description: "Venta camión Scania dominio AB123CD",
+        iva_rate_id: IVA_RATE.TEN_FIVE,
+      }),
+    ).toBe("asset_sale");
+    expect(
+      suggestRevenueKind({
+        description: "Semirremolque Helvético",
+        iva_rate_id: IVA_RATE.TEN_FIVE,
+      }),
+    ).toBe("asset_sale");
+  });
+
+  it("keeps a service otherwise", () => {
+    // A freight at 21 % mentioning the truck is still a service.
+    expect(
+      suggestRevenueKind({
+        description: "Flete con camión a Rosario",
+        iva_rate_id: IVA_RATE.TWENTY_ONE,
+      }),
+    ).toBe("service");
+    expect(
+      suggestRevenueKind({
+        description: "Flete a Rosario",
+        iva_rate_id: IVA_RATE.TEN_FIVE,
+      }),
+    ).toBe("service");
+    expect(
+      suggestRevenueKind({ description: "Camión", iva_rate_id: null }),
+    ).toBe("service");
   });
 });

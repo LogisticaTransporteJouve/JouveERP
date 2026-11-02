@@ -2310,6 +2310,7 @@ export type Database = {
           line_neto: number
           line_total: number
           quantity: number
+          revenue_kind: string
           sort_order: number
           unit_price: number
         }
@@ -2323,6 +2324,7 @@ export type Database = {
           line_neto: number
           line_total: number
           quantity: number
+          revenue_kind?: string
           sort_order?: number
           unit_price: number
         }
@@ -2336,6 +2338,7 @@ export type Database = {
           line_neto?: number
           line_total?: number
           quantity?: number
+          revenue_kind?: string
           sort_order?: number
           unit_price?: number
         }
@@ -6763,6 +6766,10 @@ export type Database = {
         Returns: boolean
       }
       is_fleet_document_file: { Args: { p_file_id: string }; Returns: boolean }
+      journal_document_entry: {
+        Args: { p_fiscal_only?: boolean; p_id: string; p_source: string }
+        Returns: Json
+      }
       journal_entry_status: {
         Args: { p_id: string; p_source: string }
         Returns: string

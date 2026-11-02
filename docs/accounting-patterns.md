@@ -161,7 +161,12 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   con `invoice_id`/`receipt_id`/`payment_order_id` (ya cubiertas por su header).
 - **Un builder por origen:** `build_{invoice,purchase_invoice,receipt,payment_order,transaction}_journal_lines`;
   `journal_expected_entry(src, id)` dice qué asiento corresponde a la fila actual y
-  `emit_journal(src, id)` lo emite.
+  `emit_journal(src, id)` lo emite. Desde `…20261102250000`
+  `journal_expected_entry` es `journal_document_entry(src, id, true)`:
+  `journal_document_entry` arma el asiento de un documento de **cualquier**
+  canal con los mismos builders (sin la puerta `is_channel_fiscal`, salvo con
+  `p_fiscal_only`). No escribe nada; lo lee el Resultado de gestión para los
+  documentos internos.
 - **Zero-total guard** (fix `…517860000`): un comprobante o compra con
   `imp_total <= 0` no asienta — crearía una línea `debit=0/credit=0` (viola el CHECK,
   `23514`) y voltearía un batch entero de import AFIP.

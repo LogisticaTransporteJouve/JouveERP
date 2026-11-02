@@ -49,6 +49,9 @@ vi.mock("@/features/invoices/components/issue-nc-nd-dialog", () => ({
 vi.mock("@/features/invoices/components/regenerate-pdf-button", () => ({
   RegeneratePdfButton: () => null,
 }));
+vi.mock("@/features/invoices/components/revenue-kind-select", () => ({
+  RevenueKindSelect: () => null,
+}));
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: () => null,
 }));
