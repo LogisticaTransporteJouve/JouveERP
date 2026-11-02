@@ -5,6 +5,7 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
@@ -284,14 +285,17 @@ export async function transitionIssuedCheckAction(
     .select("id");
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "issued_checks.transition.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("issued_checks.transition.failed", {
       userId: ctx.userId,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo cambiar el estado.",
-    };
+    return { ok: false, error: "No se pudo cambiar el estado del cheque." };
   }
   if (!moved || moved.length === 0) {
     return {

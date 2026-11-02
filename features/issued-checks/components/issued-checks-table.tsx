@@ -189,15 +189,20 @@ export function IssuedChecksTable({
                     accounts={accounts}
                     channels={channels}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Anular"
-                    title="Anular"
-                    onClick={() => transition(c.id, "cancelled", "Anulado")}
-                  >
-                    <Ban className="size-4" />
-                  </Button>
+                  {/* A check of a payment order goes away with the order
+                      (annul or edit it); annulling it alone gave the debt
+                      back twice once the order was annulled too. */}
+                  {c.payment_order_id === null && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Anular"
+                      title="Anular"
+                      onClick={() => transition(c.id, "cancelled", "Anulado")}
+                    >
+                      <Ban className="size-4" />
+                    </Button>
+                  )}
                 </>
               )}
             </div>
