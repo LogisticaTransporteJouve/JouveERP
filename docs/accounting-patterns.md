@@ -53,6 +53,14 @@ la app — no hay actions de alta/edición. Los asientos los generan triggers
 > No rompe seguridad (RLS es la última palabra), pero el usuario ve un error de DB
 > en vez de un gate limpio. Considerar alinear el gate del action a la RLS.
 
+**`fiscal_reader` (contador externo)** tiene `accounting:read` y lee el diario y el
+mayor por RLS (`20261031204718_fiscal_reader_role.sql`): ve los asientos de un
+canal fiscal **y los asientos sin canal** (manuales "fiscal general", D1); los de
+un canal interno quedan ocultos, con sus líneas
+(`20261102230300_fiscal_reader_null_channel_journal.sql`). En la app, el alcance
+"Solo fiscal" del libro diario (`listJournalEntriesAction` con `isFiscal=true`)
+también incluye los asientos sin canal; "Solo interno" los excluye.
+
 ---
 
 ## 2. Plan de cuentas — `chart_of_accounts` (L.1)
@@ -180,7 +188,12 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
   `cash/wallet→caja`, `checks/echeq→cheques_cartera`.
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/
   `percepciones_iibb_cobradas`. NC invierte (`v_kind_factor=-1`). Compra: Debe
-  `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`.
+  `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`. El neto
+  va a la cuenta de gasto de la compra (`account_id`) si tiene una, si no a
+  `compras`. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
+  origen** (y su centro de costo si no tiene), así revierte la misma cuenta que
+  la factura (trigger `purchase_invoices_nc_nd_inherit_account`,
+  `20261102230100`); una cuenta elegida en la NC/ND se respeta.
 - **Cheque rechazado (D11):** no es gasto. Con la constancia del banco el cheque es
   título ejecutivo contra el librador y los endosantes (Ley 24.452), así que el
   importe pasa a `cheques_rechazados` contra la cuenta donde estaba el cheque.
@@ -294,11 +307,19 @@ Ambos **solo lectura** sobre `journal_entries`/`_lines`.
   filtra por `accrual_period`.
 - **Libro mayor** = feature `libro-mayor`, `/accounting/libro-mayor`, RPC
   **`get_ledger(account_id, from, to)`** (`SECURITY INVOKER`): líneas de una cuenta
-  con **saldo running** = `Σ(debit−credit) OVER (ORDER BY entry_date, entry_id,
-line_id)`. Filtra por `entry_date` (no `accrual_period`). El action
-  `getLedgerAction` trunca a **`LEDGER_MAX_ROWS=1000`** en app (no en DB) y avisa.
+  con **saldo running** = saldo anterior + `Σ(debit−credit) OVER (ORDER BY
+entry_date, entry_id, line_id)`. El **saldo anterior** es `Σ(debit−credit)` de
+  las líneas con `entry_date < from` (RPC **`get_ledger_opening(account_id,
+from)`**, 0 sin "Desde"); la página lo muestra como primera fila "Saldo
+  anterior" y, sin movimientos en el rango, como saldo final. Filtra por
+  `entry_date` (no `accrual_period`). El action `getLedgerAction` pide una fila
+  más que **`LEDGER_MAX_ROWS=999`** (PostgREST corta en `max_rows=1000`): si
+  llegan 1000 marca `truncated`, muestra las primeras 999 y la página y la
+  herramienta IA avisan que los datos son parciales.
 
-`get_ledger` y `get_account_balances` viven en `20260517200000_l_closure.sql`.
+`get_ledger` y `get_ledger_opening` viven hoy en
+`20261102230200_ledger_opening_balance.sql`; `get_account_balances`, en
+`20260517200000_l_closure.sql`.
 
 > **Sin exports** de libro diario/mayor (no hay PDF/Excel/CSV) — solo los libros IVA
 > tienen export (PDF).

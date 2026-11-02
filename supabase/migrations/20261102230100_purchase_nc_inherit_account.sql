@@ -11,8 +11,9 @@ SET LOCAL statement_timeout = '15min';
 -- NC/ND without account takes its origin's account, and its cost center when
 -- it has none. An account set on the NC/ND is kept.
 --
--- Existing NCs/NDs are not touched: their entries were posted already, and
--- correcting them is a reverse-and-repost per document.
+-- Existing NCs/NDs are not backfilled. Saving one again from the edit form
+-- sends invoice_origin_id, so it takes the origin's account then and
+-- purchase_invoices_repost_journal re-posts it (an open period only).
 
 create function public.purchase_nc_nd_inherit_account()
 returns trigger
