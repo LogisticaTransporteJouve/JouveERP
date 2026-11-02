@@ -7180,7 +7180,10 @@ export type Database = {
         Args: { p_channel: string }
         Returns: undefined
       }
-      materialize_recurring_tasks: { Args: { p_today: string }; Returns: number }
+      materialize_recurring_tasks: {
+        Args: { p_today: string }
+        Returns: number
+      }
       next_internal_invoice_numero_atomic: {
         Args: {
           p_channel_id: string
