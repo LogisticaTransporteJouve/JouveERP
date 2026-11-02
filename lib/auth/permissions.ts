@@ -131,6 +131,10 @@ export const PERMISSIONS = [
   "stock_movements:write",
   "storage_billing:read",
   "storage_billing:issue",
+
+  // Tasks (roadmap 1.4/1.5): shared to-dos, recurring and from documents
+  "tasks:read",
+  "tasks:write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -202,6 +206,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "ai:read",
     "storage_billing:read",
     "storage_billing:issue",
+    "tasks:read",
+    "tasks:write",
   ],
 
   operations: [
@@ -226,6 +232,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "channels:read",
     "ai:chat",
     "ai:read",
+    "tasks:read",
+    "tasks:write",
   ],
 
   warehouse: [
@@ -238,6 +246,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "stock_movements:write",
     "files:read",
     "files:write",
+    "tasks:read",
+    "tasks:write",
   ],
 
   // Driver-level access stays minimal until G.3 adds `:own` scoping.
