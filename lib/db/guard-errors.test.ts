@@ -76,6 +76,7 @@ const GUARDS = [
   "guard_billed_remito_frozen",
   "guard_invoice_period_closed",
   "guard_issued_check_cancel_live_order",
+  "guard_task_identity",
 ];
 
 describe("guard hints in migrations", () => {

@@ -4361,6 +4361,62 @@ export type Database = {
           },
         ]
       }
+      recurring_task_assignees: {
+        Row: {
+          recurring_task_id: string
+          user_id: string
+        }
+        Insert: {
+          recurring_task_id: string
+          user_id: string
+        }
+        Update: {
+          recurring_task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_task_assignees_recurring_task_id_fkey"
+            columns: ["recurring_task_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_tasks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          day_of_month: number
+          description: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          day_of_month: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       roles: {
         Row: {
           created_at: string
@@ -4905,6 +4961,141 @@ export type Database = {
             columns: ["default_channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_assignees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_comments: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          auto_closed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          due_date_locked: boolean
+          id: string
+          kind: string | null
+          notified_stage: string | null
+          origin: string
+          recurrence_period: string | null
+          recurring_task_id: string | null
+          source_id: string | null
+          source_table: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_closed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          due_date_locked?: boolean
+          id?: string
+          kind?: string | null
+          notified_stage?: string | null
+          origin?: string
+          recurrence_period?: string | null
+          recurring_task_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_closed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          due_date_locked?: boolean
+          id?: string
+          kind?: string | null
+          notified_stage?: string | null
+          origin?: string
+          recurrence_period?: string | null
+          recurring_task_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_recurring_task_id_fkey"
+            columns: ["recurring_task_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -6913,6 +7104,7 @@ export type Database = {
         Args: { p_channel: string }
         Returns: undefined
       }
+      materialize_recurring_tasks: { Args: { p_today: string }; Returns: number }
       next_internal_invoice_numero_atomic: {
         Args: {
           p_channel_id: string
@@ -7206,6 +7398,14 @@ export type Database = {
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sync_automatic_tasks: {
+        Args: { p_today: string }
+        Returns: {
+          change: string
+          kind: string
+          task_id: string
+        }[]
+      }
       transaction_monthly_flows: {
         Args: { p_from: string; p_until: string }
         Returns: {
