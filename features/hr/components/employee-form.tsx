@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -27,12 +29,17 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { todayInAR } from "@/lib/format";
 
+import { runAction } from "@/lib/query/run-action";
+
+import { getEmployeeDriverAction } from "../actions/employees-actions";
 import { useCreateEmployee, useUpdateEmployee } from "../hooks/use-employees";
 import {
   currentVacationPeriodYear,
   suggestedVacationDays,
 } from "../lib/vacation-periods";
 import {
+  EMPLOYEE_POSITIONS,
+  isDriverPosition,
   PAY_FREQUENCIES,
   PAY_FREQUENCY_LABEL,
   type Employee,
@@ -54,6 +61,9 @@ type FormValues = {
   notes: string;
   vacation_current_days: string;
   vacation_previous_days: string;
+  license_number: string;
+  license_category: string;
+  driver_phone: string;
 };
 
 function employeeToValues(employee: Employee | undefined): FormValues {
@@ -74,6 +84,9 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     notes: employee?.notes ?? "",
     vacation_current_days: "",
     vacation_previous_days: "",
+    license_number: "",
+    license_category: "",
+    driver_phone: "",
   };
 }
 
@@ -90,6 +103,14 @@ function withoutVacationFields(values: FormValues) {
     is_monotributo: values.is_monotributo,
     hire_date: values.hire_date,
     notes: values.notes,
+    // Driver data only travels with a driver position.
+    ...(isDriverPosition(values.position)
+      ? {
+          license_number: values.license_number,
+          license_category: values.license_category,
+          driver_phone: values.driver_phone,
+        }
+      : {}),
   };
 }
 
@@ -117,6 +138,28 @@ export function EmployeeForm({
   });
 
   const hireDate = useWatch({ control: form.control, name: "hire_date" });
+  const position = useWatch({ control: form.control, name: "position" });
+  const isDriver = isDriverPosition(position);
+
+  // Edit: the driver data lives on the employee's driver record.
+  const { data: driver } = useQuery({
+    queryKey: ["employees", "driver", employee?.id ?? null],
+    queryFn: () => runAction(() => getEmployeeDriverAction(employee?.id ?? "")),
+    enabled: mode === "edit" && !!employee,
+  });
+  useEffect(() => {
+    if (!driver) return;
+    form.setValue("license_number", driver.license_number ?? "");
+    form.setValue("license_category", driver.license_category ?? "");
+    form.setValue("driver_phone", driver.phone ?? "");
+  }, [driver, form]);
+
+  // Rows saved before the positions list keep their free text as an option.
+  const positionOptions: string[] =
+    employee?.position &&
+    !(EMPLOYEE_POSITIONS as readonly string[]).includes(employee.position)
+      ? [...EMPLOYEE_POSITIONS, employee.position]
+      : [...EMPLOYEE_POSITIONS];
   const vacationPeriod = currentVacationPeriodYear(todayInAR());
   const suggestedDays = /^\d{4}-\d{2}-\d{2}$/.test(hireDate)
     ? suggestedVacationDays(hireDate, vacationPeriod)
@@ -182,13 +225,20 @@ export function EmployeeForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Posición</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="Chofer, Administrativo, Mecánico…"
-                  />
-                </FormControl>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elegí una posición" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {positionOptions.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -344,6 +394,58 @@ export function EmployeeForm({
             )}
           />
         </div>
+
+        {isDriver && (
+          <div className="space-y-3 rounded-md border p-4">
+            <div>
+              <h3 className="text-sm font-medium">Datos de chofer</h3>
+              <p className="text-xs text-muted-foreground">
+                Aparece en Flota → Choferes para asignarle viajes.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="license_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>N.º de licencia</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="off" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="license_category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoría</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="off" placeholder="E1" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="driver_phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="off" inputMode="tel" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
 
         {mode === "create" && canSetVacations && (
           <div className="space-y-3 rounded-md border p-4">
