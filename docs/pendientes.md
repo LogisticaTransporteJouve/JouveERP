@@ -76,6 +76,20 @@
 
 ---
 
+## Tareas (2026-11-02)
+
+- [x] `/tasks`: manuales, recurrentes y automáticas desde compras, ventas
+      vencidas, préstamos, cheques propios y documentos de flota y empleados;
+      comentarios, historial, reasignar, marcar hecha; cron `tasks-daily` con
+      avisos; tool `getTasks` para el asistente.
+- [ ] Aprobar la migración `20261103000000_tasks` junto con el deploy: sin
+      ella `/tasks` y el cron fallan (las tablas no existen).
+- [ ] Push del aviso `task_due` (hoy solo in-app) y preferencia por tipo en
+      `/profile`.
+- [ ] Borrar una tarea manual creada por error (hoy solo se cierra).
+
+---
+
 ## Compras y contabilidad — correcciones (2026-11-02)
 
 - [x] **Número de compras internas.** El autonumerado del formulario llamaba a
