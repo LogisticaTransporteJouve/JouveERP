@@ -5,6 +5,7 @@ import {
   AGING_VIEW_AMOUNT_COLUMNS,
   CLIENT_AGING_EXTRA_COLUMNS,
   aggregateClientAging,
+  onAccountFromRows,
   type AgingReport,
 } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
@@ -32,7 +33,7 @@ export async function getAgingSummaryAction(input?: {
   const supabase = await createSupabaseClient();
   // Drained past max_rows (1000): a capped read would drop the smallest
   // debtors from the list AND from the grand totals.
-  const [{ data, error }, usdRate] = await Promise.all([
+  const [{ data, error }, usdRate, unapplied] = await Promise.all([
     isFiscal === null
       ? paginateRange((from, to) =>
           supabase
@@ -52,12 +53,36 @@ export async function getAgingSummaryAction(input?: {
             .range(from, to),
         ),
     fetchLatestUsdRate(supabase),
+    // What each client paid a cuenta and is not applied yet: shown apart
+    // from the buckets.
+    paginateRange((from, to) =>
+      applyFiscalFilter(
+        supabase
+          .from("v_receipt_unapplied")
+          .select(
+            "party_id:client_id, currency, unapplied_amount, party:clients!inner(legal_name, display_name, cuit)",
+          ),
+        isFiscal,
+      )
+        .order("receipt_id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
-  if (error) {
-    logger.error("aging.summary.failed", { userId: ctx.userId, error });
+  if (error || unapplied.error) {
+    logger.error("aging.summary.failed", {
+      userId: ctx.userId,
+      error: error ?? unapplied.error,
+    });
     return { ok: false, error: "No se pudo cargar el aging." };
   }
 
-  return { ok: true, data: aggregateClientAging(data, usdRate) };
+  return {
+    ok: true,
+    data: aggregateClientAging(
+      data,
+      usdRate,
+      onAccountFromRows(unapplied.data),
+    ),
+  };
 }

@@ -265,6 +265,37 @@ describe("createReceiptAction allocations", () => {
     );
   });
 
+  it("a cuenta sends no allocations; manual with nothing picked is refused", async () => {
+    setup();
+    const base = {
+      channel_id: FISCAL,
+      numero: 1,
+      client_id: CLIENT,
+      receipt_date: "2026-10-15",
+      total_amount: 1000,
+      currency: "ARS",
+      payment_lines: [{ account_id: ACCOUNT, amount: 1000 }],
+    };
+    const res = await createReceiptAction({
+      ...base,
+      allocation_mode: "a_cuenta",
+      allocations: [{ invoice_id: FA, amount_applied: 100 }],
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_receipt",
+      expect.objectContaining({ p_allocations: [] }),
+    );
+
+    rpc.mockClear();
+    const manual = await createReceiptAction({
+      ...base,
+      allocation_mode: "manual",
+    });
+    expect(manual.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalledWith("create_receipt", expect.anything());
+  });
+
   it("sends a USD receipt's rate to the RPC", async () => {
     setup();
     const res = await createReceiptAction({

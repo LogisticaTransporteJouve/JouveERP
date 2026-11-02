@@ -120,14 +120,20 @@ export function agingResult(
     oldest_days: r.oldest_days,
     rejected_checks_ars: r.rejected_checks.ars,
     rejected_checks_usd: r.rejected_checks.usd,
+    on_account_ars: r.on_account.ars,
+    on_account_usd: r.on_account.usd,
   }));
   const rejected =
     t.rejected_checks.ars !== 0 || t.rejected_checks.usd !== 0
       ? ` Includes rejected checks (bounced checks of receipts, owed again) ${amounts(t.rejected_checks)}, already in the buckets (rejected_checks_*).`
       : "";
+  const onAccount =
+    t.on_account.ars !== 0 || t.on_account.usd !== 0
+      ? ` Paid/collected on account and not yet applied ${amounts(t.on_account)} (on_account_*): NOT subtracted from the buckets; net = total − on account.`
+      : "";
   return okResult(
     `${scopeLabel}: ${t.party_count} ${partyPlural} with balance · total ${amounts(t.total)}${eq} · ` +
-      `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents).${rejected} ` +
+      `+90 days ${amounts(t.buckets["90_plus"])} (${t.document_count} documents).${rejected}${onAccount} ` +
       "Amounts per currency: *_ars in pesos, *_usd in dollars.",
     { totals: t, usd_rate: rate, rows },
     {

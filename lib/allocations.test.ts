@@ -4,8 +4,47 @@ import {
   allocateFifo,
   allocationsIssue,
   readEmbeddedStatus,
+  resolveAllocations,
   sumAllocations,
 } from "./allocations";
+
+describe("resolveAllocations", () => {
+  const picked = [{ document_id: "a", amount_applied: 10 }];
+  const fifo = () => [{ document_id: "old", amount_applied: 50 }];
+
+  it("a cuenta applies nothing, even with picks", () => {
+    expect(resolveAllocations("a_cuenta", picked, fifo)).toEqual({
+      allocations: [],
+      manual: false,
+    });
+  });
+
+  it("fifo ignores the picks", () => {
+    expect(resolveAllocations("fifo", picked, fifo)).toEqual({
+      allocations: fifo(),
+      manual: false,
+    });
+  });
+
+  it("manual keeps the picks and refuses an empty pick", () => {
+    expect(resolveAllocations("manual", picked, fifo)).toEqual({
+      allocations: picked,
+      manual: true,
+    });
+    expect(resolveAllocations("manual", [], fifo)).toHaveProperty("issue");
+  });
+
+  it("without a mode keeps the older contract: no picks means FIFO", () => {
+    expect(resolveAllocations(undefined, [], fifo)).toEqual({
+      allocations: fifo(),
+      manual: false,
+    });
+    expect(resolveAllocations(undefined, picked, fifo)).toEqual({
+      allocations: picked,
+      manual: true,
+    });
+  });
+});
 
 describe("sumAllocations", () => {
   it("sums per document (counted only) and per payer (all), plus openings", () => {

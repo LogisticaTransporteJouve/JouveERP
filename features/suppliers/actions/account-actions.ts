@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   AGING_VIEW_AMOUNT_COLUMNS,
   aggregateSupplierAging,
+  onAccountFromRows,
   type AgingReport,
 } from "@/lib/aging";
 import { requireUserContext } from "@/lib/auth/context";
@@ -430,7 +431,7 @@ export async function getSupplierAgingAction(input?: {
   const supabase = await createSupabaseClient();
 
   // Drained past max_rows (1000) — one row per supplier with open documents.
-  const [{ data: agingRows, error }, usdRate] = await Promise.all([
+  const [{ data: agingRows, error }, usdRate, unapplied] = await Promise.all([
     isFiscal === null
       ? paginateRange((from, to) =>
           supabase
@@ -450,12 +451,36 @@ export async function getSupplierAgingAction(input?: {
             .range(from, to),
         ),
     fetchLatestUsdRate(supabase),
+    // What each supplier was paid a cuenta and is not applied yet: shown
+    // apart from the buckets.
+    paginateRange((from, to) =>
+      applyFiscalFilter(
+        supabase
+          .from("v_payment_order_unapplied")
+          .select(
+            "party_id:supplier_id, currency, unapplied_amount, party:suppliers!inner(legal_name, cuit)",
+          ),
+        isFiscal,
+      )
+        .order("payment_order_id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
-  if (error) {
-    logger.error("suppliers.aging.list_failed", { userId: ctx.userId, error });
+  if (error || unapplied.error) {
+    logger.error("suppliers.aging.list_failed", {
+      userId: ctx.userId,
+      error: error ?? unapplied.error,
+    });
     return { ok: false, error: "No se pudo cargar el aging de proveedores." };
   }
 
-  return { ok: true, data: aggregateSupplierAging(agingRows, usdRate) };
+  return {
+    ok: true,
+    data: aggregateSupplierAging(
+      agingRows,
+      usdRate,
+      onAccountFromRows(unapplied.data),
+    ),
+  };
 }

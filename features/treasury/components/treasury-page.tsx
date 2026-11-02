@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
+import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 import {
   ACCOUNT_TYPE_LABEL,
   type AccountType,
@@ -35,7 +37,15 @@ import {
 
 const ANY = "__any__";
 
-export function TreasuryPage() {
+/** `canCollect` / `canPay`: receipts:write / payment_orders:write, for the
+ *  "Cobrar a cliente" / "Pagar a proveedor" entry points. */
+export function TreasuryPage({
+  canCollect = false,
+  canPay = false,
+}: {
+  canCollect?: boolean;
+  canPay?: boolean;
+}) {
   const query = useTreasurySummary();
   const [search, setSearch] = useState("");
   const [currencyFilter, setCurrencyFilter] = useState<string>(ANY);
@@ -148,13 +158,21 @@ export function TreasuryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tesorería</h1>
-        <p className="text-sm text-muted-foreground">
-          Caja real de todos los canales. Liquidez actual por moneda y por
-          cuenta. Saldos calculados en vivo desde transacciones; el delta
-          compara con el cierre del mes anterior.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Tesorería</h1>
+          <p className="text-sm text-muted-foreground">
+            Caja real de todos los canales. Liquidez actual por moneda y por
+            cuenta. Saldos calculados en vivo desde transacciones; el delta
+            compara con el cierre del mes anterior.
+          </p>
+        </div>
+        {(canCollect || canPay) && (
+          <div className="flex flex-wrap gap-2">
+            {canCollect && <CollectDialog />}
+            {canPay && <PayDialog />}
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}

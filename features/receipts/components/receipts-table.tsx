@@ -53,6 +53,7 @@ import { receiptsKeys } from "../lib/receipts-keys";
 import { formatReceiptNumber, isReceiptStatus, type Receipt } from "../schema";
 import { CancelReceiptDialog } from "./cancel-receipt-dialog";
 import { EditReceiptDialog } from "./edit-receipt-dialog";
+import { ImputeReceiptDialog } from "./impute-receipt-dialog";
 import { NewReceiptDialog } from "./new-receipt-dialog";
 import type { ChannelOption } from "./receipt-form";
 
@@ -163,6 +164,9 @@ function buildReceiptColumns({
             </Button>
             {canSendEmail && !isCanceled && (
               <SendByEmailDialog kind="receipt" id={r.id} />
+            )}
+            {canWrite && !isCanceled && (
+              <ImputeReceiptDialog receiptId={r.id} label={numero} />
             )}
             {canWrite && !isCanceled && (
               <EditReceiptDialog

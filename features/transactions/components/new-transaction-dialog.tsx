@@ -13,15 +13,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import {
-  TransactionForm,
-  type ChannelOption,
-} from "./transaction-form";
+import { TransactionForm, type ChannelOption } from "./transaction-form";
 
 export function NewTransactionDialog({
   channels,
+  canCollect = false,
+  canPay = false,
 }: {
   channels: ChannelOption[];
+  canCollect?: boolean;
+  canPay?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -37,12 +38,14 @@ export function NewTransactionDialog({
         <DialogHeader>
           <DialogTitle>Nuevo movimiento</DialogTitle>
           <DialogDescription>
-            Ingreso, egreso o transferencia entre cuentas. El mes devengado
-            se autocompleta con el mes de la fecha.
+            Ingreso, egreso o transferencia entre cuentas. El mes devengado se
+            autocompleta con el mes de la fecha.
           </DialogDescription>
         </DialogHeader>
         <TransactionForm
           channels={channels}
+          canCollect={canCollect}
+          canPay={canPay}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />

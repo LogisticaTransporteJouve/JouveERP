@@ -245,6 +245,20 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   - `en_cartera`: sale de la cartera del cheque (Haber `cheques_cartera`);
   - `endosado`: sin egreso; el trigger asienta Debe `cheques_rechazados` / Haber
     `proveedores`.
+- **Préstamos (roadmap 2.3, `20261103040100`):** el desembolso
+  (`loans.disbursement_transaction_id`, `record_loan_disbursement`) asienta
+  Debe banco / Haber `prestamos`. El pago de una cuota con desglose
+  (`loan_installments.capital_amount`, `interest_amount`, `iva_amount`,
+  `perception_amount`, `other_charges_amount`; suman `amount`) asienta Debe
+  `prestamos` (capital), `intereses_pagados` (interés + otros cargos; `gastos`
+  si ningún activo tiene el rol), `iva_credito`, `percepciones_iibb_pagadas`
+  y Haber el banco; cada componente se convierte y redondea una vez y el
+  capital absorbe el redondeo. Sin desglose: Debe `gastos`, como siempre. El
+  movimiento se asienta al insertarse como suelto y `pay_loan_installment` /
+  `adopt_loan_installment_payment` / `record_loan_disbursement` lo re-asientan
+  al vincularlo. Una cuota pagada no cambia importe, desglose ni movimiento
+  (`guard_loan_installment_paid`, `55006`). El IVA de la cuota no entra al
+  Libro IVA (no es un comprobante).
 - **Pago de sueldo:** el egreso que crea `payroll_payment_sync_transaction` lleva
   `is_payroll=true` y el builder de `transactions` lo asienta Debe `sueldos` (5.3.1)
   en vez de `gastos` (5.3.5); si ninguna cuenta activa tiene el rol, cae a `gastos`.
@@ -590,7 +604,10 @@ USD pendiente)`; importe > 0 suma al resultado.
   Interno / Total, "Sueldos" y "Sueldos internos (extras)" con "Total
   personal"), "Sin clasificar" y el control de sueldos.
 - **Limitaciones v1:** compras a cuenta de empleados cuentan como costo;
-  cuotas sin separar capital/interés; por centro cuenta solo lo cargado con
+  en devengado una cuota con desglose (`20261103040100`) lleva el capital a
+  `loan_principal` y el interés a la caja de su cuenta (5.4.1 = costo
+  financiero), una sin desglose va entera a `loan_principal`; en percibido
+  la cuota sigue entera en `loan_principal`; por centro cuenta solo lo cargado con
   centro (en percibido, un pago con OP no lleva el centro de la compra); en
   percibido un cobro o pago de un bien de uso cuenta como operativo; el
   detalle llega a la cuenta, no al comprobante.
