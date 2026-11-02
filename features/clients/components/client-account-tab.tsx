@@ -84,6 +84,8 @@ function movementTypeLabel(m: AccountMovement): string {
   if (m.source_type === "receipt")
     return internal ? "Recibo interno" : "Recibo";
   if (m.source_type === "rejected_check") return "Cheque rechazado";
+  // A check handed over without a receipt: a payment on account.
+  if (m.source_type === "manual_check") return "Cheque recibido";
   if (m.kind === "factura") {
     return internal
       ? "Remito interno"
@@ -97,7 +99,10 @@ function movementTypeLabel(m: AccountMovement): string {
 }
 
 function movementHref(m: AccountMovement): string {
-  return m.source_type === "receipt" ? "/receipts" : `/invoices/${m.source_id}`;
+  if (m.source_type === "receipt") return "/receipts";
+  if (m.source_type === "manual_check" || m.source_type === "rejected_check")
+    return "/checks";
+  return `/invoices/${m.source_id}`;
 }
 
 export function ClientAccountTab({

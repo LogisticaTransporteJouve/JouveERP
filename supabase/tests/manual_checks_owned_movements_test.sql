@@ -4,7 +4,7 @@
 
 begin;
 
-select plan(7);
+select plan(9);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f8', 'finance@manual-checks.test');
@@ -91,6 +91,28 @@ select is(
     where t.manual_check_id = '00000000-0000-0000-0000-0000000008c1'),
   'manual_check',
   'Tesorería sees the check as the movement''s owner'
+);
+
+set constraints all immediate;
+
+select results_eq(
+  $$select coa.system_role::text, l.debit, l.credit
+      from public.transactions t
+      join public.journal_entries je on je.source_table = 'transactions' and je.source_id = t.id
+      join public.journal_entry_lines l on l.journal_entry_id = je.id
+      join public.chart_of_accounts coa on coa.id = l.chart_of_accounts_id
+     where t.manual_check_id = '00000000-0000-0000-0000-0000000008c1'
+     order by l.debit desc$$,
+  $$values ('cheques_cartera', 250.00::numeric, 0::numeric), ('clientes', 0::numeric, 250.00::numeric)$$,
+  'a client''s hand-loaded check pays on account: debit cartera / credit clientes'
+);
+
+select is(
+  (select signed_amount from public.v_client_account_movements
+    where source_type = 'manual_check'
+      and source_id = '00000000-0000-0000-0000-0000000008c1'),
+  -250.00::numeric,
+  'it lowers the client''s balance in the statement'
 );
 
 select * from finish();
