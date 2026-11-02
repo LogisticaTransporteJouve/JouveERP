@@ -27,6 +27,13 @@ export type PurchaseInvoiceDuplicateLookup = {
   numero: number;
 };
 
+export type NextInternalNumeroLookup = {
+  channelId: string;
+  supplierId: string;
+  kind: string;
+  puntoVenta: number;
+};
+
 export const purchaseInvoicesKeys = {
   all: ["purchase_invoices"] as const,
   searchInfinite: (filters: PurchaseInvoicesFilters) =>
@@ -37,6 +44,8 @@ export const purchaseInvoicesKeys = {
   items: (id: string) => [...purchaseInvoicesKeys.all, "items", id] as const,
   duplicate: (lookup: PurchaseInvoiceDuplicateLookup) =>
     [...purchaseInvoicesKeys.all, "duplicate", lookup] as const,
+  nextInternalNumero: (lookup: NextInternalNumeroLookup) =>
+    [...purchaseInvoicesKeys.all, "nextInternalNumero", lookup] as const,
   imputableRemitos: (supplierId: string) =>
     [...purchaseInvoicesKeys.all, "imputableRemitos", supplierId] as const,
 };

@@ -6919,7 +6919,11 @@ export type Database = {
         Returns: number
       }
       next_internal_purchase_numero: {
-        Args: { p_channel_id: string; p_supplier_id: string }
+        Args: {
+          p_kind: string
+          p_punto_venta?: number
+          p_supplier_id: string
+        }
         Returns: number
       }
       notification_type_enabled: {

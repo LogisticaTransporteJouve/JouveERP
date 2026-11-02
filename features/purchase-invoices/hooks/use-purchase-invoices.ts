@@ -23,6 +23,7 @@ import {
   findPurchaseInvoiceDuplicateAction,
   getPurchaseInvoiceByIdAction,
   getPurchaseInvoiceItemsAction,
+  nextInternalPurchaseNumeroAction,
   searchPurchaseInvoicesAction,
   updatePurchaseInvoiceAction,
   type SearchPurchaseInvoicesPage,
@@ -34,6 +35,7 @@ import {
 import {
   PURCHASE_INVOICES_PAGE_SIZE,
   purchaseInvoicesKeys,
+  type NextInternalNumeroLookup,
   type PurchaseInvoiceDuplicateLookup,
   type PurchaseInvoicesFilters,
   type PurchaseInvoicesPickerFilters,
@@ -135,6 +137,21 @@ export function usePurchaseInvoiceDuplicate(
     queryFn: () => runAction(() => findPurchaseInvoiceDuplicateAction(lookup)),
     enabled: lookup !== null,
     staleTime: 30_000,
+  });
+}
+
+/** Next número of an internal purchase (null lookup = skip). */
+export function useNextInternalPurchaseNumero(
+  lookup: NextInternalNumeroLookup | null,
+) {
+  return useQuery({
+    queryKey: purchaseInvoicesKeys.nextInternalNumero(
+      lookup ?? { channelId: "", supplierId: "", kind: "", puntoVenta: 0 },
+    ),
+    queryFn: () => runAction(() => nextInternalPurchaseNumeroAction(lookup)),
+    enabled: lookup !== null,
+    staleTime: 0,
+    retry: false,
   });
 }
 
