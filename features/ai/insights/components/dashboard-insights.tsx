@@ -14,6 +14,7 @@ export function DashboardInsights({ canManage }: { canManage: boolean }) {
       <WeeklySummaryCard />
       <InsightsPanel
         canManage={canManage}
+        canRecalculate={false}
         onAsk={(question) =>
           router.push(`/ai?ask=${encodeURIComponent(question)}`)
         }
