@@ -78,6 +78,7 @@ import {
 } from "./actions/statements";
 import { getManagementPnL } from "./actions/management";
 import { getTasks } from "./actions/tasks";
+import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
 import {
   getPalletsSummary,
@@ -158,6 +159,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getFleetMargin,
   getDrivers,
   getShipmentsSummary,
+  getTodayOverview,
   // Depósito
   getPalletsSummary,
   getWarehouses,

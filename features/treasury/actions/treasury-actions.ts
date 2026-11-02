@@ -1,5 +1,6 @@
 "use server";
 
+import { addDaysIso } from "@/lib/date-range";
 import { requireUserContext } from "@/lib/auth/context";
 import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
@@ -27,13 +28,6 @@ function lastDayOfPrevMonth(iso: string): string {
   const d = new Date(Date.UTC(y!, m! - 1, 1));
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
-}
-
-function addDaysIso(iso: string, days: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y!, m! - 1, d!));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
 }
 
 export async function getTreasurySummaryAction(): Promise<

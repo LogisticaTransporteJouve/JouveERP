@@ -72,6 +72,7 @@ const TOOL_LABELS: Record<string, string> = {
   getFleetMargin: "Margen de flota",
   getDrivers: "Choferes",
   getShipmentsSummary: "Cargas",
+  getTodayOverview: "Hoy y esta semana",
   getPalletsSummary: "Stock de pallets",
   getWarehouses: "Depósitos",
   getProducts: "Productos",

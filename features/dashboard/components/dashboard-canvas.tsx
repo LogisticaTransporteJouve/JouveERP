@@ -51,12 +51,15 @@ export function DashboardCanvas({
   defaultLayout,
   widgets,
   toolbar,
+  header,
 }: {
   initialLayout: DashboardLayout;
   defaultLayout: DashboardLayout;
   widgets: Partial<Record<WidgetId, ReactNode>>;
   /** Shares the row with "Personalizar" while not editing. */
   toolbar?: ReactNode;
+  /** Fixed above the widgets ("Hoy y esta semana"): not customizable. */
+  header?: ReactNode;
 }) {
   const [layout, setLayout] = useState(initialLayout);
   const [savedLayout, setSavedLayout] = useState(initialLayout);
@@ -201,6 +204,8 @@ export function DashboardCanvas({
           </>
         )}
       </div>
+
+      {header}
 
       {editing && hiddenIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3">
