@@ -138,6 +138,9 @@ select public.pay_loan_installment('00000000-0000-0000-0000-0000000015b2', curre
   '00000000-0000-0000-0000-00000015ac01', 700);
 
 -- An own transfer. -----------------------------------------------------------------
+-- The pair FK is deferred (20260516216000): the earlier `set constraints all
+-- immediate` must be undone before the two legs are inserted.
+set constraints all deferred;
 
 select public.create_transfer('00000000-0000-0000-0000-00000015ac01', '00000000-0000-0000-0000-00000015ac02',
   'jouve_internal', 300, 'ARS', current_date, date_trunc('month', current_date)::date, 'Entre cuentas');
