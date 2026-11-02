@@ -10,6 +10,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
+  AddMissingPayrollEntriesSchema,
   AddPayrollEntryExtraSchema,
   ClosePayrollPeriodSchema,
   isPayrollStatus,
@@ -210,6 +211,37 @@ export async function seedPayrollPeriodAction(
   return { ok: true, data: { period_id: data ?? "" } };
 }
 
+export async function addMissingPayrollEntriesAction(
+  input: unknown,
+): Promise<ActionResult<{ added: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:write")) {
+    return { ok: false, error: "Sin permiso para modificar liquidaciones." };
+  }
+  const parsed = AddMissingPayrollEntriesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Período inválido." };
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase.rpc("fill_payroll_period", {
+    p_period_id: parsed.data.period_id,
+  });
+
+  if (error) {
+    logger.error("payroll.fill.failed", { userId: ctx.userId, error });
+    return { ok: false, error: error.message };
+  }
+  const added = Number(data ?? 0);
+  if (added > 0) {
+    await logAudit(
+      "payroll.entries_added",
+      ctx.userId,
+      { added },
+      parsed.data.period_id,
+    );
+  }
+  return { ok: true, data: { added } };
+}
+
 // ─── Close & reopen ──────────────────────────────────────────────────────────
 
 export async function closePayrollPeriodAction(
@@ -401,12 +433,18 @@ export async function removePayrollEntryExtraAction(
   if (!parsed.success) return { ok: false, error: "ID inválido." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payroll_entry_extras")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) return { ok: false, error: error.message };
+  // A delete that matches no row (already gone, or blocked) must not report
+  // success: the extra would keep adding to the total to pay.
+  if (!data || data.length === 0) {
+    return { ok: false, error: "No se pudo eliminar el extra." };
+  }
   await logAudit("payroll.extra_removed", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }

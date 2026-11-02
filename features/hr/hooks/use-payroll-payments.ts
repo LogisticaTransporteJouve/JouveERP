@@ -12,6 +12,7 @@ import {
   createPayrollPaymentAction,
   deletePayrollPaymentAction,
   listPayrollPaymentsAction,
+  updatePayrollPaymentAction,
 } from "../actions/payroll-payments-actions";
 import { payrollKeys } from "../lib/payroll-keys";
 
@@ -38,6 +39,7 @@ type CreateVars = {
   method: "transferencia" | "efectivo";
   paid_at: string;
   notes?: string | null;
+  allow_overpay?: boolean;
   period_year: number;
   period_month: number;
 };
@@ -47,6 +49,30 @@ export function useCreatePayrollPayment() {
   return useMutation({
     mutationFn: ({ period_year: _y, period_month: _m, ...rest }: CreateVars) =>
       runAction(() => createPayrollPaymentAction(rest)),
+    onSuccess: (_data, vars) => {
+      invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
+      qc.invalidateQueries({ queryKey: paymentKeys.byEntry(vars.entry_id) });
+      qc.invalidateQueries({
+        queryKey: payrollKeys.period(vars.period_year, vars.period_month),
+      });
+    },
+  });
+}
+
+type UpdateVars = Omit<CreateVars, "entry_id"> & {
+  id: string;
+  entry_id: string;
+};
+
+export function useUpdatePayrollPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      period_year: _y,
+      period_month: _m,
+      entry_id: _e,
+      ...rest
+    }: UpdateVars) => runAction(() => updatePayrollPaymentAction(rest)),
     onSuccess: (_data, vars) => {
       invalidateKeys(qc, PAYMENT_EFFECT_KEYS);
       qc.invalidateQueries({ queryKey: paymentKeys.byEntry(vars.entry_id) });
@@ -72,6 +98,7 @@ type BulkVars = {
   method: "transferencia" | "efectivo";
   paid_at: string;
   notes?: string | null;
+  allow_overpay?: boolean;
   period_year: number;
   period_month: number;
 };

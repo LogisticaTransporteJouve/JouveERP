@@ -43,6 +43,10 @@ import { formatMoney, todayInAR } from "@/lib/format";
 
 import { useBulkCreatePayrollPayments } from "../hooks/use-payroll-payments";
 import {
+  exceedsBalance,
+  payrollPayableAccounts,
+} from "../lib/payroll-payments";
+import {
   PAYROLL_PAYMENT_METHOD_LABEL,
   PAYROLL_PAYMENT_METHODS,
   type PayrollPaymentMethod,
@@ -86,17 +90,18 @@ export function BulkPayrollPaymentDialog({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { data: accountsData } = useAccountsList();
-  const activeAccounts = useMemo(
-    () => (accountsData ?? []).filter((a) => a.is_active),
+  const payableAccounts = useMemo(
+    () => payrollPayableAccounts(accountsData ?? []),
     [accountsData],
   );
+  const [allowOverpay, setAllowOverpay] = useState(false);
   const mut = useBulkCreatePayrollPayments();
   const defaultChannel = useDefaultChannel() ?? "";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      account_id: activeAccounts[0]?.id ?? "",
+      account_id: payableAccounts[0]?.id ?? "",
       channel_id: defaultChannel,
       amount_each: "",
       method: "transferencia" as PayrollPaymentMethod,
@@ -106,6 +111,7 @@ export function BulkPayrollPaymentDialog({
   });
 
   useEffect(() => {
+    setAllowOverpay(false);
     if (!open) {
       setSelected(new Set());
       return;
@@ -115,7 +121,7 @@ export function BulkPayrollPaymentDialog({
       new Set(employees.filter((e) => e.saldo > 0).map((e) => e.entry_id)),
     );
     form.reset({
-      account_id: activeAccounts[0]?.id ?? "",
+      account_id: payableAccounts[0]?.id ?? "",
       channel_id: defaultChannel,
       amount_each: "",
       method: "transferencia",
@@ -130,6 +136,13 @@ export function BulkPayrollPaymentDialog({
     useWatch({ control: form.control, name: "amount_each" }) || 0,
   );
   const totalAmount = selectedCount * amountEach;
+  const overpaidCount =
+    amountEach > 0
+      ? employees.filter(
+          (e) =>
+            selected.has(e.entry_id) && exceedsBalance(amountEach, e.saldo),
+        ).length
+      : 0;
 
   function toggleEmployee(entryId: string, checked: boolean) {
     setSelected((prev) => {
@@ -162,6 +175,7 @@ export function BulkPayrollPaymentDialog({
         method: values.method,
         paid_at: values.paid_at,
         notes: values.notes?.trim() ? values.notes : null,
+        allow_overpay: allowOverpay,
         period_year: year,
         period_month: month,
       },
@@ -291,7 +305,7 @@ export function BulkPayrollPaymentDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {activeAccounts.map((a) => (
+                        {payableAccounts.map((a) => (
                           <SelectItem key={a.id} value={a.id}>
                             {a.name}
                           </SelectItem>
@@ -383,6 +397,28 @@ export function BulkPayrollPaymentDialog({
                 </span>
               </div>
             </div>
+
+            {overpaidCount > 0 && (
+              <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
+                <p>
+                  {overpaidCount} empleado(s) quedarían con saldo negativo con{" "}
+                  {formatMoney(amountEach)} cada uno.
+                </p>
+                <Label className="flex items-center gap-2 font-normal">
+                  <Checkbox
+                    checked={allowOverpay}
+                    onCheckedChange={(v) => setAllowOverpay(v === true)}
+                  />
+                  Pagar más que el saldo
+                </Label>
+              </div>
+            )}
+
+            {payableAccounts.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No hay cuentas activas en pesos para pagar sueldos.
+              </p>
+            )}
 
             <DialogFooter className="flex-row justify-end gap-2 sm:gap-2">
               <Button

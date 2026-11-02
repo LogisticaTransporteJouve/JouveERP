@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Unlock } from "lucide-react";
+import { Lock, Unlock, UserPlus } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 
 import {
+  useAddMissingPayrollEntries,
   useClosePayrollPeriod,
   usePayrollPeriod,
   useReopenPayrollPeriod,
@@ -53,6 +54,7 @@ export function PayrollPeriodGrid({
   const updateMut = useUpdatePayrollEntry();
   const closeMut = useClosePayrollPeriod();
   const reopenMut = useReopenPayrollPeriod();
+  const addMissingMut = useAddMissingPayrollEntries();
   const { channels } = useScope();
 
   const canWrite = userCan(actorAccess, "hr:write");
@@ -172,6 +174,28 @@ export function PayrollPeriodGrid({
                 year={year}
                 month={month}
               />
+            )}
+            {!isClosed && canWrite && (
+              <Button
+                variant="outline"
+                size="sm"
+                title="Suma a este período a los empleados activos que no figuran (altas posteriores a generarlo)."
+                onClick={() =>
+                  addMissingMut.mutate(period.id, {
+                    onSuccess: ({ added }) =>
+                      toast.success(
+                        added > 0
+                          ? `Se agregaron ${added} empleado(s).`
+                          : "No faltan empleados.",
+                      ),
+                    onError: (err) => toast.error(err.message),
+                  })
+                }
+                disabled={addMissingMut.isPending}
+              >
+                <UserPlus className="size-4" />
+                Agregar faltantes
+              </Button>
             )}
             {!isClosed && canWrite && (
               <Button

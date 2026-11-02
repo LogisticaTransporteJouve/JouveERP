@@ -10,6 +10,7 @@ import {
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  addMissingPayrollEntriesAction,
   addPayrollEntryExtraAction,
   closePayrollPeriodAction,
   getPayrollPeriodAction,
@@ -42,6 +43,18 @@ export function useSeedPayrollPeriod() {
   return useMutation({
     mutationFn: (input: { year: number; month: number }) =>
       runAction(() => seedPayrollPeriodAction(input)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: payrollKeys.all });
+    },
+  });
+}
+
+/** Adds active employees missing from an open period (hired after it was generated). */
+export function useAddMissingPayrollEntries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (periodId: string) =>
+      runAction(() => addMissingPayrollEntriesAction({ period_id: periodId })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.all });
     },

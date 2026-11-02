@@ -1,8 +1,8 @@
 "use client";
 
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { Suspense, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import {
@@ -10,6 +10,7 @@ import {
   useScope,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,13 +36,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
   useCreatePayrollPayment,
   useDeletePayrollPayment,
   usePayrollPayments,
+  useUpdatePayrollPayment,
 } from "../hooks/use-payroll-payments";
+import {
+  exceedsBalance,
+  payrollPayableAccounts,
+} from "../lib/payroll-payments";
 import {
   PAYROLL_PAYMENT_METHOD_LABEL,
   PAYROLL_PAYMENT_METHODS,
@@ -135,6 +142,7 @@ type AddValues = {
   method: PayrollPaymentMethod;
   paid_at: string;
   notes: string;
+  allow_overpay: boolean;
 };
 
 function PaymentsBody({
@@ -155,23 +163,54 @@ function PaymentsBody({
   const { channels } = useScope();
   const defaultChannel = useDefaultChannel();
   const createMut = useCreatePayrollPayment();
+  const updateMut = useUpdatePayrollPayment();
   const deleteMut = useDeletePayrollPayment();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const activeAccounts = (accounts ?? []).filter((a) => a.is_active);
+  const payableAccounts = payrollPayableAccounts(accounts ?? []);
   const activeChannels = channels.filter((c) => c.is_active);
+  const editing = payments.find((p) => p.id === editingId) ?? null;
 
-  const form = useForm<AddValues>({
-    defaultValues: {
-      account_id: activeAccounts[0]?.id ?? "",
-      channel_id: defaultChannel ?? "",
-      amount: saldo > 0 ? String(saldo) : "",
-      method: "transferencia",
-      paid_at: new Date().toISOString().slice(0, 10),
-      notes: "",
-    },
-  });
+  const emptyValues: AddValues = {
+    account_id: payableAccounts[0]?.id ?? "",
+    channel_id: defaultChannel ?? "",
+    amount: saldo > 0 ? String(saldo) : "",
+    method: "transferencia",
+    paid_at: todayInAR(),
+    notes: "",
+    allow_overpay: false,
+  };
+  const form = useForm<AddValues>({ defaultValues: emptyValues });
 
-  function onAdd(values: AddValues) {
+  // Editing a payment frees its own amount, so it counts toward the balance.
+  const available = saldo + (editing ? Number(editing.amount) : 0);
+  const typedAmount = Number(
+    useWatch({ control: form.control, name: "amount" }).replace(/,/g, "."),
+  );
+  const overpays =
+    Number.isFinite(typedAmount) && exceedsBalance(typedAmount, available);
+
+  function startEdit(id: string) {
+    const payment = payments.find((p) => p.id === id);
+    if (!payment) return;
+    setEditingId(id);
+    form.reset({
+      account_id: payment.account_id,
+      channel_id: payment.channel_id,
+      amount: String(Number(payment.amount)),
+      method: payment.method,
+      paid_at: payment.paid_at,
+      notes: payment.notes ?? "",
+      allow_overpay: false,
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    form.reset({ ...emptyValues, amount: "" });
+  }
+
+  function onSubmit(values: AddValues) {
     const amount = Number(values.amount.replace(/,/g, "."));
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Monto inválido.");
@@ -181,41 +220,59 @@ function PaymentsBody({
       toast.error("Faltan cuenta y canal.");
       return;
     }
-    createMut.mutate(
-      {
-        entry_id: entryId,
-        account_id: values.account_id,
-        channel_id: values.channel_id,
-        amount,
-        method: values.method,
-        paid_at: values.paid_at,
-        notes: values.notes || null,
-        period_year: year,
-        period_month: month,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Pago registrado.");
-          form.reset({
-            ...form.getValues(),
-            amount: "",
-            notes: "",
-          });
+    const payload = {
+      account_id: values.account_id,
+      channel_id: values.channel_id,
+      amount,
+      method: values.method,
+      paid_at: values.paid_at,
+      notes: values.notes || null,
+      allow_overpay: values.allow_overpay,
+      entry_id: entryId,
+      period_year: year,
+      period_month: month,
+    };
+    if (editing) {
+      updateMut.mutate(
+        { ...payload, id: editing.id },
+        {
+          onSuccess: () => {
+            toast.success("Pago actualizado.");
+            cancelEdit();
+          },
+          onError: (err) => toast.error(err.message),
         },
-        onError: (err) => toast.error(err.message),
+      );
+      return;
+    }
+    createMut.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Pago registrado.");
+        form.reset({
+          ...form.getValues(),
+          amount: "",
+          notes: "",
+          allow_overpay: false,
+        });
       },
-    );
+      onError: (err) => toast.error(err.message),
+    });
   }
 
   function onDelete(id: string) {
     deleteMut.mutate(
       { id, entry_id: entryId, period_year: year, period_month: month },
       {
-        onSuccess: () => toast.success("Pago eliminado."),
+        onSuccess: () => {
+          toast.success("Pago eliminado.");
+          if (id === editingId) cancelEdit();
+        },
         onError: (err) => toast.error(err.message),
       },
     );
   }
+
+  const saving = createMut.isPending || updateMut.isPending;
 
   return (
     <div className="space-y-4">
@@ -226,13 +283,16 @@ function PaymentsBody({
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>
         ) : (
           payments.map((payment) => {
-            const account = activeAccounts.find(
+            const account = (accounts ?? []).find(
               (a) => a.id === payment.account_id,
             );
             return (
               <li
                 key={payment.id}
-                className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm"
+                className={cn(
+                  "flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm",
+                  payment.id === editingId && "border-primary",
+                )}
               >
                 <div className="flex-1">
                   <div className="font-medium">
@@ -248,16 +308,28 @@ function PaymentsBody({
                   {money(Number(payment.amount))}
                 </span>
                 {!disabled && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-7"
-                    onClick={() => onDelete(payment.id)}
-                    disabled={deleteMut.isPending}
-                    aria-label="Borrar"
-                  >
-                    <Trash2 className="size-3.5 text-destructive" />
-                  </Button>
+                  <>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      onClick={() => startEdit(payment.id)}
+                      disabled={saving || deleteMut.isPending}
+                      aria-label="Editar pago"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      onClick={() => onDelete(payment.id)}
+                      disabled={deleteMut.isPending}
+                      aria-label="Borrar pago"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </>
                 )}
               </li>
             );
@@ -265,10 +337,17 @@ function PaymentsBody({
         )}
       </ul>
 
-      {!disabled && activeAccounts.length > 0 && activeChannels.length > 0 && (
+      {!disabled && payableAccounts.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No hay cuentas activas en pesos para pagar sueldos. Creá o activá una
+          caja o banco en ARS en Tesorería.
+        </p>
+      )}
+
+      {!disabled && payableAccounts.length > 0 && activeChannels.length > 0 && (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onAdd)}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="grid grid-cols-2 gap-3 border-t pt-4"
           >
             <FormField
@@ -284,7 +363,7 @@ function PaymentsBody({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {activeAccounts.map((a) => (
+                      {payableAccounts.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
                           {a.name}
                         </SelectItem>
@@ -386,9 +465,51 @@ function PaymentsBody({
                 </FormItem>
               )}
             />
-            <div className="col-span-2 flex justify-end">
-              <Button type="submit" disabled={createMut.isPending}>
-                {createMut.isPending ? "Registrando…" : "Registrar pago"}
+            {overpays && (
+              <FormField
+                control={form.control}
+                name="allow_overpay"
+                render={({ field }) => (
+                  <FormItem className="col-span-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(v) => field.onChange(v === true)}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        Pagar más que el saldo
+                      </FormLabel>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      El monto supera el saldo pendiente (
+                      {money(Math.max(available, 0))}). Marcalo solo si es un
+                      adelanto o un pago a cuenta del mes siguiente.
+                    </p>
+                  </FormItem>
+                )}
+              />
+            )}
+            <div className="col-span-2 flex justify-end gap-2">
+              {editing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+              )}
+              <Button type="submit" disabled={saving}>
+                {editing
+                  ? updateMut.isPending
+                    ? "Guardando…"
+                    : "Guardar cambios"
+                  : createMut.isPending
+                    ? "Registrando…"
+                    : "Registrar pago"}
               </Button>
             </div>
           </form>
