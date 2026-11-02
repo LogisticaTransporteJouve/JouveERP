@@ -62,6 +62,9 @@ vi.mock("@/lib/auth/context", () => ({
     access: resolveAccess(["owner"], []),
   }),
 }));
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => fake.client,
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));

@@ -10,6 +10,7 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
@@ -43,7 +44,9 @@ export async function getStorageBillingAction(
     return { ok: false, error: "Rango de fechas inválido." };
   }
 
-  const supabase = await createSupabaseClient();
+  // Service client after the gate: billing reads pallets, which the pallets
+  // RLS limits to the warehouse roles, so finance (who bills) saw none.
+  const supabase = getServiceClient();
 
   // Drained past max_rows: a truncated pallet, tariff or client list would
   // under-bill silently.
@@ -218,9 +221,12 @@ export async function invoiceStorageAction(
   // Recompute this client's storage for the period (authoritative).
   // Drained past max_rows, like the preview: a truncated read would bill
   // less than the preview showed.
+  // Pallets through the service client (after the gate above), as in the
+  // preview: their RLS leaves finance out.
+  const reader = getServiceClient();
   const [palletsRes, tariffsRes] = await Promise.all([
     paginateRange((from, to) =>
-      supabase
+      reader
         .from("pallets")
         .select("id, client_id, code, entry_date, exit_date")
         .eq("client_id", client_id)
