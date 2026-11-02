@@ -77,6 +77,9 @@ vi.mock("@/features/receipts/components/collect-dialog", () => ({
     </button>
   ),
 }));
+vi.mock("@/features/audit/components/record-history", () => ({
+  RecordHistory: () => <p>stub-historial</p>,
+}));
 
 const { default: ComprobanteDetailPage } = await import("./page");
 
@@ -257,5 +260,24 @@ describe("invoice detail — Cobrar", () => {
     h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
     await renderPage();
     expect(screen.queryByText(/stub-cobrar/)).toBeNull();
+  });
+});
+
+describe("invoice detail — Historial", () => {
+  it.each([
+    ["owner", () => resolveAccess(["owner"]), true],
+    ["admin", () => resolveAccess(["admin"]), true],
+    ["finance (no audit:read)", () => resolveAccess(["finance"]), false],
+    [
+      "admin with audit:read denied",
+      () => resolveAccess(["admin"], ["audit:read"]),
+      false,
+    ],
+  ])("%s sees it: %s", async (_, access, visible) => {
+    h.access = access();
+    h.detail = base(true);
+    h.links = okLinks({});
+    await renderPage();
+    expect(screen.queryByText("stub-historial") !== null).toBe(visible);
   });
 });

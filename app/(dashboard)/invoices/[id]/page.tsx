@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { RecordHistory } from "@/features/audit/components/record-history";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import { CancelInvoiceDialog } from "@/features/invoices/components/cancel-invoice-dialog";
 import { InvoiceJobStatus } from "@/features/invoices/components/invoice-job-status";
@@ -527,6 +528,8 @@ export default async function ComprobanteDetailPage({
           </div>
         </div>
       </div>
+
+      {userCan(ctx.access, "audit:read") && <RecordHistory resourceId={c.id} />}
     </div>
   );
 }

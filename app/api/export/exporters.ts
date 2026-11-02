@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  balanceSumasSaldos,
+  libroDiario,
+  libroMayor,
+} from "./resources/accounting-books";
 import { accounts } from "./resources/accounts";
 import { aging } from "./resources/aging";
 import { checks } from "./resources/checks";
@@ -64,4 +69,7 @@ export const EXPORTERS: Record<string, Exporter> = {
   employees,
   aging,
   "supplier-aging": supplierAging,
+  "libro-diario": libroDiario,
+  "libro-mayor": libroMayor,
+  "balance-sumas-saldos": balanceSumasSaldos,
 };
