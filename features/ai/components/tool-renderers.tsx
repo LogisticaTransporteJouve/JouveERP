@@ -80,6 +80,7 @@ const TOOL_LABELS: Record<string, string> = {
   getAfipStatus: "Estado AFIP",
   searchGlobal: "Búsqueda",
   getAttachments: "Adjuntos",
+  getTasks: "Tareas",
   openAttachment: "Adjunto del chat",
   proposeDocumentScan: "Propuesta de escaneo",
   proposeLeave: "Propuesta de licencia",

@@ -75,6 +75,7 @@ import {
   getLoanDetail,
   getLoans,
 } from "./actions/statements";
+import { getTasks } from "./actions/tasks";
 import { getTreasurySummary } from "./actions/treasury";
 import {
   getPalletsSummary,
@@ -166,6 +167,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   // General
   searchGlobal,
   getAttachments,
+  getTasks,
   proposeAiWorkflow,
   proposeDocumentScan,
 ];
