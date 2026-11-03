@@ -22,6 +22,7 @@ import {
   HandCoins,
   History,
   IdCard,
+  Landmark,
   LayoutDashboard,
   LineChart,
   ListChecks,
@@ -310,6 +311,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Centros de costo",
         icon: Target,
         permission: "accounting:read",
+      },
+      {
+        href: "/taxes",
+        label: "Impuestos",
+        icon: Landmark,
+        permission: "taxes:read",
       },
       {
         href: "/accounting/inflation",

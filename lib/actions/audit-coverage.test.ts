@@ -32,6 +32,8 @@ const EXEMPT: Record<string, string> = {
     "only refreshes padron_cache, a cache of AFIP's public registry",
   "features/dashboard/actions/dashboard-actions.ts":
     "the user's own dashboard layout",
+  "features/guide/actions/guide-state-actions.ts":
+    "the user's own sidebar guide state (collapsed, items marked done)",
 };
 
 const TABLE_WRITE = /\.(insert|update|upsert|delete)\(/;

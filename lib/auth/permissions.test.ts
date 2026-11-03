@@ -155,6 +155,23 @@ describe("userCan", () => {
     expect(userCan(denied, "imports:write")).toBe(false);
   });
 
+  it("tax documents: the accountant reads, owner/admin/finance write", () => {
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(userCan(resolveAccess([role]), "taxes:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "taxes:write")).toBe(true);
+    }
+    expect(userCan(resolveAccess(["fiscal_reader"]), "taxes:read")).toBe(true);
+    expect(userCan(resolveAccess(["fiscal_reader"]), "taxes:write")).toBe(
+      false,
+    );
+    for (const role of ["operations", "warehouse", "driver"] as const) {
+      expect(userCan(resolveAccess([role]), "taxes:read")).toBe(false);
+      expect(userCan(resolveAccess([role]), "taxes:write")).toBe(false);
+    }
+    const denied = resolveAccess(["finance"], ["taxes:read"]);
+    expect(userCan(denied, "taxes:write")).toBe(false);
+  });
+
   it("recurring_payments is managed by owner/admin/finance only", () => {
     for (const role of ["owner", "admin", "finance"] as const) {
       expect(userCan(resolveAccess([role]), "recurring_payments:read")).toBe(
@@ -505,6 +522,8 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "suppliers:write",
           "tasks:read",
           "tasks:write",
+          "taxes:read",
+          "taxes:write",
           "transactions:read",
           "transactions:write",
         ],
@@ -516,6 +535,7 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "invoices:read",
           "purchase_invoices:read",
           "suppliers:read",
+          "taxes:read",
         ],
         "operations": [
           "ai:chat",
