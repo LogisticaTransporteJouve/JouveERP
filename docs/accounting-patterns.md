@@ -365,7 +365,8 @@ antes de este cambio no tienen egreso (no se rellena: puede que se haya cargado
 a mano). Sin canal el cobro se rechaza: el egreso necesita uno.
 Como un cheque sin OP nunca acreditó `cheques_diferidos_emitidos`, su cobro
 asienta Debe la cuenta de gasto por defecto del proveedor (o `gastos`) / Haber
-banco, no la reversa del pasivo (`20261104093300`). Una vez fuera de
+banco, no la reversa del pasivo (`20261104093300`); en pesos, un cheque en USD
+a la cotización del día del cobro (sin cotización no asienta). Una vez fuera de
 `emitted`, su importe, moneda y cuenta no cambian, y una OP no se le liga
 después (`guard_issued_check_edit`): solo la OP lo carga como línea.
 

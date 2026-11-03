@@ -71,8 +71,10 @@ export interface CheckListItem extends Cheque {
   source_client_legal_name: string | null;
 }
 
-/** Checks still operated from the list (depositar, endosar, vender,
- *  acreditar): always listed in full. */
+/** Checks the list still moves forward (depositar, endosar, vender,
+ *  acreditar): always listed in full. An endorsed or sold check can still be
+ *  rejected but sits with the settled ones, whose cap keeps the latest due
+ *  dates (the window a bounce arrives in). */
 const OPEN_CHECK_STATUSES = ["en_cartera", "depositado"] as const;
 const SETTLED_CHECK_STATUSES = CHECK_STATUSES.filter(
   (s) => !(OPEN_CHECK_STATUSES as readonly string[]).includes(s),

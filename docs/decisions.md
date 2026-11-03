@@ -24,7 +24,8 @@ camino de deshacer: un préstamo con plata se cierra pagándolo. Descartado: un
 RPC que borre desembolso y cuotas, porque toca períodos y conciliaciones.
 
 **Cheque propio cargado a mano.** Su cobro es el pago: Debe gasto del
-proveedor (o `gastos`) / Haber banco. Fuera de `emitted` no cambia importe,
+proveedor (o `gastos`) / Haber banco, en pesos (USD a la cotización del día
+del cobro). Fuera de `emitted` no cambia importe,
 moneda ni cuenta, y una OP se le liga solo cargándolo desde la OP.
 
 **Mora.** El prorrateo cuenta solo las NC emitidas, las mismas que resta
