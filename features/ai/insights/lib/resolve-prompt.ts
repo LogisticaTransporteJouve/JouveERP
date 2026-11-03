@@ -17,6 +17,7 @@ const KIND_LABEL: Record<string, string> = {
   pending_driver_settlements: "rendiciones de choferes pendientes",
   loan_installments_due: "cuotas de préstamos por vencer",
   cash_vs_financing: "caja contra financiamiento",
+  receivables_overdue_growth: "mora de clientes en suba",
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
