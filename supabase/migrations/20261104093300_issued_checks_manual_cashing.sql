@@ -8,8 +8,9 @@ SET LOCAL statement_timeout = '15min';
 --      credited for it (only a payment order books it), so the account went
 --      into debit and the payment never reached the P&L. It now posts
 --      Dr <the supplier's default expense account, or gastos> / Cr banco, the
---      same counterpart a loose expense to that supplier gets. A check from a
---      payment order posts as before.
+--      same counterpart a loose expense to that supplier gets, in pesos (a
+--      USD check at the rate of its cashing day; no rate, no entry). A check
+--      from a payment order posts as before.
 --   2. guard_issued_check_edit (F8): once a check leaves 'emitted' its amount,
 --      currency and bank account are frozen (the cashing movement and entry
 --      were booked with them and are immutable), and a payment order can be
@@ -76,6 +77,15 @@ begin
   if new.status = 'cashed' and new.payment_order_id is null then
     -- A hand-loaded check is the payment itself: it has no liability to
     -- reverse, so it is an expense (the supplier's default account, if any).
+    -- The journal is in pesos: a USD check posts at the rate of its cashing
+    -- day (the date of its bank outflow), and with no rate it posts nothing.
+    if new.currency = 'USD' then
+      v_amount := round(new.amount * public.get_exchange_rate('USD', coalesce(new.cashed_at, now())::date), 2);
+      if v_amount is null then
+        raise warning 'emit_journal_for_issued_check: sin cotización USD (issued_check=%)', new.id;
+        return new;
+      end if;
+    end if;
     v_desc := 'Cobro cheque propio #' || new.check_number || ' ' || new.bank_name;
     select s.default_expense_account_id into v_expense
       from public.suppliers s

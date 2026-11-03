@@ -261,8 +261,11 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   capital después de las cuotas anteriores (por número; una con desglose cuenta
   su capital, una sin desglose su importe), hasta lo pagado; el resto va a
   intereses (`intereses_pagados`, `gastos`, o la cuenta de gasto del
-  movimiento). Pagadas en orden, `prestamos` termina en capital − Σ pagado, lo
-  mismo que muestra la pantalla y lee el resultado de gestión. Sin pasivo
+  movimiento). Pagadas en orden y con el desembolso registrado antes,
+  `prestamos` termina en capital − Σ pagado, lo mismo que muestra la pantalla
+  y lee el resultado de gestión. Una cuota pagada antes de registrar el
+  desembolso quedó en gasto y no se re-asienta: el capital de las siguientes
+  la cuenta igual, así que `prestamos` queda con ese saldo. Sin pasivo
   asentado (préstamo sin desembolso ni importación): Debe `gastos`, como
   siempre. Un préstamo con desembolso o cuotas pagadas no se anula ni se borra
   y su desembolso no cambia (`guard_loan`, `20261104093200`). El

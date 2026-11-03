@@ -10,7 +10,7 @@ begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(8);
+select plan(10);
 
 create temp table leaf on commit drop as
 select e.id
@@ -25,7 +25,11 @@ update public.suppliers set default_expense_account_id = (select id from leaf)
  where id = '00000000-0000-0000-0000-00000000b933';
 
 insert into public.accounts (id, name, type, currency) values
-  ('00000000-0000-0000-0000-00000000a933', 'Banco cheques manuales', 'bank', 'ARS');
+  ('00000000-0000-0000-0000-00000000a933', 'Banco cheques manuales', 'bank', 'ARS'),
+  ('00000000-0000-0000-0000-00000000a934', 'Banco cheques manuales USD', 'bank', 'USD');
+-- No seed rate is that old: 1991-02-10 takes this one, 1990 has none.
+insert into public.exchange_rates (currency, rate_date, rate, source) values
+  ('USD', '1991-01-02', 1000, 'manual');
 
 insert into public.issued_checks
   (id, kind, check_number, bank_name, issue_date, due_date, amount, currency,
@@ -36,10 +40,18 @@ values
   ('00000000-0000-0000-0000-0000000093e2', 'fisico', 'MC-2', 'Banco manual', current_date, current_date, 60, 'ARS',
    '00000000-0000-0000-0000-00000000a933', 'jouve_fiscal', '00000000-0000-0000-0000-00000000b933'),
   ('00000000-0000-0000-0000-0000000093e3', 'fisico', 'MC-3', 'Banco manual', current_date, current_date, 30, 'ARS',
-   '00000000-0000-0000-0000-00000000a933', 'jouve_fiscal', null);
+   '00000000-0000-0000-0000-00000000a933', 'jouve_fiscal', null),
+  ('00000000-0000-0000-0000-0000000093e4', 'fisico', 'MC-4', 'Banco manual', '1991-02-01', '1991-02-10', 2.5, 'USD',
+   '00000000-0000-0000-0000-00000000a934', 'jouve_fiscal', null),
+  ('00000000-0000-0000-0000-0000000093e5', 'fisico', 'MC-5', 'Banco manual', '1990-02-01', '1990-02-10', 3, 'USD',
+   '00000000-0000-0000-0000-00000000a934', 'jouve_fiscal', null);
 
 update public.issued_checks set status = 'cashed', cashed_at = current_date
  where id in ('00000000-0000-0000-0000-0000000093e1', '00000000-0000-0000-0000-0000000093e2');
+update public.issued_checks set status = 'cashed', cashed_at = '1991-02-10'
+ where id = '00000000-0000-0000-0000-0000000093e4';
+update public.issued_checks set status = 'cashed', cashed_at = '1990-02-10'
+ where id = '00000000-0000-0000-0000-0000000093e5';
 
 set constraints all immediate;
 set constraints all deferred;
@@ -79,6 +91,19 @@ select is(
       and je.source_id in ('00000000-0000-0000-0000-0000000093e1', '00000000-0000-0000-0000-0000000093e2')),
   0::numeric,
   'the cashing entries balance'
+);
+
+select is(
+  pg_temp.debit_on('00000000-0000-0000-0000-0000000093e4', public.find_account_by_role('gastos')),
+  2500::numeric,
+  'a USD hand-loaded check posts its pesos at the rate of its cashing day'
+);
+
+select is(
+  (select count(*)::int from public.journal_entries
+    where source_table = 'issued_checks' and source_id = '00000000-0000-0000-0000-0000000093e5'),
+  0,
+  'a USD hand-loaded check with no rate on its cashing day posts nothing'
 );
 
 -- F8 -------------------------------------------------------------------------------

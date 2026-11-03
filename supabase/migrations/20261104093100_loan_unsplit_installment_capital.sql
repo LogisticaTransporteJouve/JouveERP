@@ -14,7 +14,9 @@ SET LOCAL statement_timeout = '15min';
 -- cuotas (capital_amount, or the amount of an unsplit one), clamped to
 -- [0, paid amount]. Whatever is left is interest (intereses_pagados, gastos
 -- while no account holds the role, or the movement's own expense account).
--- Paid in order, prestamos ends at principal − Σ paid, the same figure the
+-- Paid in order after the disbursement, prestamos ends at principal − Σ paid
+-- (a cuota paid before the disbursement was recorded stays an expense and is
+-- not re-posted, so that much stays in prestamos), the same figure the
 -- loan screen shows as capital_outstanding (an unsplit cuota counts whole as
 -- capital) and the management P&L reads. A split cuota posts as before, and
 -- so does an unsplit cuota of a loan with no booked liability (there is no

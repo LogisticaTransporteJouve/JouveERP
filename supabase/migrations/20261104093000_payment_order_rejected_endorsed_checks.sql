@@ -9,7 +9,9 @@ SET LOCAL statement_timeout = '15min';
 --
 --   1. guard_payment_order_cancel_cashed_check (same trigger): also refuses
 --      the cancel while an endorsed check of the order is no longer
---      'endosado'. Both raises carry hint jouve_guard.
+--      'endosado', reading the checks under a row lock so a concurrent
+--      reject_check cannot slip between the read and the reset. Both raises
+--      carry hint jouve_guard.
 --   2. handle_payment_order_cancellation: only a check still 'endosado' goes
 --      back to cartera and loses its endorsement row.
 --   3. update_payment_order (same signature): refuses the edit in the same
@@ -34,6 +36,14 @@ begin
         'No se puede anular la orden de pago: tiene un cheque emitido ya cobrado o rechazado. Gestioná el cheque primero.'
         using errcode = '55006', hint = 'jouve_guard';
     end if;
+    -- Locked first: reject_check locks the check too, so a bounce registered
+    -- while the order is cancelled either lands before this read or waits
+    -- for the cancel (and then finds the check back in cartera).
+    perform 1
+       from public.payment_order_payment_lines pl
+       join public.checks c on c.id = pl.endorsed_check_id
+      where pl.payment_order_id = old.id
+        for update of c;
     if exists (
       select 1
         from public.payment_order_payment_lines pl
@@ -156,7 +166,13 @@ begin
   end if;
 
   -- Same for an endorsed check the bank rejected after the endorsement: its
-  -- debt is back on the client and it must not return to cartera.
+  -- debt is back on the client and it must not return to cartera. Locked
+  -- first, as in guard_payment_order_cancel_cashed_check.
+  perform 1
+     from public.payment_order_payment_lines pl
+     join public.checks c on c.id = pl.endorsed_check_id
+    where pl.payment_order_id = p_id
+      for update of c;
   if exists (
     select 1
       from public.payment_order_payment_lines pl

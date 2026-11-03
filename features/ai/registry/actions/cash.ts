@@ -7,6 +7,7 @@ import { listRecurringPaymentsAction } from "@/features/recurring-payments/actio
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 
 import type { FiscalFilter } from "@/lib/scope";
+import { SETTLED_LIST_CAP } from "@/lib/supabase/open-and-recent";
 import { ScopeInputSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -97,8 +98,7 @@ export const getTransactions = defineAiAction({
   run: (_ctx, input) => runTransactions(input),
 });
 
-const CAPPED_NOTE =
-  " (every open check is listed, but only the latest 500 settled ones: count and total cover only these).";
+const CAPPED_NOTE = ` (every open check is listed, but only the latest ${SETTLED_LIST_CAP} settled ones: count and total cover only these).`;
 
 export async function runChecks(
   input: { scope?: FiscalFilter | null } = {},

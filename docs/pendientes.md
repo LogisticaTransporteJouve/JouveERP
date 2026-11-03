@@ -163,7 +163,10 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Aprobar las migraciones `20261104093000`–`20261104093400` con el deploy.
 - [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
       propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
-      re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`).
+      re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`). Lo
+      mismo para una cuota sin desglose pagada antes de registrar el
+      desembolso: queda en gasto y `prestamos` no llega a cero. Re-asentarlas
+      cambia períodos pasados: lo decide el owner.
 - [ ] No verificado contra una base real: migraciones y pgTAP
       (`payment_order_rejected_endorsed_checks`, `loan_liability`,
       `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
