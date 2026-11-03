@@ -846,13 +846,6 @@ export type Database = {
             referencedRelation: "v_purchase_invoice_open"
             referencedColumns: ["purchase_invoice_id"]
           },
-          {
-            foreignKeyName: "arca_received_vouchers_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
         ]
       }
       arca_sync_runs: {
