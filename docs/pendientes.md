@@ -1,11 +1,11 @@
 # Pendientes y faltantes — JouveERP
 
 > Lista de trabajo vigente: lo que falta (código, datos y configuración) son
-> los ítems `[ ]` de **Límites de rollback** y de las secciones fechadas
-> desde "Follow-ups de operaciones" para abajo (la más nueva arriba). Las
-> §1–§4 son el cierre de la tanda 2026-07-04 y quedan como historia: sus
-> cifras y su "backlog vacío" son de esa fecha. Cuando se resuelve un punto,
-> se marca acá y se sincroniza el roadmap.
+> los ítems `[ ]` de **Antes de promover**, de **Límites de rollback** y de
+> todas las secciones fechadas (de "Emisión AFIP — auditoría" para abajo, la
+> más nueva arriba). Las §1–§4 son el cierre de la tanda 2026-07-04 y quedan
+> como historia: sus cifras y su "backlog vacío" son de esa fecha. Cuando se
+> resuelve un punto, se marca acá y se sincroniza el roadmap.
 
 > **Tanda 2026-07-04** — surgió de una auditoría docs vs código (roadmap,
 > `docs/*`, `features/*`, migraciones, tests). Tanda de cierre (PRs #195–#201): mappers
@@ -17,11 +17,106 @@
 > backlog de código quedó **vacío a esa fecha**.
 
 > **pgTAP.** CI (job `database`) aplica todas las migraciones sobre un stack
-> fresco y corre `supabase test db` en cada PR: los ítems "no verificado
-> contra una base real" de abajo quieren decir sin datos de producción y sin
-> probar en el navegador, no sin pgTAP.
+> fresco y corre `supabase test db` en cada PR: los ítems "sin verificar
+> contra datos de producción" de abajo quieren decir sin datos de producción
+> y sin probar en el navegador, no sin pgTAP.
 
 ---
+
+## Antes de promover
+
+Lo que el owner revisa y aprueba antes de correr **Promote to production**
+con un commit que incluya las auditorías #340–#346 (#339 no está mergeado y
+no entra). Las consultas son de solo lectura y se corren en el SQL editor de
+producción **antes** de promover: `promote-to-production.yml` aplica todas las
+migraciones pendientes juntas. Las de cada sección más vieja siguen con su
+ítem "Aprobar …" en su sección.
+
+- [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
+      migración): su primera corrida vuelve a mandar a AFIP los borradores de
+      los últimos 3 días y resuelve las emisiones trabadas que ya existen. Un
+      borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces:
+      `select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting';`
+- [ ] **Aprobar `20261104090500`** (#340, importación de ARCA en período
+      cerrado). Rollback: es un trigger; con código anterior la importación
+      guarda igual el comprobante y deja su asiento en
+      `pending_journal_entries`. Sin #340 el cron de reconciliación no corre.
+- [ ] **Aprobar `20261104092000`–`20261104092300`** (#342: cheques en
+      percibido, "Sin clasificar" en el margen por camión, deshacer pago de
+      impuestos, NC/ND que siguen a su compra). Rollback: mismas firmas y
+      columnas; el código anterior ya conoce los rubros de gestión, ignora la
+      clave nueva de `recategorize_expense` y no escribe las columnas
+      `payment_previous_*` (un impuesto pagado con código nuevo, deshecho y
+      vuelto a pagar con el viejo conserva los valores del primer pago).
+- [ ] **Aprobar `20261104093000`–`20261104093400`** (#343, tesorería).
+      Rollback: mismas funciones y argumentos; lo que el código anterior
+      dejaba editar después de cobrar un cheque propio o anular un préstamo
+      con plata ahora recibe el mensaje del guard.
+- [ ] **Antes de aprobar `20261104094300`** (#344, diferencia de cambio): su
+      backfill re-asienta, en los períodos abiertos, los recibos y OP en
+      dólares emitidos contra comprobantes a otra cotización y las NC en
+      dólares emitidas contra un origen a otra cotización. Cambian asientos de
+      meses pasados sin cerrar; los de períodos cerrados conservan el suyo
+      (los cuenta un NOTICE). Lista de lo que se re-asienta:
+      ```sql
+      select 'recibo' as doc, r.id, r.receipt_date as fecha
+        from receipts r
+        join receipt_allocations ra on ra.receipt_id = r.id
+        join invoices i on i.id = ra.invoice_id
+       where r.status = 'issued' and r.currency = 'USD'
+         and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
+         and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
+             is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
+      union
+      select 'orden de pago', po.id, po.payment_date
+        from payment_orders po
+        join payment_order_allocations poa on poa.payment_order_id = po.id
+        join purchase_invoices pi on pi.id = poa.purchase_invoice_id
+       where po.status = 'issued' and po.currency = 'USD'
+         and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
+         and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
+             is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
+      union
+      select 'NC', n.id, n.fecha
+        from invoices n
+        join invoices o on o.id = n.invoice_origin_id
+       where n.kind = 'nc' and n.status = 'emitted'
+         and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
+         and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
+             is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
+      order by fecha;
+      ```
+- [ ] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
+      el valor `diferencia_cambio` al enum de roles del plan de cuentas: no se
+      puede quitar. Rollback: las RPC de saldos de apertura y el aging tienen
+      las mismas firmas y columnas; los asientos re-hechos quedan. Con código
+      anterior a #344 **no editar la cuenta "Diferencias de cambio"** en Plan
+      de cuentas: el código viejo no conoce el rol (la insignia sale vacía y
+      guardar falla con "Datos inválidos").
+- [ ] **Antes de aprobar `20261104095200`** (#345), el dueño revisa los
+      cargos que el backfill baja del total al neto (los saldos de esos
+      empleados bajan el IVA y las percepciones; si un cierre de planilla ya
+      descontó el total, queda saldo a favor del empleado):
+      `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m join purchase_invoices pi on pi.id = m.purchase_invoice_id where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
+- [ ] **Aprobar `20261104095000`–`20261104095300`** (#345). Rollback: el
+      código anterior llama a las RPC de la rendición con sus argumentos
+      viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
+      faltante asentado como adelanto como "sin asentar" (volver a asentar
+      devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
+      `embargo_override` (el trigger lo respeta igual).
+- [ ] **Aprobar `20261104096000`** (insights) **y `20261104096100`**
+      (denegaciones de permisos quitados) (#346). Sin la primera, el analista
+      falla (no existe el RPC) y las tarjetas quedan como estaban. Rollback:
+      el código anterior borra e inserta con el service client; el índice
+      único hace fallar el insert de dos corridas viejas simultáneas en vez de
+      duplicar las tarjetas.
+- [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
+      `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
+      validación igual fallara, la migración entera se revierte y el promote
+      frena. Ver cuáles siguen sin validar:
+      `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
+      Rollback: nada que hacer, el código no lee el flag.
 
 ## Límites de rollback (vigentes)
 
@@ -108,6 +203,56 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Auditoría w2: deploy, docs y seguridad (2026-11-04)
+
+- [x] **Stamps de migración:** `pnpm check:migrations` (y CI) rechaza una
+      versión nueva que no es una fecha y hora UTC reales (`…096000`, minuto
+      60). `pnpm db:restamp` ya no se niega cuando `main` está adelantado al
+      reloj: estampa el segundo real siguiente a su máximo
+      (`CONTRIBUTING.md`, "Migraciones").
+- [x] **CHECK sin validar:** `20261104104000` valida los seis que habían
+      quedado `NOT VALID` (tipos de aviso, destino de adjuntos, origen de
+      tareas y tres de impuestos).
+- [x] **PDF y avisos:** un error al generar un PDF (comprobante, recibo, OP,
+      liquidación, rendición, libros IVA) o al leer o marcar los avisos va al
+      log; el usuario ve un mensaje fijo sin el texto de la base.
+- [x] **Login:** un ingreso fallido loguea solo el dominio del email.
+- [x] **Invitar usuario:** los roles se asignan por `set_user_access` (el
+      mismo escritor que el diálogo de accesos); una cuenta que ya tiene roles
+      se rechaza en la misma transacción.
+
+## Emisión AFIP — auditoría (2026-11-04)
+
+- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
+      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
+      que solo lo intentaron, el que coincide con el comprobante de AFIP.
+- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
+      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
+      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
+      Inngest se vuelve a mandar con su clave.
+- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
+      run; si `inngest.send` falla el borrador no se borra.
+- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
+      5 s el piso CAEA).
+- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
+      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
+      número en la importación de ARCA.
+- [x] La importación de ARCA guarda un comprobante de un período cerrado con
+      su asiento en `pending_journal_entries`.
+- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
+      "sin movimiento".
+- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
+      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
+      hasta que alguien decida de cuál es el de AFIP.
+- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
+      (cada una cerca de 20 s) el paso puede pasar los 300 s.
+- La revisión de los borradores antes de la primera corrida de
+  `issue-invoice-reconcile`: en **Antes de promover**.
+- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
+      leer la fila, o el run se canceló) no la resuelve el cron: frena la
+      importación de ARCA de su par hasta que alguien la marque fallida.
+
 ## Auditoría: IA, tareas y accesos (2026-11-04)
 
 - [x] **Insights:** una lectura que falla conserva las tarjetas de su tipo
@@ -136,11 +281,11 @@ mitigación en el schema: el límite se respeta operando.
       `files:admin`, `retentions:read`, `credit_debit_notes:read` y
       `stock_movements:read` (ningún gate los leía); un test exige que cada
       permiso se lea fuera de la matriz.
-- [ ] Aprobar `20261104096000` (insights) y `20261104096100` (denegaciones de
-      permisos quitados) con el deploy. Sin la primera, el analista falla
-      (no existe el RPC) y las tarjetas quedan como estaban.
-- [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
-      `regenerate_ai_insights` y el anti-join de tareas sin asignar.
+- Aprobación de `20261104096000` y `20261104096100`: en **Antes de
+      promover**.
+- [ ] pgTAP verde en CI (stack fresco); sin verificar contra datos de
+      producción: las dos migraciones y el anti-join de tareas sin asignar.
+
 ## Auditoría RRHH y rendiciones (2026-11-04)
 
 - [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
@@ -156,19 +301,8 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Descuento de planilla sin plan ni cargo: queda saldo a favor del
       empleado (decisión en `docs/decisions.md`); si molesta, agregar un
       aviso al cerrar el período.
-- [ ] Aprobar `20261104095000`–`20261104095300` con el deploy. Rollback: el
-      código anterior llama a las RPC de la rendición con sus argumentos
-      viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
-      faltante asentado como adelanto como "sin asentar" (volver a asentar
-      devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
-      `embargo_override` (el trigger lo respeta igual).
-- [ ] Antes de aprobar `20261104095200`, el dueño revisa los cargos que el
-      backfill baja del total al neto (los saldos de esos empleados bajan el
-      IVA y las percepciones; si un cierre de planilla ya descontó el total,
-      queda saldo a favor del empleado):
-      `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m
-      join purchase_invoices pi on pi.id = m.purchase_invoice_id
-      where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
+- Aprobación de `20261104095000`–`20261104095300` y revisión previa de
+      `20261104095200`: en **Antes de promover**.
 - [ ] Diferencias asentadas al chofer antes de `20261104095300`
       (movimiento `charge` o `payment` con `driver_settlement_id`): un
       faltante deja también la factura del cliente abierta y un sobrante queda
@@ -180,11 +314,12 @@ mitigación en el schema: el límite se respeta operando.
       `management_pnl_lines`), pero al empleado ahora se le carga el neto: en
       canal fiscal el IVA queda en anticipos y no en el costo. Ajustar
       `f_employee` a la parte que se le carga (`amount / imp_total` del
-      cargo) sobre la versión de `claude/audit-impuestos-gestion`
-      (`20261104092000`, que también reemplaza `management_pnl_lines`).
-- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
-      `payroll_audit_fixes`, `driver_settlement_differences`,
-      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
+      cargo) sobre la definición de `20261104092000`.
+- [ ] pgTAP verde en CI (stack fresco: `payroll_audit_fixes`,
+      `driver_settlement_differences`, `driver_settlements`,
+      `employee_accounts`, `payroll_receipt_sac`); sin verificar contra datos
+      de producción ni en el navegador: las cuatro migraciones.
+
 ## Saldos de apertura, aging y diferencia de cambio (2026-11-04, auditoría w1)
 
 - [x] **Saldo de apertura de proveedor** (`20261104094100`): salda el saldo
@@ -217,6 +352,9 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Resultado de gestión: la cuenta "Diferencias de cambio" no tiene caja
       asignada, así que aparece en "Sin clasificar" hasta que el owner la
       clasifique.
+- Aprobación de `20261104094000`–`20261104094300` y vista previa del
+      backfill de `094300`: en **Antes de promover**.
+
 ## Auditoría: liquidaciones y flete (2026-11-04)
 
 - [x] **Contador externo (`fiscal_reader`):** en `/liquidaciones` ve solo las
@@ -271,10 +409,10 @@ mitigación en el schema: el límite se respeta operando.
       (`balance_days`), las ventas de cheques (`status`), las tarifas de
       almacenaje (`area_id`, `migrated_to_client_tariffs_at`), el historial de
       bloqueos y el envío de liquidaciones por email.
-- [ ] No verificado contra una base real: migraciones y pgTAP
-      (`driver_settlement_differences`, `check_sale_followups`,
-      `late_interest_proration`, `deposit_followups`,
-      `storage_tariffs_to_client_tariffs`) y las pantallas.
+- [ ] pgTAP verde en CI (stack fresco: `driver_settlement_differences`,
+      `check_sale_followups`, `late_interest_proration`, `deposit_followups`,
+      `storage_tariffs_to_client_tariffs`); sin verificar contra datos de
+      producción ni en el navegador: las migraciones y las pantallas.
 - [ ] Rollback: el código anterior factura una tarifa general por área como
       general de todas las áreas (no cargarlas hasta que el deploy quede
       firme) y cobra la mora sobre el saldo de hoy. No edita las tarifas
@@ -294,7 +432,8 @@ mitigación en el schema: el límite se respeta operando.
 - [x] UI: "Pagar" deuda de cheque vendido sin estado viejo; ND por mora
       refresca aunque falle el vínculo; resultados de varias ND con su
       comprobante.
-- [ ] Aprobar las migraciones `20261104093000`–`20261104093400` con el deploy.
+- Aprobación de `20261104093000`–`20261104093400`: en **Antes de
+      promover**.
 - [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
       propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
       re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`). Lo
@@ -304,9 +443,10 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] `journal_missing_entries` no lista los asientos de cheques propios: un
       cheque propio en USD cobrado sin cotización ese día queda sin asiento
       y sin aviso en el paquete mensual.
-- [ ] No verificado contra una base real: migraciones y pgTAP
-      (`payment_order_rejected_endorsed_checks`, `loan_liability`,
-      `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
+- [ ] pgTAP verde en CI (stack fresco: `payment_order_rejected_endorsed_checks`,
+      `loan_liability`, `issued_checks_manual_cashing`,
+      `late_interest_emitted_nc`); sin verificar contra datos de producción:
+      las migraciones.
 
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
@@ -320,8 +460,8 @@ mitigación en el schema: el límite se respeta operando.
       financiamiento), con propuesta donde corresponde.
 - [ ] Aprobar la migración `20261103180000_ai_proposals` junto con el deploy: sin ella falla el
       analyst (columna `ai_insights.proposal`) y las tarjetas nuevas no se ven para finance ni
-      operations. No verificada contra una base real: correr `supabase test db`
-      (`supabase/tests/ai_proposals_test.sql`) antes de aprobar.
+      operations. pgTAP verde en CI (`ai_proposals_test.sql`); sin verificar
+      contra datos de producción.
 - [x] **Recategorizar un gasto** (cuenta de gasto y/o centro de costo de un egreso manual o de
       una compra): `recategorize_expense` + `lib/commands/recategorize-expense.ts`, Dialog
       "Recategorizar" en Caja y Compras, y la propuesta `proposeRecategorizeExpense`.
@@ -333,16 +473,16 @@ mitigación en el schema: el límite se respeta operando.
 - [x] **"N conciliadas" en la tarjeta del chat** (`ai_chat_confirmations.result_note`).
 - [ ] Aprobar las migraciones `20261104060000_recategorize_expense`,
       `20261104060100_aging_snapshots` y `20261104060200_ai_chat_confirmation_note` con el
-      deploy. No verificadas contra una base real: correr `supabase test db`
-      (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
+      deploy. pgTAP verde en CI (`recategorize_expense_test.sql`,
+      `aging_snapshots_test.sql`); sin verificar contra datos de producción.
 - [x] Recategorizar una factura de compra lleva el cambio a sus NC/ND vigentes que tenían el valor
       anterior (`20261104092300`); una NC/ND con cuenta o centro propios lo conserva, y una a
       cargo de un empleado conserva la cuenta. El audit lista las NC/ND que cambiaron.
 - [ ] Las compras recategorizadas antes de `20261104092300` dejaron sus NC/ND en el rubro o
       centro anterior; no hay backfill (cambia datos de producción, lo decide el owner):
       recategorizar esas NC/ND una por una (el audit `expense.recategorized` dice cuáles compras).
-- [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
-      `result` (igual que en el chat).
+- [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura se cierra como
+      fallida al volver a prepararla (#346); en el chat queda `accepted` sin `result`.
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
       `ANTHROPIC_API_KEY` en el entorno del agente; los offline pasan).
 
@@ -377,10 +517,9 @@ mitigación en el schema: el límite se respeta operando.
       nuevas; Caja (`v_transactions_tagged`) marca el pago de un impuesto con
       origen `tax_document` y la app vieja lo muestra como un movimiento con
       dueño (no editable), que es lo correcto.
-- [ ] No verificado contra una base real: migraciones y pgTAP
-      (`supabase/tests/tax_documents_test.sql`) sin stack local; correr
-      `supabase test db`. La UI (guía, impuestos, calendario) no se probó en
-      el navegador.
+- [ ] pgTAP verde en CI (stack fresco: `tax_documents_test.sql`); sin verificar contra datos
+      de producción. La UI (guía, impuestos, calendario) no se probó en el
+      navegador.
 - [x] **Vincular movimiento existente** (`20261103190000`): un impuesto
       se paga con un egreso suelto ya cargado (pesos, canal fiscal, caja o
       banco activa, ±15 días del vencimiento, el importe más cercano
@@ -394,9 +533,9 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Aprobar la migración `20261103190000_tax_documents_link_movement` con
       el deploy. Rollback: el código anterior no llama a los RPC nuevos; un
       impuesto pagado así se ve como cualquier pagado.
-- [ ] No verificado contra una base real:
-      `supabase/tests/tax_documents_link_test.sql` sin stack local; los
-      diálogos (vincular, "Pago de impuesto") no se probaron en el navegador.
+- [ ] pgTAP verde en CI (stack fresco: `tax_documents_link_test.sql`); sin verificar contra
+      datos de producción. Los diálogos (vincular, "Pago de impuesto") no se
+      probaron en el navegador.
 - [ ] Vincular un egreso de un canal no fiscal se rechaza: cambiarle el
       canal rompería su conciliación. Si hace falta, cargarlo en el canal
       fiscal o pagar con "Pagar".
@@ -465,10 +604,10 @@ mitigación en el schema: el límite se respeta operando.
       payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
-- [ ] No verificado contra una base real:
-      `supabase/tests/tax_documents_undo_test.sql` sin stack local; "Deshacer
-      pago", el saldo a favor y "Ver adjuntos" no se probaron en el
-      navegador; los casos de ruteo nuevos no se corrieron en vivo.
+- [ ] pgTAP verde en CI (stack fresco: `tax_documents_undo_test.sql`); sin verificar contra
+      datos de producción. "Deshacer pago", el saldo a favor y "Ver adjuntos"
+      no se probaron en el navegador; los casos de ruteo nuevos no se
+      corrieron en vivo.
 
 ## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
 
@@ -536,10 +675,9 @@ mitigación en el schema: el límite se respeta operando.
       Rollback del código: llama a las mismas RPC con su firma; una
       conciliación partida sigue bloqueando su movimiento y el código viejo
       la muestra contra una de sus líneas.
-- [ ] No verificado contra una base real: las dos migraciones y sus pgTAP
-      (`supabase/tests/import_more_fields_test.sql`,
-      `bank_reconciliation_many_lines_test.sql`) sin stack local; correr
-      `supabase test db`. Tampoco se probaron en el navegador `/manual`
+- [ ] pgTAP verde en CI (stack fresco: `import_more_fields_test.sql`,
+      `bank_reconciliation_many_lines_test.sql`); sin verificar contra datos
+      de producción. No se probaron en el navegador `/manual`
       (CSP con nonce), el filtro de Caja (filtro de nulos sobre el embed de
       `bank_statement_matches` en `v_transactions_tagged`) ni el diálogo de
       varias líneas.
@@ -567,9 +705,8 @@ mitigación en el schema: el límite se respeta operando.
       (después de las de 4.4–4.6): sin ella falla la página del importador.
       Rollback: el código anterior ignora `import_run_id` y las tablas
       nuevas; lo importado queda como un alta normal.
-- [ ] No verificado contra una base real: la migración y su pgTAP
-      (`supabase/tests/import_runs_test.sql`) se escribieron sin un stack
-      local; correr `supabase test db` antes de aprobar.
+- [ ] pgTAP verde en CI (stack fresco: `import_runs_test.sql`); sin verificar contra datos de
+      producción.
 - [x] Importar tarifas, préstamos, cheques en cartera, saldos iniciales de
       clientes y extractos (5.3, 5.4): ver la sección siguiente.
 - [ ] Mostrar los históricos donde ayuden (ficha del empleado, del vehículo
@@ -597,9 +734,8 @@ mitigación en el schema: el límite se respeta operando.
       tablas nuevas, saltea las corridas de tipos que no conoce y no las
       puede deshacer; el guard de conciliación sigue rechazando editar un
       movimiento conciliado.
-- [ ] No verificado contra una base real: migraciones y pgTAP
-      (`supabase/tests/bank_reconciliation_test.sql`) sin stack local; correr
-      `supabase test db`. La UI no se probó en el navegador.
+- [ ] pgTAP verde en CI (stack fresco: `bank_reconciliation_test.sql`); sin verificar contra
+      datos de producción. La UI no se probó en el navegador.
 - [ ] Cobranzas históricas (recibos de antes del go-live) **no** se importan:
       moverían caja y asientos de períodos ya cerrados en papel. Va el saldo
       inicial por cliente; el detalle por factura queda para el ajuste
@@ -675,10 +811,11 @@ mitigación en el schema: el límite se respeta operando.
       rendición lo marca ("recibos cambiados en Recibos") y no deja asentar
       la diferencia; no se recalcula sola. Se detecta por el total del
       recibo: un cambio de cuenta con el mismo total no se marca.
-- [ ] El faltante asentado al chofer y la factura del cliente: si el cliente
-      pagó entero y el chofer se quedó con la plata, la factura sigue con
-      saldo por el faltante. Hay que cancelarlo a mano (no hay un recibo
-      "cobrado por el chofer").
+- [x] El faltante asentado al chofer y la factura del cliente: desde
+      `20261104095300` "a cargo del chofer" salda al cliente con un recibo
+      (#345). Las diferencias asentadas antes quedan para reparar a mano: ver
+      "Diferencias asentadas al chofer antes de `20261104095300`" en
+      Auditoría RRHH y rendiciones.
 - [ ] Liquidar período con "confirmar" deja las de Otras ventas confirmadas:
       el remito interno X se emite una por una (cada una es un comprobante).
 - [x] **Remito R / remito interno X** (`20261104030000_freight_settlements_remito_r`):
@@ -898,41 +1035,3 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
       por el acceso de quien subió el documento.
-
----
-
-## Emisión AFIP — auditoría (2026-11-04)
-
-- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
-      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
-      que solo lo intentaron, el que coincide con el comprobante de AFIP.
-- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
-      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
-      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
-      Inngest se vuelve a mandar con su clave.
-- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
-      run; si `inngest.send` falla el borrador no se borra.
-- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
-      5 s el piso CAEA).
-- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
-- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
-      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
-      número en la importación de ARCA.
-- [x] La importación de ARCA guarda un comprobante de un período cerrado con
-      su asiento en `pending_journal_entries`.
-- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
-      "sin movimiento".
-- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
-      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
-      hasta que alguien decida de cuál es el de AFIP.
-- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
-      (cada una cerca de 20 s) el paso puede pasar los 300 s.
-- [ ] Antes de promover `issue-invoice-reconcile`: su primera corrida vuelve
-      a mandar a AFIP los borradores de los últimos 3 días y resuelve las
-      emisiones trabadas que ya existen. El owner revisa esas filas antes
-      (`select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting'`):
-      un borrador que el usuario ya volvió a facturar con otro comprobante se
-      borra antes, o se emitiría dos veces.
-- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
-      leer la fila, o el run se canceló) no la resuelve el cron: frena la
-      importación de ARCA de su par hasta que alguien la marque fallida.

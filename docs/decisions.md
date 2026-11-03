@@ -3,6 +3,32 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-04 — Stamps de migración con `main` adelantado al reloj
+
+**Decisión.** Una versión de migración nueva tiene que ser una fecha y hora
+UTC reales: `scripts/check-migrations.sh` (pre-push y CI) rechaza minutos o
+segundos de 60 o más, horas de 24 o más y días que no existen. Las futuras
+siguen aceptándose hasta un día por delante, como antes: `main` ya tiene
+`20261104096100` (minuto 61) y se adelantó unas 13 h, y las migraciones
+mergeadas no se renombran. `pnpm db:restamp` deja de negarse cuando `main`
+está adelantado: estampa el segundo siguiente al máximo de `main` leído como
+hora real (`…096100` cuenta como 10:01:00, el próximo es `…100101`).
+
+**Descartado.** Rechazar toda versión más de una hora por delante del reloj:
+con `main` adelantado bloquearía cada migración nueva hasta que el reloj lo
+pase. Renombrar `20261104096000`/`096100`: producción ya las registra por su
+versión.
+
+## 2026-11-04 — Invitar usuario: roles por `set_user_access`
+
+**Decisión.** `inviteUserAction` asigna los roles con `set_user_access`
+(`p_expected_roles = []`), el mismo RPC que el diálogo de accesos, en vez de
+leer y escribir `user_roles` desde la acción. Una regla nueva del RPC alcanza
+también a la invitación, y una cuenta que ya tiene roles se rechaza en la misma
+transacción (antes: una lectura y después la escritura). La tolerancia "antes
+de que exista el RPC" no hace falta: `promote-to-production.yml` aplica las
+migraciones antes del código, y el RPC (`20261028140000`) es anterior.
+
 ## 2026-11-04 — Permisos sin gate: se cablean o se quitan
 
 **Decisión.** Cada permiso de la matriz tiene que leerse en algún gate (lo
