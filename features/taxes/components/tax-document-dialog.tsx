@@ -55,6 +55,7 @@ type FormState = {
   amount: string;
   amount_is_estimate: boolean;
   account_id: string;
+  credit_balance: string;
   notes: string;
 };
 
@@ -69,6 +70,8 @@ function initialState(doc: TaxDocument | null): FormState {
       amount: doc.amount === null ? "" : String(doc.amount),
       amount_is_estimate: doc.amount_is_estimate,
       account_id: doc.account_id ?? NO_ACCOUNT,
+      credit_balance:
+        doc.credit_balance === null ? "" : String(doc.credit_balance),
       notes: doc.notes ?? "",
     };
   }
@@ -82,6 +85,7 @@ function initialState(doc: TaxDocument | null): FormState {
     amount: "",
     amount_is_estimate: false,
     account_id: NO_ACCOUNT,
+    credit_balance: "",
     notes: "",
   };
 }
@@ -139,7 +143,7 @@ export function TaxDocumentDialog({
           }));
         } else {
           toast.info(
-            "El libro IVA da saldo a favor: no hay importe a pagar estimado.",
+            "El libro IVA da saldo a favor: no hay importe a pagar estimado. Cargá el saldo a favor de la DDJJ para el mes siguiente.",
           );
         }
       },
@@ -153,6 +157,14 @@ export function TaxDocumentDialog({
       toast.error("Importe inválido.");
       return;
     }
+    const creditBalance =
+      form.kind !== "iva" || form.credit_balance.trim() === ""
+        ? null
+        : Number(form.credit_balance);
+    if (creditBalance !== null && !Number.isFinite(creditBalance)) {
+      toast.error("Saldo a favor inválido.");
+      return;
+    }
     const payload = {
       kind: form.kind,
       title: form.title,
@@ -162,6 +174,7 @@ export function TaxDocumentDialog({
       amount,
       amount_is_estimate: amount !== null && form.amount_is_estimate,
       account_id: form.account_id === NO_ACCOUNT ? null : form.account_id,
+      credit_balance: creditBalance,
       notes: form.notes,
     };
     const onError = (err: Error) => toast.error(err.message);
@@ -345,6 +358,13 @@ export function TaxDocumentDialog({
                   <dd className="text-right font-mono">
                     − {formatMoney(estimate.retenciones)}
                   </dd>
+                  <dt>
+                    Saldo a favor de{" "}
+                    {formatPeriod(previousPeriod(estimate.period))}
+                  </dt>
+                  <dd className="text-right font-mono">
+                    − {formatMoney(estimate.saldo_anterior)}
+                  </dd>
                   <dt className="font-medium">
                     {estimate.saldo >= 0 ? "A pagar" : "Saldo a favor"}
                   </dt>
@@ -352,14 +372,48 @@ export function TaxDocumentDialog({
                     {formatMoney(Math.abs(estimate.saldo))}
                   </dd>
                 </dl>
-                <p className="text-muted-foreground">
-                  No descuenta las percepciones de IVA de las compras (el libro
-                  las suma con las de IIBB) ni el saldo a favor del mes
-                  anterior: restalos a mano si corresponde.
-                </p>
+                {!estimate.saldo_anterior_known && (
+                  <p className="text-muted-foreground">
+                    No hay IVA cargado de{" "}
+                    {formatPeriod(previousPeriod(estimate.period))}: si la DDJJ
+                    dejó saldo a favor, restalo a mano.
+                  </p>
+                )}
+                {estimate.tributos_compras !== 0 && (
+                  <p className="text-muted-foreground">
+                    Las compras tienen {formatMoney(estimate.tributos_compras)}{" "}
+                    de otros tributos (percepciones de IVA e IIBB juntas: el
+                    libro no las separa). No se descuentan: restá a mano las de
+                    IVA.
+                  </p>
+                )}
               </div>
             )}
           </div>
+
+          {form.kind === "iva" && (
+            <div className="space-y-1">
+              <Label htmlFor="tax-credit-balance">
+                Saldo a favor técnico para el mes siguiente
+              </Label>
+              <Input
+                id="tax-credit-balance"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={form.credit_balance}
+                placeholder="Sin saldo a favor"
+                disabled={readOnly}
+                onChange={(e) => set("credit_balance", e.target.value)}
+              />
+              <p className="text-muted-foreground text-xs">
+                El que deja la DDJJ de este período. El estimado del mes
+                siguiente lo descuenta. Si no hay nada que pagar, cargalo y
+                después anulá el impuesto.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label htmlFor="tax-account">Cuenta contable del pago</Label>

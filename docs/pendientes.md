@@ -146,25 +146,56 @@
 - [ ] No verificado contra una base real:
       `supabase/tests/tax_documents_link_test.sql` sin stack local; los
       diálogos (vincular, "Pago de impuesto") no se probaron en el navegador.
-- [ ] Deshacer un pago de impuesto (hoy el egreso no se borra ni el
-      documento vuelve a pendiente). Para un pago vinculado, deshacer debería
-      soltar el movimiento y devolverle su cuenta de gasto (hoy no se guarda
-      cuál tenía: queda en el asiento revertido).
 - [ ] Vincular un egreso de un canal no fiscal se rechaza: cambiarle el
       canal rompería su conciliación. Si hace falta, cargarlo en el canal
       fiscal o pagar con "Pagar".
-- [ ] Resultado de gestión percibido: el pago de un impuesto cae en el
-      rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
-      gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
-      de pasivo (IVA) no es resultado y no suma.
-- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
-      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
-      saldo a favor del mes anterior; lo dice en pantalla.
 - [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
       ("Manual: Contabilidad › Impuestos"), sin link.
-- [ ] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
-      (no tiene `files:read`).
-- [ ] Herramienta del asistente IA para impuestos (vencimientos y estado).
+- [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
+      impuesto pagado; `taxes:write` + `transactions:write`):
+      `undo_tax_document_payment` deja el impuesto liquidado (o pendiente si
+      el importe era estimado) y una línea en las notas. Si lo pagó "Pagar",
+      borra el egreso con su asiento; si fue "Vincular", el movimiento queda
+      en Caja suelto, con la cuenta de gasto que tenía
+      (`tax_documents.payment_previous_expense_account_id`) y el asiento
+      rehecho. Rechaza un período cerrado y un egreso de "Pagar" conciliado
+      con el extracto (primero se desconcilia). Sin pago no hace nada.
+- [x] **Gestión percibido** (`20261104050200`): el pago de un impuesto va
+      al rubro de la cuenta del impuesto si está mapeada en
+      `management_buckets`, si no a Costos operativos › Impuestos
+      operativos. Devengado no cambia.
+- [x] **Estimado de IVA**: descuenta el saldo a favor técnico del IVA del
+      mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
+      carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
+      tributos de las compras.
+- [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
+      descuentan. `purchase_invoices` tiene un solo `imp_trib` (IVA e IIBB
+      juntas, y el asiento lo manda entero a percepciones IIBB); separarlas
+      pide una columna nueva en compras (carga manual, importador AFIP y
+      escaneo) y un asiento que las separe. Hoy el estimado muestra el total
+      de `imp_trib` para restarlo a mano.
+- [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
+      log de auditoría (vinculado si está `tax_document.payment_linked`; si
+      no, "Pagar"); la cuenta de gasto previa sale del último
+      `transaction.created`/`transaction.updated` antes del vínculo, porque
+      `repost_journal` borra el asiento reemplazado (no lo revierte). Sin
+      rastro, deshacer deja el movimiento sin cuenta de gasto (va a
+      `gastos`).
+- [x] **Adjuntos para el contador** (`20261104050400`): quien tiene
+      `taxes:read` ve los adjuntos de un impuesto (RLS de `file_attachments`
+      y `files`, y las acciones de adjuntos) sin `files:read`; nada más del
+      hub de archivos. En `/taxes`, el lector abre "Ver adjuntos".
+- [x] **Herramienta IA** `getTaxDocuments` (`taxes:read`): vencidos, por
+      vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
+- [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
+      deploy. Rollback: el código anterior no llama a `undo_tax_document_
+      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+      que conoce; las policies nuevas solo agregan filas a un rol al que el
+      código viejo no le pide adjuntos.
+- [ ] No verificado contra una base real:
+      `supabase/tests/tax_documents_undo_test.sql` sin stack local; "Deshacer
+      pago", el saldo a favor y "Ver adjuntos" no se probaron en el
+      navegador; los casos de ruteo nuevos no se corrieron en vivo.
 
 ## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
 

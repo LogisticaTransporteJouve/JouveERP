@@ -6730,6 +6730,7 @@ export type Database = {
           amount_is_estimate: boolean
           created_at: string
           created_by: string | null
+          credit_balance: number | null
           due_date: string
           id: string
           jurisdiction: string | null
@@ -6737,6 +6738,8 @@ export type Database = {
           notes: string | null
           paid_amount: number | null
           paid_date: string | null
+          payment_origin: string | null
+          payment_previous_expense_account_id: string | null
           payment_transaction_id: string | null
           period: string
           status: string
@@ -6749,6 +6752,7 @@ export type Database = {
           amount_is_estimate?: boolean
           created_at?: string
           created_by?: string | null
+          credit_balance?: number | null
           due_date: string
           id?: string
           jurisdiction?: string | null
@@ -6756,6 +6760,8 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_origin?: string | null
+          payment_previous_expense_account_id?: string | null
           payment_transaction_id?: string | null
           period: string
           status?: string
@@ -6768,6 +6774,7 @@ export type Database = {
           amount_is_estimate?: boolean
           created_at?: string
           created_by?: string | null
+          credit_balance?: number | null
           due_date?: string
           id?: string
           jurisdiction?: string | null
@@ -6775,6 +6782,8 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_origin?: string | null
+          payment_previous_expense_account_id?: string | null
           payment_transaction_id?: string | null
           period?: string
           status?: string
@@ -6792,6 +6801,20 @@ export type Database = {
           {
             foreignKeyName: "tax_documents_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_previous_expense_account_id_fkey"
+            columns: ["payment_previous_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_previous_expense_account_id_fkey"
+            columns: ["payment_previous_expense_account_id"]
             isOneToOne: false
             referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
@@ -9243,6 +9266,7 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: boolean
       }
+      is_tax_document_file: { Args: { p_file_id: string }; Returns: boolean }
       journal_document_entry: {
         Args: { p_fiscal_only?: boolean; p_id: string; p_source: string }
         Returns: Json
@@ -9921,6 +9945,15 @@ export type Database = {
       undo_import_run: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: undefined
+      }
+      undo_tax_document_payment: {
+        Args: { p_tax_document_id: string; p_user_id: string }
+        Returns: {
+          expense_account_restored: boolean
+          movement_deleted: boolean
+          origin: string
+          transaction_id: string
+        }[]
       }
       unmatch_bank_statement_line: {
         Args: { p_line_id: string; p_user_id: string }

@@ -251,6 +251,36 @@ export const ROUTING_CASES: RoutingCase[] = [
       due_date: "2026-11-15",
     },
   },
+  // The list read stops at the first refusal (the offline stub refuses),
+  // so it reaches listTaxDocumentsAction once; its year is today's.
+  {
+    id: "taxes-due-this-week",
+    question: "¿Qué impuestos vencen esta semana?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { dueWithinDays: 7 } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-overdue-accountant",
+    question: "¿Hay impuestos vencidos sin pagar?",
+    roles: ["fiscal_reader"],
+    expect: { tool: "getTaxDocuments", input: {} },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-paid-month",
+    question: "¿Cuánto pagamos de impuestos en octubre 2026?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { period: "2026-10" } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-iva-estimate",
+    question: "¿Cuánto IVA vamos a pagar por octubre 2026?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { ivaPeriod: "2026-10" } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
 ];
 
 export const DENIED_CASES: DeniedCase[] = [
@@ -294,6 +324,12 @@ export const DENIED_CASES: DeniedCase[] = [
     question: "Emití la ND por intereses de mora de Cliente Uno.",
     roles: ["fiscal_reader"],
     forbiddenTools: ["proposeLateInterestNd", "proposeTask"],
+  },
+  {
+    id: "taxes-operations",
+    question: "¿Qué impuestos vencen esta semana?",
+    roles: ["operations"],
+    forbiddenTools: ["getTaxDocuments"],
   },
   {
     id: "cash-operations",
