@@ -87,7 +87,7 @@ export function CostCentersTable() {
           if (id === null) return "—";
           return (
             <span className="font-mono text-xs">
-              {patenteById.get(id) ?? "…"}
+              {patenteById.get(id) ?? "Vinculado"}
             </span>
           );
         },

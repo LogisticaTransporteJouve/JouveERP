@@ -28,15 +28,15 @@ function uniqueViolationMessage(message: string): string {
 }
 
 /**
- * The trucks a center can be linked to, for whoever reads the centers.
- * vehicles is RLS-limited to operations; this reads id and patente only,
- * through the service client after the gate.
+ * The trucks a center can be linked to, for whoever edits the centers.
+ * vehicles is RLS-limited to the fleet roles; this reads id and patente
+ * only, through the service client after the gate.
  */
 export async function listCostCenterVehiclesAction(): Promise<
   ActionResult<CostCenterVehicle[]>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:read")) {
+  if (!userCan(ctx.access, "accounting:write")) {
     return { ok: false, error: "No tenés permiso." };
   }
   const { data, error } = await paginateRange<CostCenterVehicle>((from, to) =>
