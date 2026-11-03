@@ -1,4 +1,4 @@
--- Recategorizar un gasto (20261104000000). recategorize_expense changes the
+-- Recategorizar un gasto (20261104060000). recategorize_expense changes the
 -- expense account and/or the cost center of a loose expense or a purchase
 -- and the entry is re-posted with them; the same values again change
 -- nothing; a reconciled expense can still be recategorized (the lock covers

@@ -97,8 +97,8 @@
 - [x] **Conciliación desde el insight de extracto:** si la cuenta con más líneas atrasadas tiene
       sugerencias, la tarjeta propone `proposeBankMatches`; si no, la tarea de siempre.
 - [x] **"N conciliadas" en la tarjeta del chat** (`ai_chat_confirmations.result_note`).
-- [ ] Aprobar las migraciones `20261104000000_recategorize_expense`,
-      `20261104000100_aging_snapshots` y `20261104000200_ai_chat_confirmation_note` con el
+- [ ] Aprobar las migraciones `20261104060000_recategorize_expense`,
+      `20261104060100_aging_snapshots` y `20261104060200_ai_chat_confirmation_note` con el
       deploy. No verificadas contra una base real: correr `supabase test db`
       (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
 - [ ] Recategorizar una factura de compra no cambia sus NC/ND ya cargadas (heredan la cuenta solo

@@ -1,4 +1,4 @@
--- Fotos del aging (20261104000100). capture_aging_snapshot writes today's
+-- Fotos del aging (20261104060100). capture_aging_snapshot writes today's
 -- row with the sums of v_aging_documents (pesos and dollars apart, overdue
 -- = days past due > 0); a second run the same day replaces it. Only the
 -- service role runs it; owner/admin/finance read the rows, operations does

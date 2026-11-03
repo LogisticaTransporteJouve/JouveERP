@@ -10,7 +10,7 @@ import {
  * from those domains (cash-flow → treasury balances, receivables risk → AR,
  * duplicate/unusual invoices → AP, fleet cards → fleet), so only users who can
  * read every one of them in the app see it. Mirrors the `ai_insights select`
- * RLS policy (latest in supabase/migrations/20261104000100_aging_snapshots.sql)
+ * RLS policy (latest in supabase/migrations/20261104060100_aging_snapshots.sql)
  * — keep both in sync when adding a kind.
  */
 export const INSIGHT_KIND_PERMISSION: Readonly<

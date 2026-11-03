@@ -82,7 +82,7 @@ describe("ai_insights RLS policy stays in sync with the visibility map", () => {
   const sql = readFileSync(
     path.resolve(
       __dirname,
-      "../../../../supabase/migrations/20261104000100_aging_snapshots.sql",
+      "../../../../supabase/migrations/20261104060100_aging_snapshots.sql",
     ),
     "utf8",
   );
