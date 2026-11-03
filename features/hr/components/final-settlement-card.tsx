@@ -8,7 +8,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatArgentineDate, formatMoney } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  formatMoney,
+  parseArAmount,
+} from "@/lib/format";
 
 import {
   useApplyFinalSettlement,
@@ -27,11 +32,16 @@ type Draft = {
   sac_amount: string;
 };
 
-const NUMBER_RE = /^\d+(\.\d{1,2})?$/;
+const DAYS_RE = /^\d+(\.\d{1,2})?$/;
 
-function parse(raw: string): number | null {
+function parseDays(raw: string): number | null {
   const value = raw.trim().replace(/,/g, ".");
-  return NUMBER_RE.test(value) ? Number(value) : null;
+  return DAYS_RE.test(value) ? Number(value) : null;
+}
+
+function parseMoney(raw: string): number | null {
+  const value = parseArAmount(raw);
+  return value !== null && value >= 0 ? value : null;
 }
 
 /** Suggested final settlement of a terminated employee, editable before it
@@ -44,20 +54,20 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
   useEffect(() => {
     if (!data) return;
     setDraft({
-      prorated_salary: String(data.prorated_salary),
+      prorated_salary: amountToInput(data.prorated_salary),
       vacation_days: String(data.vacation_days),
-      vacation_amount: String(data.vacation_amount),
-      sac_amount: String(data.sac_amount),
+      vacation_amount: amountToInput(data.vacation_amount),
+      sac_amount: amountToInput(data.sac_amount),
     });
   }, [data]);
 
   function onApply() {
     if (!data || !draft) return;
     const values = {
-      prorated_salary: parse(draft.prorated_salary),
-      vacation_days: parse(draft.vacation_days),
-      vacation_amount: parse(draft.vacation_amount),
-      sac_amount: parse(draft.sac_amount),
+      prorated_salary: parseMoney(draft.prorated_salary),
+      vacation_days: parseDays(draft.vacation_days),
+      vacation_amount: parseMoney(draft.vacation_amount),
+      sac_amount: parseMoney(draft.sac_amount),
     };
     if (Object.values(values).some((v) => v === null)) {
       toast.error("Revisá los montos: tienen que ser números.");
@@ -111,6 +121,24 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
               : ""}
             . Volver a cargarla reemplaza los montos anteriores.
           </p>
+          {data.sac_in_sac_planilla > 0 ? (
+            <p className="text-muted-foreground">
+              La planilla del{" "}
+              <Link
+                href={payrollPeriodHref(
+                  data.year,
+                  sacMonth(data.sac_half),
+                  "sac",
+                )}
+                className="text-primary hover:underline"
+              >
+                {formatPayrollPeriod(data.year, sacMonth(data.sac_half), "sac")}
+              </Link>{" "}
+              ya le paga {formatMoney(data.sac_in_sac_planilla)} de SAC: el SAC
+              proporcional sugerido es solo lo que falta. Si ahí cobra de más,
+              ajustalo en esa planilla.
+            </p>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               id="fs-salary"

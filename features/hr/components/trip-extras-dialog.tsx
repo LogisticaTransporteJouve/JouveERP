@@ -16,7 +16,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { formatArgentineDate, formatMoney, formatNumber2 } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  formatMoney,
+  formatNumber2,
+  parseArAmount,
+} from "@/lib/format";
 
 import type { EntryTripExtras } from "../actions/trip-extras-actions";
 import type { TripExtraLine } from "../account-schema";
@@ -173,11 +179,11 @@ function SuggestedLine({
 }) {
   const qc = useQueryClient();
   const addMut = useAddPayrollEntryExtra();
-  const [amount, setAmount] = useState(String(line.amount));
+  const [amount, setAmount] = useState(amountToInput(line.amount));
 
   function onAdd() {
-    const value = Number(amount.replace(/,/g, "."));
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parseArAmount(amount);
+    if (value === null || value <= 0) {
       toast.error("Importe inválido.");
       return;
     }

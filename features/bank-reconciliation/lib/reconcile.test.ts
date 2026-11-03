@@ -112,6 +112,7 @@ describe("summarize", () => {
       from: "2026-10-01",
       to: "2026-10-31",
       bookBalance: 1470,
+      bookBalanceAtStatement: 1470,
     });
     expect(s).toMatchObject({
       statement_balance: 1479.9,
@@ -134,9 +135,38 @@ describe("summarize", () => {
       from: "2026-10-01",
       to: "2026-10-31",
       bookBalance: 0,
+      bookBalanceAtStatement: 0,
     });
     expect(s.statement_balance).toBeNull();
     expect(s.difference).toBeNull();
+  });
+
+  it("compares the statement balance with the books on the same date", () => {
+    // The bank's last balance is on the 28th; the books moved -50 on the 30th.
+    const s = summarize({
+      lines: [
+        line({
+          id: "1",
+          line_date: "2026-10-28",
+          amount: 100,
+          balance: 1000,
+          status: "matched",
+        }),
+      ],
+      movements: [
+        mov({ id: "a", signed_amount: 100, line_ids: ["1"] }),
+        mov({ id: "b", signed_amount: -50, transaction_date: "2026-10-30" }),
+      ],
+      from: "2026-10-01",
+      to: "2026-10-31",
+      bookBalance: 950,
+      bookBalanceAtStatement: 1000,
+    });
+    expect(s).toMatchObject({
+      statement_balance_date: "2026-10-28",
+      book_balance: 950,
+      difference: 0,
+    });
   });
 });
 

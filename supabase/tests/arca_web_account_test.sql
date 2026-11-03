@@ -1,4 +1,4 @@
--- ARCA web account (20261104097200): only the service role saves or reads
+-- ARCA web account (20261104102700): only the service role saves or reads
 -- the clave (Vault); a null clave keeps the stored one; a new clave or CUIT
 -- resets the failures; a rejected clave stops automatic sign-ins; owner and
 -- admin read the status but not the secret id; finance reads nothing. One
@@ -6,7 +6,7 @@
 
 begin;
 
-select plan(12);
+select plan(14);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -61,14 +61,17 @@ select public.record_arca_web_sign_in(false, 'SIGN_IN_REJECTED');
 
 select results_eq(
   $$ select status, consecutive_failures, last_error_code from public.arca_web_account $$,
-  $$ values ('sign_in_failing'::text, 1, 'SIGN_IN_REJECTED'::text) $$,
-  'a rejected clave stops automatic sign-ins'
+  $$ values ('sign_in_failing'::text, 1::bigint, 'SIGN_IN_REJECTED'::text) $$,
+  'a rejected clave is marked'
 );
+
+select is(public.get_arca_web_password(), null::text, 'and is not handed out until a new one is saved');
 
 select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001');
 
 select results_eq(
-  $$ select public.get_arca_web_password(), status from public.arca_web_account $$,
+  $$ select (select decrypted_secret from vault.decrypted_secrets where name = 'arca_web_password'), status
+       from public.arca_web_account $$,
   $$ values ('clave-uno'::text, 'sign_in_failing'::text) $$,
   'saving without a clave keeps the stored one and the failing state'
 );
@@ -77,7 +80,7 @@ select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0
 
 select results_eq(
   $$ select public.get_arca_web_password(), status, consecutive_failures from public.arca_web_account $$,
-  $$ values ('clave-dos'::text, 'active'::text, 0) $$,
+  $$ values ('clave-dos'::text, 'active'::text, 0::bigint) $$,
   'a new clave replaces the secret and resets the failures'
 );
 
@@ -85,6 +88,15 @@ select is(
   (select count(*)::int from vault.secrets where name = 'arca_web_password'),
   1,
   'one secret, updated in place'
+);
+
+delete from public.arca_web_account;
+select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001', 'clave-tres');
+select results_eq(
+  $$ select public.get_arca_web_password(),
+            (select count(*)::int from vault.secrets where name = 'arca_web_password') $$,
+  $$ values ('clave-tres'::text, 1) $$,
+  'a secret left by a deleted row is reused, not created again'
 );
 
 -- 3. Who reads ---------------------------------------------------------------------

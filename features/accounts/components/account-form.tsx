@@ -9,6 +9,7 @@ import { DialogFormFooter } from "@/components/dialog-form-footer";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -24,7 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import { useCreateAccount, useUpdateAccount } from "../hooks/use-accounts";
+import {
+  useAccountHasMovements,
+  useCreateAccount,
+  useUpdateAccount,
+} from "../hooks/use-accounts";
 import {
   ACCOUNT_CURRENCIES,
   ACCOUNT_TYPES,
@@ -69,6 +74,14 @@ export function AccountForm({
   const createMut = useCreateAccount();
   const updateMut = useUpdateAccount();
   const isSaving = createMut.isPending || updateMut.isPending;
+  // guard_account_currency_change freezes currency, type and opening balance
+  // once the account has movements. Locked until the answer arrives, and
+  // when it can't be read.
+  const movements = useAccountHasMovements(
+    account?.id ?? "",
+    mode === "edit" && account !== undefined,
+  );
+  const frozen = mode === "edit" && movements.data !== false;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -85,8 +98,13 @@ export function AccountForm({
         onError: (err) => toast.error(err.message),
       });
     } else if (account) {
+      const { type, currency, opening_balance, ...editable } = values;
       updateMut.mutate(
-        { id: account.id, ...values },
+        {
+          id: account.id,
+          ...editable,
+          ...(!frozen && { type, currency, opening_balance }),
+        },
         {
           onSuccess: () => {
             toast.success("Cambios guardados.");
@@ -127,7 +145,11 @@ export function AccountForm({
               <FormItem>
                 <FormLabel>Tipo</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={frozen}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -151,7 +173,11 @@ export function AccountForm({
               <FormItem>
                 <FormLabel>Moneda</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={frozen}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -184,8 +210,18 @@ export function AccountForm({
                   inputMode="decimal"
                   placeholder="0.00"
                   className="sm:max-w-[240px]"
+                  disabled={frozen}
                 />
               </FormControl>
+              {frozen && (
+                <FormDescription>
+                  {movements.isPending
+                    ? "Revisando si la cuenta tiene movimientos…"
+                    : movements.isError
+                      ? "No se pudo saber si la cuenta tiene movimientos: tipo, moneda y saldo inicial quedan sin cambios."
+                      : 'La cuenta tiene movimientos: tipo, moneda y saldo inicial ya no se cambian. Para corregir el saldo, usá "Ajustar saldo".'}
+                </FormDescription>
+              )}
               <FormMessage />
             </FormItem>
           )}

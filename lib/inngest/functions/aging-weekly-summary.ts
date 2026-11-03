@@ -105,7 +105,7 @@ export const agingWeeklySummary = inngest.createFunction(
     // Mondays at 09:00 in Buenos Aires (Inngest crons accept TZ= prefix).
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires 0 9 * * 1" }],
   },
-  async ({ step }) => {
+  async ({ event, step }) => {
     const summary = await step.run(
       "compose-summary",
       async (): Promise<AgingSummary> => {
@@ -161,13 +161,15 @@ export const agingWeeklySummary = inngest.createFunction(
         return { sent: false };
       }
       const { subject, html } = renderAgingEmail(summary, generatedAt);
-      const { data, error } = await resend.emails.send({
-        from: getEmailFrom(),
-        replyTo: getEmailReplyTo(),
-        to,
-        subject,
-        html,
-      });
+      // A retry after a lost response must not mail finance twice: Resend
+      // drops a second send with the same key (24 h), and the run's cron
+      // event id is the same on every retry.
+      const { data, error } = await resend.emails.send(
+        { from: getEmailFrom(), replyTo: getEmailReplyTo(), to, subject, html },
+        event.id
+          ? { idempotencyKey: `aging-weekly-summary/${event.id}` }
+          : undefined,
+      );
       if (error) {
         throw new Error(`email-summary: ${error.message}`);
       }

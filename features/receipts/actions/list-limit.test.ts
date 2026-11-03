@@ -7,6 +7,7 @@ import { resolveAccess } from "@/lib/auth/permissions";
 
 let ranges: [number, number][] = [];
 let rows: unknown[] = [];
+let ilikes: unknown[][] = [];
 
 function builder(): unknown {
   const chain: unknown = new Proxy(
@@ -19,6 +20,7 @@ function builder(): unknown {
         }
         return (...args: unknown[]) => {
           if (prop === "range") ranges.push([Number(args[0]), Number(args[1])]);
+          if (prop === "ilike") ilikes.push(args);
           return chain;
         };
       },
@@ -42,6 +44,7 @@ const { listReceiptsAction } = await import("./receipts-actions");
 beforeEach(() => {
   ranges = [];
   rows = [];
+  ilikes = [];
 });
 
 describe("listReceiptsAction page size", () => {
@@ -59,5 +62,12 @@ describe("listReceiptsAction page size", () => {
       [0, 0],
       [0, 0],
     ]);
+  });
+});
+
+describe("listReceiptsAction name search", () => {
+  it("takes % and _ in the name literally", async () => {
+    await listReceiptsAction({ query: "100%_sa" });
+    expect(ilikes).toEqual([["clients.legal_name", "%100\\%\\_sa%"]]);
   });
 });

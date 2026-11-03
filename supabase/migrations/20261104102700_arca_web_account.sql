@@ -16,7 +16,7 @@ create table public.arca_web_account (
   cuit                 text not null check (cuit ~ '^\d{11}$'),
   secret_id            uuid,
   status               text not null default 'active'
-                         check (status in ('active', 'sign_in_failing', 'disabled')),
+                         check (status in ('active', 'sign_in_failing')),
   consecutive_failures bigint not null default 0 check (consecutive_failures >= 0),
   last_success_at      timestamptz,
   last_error_code      text check (last_error_code is null or char_length(last_error_code) <= 40),
@@ -76,6 +76,11 @@ begin
   end if;
 
   if p_password is not null then
+    -- A secret left by an earlier row (deleted by hand) is reused, not
+    -- created again: the name is unique in Vault.
+    if v_secret is null then
+      select id into v_secret from vault.secrets where name = 'arca_web_password';
+    end if;
     if v_secret is null then
       v_secret := vault.create_secret(p_password, 'arca_web_password',
                                       'Clave fiscal del usuario de ARCA para Mis Comprobantes');
@@ -103,7 +108,9 @@ $$;
 revoke all on function public.set_arca_web_credentials(text, uuid, text) from public, anon, authenticated;
 grant execute on function public.set_arca_web_credentials(text, uuid, text) to service_role;
 
--- The password, for the job step that signs in. Null when not configured.
+-- The password, for the job step that signs in. Null when not configured or
+-- when ARCA rejected it: no caller retries a rejected clave (that would lock
+-- the user) until someone saves a new one.
 create or replace function public.get_arca_web_password()
 returns text
 language sql
@@ -114,7 +121,7 @@ as $$
   select s.decrypted_secret
     from public.arca_web_account a
     join vault.decrypted_secrets s on s.id = a.secret_id
-   where a.id;
+   where a.id and a.status = 'active';
 $$;
 
 revoke all on function public.get_arca_web_password() from public, anon, authenticated;
@@ -134,7 +141,7 @@ as $$
 begin
   if p_ok then
     update public.arca_web_account
-       set status = case when status = 'disabled' then status else 'active' end,
+       set status = 'active',
            consecutive_failures = 0,
            last_success_at = now(),
            last_error_code = null
@@ -143,7 +150,7 @@ begin
     update public.arca_web_account
        set consecutive_failures = consecutive_failures + 1,
            last_error_code = left(p_error_code, 40),
-           status = case when p_error_code = 'SIGN_IN_REJECTED' and status <> 'disabled'
+           status = case when p_error_code = 'SIGN_IN_REJECTED'
                          then 'sign_in_failing' else status end
      where id;
   end if;

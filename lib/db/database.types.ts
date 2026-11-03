@@ -2607,13 +2607,6 @@ export type Database = {
             referencedColumns: ["purchase_invoice_id"]
           },
           {
-            foreignKeyName: "employee_account_movements_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
             foreignKeyName: "employee_account_movements_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
@@ -3226,13 +3219,6 @@ export type Database = {
             referencedColumns: ["purchase_invoice_id"]
           },
           {
-            foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
             foreignKeyName: "file_attachments_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
@@ -3630,13 +3616,6 @@ export type Database = {
             columns: ["purchase_invoice_id"]
             isOneToOne: false
             referencedRelation: "v_purchase_invoice_open"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
-            foreignKeyName: "fuel_loads_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
           {
@@ -4778,13 +4757,6 @@ export type Database = {
             referencedColumns: ["purchase_invoice_id"]
           },
           {
-            foreignKeyName: "maintenance_records_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
             foreignKeyName: "maintenance_records_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
@@ -5099,13 +5071,6 @@ export type Database = {
             referencedRelation: "v_purchase_invoice_open"
             referencedColumns: ["purchase_invoice_id"]
           },
-          {
-            foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
         ]
       }
       payment_order_payment_lines: {
@@ -5180,6 +5145,72 @@ export type Database = {
           },
           {
             foreignKeyName: "payment_order_payment_lines_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+        ]
+      }
+      payment_order_rejected_check_allocations: {
+        Row: {
+          amount_applied: number
+          created_at: string
+          endorsed_check_id: string | null
+          id: string
+          issued_check_id: string | null
+          payment_order_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_applied: number
+          created_at?: string
+          endorsed_check_id?: string | null
+          id?: string
+          issued_check_id?: string | null
+          payment_order_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_applied?: number
+          created_at?: string
+          endorsed_check_id?: string | null
+          id?: string
+          issued_check_id?: string | null
+          payment_order_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_order_rejected_check_allocations_endorsed_check_id_fkey"
+            columns: ["endorsed_check_id"]
+            isOneToOne: false
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_rejected_check_allocations_endorsed_check_id_fkey"
+            columns: ["endorsed_check_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
+            foreignKeyName: "payment_order_rejected_check_allocations_issued_check_id_fkey"
+            columns: ["issued_check_id"]
+            isOneToOne: false
+            referencedRelation: "issued_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_rejected_check_allocations_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_rejected_check_allocations_payment_order_id_fkey"
             columns: ["payment_order_id"]
             isOneToOne: false
             referencedRelation: "v_payment_order_unapplied"
@@ -5662,13 +5693,6 @@ export type Database = {
             referencedRelation: "v_purchase_invoice_open"
             referencedColumns: ["purchase_invoice_id"]
           },
-          {
-            foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
         ]
       }
       purchase_invoices: {
@@ -5837,13 +5861,6 @@ export type Database = {
             referencedColumns: ["purchase_invoice_id"]
           },
           {
-            foreignKeyName: "purchase_invoices_imputed_to_id_fkey"
-            columns: ["imputed_to_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
             foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
             columns: ["invoice_origin_id"]
             isOneToOne: false
@@ -5855,13 +5872,6 @@ export type Database = {
             columns: ["invoice_origin_id"]
             isOneToOne: false
             referencedRelation: "v_purchase_invoice_open"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
-            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
-            columns: ["invoice_origin_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
           {
@@ -6867,13 +6877,6 @@ export type Database = {
             columns: ["purchase_invoice_id"]
             isOneToOne: true
             referencedRelation: "v_purchase_invoice_open"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
-            foreignKeyName: "supplier_opening_balance_allocations_purchase_invoice_id_fkey"
-            columns: ["purchase_invoice_id"]
-            isOneToOne: true
-            referencedRelation: "v_supplier_aging_documents"
             referencedColumns: ["purchase_invoice_id"]
           },
         ]
@@ -8340,13 +8343,6 @@ export type Database = {
             referencedColumns: ["purchase_invoice_id"]
           },
           {
-            foreignKeyName: "purchase_invoices_invoice_origin_id_fkey"
-            columns: ["invoice_origin_id"]
-            isOneToOne: false
-            referencedRelation: "v_supplier_aging_documents"
-            referencedColumns: ["purchase_invoice_id"]
-          },
-          {
             foreignKeyName: "purchase_invoices_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -8450,16 +8446,31 @@ export type Database = {
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
           usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "purchase_invoices_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_supplier_aging_by_scope: {
         Row: {
@@ -8477,26 +8488,45 @@ export type Database = {
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
           usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "purchase_invoices_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_supplier_aging_documents: {
         Row: {
           amount_applied: number | null
           amount_credited_by_nc: number | null
+          amount_credited_unlinked: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
           channel_name: string | null
+          check_number: string | null
           days_overdue: number | null
+          document_id: string | null
+          document_type: string | null
           fch_vto_pago: string | null
           fecha: string | null
           imp_total: number | null
@@ -8509,22 +8539,26 @@ export type Database = {
           purchase_invoice_id: string | null
           supplier_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "purchase_invoices_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "invoicing_channels"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "purchase_invoices_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      v_supplier_rejected_check_open: {
+        Row: {
+          amount: number | null
+          amount_settled: number | null
+          channel_id: string | null
+          check_id: string | null
+          check_kind: string | null
+          check_number: string | null
+          currency: string | null
+          numero: number | null
+          open_amount: number | null
+          payment_order_id: string | null
+          punto_venta: number | null
+          rejected_on: string | null
+          rejected_recorded_at: string | null
+          supplier_id: string | null
+        }
+        Relationships: []
       }
       v_transactions_tagged: {
         Row: {
@@ -8693,6 +8727,10 @@ export type Database = {
       }
     }
     Functions: {
+      account_has_movements: {
+        Args: { p_account_id: string }
+        Returns: boolean
+      }
       account_movement_totals: {
         Args: { p_split: string; p_until: string }
         Returns: {
@@ -9470,6 +9508,14 @@ export type Database = {
         Args: { p_movement_id: string }
         Returns: undefined
       }
+      delete_orphan_files: {
+        Args: { p_ids: string[]; p_max_age?: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+          id: string
+        }[]
+      }
       deposit_check: {
         Args: {
           p_account_id: string
@@ -9934,6 +9980,16 @@ export type Database = {
           type: string
         }[]
       }
+      loan_capital_journal_lines: {
+        Args: {
+          p_capital: number
+          p_currency: string
+          p_description: string
+          p_loan_id: string
+          p_rate: number
+        }
+        Returns: Json
+      }
       management_invoice_asset_share: {
         Args: { p_invoice_id: string }
         Returns: number
@@ -10024,6 +10080,12 @@ export type Database = {
         }
         Returns: string
       }
+      payment_order_rate: {
+        Args: {
+          p_payment_order: Database["public"]["Tables"]["payment_orders"]["Row"]
+        }
+        Returns: number
+      }
       payroll_garnishment_amount: {
         Args: { p_base: number; p_employee_id: string; p_period_id: string }
         Returns: number
@@ -10051,6 +10113,10 @@ export type Database = {
       post_pending_journals: {
         Args: { p_limit?: number; p_period?: string }
         Returns: Json
+      }
+      purchase_employee_charge_figure: {
+        Args: { p: Database["public"]["Tables"]["purchase_invoices"]["Row"] }
+        Returns: number
       }
       purchase_invoices_fiscal_without_letter: {
         Args: never
@@ -10455,6 +10521,73 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      suppliers:
+        | {
+            Args: { "": Database["public"]["Views"]["v_supplier_aging"]["Row"] }
+            Returns: {
+              address: string | null
+              category_id: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string | null
+              default_channel_id: string | null
+              default_cost_center_id: string | null
+              default_expense_account_id: string | null
+              default_payment_term_days: number | null
+              display_name: string | null
+              email: string | null
+              id: string
+              import_run_id: string | null
+              is_active: boolean
+              is_fiscal: boolean
+              iva_condition: string | null
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_supplier_aging"
+              to: "suppliers"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
+              "": Database["public"]["Views"]["v_supplier_aging_by_scope"]["Row"]
+            }
+            Returns: {
+              address: string | null
+              category_id: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string | null
+              default_channel_id: string | null
+              default_cost_center_id: string | null
+              default_expense_account_id: string | null
+              default_payment_term_days: number | null
+              display_name: string | null
+              email: string | null
+              id: string
+              import_run_id: string | null
+              is_active: boolean
+              is_fiscal: boolean
+              iva_condition: string | null
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_supplier_aging_by_scope"
+              to: "suppliers"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
       sync_automatic_tasks: {
         Args: { p_today: string }
         Returns: {
@@ -10462,6 +10595,10 @@ export type Database = {
           kind: string
           task_id: string
         }[]
+      }
+      sync_purchase_employee_charge: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
       }
       tax_document_difference_note: {
         Args: {

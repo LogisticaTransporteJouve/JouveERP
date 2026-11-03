@@ -9,4 +9,6 @@ export const accountsKeys = {
   byId: (id: string) => [...accountsKeys.all, "byId", id] as const,
   openingBalance: (id: string) =>
     [...accountsKeys.all, "openingBalance", id] as const,
+  hasMovements: (id: string) =>
+    [...accountsKeys.all, "hasMovements", id] as const,
 };

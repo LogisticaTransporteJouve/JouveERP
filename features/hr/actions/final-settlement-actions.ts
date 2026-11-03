@@ -7,7 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { finalSettlement } from "../lib/final-settlement";
+import { finalSettlement, sacStillOwed } from "../lib/final-settlement";
 import {
   ApplyFinalSettlementSchema,
   formatPayrollPeriod,
@@ -34,6 +34,9 @@ export type FinalSettlementSuggestion = {
   vacation_days: number;
   vacation_amount: number;
   sac_half: SacHalf;
+  /** What the half's SAC planilla already pays this employee (0 without
+   *  one): the suggested sac_amount is net of it. */
+  sac_in_sac_planilla: number;
   sac_amount: number;
 };
 
@@ -58,13 +61,20 @@ async function loadSuggestion(
   const month = Number(termination.slice(5, 7));
   const half = sacHalfOfMonth(month);
 
-  const [periodRes, balancesRes, sacRes] = await Promise.all([
+  const [periodRes, sacPeriodRes, balancesRes, sacRes] = await Promise.all([
     supabase
       .from("payroll_periods")
       .select("id, status")
       .eq("year", year)
       .eq("month", month)
       .eq("kind", "monthly")
+      .maybeSingle(),
+    supabase
+      .from("payroll_periods")
+      .select("id")
+      .eq("year", year)
+      .eq("month", sacMonth(half))
+      .eq("kind", "sac")
       .maybeSingle(),
     supabase
       .from("v_employee_vacation_balances")
@@ -76,10 +86,12 @@ async function loadSuggestion(
       p_half: half,
     }),
   ]);
-  if (periodRes.error || balancesRes.error || sacRes.error) {
+  const readError =
+    periodRes.error ?? sacPeriodRes.error ?? balancesRes.error ?? sacRes.error;
+  if (readError) {
     logger.error("payroll.final_settlement.read_failed", {
       employeeId,
-      error: periodRes.error ?? balancesRes.error ?? sacRes.error,
+      error: readError,
     });
     return { ok: false, error: "No se pudo calcular la liquidación final." };
   }
@@ -96,6 +108,24 @@ async function loadSuggestion(
       return { ok: false, error: "No se pudo leer la planilla del mes." };
     }
     entrySalary = entry ? Number(entry.sueldo_neto) : null;
+  }
+
+  // The half's SAC planilla, filled while the employee was still active,
+  // already pays him a SAC: the final settlement adds only the rest.
+  let sacInSacPlanilla = 0;
+  if (sacPeriodRes.data) {
+    const { data: sacEntry, error } = await supabase
+      .from("v_payroll_entries_resolved")
+      .select("sueldo_neto, extras_total")
+      .eq("period_id", sacPeriodRes.data.id)
+      .eq("employee_id", employeeId)
+      .maybeSingle();
+    if (error) {
+      return { ok: false, error: "No se pudo leer la planilla del SAC." };
+    }
+    sacInSacPlanilla = sacEntry
+      ? Number(sacEntry.sueldo_neto ?? 0) + Number(sacEntry.extras_total ?? 0)
+      : 0;
   }
 
   const balances = balancesRes.data ?? [];
@@ -132,7 +162,8 @@ async function loadSuggestion(
       vacation_days: settlement.vacationDays,
       vacation_amount: settlement.vacationAmount,
       sac_half: half,
-      sac_amount: Number(sacRes.data ?? 0),
+      sac_in_sac_planilla: sacInSacPlanilla,
+      sac_amount: sacStillOwed(Number(sacRes.data ?? 0), sacInSacPlanilla),
     },
   };
 }

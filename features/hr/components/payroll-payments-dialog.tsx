@@ -36,7 +36,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { formatArgentineDate, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -174,7 +179,7 @@ function PaymentsBody({
   const emptyValues: AddValues = {
     account_id: payableAccounts[0]?.id ?? "",
     channel_id: defaultChannel ?? "",
-    amount: saldo > 0 ? String(saldo) : "",
+    amount: saldo > 0 ? amountToInput(saldo) : "",
     method: "transferencia",
     paid_at: todayInAR(),
     notes: "",
@@ -184,11 +189,11 @@ function PaymentsBody({
 
   // Editing a payment frees its own amount, so it counts toward the balance.
   const available = saldo + (editing ? Number(editing.amount) : 0);
-  const typedAmount = Number(
-    useWatch({ control: form.control, name: "amount" }).replace(/,/g, "."),
+  const typedAmount = parseArAmount(
+    useWatch({ control: form.control, name: "amount" }),
   );
   const overpays =
-    Number.isFinite(typedAmount) && exceedsBalance(typedAmount, available);
+    typedAmount !== null && exceedsBalance(typedAmount, available);
 
   function startEdit(id: string) {
     const payment = payments.find((p) => p.id === id);
@@ -197,7 +202,7 @@ function PaymentsBody({
     form.reset({
       account_id: payment.account_id,
       channel_id: payment.channel_id,
-      amount: String(Number(payment.amount)),
+      amount: amountToInput(Number(payment.amount)),
       method: payment.method,
       paid_at: payment.paid_at,
       notes: payment.notes ?? "",
@@ -211,8 +216,8 @@ function PaymentsBody({
   }
 
   function onSubmit(values: AddValues) {
-    const amount = Number(values.amount.replace(/,/g, "."));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const amount = parseArAmount(values.amount);
+    if (amount === null || amount <= 0) {
       toast.error("Monto inválido.");
       return;
     }

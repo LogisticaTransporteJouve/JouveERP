@@ -1,18 +1,50 @@
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15min';
 
--- Resultado de gestión, cash basis: the share of a payment order that pays
--- purchases booked to an account mapped to "Neutro (no suma)" is neutral, the
--- same way the accrual side already leaves that account out. A purchase that
--- is not a company cost (an expense account the owner maps to neutral in
--- Gestión → cajas) then adds 0 to the cash result too. A payment order that
--- pays it and other purchases counts only the others.
+-- Resultado de gestión (uso interno): exchange differences, loan interest,
+-- USD pending and the cash rate. Nothing here writes an entry or touches the
+-- builders or the fiscal books. management_pnl_lines keeps its signature and
+-- columns; the rest is the definition of 20261104092000.
 --
--- Internal use only: nothing here writes an entry or touches the builders or
--- the fiscal books. management_pnl_lines keeps its signature and columns.
--- Rollback: older code already knows neutral; only figures move to it.
+--   1. Auditoría W2 · S3 F4: the "Diferencias de cambio" account (system
+--      role diferencia_cambio, 20261104094300) had no bucket, so every FX
+--      result of a USD settlement landed in "Sin clasificar", inside the
+--      operating margin. It is a financial result: financing_cost /
+--      intereses, like 4.2.1 (docs/decisions.md). A mapping the owner already
+--      gave it is kept.
+--   2. Auditoría W2 · S2 F4: since 20261104093100 an unsplit cuota of a loan
+--      with its liability booked posts capital to prestamos and the rest to
+--      intereses_pagados (or its expense account). Accrual read every result
+--      line of an unsplit cuota as loan_principal, so that interest left the
+--      financial cost. Now an unsplit cuota's result line is principal only
+--      when the builder expensed the whole cuota: the loan has no booked
+--      liability, or (an entry posted before 20261104093100) the entry has no
+--      prestamos line although the schedule still owed capital. Cash splits
+--      an unsplit cuota of a booked loan the same way (capital first).
+--   3. W1 · S3 #14: a USD payroll discount or forgiven company debt with no
+--      rate that day was dropped; it is pending_usd now, on both bases.
+--   4. W1 · S3 #15: accrual pending_usd leaves out the movements whose entry
+--      is not a result (loan disbursement, check movement or rejection,
+--      opening-balance adjustment, tax payment), as cash does.
+--   5. W1 · S3 #21: cash values a USD receipt or payment order at its own
+--      cotización (the rate its entry booked), not the day's rate.
+--   6. W1 · S3 #16: cash rounds each USD line to the cent, so the drill-down
+--      ties to the figure.
+--
+-- Rollback: older code already knows every bucket and subbucket used here;
+-- only the figures move between them.
 
--- Same as 20261104092000 plus the neutral share of a payment order.
+-- 1. Bucket of the exchange differences ---------------------------------------------
+
+insert into public.management_buckets (chart_of_accounts_id, bucket, subbucket)
+select coa.id, 'financing_cost', 'intereses'
+  from public.chart_of_accounts coa
+ where coa.system_role = 'diferencia_cambio'
+on conflict (chart_of_accounts_id) do nothing;
+
+-- 2. Lines ------------------------------------------------------------------------------
+
+-- Same as 20261104092000 plus the changes in the header.
 create or replace function public.management_pnl_lines(
   p_from  date,
   p_to    date,
@@ -99,18 +131,28 @@ begin
     classified as (
       select r.month, r.side, r.source_table, r.source_id, r.cost_center_id, r.account_id, r.amount,
              case
-               -- An unsplit loan installment is posted to an expense: in
-               -- gestión it is principal paid, below the operating margin.
-               -- A split one posts its capital to the loan liability
-               -- (principal) and its interest to its own account's bucket.
+               -- A cuota's capital posted to the loan liability is principal
+               -- paid, below the operating margin; its interest goes to its
+               -- own account's bucket.
                when r.source_table = 'transactions'
                     and coa.system_role = 'prestamos'
-                    and exists (select 1 from public.loan_installments li where li.transaction_id = r.source_id)
+                    and inst.id is not null
                  then 'loan_principal'
+               -- An unsplit cuota posted whole to an expense is principal
+               -- paid too: the loan has no booked liability (the builder
+               -- expenses the whole cuota), or its entry predates the
+               -- capital-first posting (20261104093100: no prestamos line
+               -- although the schedule still owed capital). Otherwise the
+               -- builder already moved the capital to prestamos and the
+               -- result line is interest.
                when r.source_table = 'transactions'
                     and coa.account_type in ('resultado_positivo', 'resultado_negativo')
-                    and exists (select 1 from public.loan_installments li
-                                 where li.transaction_id = r.source_id and li.capital_amount is null)
+                    and inst.id is not null
+                    and inst.capital_amount is null
+                    and (not inst.booked
+                         or (inst.owes_capital
+                             and not bool_or(coa.system_role is not distinct from 'prestamos')
+                                       over (partition by r.side, r.source_table, r.source_id)))
                  then 'loan_principal'
                when mb.bucket is not null then mb.bucket
                when coa.account_type in ('resultado_positivo', 'resultado_negativo') then 'unclassified'
@@ -121,6 +163,23 @@ begin
         from raw r
         left join public.chart_of_accounts coa on coa.id = r.account_id
         left join public.management_buckets mb on mb.chart_of_accounts_id = r.account_id
+        -- The cuota a treasury movement paid, with the builder's predicate
+        -- (build_transaction_journal_lines, 20261104093100).
+        left join lateral (
+          select li.id, li.capital_amount,
+                 (lo.disbursement_transaction_id is not null or lo.import_run_id is not null) as booked,
+                 lo.principal - coalesce((
+                   select sum(coalesce(o.capital_amount, o.amount))
+                     from public.loan_installments o
+                    where o.loan_id = li.loan_id
+                      and o.number < li.number
+                 ), 0) > 0 as owes_capital
+            from public.loan_installments li
+            join public.loans lo on lo.id = li.loan_id
+           where r.source_table = 'transactions'
+             and li.transaction_id = r.source_id
+           limit 1
+        ) inst on true
     )
     select c.month,
            case when s.is_asset then 'asset_sale' else c.bucket end,
@@ -148,6 +207,14 @@ begin
        and t.kind in ('income', 'expense')
        and t.invoice_id is null and t.receipt_id is null and t.payment_order_id is null
        and t.issued_check_id is null
+       -- Movements whose entry is not a result: a loan disbursement, a check
+       -- movement or rejection, an opening-balance adjustment, a tax payment.
+       and t.manual_check_id is null and t.rejected_check_id is null
+       and not exists (select 1 from public.loans lo where lo.disbursement_transaction_id = t.id)
+       and not exists (select 1 from public.check_movements cm where cm.transaction_id = t.id)
+       and not exists (select 1 from public.account_opening_balances aob
+                        where aob.adjustment_transaction_id = t.id)
+       and not exists (select 1 from public.tax_documents td where td.payment_transaction_id = t.id)
        and t.accrual_month between v_from and v_to
        -- Fiscal: the journal is the source, so pending while it has no live
        -- entry (a rate loaded later, back-dated, posts nothing by itself).
@@ -156,7 +223,18 @@ begin
                 then not exists (select 1 from public.current_journal_entries('transactions', t.id))
                 else public.get_exchange_rate('USD', t.transaction_date) is null
            end
-       and not exists (select 1 from public.employee_account_movements m where m.transaction_id = t.id);
+       and not exists (select 1 from public.employee_account_movements m where m.transaction_id = t.id)
+    union all
+    -- A USD payroll discount or forgiven company debt with no rate that day:
+    -- internal salaries in dollars, pending like any other.
+    select to_char(m.movement_date, 'YYYY-MM'), 'pending_usd', null, 'internal',
+           null, null::uuid, 0::numeric, -m.amount,
+           'employee_account_movements', m.id
+      from public.employee_account_movements m
+     where m.movement_date between v_from and v_to
+       and (m.kind = 'payroll_discount' or (m.kind = 'forgiveness' and m.creditor = 'empresa'))
+       and m.currency = 'USD'
+       and public.get_exchange_rate('USD', m.movement_date) is null;
     return;
   end if;
 
@@ -165,6 +243,17 @@ begin
   return query
   with base as (
     select t.id, t.transaction_date, t.currency, t.cost_center_id,
+           -- A USD receipt or payment order is valued at its own cotización,
+           -- the rate its entry booked; anything else at the day's rate.
+           case when t.currency = 'USD' then
+             case when t.receipt_id is not null then
+                    (select case when r.cotizacion > 1 then r.cotizacion end
+                       from public.receipts r where r.id = t.receipt_id)
+                  when t.payment_order_id is not null then
+                    (select case when po.cotizacion > 1 then po.cotizacion end
+                       from public.payment_orders po where po.id = t.payment_order_id)
+             end
+           end as doc_rate,
            to_char(t.transaction_date, 'YYYY-MM') as month,
            case when c.is_fiscal then 'fiscal' else 'internal' end as side,
            case when t.kind = 'income' then t.amount else -t.amount end as signed,
@@ -234,10 +323,13 @@ begin
            end as f_asset,
            op.f_employee,
            op.f_fleet,
-           op.f_neutral,
-           -- Share of an installment that is not capital.
+           -- Share of an installment that is not capital. An unsplit cuota
+           -- of a loan with its liability booked pays the capital the
+           -- schedule still owes first, as its entry does.
            case when li.capital_amount is not null and li.amount > 0
-                then greatest(0, least(1, (li.amount - li.capital_amount) / li.amount))
+                  then greatest(0, least(1, (li.amount - li.capital_amount) / li.amount))
+                when li.default_capital is not null and t.amount > 0
+                  then greatest(0, least(1, (t.amount - li.default_capital) / t.amount))
                 else 0 end as f_interest
       from public.transactions t
       join public.invoicing_channels c on c.id = t.channel_id
@@ -248,8 +340,18 @@ begin
         select exists (select 1 from public.employee_account_movements m where m.transaction_id = t.id) as owned
       ) emp
       left join lateral (
-        select li.id, li.amount, li.capital_amount
+        select li.id, li.amount, li.capital_amount,
+               case when li.capital_amount is null
+                         and (lo.disbursement_transaction_id is not null or lo.import_run_id is not null)
+                    then greatest(0, least(t.amount, lo.principal - coalesce((
+                           select sum(coalesce(o.capital_amount, o.amount))
+                             from public.loan_installments o
+                            where o.loan_id = li.loan_id
+                              and o.number < li.number
+                         ), 0)))
+               end as default_capital
           from public.loan_installments li
+          join public.loans lo on lo.id = li.loan_id
          where li.transaction_id = t.id
          limit 1
       ) li on true
@@ -263,19 +365,13 @@ begin
       cross join lateral (
         -- least() skips nulls: coalesce first, or no OP would read as 1.
         select least(1, coalesce(a.employee, 0)) as f_employee,
-               least(1 - least(1, coalesce(a.employee, 0)), coalesce(a.fleet, 0)) as f_fleet,
-               least(1 - least(1, coalesce(a.employee, 0))
-                       - least(1 - least(1, coalesce(a.employee, 0)), coalesce(a.fleet, 0)),
-                     coalesce(a.neutral, 0)) as f_neutral
+               least(1 - least(1, coalesce(a.employee, 0)), coalesce(a.fleet, 0)) as f_fleet
           from (
             select sum(poa.amount_applied) filter (where pi.charged_employee_id is not null)
                      / nullif(max(po.total_amount), 0) as employee,
                    sum(poa.amount_applied) filter (where pi.charged_employee_id is null
                                                      and pmb.bucket = 'fleet_investment')
-                     / nullif(max(po.total_amount), 0) as fleet,
-                   sum(poa.amount_applied) filter (where pi.charged_employee_id is null
-                                                     and pmb.bucket = 'neutral')
-                     / nullif(max(po.total_amount), 0) as neutral
+                     / nullif(max(po.total_amount), 0) as fleet
               from public.payment_orders po
               join public.payment_order_allocations poa on poa.payment_order_id = po.id
               join public.purchase_invoices pi on pi.id = poa.purchase_invoice_id
@@ -306,7 +402,7 @@ begin
      where public.find_account_by_role('intereses_pagados') is null
   ),
   parts as (
-    select b.month, b.side, b.cost_center_id, b.currency, b.transaction_date, b.id,
+    select b.month, b.side, b.cost_center_id, b.currency, b.transaction_date, b.doc_rate, b.id,
            p.bucket, p.subbucket, p.account_id, p.part
       from base b
       cross join lateral (
@@ -315,7 +411,6 @@ begin
             ('asset_sale'::text, null::text, null::uuid, round(b.signed * b.f_asset, 2)),
             ('employee_advances', null, null, round(b.signed * b.f_employee, 2)),
             ('fleet_investment', null, null, round(b.signed * b.f_fleet, 2)),
-            ('neutral', null, null, round(b.signed * b.f_neutral, 2)),
             ((select ia.bucket from interest_account ia limit 1),
              (select ia.subbucket from interest_account ia limit 1),
              (select ia.id from interest_account ia limit 1),
@@ -325,37 +420,41 @@ begin
         union all
         select b.bucket, b.subbucket, b.account_id,
                b.signed - round(b.signed * b.f_asset, 2) - round(b.signed * b.f_employee, 2)
-                        - round(b.signed * b.f_fleet, 2) - round(b.signed * b.f_neutral, 2)
-                        - round(b.signed * b.f_interest, 2)
+                        - round(b.signed * b.f_fleet, 2) - round(b.signed * b.f_interest, 2)
       ) p
      where p.bucket <> 'neutral'
   ),
   rated as (
     select p.*,
-           case when p.currency = 'USD' then public.get_exchange_rate('USD', p.transaction_date) else 1 end as rate
+           case when p.currency = 'USD'
+                then coalesce(p.doc_rate, public.get_exchange_rate('USD', p.transaction_date))
+                else 1 end as rate
       from parts p
   )
   select r.month, r.bucket, r.subbucket, r.side, r.account_id, r.cost_center_id,
-         case when r.rate is not null then r.part * r.rate else 0 end,
+         case when r.rate is not null then round(r.part * r.rate, 2) else 0 end,
          case when r.rate is null then r.part else 0 end,
          'transactions'::text, r.id
     from rated r
   union all
   -- Payroll discount / forgiven company debt: internal salaries of the month,
   -- and the same amount back from the advances (no cash moves).
+  -- A USD one with no rate that day stays in dollars (pending_usd).
   select to_char(m.movement_date, 'YYYY-MM'), x.bucket, x.subbucket, 'internal', null::uuid, null::uuid,
-         x.sign * round(m.amount * case when m.currency = 'USD'
-                                        then public.get_exchange_rate('USD', m.movement_date) else 1 end, 2),
-         0::numeric,
+         case when mr.rate is not null then x.sign * round(m.amount * mr.rate, 2) else 0 end,
+         case when mr.rate is null then x.sign * m.amount else 0 end,
          'employee_account_movements', m.id
     from public.employee_account_movements m
+    cross join lateral (
+      select case when m.currency = 'USD'
+                  then public.get_exchange_rate('USD', m.movement_date) else 1 end as rate
+    ) mr
     cross join lateral (values
       ('operating_cost'::text, 'sueldos_internos'::text, -1),
       ('employee_advances', null, 1)
     ) as x (bucket, subbucket, sign)
    where m.movement_date between v_from and v_to
-     and (m.kind = 'payroll_discount' or (m.kind = 'forgiveness' and m.creditor = 'empresa'))
-     and (m.currency = 'ARS' or public.get_exchange_rate('USD', m.movement_date) is not null);
+     and (m.kind = 'payroll_discount' or (m.kind = 'forgiveness' and m.creditor = 'empresa'));
 end;
 $$;
 

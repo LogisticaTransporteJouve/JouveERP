@@ -48,7 +48,7 @@ const ManagementPnlToolInputSchema = z
 
 /** The PostgREST cap the P&L read is not paged past (see docs/pendientes). */
 export const PNL_CAP_NOTE =
-  "La lectura del resultado de gestión llegó al tope de filas: puede faltar una parte.";
+  "Puede faltar una parte del resultado de gestión: la lectura llegó al tope de filas o trae filas que esta versión no sabe clasificar.";
 
 export function monthsBetween(from: string, to: string): string[] {
   const out: string[] = [];

@@ -30,8 +30,6 @@ function statusText(s: ArcaWebAccountStatus): string {
       return "Sin configurar";
     case "rejected":
       return "ARCA rechazó la clave: actualizala";
-    case "disabled":
-      return "Desactivado";
     case "ok":
       return s.lastSuccessAt
         ? `Funcionando · último acceso ${formatArgentineDateTime(s.lastSuccessAt)}`
