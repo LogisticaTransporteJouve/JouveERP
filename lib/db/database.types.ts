@@ -8073,6 +8073,27 @@ export type Database = {
           legal_name: string
         }[]
       }
+      ai_client_net_revenue: {
+        Args: {
+          p_from: string
+          p_is_fiscal?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: {
+          client_id: string
+          credit_notes: number
+          debit_notes: number
+          invoices: number
+          legal_name: string
+          net_revenue_ars: number
+          pending_foreign: number
+          total_clients: number
+          total_net_revenue_ars: number
+          total_pending_foreign: number
+        }[]
+      }
       ai_client_sales_summary: {
         Args: {
           p_client_id?: string
@@ -8110,6 +8131,22 @@ export type Database = {
           cost_center_name: string
           total_credit: number
           total_debit: number
+        }[]
+      }
+      ai_driver_activity: {
+        Args: { p_from: string; p_include_hr?: boolean; p_to: string }
+        Returns: {
+          account_balance_ars: number
+          advances_ars: number
+          advances_usd: number
+          driver_id: string
+          employee_id: string
+          extras_ars: number
+          full_name: string
+          is_active: boolean
+          trip_km: number
+          trips: number
+          trips_without_km: number
         }[]
       }
       ai_driver_extras: {
@@ -8322,6 +8359,29 @@ export type Database = {
           remaining_days: number
           taken_this_year: number
           used_days: number
+        }[]
+      }
+      ai_vehicle_activity: {
+        Args: {
+          p_from: string
+          p_include_fuel?: boolean
+          p_include_km?: boolean
+          p_include_revenue?: boolean
+          p_to: string
+        }
+        Returns: {
+          fuel_liters: number
+          fuel_loads: number
+          is_active: boolean
+          odometer_end: number
+          odometer_km: number
+          odometer_start: number
+          patente: string
+          trip_km: number
+          trips: number
+          trips_without_km: number
+          unassigned_revenue: number
+          vehicle_id: string
         }[]
       }
       allocate_payment_order: {

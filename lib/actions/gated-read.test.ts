@@ -62,13 +62,14 @@ describe("gatedRead", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("queries with the RLS user client and the parsed input", async () => {
+  it("queries with the RLS user client, the parsed input and the caller's access", async () => {
     roles = ["finance"];
     const { query, result } = run({ from: "2026-01-01" });
     expect(await result).toEqual({ ok: true, data: [{ n: 1 }] });
     expect(query).toHaveBeenCalledWith(
       { marker: "rls-client" },
       { from: "2026-01-01" },
+      resolveAccess(["finance"]),
     );
   });
 

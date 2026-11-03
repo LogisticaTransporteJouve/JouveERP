@@ -121,10 +121,17 @@ export function buildChartArtifact(
   const sort = config.sort ?? "none";
   if (sort !== "none") {
     const dir = sort === "asc" ? 1 : -1;
-    // Points without a first value go last either way.
+    // A stacked bar sorts by its whole; the rest by the first series.
+    const sortValue = (p: ChartArtifact["points"][number]) =>
+      config.type === "stacked"
+        ? p.values.some((v) => v !== null)
+          ? p.values.reduce<number>((s, v) => s + (v ?? 0), 0)
+          : null
+        : (p.values[0] ?? null);
+    // Points without a value go last either way.
     points = [...points].sort((a, b) => {
-      const va = a.values[0] ?? null;
-      const vb = b.values[0] ?? null;
+      const va = sortValue(a);
+      const vb = sortValue(b);
       if (va === null || vb === null) {
         return (va === null ? 1 : 0) - (vb === null ? 1 : 0);
       }
@@ -142,6 +149,7 @@ export function buildChartArtifact(
   const chart: ResolvedChart = {
     type: config.type,
     title: config.title,
+    ...(config.dataset ? { dataset: config.dataset } : {}),
     x,
     xLabel: config.xLabel ?? prettifyKey(x),
     series,
@@ -230,6 +238,7 @@ export function buildTableArtifact(
       kind: "table",
       title: config.title,
       source,
+      ...(config.dataset ? { dataset: config.dataset } : {}),
       columns,
       rows: shown,
       truncated,

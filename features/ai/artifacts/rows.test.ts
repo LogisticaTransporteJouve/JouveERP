@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { fieldFormat, isNumericField, prettifyKey, toNumber } from "./rows";
+import {
+  datasetsOf,
+  fieldFormat,
+  isNumericField,
+  prettifyKey,
+  resolveRows,
+  toNumber,
+} from "./rows";
+
+describe("resolveRows", () => {
+  const data = {
+    totals: { a: 1 },
+    byCostCenter: [{ center: "A", cost: 1 }],
+    byMonth: [{ month: "2026-10", cost: 2 }],
+    empty: [],
+  };
+
+  it("reads the first list by default and the named one with a dataset", () => {
+    expect(resolveRows(data)).toEqual(data.byCostCenter);
+    expect(resolveRows(data, "byMonth")).toEqual(data.byMonth);
+  });
+
+  it("returns nothing for a dataset that is missing, empty or not a list", () => {
+    expect(resolveRows(data, "byClient")).toBeNull();
+    expect(resolveRows(data, "empty")).toBeNull();
+    expect(resolveRows(data, "totals")).toBeNull();
+    expect(resolveRows([{ a: 1 }], "byMonth")).toBeNull();
+    expect(datasetsOf(data)).toEqual(["byCostCenter", "byMonth"]);
+  });
+});
 
 describe("fieldFormat", () => {
   it.each([
@@ -27,6 +56,16 @@ describe("fieldFormat", () => {
     ["imp_total", "money"],
     ["cost", "money"],
     ["coefficient", "number"],
+    ["trip_km", "km"],
+    ["odometer_km", "km"],
+    ["km", "km"],
+    ["trips_without_km_count", "count"],
+    ["cost_per_km_ars", "money"],
+    ["revenue_per_km_ars", "money"],
+    ["liters_per_100km", "number"],
+    ["advances_ars", "money"],
+    ["cash_generation_ars", "money"],
+    ["advances_usd", "usd"],
   ])("%s reads as %s", (key, format) => {
     expect(fieldFormat(key)).toBe(format);
   });

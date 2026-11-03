@@ -37,3 +37,19 @@ export const FleetMarginInputSchema = z
 
 export type FleetMarginRow =
   Database["public"]["Functions"]["ai_fleet_margin"]["Returns"][number];
+
+/** Date range of the per-vehicle and per-driver activity reads. */
+export const FleetActivityInputSchema = z
+  .object({
+    from: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
+    to: IsoDateSchema.describe("Fecha hasta, YYYY-MM-DD (inclusive)."),
+  })
+  .refine(
+    (v) => v.from <= v.to,
+    "La fecha desde es posterior a la fecha hasta.",
+  );
+
+export type VehicleActivityRow =
+  Database["public"]["Functions"]["ai_vehicle_activity"]["Returns"][number];
+export type DriverActivityRow =
+  Database["public"]["Functions"]["ai_driver_activity"]["Returns"][number];

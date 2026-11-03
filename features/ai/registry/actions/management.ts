@@ -22,9 +22,15 @@ import {
 import { PeriodSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult, type AiRunResult } from "../result";
+import {
+  errResult,
+  money,
+  okResult,
+  reachedCap,
+  type AiRunResult,
+} from "../result";
 
-const INTERNAL_NOTE =
+export const INTERNAL_NOTE =
   "Resultado de gestión: USO INTERNO (fiscal + interno). No es el EERR fiscal: para bancos, ARCA o cualquier tercero usar getIncomeStatement / getBalanceSheet.";
 
 const ManagementPnlToolInputSchema = z
@@ -46,7 +52,11 @@ const ManagementPnlToolInputSchema = z
   })
   .refine((v) => v.fromPeriod <= v.toPeriod, "Rango de períodos invertido.");
 
-function monthsBetween(from: string, to: string): string[] {
+/** The PostgREST cap the P&L read is not paged past (see docs/pendientes). */
+export const PNL_CAP_NOTE =
+  "La lectura del resultado de gestión llegó al tope de filas: puede faltar una parte.";
+
+export function monthsBetween(from: string, to: string): string[] {
   const out: string[] = [];
   let y = Number(from.slice(0, 4));
   let m = Number(from.slice(5, 7));
@@ -78,7 +88,7 @@ export const getManagementPnL = defineAiAction({
     "cost_centers",
   ],
   description:
-    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja; en percibido, debajo, financiamiento recibido (desembolsos de préstamos) y variación de caja = generación de caja + financiamiento), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen operativo %, resultado operativo tipo EBITDA, generación de caja sin financiamiento) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
+    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja; en percibido, debajo, financiamiento recibido (desembolsos de préstamos) y variación de caja = generación de caja + financiamiento), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen operativo %, resultado operativo tipo EBITDA, generación de caja sin financiamiento) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. byMonth trae una fila por mes (servicios, costos operativos, margen operativo, costo financiero y generación de caja, en pesos; costos con signo negativo) para graficar con renderChart y dataset 'byMonth'. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments; para el ranking de costos por rubro o centro, getTopCosts. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
   input: ManagementPnlToolInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const [res, previousRes, centersRes] = await Promise.all([
@@ -108,7 +118,17 @@ export const getManagementPnL = defineAiAction({
     );
     const waterfall = computeWaterfall(rows);
     const months = monthsBetween(input.fromPeriod, input.toPeriod);
-    const { totals } = buildMonthTable(rows, months);
+    const { byMonth: lineMonths, totals } = buildMonthTable(rows, months);
+    // One row per month, for a chart (renderChart with dataset "byMonth").
+    const byMonth = months.map((month) => ({
+      month,
+      service_revenue_ars: lineMonths.service_revenue?.[month]?.total ?? 0,
+      operating_cost_ars: lineMonths.operating_cost?.[month]?.total ?? 0,
+      operating_margin_ars: lineMonths.operating_margin?.[month]?.total ?? 0,
+      financing_cost_ars: lineMonths.financing_cost?.[month]?.total ?? 0,
+      cash_generation_ars: lineMonths.cash_generation?.[month]?.total ?? 0,
+    }));
+    const capped = reachedCap(res.data.length);
     const { kpis } = computeKpis(
       rows,
       filterByCostCenter(
@@ -151,8 +171,12 @@ export const getManagementPnL = defineAiAction({
         (waterfall.pendingUsd !== 0
           ? ` Hay USD sin cotización (US$${waterfall.pendingUsd}) no sumados.`
           : ""),
-      { basis: input.basis, waterfall, totals, byCostCenter, kpis },
-      { currency: "ARS", note: INTERNAL_NOTE },
+      { basis: input.basis, waterfall, totals, byCostCenter, kpis, byMonth },
+      {
+        currency: "ARS",
+        partial: capped,
+        note: capped ? `${INTERNAL_NOTE} ${PNL_CAP_NOTE}` : INTERNAL_NOTE,
+      },
     );
   },
 });

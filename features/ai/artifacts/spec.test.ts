@@ -54,6 +54,32 @@ describe("chartConfigSchema", () => {
     );
   });
 
+  it("takes up to 6 series only in a stacked bar", () => {
+    const series = ["a", "b", "c", "d", "e", "f"].map((field) => ({ field }));
+    const base = { title: "T", series };
+    expect(
+      chartConfigSchema.safeParse({ ...base, type: "stacked" }).success,
+    ).toBe(true);
+    expect(chartConfigSchema.safeParse({ ...base, type: "line" }).success).toBe(
+      false,
+    );
+    expect(
+      chartConfigSchema.safeParse({
+        type: "stacked",
+        title: "T",
+        series: [...series, { field: "g" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      chartConfigSchema.safeParse({
+        type: "bar",
+        title: "T",
+        valueFormat: "km",
+        dataset: "byMonth",
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects repeated table columns", () => {
     expect(
       tableConfigSchema.safeParse({

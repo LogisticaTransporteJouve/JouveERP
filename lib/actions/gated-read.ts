@@ -3,7 +3,7 @@ import "server-only";
 import type { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, type Permission } from "@/lib/auth/permissions";
+import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +20,8 @@ type RowsResponse<T> = {
  * the house order: session → every permission in `permissions` → Zod parse of
  * the untrusted input → RLS user client. Errors are logged under `event` and
  * returned as `failure`; the caller's `query` never runs for a denied or
- * invalid call.
+ * invalid call. `query` also gets the caller's access, for a read that leaves
+ * out a part another permission covers.
  */
 export async function gatedRead<S extends z.ZodType, T>(options: {
   permissions: readonly Permission[];
@@ -32,6 +33,7 @@ export async function gatedRead<S extends z.ZodType, T>(options: {
   query: (
     supabase: UserClient,
     input: z.output<S>,
+    access: Access,
   ) => PromiseLike<RowsResponse<T>>;
 }): Promise<ActionResult<T[]>> {
   const ctx = await requireUserContext();
@@ -46,7 +48,11 @@ export async function gatedRead<S extends z.ZodType, T>(options: {
     };
   }
   const supabase = await createClient();
-  const { data, error } = await options.query(supabase, parsed.data);
+  const { data, error } = await options.query(
+    supabase,
+    parsed.data,
+    ctx.access,
+  );
   if (error) {
     logger.error(options.event, { userId: ctx.userId, error });
     return { ok: false, error: options.failure };
