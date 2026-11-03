@@ -97,13 +97,20 @@ delete from public.exchange_rates where currency = 'USD' and rate_date <= '1990-
 insert into public.employees (id, legal_name, pay_frequency, base_salary, hire_date) values
   ('00000000-0000-0000-0000-0000001020e1', 'Empleado USD', 'mensual', 1000, '1989-01-01');
 
+insert into public.employee_debt_plans
+  (id, employee_id, description, currency, total, installment_amount, start_month)
+values
+  ('00000000-0000-0000-0000-0000001020c1', '00000000-0000-0000-0000-0000001020e1',
+   'Plan USD', 'USD', 100, 100, '1990-01-01');
+
 -- Written as the plan would (the guard only lets the owning trigger write it).
 alter table public.employee_account_movements disable trigger employee_account_movements_guard;
 insert into public.employee_account_movements
-  (id, employee_id, kind, currency, amount, movement_date, description, creditor)
+  (id, employee_id, kind, currency, amount, movement_date, description, creditor, plan_id)
 values
   ('00000000-0000-0000-0000-0000001020f1', '00000000-0000-0000-0000-0000001020e1',
-   'forgiveness', 'USD', 100, '1990-01-15', 'Condonación USD', 'empresa');
+   'forgiveness', 'USD', 100, '1990-01-15', 'Condonación USD', 'empresa',
+   '00000000-0000-0000-0000-0000001020c1');
 alter table public.employee_account_movements enable trigger employee_account_movements_guard;
 
 select results_eq(
