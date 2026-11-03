@@ -71,7 +71,9 @@ export function InsightProposalDialog({
   function onAccept(id: string) {
     accept.mutate(id, {
       onSuccess: (res) => {
-        toast.success(res.note ? `Listo: ${res.note}` : "Listo, quedó registrado.");
+        toast.success(
+          res.note ? `Listo: ${res.note}` : "Listo, quedó registrado.",
+        );
         setCard((c) => (c ? { ...c, status: "accepted", note: res.note } : c));
       },
       // The row's state is the server's: reopening the dialog shows it.

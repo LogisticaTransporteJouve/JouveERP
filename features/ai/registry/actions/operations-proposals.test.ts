@@ -15,10 +15,13 @@ vi.mock("@/features/late-interest/actions/late-interest-actions", () => ({
 vi.mock("@/features/clients/actions/clients-actions", () => ({
   searchClientsAction,
 }));
-vi.mock("@/features/bank-reconciliation/actions/reconciliation-actions", () => ({
-  listReconciliationAccountsAction,
-  getReconciliationAction,
-}));
+vi.mock(
+  "@/features/bank-reconciliation/actions/reconciliation-actions",
+  () => ({
+    listReconciliationAccountsAction,
+    getReconciliationAction,
+  }),
+);
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: vi.fn(),
 }));
@@ -31,11 +34,8 @@ vi.mock("@/lib/commands/create-client-tariff", () => ({
   createClientTariff: vi.fn(),
 }));
 
-const {
-  proposeBankMatches,
-  proposeClientTariff,
-  proposeLateInterestNd,
-} = await import("./operations-proposals");
+const { proposeBankMatches, proposeClientTariff, proposeLateInterestNd } =
+  await import("./operations-proposals");
 
 const ctx = { userId: "u1", access: resolveAccess(["owner"]) };
 const INVOICE = "00000000-0000-4000-8000-000000000001";
@@ -145,8 +145,16 @@ describe("proposeClientTariff", () => {
       ok: true,
       data: {
         clients: [
-          { id: "11111111-1111-4111-8111-111111111111", legal_name: "Cliente Uno", cuit: "30" },
-          { id: "22222222-2222-4222-8222-222222222222", legal_name: "Cliente Uno Bis", cuit: "31" },
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            legal_name: "Cliente Uno",
+            cuit: "30",
+          },
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            legal_name: "Cliente Uno Bis",
+            cuit: "31",
+          },
         ],
         nextOffset: null,
       },
@@ -175,18 +183,32 @@ describe("proposeBankMatches", () => {
   beforeEach(() => {
     listReconciliationAccountsAction.mockResolvedValue({
       ok: true,
-      data: [{ id: ACCOUNT, name: "Banco Galicia", type: "bank", currency: "ARS" }],
+      data: [
+        { id: ACCOUNT, name: "Banco Galicia", type: "bank", currency: "ARS" },
+      ],
     });
     getReconciliationAction.mockResolvedValue({
       ok: true,
       data: {
         lines: [
-          { id: LINE, line_date: "2026-10-01", description: "Cobro", amount: 1000 },
+          {
+            id: LINE,
+            line_date: "2026-10-01",
+            description: "Cobro",
+            amount: 1000,
+          },
         ],
         movements: [
           { id: TX, transaction_date: "2026-10-01", description: "Recibo 1" },
         ],
-        suggestions: [{ line_id: LINE, transaction_id: TX, days: 0, reference_match: false }],
+        suggestions: [
+          {
+            line_id: LINE,
+            transaction_id: TX,
+            days: 0,
+            reference_match: false,
+          },
+        ],
       },
     });
   });
@@ -214,9 +236,11 @@ describe("proposeBankMatches", () => {
       matched: 0,
       failed: [{ line_id: LINE, error: "La línea ya está conciliada" }],
     });
-    expect(await proposeBankMatches.proposal?.executeDraft(ctx, draft)).toEqual({
-      ok: false,
-      error: "La línea ya está conciliada",
-    });
+    expect(await proposeBankMatches.proposal?.executeDraft(ctx, draft)).toEqual(
+      {
+        ok: false,
+        error: "La línea ya está conciliada",
+      },
+    );
   });
 });

@@ -71,7 +71,9 @@ export async function liquidArsAccounts(): Promise<
 export async function movementTotals(
   until: string,
   split: string,
-): Promise<{ account_id: string; net_until: number; net_until_split: number }[]> {
+): Promise<
+  { account_id: string; net_until: number; net_until_split: number }[]
+> {
   const service = getServiceClient();
   return must(
     await paginateRange((from, to) =>

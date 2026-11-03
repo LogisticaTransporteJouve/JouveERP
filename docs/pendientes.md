@@ -74,6 +74,28 @@
 
 ---
 
+## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
+
+- [x] **Propuestas fuera del chat** (`ai_proposals`): preparar con los permisos de quien hace
+      click, Aceptar / Descartar en un Dialog, aceptar idempotente (compare-and-set + guard),
+      vencimiento a 24 h, auditoría de aceptar, fallar y descartar.
+- [x] **Acciones proponibles nuevas:** tarea, tarifa de cliente, conciliar las sugerencias de un
+      extracto y ND por mora (además de licencia, asiento, cotización, tarea IA y escaneo).
+- [x] **Ocho indicadores** en el analyst (margen por cliente, costo por km, L/100 km, mora sin
+      cobrar, extracto sin conciliar, rendiciones, cuotas de préstamos, caja contra
+      financiamiento), con propuesta donde corresponde.
+- [ ] Aprobar la migración `20261103160000_ai_proposals` junto con el deploy: sin ella falla el
+      analyst (columna `ai_insights.proposal`) y las tarjetas nuevas no se ven para finance ni
+      operations. No verificada contra una base real: correr `supabase test db`
+      (`supabase/tests/ai_proposals_test.sql`) antes de aprobar.
+- [ ] Recategorizar un gasto o asignar centro de costo como propuesta (no hay un server action
+      puntual para eso; hoy se edita el movimiento entero).
+- [ ] Crecimiento de la mora: hace falta guardar fotos del aging para comparar contra hace 30 días.
+- [ ] Propuesta de conciliación desde el insight de extracto (hoy ofrece una tarea).
+- [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
+      `result` (igual que en el chat).
+- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron.
+
 ## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
 
 - [x] **Margen por cliente** (`getClientMargin`): ingreso neto facturado sin
@@ -284,6 +306,7 @@
       carga): quedó fuera, el flete se sigue cargando a mano.
 - [ ] Remito en el escaneo (Document Intelligence → carga) y búsqueda de
       cargas por remito.
+
 ## Resultado de gestión v2 (2026-11-03, roadmap 3.7)
 
 - [x] **Detalle de cada cifra:** cada número de la tabla mes a mes abre los

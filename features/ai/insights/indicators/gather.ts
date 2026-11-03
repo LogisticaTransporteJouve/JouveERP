@@ -183,7 +183,12 @@ async function vehicleFigures(
   const cost: VehicleCostPair[] = [];
   const fuel: VehicleFuelRow[] = [];
   for (const [id, a] of actNow) {
-    fuel.push({ vehicle_id: id, patente: a.patente, km: a.km, liters: a.liters });
+    fuel.push({
+      vehicle_id: id,
+      patente: a.patente,
+      km: a.km,
+      liters: a.liters,
+    });
     const before = actPrev.get(id);
     if (!before) continue;
     cost.push({
@@ -432,7 +437,10 @@ export type IndicatorRun = {
  * `failed` instead of sinking the others.
  */
 export async function gatherIndicators(today: string): Promise<IndicatorRun> {
-  const jobs: { kinds: IndicatorKind[]; run: () => Promise<IndicatorFinding[]> }[] = [
+  const jobs: {
+    kinds: IndicatorKind[];
+    run: () => Promise<IndicatorFinding[]>;
+  }[] = [
     {
       kinds: ["client_margin_drop"],
       run: async () => detectClientMarginDrop(await clientMarginPairs(today)),

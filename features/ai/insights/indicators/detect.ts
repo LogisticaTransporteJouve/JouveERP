@@ -174,7 +174,9 @@ export function detectVehicleCostPerKm(
   const rises = rows
     .filter(
       (r) =>
-        r.kmNow >= MIN_VEHICLE_KM && r.kmPrev >= MIN_VEHICLE_KM && r.costPrev > 0,
+        r.kmNow >= MIN_VEHICLE_KM &&
+        r.kmPrev >= MIN_VEHICLE_KM &&
+        r.costPrev > 0,
     )
     .map((r) => {
       const now = r.costNow / r.kmNow;

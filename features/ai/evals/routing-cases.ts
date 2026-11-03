@@ -225,7 +225,8 @@ export const ROUTING_CASES: RoutingCase[] = [
   },
   {
     id: "late-interest-uncharged",
-    question: "¿Cuánto interés por mora no les cobramos a los clientes al 31/10/2026?",
+    question:
+      "¿Cuánto interés por mora no les cobramos a los clientes al 31/10/2026?",
     roles: ["finance"],
     expect: {
       tool: "getLateInterestCandidates",

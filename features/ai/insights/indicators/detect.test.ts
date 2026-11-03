@@ -147,8 +147,18 @@ describe("detectUnreconciledLines", () => {
   it("counts only lines older than 15 days and proposes a task", () => {
     const [f] = detectUnreconciledLines(
       [
-        { id: "l1", account_name: "Banco", line_date: "2026-10-01", amount: -100 },
-        { id: "l2", account_name: "Banco", line_date: "2026-10-30", amount: 50 },
+        {
+          id: "l1",
+          account_name: "Banco",
+          line_date: "2026-10-01",
+          amount: -100,
+        },
+        {
+          id: "l2",
+          account_name: "Banco",
+          line_date: "2026-10-30",
+          amount: 50,
+        },
       ],
       TODAY,
     );
