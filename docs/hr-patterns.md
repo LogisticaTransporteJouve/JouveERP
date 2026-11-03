@@ -261,6 +261,99 @@ al abrir (lazy). Hooks en `use-payroll.ts` / `use-payroll-payments.ts`; keys en
 `payroll-keys.ts` (`payrollKeys.period(year,month)` es la clave de invalidación
 central).
 
+Deudas muestra un botón para volver a la cuota de los planes cuando se cargó a
+mano (§3.6); "Extras de viajes" (solo período mensual en borrador) abre la
+sugerencia de §3.8.
+
+### 3.6 Cuenta corriente del empleado (decisión D1)
+
+Mig `…20261103060000` (rol COA `anticipos_personal`, solo, porque un valor de
+enum nuevo no se usa en la transacción que lo agrega) y `…20261103060100`.
+Adelantos, compras a cargo del empleado y deudas **no son costo**: son un
+crédito contra el empleado ("Anticipos al personal", 1.1.4.x, activo) que se
+devuelve con descuentos de planilla o pagos.
+
+- **`employee_account_movements`** — la cuenta. Debe: `advance` (adelanto de
+  caja), `charge` (compra a su cargo o deuda cargada a mano). Haber:
+  `payroll_discount` (planilla cerrada), `payment` (pago del empleado, en caja o
+  a mano), `forgiveness` (condonación de un plan). ARS/USD, importe positivo,
+  `creditor ∈ ('empresa','socio')`. Cada movimiento es de su origen: el
+  adelanto o pago en caja de su movimiento de tesorería
+  (`record_employee_account_cash`), el cargo de compra de la compra, el
+  descuento de la planilla cerrada, la condonación del plan;
+  `guard_employee_account_movement` rechaza escribirlos desde otro lado (solo
+  la descripción se edita). Los manuales (`charge`/`payment` sin origen) se
+  cargan y borran a mano.
+- **`employee_debt_plans`** — cómo se devuelve: total, cuota, moneda, mes de
+  inicio, `status ∈ ('activo','pausado','cancelado','condonado')`, acreedor
+  (empresa o socio + nombre). `v_employee_debt_plans` suma lo pagado
+  (descuentos, pagos y condonación del plan) y lo que resta. Condonar escribe
+  la condonación de lo que resta y no se deshace; un plan con movimientos no se
+  borra (se cancela) ni cambia de empleado o moneda; el total no baja de lo
+  pagado.
+- **Saldo**: `v_employee_account_balances` por empleado y moneda (positivo = el
+  empleado debe; `balance_socio` = la parte de socios).
+- **Planilla**: `payroll_entries.deudas` = Σ cuota de los planes **activos en
+  ARS** del empleado iniciados al mes del período, topeada a lo que resta
+  (`payroll_plan_installments`), al insertar el entry y cada vez que cambia un
+  plan o un movimiento de un plan (solo períodos mensuales en borrador). Editar
+  Deudas a mano marca `deudas_override` y mantiene el importe; volver a `false`
+  (`resetPayrollDeudasAction`) recalcula. **Cerrar** el período escribe sus
+  deudas como `payroll_discount` (a cada plan activo en ARS hasta su cuota, o
+  hasta lo que resta si se editó a mano; el resto sin plan); **reabrir** los
+  borra. Los períodos cerrados antes de la migración
+  (`payroll_periods.posts_employee_accounts = false`) no escriben nada aunque
+  se reabran y cierren. El asiento fiscal no registra el descuento: el asiento
+  de sueldos del liquidador cancela el anticipo.
+- **Compras "a cargo de empleado"** (`purchase_invoices.charged_employee_id`,
+  factura o ND en ARS/USD): sigue en el Libro IVA con su IVA crédito; el neto se
+  asienta en `anticipos_personal` en vez de la cuenta de gasto (fuera del costo
+  de Gestión) y el total es un `charge` en la cuenta del empleado, en su moneda.
+  Anular la compra o sacar el empleado borra el cargo. Setearlo pide `hr:write`
+  además de `purchase_invoices:write`.
+- **Tesorería**: "Adelanto a empleado" (Tesorería, Caja y la ficha) y "Pago en
+  caja" (ficha) llaman `record_employee_account_cash`: el movimiento de caja
+  (egreso / ingreso) y el de la cuenta en una transacción; el asiento va contra
+  `anticipos_personal`. Con cuota, el adelanto abre su plan (total = adelanto,
+  desde su mes); un pago puede imputarse a un plan. Pide `hr:write` +
+  `transactions:write`. `delete_employee_account_movement` borra un manual, o un
+  adelanto (con el plan que abrió, salvo que ya tenga descuentos o pagos) o
+  pago en caja junto con su movimiento de caja. El movimiento de caja es "de un
+  documento" (`v_transactions_tagged.source_document = 'employee_account'`): no
+  se edita ni borra suelto.
+- **Gestión** (`get_management_pnl`): en devengado, el descuento de planilla y
+  la condonación de una deuda con la empresa son sueldos internos de su mes (el
+  adelanto es activo, no costo); en percibido, el adelanto y el pago del
+  empleado cuentan como sueldos pagados, por canal.
+
+UI: `EmployeeAccountCard` en la ficha (saldos, planes con su estado, movimientos
+con su origen); `EmployeeCashDialog`; `EmployeeChargeSelect` en el form de
+compra. IA: `getEmployeeAccountBalances`, `getEmployeeAccount`.
+
+### 3.7 Aumentos en % (mig `…20261103060200`)
+
+`employee_salary_changes` guarda cada cambio de `employees.base_salary`
+(trigger `employees_log_salary_change`): anterior, nuevo, mes desde el que rige
+(una edición a mano rige desde el mes en curso) y, si vino de un aumento, % y
+motivo. Solo lectura para la app (RLS select; sin grants de escritura).
+`employee_salary_for_month` da el sueldo pactado de un mes (el anterior del
+primer cambio posterior, o el actual) y `fill_payroll_period` lo usa al sembrar
+un mes. `apply_salary_raise(ids, %, mes, motivo)` sube el sueldo de los activos
+con sueldo y el `sueldo_neto` de sus entries en planillas mensuales en borrador
+desde ese mes que tenían el sueldo anterior (uno editado a mano se respeta).
+UI: "Aumento" en la lista de empleados (todos, por puesto o por convenio, con
+vista previa) y "Historial de sueldo" en la ficha. IA: `getSalaryHistory`.
+
+### 3.8 Extras desde viajes (mig `…20261103060300`)
+
+`employees.trip_rate_per_day/_per_km/_per_unload` (NULL = sin sugerencia). La
+planilla mensual sugiere, por empleado con chofer vinculado, jornadas (días
+distintos con viaje completado), km y descargas (cargas entregadas) del mes ×
+tarifa (`getPeriodTripExtrasAction`, lectura de viajes con service client tras
+el gate `hr:read`, porque la RLS de viajes deja afuera a finance). Cada línea se
+agrega como un extra común, editable; las ya agregadas se marcan. Tarifas en la
+ficha (`TripRatesCard`). IA: `getTripExtrasSuggestion`.
+
 ---
 
 ## 4. Asistencia — `attendance_records`
@@ -496,3 +589,8 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
 6. **Tests:** `features/hr` y `features/employee-documents` tienen
    `schema.test.ts`, pero no hay tests de los server actions sensibles (matriz de
    permisos `hr:*` sí está en `permissions.test.ts`).
+7. **Cuenta corriente vs. liquidador** (§3.6): el descuento de planilla no
+   tiene asiento propio; si el liquidador no descuenta el anticipo en su
+   asiento, `anticipos_personal` queda con saldo en el mayor fiscal. En
+   percibido, pagar al proveedor una compra a cargo de un empleado cuenta como
+   costo de proveedores (y el descuento baja los sueldos pagados).
