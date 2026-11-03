@@ -90,6 +90,48 @@ vi.mock(
   }),
 );
 
+// A proposal parks a draft only once its reads resolve the names.
+vi.mock(
+  "@/features/cost-centers/actions/recategorize-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/cost-centers/actions/recategorize-actions")
+    >()),
+    getExpenseCostTagsAction: vi.fn(async () => ({
+      ok: true,
+      data: {
+        source: "transactions",
+        id: "00000000-0000-4000-8000-0000000000a1",
+        label: "02/11/2026 · Gasoil · $ 50.000,00",
+        expense_account_id: null,
+        cost_center_id: null,
+        blocked: null,
+      },
+    })),
+  }),
+);
+vi.mock(
+  "@/features/cost-centers/actions/cost-tag-options-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/cost-centers/actions/cost-tag-options-actions")
+    >()),
+    listCostTagOptionsAction: vi.fn(async () => ({
+      ok: true,
+      data: {
+        expenseAccounts: [],
+        costCenters: [
+          {
+            id: "00000000-0000-4000-8000-0000000000c1",
+            code: "FLOTA",
+            name: "Flota",
+          },
+        ],
+      },
+    })),
+  }),
+);
+
 const { buildAiTools, buildCapabilitiesSummary } = await import("../registry");
 
 const proposals = {
