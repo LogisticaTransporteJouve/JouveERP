@@ -49,3 +49,10 @@ export const purchaseInvoicesKeys = {
   imputableRemitos: (supplierId: string) =>
     [...purchaseInvoicesKeys.all, "imputableRemitos", supplierId] as const,
 };
+
+/** The ARCA received tray: nested under `all`, so a purchase write refreshes it. */
+export const arcaReceivedKeys = {
+  all: [...purchaseInvoicesKeys.all, "arca_received"] as const,
+  list: (status: string) => [...arcaReceivedKeys.all, "list", status] as const,
+  counts: () => [...arcaReceivedKeys.all, "counts"] as const,
+};
