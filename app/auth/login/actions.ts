@@ -36,8 +36,10 @@ export async function signInWithEmail(
   });
 
   if (error) {
+    // The domain only: the typed address (or a typo of a real one) is PII
+    // the log sink does not need.
     logger.warn("login.failure", {
-      email: parsed.data.email,
+      emailDomain: parsed.data.email.split("@").pop(),
       reason: error.message,
     });
     return { error: "Credenciales inválidas." };
