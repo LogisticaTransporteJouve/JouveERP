@@ -411,16 +411,25 @@ export async function issueLateInterestNdAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
-    // The period stays held while the ND exists (its idempotency key is the
-    // charge id), so a retry cannot charge it twice.
+    const guard = mapDbGuardError(linkErr, {
+      slug: "late_interest.issue.link_rejected",
+      userId: ctx.userId,
+      id: chargeId,
+    });
+    // The guard refuses an ND that already failed: free the period. Any
+    // other error keeps it held while the ND exists (its idempotency key is
+    // the charge id), so a retry cannot charge it twice.
+    if (guard) {
+      await supabase
+        .from("late_interest_charges")
+        .update({ released: true })
+        .eq("id", chargeId)
+        .is("nd_invoice_id", null);
+      return { ok: false, error: guard };
+    }
     return {
       ok: false,
       error:
-        mapDbGuardError(linkErr, {
-          slug: "late_interest.issue.link_rejected",
-          userId: ctx.userId,
-          id: chargeId,
-        }) ??
         "La nota de débito se emitió pero no se vinculó al interés. Revisala en Comprobantes antes de volver a generarla.",
     };
   }
