@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CreateLineTaxPaymentSchema,
   CreateLineTransactionSchema,
   IgnoreLineSchema,
   MatchLineSchema,
@@ -77,5 +78,21 @@ describe("isStatementLineStatus", () => {
     expect(isStatementLineStatus("matched")).toBe(true);
     expect(isStatementLineStatus("ignored")).toBe(true);
     expect(isStatementLineStatus("closed")).toBe(false);
+  });
+});
+
+describe("CreateLineTaxPaymentSchema", () => {
+  it("needs the tax document and defaults to the exact amount", () => {
+    expect(
+      CreateLineTaxPaymentSchema.parse({ line_id: ID, tax_document_id: ID }),
+    ).toEqual({ line_id: ID, tax_document_id: ID, allow_difference: false });
+    const res = CreateLineTaxPaymentSchema.safeParse({
+      line_id: ID,
+      tax_document_id: "",
+    });
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      expect(res.error.issues[0]?.message).toBe("Elegí el impuesto.");
+    }
   });
 });

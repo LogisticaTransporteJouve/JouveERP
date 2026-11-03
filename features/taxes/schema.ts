@@ -218,6 +218,81 @@ export const PayTaxDocumentSchema = z.object({
 
 export const CopyTaxPeriodSchema = z.object({ period: PeriodSchema });
 
+// ─── Paying with a movement already loaded ──────────────────────────────────
+
+/** Days around the due date a movement is offered as the payment. */
+export const LINK_CANDIDATE_DAY_WINDOW = 15;
+export const LINK_CANDIDATES_PAGE_SIZE = 20;
+
+export const TaxPaymentCandidatesSchema = z.object({
+  id: UuidSchema,
+  page: z.number().int().min(0).max(500).optional().default(0),
+});
+
+/** link_tax_document_payment: another amount than the document's is linked
+ *  only when the user confirms it. */
+export const LinkTaxPaymentSchema = z.object({
+  id: UuidSchema,
+  transaction_id: UuidSchema,
+  allow_difference: z.boolean().optional().default(false),
+});
+export type LinkTaxPaymentInput = z.input<typeof LinkTaxPaymentSchema>;
+
+/** A loose expense of a cash or bank account in pesos, fiscal channel. */
+export type TaxPaymentCandidate = {
+  id: string;
+  transaction_date: string;
+  amount: number;
+  description: string | null;
+  account_name: string;
+  /** movement − document; null when the document has no amount yet. */
+  difference: number | null;
+  /** Days from the due date (negative = before it). */
+  days_from_due: number;
+};
+
+export type TaxPaymentCandidatesPage = {
+  items: TaxPaymentCandidate[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+      86_400_000,
+  );
+}
+
+/** Closest amount first, then closest to the due date, then by id. */
+export function rankTaxPaymentCandidates(
+  rows: readonly Omit<TaxPaymentCandidate, "difference" | "days_from_due">[],
+  doc: { amount: number | null; due_date: string },
+): TaxPaymentCandidate[] {
+  return rows
+    .map((r) => ({
+      ...r,
+      difference: doc.amount === null ? null : round2(r.amount - doc.amount),
+      days_from_due: daysBetween(doc.due_date, r.transaction_date),
+    }))
+    .sort(
+      (a, b) =>
+        Math.abs(a.difference ?? 0) - Math.abs(b.difference ?? 0) ||
+        Math.abs(a.days_from_due) - Math.abs(b.days_from_due) ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
+}
+
+/** An open document with its account set: what a statement debit can pay. */
+export type PayableTaxDocument = {
+  id: string;
+  label: string;
+  period: string;
+  due_date: string;
+  amount: number | null;
+};
+
 export const TaxListSchema = z.object({
   year: z.number().int().min(2000).max(2100),
 });

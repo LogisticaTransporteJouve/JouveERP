@@ -101,6 +101,18 @@ export type CreateLineTransactionInput = z.input<
   typeof CreateLineTransactionSchema
 >;
 
+/** A debit line booked as the payment of a tax document
+ *  (create_bank_statement_line_tax_payment). Another amount than the
+ *  document's needs allow_difference. */
+export const CreateLineTaxPaymentSchema = z.object({
+  line_id: lineId,
+  tax_document_id: z.string().uuid("Elegí el impuesto."),
+  allow_difference: z.boolean().optional().default(false),
+});
+export type CreateLineTaxPaymentInput = z.input<
+  typeof CreateLineTaxPaymentSchema
+>;
+
 // ─── What the page reads ─────────────────────────────────────────────────────
 
 export type StatementLine = {

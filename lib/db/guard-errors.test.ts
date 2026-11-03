@@ -129,6 +129,8 @@ const GUARDS = [
   "guard_ai_proposal",
   "guard_tax_document",
   "pay_tax_document",
+  "link_tax_document_payment",
+  "create_bank_statement_line_tax_payment",
 ];
 
 describe("guard hints in migrations", () => {
