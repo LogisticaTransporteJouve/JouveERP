@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   access: null as Access | null,
   visible: null as { id: string } | null,
   generate: vi.fn(),
+  logError: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/context", () => ({
@@ -23,6 +24,9 @@ vi.mock("@/lib/supabase/server", () => ({
     },
   }),
 }));
+vi.mock("@/lib/logger", () => ({
+  logger: { error: h.logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
 vi.mock("@/lib/pdf/generate-and-hash", () => ({
   generateInvoicePdfBuffer: h.generate,
 }));
@@ -35,6 +39,7 @@ const call = () =>
 
 beforeEach(() => {
   h.generate.mockReset();
+  h.logError.mockReset();
   h.generate.mockResolvedValue({
     pdfBuffer: Buffer.from("%PDF"),
     pdfHash: "h",
@@ -62,5 +67,20 @@ describe("GET /api/invoices/[id]/pdf", () => {
     h.access = resolveAccess(["finance"]);
     const res = await call();
     expect(res.status).toBe(200);
+  });
+
+  it("a render failure logs the error and answers a fixed message", async () => {
+    h.access = resolveAccess(["finance"]);
+    const failure = new Error(
+      'Could not read invoice: column "secret_col" does not exist',
+    );
+    h.generate.mockRejectedValue(failure);
+    const res = await call();
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Error generando PDF." });
+    expect(h.logError).toHaveBeenCalledWith("invoice.pdf.failed", {
+      id: ID,
+      error: failure,
+    });
   });
 });

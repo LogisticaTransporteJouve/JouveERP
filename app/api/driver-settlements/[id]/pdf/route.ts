@@ -7,6 +7,7 @@ import {
   buildDriverSettlementTemplateData,
   renderDriverSettlementPdf,
 } from "@/lib/pdf/driver-settlement-render";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 
 const IdSchema = z.string().uuid();
 
@@ -39,9 +40,8 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("driver_settlement.pdf.failed", err, {
+      id: parsed.data,
+    });
   }
 }
