@@ -19,6 +19,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
+  getFreightSettlementEmailDefaultsAction,
+  sendFreightSettlementByEmailAction,
+} from "@/features/freight-settlements/actions/send-freight-settlement-email";
+import {
   getInvoiceEmailDefaultsAction,
   sendInvoiceByEmailAction,
 } from "@/features/invoices/actions/send-invoice-email";
@@ -27,7 +31,7 @@ import {
   sendReceiptByEmailAction,
 } from "@/features/receipts/actions/send-receipt-email";
 
-export type SendByEmailKind = "invoice" | "receipt";
+export type SendByEmailKind = "invoice" | "receipt" | "freight_settlement";
 
 const KIND_COPY: Record<
   SendByEmailKind,
@@ -43,7 +47,42 @@ const KIND_COPY: Record<
     entityNoun: "recibo",
     descriptionNoun: "El cliente recibirá el PDF del recibo adjunto.",
   },
+  freight_settlement: {
+    titleNoun: "Enviar liquidación por email",
+    entityNoun: "liquidación",
+    descriptionNoun:
+      "El cliente recibirá el PDF de la liquidación (R) adjunto.",
+  },
 };
+
+function loadDefaults(kind: SendByEmailKind, id: string) {
+  switch (kind) {
+    case "invoice":
+      return getInvoiceEmailDefaultsAction(id);
+    case "receipt":
+      return getReceiptEmailDefaultsAction(id);
+    case "freight_settlement":
+      return getFreightSettlementEmailDefaultsAction(id);
+  }
+}
+
+function send(
+  kind: SendByEmailKind,
+  id: string,
+  message: { recipient: string; subject: string; body: string | undefined },
+) {
+  switch (kind) {
+    case "invoice":
+      return sendInvoiceByEmailAction({ invoice_id: id, ...message });
+    case "receipt":
+      return sendReceiptByEmailAction({ receipt_id: id, ...message });
+    case "freight_settlement":
+      return sendFreightSettlementByEmailAction({
+        settlement_id: id,
+        ...message,
+      });
+  }
+}
 
 export function SendByEmailDialog({
   kind,
@@ -75,10 +114,7 @@ export function SendByEmailDialog({
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const result =
-        kind === "invoice"
-          ? await getInvoiceEmailDefaultsAction(id)
-          : await getReceiptEmailDefaultsAction(id);
+      const result = await loadDefaults(kind, id);
       if (cancelled) return;
       if (!result.ok) {
         toast.error(result.error);
@@ -122,20 +158,11 @@ export function SendByEmailDialog({
     e.preventDefault();
     if (!canSubmit) return;
     setSending(true);
-    const result =
-      kind === "invoice"
-        ? await sendInvoiceByEmailAction({
-            invoice_id: id,
-            recipient,
-            subject,
-            body: body || undefined,
-          })
-        : await sendReceiptByEmailAction({
-            receipt_id: id,
-            recipient,
-            subject,
-            body: body || undefined,
-          });
+    const result = await send(kind, id, {
+      recipient,
+      subject,
+      body: body || undefined,
+    });
     setSending(false);
     if (!result.ok) {
       toast.error(result.error);

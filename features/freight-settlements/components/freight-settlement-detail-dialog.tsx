@@ -3,6 +3,7 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
 
+import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,9 +31,11 @@ function route(origin: string | null, destination: string | null): string {
 /** A liquidación's cargas, prices and invoice. */
 export function FreightSettlementDetailDialog({
   id,
+  canEmail = false,
   onClose,
 }: {
   id: string | null;
+  canEmail?: boolean;
   onClose: () => void;
 }) {
   const detail = useFreightSettlement(id);
@@ -122,6 +125,16 @@ export function FreightSettlementDetailDialog({
           </div>
         ) : null}
         <DialogFooter>
+          {canEmail &&
+            s?.numero != null &&
+            (s.status === "confirmed" || s.status === "invoiced") && (
+              <SendByEmailDialog
+                kind="freight_settlement"
+                id={s.id}
+                iconOnly={false}
+                label="Enviar R por email"
+              />
+            )}
           {s?.numero != null && (
             <Button variant="outline" asChild>
               <a

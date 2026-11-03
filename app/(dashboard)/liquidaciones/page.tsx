@@ -29,6 +29,7 @@ export default async function LiquidacionesRoute() {
       <div className="space-y-6">
         <FreightSettlementsPage
           canWrite={userCan(ctx.access, "invoices:issue")}
+          canEmail={userCan(ctx.access, "email:send")}
         />
       </div>
     </Hydrate>
