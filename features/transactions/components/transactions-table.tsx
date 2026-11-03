@@ -4,6 +4,7 @@ import {
   ArrowDownCircle,
   ArrowLeftRight,
   ArrowUpCircle,
+  Link2,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -60,8 +61,11 @@ import {
   type TransactionListParams,
 } from "../lib/transaction-list-filters";
 import {
+  RECONCILED_FILTERS,
+  RECONCILED_FILTER_LABEL,
   TRANSACTION_KINDS,
   TRANSACTION_KIND_LABEL,
+  isReconciledFilter,
   isTransactionKind,
   type TransactionFilters,
   type TransactionKind,
@@ -76,6 +80,7 @@ import type { ChannelOption } from "./transaction-form";
 
 const ANY_ACCOUNT = "__any_account__";
 const ANY_KIND = "__any_kind__";
+const ANY_RECONCILED = "__any_reconciled__";
 
 // Money formatter centralizado en lib/format (formatMoney).
 
@@ -107,8 +112,10 @@ type RowActions = {
 function editable(tx: TransactionListItem): boolean {
   return tx.source_document === null && tx.transfer_pair_id === null;
 }
+/** A reconciled movement is not deleted until its statement line is
+ *  unmatched (guard_transaction_reconciled). */
 function deletable(tx: TransactionListItem): boolean {
-  return tx.source_document === null;
+  return tx.source_document === null && !tx.reconciled;
 }
 
 function useTransactionColumns(
@@ -189,6 +196,16 @@ function useTransactionColumns(
               <span className="block text-xs text-muted-foreground">
                 {row.original.counterparty_legal_name}
               </span>
+            )}
+            {row.original.reconciled && (
+              <Badge
+                variant="outline"
+                className="mt-0.5 gap-1 text-xs font-normal"
+                title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
+              >
+                <Link2 className="size-3" />
+                Conciliado
+              </Badge>
             )}
           </>
         ),
@@ -378,6 +395,24 @@ export function TransactionsTable({
             {TRANSACTION_KINDS.map((k) => (
               <SelectItem key={k} value={k}>
                 {TRANSACTION_KIND_LABEL[k]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={params.reconciled ?? ANY_RECONCILED}
+          onValueChange={(v) =>
+            update({ reconciled: isReconciledFilter(v) ? v : null })
+          }
+        >
+          <SelectTrigger className="w-[200px]" aria-label="Conciliación">
+            <SelectValue placeholder="Conciliación" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY_RECONCILED}>Conciliados o no</SelectItem>
+            {RECONCILED_FILTERS.map((r) => (
+              <SelectItem key={r} value={r}>
+                {RECONCILED_FILTER_LABEL[r]}
               </SelectItem>
             ))}
           </SelectContent>

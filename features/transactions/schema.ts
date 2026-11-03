@@ -131,12 +131,29 @@ export type TransactionUpdateInput = z.infer<typeof TransactionUpdateSchema>;
 // Filters
 // ---------------------------------------------------------------------------
 
+/** Caja's reconciliation filter: matched with a bank statement line or not. */
+export const RECONCILED_FILTERS = ["yes", "no"] as const;
+export type ReconciledFilter = (typeof RECONCILED_FILTERS)[number];
+
+export const RECONCILED_FILTER_LABEL: Record<ReconciledFilter, string> = {
+  yes: "Conciliados",
+  no: "Sin conciliar",
+};
+
+export function isReconciledFilter(value: unknown): value is ReconciledFilter {
+  return (
+    typeof value === "string" &&
+    (RECONCILED_FILTERS as readonly string[]).includes(value)
+  );
+}
+
 export const TransactionFiltersSchema = z.object({
   channel_id: z.string().nullable().optional(),
   /** Scope filter (`isFiscalFor`): null/absent = every channel. */
   is_fiscal: z.boolean().nullable().optional(),
   account_id: z.string().uuid().nullable().optional(),
   kind: z.enum(TRANSACTION_KINDS).nullable().optional(),
+  reconciled: z.enum(RECONCILED_FILTERS).nullable().optional(),
   date_from: isoDate.nullable().optional(),
   date_to: isoDate.nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
