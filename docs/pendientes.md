@@ -161,7 +161,7 @@ mitigación en el schema: el límite se respeta operando.
       libros a la fecha de ese saldo.
 - [x] Tesorería muestra las carteras de cheques en USD aparte.
 - [x] Deudas por cheques vendidos: todas las pendientes (sin tope de 200) y
-      las últimas 100 pagadas.
+      las últimas 100 pagadas (llegó con #348).
 - [ ] Aprobar las migraciones `20261104101000`–`20261104101400` con el
       deploy.
 - [ ] No verificado contra una base real: migraciones y pgTAP
