@@ -88,13 +88,26 @@
       analyst (columna `ai_insights.proposal`) y las tarjetas nuevas no se ven para finance ni
       operations. No verificada contra una base real: correr `supabase test db`
       (`supabase/tests/ai_proposals_test.sql`) antes de aprobar.
-- [ ] Recategorizar un gasto o asignar centro de costo como propuesta (no hay un server action
-      puntual para eso; hoy se edita el movimiento entero).
-- [ ] Crecimiento de la mora: hace falta guardar fotos del aging para comparar contra hace 30 días.
-- [ ] Propuesta de conciliación desde el insight de extracto (hoy ofrece una tarea).
+- [x] **Recategorizar un gasto** (cuenta de gasto y/o centro de costo de un egreso manual o de
+      una compra): `recategorize_expense` + `lib/commands/recategorize-expense.ts`, Dialog
+      "Recategorizar" en Caja y Compras, y la propuesta `proposeRecategorizeExpense`.
+- [x] **Crecimiento de la mora:** foto diaria del aging (`aging_snapshots`, cron
+      `aging-snapshot`) y la tarjeta `receivables_overdue_growth` ("la mora creció X % vs hace
+      30 días"). La tarjeta aparece recién cuando hay 30 días de fotos.
+- [x] **Conciliación desde el insight de extracto:** si la cuenta con más líneas atrasadas tiene
+      sugerencias, la tarjeta propone `proposeBankMatches`; si no, la tarea de siempre.
+- [x] **"N conciliadas" en la tarjeta del chat** (`ai_chat_confirmations.result_note`).
+- [ ] Aprobar las migraciones `20261104000000_recategorize_expense`,
+      `20261104000100_aging_snapshots` y `20261104000200_ai_chat_confirmation_note` con el
+      deploy. No verificadas contra una base real: correr `supabase test db`
+      (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
+- [ ] Recategorizar una factura de compra no cambia sus NC/ND ya cargadas (heredan la cuenta solo
+      al cargarse); recategorizarlas una por una.
 - [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
       `result` (igual que en el chat).
-- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron.
+- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
+      `ANTHROPIC_API_KEY` en el entorno del agente; los offline pasan).
+
 ## Guía del sidebar e impuestos como documento (2026-11-03, roadmap 6.5 + 6.6)
 
 - [x] **Guía en el sidebar** (`features/guide`): ayuda corta de la pantalla
@@ -111,7 +124,7 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-      tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -193,9 +206,11 @@
       manual); las RPC nuevas de actividad los excluyen. Alinear.
 - [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
       `getDriverActivity`.
-- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron:
-      `getClientSalesSummary` y `getClientPaymentBehavior` se pisan en "días
-      de cobro".
+- [x] "Días de pago" va a `getClientPaymentBehavior`: `getClientSalesSummary` ya no
+      ofrece días promedio de cobro en su descripción y deriva esas preguntas; casos de
+      routing nuevos (días de pago, quién tarda más, facturado por cliente).
+- [ ] Los evals en vivo (`pnpm eval:ai`) de esos casos no se corrieron (sin
+      `ANTHROPIC_API_KEY` en el entorno del agente).
 
 ## Importador y sueldos y viajes históricos (2026-11-03, roadmap 5.1 + 5.2)
 

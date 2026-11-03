@@ -240,7 +240,8 @@ nombres con las lecturas de cada feature y valida el borrador, sin guardar nada)
 una propuesta pendiente:
 
 - **En el chat**, `ai_chat_confirmations` (fase 2): revisiones por sesión y tool call, con
-  Confirmar / Modificar / Descartar en la tarjeta.
+  Confirmar / Modificar / Descartar en la tarjeta. Lo que informa la escritura confirmada
+  ("12 conciliadas; 1 salteada…") queda en `result_note` y la tarjeta lo muestra.
 - **Fuera del chat** (hoy, desde una tarjeta de insight), `ai_proposals` (migración
   `20261103180000_ai_proposals.sql`): `action`, `input`, `draft`, `labels`, `summary`, `title`,
   `status` `pending | accepted | dismissed | failed | expired`, `result` (`{ id, note? }`),
@@ -266,22 +267,32 @@ centrado muestra el resumen con **Aceptar / Descartar**. Nada se prepara en segu
 
 **Acciones proponibles** (todas sobre escrituras que ya existían):
 
-| Acción                          | Permisos                                                          | Escritura al aceptar                                                                                                           |
-| ------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `proposeLeave`                  | `hr:write` + `hr:read`                                            | `lib/commands/create-leave.ts`                                                                                                 |
-| `proposeJournalEntry`           | `accounting:write` + `accounting:read`                            | `lib/commands/create-manual-journal-entry.ts`                                                                                  |
-| `proposeExchangeRate`           | `accounting:write`                                                | `lib/commands/upsert-exchange-rate.ts`                                                                                         |
-| `proposeAiWorkflow`             | `ai:chat`                                                         | tarea IA recurrente                                                                                                            |
-| `proposeDocumentScan`           | `ai:chat` + `ai:read` + `files:write`                             | pipeline de Document Intelligence                                                                                              |
-| `proposeTask` (nueva)           | `tasks:write` + `tasks:read`                                      | `lib/commands/create-task.ts` (asignada a quien acepta)                                                                        |
-| `proposeClientTariff` (nueva)   | `storage_billing:issue` + `storage_billing:read` + `clients:read` | `lib/commands/create-client-tariff.ts` (guard de superposición)                                                                |
-| `proposeBankMatches` (nueva)    | `transactions:write` + `transactions:read`                        | `lib/commands/match-bank-line.ts`: las sugerencias de Conciliación de una cuenta y período (hasta 30), cada línea por separado |
-| `proposeLateInterestNd` (nueva) | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`   | `lib/commands/issue-late-interest-nd.ts` con `issueFiscalInvoiceAction` inyectado                                              |
+| Acción                          | Permisos                                                           | Escritura al aceptar                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `proposeLeave`                  | `hr:write` + `hr:read`                                             | `lib/commands/create-leave.ts`                                                                                                 |
+| `proposeJournalEntry`           | `accounting:write` + `accounting:read`                             | `lib/commands/create-manual-journal-entry.ts`                                                                                  |
+| `proposeExchangeRate`           | `accounting:write`                                                 | `lib/commands/upsert-exchange-rate.ts`                                                                                         |
+| `proposeAiWorkflow`             | `ai:chat`                                                          | tarea IA recurrente                                                                                                            |
+| `proposeDocumentScan`           | `ai:chat` + `ai:read` + `files:write`                              | pipeline de Document Intelligence                                                                                              |
+| `proposeTask` (nueva)           | `tasks:write` + `tasks:read`                                       | `lib/commands/create-task.ts` (asignada a quien acepta)                                                                        |
+| `proposeClientTariff` (nueva)   | `storage_billing:issue` + `storage_billing:read` + `clients:read`  | `lib/commands/create-client-tariff.ts` (guard de superposición)                                                                |
+| `proposeBankMatches` (nueva)    | `transactions:write` + `transactions:read`                         | `lib/commands/match-bank-line.ts`: las sugerencias de Conciliación de una cuenta y período (hasta 30), cada línea por separado |
+| `proposeLateInterestNd` (nueva) | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`    | `lib/commands/issue-late-interest-nd.ts` con `issueFiscalInvoiceAction` inyectado                                              |
+| `proposeRecategorizeExpense`    | `transactions:write` + `purchase_invoices:write` + las dos `:read` | `lib/commands/recategorize-expense.ts` (`recategorize_expense`): cuenta de gasto y/o centro de costo de un egreso o una compra |
 
 La ND por mora se **emite** al aceptar (con CAE en el canal fiscal), igual que "Generar ND" en
 Intereses por mora; la propuesta guarda el interés que mostró y, si el saldo cambió, no emite. Las
 dos últimas no tienen campos editables: un cambio invalidaría lo que el servidor vuelve a chequear.
 Nueva lectura: `getLateInterestCandidates` (`invoices:read`).
+
+**Recategorizar** (`proposeRecategorizeExpense`): el modelo pasa el gasto (`source`
+`transactions` con el id de `getTransactions`, o `purchase_invoices` con el de
+`getPurchaseInvoices`) y la cuenta y/o el centro por código o nombre (`ninguna` = la cuenta por
+defecto, `ninguno` = sin centro); `prepare` los resuelve contra las opciones de los pickers y
+pregunta si hay más de uno. La tarjeta muestra antes → después y no tiene campos editables. Es la
+misma escritura que el Dialog "Recategorizar" de Caja y Compras: re-asienta, respeta el período
+cerrado y el dueño del movimiento, y sirve sobre un movimiento conciliado (el bloqueo no cubre
+esas columnas).
 
 **Cómo sumar una.** (1) Mover la escritura del server action de la feature a
 `lib/commands/<x>.ts` (sin gate propio; la action queda gate + parse + comando). (2) Spec en
@@ -292,7 +303,7 @@ ofrecerla desde un insight, el detector devuelve `proposal: { action, label, inp
 
 ## Indicadores e insights (roadmap 6.4, hecha)
 
-Ocho indicadores deterministas nuevos en el analyst (`features/ai/insights/indicators/`:
+Nueve indicadores deterministas en el analyst (`features/ai/insights/indicators/`:
 `detect.ts` puro, `gather.ts` con el service client). Las cifras salen de SQL (RPC `ai_*`,
 `late_interest_candidates`, `account_movement_totals`); el JS compara y aplica umbrales. Cada
 uno tiene fingerprint (los registros a los que apunta; las tarjetas agregadas no tienen) y se ve
@@ -300,25 +311,36 @@ según su permiso (`INSIGHT_KIND_PERMISSION`, ahora con varios permisos por tipo
 `ai_insights select` de la misma migración). Si las lecturas de un indicador fallan, se loguea y
 el analyst **conserva su tarjeta anterior** en vez de borrarla; los demás siguen.
 
-| Tipo                         | Se ve con                                       | Qué mide                                                                                                                                                              | Propuesta                               |
-| ---------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `client_margin_drop`         | `management:read` + `invoices:read`             | Margen de contribución por cliente (como `getClientMargin`) que cayó 10 puntos o más, últimos 90 días contra los 90 anteriores, con ≥ $100.000 de ingreso en cada uno | —                                       |
-| `vehicle_cost_per_km`        | `trips:read` + `fuel:read` + `maintenance:read` | Costo por km (viajes + combustible + mantenimiento / km de odómetro o de viajes) que subió 20 % o más, con ≥ 1.000 km por período                                     | —                                       |
-| `fuel_consumption_outlier`   | `fuel:read` + `trips:read`                      | L/100 km por encima de Q3 + 1,5 IQR de la flota (≥ 4 vehículos con ≥ 500 km), últimos 90 días                                                                         | —                                       |
-| `late_interest_uncharged`    | `invoices:read`                                 | Interés por mora sin facturar (pesos y dólares aparte); sin tasa cargada, una tarjeta informativa                                                                     | Generar ND por mora (la mayor en pesos) |
-| `unreconciled_bank_lines`    | `transactions:read`                             | Líneas de extracto pendientes hace más de 15 días                                                                                                                     | Tarea para conciliar                    |
-| `pending_driver_settlements` | `receipts:read`                                 | Cargas contra entrega entregadas hace más de 3 días sin rendir y rendiciones en borrador de más de 7                                                                  | Tarea de rendición                      |
-| `loan_installments_due`      | `accounting:read` + `accounts:read`             | Cuotas pendientes vencidas o que vencen en 14 días (préstamos activos)                                                                                                | Tarea de pago                           |
-| `cash_vs_financing`          | `accounts:read` + `accounting:read`             | Variación de la caja en pesos de 30 días contra desembolsos de préstamos y cuotas pagadas en esas cuentas; solo si entraron préstamos                                 | —                                       |
+| Tipo                         | Se ve con                                          | Qué mide                                                                                                                                                                                                               | Propuesta                                                                                                               |
+| ---------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `client_margin_drop`         | `management:read` + `invoices:read`                | Margen de contribución por cliente (como `getClientMargin`) que cayó 10 puntos o más, últimos 90 días contra los 90 anteriores, con ≥ $100.000 de ingreso en cada uno                                                  | —                                                                                                                       |
+| `vehicle_cost_per_km`        | `trips:read` + `fuel:read` + `maintenance:read`    | Costo por km (viajes + combustible + mantenimiento / km de odómetro o de viajes) que subió 20 % o más, con ≥ 1.000 km por período                                                                                      | —                                                                                                                       |
+| `fuel_consumption_outlier`   | `fuel:read` + `trips:read`                         | L/100 km por encima de Q3 + 1,5 IQR de la flota (≥ 4 vehículos con ≥ 500 km), últimos 90 días                                                                                                                          | —                                                                                                                       |
+| `late_interest_uncharged`    | `invoices:read`                                    | Interés por mora sin facturar (pesos y dólares aparte); sin tasa cargada, una tarjeta informativa                                                                                                                      | Generar ND por mora (la mayor en pesos)                                                                                 |
+| `unreconciled_bank_lines`    | `transactions:read`                                | Líneas de extracto pendientes hace más de 15 días                                                                                                                                                                      | Conciliar con las sugerencias de la cuenta con más líneas (`proposeBankMatches`); sin sugerencias, tarea para conciliar |
+| `pending_driver_settlements` | `receipts:read`                                    | Cargas contra entrega entregadas hace más de 3 días sin rendir y rendiciones en borrador de más de 7                                                                                                                   | Tarea de rendición                                                                                                      |
+| `loan_installments_due`      | `accounting:read` + `accounts:read`                | Cuotas pendientes vencidas o que vencen en 14 días (préstamos activos)                                                                                                                                                 | Tarea de pago                                                                                                           |
+| `cash_vs_financing`          | `accounts:read` + `accounting:read`                | Variación de la caja en pesos de 30 días contra desembolsos de préstamos y cuotas pagadas en esas cuentas; solo si entraron préstamos                                                                                  | —                                                                                                                       |
+| `receivables_overdue_growth` | `clients:read` + `invoices:read` + `receipts:read` | "La mora creció X % vs hace 30 días": deuda vencida de clientes de la última foto de `aging_snapshots` contra la de 30 días antes (pesos y dólares aparte), con +15 % y ≥ $500.000 o US$1.000 más; crítica desde +50 % | Tarea de cobranza                                                                                                       |
 
 Se mantienen las decisiones de UI: **Fijados** sigue igual y el dashboard no tiene Recalcular
 (solo el panel de insights del asistente).
 
-**Límites.** El crecimiento de la mora no se mide: no hay fotos históricas del aging (solo el
-interés no cobrado de hoy). Margen y costo por km usan `ai_fleet_margin`, que cuenta viajes
-cancelados y lee hasta 500 grupos. `cash_vs_financing` mira solo cuentas en pesos. Las propuestas
-de conciliación desde un insight quedan como tarea (armar las sugerencias en el cron requiere leer
-todos los movimientos); desde el chat sí se propone conciliar.
+**Fotos del aging.** El cron `aging-snapshot` (diario, 05:37 AR) llama a
+`capture_aging_snapshot`, que guarda en `aging_snapshots` el aging de clientes de hoy (todos los
+canales, tramos, total abierto y vencido, pesos y dólares aparte); una segunda corrida el mismo día
+reemplaza la fila. La tarjeta de mora aparece recién con 30 días de fotos, y no sale si la última
+foto tiene más de 3 días o si hace 30 días no había deuda vencida (no hay porcentaje).
+
+**Conciliación desde el insight.** El detector corre `suggestMatches` (el de la página de
+Conciliación) sobre las líneas atrasadas de la cuenta con más líneas y los movimientos de esa cuenta
+a ±5 días; con sugerencias, la tarjeta propone `proposeBankMatches` para el período de esas líneas
+(hasta un año), que al hacer click vuelve a armar las sugerencias con los permisos del usuario. Si
+esa lectura falla, la tarjeta sale con la tarea.
+
+**Límites.** Margen y costo por km usan `ai_fleet_margin`, que cuenta viajes cancelados y lee
+hasta 500 grupos. `cash_vs_financing` mira solo cuentas en pesos. La conciliación desde el insight
+mira solo la cuenta con más líneas atrasadas.
 
 ## Fase 4 — trabaja solo (hecha)
 
@@ -392,7 +414,10 @@ resúmenes calculados (nunca filas). Respeta el tope de fondo, se guarda en `ai_
 **Evals** (`features/ai/evals/`): `routing-cases.ts` tiene preguntas en es-AR con la tool y los
 argumentos esperados (sueldos de octubre 2025 → `getPayrollSummary` 2025-10; extras de choferes →
 `getDriverExtras`; vacaciones; proveedores; margen de viajes; caja; una tarea recurrente →
-`proposeAiWorkflow`) y casos de permiso (operations no ve sueldos ni caja). `routing.test.ts` corre
+`proposeAiWorkflow`; "días de pago" y "quién tarda más en pagar" → `getClientPaymentBehavior`,
+"cuánto le facturamos a cada cliente" → `getClientSalesSummary`; recategorizar un gasto →
+`proposeRecategorizeExpense`) y casos de permiso (operations no ve sueldos ni caja ni
+recategoriza). `routing.test.ts` corre
 sin red: un modelo guionado hace la llamada esperada y se verifica que el rol la tenga, que pase el
 schema y el gate, y que llegue al server action con esos argumentos. `pnpm eval:ai` corre
 `routing.live.test.ts` contra el modelo real (requiere `ANTHROPIC_API_KEY`; las tools devuelven un
