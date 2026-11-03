@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  formatMoney,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import {
   useCreateGarnishment,
@@ -61,7 +67,10 @@ function toDraft(g: Garnishment | null): Draft {
   }
   return {
     mode: g.mode,
-    value: String(g.mode === "percentage" ? g.percentage : g.amount),
+    value:
+      g.mode === "percentage"
+        ? String(g.percentage)
+        : amountToInput(Number(g.amount)),
     active_from: g.active_from,
     active_to: g.active_to ?? "",
     beneficiary: g.beneficiary ?? "",
@@ -212,7 +221,11 @@ function GarnishmentDialog({
   function onSave() {
     const payload = {
       mode: draft.mode,
-      value: draft.value.replace(/,/g, "."),
+      // A percentage keeps its decimal point; an amount reads as es-AR.
+      value:
+        draft.mode === "percentage"
+          ? draft.value.replace(/,/g, ".")
+          : (parseArAmount(draft.value) ?? Number.NaN),
       active_from: draft.active_from,
       active_to: draft.active_to || null,
       beneficiary: draft.beneficiary,

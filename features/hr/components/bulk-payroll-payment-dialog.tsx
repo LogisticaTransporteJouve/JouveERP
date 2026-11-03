@@ -39,7 +39,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { formatMoney, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatMoney,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import { useBulkCreatePayrollPayments } from "../hooks/use-payroll-payments";
 import {
@@ -56,8 +61,6 @@ import {
 } from "../payroll-schema";
 
 type ChannelOption = { id: string; name: string };
-
-const AMOUNT_RE = /^\d+(\.\d{1,2})?$/;
 
 const FormSchema = z.object({
   account_id: z.string().uuid("Seleccioná una cuenta."),
@@ -77,14 +80,14 @@ function suggestedAmounts(
   return Object.fromEntries(
     entries.map((e) => {
       const amount = suggestedPayment(e, method);
-      return [e.id, amount > 0 ? String(amount) : ""];
+      return [e.id, amount > 0 ? amountToInput(amount) : ""];
     }),
   );
 }
 
 function parseAmount(raw: string | undefined): number | null {
-  const value = (raw ?? "").trim();
-  return AMOUNT_RE.test(value) && Number(value) > 0 ? Number(value) : null;
+  const value = parseArAmount(raw ?? "");
+  return value !== null && value > 0 ? value : null;
 }
 
 export function BulkPayrollPaymentDialog({
