@@ -8518,6 +8518,10 @@ export type Database = {
       }
     }
     Functions: {
+      account_has_movements: {
+        Args: { p_account_id: string }
+        Returns: boolean
+      }
       account_movement_totals: {
         Args: { p_split: string; p_until: string }
         Returns: {

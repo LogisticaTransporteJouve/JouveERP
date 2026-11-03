@@ -5,10 +5,13 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 import { paginateRange } from "@/lib/supabase/paginate";
+import { UuidSchema } from "@/lib/validation/common";
 
 import {
   AccountCreateSchema,
@@ -126,6 +129,37 @@ export async function createAccountAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** Whether the account has movements, checks, statement lines or an opening
+ *  adjustment (account_has_movements): its currency, type and opening
+ *  balance are then frozen (the guard refuses them). */
+export async function getAccountHasMovementsAction(
+  id: string,
+): Promise<ActionResult<boolean>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounts:write")) {
+    return { ok: false, error: "No tenés permiso para editar cuentas." };
+  }
+  const parsed = UuidSchema.safeParse(id);
+  if (!parsed.success) return { ok: false, error: "Cuenta inválida." };
+
+  const { data, error } = await getServiceClient().rpc(
+    "account_has_movements",
+    { p_account_id: parsed.data },
+  );
+  if (error || typeof data !== "boolean") {
+    logger.error("accounts.has_movements.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return {
+      ok: false,
+      error: "No se pudo saber si la cuenta tiene movimientos.",
+    };
+  }
+  return { ok: true, data };
+}
+
 export async function updateAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -163,6 +197,14 @@ export async function updateAccountAction(
         error: "Ya existe una cuenta con ese nombre, tipo y moneda.",
       };
     }
+    // guard_account_currency_change: currency, type and opening balance are
+    // frozen once the account has movements.
+    const guardError = mapDbGuardError(error, {
+      slug: "accounts.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("accounts.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
   }
