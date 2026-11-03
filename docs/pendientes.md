@@ -667,3 +667,28 @@
 - [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
       por el acceso de quien subió el documento.
+
+---
+
+## Emisión AFIP — auditoría (2026-11-04)
+
+- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
+      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
+      que solo lo intentaron, el que coincide con el comprobante de AFIP.
+- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
+      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
+      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
+      Inngest se vuelve a mandar con su clave.
+- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
+      run; si `inngest.send` falla el borrador no se borra.
+- [x] Las llamadas a AFIP tienen un límite de 20 s (5 s para el piso CAEA).
+- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] La importación de ARCA guarda un comprobante de un período cerrado con
+      su asiento en `pending_journal_entries`.
+- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
+      "sin movimiento".
+- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
+      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
+      hasta que alguien decida de cuál es el de AFIP.
+- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
+      (cada una cerca de 20 s) el paso puede pasar los 300 s.
