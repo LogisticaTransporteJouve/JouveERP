@@ -47,14 +47,118 @@ export function isFreightPriceSource(v: unknown): v is FreightPriceSource {
   );
 }
 
-/** "R-00000012": the liquidación's internal document number. */
+/** "R-00000012": the number of a liquidación confirmed before the remito R
+ *  (legacy rows keep it; new ones leave it null). */
 export function formatSettlementNumber(numero: number | null): string {
   return numero === null ? "Borrador" : `R-${String(numero).padStart(8, "0")}`;
 }
 
+/** Mirrors freight_settlements.channel: the side it was confirmed on. */
+export const FREIGHT_SETTLEMENT_CHANNELS = ["fiscal", "internal"] as const;
+export type FreightSettlementChannel =
+  (typeof FREIGHT_SETTLEMENT_CHANNELS)[number];
+
+export function isFreightSettlementChannel(
+  v: unknown,
+): v is FreightSettlementChannel {
+  return (
+    typeof v === "string" &&
+    (FREIGHT_SETTLEMENT_CHANNELS as readonly string[]).includes(v)
+  );
+}
+
+/** "R9002-00000001": the Remito R of a fiscal liquidación. */
+export function formatRemitoR(pos: number, numero: number): string {
+  return `R${String(pos).padStart(4, "0")}-${String(numero).padStart(8, "0")}`;
+}
+
+type SettlementDocumentFields = Pick<
+  FreightSettlement,
+  | "status"
+  | "numero"
+  | "channel"
+  | "remito_pos"
+  | "remito_number"
+  | "client_is_fiscal"
+  | "invoice_number"
+>;
+
+/** The side its document follows: the one it was confirmed on, else (a
+ *  draft or a legacy liquidación) its client's. */
+export function settlementSide(
+  s: Pick<FreightSettlement, "channel" | "client_is_fiscal">,
+): FreightSettlementChannel {
+  return s.channel ?? (s.client_is_fiscal ? "fiscal" : "internal");
+}
+
+/** The liquidación's document: "Remito R9002-00000001" (fiscal), "Remito
+ *  interno X9001-00000004" (internal, once issued) or the legacy
+ *  "Liquidación R-00000012". Null while it has none. */
+export function settlementDocumentLabel(
+  s: SettlementDocumentFields,
+): string | null {
+  if (s.remito_pos !== null && s.remito_number !== null) {
+    return `Remito ${formatRemitoR(s.remito_pos, s.remito_number)}`;
+  }
+  if (s.numero !== null) {
+    return `Liquidación ${formatSettlementNumber(s.numero)}`;
+  }
+  if (settlementSide(s) === "internal" && s.invoice_number) {
+    return `Remito interno ${s.invoice_number}`;
+  }
+  return null;
+}
+
+/** The short number for the list: the remito R, the legacy R-…, the remito
+ *  interno X, "Borrador", or "Sin remito" (internal, X not issued yet). */
+export function settlementNumberLabel(s: SettlementDocumentFields): string {
+  if (s.remito_pos !== null && s.remito_number !== null) {
+    return formatRemitoR(s.remito_pos, s.remito_number);
+  }
+  if (s.numero !== null) return formatSettlementNumber(s.numero);
+  if (s.status === "draft") return "Borrador";
+  if (settlementSide(s) === "internal" && s.invoice_number) {
+    return s.invoice_number;
+  }
+  return "Sin remito";
+}
+
+/** True when it prints as an R: a Remito R, or a legacy R-…. An internal
+ *  liquidación prints as its remito interno X. */
+export function hasRDocument(
+  s: Pick<FreightSettlement, "numero" | "remito_number">,
+): boolean {
+  return s.numero !== null || s.remito_number !== null;
+}
+
+/** What a live liquidación offers next: confirm (fiscal draft → Remito R),
+ *  invoice (fiscal, R emitted → Factura A/B) or issue_internal (internal →
+ *  remito interno X, confirming first if needed; the final step). */
+export type FreightSettlementStep = "confirm" | "invoice" | "issue_internal";
+
+export function settlementNextStep(
+  s: Pick<
+    FreightSettlement,
+    "status" | "channel" | "client_is_fiscal" | "invoice_id"
+  >,
+): FreightSettlementStep | null {
+  const fiscal = settlementSide(s) === "fiscal";
+  if (s.status === "draft") return fiscal ? "confirm" : "issue_internal";
+  if (s.status === "confirmed" && s.invoice_id === null) {
+    return fiscal ? "invoice" : "issue_internal";
+  }
+  return null;
+}
+
 export interface FreightSettlement {
   id: string;
+  /** Legacy R-00000012 number (confirmed before the remito R). */
   numero: number | null;
+  /** Side it was confirmed on; null on a draft or a legacy liquidación. */
+  channel: FreightSettlementChannel | null;
+  /** Remito R point of sale and number (fiscal side). */
+  remito_pos: number | null;
+  remito_number: number | null;
   client_id: string;
   client_name: string;
   /** Ventas (true) or Otras ventas: the invoice's channel side. */
@@ -66,6 +170,9 @@ export interface FreightSettlement {
   invoice_id: string | null;
   /** The grouped invoice's own status (draft/emitting/emitted/…), if any. */
   invoice_status: string | null;
+  /** "A0003-00000045" / "X9001-00000004" of a live (not failed or
+   *  cancelled) grouped invoice; null otherwise. */
+  invoice_number: string | null;
   /** True while its invoice is being issued (claim not stale). */
   invoicing: boolean;
   notes: string | null;
@@ -151,7 +258,8 @@ export const FreightSettlementIdSchema = z.object({
   id: z.string().uuid(),
 });
 
-/** "Facturar": the grouped invoice's channel and point of sale. */
+/** "Facturar" / "Emitir remito interno": the grouped invoice's channel and
+ *  point of sale. */
 export const FreightSettlementInvoiceSchema = z.object({
   id: z.string().uuid(),
   channel_id: z.string().min(1, "Elegí un canal."),

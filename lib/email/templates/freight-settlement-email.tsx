@@ -33,7 +33,7 @@ export function FreightSettlementEmail({
     <Html>
       <Head />
       <Preview>
-        Liquidación de fletes {numero_label} — {emisor_name}
+        Remito {numero_label} — {emisor_name}
       </Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
@@ -43,15 +43,14 @@ export function FreightSettlementEmail({
             <Text style={textStyle}>{custom_body}</Text>
           ) : (
             <Text style={textStyle}>
-              Adjuntamos la liquidación de fletes {numero_label} con el detalle
-              de las cargas del período. Cualquier consulta, respondé a este
-              mismo email.
+              Adjuntamos el remito {numero_label} con el detalle de las cargas
+              del período. Cualquier consulta, respondé a este mismo email.
             </Text>
           )}
           <Hr style={hrStyle} />
           <Section>
             <Text style={detailStyle}>
-              <strong>Liquidación:</strong> {numero_label}
+              <strong>Remito:</strong> {numero_label}
             </Text>
             <Text style={detailStyle}>
               <strong>Período:</strong> {fecha}

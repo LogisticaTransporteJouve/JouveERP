@@ -8,7 +8,8 @@ import { formatDriverSettlementNumber } from "@/features/driver-settlements/sche
 import { listFreightSettlementsAction } from "@/features/freight-settlements/actions/freight-settlements-actions";
 import {
   FREIGHT_SETTLEMENT_STATUSES,
-  formatSettlementNumber,
+  settlementDocumentLabel,
+  settlementSide,
 } from "@/features/freight-settlements/schema";
 import { scopeIsFiscalFor } from "@/lib/auth/permissions";
 import { ScopeInputSchema } from "@/lib/validation/common";
@@ -29,10 +30,12 @@ export const getFreightSettlements = defineAiAction({
   sideEffect: "read",
   sources: ["freight_settlements", "freight_settlement_items"],
   description:
-    "Liquidaciones de fletes (documento R): client, period, status " +
-    "(draft = borrador, confirmed = confirmada sin facturar, invoiced = " +
-    "facturada, cancelled), total in ARS and the invoice that billed it, " +
-    "newest first. For 'qué liquidaciones faltan facturar' or a client's R.",
+    "Liquidaciones de fletes: client, period, side (fiscal = Remito R then " +
+    "a factura; internal = remito interno X), status (draft = borrador, " +
+    "confirmed = remito R emitted but not invoiced yet, or internal waiting " +
+    "for its X; invoiced = facturada or X issued; cancelled), its document " +
+    "and total in ARS, newest first. For 'qué liquidaciones faltan " +
+    "facturar' or a client's remito.",
   input: z.object({
     status: z.enum(FREIGHT_SETTLEMENT_STATUSES).optional(),
     client_name: z
@@ -66,7 +69,8 @@ export const getFreightSettlements = defineAiAction({
       {
         rows: rows.slice(0, limit).map((s) => ({
           id: s.id,
-          number: s.numero === null ? null : formatSettlementNumber(s.numero),
+          document: settlementDocumentLabel(s),
+          side: settlementSide(s),
           client_name: s.client_name,
           period_start: s.period_start,
           period_end: s.period_end,

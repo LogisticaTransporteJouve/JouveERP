@@ -23,7 +23,11 @@ const ctx = { userId: "u1", access: resolveAccess(["owner"]) };
 function freight(patch: Record<string, unknown>) {
   return {
     id: "f1",
-    numero: 3,
+    numero: null,
+    channel: "fiscal",
+    remito_pos: 1,
+    remito_number: 3,
+    invoice_number: null,
     client_id: "c1",
     client_name: "Cliente Uno",
     client_is_fiscal: true,
@@ -84,9 +88,9 @@ describe("getFreightSettlements", () => {
     });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    const data = res.data as { rows: { id: string; number: string }[] };
+    const data = res.data as { rows: { id: string; document: string }[] };
     expect(data.rows.map((r) => r.id)).toEqual(["f1"]);
-    expect(data.rows[0]?.number).toMatch(/^R-/);
+    expect(data.rows[0]?.document).toBe("Remito R0001-00000003");
     expect(res.summary).toContain("1 confirmadas sin facturar");
   });
 });

@@ -10,6 +10,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { formatRemitoR } from "../schema";
 import {
   FreightBulkSchema,
   MAX_BULK_CLIENTS,
@@ -40,7 +41,7 @@ export async function createFreightSettlementsBulkAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { period_start, period_end } = parsed.data;
+  const { period_start, period_end, confirm = false } = parsed.data;
   const supabase = getServiceClient();
 
   // Clients with a delivered, uninvoiced carga in the period (service date =
@@ -143,12 +144,48 @@ export async function createFreightSettlementsBulkAction(
       });
       continue;
     }
+    let remito: string | null = null;
+    let confirmError: string | null = null;
+    if (confirm) {
+      // The same confirmation as "Confirmar" (#331): fiscal → Remito R.
+      const confirmed = await supabase
+        .rpc("confirm_freight_settlement_document", {
+          p_settlement_id: id,
+          p_user_id: ctx.userId,
+        })
+        .maybeSingle();
+      if (confirmed.error || !confirmed.data) {
+        confirmError =
+          mapDbGuardError(confirmed.error, {
+            slug: "freight_settlements.bulk.confirm_rejected",
+            userId: ctx.userId,
+            id,
+          }) ?? "No se pudo confirmar: quedó en borrador.";
+        if (!confirmed.error?.hint) {
+          logger.error("freight_settlements.bulk.confirm_failed", {
+            userId: ctx.userId,
+            id,
+            error: confirmed.error,
+          });
+        }
+      } else if (
+        confirmed.data.remito_pos !== null &&
+        confirmed.data.remito_number !== null
+      ) {
+        remito = formatRemitoR(
+          confirmed.data.remito_pos,
+          confirmed.data.remito_number,
+        );
+      }
+    }
     result.created.push({
       id,
       client_name: clientName,
       cargas: priced.length,
       total: round2(priced.reduce((t, c) => t + Number(c.amount), 0)),
       unpriced,
+      remito,
+      confirm_error: confirmError,
     });
   }
 
@@ -158,7 +195,11 @@ export async function createFreightSettlementsBulkAction(
       period_end,
       created: result.created.length,
       skipped: result.skipped.length,
+      confirm,
       ids: result.created.map((c) => c.id),
+      remitos: result.created
+        .map((c) => c.remito)
+        .filter((r): r is string => r !== null),
     });
   }
   return { ok: true, data: result };

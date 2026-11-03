@@ -48,10 +48,10 @@ const KIND_COPY: Record<
     descriptionNoun: "El cliente recibirá el PDF del recibo adjunto.",
   },
   freight_settlement: {
-    titleNoun: "Enviar liquidación por email",
-    entityNoun: "liquidación",
+    titleNoun: "Enviar remito por email",
+    entityNoun: "remito",
     descriptionNoun:
-      "El cliente recibirá el PDF de la liquidación (R) adjunto.",
+      "El cliente recibirá el PDF del remito R de la liquidación adjunto.",
   },
 };
 

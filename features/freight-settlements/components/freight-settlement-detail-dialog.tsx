@@ -20,7 +20,10 @@ import { useFreightSettlement } from "../hooks/use-freight-settlements";
 import {
   FREIGHT_PRICE_SOURCE_LABELS,
   FREIGHT_SETTLEMENT_STATUS_LABELS,
-  formatSettlementNumber,
+  hasRDocument,
+  settlementDocumentLabel,
+  settlementNumberLabel,
+  settlementSide,
 } from "../schema";
 
 function route(origin: string | null, destination: string | null): string {
@@ -40,6 +43,8 @@ export function FreightSettlementDetailDialog({
 }) {
   const detail = useFreightSettlement(id);
   const s = detail.data;
+  const internal = s ? settlementSide(s) === "internal" : false;
+  const document = s ? settlementDocumentLabel(s) : null;
 
   return (
     <Dialog
@@ -51,7 +56,7 @@ export function FreightSettlementDetailDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Liquidación {s ? formatSettlementNumber(s.numero) : ""}
+            Liquidación {s ? settlementNumberLabel(s) : ""}
           </DialogTitle>
           <DialogDescription>
             {s
@@ -111,9 +116,20 @@ export function FreightSettlementDetailDialog({
             {s.notes && (
               <p className="text-sm text-muted-foreground">{s.notes}</p>
             )}
+            {document && <p className="text-sm font-medium">{document}</p>}
+            {s.status === "confirmed" &&
+              !s.invoice_id &&
+              settlementSide(s) === "fiscal" && (
+                <p className="text-sm text-muted-foreground">
+                  Remito emitido: falta la factura.
+                </p>
+              )}
             {s.invoice_id && (
               <p className="text-sm">
-                Factura:{" "}
+                {internal
+                  ? "Remito interno"
+                  : `Factura${s.invoice_number ? ` ${s.invoice_number}` : ""}`}
+                :{" "}
                 <Link
                   href={`/invoices/${s.invoice_id}`}
                   className="underline underline-offset-4"
@@ -126,16 +142,30 @@ export function FreightSettlementDetailDialog({
         ) : null}
         <DialogFooter>
           {canEmail &&
-            s?.numero != null &&
+            s &&
+            hasRDocument(s) &&
             (s.status === "confirmed" || s.status === "invoiced") && (
               <SendByEmailDialog
                 kind="freight_settlement"
                 id={s.id}
                 iconOnly={false}
-                label="Enviar R por email"
+                label="Enviar remito por email"
               />
             )}
-          {s?.numero != null && (
+          {canEmail &&
+            s &&
+            internal &&
+            !hasRDocument(s) &&
+            s.status === "invoiced" &&
+            s.invoice_id && (
+              <SendByEmailDialog
+                kind="invoice"
+                id={s.invoice_id}
+                iconOnly={false}
+                label="Enviar remito interno por email"
+              />
+            )}
+          {s && hasRDocument(s) && (
             <Button variant="outline" asChild>
               <a
                 href={`/api/freight-settlements/${s.id}/pdf`}
@@ -143,7 +173,19 @@ export function FreightSettlementDetailDialog({
                 rel="noopener noreferrer"
               >
                 <FileText />
-                Ver R
+                {s.remito_number !== null ? "Ver remito R" : "Ver R"}
+              </a>
+            </Button>
+          )}
+          {s && internal && !hasRDocument(s) && s.invoice_number && (
+            <Button variant="outline" asChild>
+              <a
+                href={`/api/invoices/${s.invoice_id}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FileText />
+                Ver remito interno
               </a>
             </Button>
           )}

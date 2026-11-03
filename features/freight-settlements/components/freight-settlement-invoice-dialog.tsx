@@ -28,10 +28,16 @@ import {
   useInvoiceFreightSettlement,
   useInvoicingChannels,
 } from "../hooks/use-freight-settlements";
-import { formatSettlementNumber, type FreightSettlement } from "../schema";
+import {
+  settlementDocumentLabel,
+  settlementSide,
+  type FreightSettlement,
+} from "../schema";
 
-/** "Facturar": one invoice for the whole liquidación, on a channel of the
- *  client's side (Ventas → factura with CAE, Otras ventas → remito interno). */
+/** One invoice for the whole liquidación, on a channel of the client's side:
+ *  "Facturar" in Ventas (Factura A/B with CAE, after the Remito R), "Emitir
+ *  remito interno" in Otras ventas (the remito interno X, confirming a draft
+ *  first; the final step). */
 export function FreightSettlementInvoiceDialog({
   settlement,
   onClose,
@@ -40,6 +46,9 @@ export function FreightSettlementInvoiceDialog({
   onClose: () => void;
 }) {
   const open = settlement !== null;
+  const internal =
+    settlement !== null && settlementSide(settlement) === "internal";
+  const document = settlement ? settlementDocumentLabel(settlement) : null;
   const channels = useInvoicingChannels(open);
   const invoiceMut = useInvoiceFreightSettlement();
   const [channelId, setChannelId] = useState("");
@@ -75,7 +84,11 @@ export function FreightSettlementInvoiceDialog({
       },
       {
         onSuccess: () => {
-          toast.success("Factura de la liquidación creada.");
+          toast.success(
+            internal
+              ? "Remito interno de la liquidación emitido."
+              : "Factura de la liquidación creada.",
+          );
           onClose();
         },
         onError: (err) => toast.error(err.message),
@@ -92,20 +105,23 @@ export function FreightSettlementInvoiceDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Facturar liquidación</DialogTitle>
+          <DialogTitle>
+            {internal ? "Emitir remito interno" : "Facturar liquidación"}
+          </DialogTitle>
           <DialogDescription>
-            Una sola factura con una línea por carga
-            {settlement?.client_is_fiscal ? ", con IVA 21%" : ""}.
+            {internal
+              ? `${settlement?.status === "draft" ? "Se confirma la liquidación y se emite un" : "Un"} solo remito interno con una línea por carga, a precio final. Es el documento final de la liquidación.`
+              : "Una sola factura con una línea por carga, con IVA 21%, vinculada al Remito R."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="rounded-md border bg-muted/30 p-3 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Liquidación</span>
-              <span className="font-medium">
-                {settlement ? formatSettlementNumber(settlement.numero) : "—"}
-              </span>
-            </div>
+            {document && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Documento</span>
+                <span className="font-medium">{document}</span>
+              </div>
+            )}
             <div className="mt-1 flex items-center justify-between gap-2">
               <span className="text-muted-foreground">Cliente</span>
               <span className="truncate font-medium">
@@ -164,7 +180,7 @@ export function FreightSettlementInvoiceDialog({
             disabled={invoiceMut.isPending}
             onClick={onSubmit}
           >
-            Facturar
+            {internal ? "Emitir remito interno" : "Facturar"}
           </Button>
         </DialogFooter>
       </DialogContent>

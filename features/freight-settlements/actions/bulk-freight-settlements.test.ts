@@ -47,6 +47,17 @@ function respond(call: RecordedCall) {
   if (call.table === "save_freight_settlement") {
     return { data: "fs1", error: null };
   }
+  if (call.table === "confirm_freight_settlement_document") {
+    return {
+      data: {
+        channel: "fiscal",
+        numero: null,
+        remito_pos: 9002,
+        remito_number: 4,
+      },
+      error: null,
+    };
+  }
   return { data: null, error: null };
 }
 
@@ -85,6 +96,8 @@ describe("createFreightSettlementsBulkAction", () => {
             cargas: 1,
             total: 1000,
             unpriced: 1,
+            remito: null,
+            confirm_error: null,
           },
         ],
         skipped: [
@@ -105,6 +118,27 @@ describe("createFreightSettlementsBulkAction", () => {
       p_user_id: "u1",
     });
     expect(saves[0]?.payload).not.toHaveProperty("p_settlement_id");
+  });
+
+  it("confirms each one through the remito R path when asked", async () => {
+    const res = await createFreightSettlementsBulkAction({
+      ...input,
+      confirm: true,
+    });
+    expect(res.ok && res.data.created[0]?.remito).toBe("R9002-00000004");
+    const confirms = fake.calls.filter(
+      (c) => c.table === "confirm_freight_settlement_document",
+    );
+    expect(confirms.map((c) => c.payload)).toEqual([
+      { p_settlement_id: "fs1", p_user_id: "u1" },
+    ]);
+  });
+
+  it("does not confirm unless asked", async () => {
+    await createFreightSettlementsBulkAction(input);
+    expect(
+      fake.calls.some((c) => c.table === "confirm_freight_settlement_document"),
+    ).toBe(false);
   });
 
   it("refuses an inverted period and needs invoices:issue", async () => {

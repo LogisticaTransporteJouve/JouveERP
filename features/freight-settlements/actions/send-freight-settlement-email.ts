@@ -15,10 +15,12 @@ import {
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { formatSettlementNumber } from "../schema";
+import { formatRemitoR, formatSettlementNumber, hasRDocument } from "../schema";
 
-// "Enviar por email" of a liquidación's R document, like a receipt's
-// (send-receipt-email): its PDF attached, logged in email_send_log.
+// "Enviar por email" of a liquidación's R document (the Remito R of a fiscal
+// one, or a legacy R-…), like a receipt's (send-receipt-email): its PDF
+// attached, logged in email_send_log. An internal liquidación's remito
+// interno X is an invoice and goes through send-invoice-email.
 
 const SendFreightSettlementEmailSchema = z.object({
   settlement_id: z.string().uuid(),
@@ -38,10 +40,20 @@ export type SendFreightSettlementEmailInput = z.input<
   typeof SendFreightSettlementEmailSchema
 >;
 
-/** Only a numbered, live liquidación has an R to send. */
-function sendable(status: string): boolean {
-  return status === "confirmed" || status === "invoiced";
+/** Only a live liquidación with its R (remito R or legacy R-…) has one to
+ *  send. */
+function sendable(s: {
+  status: string;
+  numero: number | null;
+  remito_number: number | null;
+}): boolean {
+  return (
+    (s.status === "confirmed" || s.status === "invoiced") && hasRDocument(s)
+  );
 }
+
+const NOT_SENDABLE =
+  "Solo se envía una liquidación con su remito R emitido (confirmada o facturada).";
 
 export async function sendFreightSettlementByEmailAction(
   rawInput: SendFreightSettlementEmailInput,
@@ -65,7 +77,7 @@ export async function sendFreightSettlementByEmailAction(
   const supabase = getServiceClient();
   const { data: settlement, error } = await supabase
     .from("freight_settlements")
-    .select("id, status, numero")
+    .select("id, status, numero, remito_number")
     .eq("id", input.settlement_id)
     .maybeSingle();
   if (error) {
@@ -77,12 +89,7 @@ export async function sendFreightSettlementByEmailAction(
     return { ok: false, error: "No se pudo leer la liquidación." };
   }
   if (!settlement) return { ok: false, error: "Liquidación no encontrada." };
-  if (!sendable(settlement.status) || settlement.numero === null) {
-    return {
-      ok: false,
-      error: "Solo se envía una liquidación confirmada o facturada.",
-    };
-  }
+  if (!sendable(settlement)) return { ok: false, error: NOT_SENDABLE };
 
   let templateData;
   let pdfBuffer;
@@ -151,7 +158,9 @@ export async function getFreightSettlementEmailDefaultsAction(
   const [settlementRes, lastRes] = await Promise.all([
     supabase
       .from("freight_settlements")
-      .select("numero, status, client:clients(legal_name, email)")
+      .select(
+        "numero, status, remito_pos, remito_number, client:clients(legal_name, email)",
+      )
       .eq("id", id.data)
       .maybeSingle(),
     supabase
@@ -174,18 +183,16 @@ export async function getFreightSettlementEmailDefaultsAction(
   }
   const s = settlementRes.data;
   if (!s) return { ok: false, error: "Liquidación no encontrada." };
-  if (!sendable(s.status) || s.numero === null) {
-    return {
-      ok: false,
-      error: "Solo se envía una liquidación confirmada o facturada.",
-    };
-  }
-  const numeroLabel = formatSettlementNumber(s.numero);
+  if (!sendable(s)) return { ok: false, error: NOT_SENDABLE };
+  const numeroLabel =
+    s.remito_pos !== null && s.remito_number !== null
+      ? formatRemitoR(s.remito_pos, s.remito_number)
+      : formatSettlementNumber(s.numero);
   return {
     ok: true,
     data: {
       recipient: s.client?.email ?? lastRes.data?.recipient ?? null,
-      subject: `Liquidación de fletes ${numeroLabel}`,
+      subject: `Remito ${numeroLabel}`,
       numero_label: numeroLabel,
       client_legal_name: s.client?.legal_name ?? "Cliente",
       last_sent_at: lastRes.data?.created_at ?? null,

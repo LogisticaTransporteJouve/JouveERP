@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export function BulkFreightSettlementsDialog({
   const initial = previousMonth(todayInAR());
   const [start, setStart] = useState(initial.start);
   const [end, setEnd] = useState(initial.end);
+  const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<FreightBulkResult | null>(null);
   const mut = useCreateFreightSettlementsBulk();
 
@@ -50,7 +52,7 @@ export function BulkFreightSettlementsDialog({
 
   function onSubmit() {
     mut.mutate(
-      { period_start: start, period_end: end },
+      { period_start: start, period_end: end, confirm },
       {
         onSuccess: (data) => {
           setResult(data);
@@ -59,8 +61,8 @@ export function BulkFreightSettlementsDialog({
           } else {
             toast.success(
               data.created.length === 1
-                ? "Se creó 1 liquidación en borrador."
-                : `Se crearon ${data.created.length} liquidaciones en borrador.`,
+                ? "Se creó 1 liquidación."
+                : `Se crearon ${data.created.length} liquidaciones.`,
             );
           }
         },
@@ -75,14 +77,26 @@ export function BulkFreightSettlementsDialog({
         <DialogHeader>
           <DialogTitle>Liquidar período</DialogTitle>
           <DialogDescription>
-            Arma una liquidación en borrador por cliente con sus cargas
-            entregadas del período que no están facturadas ni en otra
-            liquidación. Después revisás y confirmás cada una.
+            Arma una liquidación por cliente con sus cargas entregadas del
+            período que no están facturadas ni en otra liquidación. Quedan en
+            borrador para revisarlas, o confirmadas si lo elegís.
           </DialogDescription>
         </DialogHeader>
 
         {result === null ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2 sm:order-last">
+              <Checkbox
+                className="mt-0.5"
+                checked={confirm}
+                onCheckedChange={(v) => setConfirm(v === true)}
+              />
+              <span>
+                Confirmarlas: cada cliente de Ventas recibe su remito R; las de
+                Otras ventas quedan confirmadas para emitir su remito interno X
+                una por una.
+              </span>
+            </label>
             <div className="space-y-2">
               <Label htmlFor="fs-bulk-start">Desde</Label>
               <Input
@@ -117,9 +131,11 @@ export function BulkFreightSettlementsDialog({
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {c.cargas} cargas
+                        {c.remito ? ` · Remito ${c.remito}` : ""}
                         {c.unpriced > 0
                           ? ` · ${c.unpriced} sin precio quedaron afuera`
                           : ""}
+                        {c.confirm_error ? ` · ${c.confirm_error}` : ""}
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums">
@@ -164,7 +180,11 @@ export function BulkFreightSettlementsDialog({
                 disabled={mut.isPending || start === "" || end === ""}
                 onClick={onSubmit}
               >
-                {mut.isPending ? "Liquidando…" : "Crear borradores"}
+                {mut.isPending
+                  ? "Liquidando…"
+                  : confirm
+                    ? "Crear y confirmar"
+                    : "Crear borradores"}
               </Button>
             </>
           ) : (

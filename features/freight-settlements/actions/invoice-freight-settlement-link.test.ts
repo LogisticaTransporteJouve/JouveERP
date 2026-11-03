@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess, type Role } from "@/lib/auth/permissions";
 import {
-  filterValue,
   recordingSupabase,
   type RecordedCall,
 } from "@/tests/helpers/recording-supabase";
@@ -19,14 +18,38 @@ let shipmentChannel: string | null = null;
 let claimed = true;
 let linkError: unknown = null;
 let invoiceStatus = "failed";
+// A legacy liquidación (R-00000012) unless a test says otherwise.
+let numero: number | null = 12;
+let channel: string | null = null;
+let remito: { pos: number; number: number } | null = null;
+let isFiscal = true;
+let confirmResult: unknown = null;
 let fake = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
+  if (call.table === "confirm_freight_settlement_document") {
+    if (status === "draft") {
+      status = "confirmed";
+      channel = isFiscal ? "fiscal" : "internal";
+    }
+    return {
+      data: confirmResult ?? {
+        channel,
+        numero,
+        remito_pos: remito?.pos ?? null,
+        remito_number: remito?.number ?? null,
+      },
+      error: null,
+    };
+  }
   if (call.table === "freight_settlements" && call.op === "select") {
     return {
       data: {
         id: ID,
-        numero: 12,
+        numero,
+        channel,
+        remito_pos: remito?.pos ?? null,
+        remito_number: remito?.number ?? null,
         client_id: "c1",
         period_start: "2026-10-01",
         period_end: "2026-10-31",
@@ -36,7 +59,7 @@ function respond(call: RecordedCall) {
         invoicing_claimed_at: null,
         notes: null,
         created_at: "2026-11-01T12:00:00Z",
-        client: { legal_name: "Cliente", is_fiscal: true },
+        client: { legal_name: "Cliente", is_fiscal: isFiscal },
         invoice: null,
       },
       error: null,
@@ -64,11 +87,13 @@ function respond(call: RecordedCall) {
   }
   if (call.table === "clients") {
     return {
-      data: {
-        cuit: "30111111118",
-        iva_condition: "responsable_inscripto",
-        is_fiscal: true,
-      },
+      data: isFiscal
+        ? {
+            cuit: "30111111118",
+            iva_condition: "responsable_inscripto",
+            is_fiscal: true,
+          }
+        : { cuit: null, iva_condition: null, is_fiscal: false },
       error: null,
     };
   }
@@ -119,6 +144,11 @@ beforeEach(() => {
   roles = ["owner"];
   status = "confirmed";
   shipmentChannel = null;
+  numero = 12;
+  channel = null;
+  remito = null;
+  isFiscal = true;
+  confirmResult = null;
   claimed = true;
   linkError = null;
   invoiceStatus = "failed";

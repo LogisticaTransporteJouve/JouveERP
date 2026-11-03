@@ -247,7 +247,7 @@ select is(
 
 select is(
   (select array_agg(distinct source_document) from public.v_transactions_tagged
-    where description like 'Recibo R0009-0000920%'),
+    where description like 'Recibo X0009-0000920%'),
   array['receipt'],
   'receipt movements are owned by the receipt'
 );
