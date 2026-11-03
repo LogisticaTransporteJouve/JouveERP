@@ -112,7 +112,8 @@ export const proposeRecategorizeExpense = defineAiProposal({
     "account or center by code or name as the user said it ('ninguna' = the " +
     "default account, 'ninguno' = no center); omit the one that stays. The " +
     "entry is re-posted; a closed period or a movement a document owns is " +
-    "refused. Writes nothing by itself.",
+    "refused. On a purchase, its NC/ND that still carry the old account or " +
+    "center follow it. Writes nothing by itself.",
   input: z.object({
     source: z.enum(EXPENSE_SOURCES),
     id: z.string().uuid(),

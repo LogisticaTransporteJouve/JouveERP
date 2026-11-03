@@ -84,7 +84,14 @@ vi.mock(
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { getAccountBalancesAction } from "@/features/balance/actions/balance-actions";
 import { getLedgerAction } from "@/features/libro-mayor/actions/libro-mayor-actions";
-import { listLibroIvaVentasAction } from "@/features/libro-iva/actions/libro-iva-actions";
+import {
+  listLibroIvaComprasAction,
+  listLibroIvaVentasAction,
+} from "@/features/libro-iva/actions/libro-iva-actions";
+import type {
+  LibroIvaComprasRow,
+  LibroIvaVentasRow,
+} from "@/features/libro-iva/schema";
 import {
   listInvoicesAction,
   type InvoiceListItem,
@@ -97,7 +104,12 @@ import {
 } from "@/features/checks/actions/checks-actions";
 import { getAttendanceMonthAction } from "@/features/hr/actions/attendance-actions";
 
-import { runLedger, runLibroIvaVentas, runTrialBalance } from "./accounting";
+import {
+  runLedger,
+  runLibroIvaCompras,
+  runLibroIvaVentas,
+  runTrialBalance,
+} from "./accounting";
 import { runChecks } from "./cash";
 import { runAttendance } from "./hr";
 import {
@@ -304,6 +316,153 @@ describe("runLibroIvaVentas", () => {
     });
     expect(r.ok).toBe(true);
     expect(r.summary).toMatch(/^Solo fiscal: .*VAT Sales/);
+  });
+});
+
+// A libro IVA row: one document × rate, NC amounts positive, the document's
+// totals repeated on each of its rate rows (as the RPC returns them).
+function ventaRow(over: Partial<LibroIvaVentasRow>): LibroIvaVentasRow {
+  return {
+    invoice_id: "f1",
+    fecha: "2026-05-10",
+    kind: "factura",
+    letter: "A",
+    punto_venta: 1,
+    numero: 1,
+    cbte_tipo_afip: 1,
+    client_legal_name: "Cliente",
+    doc_tipo: 80,
+    doc_nro: "30000000007",
+    cae: null,
+    cae_vencimiento: null,
+    iva_rate_id: 5,
+    iva_rate_pct: 21,
+    neto: 0,
+    iva: 0,
+    imp_trib: 0,
+    imp_op_ex: 0,
+    imp_tot_conc: 0,
+    imp_total: 0,
+    channel_id: "jouve_fiscal",
+    channel_name: "Fiscal",
+    has_items: false,
+    moneda: "PES",
+    cotizacion: 1,
+    neto_orig: 0,
+    iva_orig: 0,
+    imp_trib_orig: 0,
+    imp_op_ex_orig: 0,
+    imp_tot_conc_orig: 0,
+    imp_total_orig: 0,
+    ...over,
+  };
+}
+
+function compraRow(over: Partial<LibroIvaComprasRow>): LibroIvaComprasRow {
+  return {
+    purchase_invoice_id: "c1",
+    fecha: "2026-05-10",
+    kind: "factura",
+    letter: "A",
+    punto_venta: 1,
+    numero: 1,
+    supplier_legal_name: "Proveedor",
+    supplier_cuit: null,
+    cae_proveedor: null,
+    cae_vto_proveedor: null,
+    iva_rate_id: 5,
+    iva_rate_pct: 21,
+    neto: 0,
+    iva: 0,
+    imp_trib: 0,
+    imp_total: 0,
+    channel_id: "jouve_fiscal",
+    channel_name: "Fiscal",
+    has_items: false,
+    moneda: "PES",
+    cotizacion: 1,
+    neto_orig: 0,
+    iva_orig: 0,
+    imp_trib_orig: 0,
+    imp_total_orig: 0,
+    ...over,
+  };
+}
+
+describe("libro IVA totals", () => {
+  it("ventas: signed IVA débito, each document's total once", async () => {
+    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
+      ok: true,
+      data: [
+        // A two-rate factura: 1000 at 21% + 1000 at 10.5%, total 2315.
+        // Exento 50, repeated on both rate rows like imp_total.
+        ventaRow({ neto: 1000, iva: 210, imp_op_ex: 50, imp_total: 2315 }),
+        ventaRow({
+          iva_rate_id: 4,
+          iva_rate_pct: 10.5,
+          neto: 1000,
+          iva: 105,
+          imp_op_ex: 50,
+          imp_total: 2315,
+        }),
+        // An NC of 100 + 21 on it.
+        ventaRow({
+          invoice_id: "nc1",
+          kind: "nc",
+          numero: 2,
+          neto: 100,
+          iva: 21,
+          imp_total: 121,
+        }),
+      ],
+    });
+    const r = await runLibroIvaVentas({ period: "2026-05" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data).toMatchObject({
+      totals: {
+        documents: 2,
+        neto: 1900,
+        iva: 294,
+        imp_total: 2194,
+        imp_op_ex: 50,
+        imp_tot_conc: 0,
+        per_rate: [
+          { alicuota: "10.5%", neto: 1000, iva: 105 },
+          { alicuota: "21%", neto: 900, iva: 189 },
+        ],
+      },
+    });
+    expect(r.summary).toContain("IVA débito");
+  });
+
+  it("compras: signed IVA crédito and otros tributos", async () => {
+    vi.mocked(listLibroIvaComprasAction).mockResolvedValue({
+      ok: true,
+      data: [
+        compraRow({ neto: 1000, iva: 210, imp_trib: 30, imp_total: 1240 }),
+        compraRow({
+          purchase_invoice_id: "nc1",
+          kind: "nc",
+          numero: 2,
+          neto: 200,
+          iva: 42,
+          imp_total: 242,
+        }),
+      ],
+    });
+    const r = await runLibroIvaCompras({ period: "2026-05" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data).toMatchObject({
+      totals: {
+        documents: 2,
+        neto: 800,
+        iva: 168,
+        imp_trib: 30,
+        imp_total: 998,
+      },
+    });
   });
 });
 

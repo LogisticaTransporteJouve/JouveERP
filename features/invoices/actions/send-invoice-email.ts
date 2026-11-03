@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
 import {
   buildPdfFilename,
@@ -79,8 +79,17 @@ export async function sendInvoiceByEmailAction(
     .eq("id", input.invoice_id)
     .maybeSingle();
 
-  if (invErr) return { ok: false, error: invErr.message };
-  if (!invoice) return { ok: false, error: "Comprobante no encontrado." };
+  if (invErr) {
+    logger.error("send_invoice_email.read_failed", {
+      userId: ctx.userId,
+      invoiceId: input.invoice_id,
+      error: invErr,
+    });
+    return { ok: false, error: "No se pudo leer el comprobante." };
+  }
+  if (!invoice || (isFiscalOnly(ctx.access) && !invoice.channel?.is_fiscal)) {
+    return { ok: false, error: "Comprobante no encontrado." };
+  }
   if (invoice.status !== "emitted") {
     return {
       ok: false,
@@ -162,19 +171,31 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
   if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso." };
   }
+  const id = z.string().uuid().safeParse(invoiceId);
+  if (!id.success) return { ok: false, error: "Comprobante inválido." };
 
   const supabase = getServiceClient();
   const { data: invoice, error } = await supabase
     .from("invoices")
     .select(
-      "kind, letter, punto_venta, numero, notified_at, client:clients(legal_name, email)",
+      "kind, letter, punto_venta, numero, notified_at, client:clients(legal_name, email), channel:invoicing_channels(is_fiscal)",
     )
-    .eq("id", invoiceId)
+    .eq("id", id.data)
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  if (!invoice) return { ok: false, error: "Comprobante no encontrado." };
+  if (error) {
+    logger.error("send_invoice_email.defaults_failed", {
+      userId: ctx.userId,
+      invoiceId: id.data,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer el comprobante." };
+  }
+  // A fiscal-only reader sees no internal comprobante (as getInvoiceDetail).
+  if (!invoice || (isFiscalOnly(ctx.access) && !invoice.channel?.is_fiscal)) {
+    return { ok: false, error: "Comprobante no encontrado." };
+  }
 
-  const client = (invoice as unknown as ClientLegalJoin).client;
+  const client = invoice.client;
 
   const numberLabel = formatInvoiceNumero(
     invoice.kind,
@@ -191,7 +212,7 @@ export async function getInvoiceEmailDefaultsAction(invoiceId: string): Promise<
       .from("email_send_log")
       .select("recipient")
       .eq("entity_type", "invoice")
-      .eq("entity_id", invoiceId)
+      .eq("entity_id", id.data)
       .eq("status", "sent")
       .order("created_at", { ascending: false })
       .limit(1)

@@ -34,6 +34,96 @@ moneda ni cuenta, y una OP se le liga solo cargándolo desde la OP.
 **Listados de cheques.** Se listan completos los que se operan (en cartera y
 depositados; propios emitidos) y los 500 más recientes del resto, con aviso
 si quedaron afuera.
+## 2026-11-04 — Auditoría: impuestos y gestión
+
+**Cheques en percibido.** Un cheque de terceros importado al arranque es una
+partida de apertura: ni su ingreso a cartera ni su rechazo tocan el
+resultado (la deuda y el cheque son anteriores al sistema; devengado ya era
+neutro). El egreso de un cheque rechazado va a Servicios en negativo, del
+lado del recibo que lo cobró (y a venta de bienes de uso en la parte que el
+recibo imputó a una): antes era neutro, y el cobro original quedaba
+sumado y un nuevo cobro sumaba otra vez. Devengado no cambia (el asiento va a
+Deudores por cheques rechazados).
+
+**Pendiente USD fiscal = sin asiento.** En devengado lo fiscal sale del
+libro, así que un movimiento fiscal en dólares está pendiente mientras no
+tiene asiento vivo, no mientras no hay cotización hoy. Descartado por ahora:
+re-asentar al insertar una cotización (es otro efecto, y el paquete mensual
+ya lista los `sin_cotizacion`).
+
+**Deshacer el pago de un impuesto restaura lo previo.** Pagar y vincular
+guardan el importe y el estado que tenía el documento
+(`payment_previous_amount`, `payment_previous_status`), como ya guardaban la
+cuenta de gasto; deshacer los devuelve. Un pago anterior conserva la regla
+vieja.
+
+**Recategorizar arrastra sus NC/ND.** Se propaga, no se avisa: una NC/ND
+ajusta el mismo costo y va al mismo rubro y centro. Solo cambian las
+vigentes que tenían el valor anterior (una con valor propio lo conserva; una
+a cargo de un empleado conserva la cuenta), y un período cerrado de
+cualquiera de ellas rechaza todo.
+
+**Margen por camión.** Lo sin clasificar con el centro del camión es costo
+del camión, igual que en Gestión.
+
+**IA, libros IVA.** Las herramientas devuelven `{ rows, totals }`: los
+totales con signo (NC restadas, cada comprobante una vez) son los mismos que
+la pantalla (`computeTotals`), para que el modelo no sume filas.
+## 2026-11-04 — Liquidaciones: alcance fiscal y una factura por fuente
+
+**`fiscal_reader` en liquidaciones.** Ve las del lado fiscal
+(`settlementSide` = canal confirmado, o el del cliente) y no las de Otras
+ventas; el ítem del menú queda, porque el Remito R y su factura son fiscales.
+Se filtra en cada lectura del service client (`settlementInScope`); no lee
+las candidatas (cargas). Descartado: negarle el módulo entero o leer con el
+cliente RLS (la política de la tabla no lo incluye, así que no vería ninguna,
+y las liquidaciones fiscales son parte de sus libros). Las otras lecturas
+nuevas no le llegan: rendiciones (`receipts:read`), cheques vendidos
+(`cheques:read`) e importaciones (`imports:read`) no son de su rol; la mora
+fija el lado fiscal (`scopeIsFiscalFor`) y los impuestos leen con el cliente
+RLS.
+
+**Factura idempotente por liquidación o carga.** La clave de
+`issueFiscalInvoiceAction` es un UUIDv5 de (fuente, id, tentativa); la
+tentativa avanza solo cuando la anterior está fallida o anulada. Antes de
+emitir se buscan las facturas de esas claves (de cualquier usuario): una viva
+se vincula en vez de emitir. Sin migración: el código anterior tolera el
+esquema y un rollback vuelve a la clave al azar. Descartado: una columna de
+clave por fuente (migración, tipos y otra transición que mantener) y un
+guard en SQL (la clave se deriva en la app). La reserva se mantiene como
+estaba: se libera si la factura falló, si no se emitió o si la búsqueda
+falló; un vínculo perdido con la factura viva la deja hasta que vence.
+## 2026-11-04 — Emisión AFIP: resultado desconocido, reintentos y CAEA
+
+**Quién es dueño de un número.** Lo tiene quien lo guardó en `numero`. Un
+`afip_attempted_numero` de otro comprobante no prueba nada: si el comprobante
+que AFIP tiene en ese número coincide con este (total, fecha, receptor) y no con
+el otro, se adopta. Si coincide con los dos, no se pide otro CAE: el paso falla
+con reintento y, si sigue igual, queda en `emitting` para que alguien lo
+resuelva. **Descartado:** borrar los intentos ajenos al reservar un número (un
+pedido que llega tarde a AFIP dejaría un CAE sin dueño).
+
+**Emisiones sin resultado.** `issue-invoice-reconcile` corre cada 15 minutos.
+Una emisión fiscal en `emitting` con un número enviado y sin cambios hace más
+de 30 minutos se consulta en AFIP: se emite con su CAE, o pasa a `failed` (con
+compare-and-set sobre `updated_at`). Un run que vuelve después no pide el CAE:
+`record-attempt` exige `emitting`. Un borrador de entre 15 minutos y 3 días con
+ítems se vuelve a mandar con su propia clave (Inngest la deduplica 24 h). La
+importación de ARCA sigue frenando el par mientras haya una emisión en curso:
+importar ese número podría duplicar el CAE de la emisión trabada.
+
+**`inngest.send` que falla.** No se borra el borrador (Inngest pudo haberlo
+aceptado) y la acción lo devuelve igual, para que quien factura lo vincule en
+vez de facturar de nuevo. Lo manda el reenvío con la misma clave o el cron.
+
+**Límite de tiempo.** Cada llamada a AFIP corta a los 20 s; el login de WSAA,
+a los 60 s (un TA que AFIP entrega después del corte se pierde, y AFIP no da
+otro hasta que vence, 12 h sin CAE); el piso de numeración CAEA, a los 5 s.
+Un login y cuatro llamadas entran en los 300 s de un paso.
+
+**ARCA en período cerrado.** Un comprobante emitido con CAE que se inserta (la
+importación) se guarda y su asiento queda en `pending_journal_entries`, como
+ya pasaba al emitir. Antes la importación de ese par quedaba frenada.
 
 ## 2026-11-04 — Límites de rollback del SAC y de las tarifas migradas
 

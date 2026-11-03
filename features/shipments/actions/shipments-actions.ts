@@ -5,12 +5,13 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { getActiveInvoicingChannels } from "@/lib/channels";
-import { todayInAR } from "@/lib/format";
+import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { findSourceInvoiceSlot } from "@/lib/source-invoice-key";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
@@ -531,8 +532,10 @@ export async function setShipmentsTripAction(
  * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
  * A single "Flete" service line at 21% IVA, billed to the shipment's client.
  * Claims the shipment first (UPDATE ... WHERE invoice_id IS NULL), so two
- * concurrent clicks cannot both issue; links invoice_id on success and
- * releases the claim on failure.
+ * concurrent clicks cannot both issue, and issues under a key derived from
+ * the carga (lib/source-invoice-key), so a click after an expired claim links
+ * the invoice already issued; links invoice_id on success and releases the
+ * claim on failure.
  */
 export async function invoiceFreightAction(
   input: unknown,
@@ -560,7 +563,25 @@ export async function invoiceFreightAction(
     ctx.userId,
   );
   if (!claim.ok) return claim;
-  const result = await issueFreightInvoice(supabase, parsed.data);
+  // One live invoice per carga: one issued before a lost link is linked now
+  // instead of issuing a second.
+  const slot = await findSourceInvoiceSlot(
+    supabase,
+    "shipment_freight",
+    shipmentId,
+  );
+  const result: ActionResult<{ id: string }> =
+    slot.kind === "live"
+      ? await reusableFreightInvoice(supabase, shipmentId, slot.invoiceId)
+      : slot.kind === "free"
+        ? await issueFreightInvoice(supabase, parsed.data, slot.key)
+        : {
+            ok: false,
+            error:
+              slot.kind === "error"
+                ? "No se pudo verificar si la carga ya tiene factura."
+                : "El flete se facturó demasiadas veces sin éxito: revisá sus comprobantes.",
+          };
   if (!result.ok) {
     const { error: releaseErr } = await supabase
       .from("shipments")
@@ -588,16 +609,18 @@ export async function invoiceFreightAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
+    // The claim is kept; once it expires, "Facturar flete" links this same
+    // invoice (its key is the carga's).
     return {
       ok: false,
       error:
-        "La factura se emitió pero no se vinculó a la carga. Anotá el comprobante antes de volver a facturar.",
+        "La factura se emitió pero no se vinculó a la carga. En unos minutos volvé a facturar: se vincula la misma factura, sin emitir otra.",
     };
   }
   await logAudit(
     "shipment.freight_invoiced",
     ctx.userId,
-    { invoice_id: result.data.id },
+    { invoice_id: result.data.id, reused: slot.kind === "live" },
     shipmentId,
   );
   return { ok: true, data: { invoiceId: result.data.id } };
@@ -643,9 +666,55 @@ async function claimShipmentForInvoicing(
   return { ok: true, data: undefined };
 }
 
+/** The invoice an earlier click issued for the carga, while it still bills
+ *  the carga as it is: once the claim expires the carga can be edited, and
+ *  an invoice for another client or flete is not its. */
+async function reusableFreightInvoice(
+  supabase: SupabaseServerClient,
+  shipmentId: string,
+  invoiceId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const [shipment, invoice] = await Promise.all([
+    supabase
+      .from("shipments")
+      .select("client_id, freight_amount")
+      .eq("id", shipmentId)
+      .maybeSingle(),
+    supabase
+      .from("invoices")
+      .select("client_id, imp_neto")
+      .eq("id", invoiceId)
+      .maybeSingle(),
+  ]);
+  if (shipment.error || invoice.error || !shipment.data || !invoice.data) {
+    logger.error("shipments.freight_invoice.reuse_read_failed", {
+      shipmentId,
+      invoiceId,
+      error: shipment.error ?? invoice.error,
+    });
+    return {
+      ok: false,
+      error: "No se pudo verificar la factura ya emitida para la carga.",
+    };
+  }
+  if (
+    shipment.data.client_id !== invoice.data.client_id ||
+    round2(Number(shipment.data.freight_amount ?? 0)) !==
+      round2(Number(invoice.data.imp_neto))
+  ) {
+    return {
+      ok: false,
+      error:
+        "La carga tiene una factura emitida sin vincular por otro cliente o flete: volvé la carga a esos datos para vincularla.",
+    };
+  }
+  return { ok: true, data: { id: invoiceId } };
+}
+
 async function issueFreightInvoice(
   supabase: SupabaseServerClient,
   input: FreightInvoiceInput,
+  idempotencyKey: string,
 ): Promise<ActionResult<{ id: string }>> {
   const { data: shipment, error: readErr } = await supabase
     .from("shipments")
@@ -710,5 +779,6 @@ async function issueFreightInvoice(
         iva_rate_id: IVA_RATE.TWENTY_ONE,
       },
     ],
+    idempotency_key: idempotencyKey,
   });
 }
