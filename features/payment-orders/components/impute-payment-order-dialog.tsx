@@ -115,7 +115,8 @@ export function ImputePaymentOrderDialog({
           <DialogTitle>Imputar orden de pago {label}</DialogTitle>
           <DialogDescription>
             Aplica lo que la OP tiene a cuenta a facturas pendientes del
-            proveedor. No cambia las líneas de pago ni los movimientos.
+            proveedor, o a cheques que se le entregaron y fueron rechazados. No
+            cambia las líneas de pago ni los movimientos.
           </DialogDescription>
         </DialogHeader>
         {unapplied.isLoading ? (
