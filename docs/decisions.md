@@ -18,7 +18,7 @@ Una emisión fiscal en `emitting` con un número enviado y sin cambios hace más
 de 30 minutos se consulta en AFIP: se emite con su CAE, o pasa a `failed` (con
 compare-and-set sobre `updated_at`). Un run que vuelve después no pide el CAE:
 `record-attempt` exige `emitting`. Un borrador de entre 15 minutos y 3 días con
-ítems se vuelve a mandar con su propia clave (Inngest lo deduplica). La
+ítems se vuelve a mandar con su propia clave (Inngest la deduplica 24 h). La
 importación de ARCA sigue frenando el par mientras haya una emisión en curso:
 importar ese número podría duplicar el CAE de la emisión trabada.
 

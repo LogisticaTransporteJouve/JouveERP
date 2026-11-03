@@ -135,8 +135,8 @@ async function loadEnabledPos(
   return { numero: data.numero, channel_id: data.channel_id };
 }
 
-/** Queues the emission of a draft. issue-invoice dedupes on the key, so
- *  sending again for a draft whose run already started is a no-op. A failed
+/** Queues the emission of a draft. issue-invoice dedupes on the key for 24 h,
+ *  so sending again for a draft whose run already started is a no-op. A failed
  *  send is only logged: its outcome is unknown (Inngest may have accepted
  *  it), the draft is kept, and issue-invoice-reconcile sends it again. */
 async function enqueueIssue(
