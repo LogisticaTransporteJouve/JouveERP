@@ -13,7 +13,7 @@ SET LOCAL statement_timeout = '15min';
 --    fleet document (Flota › Vencimientos, whose daily job warns before it
 --    expires). fleet_documents.import_run_id marks the document as the run's,
 --    so undoing the run (import_run_outside_reference skips the run's own
---    rows) deletes it with its driver (on delete cascade); a document loaded
+--    rows) deletes it with its driver (trigger drivers_delete_run_documents); a document loaded
 --    by hand for an imported driver still blocks the undo.
 -- 3. Client tariffs take an optional area (storage_areas, resolved by name
 --    within its warehouse by the action). The natural key is client, concept,
@@ -38,6 +38,31 @@ create index fleet_documents_import_run_idx on public.fleet_documents (import_ru
 
 comment on column public.fleet_documents.import_run_id is
   'Importación que creó el documento junto con su chofer (la licencia de un empleado importado); NULL si se cargó a mano.';
+
+-- fleet_documents.driver_id does not cascade, so deleting an imported driver
+-- (undo_import_run) first removes the documents the same run created for it.
+-- A document loaded by hand still has a NULL or other run id and keeps
+-- blocking the delete through the FK, as undo expects.
+create function public.drivers_delete_run_documents()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.import_run_id is not null then
+    delete from public.fleet_documents
+     where driver_id = old.id
+       and import_run_id = old.import_run_id;
+  end if;
+  return old;
+end;
+$$;
+
+revoke all on function public.drivers_delete_run_documents() from public, anon, authenticated;
+
+create trigger drivers_delete_run_documents
+  before delete on public.drivers
+  for each row execute function public.drivers_delete_run_documents();
 
 ------------------------------------------------------------------------------
 -- 2. commit_import_run
