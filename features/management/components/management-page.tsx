@@ -342,8 +342,9 @@ function ManagementReportView({
         <div className="flex gap-2 rounded-lg border p-3 text-sm">
           <Info className="mt-0.5 size-4 shrink-0" />
           <p>
-            El resultado llegó al tope de filas que se pueden leer: las cifras
-            pueden estar incompletas.
+            Las cifras pueden estar incompletas: el resultado llegó al tope de
+            filas que se pueden leer o trae filas que esta versión no sabe
+            clasificar.
           </p>
         </div>
       )}

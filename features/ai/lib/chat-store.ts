@@ -74,8 +74,9 @@ export async function ensureAiSession(
 
 /**
  * Loads a session's persisted messages as `UIMessage[]`, validated against the
- * AI SDK shape so a corrupt row can't crash the conversation. Returns `[]` for
- * a session that isn't owned by `userId` or that has no messages yet.
+ * AI SDK shape so a corrupt row can't crash the conversation (only that row
+ * is dropped). Returns `[]` for a session that isn't owned by `userId` or
+ * that has no messages yet.
  */
 export async function loadAiSessionMessages(
   userId: string,
@@ -97,13 +98,26 @@ export async function loadAiSessionMessages(
     .order("created_at", { ascending: true });
   if (error) throw error;
 
+  const stored = (data ?? []).map((row) => row.content);
   try {
-    return await validateUIMessages({
-      messages: (data ?? []).map((row) => row.content),
-    });
+    return await validateUIMessages({ messages: stored });
   } catch (err) {
-    logger.error("ai.chat.load.invalid", { sessionId, error: err });
-    return [];
+    // Keep the valid messages: an empty history would make the model lose
+    // the conversation and the session look new (and be renamed).
+    const kept: UIMessage[] = [];
+    for (const message of stored) {
+      try {
+        kept.push(...(await validateUIMessages({ messages: [message] })));
+      } catch {
+        // dropped below
+      }
+    }
+    logger.error("ai.chat.load.invalid", {
+      sessionId,
+      dropped: stored.length - kept.length,
+      error: err,
+    });
+    return kept;
   }
 }
 

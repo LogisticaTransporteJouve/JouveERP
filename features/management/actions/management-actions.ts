@@ -112,7 +112,9 @@ async function readPnl(
       count: unknown.length,
     });
   }
-  return { rows, partial: res.partial };
+  // Rows this code cannot place (a bucket from a newer schema) make the
+  // totals incomplete, not smaller.
+  return { rows, partial: res.partial || unknown.length > 0 };
 }
 
 /** Rows of the management P&L for a range of months. Internal use only. */
