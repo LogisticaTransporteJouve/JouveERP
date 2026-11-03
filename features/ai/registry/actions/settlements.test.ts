@@ -108,6 +108,25 @@ describe("getFreightSettlements", () => {
     const rows = (internal.data as { rows: { id: string }[] }).rows;
     expect(rows.map((r) => r.id)).toEqual(["f3", "f5", "f7"]);
   });
+
+  it("pins a fiscal-only reader to the fiscal side, whatever scope it asks", async () => {
+    listFreightSettlementsAction.mockResolvedValue({
+      ok: true,
+      data: [
+        freight({}),
+        freight({ id: "f2", channel: "internal", client_is_fiscal: false }),
+        freight({ id: "f3", channel: null, client_is_fiscal: false }),
+      ],
+    });
+    const reader = { userId: "u2", access: resolveAccess(["fiscal_reader"]) };
+    for (const scope of ["internal", "all"] as const) {
+      const res = await getFreightSettlements.execute(reader, { scope });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      const rows = (res.data as { rows: { id: string }[] }).rows;
+      expect(rows.map((r) => r.id)).toEqual(["f1"]);
+    }
+  });
 });
 
 describe("getDriverSettlements", () => {

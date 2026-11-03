@@ -11,7 +11,11 @@ ventas; el ítem del menú queda, porque el Remito R y su factura son fiscales.
 Se filtra en cada lectura del service client (`settlementInScope`); no lee
 las candidatas (cargas). Descartado: negarle el módulo entero o leer con el
 cliente RLS (la política de la tabla no lo incluye, así que no vería ninguna,
-y las liquidaciones fiscales son parte de sus libros).
+y las liquidaciones fiscales son parte de sus libros). Las otras lecturas
+nuevas no le llegan: rendiciones (`receipts:read`), cheques vendidos
+(`cheques:read`) e importaciones (`imports:read`) no son de su rol; la mora
+fija el lado fiscal (`scopeIsFiscalFor`) y los impuestos leen con el cliente
+RLS.
 
 **Factura idempotente por liquidación o carga.** La clave de
 `issueFiscalInvoiceAction` es un UUIDv5 de (fuente, id, tentativa); la
