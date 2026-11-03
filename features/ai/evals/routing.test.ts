@@ -131,6 +131,13 @@ vi.mock(
     })),
   }),
 );
+vi.mock("@/features/taxes/actions/tax-documents-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/taxes/actions/tax-documents-actions")
+  >()),
+  listTaxDocumentsAction: stub("listTaxDocumentsAction"),
+  getIvaPositionEstimateAction: stub("getIvaPositionEstimateAction"),
+}));
 
 const { buildAiTools, buildCapabilitiesSummary } = await import("../registry");
 

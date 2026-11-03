@@ -134,6 +134,7 @@ const GUARDS = [
   "link_tax_document_payment",
   "create_bank_statement_line_tax_payment",
   "recategorize_expense",
+  "undo_tax_document_payment",
   "get_vehicle_margin",
 ];
 

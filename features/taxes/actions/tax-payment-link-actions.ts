@@ -18,8 +18,10 @@ import {
   rankTaxPaymentCandidates,
   TaxPaymentCandidatesSchema,
   taxDocumentLabel,
+  UndoTaxPaymentSchema,
   type PayableTaxDocument,
   type TaxPaymentCandidatesPage,
+  type UndoTaxPaymentResult,
 } from "../schema";
 
 /** Movements one candidates read drains; past this the window is too busy
@@ -216,6 +218,72 @@ export async function linkTaxDocumentPaymentAction(
     id,
   );
   return { ok: true, data: { transactionId } };
+}
+
+/**
+ * Undoes a payment, "Pagar" or "Vincular" alike: the document goes back to
+ * liquidado (or pendiente when its amount is an estimate). The movement
+ * "Pagar" booked is deleted; a linked one stays in Caja with its previous
+ * expense account. undo_tax_document_payment refuses a closed period and a
+ * booked payment reconciled with the statement; a document that is no longer
+ * paid changes nothing.
+ */
+export async function undoTaxDocumentPaymentAction(
+  input: unknown,
+): Promise<ActionResult<UndoTaxPaymentResult>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "taxes:write") ||
+    !userCan(ctx.access, "transactions:write")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para deshacer pagos de impuestos.",
+    };
+  }
+  const parsed = UndoTaxPaymentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { id } = parsed.data;
+
+  const { data, error } = await getServiceClient().rpc(
+    "undo_tax_document_payment",
+    { p_tax_document_id: id, p_user_id: ctx.userId },
+  );
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "tax_documents.undo.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("tax_documents.undo.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return { ok: false, error: "No se pudo deshacer el pago del impuesto." };
+  }
+  const row = data?.[0];
+  if (!row) return { ok: true, data: null };
+  await logAudit(
+    "tax_document.payment_undone",
+    ctx.userId,
+    {
+      transaction_id: row.transaction_id,
+      origin: row.origin,
+      movement_deleted: row.movement_deleted,
+      expense_account_restored: row.expense_account_restored,
+    },
+    id,
+  );
+  return {
+    ok: true,
+    data: {
+      transactionId: row.transaction_id,
+      movementDeleted: row.movement_deleted,
+      expenseAccountRestored: row.expense_account_restored,
+    },
+  };
 }
 
 /** Open documents with their account set, by due date: the ones a bank
