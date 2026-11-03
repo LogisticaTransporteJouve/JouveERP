@@ -3,9 +3,11 @@
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
-import { fiscalYearMonths } from "@/lib/fiscal-year";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { fiscalYearMonths, periodEnd } from "@/lib/fiscal-year";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { PAGE_SIZE, type Page, type PageError } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
@@ -21,14 +23,19 @@ import {
   ManagementReportInputSchema,
   narrowManagementRows,
   SetBucketSchema,
+  groupVehicleMargin,
+  narrowVehicleMargin,
   toPayrollControlRow,
+  VehicleMarginInputSchema,
   type ManagementBucket,
   type ManagementCostCenter,
   type ManagementDrill,
   type ManagementRow,
   type RawManagementDocument,
   type PayrollControlRow,
+  type RawVehicleMarginRow,
   type Subbucket,
+  type VehicleMargin,
 } from "../schema";
 
 // The P&L RPCs are SECURITY DEFINER and revoked from authenticated (only the
@@ -36,14 +43,34 @@ import {
 
 const DENIED = "No tenés permiso para ver el resultado de gestión.";
 
-const DRILL_PAGE = 1000;
 const DRILL_READ_LIMIT = 20_000;
 
-function endOfMonth(period: string): string {
-  const [y, m] = period.split("-").map(Number);
-  const last = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
-  return `${period}-${String(last).padStart(2, "0")}`;
+/** Rows the P&L reads at most (then it is flagged partial). */
+const PNL_READ_LIMIT = 50_000;
+
+type Paged<T> = { rows: T[]; partial: boolean } | { error: PageError };
+
+/**
+ * Reads an RPC page by page: PostgREST answers at most max_rows (1000) per
+ * request. `fetchPage` builds a fresh, totally ordered query each call. Stops
+ * on a short page, or at `limit` rows with `partial`.
+ */
+async function readPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<Page<T>>,
+  limit: number,
+): Promise<Paged<T>> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1);
+    if (error) return { error };
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_SIZE) return { rows, partial: false };
+    if (rows.length >= limit) return { rows, partial: true };
+  }
 }
+
+/** The P&L rows and whether the read stopped at its cap. */
+export type ManagementPnl = { rows: ManagementRow[]; partial: boolean };
 
 async function readPnl(
   userId: string,
@@ -51,31 +78,47 @@ async function readPnl(
   to: string,
   basis: "accrual" | "cash",
   inflation: boolean,
-): Promise<ManagementRow[] | null> {
-  const { data, error } = await getServiceClient().rpc("get_management_pnl", {
-    p_from: `${from}-01`,
-    p_to: endOfMonth(to),
-    p_basis: basis,
-    p_inflation: inflation,
-  });
-  if (error) {
-    logger.error("management.pnl.failed", { userId, error });
+): Promise<ManagementPnl | null> {
+  // Ordered by the RPC's whole grouping key, so pages neither repeat nor skip.
+  const res = await readPages(
+    (start, end) =>
+      getServiceClient()
+        .rpc("get_management_pnl", {
+          p_from: `${from}-01`,
+          p_to: periodEnd(to),
+          p_basis: basis,
+          p_inflation: inflation,
+        })
+        .order("month")
+        .order("bucket")
+        .order("subbucket")
+        .order("channel_side")
+        .order("chart_account_id")
+        .order("cost_center_id")
+        .range(start, end),
+    PNL_READ_LIMIT,
+  );
+  if ("error" in res) {
+    logger.error("management.pnl.failed", { userId, error: res.error });
     return null;
   }
-  const { rows, unknown } = narrowManagementRows(data ?? []);
+  if (res.partial) {
+    logger.error("management.pnl.capped", { userId, rows: res.rows.length });
+  }
+  const { rows, unknown } = narrowManagementRows(res.rows);
   if (unknown.length > 0) {
     logger.error("management.pnl.unknown_rows", {
       userId,
       count: unknown.length,
     });
   }
-  return rows;
+  return { rows, partial: res.partial };
 }
 
 /** Rows of the management P&L for a range of months. Internal use only. */
 export async function getManagementPnlAction(
   input: unknown,
-): Promise<ActionResult<ManagementRow[]>> {
+): Promise<ActionResult<ManagementPnl>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "management:read")) {
     return { ok: false, error: DENIED };
@@ -114,6 +157,8 @@ export type ManagementReport = {
   months: string[];
   rows: ManagementRow[];
   previousRows: ManagementRow[];
+  /** A P&L read reached its cap: the figures may be incomplete. */
+  partial: boolean;
   payroll: PayrollControlRow[];
   accounts: ManagementAccount[];
   /** Every cost center, inactive ones included (they name past rows). */
@@ -219,7 +264,7 @@ export async function getManagementReportAction(
       ),
       getServiceClient().rpc("get_management_payroll_control", {
         p_from: `${from}-01`,
-        p_to: endOfMonth(to),
+        p_to: periodEnd(to),
       }),
       readAccounts(ctx.userId),
       readCostCenters(ctx.userId),
@@ -237,8 +282,9 @@ export async function getManagementReportAction(
     ok: true,
     data: {
       months,
-      rows,
-      previousRows,
+      rows: rows.rows,
+      previousRows: previousRows.rows,
+      partial: rows.partial || previousRows.partial,
       payroll: (payrollRes.data ?? []).map(toPayrollControlRow),
       accounts,
       costCenters,
@@ -329,30 +375,26 @@ export async function getManagementDrillAction(
     };
   }
   const v = parsed.data;
-  // PostgREST answers at most max_rows (1000) per request: page by range,
-  // up to DRILL_READ_LIMIT rows (then the figure is flagged partial).
-  const raw: RawManagementDocument[] = [];
-  let partial = false;
-  for (let from = 0; ; from += DRILL_PAGE) {
-    const { data, error } = await getServiceClient()
-      .rpc("get_management_pnl_documents", {
-        p_from: `${v.fromPeriod}-01`,
-        p_to: endOfMonth(v.toPeriod),
-        p_basis: v.basis,
-        p_buckets: [...lineBuckets(v.lineKey)],
-      })
-      .range(from, from + DRILL_PAGE - 1);
-    if (error) {
-      logger.error("management.drill.failed", { userId: ctx.userId, error });
-      return { ok: false, error: "No se pudo leer el detalle." };
-    }
-    raw.push(...(data ?? []));
-    if ((data ?? []).length < DRILL_PAGE) break;
-    if (raw.length >= DRILL_READ_LIMIT) {
-      partial = true;
-      break;
-    }
+  const res = await readPages<RawManagementDocument>(
+    (from, to) =>
+      getServiceClient()
+        .rpc("get_management_pnl_documents", {
+          p_from: `${v.fromPeriod}-01`,
+          p_to: periodEnd(v.toPeriod),
+          p_basis: v.basis,
+          p_buckets: [...lineBuckets(v.lineKey)],
+        })
+        .range(from, to),
+    DRILL_READ_LIMIT,
+  );
+  if ("error" in res) {
+    logger.error("management.drill.failed", {
+      userId: ctx.userId,
+      error: res.error,
+    });
+    return { ok: false, error: "No se pudo leer el detalle." };
   }
+  const { rows: raw, partial } = res;
   const { docs, unknown } = narrowManagementDocuments(raw, (type) =>
     userCanAll(ctx.access, DOC_TYPE_PERMISSIONS[type]),
   );
@@ -378,4 +420,62 @@ export async function logManagementExportAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   await logAudit("management.exported", ctx.userId, { ...parsed.data });
   return { ok: true, data: null };
+}
+
+/** Rows of the margin per truck one read takes at most. */
+const VEHICLE_MARGIN_READ_LIMIT = 5_000;
+
+/** Margin per truck over whole months (accrual, nominal): fleet revenue and
+ *  costs plus what was loaded with the truck's cost center; what no truck
+ *  owns comes apart. Internal use only. */
+export async function getVehicleMarginAction(
+  input: unknown,
+): Promise<ActionResult<VehicleMargin>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "management:read")) {
+    return { ok: false, error: DENIED };
+  }
+  const parsed = VehicleMarginInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const v = parsed.data;
+  // One row per truck, per center without a truck, and one each for the
+  // trips without a vehicle and the cost without a center: a total order.
+  const res = await readPages<RawVehicleMarginRow>(
+    (from, to) =>
+      getServiceClient()
+        .rpc("get_vehicle_margin", {
+          p_from: `${v.fromPeriod}-01`,
+          p_to: periodEnd(v.toPeriod),
+        })
+        .order("row_kind")
+        .order("vehicle_id")
+        .order("cost_center_id")
+        .range(from, to),
+    VEHICLE_MARGIN_READ_LIMIT,
+  );
+  if ("error" in res) {
+    const guard = mapDbGuardError(res.error, {
+      slug: "management.vehicle_margin.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("management.vehicle_margin.failed", {
+      userId: ctx.userId,
+      error: res.error,
+    });
+    return { ok: false, error: "No se pudo calcular el margen por camión." };
+  }
+  const { rows, unknown } = narrowVehicleMargin(res.rows);
+  if (unknown.length > 0) {
+    logger.error("management.vehicle_margin.unknown_rows", {
+      userId: ctx.userId,
+      count: unknown.length,
+    });
+  }
+  return { ok: true, data: groupVehicleMargin(rows, res.partial) };
 }

@@ -20,6 +20,8 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import type { ClientLegalJoin } from "@/features/clients/schema";
 
+import { formatReceiptNumber } from "../schema";
+
 import type { ActionResult } from "@/lib/query/run-action";
 
 const SendReceiptEmailSchema = z.object({
@@ -37,10 +39,6 @@ const SendReceiptEmailSchema = z.object({
 });
 
 export type SendReceiptEmailInput = z.input<typeof SendReceiptEmailSchema>;
-
-function formatReceiptNumero(pos: number, numero: number): string {
-  return `R${String(pos).padStart(4, "0")}-${String(numero).padStart(8, "0")}`;
-}
 
 export async function sendReceiptByEmailAction(
   rawInput: SendReceiptEmailInput,
@@ -92,7 +90,7 @@ export async function sendReceiptByEmailAction(
     return { ok: false, error: "No se pudo generar el PDF." };
   }
 
-  const numeroLabel = formatReceiptNumero(
+  const numeroLabel = formatReceiptNumber(
     templateData.punto_venta,
     templateData.numero,
   );
@@ -154,7 +152,7 @@ export async function getReceiptEmailDefaultsAction(receiptId: string): Promise<
 
   const client = (receipt as unknown as ClientLegalJoin).client;
 
-  const numeroLabel = formatReceiptNumero(receipt.punto_venta, receipt.numero);
+  const numeroLabel = formatReceiptNumber(receipt.punto_venta, receipt.numero);
 
   let lastRecipient: string | null = null;
   if (!client?.email) {

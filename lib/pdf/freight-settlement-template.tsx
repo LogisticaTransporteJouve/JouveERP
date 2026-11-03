@@ -7,9 +7,11 @@ import {
   type VoucherParty,
 } from "./voucher-template";
 
-// The liquidación de fletes as the internal "R" document: the issuer, an "R"
-// letter box with "Documento no válido como factura", the client, the period
-// and one row per carga. The invoice that bills it is printed apart.
+// A fiscal liquidación de fletes as its "R" document: the Remito R (or, for
+// one confirmed before it, the legacy "LIQUIDACIÓN DE FLETES R-…"). The
+// issuer, an "R" letter box with "Documento no válido como factura", the
+// client, the period and one row per carga. The invoice that bills it is
+// printed apart.
 
 export interface FreightSettlementTemplateItem {
   date: string; // DD/MM/YYYY or "—"
@@ -22,7 +24,8 @@ export interface FreightSettlementTemplateItem {
 export interface FreightSettlementTemplateData {
   emisor: VoucherEmisor;
   client: VoucherParty;
-  number: string; // "R-00000012"
+  heading: "REMITO" | "LIQUIDACIÓN DE FLETES";
+  number: string; // "R9002-00000001", or the legacy "R-00000012"
   fecha: string; // DD/MM/YYYY (confirmation)
   period: string; // "01/10/2026 al 31/10/2026"
   items: FreightSettlementTemplateItem[];
@@ -81,9 +84,10 @@ export function FreightSettlementDocument({
             </Text>
           </View>
           <View style={v.headerRight}>
-            <Text style={v.heading}>LIQUIDACIÓN DE FLETES</Text>
+            <Text style={v.heading}>{data.heading}</Text>
             <Text style={v.subheading}>{data.number}</Text>
             <View style={[v.meta, { textAlign: "right" }]}>
+              {data.heading === "REMITO" && <Text>Liquidación de fletes</Text>}
               <Text>Fecha: {data.fecha}</Text>
               <Text>Período: {data.period}</Text>
             </View>

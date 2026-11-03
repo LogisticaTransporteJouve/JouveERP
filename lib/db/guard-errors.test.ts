@@ -102,6 +102,8 @@ const GUARDS = [
   "guard_shipment_freight_settlement",
   "save_freight_settlement",
   "confirm_freight_settlement",
+  "confirm_freight_settlement_document",
+  "reprice_freight_settlement",
   "link_freight_settlement_invoice",
   "cancel_freight_settlement",
   "guard_driver_settlement",
@@ -131,6 +133,7 @@ const GUARDS = [
   "pay_tax_document",
   "link_tax_document_payment",
   "create_bank_statement_line_tax_payment",
+  "get_vehicle_margin",
 ];
 
 describe("guard hints in migrations", () => {

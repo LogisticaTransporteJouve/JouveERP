@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatReceiptNumber,
   isReceiptStatus,
+  RECEIPT_LETTER,
   ReceiptCreateSchema,
   ReceiptUpdateSchema,
 } from "./schema";
@@ -31,9 +32,15 @@ const validBase = {
 };
 
 describe("formatReceiptNumber", () => {
-  it("zero-pads POS to 4 and number to 8 with R prefix", () => {
-    expect(formatReceiptNumber(3, 1)).toBe("R0003-00000001");
-    expect(formatReceiptNumber(99, 12345678)).toBe("R0099-12345678");
+  it("zero-pads POS to 4 and number to 8 with the X prefix", () => {
+    expect(formatReceiptNumber(3, 1)).toBe("X0003-00000001");
+    expect(formatReceiptNumber(99, 12345678)).toBe("X0099-12345678");
+    expect(formatReceiptNumber(1, 12)).toBe("X0001-00000012");
+  });
+
+  it("never uses R, the fiscal remito letter", () => {
+    expect(RECEIPT_LETTER).toBe("X");
+    expect(formatReceiptNumber(1, 12).startsWith("R")).toBe(false);
   });
 });
 

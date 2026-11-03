@@ -32,6 +32,13 @@ export function fiscalYearMonths(fy: number): string[] {
   });
 }
 
+/** Last day (`YYYY-MM-DD`) of a `YYYY-MM` period. */
+export function periodEnd(period: string): string {
+  const { year, month } = parsePeriod(period);
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${period}-${String(last).padStart(2, "0")}`;
+}
+
 /** "2025/26" for FY 2026. */
 export function fiscalYearLabel(fy: number): string {
   return `${fy - 1}/${String(fy).slice(-2)}`;
