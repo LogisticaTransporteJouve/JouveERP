@@ -7138,6 +7138,7 @@ export type Database = {
             is_active: boolean
             is_fiscal: boolean
             iva_condition: string | null
+            late_interest_monthly_rate: number | null
             legal_name: string
             notes: string | null
             phone: string | null
@@ -7176,6 +7177,7 @@ export type Database = {
             is_active: boolean
             is_fiscal: boolean
             iva_condition: string | null
+            late_interest_monthly_rate: number | null
             legal_name: string
             notes: string | null
             phone: string | null
