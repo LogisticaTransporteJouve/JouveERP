@@ -152,7 +152,7 @@ async function callWsaa(cms: string): Promise<AccessTicket> {
     body: envelope,
   });
 
-  const text = await res.text();
+  const text = res.text;
   logger.debug("wsaa.response", { status: res.status });
 
   if (!res.ok) {

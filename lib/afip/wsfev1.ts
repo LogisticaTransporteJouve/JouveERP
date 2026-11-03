@@ -143,6 +143,7 @@ async function callWsfev1<T>(
   action: string,
   innerXml: string,
   parse: (raw: unknown) => T,
+  opts: { timeoutMs?: number } = {},
 ): Promise<T> {
   const url = getWsfev1Url();
   const envelope = `<?xml version="1.0" encoding="UTF-8"?>
@@ -155,23 +156,16 @@ async function callWsfev1<T>(
 
   logger.debug("wsfev1.request", { action });
 
-  let res: Awaited<ReturnType<typeof afipFetch>>;
-  try {
-    res = await afipFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/xml; charset=utf-8",
-        SOAPAction: `${WSFE_NS}${action}`,
-      },
-      body: envelope,
-    });
-  } catch (err) {
-    throw new AfipTransportError(
-      err instanceof Error ? err.message : "fetch failed",
-    );
-  }
-
-  const text = await res.text();
+  const res = await afipFetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/xml; charset=utf-8",
+      SOAPAction: `${WSFE_NS}${action}`,
+    },
+    body: envelope,
+    timeoutMs: opts.timeoutMs,
+  });
+  const text = res.text;
   if (!res.ok) {
     logger.warn("wsfev1.http_error", {
       action,
@@ -532,6 +526,7 @@ function parseObservations(
 export async function getLastAuthorizedNumber(
   ptoVta: number,
   cbteTipo: number,
+  opts: { timeoutMs?: number } = {},
 ): Promise<number> {
   const ta = await getAccessTicket(WSFE_SERVICE_ID);
   const cuit = getAfipCuit();
@@ -541,15 +536,20 @@ export async function getLastAuthorizedNumber(
     <fe:CbteTipo>${cbteTipo}</fe:CbteTipo>
   </fe:FECompUltimoAutorizado>`;
 
-  return callWsfev1("FECompUltimoAutorizado", inner, (raw) => {
-    const r = raw as ParsedUltimoAutorizadoResponse;
-    detectSoapFault(r.Envelope?.Body?.Fault);
-    const result =
-      r.Envelope?.Body?.FECompUltimoAutorizadoResponse
-        ?.FECompUltimoAutorizadoResult;
-    detectServiceErrors(result?.Errors?.Err);
-    return Number(result?.CbteNro ?? 0);
-  });
+  return callWsfev1(
+    "FECompUltimoAutorizado",
+    inner,
+    (raw) => {
+      const r = raw as ParsedUltimoAutorizadoResponse;
+      detectSoapFault(r.Envelope?.Body?.Fault);
+      const result =
+        r.Envelope?.Body?.FECompUltimoAutorizadoResponse
+          ?.FECompUltimoAutorizadoResult;
+      detectServiceErrors(result?.Errors?.Err);
+      return Number(result?.CbteNro ?? 0);
+    },
+    opts,
+  );
 }
 
 export async function requestCAE(
