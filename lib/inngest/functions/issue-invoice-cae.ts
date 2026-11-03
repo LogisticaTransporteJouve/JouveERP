@@ -26,10 +26,11 @@ import { NonRetriableError } from "inngest";
 // and receptor, and no other live invoice holds that number); otherwise it
 // starts over from the last authorized number. Another live invoice that only
 // ATTEMPTED the number does not block the adoption: an attempt is not proof of
-// a CAE (a stale one, left by an invoice whose outcome stayed unknown, made the
-// retry request a second CAE for an invoice AFIP had already authorized). Only
-// when the voucher also matches that other invoice is the owner undecidable;
-// then the step throws (retriable) rather than request another number.
+// a CAE, and an invoice whose outcome stayed unknown keeps its attempt for
+// good (honoring it would request a second CAE for an invoice AFIP already
+// authorized). Only when the voucher also matches that other invoice is the
+// owner undecidable; then the step throws (retriable) rather than request
+// another number.
 
 export type AfipCaePort = {
   getLastAuthorizedNumber: (

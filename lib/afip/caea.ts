@@ -32,7 +32,17 @@ export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
     .eq("periodo", q.periodo)
     .eq("orden", q.orden)
     .maybeSingle();
-  if (existingErr) throw new Error(`load-caea: ${existingErr.message}`);
+  if (existingErr) {
+    // The AFIP admin action shows this message to the user.
+    logger.error("caea.load.failed", {
+      periodo: q.periodo,
+      orden: q.orden,
+      error: existingErr.message,
+    });
+    throw new Error(
+      "No se pudo leer el CAEA guardado. Probá de nuevo en unos minutos.",
+    );
+  }
   if (existing) return existing;
 
   let result: CaeaResult;

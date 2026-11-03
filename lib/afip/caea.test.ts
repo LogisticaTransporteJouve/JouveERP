@@ -49,7 +49,7 @@ describe("ensureCaea", () => {
   it("does not ask AFIP for a CAEA when the local read fails", async () => {
     h.result = { data: null, error: { message: "timeout" } };
     await expect(ensureCaea({ periodo: 202610, orden: 2 })).rejects.toThrow(
-      "load-caea: timeout",
+      "No se pudo leer el CAEA guardado",
     );
     expect(h.requestCAEA).not.toHaveBeenCalled();
   });

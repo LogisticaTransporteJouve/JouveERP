@@ -18,7 +18,7 @@ import { recoverOnFailure } from "./issue-invoice";
 //     draft's own key: issue-invoice dedupes on it, so a run that already
 //     started is not doubled.
 
-/** Longer than one CAE step (maxDuration 300 s): every AFIP request of a run
+/** Longer than one CAE step (maxDuration 300 s): every CAE request of a run
  *  follows a write that bumps updated_at (record-attempt), so a row older than
  *  this has no request of its own in flight. */
 const STUCK_AFTER_MS = 30 * 60_000;

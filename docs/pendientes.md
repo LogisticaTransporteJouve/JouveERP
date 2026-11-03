@@ -727,3 +727,12 @@ mitigación en el schema: el límite se respeta operando.
       hasta que alguien decida de cuál es el de AFIP.
 - [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
       (cada una cerca de 20 s) el paso puede pasar los 300 s.
+- [ ] Antes de promover `issue-invoice-reconcile`: su primera corrida vuelve
+      a mandar a AFIP los borradores de los últimos 3 días y resuelve las
+      emisiones trabadas que ya existen. El owner revisa esas filas antes
+      (`select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting'`):
+      un borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces.
+- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
+      leer la fila, o el run se canceló) no la resuelve el cron: frena la
+      importación de ARCA de su par hasta que alguien la marque fallida.

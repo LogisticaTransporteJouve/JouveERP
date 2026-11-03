@@ -551,8 +551,7 @@ export const issueInvoice = inngest.createFunction(
             emitted_at: new Date().toISOString(),
           })
           .eq("id", invoice_id)
-          // Another run may have emitted it already: emitted → emitted would
-          // re-fire the journal and aging triggers.
+          // Another run may have emitted it already: keep its emitted_at.
           .in("status", ["draft", "emitting"]);
         if (updErr) throw new Error(`mark-emitted-internal: ${updErr.message}`);
       });
