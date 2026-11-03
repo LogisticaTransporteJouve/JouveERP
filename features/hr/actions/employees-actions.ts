@@ -42,7 +42,7 @@ function narrowEmployee(row: {
 }
 
 const SELECT_COLS =
-  "id, legal_name, position, cuil, cbu, pay_frequency, base_salary, viatico_monthly, is_monotributo, hire_date, termination_date, notes, is_active, created_by, created_at, updated_at, convenio, categoria, obra_social, art, retribucion_formal";
+  "id, legal_name, position, cuil, cbu, pay_frequency, base_salary, viatico_monthly, is_monotributo, hire_date, termination_date, notes, is_active, created_by, created_at, updated_at, convenio, categoria, obra_social, art, retribucion_formal, trip_rate_per_day, trip_rate_per_km, trip_rate_per_unload";
 
 // ─── List & search ───────────────────────────────────────────────────────────
 

@@ -12,10 +12,13 @@ import {
 import { EmployeeDocumentsCard } from "@/features/employee-documents/components/employee-documents-card";
 import { getEmployeeByIdAction } from "@/features/hr/actions/employees-actions";
 import { EditEmployeeDialog } from "@/features/hr/components/edit-employee-dialog";
+import { EmployeeAccountCard } from "@/features/hr/components/employee-account-card";
 import { EmployeeGarnishmentsCard } from "@/features/hr/components/employee-garnishments-card";
 import { EmployeeVacationsCard } from "@/features/hr/components/employee-vacations-card";
 import { FinalSettlementCard } from "@/features/hr/components/final-settlement-card";
+import { SalaryHistoryCard } from "@/features/hr/components/salary-history-card";
 import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-employee-dialog";
+import { TripRatesCard } from "@/features/hr/components/trip-rates-card";
 import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -51,6 +54,7 @@ export default async function EmployeeDetailPage({
 
   const employee = result.data;
   const canWrite = userCan(ctx.access, "hr:write");
+  const canMoveCash = canWrite && userCan(ctx.access, "transactions:write");
 
   return (
     <div className="space-y-6">
@@ -167,7 +171,27 @@ export default async function EmployeeDetailPage({
         </div>
       </div>
 
+      <EmployeeAccountCard
+        employeeId={employee.id}
+        employeeName={employee.legal_name}
+        canWrite={canWrite}
+        canMoveCash={canMoveCash}
+      />
+
       <EmployeeGarnishmentsCard employeeId={employee.id} canWrite={canWrite} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SalaryHistoryCard employeeId={employee.id} />
+        <TripRatesCard
+          employeeId={employee.id}
+          canWrite={canWrite}
+          rates={{
+            trip_rate_per_day: numOrNull(employee.trip_rate_per_day),
+            trip_rate_per_km: numOrNull(employee.trip_rate_per_km),
+            trip_rate_per_unload: numOrNull(employee.trip_rate_per_unload),
+          }}
+        />
+      </div>
 
       {!employee.is_active && employee.termination_date && canWrite && (
         <FinalSettlementCard employeeId={employee.id} />
@@ -176,6 +200,12 @@ export default async function EmployeeDetailPage({
       <EmployeeDocumentsCard employeeId={employee.id} canWrite={canWrite} />
     </div>
   );
+}
+
+function numOrNull(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 function Row({

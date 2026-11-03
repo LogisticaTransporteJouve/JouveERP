@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Unlock, UserPlus } from "lucide-react";
+import { Lock, RotateCcw, Unlock, UserPlus } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ import {
   useClosePayrollPeriod,
   usePayrollPeriod,
   useReopenPayrollPeriod,
+  useResetPayrollDeudas,
   useUpdatePayrollEntry,
 } from "../hooks/use-payroll";
 import { payrollOtros, suggestedSplit } from "../lib/payroll-split";
@@ -39,6 +40,7 @@ import { BulkPayrollPaymentDialog } from "./bulk-payroll-payment-dialog";
 import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
 import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
+import { TripExtrasDialog } from "./trip-extras-dialog";
 
 import { formatMoney } from "@/lib/format";
 
@@ -63,6 +65,7 @@ export function PayrollPeriodGrid({
   const closeMut = useClosePayrollPeriod();
   const reopenMut = useReopenPayrollPeriod();
   const addMissingMut = useAddMissingPayrollEntries();
+  const resetDeudasMut = useResetPayrollDeudas(year, month);
   const { channels } = useScope();
 
   const canWrite = userCan(actorAccess, "hr:write");
@@ -191,6 +194,9 @@ export function PayrollPeriodGrid({
                 month={month}
               />
             )}
+            {!isClosed && canWrite && kind === "monthly" && (
+              <TripExtrasDialog year={year} month={month} />
+            )}
             {!isClosed && canWrite && (
               <Button
                 variant="outline"
@@ -277,7 +283,12 @@ export function PayrollPeriodGrid({
                 <TableHead className="w-32 text-right">Extras</TableHead>
                 <TableHead className="w-32 text-right">Vacaciones</TableHead>
                 <TableHead className="w-32 text-right">Viáticos</TableHead>
-                <TableHead className="w-32 text-right">Deudas</TableHead>
+                <TableHead
+                  className="w-32 text-right"
+                  title="Cuota de los planes activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente."
+                >
+                  Deudas
+                </TableHead>
                 <TableHead className="w-32 text-right">Teléfono</TableHead>
                 <TableHead className="w-32 text-right">Embargo</TableHead>
                 <TableHead className="w-32 text-right">Total</TableHead>
@@ -362,11 +373,30 @@ export function PayrollPeriodGrid({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <InlineMoneyInput
-                        value={e.deudas}
-                        disabled={!canEdit}
-                        onCommit={(v) => commit(e.id, "deudas", v)}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        {e.deudas_override && canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            title="Cargado a mano. Volver a la cuota de los planes."
+                            aria-label="Volver a la cuota de los planes"
+                            disabled={resetDeudasMut.isPending}
+                            onClick={() =>
+                              resetDeudasMut.mutate(e.id, {
+                                onError: (err) => toast.error(err.message),
+                              })
+                            }
+                          >
+                            <RotateCcw className="size-3" />
+                          </Button>
+                        )}
+                        <InlineMoneyInput
+                          value={e.deudas}
+                          disabled={!canEdit}
+                          onCommit={(v) => commit(e.id, "deudas", v)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <InlineMoneyInput

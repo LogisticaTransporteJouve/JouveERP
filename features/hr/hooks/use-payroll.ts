@@ -18,6 +18,7 @@ import {
   listPayrollPeriodsAction,
   removePayrollEntryExtraAction,
   reopenPayrollPeriodAction,
+  resetPayrollDeudasAction,
   seedPayrollPeriodAction,
   seedSacPeriodAction,
   updatePayrollEntryAction,
@@ -126,6 +127,18 @@ export function useUpdatePayrollEntry() {
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
       });
+    },
+  });
+}
+
+/** Back to the plans' installments after Deudas was typed by hand. */
+export function useResetPayrollDeudas(year: number, month: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      runAction(() => resetPayrollDeudasAction({ id })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: payrollKeys.period(year, month) });
     },
   });
 }

@@ -35,6 +35,7 @@ import {
 } from "../schema";
 import { EditEmployeeDialog } from "./edit-employee-dialog";
 import { NewEmployeeDialog } from "./new-employee-dialog";
+import { SalaryRaiseDialog } from "./salary-raise-dialog";
 
 const FREQUENCY_BADGE_TONE: Record<PayFrequency, string> = {
   semanal: "bg-muted text-muted-foreground dark:text-muted-foreground",
@@ -93,6 +94,7 @@ export function EmployeesTable({
         actions={
           <>
             <ExportButton resource="employees" />
+            {canWrite && <SalaryRaiseDialog />}
             {canWrite && (
               <NewEmployeeDialog canSetVacations={canSetVacations} />
             )}

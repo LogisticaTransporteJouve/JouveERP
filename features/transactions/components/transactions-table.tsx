@@ -67,6 +67,7 @@ import {
   type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
+import { EmployeeCashDialog } from "@/features/hr/components/employee-cash-dialog";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
@@ -293,6 +294,7 @@ export function TransactionsTable({
   const canDelete = userCan(actorAccess, "transactions:delete");
   const canCollect = userCan(actorAccess, "receipts:write");
   const canPay = userCan(actorAccess, "payment_orders:write");
+  const canAdvance = canWrite && userCan(actorAccess, "hr:write");
   const confirm = useConfirm();
   const deleteMut = useDeleteTransaction();
   const [editing, setEditing] = useState<TransactionListItem | null>(null);
@@ -343,6 +345,7 @@ export function TransactionsTable({
             <ExportButton resource="transactions" />
             {canCollect && <CollectDialog />}
             {canPay && <PayDialog />}
+            {canAdvance && <EmployeeCashDialog kind="advance" />}
             {canWrite && (
               <NewTransactionDialog
                 channels={channels}

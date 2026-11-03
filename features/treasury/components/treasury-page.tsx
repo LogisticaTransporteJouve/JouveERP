@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmployeeCashDialog } from "@/features/hr/components/employee-cash-dialog";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 import {
@@ -38,13 +39,16 @@ import {
 const ANY = "__any__";
 
 /** `canCollect` / `canPay`: receipts:write / payment_orders:write, for the
- *  "Cobrar a cliente" / "Pagar a proveedor" entry points. */
+ *  "Cobrar a cliente" / "Pagar a proveedor" entry points; `canAdvance`:
+ *  hr:write + transactions:write, for "Adelanto a empleado". */
 export function TreasuryPage({
   canCollect = false,
   canPay = false,
+  canAdvance = false,
 }: {
   canCollect?: boolean;
   canPay?: boolean;
+  canAdvance?: boolean;
 }) {
   const query = useTreasurySummary();
   const [search, setSearch] = useState("");
@@ -167,10 +171,11 @@ export function TreasuryPage({
             compara con el cierre del mes anterior.
           </p>
         </div>
-        {(canCollect || canPay) && (
+        {(canCollect || canPay || canAdvance) && (
           <div className="flex flex-wrap gap-2">
             {canCollect && <CollectDialog />}
             {canPay && <PayDialog />}
+            {canAdvance && <EmployeeCashDialog kind="advance" />}
           </div>
         )}
       </div>
