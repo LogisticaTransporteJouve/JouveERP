@@ -33,7 +33,6 @@
     "seed:all": "node scripts/seed-everything.mjs",
     "db:reset": "supabase db reset && node scripts/seed-everything.mjs",
     "db:restamp": "bash scripts/dev/restamp-migrations.sh",
-    "import:afip-purchases": "node scripts/import-afip-purchases.mjs",
     "prepare": "node .husky/install.mjs"
   },
   "dependencies": {

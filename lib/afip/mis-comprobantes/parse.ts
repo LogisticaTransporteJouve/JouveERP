@@ -143,7 +143,7 @@ const ALIASES: Readonly<Record<Field, readonly string[]>> = {
   internos: ["impuestos internos", "imp internos"],
 };
 
-// The 30-column TSV the old importer read (scripts/import-afip-purchases.mjs).
+// The 30-column TSV ARCA exported before, which the retired bulk importer read.
 const LEGACY_POSITIONS: Readonly<Partial<Record<Field, number>>> = {
   fecha: 0,
   tipo: 1,
