@@ -127,14 +127,14 @@ export type DraftLoad = {
 };
 
 /** A factura billed from a remito interno, once emitted, settles the remito
- *  (credit-billed-remito, docs/otras-ventas.md §4). */
+ *  (credit-billed-remito, docs/otras-ventas.md §4). The receiver is idempotent
+ *  on the factura, so a second send is harmless. */
+export function billedEventFor(facturaId: string) {
+  return { name: INVOICE_REMITO_BILLED, data: { factura_id: facturaId } };
+}
+
 function remitoBilledEvent(load: DraftLoad) {
-  return load.draft.source_remito_id
-    ? {
-        name: INVOICE_REMITO_BILLED,
-        data: { factura_id: load.draft.id },
-      }
-    : null;
+  return load.draft.source_remito_id ? billedEventFor(load.draft.id) : null;
 }
 
 function toNumber(value: string | number | null | undefined): number {
@@ -299,17 +299,32 @@ type FailureRow = {
   source_remito_id: string | null;
 };
 
+/** Longer than one CAE step (maxDuration 300 s): every CAE request of a run
+ *  follows a write that bumps updated_at (record-attempt), so a row older than
+ *  this has no request of its own in flight. On a younger row a request that
+ *  timed out on our side may still be processed by AFIP, which answers "not
+ *  registered" meanwhile. */
+export const STUCK_AFTER_MS = 30 * 60_000;
+
+export type FailureRecovery = {
+  outcome: "recovered" | "not_authorized" | "unknown";
+  /** The row is emitted and bills a remito interno: the caller sends
+   *  billedEventFor in its own step (a retry finds the row emitted and has
+   *  nothing left to recover, so it would not send it again). */
+  billsRemito: boolean;
+};
+
 /**
  * Before a failed run marks the invoice failed: if it sent a number to AFIP,
  * ask AFIP whether that voucher is this invoice's. A CAE AFIP holds is never
  * thrown away (a failed invoice frees its billing links for re-billing).
- * Returns "recovered", "not_authorized" or "unknown" (AFIP did not answer).
+ * Outcome "recovered", "not_authorized" or "unknown" (AFIP did not answer).
  * Also run by issue-invoice-reconcile on emissions whose outcome stayed
  * unknown.
  */
 export async function recoverOnFailure(
   invoiceId: string,
-): Promise<"recovered" | "not_authorized" | "unknown"> {
+): Promise<FailureRecovery> {
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("invoices")
@@ -318,7 +333,7 @@ export async function recoverOnFailure(
     )
     .eq("id", invoiceId)
     .maybeSingle();
-  if (error) return "unknown";
+  if (error) return { outcome: "unknown", billsRemito: false };
   const row: FailureRow | null = data;
   if (
     !row ||
@@ -326,7 +341,12 @@ export async function recoverOnFailure(
     row.afip_attempted_numero === null ||
     row.cbte_tipo_afip === null
   ) {
-    return "not_authorized";
+    return {
+      outcome: "not_authorized",
+      // Emitted by a run that failed after persist-cae, or recovered by an
+      // earlier try of the caller that did not get to send the event.
+      billsRemito: row?.status === "emitted" && row.source_remito_id !== null,
+    };
   }
   const attempted = row.afip_attempted_numero;
   const cbteTipo = row.cbte_tipo_afip;
@@ -354,9 +374,9 @@ export async function recoverOnFailure(
       op: "issue_invoice.cae_outcome_unknown",
       invoice_id: invoiceId,
     });
-    return "unknown";
+    return { outcome: "unknown", billsRemito: false };
   }
-  if (!recovered) return "not_authorized";
+  if (!recovered) return { outcome: "not_authorized", billsRemito: false };
 
   try {
     await persistAuthorizedCae(invoiceId, recovered);
@@ -365,18 +385,21 @@ export async function recoverOnFailure(
       op: "issue_invoice.cae_outcome_unknown",
       invoice_id: invoiceId,
     });
-    return "unknown";
+    return { outcome: "unknown", billsRemito: false };
   }
   logger.warn("issue_invoice.cae_recovered_on_failure", {
     invoice_id: invoiceId,
   });
-  if (row.source_remito_id) {
-    await inngest.send({
-      name: INVOICE_REMITO_BILLED,
-      data: { factura_id: invoiceId },
-    });
-  }
-  return "recovered";
+  return { outcome: "recovered", billsRemito: row.source_remito_id !== null };
+}
+
+/** A deterministic refusal (AFIP rejected the request, the row left
+ *  emission): no request of the run can still be in flight. Inngest
+ *  deserializes it as a NonRetriableError, or keeps its name on a StepError. */
+function isNonRetriable(error: Error): boolean {
+  return (
+    error instanceof NonRetriableError || error.name === "NonRetriableError"
+  );
 }
 
 export const issueInvoice = inngest.createFunction(
@@ -396,8 +419,7 @@ export const issueInvoice = inngest.createFunction(
       limit: 1,
     },
     retries: RETRYABLE_LIMIT,
-    onFailure: async ({ event, error }) => {
-      const supabase = getServiceClient();
+    onFailure: async ({ event, error, step }) => {
       const originalData = (event.data as { event?: { data?: unknown } }).event
         ?.data;
       const parsed = InvoiceIssueRequestedSchema.safeParse(originalData);
@@ -411,22 +433,55 @@ export const issueInvoice = inngest.createFunction(
         invoice_id: parsed.data.invoice_id,
         err: error.message,
       });
-      const outcome = await recoverOnFailure(parsed.data.invoice_id);
+      const invoiceId = parsed.data.invoice_id;
+      const { outcome, billsRemito } = await step.run("recover", () =>
+        recoverOnFailure(invoiceId),
+      );
+      if (billsRemito) {
+        await step.sendEvent("remito-billed", billedEventFor(invoiceId));
+      }
       if (outcome !== "not_authorized") {
         // Recovered: it is emitted. Unknown: AFIP may hold the CAE, so it
         // stays emitting rather than failed (failed would free its links).
         return;
       }
-      await supabase
-        .from("invoices")
-        .update({
-          status: "failed",
-          afip_observaciones: { error: error.message } as never,
-        })
-        .eq("id", parsed.data.invoice_id)
-        // A voucher that already got its CAE (or internal number) stays
-        // emitted: only a pending emission fails.
-        .in("status", ["draft", "emitting"]);
+      await step.run("mark-failed", async () => {
+        const supabase = getServiceClient();
+        const { data: row, error: readErr } = await supabase
+          .from("invoices")
+          .select("afip_attempted_numero, updated_at")
+          .eq("id", invoiceId)
+          .maybeSingle();
+        if (readErr) throw new Error(`mark-failed: ${readErr.message}`);
+        if (!row) return "gone";
+        // AFIP's "not registered" right after a request that timed out on our
+        // side proves nothing: a recent attempt stays emitting and
+        // issue-invoice-reconcile decides once it is older than STUCK_AFTER_MS.
+        if (
+          !isNonRetriable(error) &&
+          row.afip_attempted_numero !== null &&
+          Date.parse(row.updated_at) > Date.now() - STUCK_AFTER_MS
+        ) {
+          logger.warn("issue_invoice.failure_left_to_reconcile", {
+            invoice_id: invoiceId,
+          });
+          return "left_to_reconcile";
+        }
+        const { error: updErr } = await supabase
+          .from("invoices")
+          .update({
+            status: "failed",
+            afip_observaciones: { error: error.message } as never,
+          })
+          .eq("id", invoiceId)
+          // Compare-and-set: a run that touched the row after the read keeps it.
+          .eq("updated_at", row.updated_at)
+          // A voucher that already got its CAE (or internal number) stays
+          // emitted: only a pending emission fails.
+          .in("status", ["draft", "emitting"]);
+        if (updErr) throw new Error(`mark-failed: ${updErr.message}`);
+        return "failed";
+      });
     },
   },
   async ({ event, step }) => {
@@ -626,7 +681,13 @@ export const issueInvoice = inngest.createFunction(
           p_caea: caea.caea,
           p_cae_vencimiento: caea.fch_vig_hasta,
         });
-        if (error) throw new Error(`emit-caea: ${error.message}`);
+        if (error) {
+          // A guard's refusal (CAEA declared sin movimiento) is deterministic.
+          if (error.hint === JOUVE_GUARD_HINT) {
+            throw new NonRetriableError(error.message);
+          }
+          throw new Error(`emit-caea: ${error.message}`);
+        }
         return rpcAs<number>(data);
       });
 

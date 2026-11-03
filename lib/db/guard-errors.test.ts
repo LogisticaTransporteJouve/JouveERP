@@ -158,6 +158,7 @@ const GUARDS = [
   "create_transfer",
   "reject_check",
   "guard_payment_order_rejected_check_allocation",
+  "guard_invoice_cotizacion",
 ];
 
 describe("guard hints in migrations", () => {

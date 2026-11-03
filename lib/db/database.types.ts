@@ -9305,6 +9305,14 @@ export type Database = {
         Args: { p_movement_id: string }
         Returns: undefined
       }
+      delete_orphan_files: {
+        Args: { p_ids: string[]; p_max_age?: string }
+        Returns: {
+          bucket: string
+          bucket_path: string
+          id: string
+        }[]
+      }
       deposit_check: {
         Args: {
           p_account_id: string
