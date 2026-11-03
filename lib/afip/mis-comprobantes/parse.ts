@@ -101,6 +101,13 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number];
 
+const TRIBUTE_FIELDS = [
+  "perc_iva",
+  "perc_iibb",
+  "municipales",
+  "internos",
+] as const satisfies readonly Field[];
+
 const REQUIRED: readonly Field[] = [
   "fecha",
   "tipo",
@@ -144,7 +151,7 @@ const ALIASES: Readonly<Record<Field, readonly string[]>> = {
 };
 
 // The 30-column TSV ARCA exported before, which the retired bulk importer read.
-const LEGACY_POSITIONS: Readonly<Partial<Record<Field, number>>> = {
+const POSITIONAL_30_COLUMNS: Readonly<Partial<Record<Field, number>>> = {
   fecha: 0,
   tipo: 1,
   punto_venta: 2,
@@ -254,31 +261,29 @@ function parseRow(
   const moneda = parseMoneda(cell("moneda"));
   if (moneda === null) return "bad_amount";
 
-  const amounts = {
-    neto: parseAmount(row, cols.neto_gravado),
-    noGravado: parseAmount(row, cols.no_gravado),
-    exentas: parseAmount(row, cols.exentas),
-    trib: parseAmount(row, cols.otros_tributos),
-    iva: parseAmount(row, cols.iva),
-    total: parseAmount(row, cols.total),
-  };
-  if (Object.values(amounts).some((v) => v === null)) return "bad_amount";
-  const { neto, noGravado, exentas, trib, iva, total } = amounts as Record<
-    keyof typeof amounts,
-    number
-  >;
+  const neto = parseAmount(row, cols.neto_gravado);
+  const noGravado = parseAmount(row, cols.no_gravado);
+  const exentas = parseAmount(row, cols.exentas);
+  const trib = parseAmount(row, cols.otros_tributos);
+  const iva = parseAmount(row, cols.iva);
+  const total = parseAmount(row, cols.total);
+  if (
+    neto === null ||
+    noGravado === null ||
+    exentas === null ||
+    trib === null ||
+    iva === null ||
+    total === null
+  ) {
+    return "bad_amount";
+  }
 
   const tribBreakdown: TribBreakdown = {};
-  for (const [field, key] of [
-    ["perc_iva", "perc_iva"],
-    ["perc_iibb", "perc_iibb"],
-    ["municipales", "municipales"],
-    ["internos", "internos"],
-  ] as const) {
+  for (const field of TRIBUTE_FIELDS) {
     if (cols[field] === undefined) continue;
     const v = parseAmount(row, cols[field]);
     if (v === null) return "bad_amount";
-    tribBreakdown[key] = v;
+    tribBreakdown[field] = v;
   }
 
   const ivaBreakdown: IvaBreakdownLine[] = [];
@@ -355,7 +360,7 @@ export function parseReceivedTable(
     table.rows.length > 0 &&
     table.rows.every((r) => r.length === 30)
   ) {
-    cols = LEGACY_POSITIONS;
+    cols = POSITIONAL_30_COLUMNS;
     dataRows = table.rows;
   } else {
     return NO_HEADER;

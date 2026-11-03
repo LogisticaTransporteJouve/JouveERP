@@ -1,5 +1,9 @@
 import { z } from "zod";
 import type { IvaCondition } from "@/features/clients/schema";
+import type {
+  IvaBreakdownLine,
+  TribBreakdown,
+} from "@/lib/afip/mis-comprobantes/parse";
 
 export const PURCHASE_INVOICE_KINDS = ["factura", "nc", "nd"] as const;
 export type PurchaseInvoiceKind = (typeof PURCHASE_INVOICE_KINDS)[number];
@@ -449,17 +453,6 @@ export const RECEIVED_VOUCHER_TAB_LABEL: Record<ReceivedVoucherStatus, string> =
     unsupported: "No soportados",
   };
 
-/** Per-tribute amounts, when the export carried them. */
-export type ReceivedTribBreakdown = Partial<
-  Record<"perc_iva" | "perc_iibb" | "municipales" | "internos", number>
->;
-
-export type ReceivedIvaLine = {
-  iva_rate_id: PurchaseIvaRateId;
-  neto: number;
-  iva: number;
-};
-
 /** A tray row as the page shows it. */
 export type ReceivedVoucher = {
   id: string;
@@ -480,8 +473,9 @@ export type ReceivedVoucher = {
   imp_iva: number;
   imp_trib: number;
   imp_total: number;
-  trib_breakdown: ReceivedTribBreakdown;
-  iva_breakdown: ReceivedIvaLine[];
+  /** Per-tribute amounts, when the export carried them. */
+  trib_breakdown: TribBreakdown;
+  iva_breakdown: IvaBreakdownLine[];
   status: ReceivedVoucherStatus;
   discard_reason: string | null;
   /** The purchase it is linked to: its status and whether its channel is

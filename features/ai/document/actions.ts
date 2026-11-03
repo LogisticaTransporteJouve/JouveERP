@@ -799,7 +799,9 @@ async function releaseExtraction(
   }
 }
 
-/** Claim → create → (release on failure) on an extraction draft. */
+/** Claim → create → (release on failure) on an extraction draft. The
+ *  up-front status read in each action is just a fast path for a friendlier
+ *  error; this claim is the guard. */
 function createWithClaim<T>(
   supabase: ServerSupabase,
   extractionId: string,

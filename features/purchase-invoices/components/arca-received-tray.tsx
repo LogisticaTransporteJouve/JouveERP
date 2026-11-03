@@ -266,10 +266,13 @@ function uploadSummary(r: {
   linked: number;
   skipped: number;
 }): string {
+  const notes = [
+    r.linked > 0 ? `${r.linked} ya cargados como compra` : null,
+    r.unsupported > 0 ? `${r.unsupported} no soportados` : null,
+  ].filter((n) => n !== null);
   const parts = [
-    `${r.inserted} nuevos${r.unsupported > 0 ? ` (${r.unsupported} no soportados)` : ""}`,
+    `${r.inserted} nuevos${notes.length > 0 ? ` (${notes.join(", ")})` : ""}`,
     `${r.alreadyInTray} ya estaban en la bandeja`,
-    `${r.linked} ya cargados como compra`,
   ];
   if (r.skipped > 0) parts.push(`${r.skipped} no se pudieron leer`);
   return parts.join(" · ");
@@ -291,9 +294,10 @@ export function ArcaReceivedTray() {
           })
         }
         onError={(message) => toast.error(message)}
+        fileType="tables"
         disabled={upload.isPending}
         placeholder="Subí el archivo de ARCA → Mis Comprobantes → Recibidos"
-        description="CSV o Excel, tal como lo baja ARCA. Lo que ya está en la bandeja no se duplica."
+        description="CSV, TXT o Excel, tal como lo baja ARCA. Lo que ya está en la bandeja no se duplica."
       />
 
       <div className="overflow-x-auto">

@@ -10,7 +10,8 @@ bandeja propia (`arca_received_vouchers`, `/purchases/arca`) y no a Compras:
 una persona acepta cada comprobante (cuenta, centro de costo y reparto de
 otros tributos) o lo descarta. Los importes y la identidad (CUIT, tipo,
 número) vienen de ARCA y no se editan; el servidor los vuelve a controlar al
-aceptar. Un comprobante que ya está cargado como compra se vincula solo, al
+aceptar. Un comprobante que ya está cargado como compra fiscal (no anulada) se
+vincula solo, al
 subir el archivo o después, cuando alguien lo carga a mano. El archivo se sube
 a mano por ahora; traerlo solo desde ARCA es el paso siguiente (robot,
 pendiente de grabar el flujo de login). Reemplaza al script

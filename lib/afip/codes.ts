@@ -46,12 +46,15 @@ export function cbteTipoFor(
   return CBTE_TIPO_BY_KIND_LETTER[kind][letter];
 }
 
+const KINDS: readonly InvoiceKind[] = ["factura", "nc", "nd"];
+const LETTERS: readonly InvoiceLetter[] = ["A", "B", "C"];
+
 const KIND_LETTER_BY_CBTE_TIPO: ReadonlyMap<
   number,
   { kind: InvoiceKind; letter: InvoiceLetter }
 > = new Map(
-  (Object.keys(CBTE_TIPO_BY_KIND_LETTER) as InvoiceKind[]).flatMap((kind) =>
-    (Object.keys(CBTE_TIPO_BY_KIND_LETTER[kind]) as InvoiceLetter[]).map(
+  KINDS.flatMap((kind) =>
+    LETTERS.map(
       (letter) =>
         [CBTE_TIPO_BY_KIND_LETTER[kind][letter], { kind, letter }] as const,
     ),
@@ -281,7 +284,7 @@ export function ivaRatePercent(id: IvaRateId): number {
   return IVA_RATE_PERCENT[id];
 }
 
-/** The AFIP rate id of an alícuota written as a percent (21, 10.5, "27"…);
+/** The AFIP rate id of an alícuota written as a percent (21, 10.5, 27…);
  *  null when it is not one AFIP defines. */
 export function ivaRateIdForPercent(percent: number): IvaRateId | null {
   for (const option of IVA_RATE_OPTIONS) {

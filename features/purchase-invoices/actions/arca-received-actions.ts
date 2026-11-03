@@ -19,8 +19,10 @@ import {
   receivedVoucherItems,
 } from "../lib/arca-received-draft";
 import {
+  PURCHASE_IVA_RATE_IDS,
   PURCHASE_TRIBUTE_FIELDS,
   PurchaseInvoiceCreateSchema,
+  RECEIVED_VOUCHER_STATUSES,
   ReceivedVoucherDiscardSchema,
   ReceivedVoucherIdSchema,
   ReceivedVoucherListSchema,
@@ -32,6 +34,7 @@ import { createPurchaseInvoiceAction } from "./purchase-invoices-actions";
 
 const DENIED = "No tenés permiso para cargar facturas de compra.";
 const ALREADY_PROCESSED = "Este comprobante ya fue procesado.";
+const BEING_LOADED = "Otra persona lo está cargando; probá en unos minutos.";
 const PAGE_SIZE = 50;
 /** A claim older than this with no purchase was left by a crashed save. */
 const STALE_CLAIM_MS = 10 * 60 * 1000;
@@ -70,20 +73,13 @@ const RowSchema = z.object({
   iva_breakdown: z
     .array(
       z.object({
-        iva_rate_id: z.union([
-          z.literal(3),
-          z.literal(4),
-          z.literal(5),
-          z.literal(6),
-          z.literal(8),
-          z.literal(9),
-        ]),
+        iva_rate_id: z.literal(PURCHASE_IVA_RATE_IDS),
         neto: money,
         iva: money,
       }),
     )
     .catch([]),
-  status: z.enum(["pending_review", "confirmed", "discarded", "unsupported"]),
+  status: z.enum(RECEIVED_VOUCHER_STATUSES),
   discard_reason: z.string().nullable(),
   purchase_invoice_id: z.string().nullable(),
   purchase_invoices: z
@@ -370,6 +366,13 @@ async function mismatch(
   ) {
     return "El tipo, la letra y el número tienen que ser los de ARCA.";
   }
+  if (
+    invoice.fecha !== voucher.fecha ||
+    invoice.moneda !== voucher.moneda ||
+    (voucher.cae !== null && (invoice.cae_proveedor ?? null) !== voucher.cae)
+  ) {
+    return "La fecha, la moneda y el CAE tienen que ser los de ARCA.";
+  }
   const { data: channel, error: channelError } = await supabase
     .from("invoicing_channels")
     .select("is_fiscal")
@@ -422,6 +425,13 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
 
   const voucher = await readVoucher(supabase, voucherId);
   if (voucher === "failed") return fail("read");
+  // A retry after a save whose answer was lost: it is already loaded.
+  if (voucher?.status === "confirmed" && voucher.purchase) {
+    return {
+      ok: true,
+      data: { id: voucher.purchase.id, linkedExisting: true },
+    };
+  }
   if (!voucher || voucher.status !== "pending_review") {
     return { ok: false, error: ALREADY_PROCESSED };
   }
@@ -466,6 +476,7 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
   }
 
   const items = receivedVoucherItems(voucher);
+  let claimFailed = false;
   const created = await createWithClaim({
     claim: async () => {
       const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
@@ -480,7 +491,10 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
         .or(`claimed_at.is.null,claimed_at.lt.${cutoff}`)
         .select("id")
         .maybeSingle();
-      if (error) fail(error.code);
+      if (error) {
+        claimFailed = true;
+        fail(error.code);
+      }
       return !error && data !== null;
     },
     release: async () => {
@@ -491,13 +505,14 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
         .is("purchase_invoice_id", null);
       if (error) fail(error.code);
     },
-    create: () =>
-      createPurchaseInvoiceAction({
-        ...invoice.data,
-        ...(items.length > 0 ? { items } : {}),
-      }),
-    alreadyProcessed: "Otra persona lo está cargando; probá en unos minutos.",
+    // The lines are ARCA's (or none): client lines would recompute the
+    // amounts just checked.
+    create: () => createPurchaseInvoiceAction({ ...invoice.data, items }),
+    alreadyProcessed: BEING_LOADED,
   });
+  if (claimFailed) {
+    return { ok: false, error: "No se pudo cargar el comprobante." };
+  }
   // A partial failure (createdId) still made the purchase: the
   // purchase_invoices_link_received trigger linked the voucher to it.
   if (!created.ok) return { ok: false, error: created.error };
@@ -584,14 +599,26 @@ async function moveVoucher(
   }
   const { data, error } = await query.select("id").maybeSingle();
   if (error) {
-    logger.error(`arca_received.${op}.failed`, {
-      userId: ctx.userId,
-      voucherId,
-      code: error.code,
-    });
+    logger.error(
+      op === "discard"
+        ? "arca_received.discard.failed"
+        : "arca_received.restore.failed",
+      { userId: ctx.userId, voucherId, code: error.code },
+    );
     return { ok: false, error: "No se pudo actualizar el comprobante." };
   }
-  if (!data) return { ok: false, error: ALREADY_PROCESSED };
+  if (!data) {
+    const current = await readVoucher(supabase, voucherId);
+    return {
+      ok: false,
+      error:
+        op === "discard" &&
+        current !== "failed" &&
+        current?.status === "pending_review"
+          ? BEING_LOADED
+          : ALREADY_PROCESSED,
+    };
+  }
   await logAudit(
     op === "discard"
       ? "purchase_invoice.arca_voucher_discarded"

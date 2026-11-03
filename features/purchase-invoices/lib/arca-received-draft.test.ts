@@ -97,20 +97,27 @@ describe("arcaVoucherToDraft", () => {
 });
 
 describe("receivedVoucherItems", () => {
-  it("builds one line per alícuota on letter A only", () => {
-    const iva_breakdown = [
-      { iva_rate_id: 5 as const, neto: 100, iva: 21 },
-      { iva_rate_id: 4 as const, neto: 200, iva: 21 },
-    ];
-    expect(receivedVoucherItems(voucher({ iva_breakdown }))).toHaveLength(2);
-    expect(receivedVoucherItems(voucher({ iva_breakdown }))[1]).toMatchObject({
+  const iva_breakdown = [
+    { iva_rate_id: 5 as const, neto: 100, iva: 21 },
+    { iva_rate_id: 4 as const, neto: 200, iva: 21 },
+  ];
+  const tied = { imp_neto_gravado: 300, imp_iva: 42, iva_breakdown };
+
+  it("builds one line per alícuota on letter A when it ties with the header", () => {
+    const items = receivedVoucherItems(voucher(tied));
+    expect(items).toHaveLength(2);
+    expect(items[1]).toMatchObject({
       iva_rate_id: 4,
       line_neto: 200,
       line_iva: 21,
       line_total: 221,
     });
-    expect(
-      receivedVoucherItems(voucher({ letter: "B", iva_breakdown })),
-    ).toEqual([]);
+  });
+
+  it("saves header-only on B, and when the lines miss the header by a cent", () => {
+    expect(receivedVoucherItems(voucher({ ...tied, letter: "B" }))).toEqual([]);
+    expect(receivedVoucherItems(voucher({ ...tied, imp_iva: 42.01 }))).toEqual(
+      [],
+    );
   });
 });

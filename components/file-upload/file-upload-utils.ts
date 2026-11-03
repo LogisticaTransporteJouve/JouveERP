@@ -22,16 +22,27 @@ export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB — matches bucket limit.
 
-export const DOCUMENT_ACCEPT_STRING = ".pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx";
+/** A spreadsheet or text table read by a server action (not stored in the
+ *  bucket). A CSV often comes as "application/vnd.ms-excel" on Windows. */
+export const ALLOWED_TABLE_TYPES: Record<string, string> = {
+  "text/csv": "CSV",
+  "text/plain": "TXT",
+  "application/vnd.ms-excel": "CSV",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+};
+
+export const DOCUMENT_ACCEPT_STRING =
+  ".pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx";
 export const IMAGE_ACCEPT_STRING = ".png,.jpg,.jpeg,.webp";
 
-export type FileTypePreset = "documents" | "images";
+export type FileTypePreset = "documents" | "images" | "tables";
 
 export type FileTypeConfig = {
   allowedTypes: Record<string, string>;
   acceptString: string;
   maxSize: number;
-  cameraAccept: string;
+  /** null: no "Tomar foto" button. */
+  cameraAccept: string | null;
 };
 
 export const FILE_TYPE_PRESETS: Record<FileTypePreset, FileTypeConfig> = {
@@ -46,6 +57,13 @@ export const FILE_TYPE_PRESETS: Record<FileTypePreset, FileTypeConfig> = {
     acceptString: IMAGE_ACCEPT_STRING,
     maxSize: MAX_FILE_SIZE,
     cameraAccept: "image/*",
+  },
+  // Server actions cap the request body at 4 MB (lib/tables/read-upload.ts).
+  tables: {
+    allowedTypes: ALLOWED_TABLE_TYPES,
+    acceptString: ".csv,.txt,.xlsx",
+    maxSize: 4 * 1024 * 1024,
+    cameraAccept: null,
   },
 };
 

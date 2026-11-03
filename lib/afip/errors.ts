@@ -14,11 +14,7 @@
 // Only TRANSPORT is safe to retry. SOAP_FAULT and SERVICE are deterministic.
 
 export type AfipErrorCode =
-  | "CONFIG"
-  | "INPUT"
-  | "TRANSPORT"
-  | "SOAP_FAULT"
-  | "SERVICE";
+  "CONFIG" | "INPUT" | "TRANSPORT" | "SOAP_FAULT" | "SERVICE";
 
 export class AfipError extends Error {
   readonly code: AfipErrorCode;
@@ -83,9 +79,7 @@ export class AfipServiceError extends AfipError {
   readonly errors: AfipServiceErrorEntry[];
 
   constructor(errors: AfipServiceErrorEntry[]) {
-    const summary = errors
-      .map((e) => `[${e.code}] ${e.message}`)
-      .join("; ");
+    const summary = errors.map((e) => `[${e.code}] ${e.message}`).join("; ");
     super("SERVICE", summary || "AFIP service error", { errors });
     this.name = "AfipServiceError";
     this.errors = errors;

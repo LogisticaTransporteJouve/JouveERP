@@ -10,7 +10,7 @@ let roles: string[] = ["finance"];
 let voucherRow: Record<string, unknown> | null;
 let linkMakesConfirmed = false;
 let cancelledCount = 0;
-let claimWins = true;
+let claimWins: boolean | "error" = true;
 const writes: string[] = [];
 
 function row(over: Record<string, unknown> = {}) {
@@ -67,6 +67,8 @@ function builder(table: string) {
         return { data: voucherRow, error: null };
       }
       if (table === "arca_received_vouchers" && op === "update") {
+        if (claimWins === "error")
+          return { data: null, error: { code: "XX000" } };
         return { data: claimWins ? { id: VOUCHER_ID } : null, error: null };
       }
       if (table === "suppliers")
@@ -270,5 +272,87 @@ describe("createPurchaseInvoiceFromReceivedAction", () => {
     });
     expect(res.ok).toBe(false);
     expect(writes).toEqual([]);
+  });
+
+  it("refuses another currency or date than ARCA's", async () => {
+    expect(
+      await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: { ...invoice, moneda: "DOL", cotizacion: 1000 },
+      }),
+    ).toEqual({
+      ok: false,
+      error: "La fecha, la moneda y el CAE tienen que ser los de ARCA.",
+    });
+    expect(
+      await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: { ...invoice, fecha: "2026-09-30" },
+      }),
+    ).toEqual({
+      ok: false,
+      error: "La fecha, la moneda y el CAE tienen que ser los de ARCA.",
+    });
+    expect(createPurchase).not.toHaveBeenCalled();
+  });
+
+  it("saves ARCA's lines, never the client's", async () => {
+    voucherRow = row({
+      letter: "B",
+      imp_neto_gravado: 1260,
+      imp_op_exentas: 0,
+      imp_iva: 0,
+    });
+    await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice: {
+        ...invoice,
+        letter: "B",
+        imp_neto: 1260,
+        imp_op_exentas: 0,
+        imp_iva: 0,
+        items: [
+          {
+            description: "x",
+            quantity: 1,
+            unit_price: 1,
+            iva_rate_id: null,
+            line_neto: 1,
+            line_total: 1,
+          },
+        ],
+      },
+    });
+    expect(createPurchase).toHaveBeenCalledWith(
+      expect.objectContaining({ items: [] }),
+    );
+  });
+
+  it("reports a failed claim as a failure, not as someone else loading it", async () => {
+    claimWins = "error";
+    expect(
+      await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice,
+      }),
+    ).toEqual({ ok: false, error: "No se pudo cargar el comprobante." });
+  });
+
+  it("answers ok when a retry finds it already loaded", async () => {
+    voucherRow = row({
+      status: "confirmed",
+      purchase_invoice_id: "pi-done",
+      purchase_invoices: {
+        status: "received",
+        invoicing_channels: { is_fiscal: true },
+      },
+    });
+    expect(
+      await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice,
+      }),
+    ).toEqual({ ok: true, data: { id: "pi-done", linkedExisting: true } });
+    expect(createPurchase).not.toHaveBeenCalled();
   });
 });

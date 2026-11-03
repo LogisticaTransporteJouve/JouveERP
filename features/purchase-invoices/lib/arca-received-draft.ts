@@ -1,5 +1,5 @@
 import { foldNonComputable } from "@/lib/afip/codes";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, round2 } from "@/lib/format";
 
 import type {
   PURCHASE_TRIBUTE_FIELDS,
@@ -56,10 +56,14 @@ export function receivedTributeSplit(
   return split;
 }
 
-/** One line per alícuota for a letter A voucher whose export lists them;
- *  empty otherwise (the purchase is saved header-only). */
+/** One line per alícuota for a letter A voucher whose export lists them and
+ *  ties to the cent with its neto and IVA (the items would rewrite the
+ *  header); empty otherwise, and the purchase is saved header-only. */
 export function receivedVoucherItems(
-  voucher: Pick<ReceivedVoucher, "letter" | "iva_breakdown">,
+  voucher: Pick<
+    ReceivedVoucher,
+    "letter" | "iva_breakdown" | "imp_neto_gravado" | "imp_iva"
+  >,
 ): {
   description: string;
   quantity: number;
@@ -70,7 +74,15 @@ export function receivedVoucherItems(
   line_total: number;
   sort_order: number;
 }[] {
-  if (voucher.letter !== "A") return [];
+  if (voucher.letter !== "A" || voucher.iva_breakdown.length === 0) return [];
+  const sum = (pick: (l: ReceivedVoucher["iva_breakdown"][number]) => number) =>
+    round2(voucher.iva_breakdown.reduce((a, l) => a + pick(l), 0));
+  if (
+    sum((l) => l.neto) !== round2(voucher.imp_neto_gravado) ||
+    sum((l) => l.iva) !== round2(voucher.imp_iva)
+  ) {
+    return [];
+  }
   return voucher.iva_breakdown.map((line, i) => ({
     description: "Según ARCA → Mis Comprobantes",
     quantity: 1,
