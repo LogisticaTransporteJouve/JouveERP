@@ -119,6 +119,13 @@ const GUARDS = [
   "guard_historic_row",
   "commit_import_run",
   "undo_import_run",
+  "apply_client_opening_balance_core",
+  "guard_bank_statement_line",
+  "guard_transaction_reconciled",
+  "match_bank_statement_line",
+  "unmatch_bank_statement_line",
+  "set_bank_statement_line_ignored",
+  "create_bank_statement_line_transaction",
 ];
 
 describe("guard hints in migrations", () => {

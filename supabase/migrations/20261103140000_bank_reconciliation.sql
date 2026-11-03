@@ -50,6 +50,10 @@ create table public.bank_statement_lines (
   balance           numeric(18, 2),
   reference         text check (reference is null or char_length(reference) <= 120),
   source_hash       text not null check (source_hash ~ '^[0-9a-f]{64}$'),
+  -- The line's row in the file (a statement has up to 5000 lines): orders
+  -- the lines of one day as the bank listed them.
+  -- squawk-ignore prefer-bigint-over-int
+  line_no           integer not null check (line_no > 0),
   status            text not null default 'open'
                       check (status in ('open', 'matched', 'ignored')),
   ignore_reason     text check (ignore_reason is null or char_length(ignore_reason) between 1 and 500),
@@ -125,6 +129,7 @@ begin
      or new.balance is distinct from old.balance
      or new.reference is distinct from old.reference
      or new.source_hash is distinct from old.source_hash
+     or new.line_no is distinct from old.line_no
      or new.created_at is distinct from old.created_at then
     raise exception 'Los datos de una línea de extracto no se cambian: deshacé la importación y volvé a importar el extracto'
       using errcode = '55006', hint = 'jouve_guard';
@@ -391,10 +396,10 @@ grant execute on function public.set_bank_statement_line_ignored(uuid, text, uui
 create function public.create_bank_statement_line_transaction(
   p_line_id            uuid,
   p_channel_id         text,
-  p_expense_account_id uuid,
-  p_cost_center_id     uuid,
-  p_description        text,
-  p_user_id            uuid
+  p_user_id            uuid,
+  p_expense_account_id uuid default null,
+  p_cost_center_id     uuid default null,
+  p_description        text default null
 )
 returns uuid
 language plpgsql
@@ -456,10 +461,10 @@ begin
 end;
 $$;
 
-comment on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, text, uuid) is
+comment on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, uuid, text) is
   'Crea el movimiento que falta en los libros para una línea pendiente del extracto (ingreso o egreso manual con su cuenta de gasto) y lo concilia. Solo service role (la acción exige transactions:write).';
 
-revoke all on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, text, uuid)
+revoke all on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, uuid, text)
   from public, anon, authenticated;
-grant execute on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, text, uuid)
+grant execute on function public.create_bank_statement_line_transaction(uuid, text, uuid, uuid, uuid, text)
   to service_role;

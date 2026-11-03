@@ -1382,9 +1382,15 @@ export function buildRows(input: {
     }
     if (Object.values(cells).every((v) => v === "")) return;
     const built = buildOne(input.kind, cells, input.lookups, state);
+    const line = input.firstLine + i;
     out.push({
       ...built,
-      line: input.firstLine + i,
+      // A statement line keeps its row in the file: it orders one day's lines.
+      payload:
+        input.kind === "bank_statement" && built.payload
+          ? { ...built.payload, line_no: line }
+          : built.payload,
+      line,
       status: built.errors.length > 0 ? "invalid" : "ready",
     });
   });

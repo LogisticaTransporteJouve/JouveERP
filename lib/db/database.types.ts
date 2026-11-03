@@ -778,6 +778,7 @@ export type Database = {
           ignore_reason: string | null
           import_run_id: string
           line_date: string
+          line_no: number
           reference: string | null
           source_hash: string
           status: string
@@ -794,6 +795,7 @@ export type Database = {
           ignore_reason?: string | null
           import_run_id: string
           line_date: string
+          line_no: number
           reference?: string | null
           source_hash: string
           status?: string
@@ -810,6 +812,7 @@ export type Database = {
           ignore_reason?: string | null
           import_run_id?: string
           line_date?: string
+          line_no?: number
           reference?: string | null
           source_hash?: string
           status?: string
@@ -8587,9 +8590,9 @@ export type Database = {
       create_bank_statement_line_transaction: {
         Args: {
           p_channel_id: string
-          p_cost_center_id: string
-          p_description: string
-          p_expense_account_id: string
+          p_cost_center_id?: string
+          p_description?: string
+          p_expense_account_id?: string
           p_line_id: string
           p_user_id: string
         }

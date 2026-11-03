@@ -94,14 +94,54 @@
 - [ ] No verificado contra una base real: la migración y su pgTAP
       (`supabase/tests/import_runs_test.sql`) se escribieron sin un stack
       local; correr `supabase test db` antes de aprobar.
-- [ ] Importar saldos iniciales, cobranzas, tarifas, préstamos, cheques y
-      extractos (5.3, 5.4); categoría y cuenta de gasto por defecto de un
-      proveedor y datos del chofer (licencia) desde la planilla.
+- [x] Importar tarifas, préstamos, cheques en cartera, saldos iniciales de
+      clientes y extractos (5.3, 5.4): ver la sección siguiente.
+- [ ] Categoría y cuenta de gasto por defecto de un proveedor y datos del
+      chofer (licencia) desde la planilla.
 - [ ] Mostrar los históricos donde ayuden (ficha del empleado, del vehículo
       o del cliente) y sumarlos a Gestión como serie separada si hace falta;
       hoy solo se ven en el importador.
 - [ ] Manual de usuario: sección del importador con el formato de cada
       planilla.
+
+## Importes de arranque y conciliación bancaria (2026-11-03, roadmap 5.3 + 5.4)
+
+- [x] **Importador, tanda 2**: tarifas por cliente (con vigencia, respeta la
+      superposición), préstamos con sus cuotas pendientes, cheques de
+      terceros en cartera, saldos iniciales de clientes (lo que debe cada
+      uno al corte) y extractos bancarios. Cada corrida se deshace mientras
+      nada la usó (cuota pagada, cheque movido, recibo nuevo del cliente,
+      tarifa facturada, línea conciliada).
+- [x] **Conciliación bancaria** (Tesorería › Conciliación,
+      `/treasury/reconciliation`): por cuenta y mes, sugerencias por importe,
+      fecha y referencia; conciliar una línea con uno o varios movimientos;
+      desconciliar; "no corresponde" con motivo; crear el movimiento que
+      falta (comisión, interés) con su cuenta de gasto. Saldo según extracto
+      contra saldo según libros. Un movimiento conciliado no se edita ni se
+      borra hasta desconciliarlo.
+- [ ] Aprobar las migraciones `20261103140000_bank_reconciliation` y
+      `20261103140100_import_opening_items` con el deploy (después de
+      `20261103110000_import_runs`). Rollback: el código anterior no lee las
+      tablas nuevas, saltea las corridas de tipos que no conoce y no las
+      puede deshacer; el guard de conciliación sigue rechazando editar un
+      movimiento conciliado.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`supabase/tests/bank_reconciliation_test.sql`) sin stack local; correr
+      `supabase test db`. La UI no se probó en el navegador.
+- [ ] Cobranzas históricas (recibos de antes del go-live) **no** se importan:
+      moverían caja y asientos de períodos ya cerrados en papel. Va el saldo
+      inicial por cliente; el detalle por factura queda para el ajuste
+      inicial.
+- [ ] Cheques importados: el ingreso a cartera se fecha hoy y acredita
+      ajustes de caja (sin cliente). No cargar además el saldo inicial de la
+      cuenta de cartera por esos cheques.
+- [ ] Caja no marca qué movimientos están conciliados (la base rechaza
+      editarlos con su mensaje); mostrarlo en la tabla.
+- [ ] Varias líneas contra un movimiento (el banco parte un depósito) no se
+      soporta: una línea, uno o varios movimientos.
+- [ ] Tarifas por área desde la planilla (hoy solo "todas las áreas").
+- [ ] La conciliación del asistente IA (`features/ai/reconciliation`) podría
+      leer las líneas importadas en vez del archivo suelto.
 
 ## Depósito por área, lote y bloqueo; mora y venta de cheques (2026-11-03, roadmap 4.4 + 4.6)
 

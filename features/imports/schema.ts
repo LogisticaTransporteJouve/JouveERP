@@ -8,7 +8,7 @@ import type { Permission } from "@/lib/auth/permissions";
 // nothing else reads (supabase/migrations/20261103110000_import_runs.sql).
 // The go-live items (tariffs, loans, cartera checks, client opening balances)
 // and bank statements land where the app's own forms put them
-// (supabase/migrations/20261103120100_import_opening_items.sql).
+// (supabase/migrations/20261103140100_import_opening_items.sql).
 
 export const IMPORT_KINDS = [
   "clients",
@@ -115,9 +115,9 @@ export const ImportRequestSchema = z.object({
   kind: z.enum(IMPORT_KINDS),
   mapping: ImportMappingSchema.nullable(),
   /** The cartera (checks) or the statement's account (bank_statement). */
-  account_id: z.string().uuid().nullable(),
+  account_id: z.string().uuid().nullable().default(null),
   /** The channel of loans and checks. */
-  channel_id: z.string().min(1).max(60).nullable(),
+  channel_id: z.string().min(1).max(60).nullable().default(null),
 });
 export type ImportRequestInput = z.infer<typeof ImportRequestSchema>;
 

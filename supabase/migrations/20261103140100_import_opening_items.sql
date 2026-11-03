@@ -25,7 +25,7 @@ SET LOCAL statement_timeout = '15min';
 --                     the owner's dialog does. No receipt, no movement, no
 --                     journal entry. A client that already has one is skipped.
 --   bank_statement    Lines of a bank statement (bank_statement_lines,
---                     20261103120000), skipped by their source hash.
+--                     20261103140000), skipped by their source hash.
 --
 -- 1. import_runs.kind takes the five kinds.
 -- 2. import_run_id on client_tariffs, loans, checks and
@@ -773,13 +773,13 @@ begin
     with ins as (
       insert into public.bank_statement_lines (
         account_id, import_run_id, line_date, description, amount, balance,
-        reference, source_hash
+        reference, source_hash, line_no
       )
       select r.account_id, v_run_id, r.line_date, r.description, r.amount, r.balance,
-             r.reference, r.source_hash
+             r.reference, r.source_hash, r.line_no
         from jsonb_to_recordset(p_rows) as r(
                account_id uuid, line_date date, description text, amount numeric,
-               balance numeric, reference text, source_hash text
+               balance numeric, reference text, source_hash text, line_no integer
              )
       on conflict (account_id, source_hash) do nothing
       returning 1
