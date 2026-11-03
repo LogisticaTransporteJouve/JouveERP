@@ -19,7 +19,9 @@ const h = vi.hoisted(() => {
   const sent: Array<{ id: string; events: unknown }> = [];
   const beforeUpdate = null as
     ((table: string, patch: Record<string, unknown>) => void) | null;
+  const rpcError = null as { message: string; hint?: string } | null;
   return {
+    rpcError,
     handlers,
     onFailures,
     db,
@@ -73,6 +75,7 @@ function from(table: string) {
     lt: () => builder,
     gt: () => builder,
     gte: () => builder,
+    lte: () => builder,
     order: () => builder,
     limit: () => builder,
     maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
@@ -122,7 +125,9 @@ vi.mock("@/lib/supabase/service", () => ({
     from,
     rpc: async (fn: string, args: Row) => {
       h.rpcCalls.push({ fn, args });
-      return { data: 8, error: null };
+      return h.rpcError
+        ? { data: null, error: h.rpcError }
+        : { data: 8, error: null };
     },
   }),
 }));
@@ -213,6 +218,7 @@ beforeEach(() => {
   h.failReads.clear();
   h.sent.length = 0;
   h.beforeUpdate = null;
+  h.rpcError = null;
   vi.mocked(requestCAE).mockReset();
   vi.mocked(getVoucherInfo).mockReset();
   vi.mocked(informCaeaNoMovement).mockReset();
@@ -399,6 +405,15 @@ describe("issue-invoice CAEA branch without a CAEA", () => {
     ).rejects.toBeInstanceOf(NonRetriableError);
     expect(h.rpcCalls).toEqual([]);
   });
+
+  it("fails without retries when the RPC refuses a CAEA declared sin movimiento", async () => {
+    seedDraft({}, "CAEA");
+    h.rpcError = {
+      message: "El CAEA 12345678901234 ya se informó a AFIP sin movimiento",
+      hint: "jouve_guard",
+    };
+    await expect(issue()).rejects.toBeInstanceOf(NonRetriableError);
+  });
 });
 
 describe("caea-inform", () => {
@@ -578,6 +593,22 @@ describe("caea-inform sin movimiento", () => {
     expect(vi.mocked(informCaeaNoMovement).mock.calls).toEqual([
       [10, "12345678901234"],
     ]);
+  });
+
+  it("waits while a draft of the point of sale may still be emitted under the CAEA", async () => {
+    h.db.invoices = [draft({ punto_venta: 10, status: "draft" })];
+    h.db.caea_codes = [
+      {
+        ...expiredCaea,
+        fch_vig_desde: "2026-10-01",
+        fch_vig_hasta: "2026-10-15",
+      },
+    ];
+    h.db.sales_points = [
+      { numero: 10, last_known_emission_type: "CAEA", is_enabled: true },
+    ];
+    await h.handlers.get("caea-inform")?.({ step });
+    expect(informCaeaNoMovement).not.toHaveBeenCalled();
   });
 
   it("files nothing with AFIP when the usage read fails", async () => {

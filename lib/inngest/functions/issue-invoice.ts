@@ -681,7 +681,13 @@ export const issueInvoice = inngest.createFunction(
           p_caea: caea.caea,
           p_cae_vencimiento: caea.fch_vig_hasta,
         });
-        if (error) throw new Error(`emit-caea: ${error.message}`);
+        if (error) {
+          // A guard's refusal (CAEA declared sin movimiento) is deterministic.
+          if (error.hint === JOUVE_GUARD_HINT) {
+            throw new NonRetriableError(error.message);
+          }
+          throw new Error(`emit-caea: ${error.message}`);
+        }
         return rpcAs<number>(data);
       });
 
