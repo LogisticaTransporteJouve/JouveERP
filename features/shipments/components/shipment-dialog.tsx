@@ -193,18 +193,19 @@ export function ShipmentDialog({
   });
   const suggestedFreight = freightTariff.data?.price ?? null;
   const tariffFetching = freightTariff.isFetching;
+  const tariffFailed = freightTariff.isError;
   useEffect(() => {
     if (!open || isEdit || tariffFetching) return;
     const next = nextFreightPrefill({
       current: form.getValues("freight_amount"),
       dirty: form.getFieldState("freight_amount").isDirty,
       lastAuto: autoFreight.current,
-      suggested: suggestedFreight,
+      suggested: tariffFailed ? "unknown" : suggestedFreight,
     });
     if (next === null) return;
     autoFreight.current = next === "" ? null : next;
     form.setValue("freight_amount", next);
-  }, [open, isEdit, tariffFetching, suggestedFreight, form]);
+  }, [open, isEdit, tariffFetching, tariffFailed, suggestedFreight, form]);
 
   function onSubmit(values: FormValues) {
     const payload = {
@@ -422,11 +423,18 @@ export function ShipmentDialog({
                           step="0.01"
                         />
                       </FormControl>
-                      {!isEdit && suggestedFreight !== null && (
+                      {!isEdit && tariffFailed ? (
                         <p className="text-xs text-muted-foreground">
-                          Tarifa de flete del cliente:{" "}
-                          {formatMoney(suggestedFreight)}
+                          No se pudo leer la tarifa de flete del cliente.
                         </p>
+                      ) : (
+                        !isEdit &&
+                        suggestedFreight !== null && (
+                          <p className="text-xs text-muted-foreground">
+                            Tarifa de flete del cliente:{" "}
+                            {formatMoney(suggestedFreight)}
+                          </p>
+                        )
                       )}
                       <FormMessage />
                     </FormItem>

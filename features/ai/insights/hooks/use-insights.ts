@@ -26,7 +26,8 @@ export function useSetInsightStatus() {
   return useMutation({
     mutationFn: (input: { id: string; status: "acknowledged" }) =>
       runAction(() => setInsightStatusAction(input)),
-    onSuccess: () => {
+    // Settled: a refusal on a recalculated card must still load the new one.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: insightsKeys.list() });
     },
   });
@@ -47,7 +48,7 @@ export function useIgnoreInsight() {
   return useMutation({
     mutationFn: (input: IgnoreInsightInput) =>
       runAction(() => ignoreInsightAction(input)),
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: insightsKeys.list() });
     },
   });

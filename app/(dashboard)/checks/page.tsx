@@ -62,7 +62,15 @@ export default async function ChequesPage() {
         <Suspense fallback={<Loading />}>
           <ChequesTable channels={channels} actorAccess={ctx.access} />
         </Suspense>
-        <CheckSalesSection canWrite={userCan(ctx.access, "cheques:write")} />
+        <Suspense fallback={null}>
+          <CheckSalesSection
+            canWrite={userCan(ctx.access, "cheques:write")}
+            canPay={
+              userCan(ctx.access, "cheques:write") &&
+              userCan(ctx.access, "accounts:read")
+            }
+          />
+        </Suspense>
       </Hydrate>
     </div>
   );

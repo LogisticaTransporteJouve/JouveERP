@@ -89,18 +89,6 @@ export function buildHubOrFilter(input: {
   return owner ?? cursor;
 }
 
-/**
- * `ilike` pattern for a search, with the user's `%`, `_` and `\\` taken
- * literally. PostgREST turns `*` into `%`, so a `*` becomes `_`: one
- * character, which still matches a literal asterisk.
- */
-export function containsPattern(search: string): string {
-  const escaped = search
-    .replace(/[\\%_]/g, (c) => `\\${c}`)
-    .replace(/\*/g, "_");
-  return `%${escaped}%`;
-}
-
 /** The day after an ISO date (for an exclusive upper bound). */
 export function nextIsoDay(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
