@@ -4,13 +4,13 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { containsPattern } from "@/lib/supabase/like-pattern";
 import { createClient } from "@/lib/supabase/server";
 import { UuidSchema } from "@/lib/validation/common";
 
 import {
   SPREADSHEET_MIMES,
   buildHubOrFilter,
-  containsPattern,
   hubScope,
   isHubEntityType,
   nextIsoDay,
