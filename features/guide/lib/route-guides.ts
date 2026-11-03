@@ -527,6 +527,16 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     },
   },
   {
+    prefix: "/admin/afip/preview-pdf",
+    title: "Preview PDF",
+    summary: "Cómo sale el PDF de un comprobante, sin emitirlo.",
+    manual: {
+      page: "admin.html",
+      anchor: "preview-pdf",
+      label: "Administración › Preview PDF",
+    },
+  },
+  {
     prefix: "/admin/imports",
     title: "Importador",
     summary:
