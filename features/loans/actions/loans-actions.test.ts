@@ -18,7 +18,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { cancelLoanAction, listLoansAction } = await import("./loans-actions");
+const { cancelLoanAction, listLoansAction, updateInstallmentAction } =
+  await import("./loans-actions");
 
 const loan = {
   id: "l1",
@@ -96,5 +97,27 @@ describe("cancelLoanAction", () => {
       id: "00000000-0000-4000-8000-000000000001",
     });
     expect(res).toEqual({ ok: false, error: "No se pudo anular el préstamo." });
+  });
+});
+
+describe("updateInstallmentAction", () => {
+  it("reports a failed read as an error, not as a missing installment", async () => {
+    clientOverride = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: null,
+              error: { message: "timeout" },
+            }),
+          }),
+        }),
+      }),
+    };
+    const res = await updateInstallmentAction({
+      id: "00000000-0000-4000-8000-000000000001",
+      notes: "x",
+    });
+    expect(res).toEqual({ ok: false, error: "No se pudo leer la cuota." });
   });
 });
