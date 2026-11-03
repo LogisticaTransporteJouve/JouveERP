@@ -5,6 +5,7 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 let roles: Role[] = ["finance"];
 let denied: string[] = [];
 let tables: Record<string, { data: unknown; error: unknown }> = {};
+let filters: Record<string, [string, string, unknown][]> = {};
 const rpc = vi.fn();
 const audit = vi.fn();
 
@@ -19,13 +20,19 @@ vi.mock("@/lib/actions/audit", () => ({
 }));
 
 /** Every query on a table resolves to its canned result; filters are
- *  accepted and ignored, `.range` serves the whole list once. */
+ *  recorded per table (not applied), `.range` serves the whole list once. */
 function query(table: string) {
   const result = tables[table] ?? { data: [], error: null };
   let ranged = false;
   const builder: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "in", "is", "not", "gte", "lte", "order"]) {
+  for (const m of ["select", "order"]) {
     builder[m] = () => builder;
+  }
+  for (const m of ["eq", "in", "is", "not", "gte", "lte"]) {
+    builder[m] = (column: string, value: unknown) => {
+      (filters[table] ??= []).push([m, column, value]);
+      return builder;
+    };
   }
   builder.limit = () => builder;
   builder.range = (from: number) => {
@@ -57,6 +64,7 @@ beforeEach(() => {
   denied = [];
   rpc.mockReset();
   audit.mockReset();
+  filters = {};
   tables = {
     tax_documents: {
       data: {
@@ -110,6 +118,29 @@ describe("listTaxPaymentCandidatesAction", () => {
     });
     expect(res.data.items[1]?.difference).toBe(500);
     expect(res.data.total).toBe(2);
+  });
+
+  it("asks only for loose fiscal ARS expenses of active ARS accounts within 15 days", async () => {
+    await listTaxPaymentCandidatesAction({ id: DOC_ID });
+    expect(filters.accounts).toEqual(
+      expect.arrayContaining([
+        ["eq", "is_active", true],
+        ["eq", "currency", "ARS"],
+        ["in", "type", ["bank", "cash"]],
+      ]),
+    );
+    const tx = filters.v_transactions_tagged ?? [];
+    expect(tx).toEqual(
+      expect.arrayContaining([
+        ["eq", "kind", "expense"],
+        ["eq", "currency", "ARS"],
+        ["eq", "channel_is_fiscal", true],
+        ["is", "source_document", null],
+        ["in", "account_id", ["acc1"]],
+        ["gte", "transaction_date", "2026-11-03"],
+        ["lte", "transaction_date", "2026-12-03"],
+      ]),
+    );
   });
 
   it("needs taxes:write and transactions:read", async () => {
