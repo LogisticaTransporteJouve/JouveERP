@@ -191,7 +191,7 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-  tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -279,7 +279,7 @@
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
 - [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-    payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
 - [ ] No verificado contra una base real:
