@@ -73,10 +73,16 @@ Tabla maestra única de todo el personal. Migración `…517100000_employees`.
 **Columnas clave:**
 
 - `id uuid PK`, `legal_name text NOT NULL` (apellido y nombre), `position text`.
+- **Datos formales** (del recibo del liquidador, todos nullable, mig
+  `…20261103050000`): `convenio`, `categoria`, `obra_social`, `art` (texto ≤ 120)
+  y `retribucion_formal numeric(15,2) >= 0` (bruto, solo informativo). Se editan
+  en la sección "Datos formales" del form (`hr:write`).
 - `cuil text` — CHECK `cuil ~ '^[0-9]{11}$'` (11 dígitos) o NULL.
 - `cbu text` — CHECK `cbu ~ '^[0-9]{22}$'` (22 dígitos) o NULL.
 - `pay_frequency text NOT NULL` — CHECK ∈ `('semanal','mensual','mixto')`.
-- `base_salary numeric(15,2)` **nullable** (NULL para choferes semanales).
+- `base_salary numeric(15,2)` **nullable**: el sueldo pactado. Un chofer
+  mensual (`pay_frequency='mensual'`) lleva su sueldo acá; NULL solo para quien
+  cobra semanal.
 - `viatico_monthly numeric(15,2) NOT NULL default 20000`.
 - `is_monotributo boolean NOT NULL default false`.
 - `hire_date date NOT NULL`, `termination_date date`, `notes text`,
@@ -135,12 +141,25 @@ transacción).
 
 ### 3.1 Tablas
 
-- **`payroll_periods`** — un período por `(year, month)` (`UNIQUE(year,month)`).
-  `status ∈ ('draft','closed')`, `closed_at`, `closed_by`.
+- **`payroll_periods`** — un período por `(year, month, kind)`.
+  `kind ∈ ('monthly','sac')` (mig `…20261103050100`): el SAC (aguinaldo) es su
+  propio período, en el mes en que vence (6 = 1.er semestre, 12 = 2.º), así sus
+  pagos devengan ahí y los agregados (resultado de gestión, IA) lo cuentan en
+  junio/diciembre. `status ∈ ('draft','closed')`, `closed_at`, `closed_by`.
 - **`payroll_entries`** — una fila por `(period_id, employee_id)`
-  (`UNIQUE`). Campos de plata: `sueldo_neto`, `vacaciones_monto`, `viaticos`,
-  `deudas`, `telefono` (todos `numeric(15,2) >= 0`). FK a `employees` con
-  `ON DELETE RESTRICT`.
+  (`UNIQUE`). Campos de plata: `sueldo_neto` (el pactado), `vacaciones_monto`,
+  `viaticos`, `deudas`, `telefono`, `embargo` (todos `numeric(15,2) >= 0`) y
+  `recibo_neto` (nullable: el neto del recibo del liquidador; NULL = sin recibo,
+  la planilla se comporta como antes). FK a `employees` con `ON DELETE RESTRICT`.
+- **`employee_garnishments`** — embargos: `mode ∈ ('percentage','fixed')` con
+  `percentage` (del neto del recibo, o del pactado sin recibo) o `amount`,
+  `active_from`/`active_to`, `beneficiary`, `court_note`. Mientras uno está
+  vigente en el mes del período, el trigger `payroll_entries_apply_garnishment`
+  fija `embargo` al insertar el entry o al cambiar `sueldo_neto`/`recibo_neto`;
+  escribir o borrar un embargo recalcula los entries de los períodos en
+  **borrador** (los cerrados no cambian). `embargo` sigue editable a mano. RLS
+  owner/admin/finance. El embargo es un descuento de planilla, no un pago: no
+  tiene asiento propio.
 - **`payroll_entry_extras`** — líneas de texto libre por entry (`amount > 0`,
   `description` 1..200, `sort_order`). Ej: "20% Fijo Tareas Gabriel".
 - **`payroll_payments`** — tramos de pago contra un entry: `account_id`,
@@ -150,9 +169,31 @@ transacción).
 - **Views:**
   - `v_payroll_entries_resolved`: agrega `extras_total = Σ extras.amount` y
     `total_a_pagar = sueldo_neto + extras_total + vacaciones_monto + viaticos −
-    deudas − telefono`.
+    deudas − telefono − embargo`.
   - `v_payroll_entries_with_payments`: + `paid_total = Σ payments.amount`,
-    `saldo = total_a_pagar − paid_total`, `payments_count`. Es la fuente del grid.
+    `saldo = total_a_pagar − paid_total`, `payments_count`, y lo pagado por
+    método (`paid_transferencia`, `paid_efectivo`). Es la fuente del grid.
+
+**Recibo y reparto (decisión D5).** El liquidador emite el recibo formal; la
+planilla "en mano" suma neto, extras, viáticos y descuentos.
+`features/hr/lib/payroll-split.ts`: **Otros** = pactado − recibo; reparto
+sugerido **transferencia** = recibo − embargo − deudas − teléfono (entre 0 y el
+total) y **efectivo** = el resto del total. El pago masivo sugiere, por empleado,
+lo que falta de la parte del método elegido (sin recibo, el saldo).
+
+**SAC.** `seed_sac_period(year, half)` crea el período `kind='sac'` (idempotente)
+y `fill_payroll_period` le pone a cada empleado activo (ingresado antes del fin
+del semestre) `payroll_sac_suggestion`: 50% de la mejor remuneración mensual del
+semestre (`sueldo_neto + extras_total` de los períodos mensuales), proporcional a
+los días trabajados en él; sin viático. Editable. Ruta `/hr/payroll/sac/[year]/[half]`.
+
+**Liquidación final.** En la ficha de un empleado dado de baja,
+`getFinalSettlementAction` sugiere sueldo por días trabajados del último mes
+(sueldo/30 × día de baja, tope 30), vacaciones no gozadas (saldos activos +
+proporcional del año si todavía no se otorgó, × sueldo/25, LCT art. 155/156) y
+SAC proporcional; `applyFinalSettlementAction` lo carga en la planilla mensual
+del mes de baja (la crea si falta): `sueldo_neto`, `vacaciones_monto` y un extra
+"Liquidación final: SAC proporcional …" (volver a cargar reemplaza).
 
 RLS de las 4 tablas: SELECT/INSERT/UPDATE/DELETE para
 `user_has_role(['owner','admin','finance'])`.
@@ -195,9 +236,10 @@ CRUD de extras (`add/update/remove…ExtraAction`, `hr:write`).
 `payroll-payments-actions.ts`: `listPayrollPaymentsAction` (`hr:read`),
 `createPayrollPaymentAction`, `updatePayrollPaymentAction`,
 `deletePayrollPaymentAction` (`hr:write`), y `bulkCreatePayrollPaymentsAction`
-(`hr:write`): una transferencia de `amount_each` a N entries → N
-`payroll_payments` en un solo `.insert(rows)` → N transacciones; **atómico**
-(si una falla, rollback de todo el lote). Schema `1..100` entries.
+(`hr:write`): `items` = `{entry_id, amount}` (un monto por empleado), una cuenta
+en pesos y un método → N `payroll_payments` en un solo `.insert(rows)` → N
+transacciones; **atómico** (si una falla, rollback de todo el lote). Schema
+`1..100` items; el control de sobrepago aplica a cada uno (`allow_overpay`).
 
 **RPC `seed_payroll_period(p_year, p_month)`** — `SECURITY INVOKER`, re-chequea
 `user_has_role(['owner','admin','finance'])` (defensa en profundidad).
