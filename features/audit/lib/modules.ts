@@ -29,6 +29,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
     href: () => "/accounting/cost-centers",
   },
   driver: { label: "Choferes", href: () => "/drivers" },
+  driver_settlement: { label: "Rendiciones", href: () => "/rendiciones" },
   employee: { label: "Empleados", href: (id) => `/employees/${id}` },
   employee_document: {
     label: "Documentos de empleados",
@@ -43,6 +44,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
     label: "Documentos de flota",
     href: () => "/fleet-documents",
   },
+  freight_settlement: { label: "Liquidaciones", href: () => "/liquidaciones" },
   fuel_load: { label: "Combustible", href: () => "/fuel" },
   inflation_adjustment: {
     label: "Ajuste por inflación",
