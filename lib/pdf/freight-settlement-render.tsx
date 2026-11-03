@@ -2,7 +2,10 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import { formatSettlementNumber } from "@/features/freight-settlements/schema";
+import {
+  formatRemitoR,
+  formatSettlementNumber,
+} from "@/features/freight-settlements/schema";
 import {
   formatInvoiceNumero,
   invoiceKindLabel,
@@ -29,8 +32,9 @@ function route(origin: string | null, destination: string | null): string {
   return `${origin ?? "—"} → ${destination ?? "—"}`;
 }
 
-/** The R document of a confirmed (or later) liquidación. A draft has no
- *  number and no document. */
+/** The R document of a confirmed (or later) fiscal liquidación: its Remito
+ *  R, or the legacy R-… of one confirmed before it. A draft has none, and an
+ *  internal one prints as its remito interno X (/api/invoices/[id]/pdf). */
 export async function buildFreightSettlementTemplateData(
   settlementId: string,
 ): Promise<FreightSettlementTemplateData> {
@@ -39,15 +43,25 @@ export async function buildFreightSettlementTemplateData(
   const { data: s, error } = await supabase
     .from("freight_settlements")
     .select(
-      "id, numero, status, period_start, period_end, total, notes, confirmed_at, invoice_id, client:clients(legal_name, cuit, iva_condition, is_fiscal), invoice:invoices(kind, letter, punto_venta, numero, status, channel:invoicing_channels(is_fiscal, business_unit_id))",
+      "id, numero, remito_pos, remito_number, status, period_start, period_end, total, notes, confirmed_at, invoice_id, client:clients(legal_name, cuit, iva_condition, is_fiscal), invoice:invoices(kind, letter, punto_venta, numero, status, channel:invoicing_channels(is_fiscal, business_unit_id))",
     )
     .eq("id", settlementId)
     .maybeSingle();
   if (error || !s) {
     throw new Error(`freight-settlement-pdf: not found (${settlementId})`);
   }
-  if (s.numero === null) {
-    throw new Error("La liquidación es un borrador: confirmala para ver el R.");
+  // A fiscal liquidación prints as its Remito R; one confirmed before the
+  // remito R keeps its R-00000012 document.
+  const remito =
+    s.remito_pos !== null && s.remito_number !== null
+      ? formatRemitoR(s.remito_pos, s.remito_number)
+      : null;
+  if (remito === null && s.numero === null) {
+    throw new Error(
+      s.status === "draft"
+        ? "La liquidación es un borrador: confirmala para ver el R."
+        : "La liquidación de Otras ventas no tiene R: su documento es el remito interno.",
+    );
   }
   if (!s.client) throw new Error("freight-settlement-pdf: client missing");
 
@@ -92,7 +106,8 @@ export async function buildFreightSettlementTemplateData(
   return {
     emisor: voucherEmisor(emisor),
     client: voucherParty(s.client),
-    number: formatSettlementNumber(s.numero),
+    heading: remito ? "REMITO" : "LIQUIDACIÓN DE FLETES",
+    number: remito ?? formatSettlementNumber(s.numero),
     fecha: formatArDateShort(s.confirmed_at),
     period: `${formatArgentineDate(s.period_start)} al ${formatArgentineDate(s.period_end)}`,
     items: (items ?? []).map((i) => {

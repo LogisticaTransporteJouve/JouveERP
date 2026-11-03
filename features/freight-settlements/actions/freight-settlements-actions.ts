@@ -13,6 +13,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
+import { formatInvoiceNumero } from "@/features/invoices/schema";
 
 import {
   FreightCandidatesSchema,
@@ -20,11 +21,15 @@ import {
   FreightSettlementInvoiceSchema,
   FreightSettlementSaveSchema,
   freightItemDescription,
+  formatRemitoR,
   formatSettlementNumber,
   isFreightPriceSource,
+  isFreightSettlementChannel,
   isFreightSettlementStatus,
+  settlementDocumentLabel,
   type FreightCandidatesInput,
   type FreightSettlement,
+  type FreightSettlementChannel,
   type FreightSettlementCandidate,
   type FreightSettlementDetail,
   type FreightSettlementInvoiceInput,
@@ -40,11 +45,14 @@ const WRITE_DENIED = "No tenés permiso para liquidar fletes.";
 const CLAIM_TTL_MS = 15 * 60 * 1000;
 
 const SETTLEMENT_COLUMNS =
-  "id, numero, client_id, period_start, period_end, status, total, invoice_id, invoicing_claimed_at, notes, created_at, client:clients(legal_name, is_fiscal), invoice:invoices(status)";
+  "id, numero, channel, remito_pos, remito_number, client_id, period_start, period_end, status, total, invoice_id, invoicing_claimed_at, notes, created_at, client:clients(legal_name, is_fiscal), invoice:invoices(status, kind, letter, punto_venta, numero)";
 
 type SettlementRow = {
   id: string;
   numero: number | null;
+  channel: string | null;
+  remito_pos: number | null;
+  remito_number: number | null;
   client_id: string;
   period_start: string;
   period_end: string;
@@ -55,8 +63,28 @@ type SettlementRow = {
   notes: string | null;
   created_at: string;
   client: { legal_name: string; is_fiscal: boolean } | null;
-  invoice: { status: string } | null;
+  invoice: {
+    status: string;
+    kind: string;
+    letter: string | null;
+    punto_venta: number;
+    numero: number | null;
+  } | null;
 };
+
+/** The grouped invoice's number while it is live (a failed or cancelled one
+ *  is no longer the liquidación's document). */
+function liveInvoiceNumber(invoice: SettlementRow["invoice"]): string | null {
+  if (!invoice || invoice.status === "failed" || invoice.status === "cancelled")
+    return null;
+  return formatInvoiceNumero(
+    invoice.kind,
+    invoice.letter,
+    invoice.punto_venta,
+    invoice.numero,
+    { whenNullNumero: "(en emisión)" },
+  );
+}
 
 function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? "Datos inválidos.";
@@ -71,12 +99,22 @@ function narrowSettlement(row: SettlementRow): FreightSettlement | null {
     });
     return null;
   }
+  if (row.channel !== null && !isFreightSettlementChannel(row.channel)) {
+    logger.error("freight_settlements.unknown_channel", {
+      id: row.id,
+      channel: row.channel,
+    });
+    return null;
+  }
   const claimedAt = row.invoicing_claimed_at
     ? Date.parse(row.invoicing_claimed_at)
     : null;
   return {
     id: row.id,
     numero: row.numero,
+    channel: row.channel,
+    remito_pos: row.remito_pos,
+    remito_number: row.remito_number,
     client_id: row.client_id,
     client_name: row.client?.legal_name ?? "—",
     client_is_fiscal: row.client?.is_fiscal ?? true,
@@ -86,6 +124,7 @@ function narrowSettlement(row: SettlementRow): FreightSettlement | null {
     total: Number(row.total),
     invoice_id: row.invoice_id,
     invoice_status: row.invoice?.status ?? null,
+    invoice_number: liveInvoiceNumber(row.invoice),
     invoicing:
       row.invoice_id === null &&
       claimedAt !== null &&
@@ -287,45 +326,69 @@ export async function saveFreightSettlementAction(
   return { ok: true, data: { id: data } };
 }
 
-/** Reprices the draft from its cargas' flete or tariff and gives it its R
- *  number. Confirming twice returns the same number. */
+export type ConfirmedSettlement = {
+  channel: FreightSettlementChannel | null;
+  /** "R9002-00000001" (fiscal), the legacy "R-00000012", or null (internal:
+   *  its document is the remito interno X issued next). */
+  number: string | null;
+};
+
+/** Runs confirm_freight_settlement_document and audits it. The caller has
+ *  already gated on invoices:issue. */
+async function confirmSettlement(
+  supabase: ReturnType<typeof getServiceClient>,
+  id: string,
+  userId: string,
+): Promise<ActionResult<ConfirmedSettlement>> {
+  const { data, error } = await supabase
+    .rpc("confirm_freight_settlement_document", {
+      p_settlement_id: id,
+      p_user_id: userId,
+    })
+    .maybeSingle();
+  if (error || !data) {
+    const guardError = mapDbGuardError(error, {
+      slug: "freight_settlements.confirm.rejected",
+      userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("freight_settlements.confirm.failed", { userId, id, error });
+    return { ok: false, error: "No se pudo confirmar la liquidación." };
+  }
+  const channel = isFreightSettlementChannel(data.channel)
+    ? data.channel
+    : null;
+  const number =
+    data.remito_pos !== null && data.remito_number !== null
+      ? formatRemitoR(data.remito_pos, data.remito_number)
+      : data.numero !== null
+        ? formatSettlementNumber(data.numero)
+        : null;
+
+  await logAudit(
+    "freight_settlement.confirmed",
+    userId,
+    { channel, numero: number },
+    id,
+  );
+  return { ok: true, data: { channel, number } };
+}
+
+/** Reprices the draft from its cargas' flete or tariff and confirms it on
+ *  its client's side: a fiscal one gets its Remito R number, an internal one
+ *  none (its document is the remito interno X). Confirming twice returns the
+ *  same result. */
 export async function confirmFreightSettlementAction(input: {
   id: string;
-}): Promise<ActionResult<{ numero: number }>> {
+}): Promise<ActionResult<ConfirmedSettlement>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "invoices:issue")) {
     return { ok: false, error: WRITE_DENIED };
   }
   const parsed = FreightSettlementIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Liquidación inválida." };
-
-  const supabase = getServiceClient();
-  const { data, error } = await supabase.rpc("confirm_freight_settlement", {
-    p_settlement_id: parsed.data.id,
-    p_user_id: ctx.userId,
-  });
-  if (error || data === null) {
-    const guardError = mapDbGuardError(error, {
-      slug: "freight_settlements.confirm.rejected",
-      userId: ctx.userId,
-      id: parsed.data.id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("freight_settlements.confirm.failed", {
-      userId: ctx.userId,
-      id: parsed.data.id,
-      error,
-    });
-    return { ok: false, error: "No se pudo confirmar la liquidación." };
-  }
-
-  await logAudit(
-    "freight_settlement.confirmed",
-    ctx.userId,
-    { numero: formatSettlementNumber(data) },
-    parsed.data.id,
-  );
-  return { ok: true, data: { numero: data } };
+  return confirmSettlement(getServiceClient(), parsed.data.id, ctx.userId);
 }
 
 /** Cancels the liquidación and frees its cargas. An invoiced one needs its
@@ -370,9 +433,12 @@ export async function cancelFreightSettlementAction(input: {
 }
 
 /**
- * "Facturar": ONE invoice for every carga of a confirmed liquidación, one
- * line per carga at 21% IVA, through issueFiscalInvoiceAction (AFIP on a
- * fiscal channel, remito interno on an internal one). The liquidación is
+ * "Facturar" (fiscal: the Factura A/B of a confirmed liquidación, its Remito
+ * R already emitted) or "Emitir remito interno" (internal: the remito
+ * interno X, confirming a draft first; the final step). ONE invoice for every
+ * carga, one line per carga at 21% IVA, through issueFiscalInvoiceAction
+ * (AFIP on a fiscal channel, remito interno on an internal one). The
+ * liquidación is
  * claimed first, so two clicks cannot both issue; the invoice is linked on
  * success (link_freight_settlement_invoice) and the claim released on
  * failure. A failed or cancelled invoice puts the liquidación back to
@@ -392,7 +458,22 @@ export async function invoiceFreightSettlementAction(
   const supabase = getServiceClient();
   const detail = await getFreightSettlementAction(id);
   if (!detail.ok) return detail;
-  const settlement = detail.data;
+  let settlement = detail.data;
+  if (settlement.status === "draft") {
+    if (settlement.client_is_fiscal) {
+      return {
+        ok: false,
+        error: "Confirmá la liquidación (Remito R) antes de facturarla.",
+      };
+    }
+    // Otras ventas: the remito interno X is the liquidación's document, so
+    // confirming and issuing it are one step. Re-read: confirming reprices.
+    const confirmed = await confirmSettlement(supabase, id, ctx.userId);
+    if (!confirmed.ok) return confirmed;
+    const fresh = await getFreightSettlementAction(id);
+    if (!fresh.ok) return fresh;
+    settlement = fresh.data;
+  }
   if (settlement.status !== "confirmed" || settlement.invoice_id) {
     return {
       ok: false,
@@ -528,7 +609,7 @@ export async function invoiceFreightSettlementAction(
     ctx.userId,
     {
       invoice_id: result.data.id,
-      numero: formatSettlementNumber(settlement.numero),
+      document: settlementDocumentLabel(settlement),
       total: settlement.total,
     },
     id,
