@@ -163,7 +163,7 @@ export const getPaymentOrders = defineAiAction({
     "Payment orders issued to suppliers: the most recent ones with supplier, " +
     "date, amount, currency and status. For viewing payments made.",
   input: z.object({
-    limit: z.number().nullish().describe("Max rows (default 50)."),
+    limit: z.number().nullish().describe("Max rows (default 50, max 200)."),
     scope: ScopeInputSchema,
   }),
   run: (_ctx, input) => runPaymentOrders(input),

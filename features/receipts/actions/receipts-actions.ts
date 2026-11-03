@@ -92,8 +92,10 @@ export async function listReceiptsAction(input?: {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
-  const offset = input?.offset ?? 0;
-  const limit = input?.limit ?? 50;
+  const offset = Math.max(0, Math.trunc(input?.offset ?? 0));
+  // Bounded like the other lists: a page over PostgREST's max_rows would
+  // come back cut and look complete.
+  const limit = Math.min(200, Math.max(1, Math.trunc(input?.limit ?? 50)));
   const supabase = await createSupabaseClient();
   let query = supabase
     .from("receipts")
@@ -145,7 +147,11 @@ export async function listReceiptsAction(input?: {
 
   return {
     ok: true,
-    data: { items, nextOffset: items.length === limit ? offset + limit : null },
+    // A full page of raw rows means more may follow, even if one was dropped.
+    data: {
+      items,
+      nextOffset: (data ?? []).length === limit ? offset + limit : null,
+    },
   };
 }
 
