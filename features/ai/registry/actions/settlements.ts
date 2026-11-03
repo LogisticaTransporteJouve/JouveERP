@@ -104,8 +104,8 @@ export const getDriverSettlements = defineAiAction({
     "(negative = faltante), who bears it (difference_charged_to: driver " +
     "= his account; client = left open in the client's account; null = " +
     "not resolved) and the driver's movement (difference_kind: advance = " +
-    "the client was settled with a receipt; charge or payment = posted " +
-    "before 2026-11-04, the client side was NOT settled — a faltante left " +
+    "the client was settled with a receipt; charge or payment = an older " +
+    "posting where the client side was NOT settled — a faltante left " +
     "the client's invoice open, a sobrante stayed on the client's account " +
     "too; fix it in Rendiciones › Quitar diferencia) " +
     "and receipts cancelled or edited since. For 'qué choferes deben " +

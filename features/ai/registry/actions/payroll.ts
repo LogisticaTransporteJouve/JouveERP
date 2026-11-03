@@ -333,9 +333,10 @@ export const getFinalSettlement = defineAiAction({
     "employees",
     "v_employee_vacation_balances",
     "payroll_sac_suggestion",
+    "v_payroll_entries_resolved",
   ],
   description:
-    "Liquidación final sugerida de un empleado dado de baja: sueldo por los días trabajados del último mes, días y monto de vacaciones no gozadas y SAC proporcional. Es una sugerencia; lo cargado en la planilla puede diferir.",
+    "Liquidación final sugerida de un empleado dado de baja: sueldo por los días trabajados del último mes, días y monto de vacaciones no gozadas y SAC proporcional, neto de lo que ya le paga la planilla del SAC del semestre (sac_in_sac_planilla). Es una sugerencia; lo cargado en la planilla puede diferir.",
   input: z.object({
     employeeId: z.string().uuid().describe("employee_id del empleado."),
   }),
@@ -348,7 +349,11 @@ export const getFinalSettlement = defineAiAction({
         d.prorated_salary,
       )} por ${d.days_worked} días · vacaciones ${d.vacation_days} días ${money(
         d.vacation_amount,
-      )} · SAC proporcional ${money(d.sac_amount)}.`,
+      )} · SAC proporcional ${money(d.sac_amount)}${
+        d.sac_in_sac_planilla > 0
+          ? ` (la planilla del SAC ya le paga ${money(d.sac_in_sac_planilla)})`
+          : ""
+      }.`,
       d,
       { currency: "ARS" },
     );

@@ -179,7 +179,7 @@ describe("getDriverSettlements", () => {
             difference_charged_to: "driver",
             difference_posted: { id: "m1", kind: "advance", amount: 100 },
           }),
-          // Backfilled to "driver" before 2026-11-04: the client is open.
+          // Posted the old way (a charge): the client side is still open.
           settlement({
             id: "s2",
             difference_charged_to: "driver",
