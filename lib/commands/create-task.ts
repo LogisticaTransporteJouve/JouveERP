@@ -1,0 +1,71 @@
+import "server-only";
+
+import type { z } from "zod";
+
+import { assigneesError } from "@/features/tasks/lib/assignees";
+import type { TaskCreateSchema } from "@/features/tasks/schema";
+import { logAudit } from "@/lib/actions/audit";
+import { logger } from "@/lib/logger";
+import type { ActionResult } from "@/lib/query/run-action";
+import { getServiceClient } from "@/lib/supabase/service";
+
+/**
+ * Creates a manual task with its assignees and audits it. The caller has
+ * already checked `tasks:write` and parsed the input with `TaskCreateSchema`:
+ * the tasks dialog and an accepted assistant proposal.
+ */
+export async function createTask(
+  actorId: string,
+  input: z.output<typeof TaskCreateSchema>,
+): Promise<ActionResult<{ id: string }>> {
+  const invalid = await assigneesError(input.assignee_ids);
+  if (invalid) return { ok: false, error: invalid };
+
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("tasks")
+    .insert({
+      title: input.title,
+      description: input.description,
+      due_date: input.due_date,
+      origin: "manual",
+      created_by: actorId,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    logger.error("tasks.create.failed", { userId: actorId, error });
+    return { ok: false, error: "No se pudo crear la tarea." };
+  }
+
+  if (input.assignee_ids.length > 0) {
+    const { error: assignError } = await service.from("task_assignees").insert(
+      input.assignee_ids.map((user_id) => ({
+        task_id: data.id,
+        user_id,
+        assigned_by: actorId,
+      })),
+    );
+    if (assignError) {
+      // Nothing points at a task created a moment ago: take it back.
+      await service.from("tasks").delete().eq("id", data.id);
+      logger.error("tasks.create.assign_failed", {
+        userId: actorId,
+        error: assignError,
+      });
+      return { ok: false, error: "No se pudo crear la tarea." };
+    }
+  }
+
+  await logAudit(
+    "task.created",
+    actorId,
+    {
+      title: input.title,
+      due_date: input.due_date,
+      assignee_ids: input.assignee_ids,
+    },
+    data.id,
+  );
+  return { ok: true, data: { id: data.id } };
+}

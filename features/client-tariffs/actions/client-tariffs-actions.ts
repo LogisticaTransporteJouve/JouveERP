@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createClientTariff } from "@/lib/commands/create-client-tariff";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -108,54 +109,7 @@ export async function createClientTariffAction(
   }
   const parsed = ClientTariffCreateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const d = parsed.data;
-
-  const supabase = getServiceClient();
-  const { data, error } = await supabase
-    .from("client_tariffs")
-    .insert({
-      client_id: d.client_id,
-      concept: d.concept,
-      unit: d.unit,
-      price: d.price,
-      currency: d.currency,
-      valid_from: d.valid_from,
-      valid_to: d.valid_to ?? null,
-      notes: d.notes ?? null,
-      area_id: d.area_id ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "client_tariffs.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("client_tariffs.create.failed", {
-      userId: ctx.userId,
-      error,
-    });
-    return { ok: false, error: "No se pudo crear la tarifa." };
-  }
-
-  await logAudit(
-    "client_tariff.created",
-    ctx.userId,
-    {
-      client_id: d.client_id,
-      concept: d.concept,
-      unit: d.unit,
-      price: d.price,
-      currency: d.currency,
-      valid_from: d.valid_from,
-      valid_to: d.valid_to ?? null,
-      area_id: d.area_id ?? null,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createClientTariff(ctx.userId, parsed.data);
 }
 
 export async function updateClientTariffAction(

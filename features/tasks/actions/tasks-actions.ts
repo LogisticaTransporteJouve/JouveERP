@@ -1,6 +1,7 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createTask } from "@/lib/commands/create-task";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import {
@@ -227,56 +228,7 @@ export async function createTaskAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const invalid = await assigneesError(parsed.data.assignee_ids);
-  if (invalid) return { ok: false, error: invalid };
-
-  const service = getServiceClient();
-  const { data, error } = await service
-    .from("tasks")
-    .insert({
-      title: parsed.data.title,
-      description: parsed.data.description,
-      due_date: parsed.data.due_date,
-      origin: "manual",
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("tasks.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear la tarea." };
-  }
-
-  if (parsed.data.assignee_ids.length > 0) {
-    const { error: assignError } = await service.from("task_assignees").insert(
-      parsed.data.assignee_ids.map((user_id) => ({
-        task_id: data.id,
-        user_id,
-        assigned_by: ctx.userId,
-      })),
-    );
-    if (assignError) {
-      // Nothing points at a task created a moment ago: take it back.
-      await service.from("tasks").delete().eq("id", data.id);
-      logger.error("tasks.create.assign_failed", {
-        userId: ctx.userId,
-        error: assignError,
-      });
-      return { ok: false, error: "No se pudo crear la tarea." };
-    }
-  }
-
-  await logAudit(
-    "task.created",
-    ctx.userId,
-    {
-      title: parsed.data.title,
-      due_date: parsed.data.due_date,
-      assignee_ids: parsed.data.assignee_ids,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createTask(ctx.userId, parsed.data);
 }
 
 type WritableTask = { id: string; origin: string; status: string };
