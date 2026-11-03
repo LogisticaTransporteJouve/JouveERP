@@ -13,7 +13,7 @@ begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(20);
+select plan(21);
 
 -- Live (not reversed) amount of a role over the entries of some documents.
 create function pg_temp.role_net(p_ids uuid[], p_role text) returns numeric
@@ -220,6 +220,38 @@ select is(
   public.journal_entry_status('payment_orders', '00000000-0000-0000-0000-0000000096f9'),
   'match',
   'the payment order entry is the one the builder expects'
+);
+
+-- A USD payment order posted while no account held the role keeps the old
+-- entry in a period that is then closed. Editing its purchase without
+-- touching rate, currency or date (the form sends all three) must not try
+-- to re-post it.
+update public.chart_of_accounts set is_active = false
+ where system_role = 'diferencia_cambio' and is_active;
+set constraints all deferred;
+insert into public.purchase_invoices
+  (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva,
+   imp_total, moneda, cotizacion, status)
+values
+  ('00000000-0000-0000-0000-0000000096f2', 'jouve_fiscal', '00000000-0000-0000-0000-0000000096b1',
+   'factura', 'A', 7, 96002, '1999-02-10', 100, 0, 100, 'DOL', 1000, 'received');
+insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion)
+values ('00000000-0000-0000-0000-0000000096f8', 'jouve_fiscal', 3, 96002,
+        '00000000-0000-0000-0000-0000000096b1', '1999-02-10', 100, 'USD', 1100);
+insert into public.payment_order_payment_lines (payment_order_id, account_id, amount)
+values ('00000000-0000-0000-0000-0000000096f8', '00000000-0000-0000-0000-0000000096a1', 100);
+insert into public.payment_order_allocations (payment_order_id, purchase_invoice_id, amount_applied)
+values ('00000000-0000-0000-0000-0000000096f8', '00000000-0000-0000-0000-0000000096f2', 100);
+set constraints all immediate;
+update public.chart_of_accounts set is_active = true
+ where system_role = 'diferencia_cambio';
+insert into public.accounting_closed_periods (period) values ('1999-02');
+
+select lives_ok(
+  $$update public.purchase_invoices
+       set notes = 'nota', fecha = fecha, moneda = moneda, cotizacion = cotizacion
+     where id = '00000000-0000-0000-0000-0000000096f2'$$,
+  'an edit that keeps rate, currency and date does not re-post the payment orders'
 );
 
 -- NC USD 121 (100 + IVA 21) at 1.200 against a factura USD 121 booked at

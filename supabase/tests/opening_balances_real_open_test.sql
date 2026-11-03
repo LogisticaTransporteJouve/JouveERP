@@ -10,7 +10,7 @@ begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000094f1', 'owner@opening-real-open.test');
@@ -146,6 +146,34 @@ select is(
     where invoice_id = '00000000-0000-0000-0000-0000000094e3'),
   50::numeric,
   'the dollar invoice keeps its open amount'
+);
+
+-- A draft NC of 40 against B reserves part of it: re-applied, the FIFO can
+-- only put 60 on B, and total_settled says 60, not the 100 it aimed at.
+-- First a target of 100, which settles nothing, frees B for the NC.
+select public.apply_client_opening_balance_core(
+  '00000000-0000-0000-0000-0000000094c1', '2026-01-31', 100, null, null, null);
+insert into public.invoices
+  (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+   doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, moneda, cotizacion, status,
+   idempotency_key, invoice_origin_id)
+values
+  ('00000000-0000-0000-0000-0000000094e5', 'jouve_internal', '00000000-0000-0000-0000-0000000094c1',
+   'nc', null, 9001, null, '2026-01-08', 2, 99, '0', 40, 0, 40, 'PES', 1, 'draft',
+   'opening-real-open-draft-nc', '00000000-0000-0000-0000-0000000094e2');
+
+set constraints all immediate;
+
+select public.apply_client_opening_balance_core(
+  '00000000-0000-0000-0000-0000000094c1', '2026-01-31', 0, null, null, null);
+
+select results_eq(
+  $$select b.total_settled, a.amount_applied
+      from public.client_opening_balances b
+      join public.client_opening_balance_allocations a on a.client_id = b.client_id
+     where b.client_id = '00000000-0000-0000-0000-0000000094c1'$$,
+  $$values (60::numeric, 60::numeric)$$,
+  'total_settled is what the FIFO applied when the invoices take less'
 );
 
 select * from finish();

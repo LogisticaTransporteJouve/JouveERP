@@ -10,7 +10,8 @@ SET LOCAL statement_timeout = '15min';
 --      FIFO. The FIFO capacity of each invoice is invoice_open_amount (what
 --      receipts and NCs against it, drafts included, leave open), so an
 --      invoice already credited by an NC no longer takes the settlement that
---      belongs to the next one.
+--      belongs to the next one. total_settled is what the FIFO applied, as
+--      for the supplier.
 --   2. apply_supplier_opening_balance (20260514221909, search_path fixed in
 --      20261031204719): mirror of the client. Real open = facturas and ND −
 --      NCs − issued payment orders, all up to the cut-off and in pesos; it
@@ -127,6 +128,12 @@ begin
     );
     v_remaining := v_remaining - v_apply;
   end loop;
+
+  if v_remaining > 0 then
+    update public.client_opening_balances
+       set total_settled = v_to_settle - v_remaining
+     where client_id = p_client_id;
+  end if;
 end;
 $$;
 

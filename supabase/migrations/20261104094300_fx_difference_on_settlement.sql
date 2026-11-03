@@ -34,7 +34,8 @@ SET LOCAL statement_timeout = '15min';
 --      receipt or payment order later (allocate_receipt, the a cuenta flow)
 --      re-posts it at commit through a deferred trigger on its allocations;
 --      changing the rate, currency or date of a USD purchase re-posts the
---      USD payment orders applied to it. ARS documents never fire them.
+--      USD payment orders applied to it (only when one of the three really
+--      changes). ARS documents are never re-posted.
 --   6. Backfill: issued USD receipts and payment orders applied at another
 --      rate, and emitted USD NCs against an origin at another rate, are
 --      re-posted; one in a closed period (or with a line that can't be
@@ -519,7 +520,11 @@ create constraint trigger payment_order_allocations_repost_usd_journal
 create constraint trigger purchase_invoices_repost_usd_payments
   after update of moneda, cotizacion, fecha on public.purchase_invoices
   deferrable initially deferred
-  for each row execute function public.repost_usd_settlement_journal();
+  for each row
+  when (old.moneda is distinct from new.moneda
+        or old.cotizacion is distinct from new.cotizacion
+        or old.fecha is distinct from new.fecha)
+  execute function public.repost_usd_settlement_journal();
 
 ------------------------------------------------------------------------------
 -- 6. Backfill
