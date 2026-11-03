@@ -100,6 +100,8 @@ export type TaxDocument = {
   /** The cash or bank account it was paid from; null when the viewer cannot
    *  read treasury movements. */
   paid_from: string | null;
+  /** IVA only: the saldo a favor técnico its DDJJ leaves for next month. */
+  credit_balance: number | null;
   notes: string | null;
 };
 
@@ -177,6 +179,13 @@ const TaxDocumentFields = z.object({
   account_id: UuidSchema.nullable()
     .optional()
     .transform((v) => v ?? null),
+  credit_balance: z
+    .number()
+    .finite()
+    .positive("El saldo a favor tiene que ser mayor a cero.")
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
   notes: optionalText(1000),
 });
 
@@ -189,6 +198,13 @@ function refineDocument(
       code: "custom",
       path: ["title"],
       message: "Poné el nombre del impuesto.",
+    });
+  }
+  if (doc.credit_balance !== null && doc.kind !== "iva") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["credit_balance"],
+      message: "Solo el IVA tiene saldo a favor técnico.",
     });
   }
   if (doc.amount_is_estimate && doc.amount === null) {
@@ -321,16 +337,25 @@ export const TaxListSchema = z.object({
 // ─── IVA estimate ───────────────────────────────────────────────────────────
 
 /** IVA position of a period from the libro IVA: débito − crédito −
- *  retenciones y percepciones de IVA sufridas en cobranzas. Every figure in
- *  pesos, NC already subtracted. An estimate: the DDJJ in ARCA is the one
- *  that counts. */
+ *  retenciones y percepciones de IVA sufridas en cobranzas − saldo a favor
+ *  técnico of the previous period's IVA document. Every figure in pesos, NC
+ *  already subtracted. An estimate: the DDJJ in ARCA is the one that
+ *  counts. */
 export type IvaPositionEstimate = {
   period: string;
   debito: number;
   credito: number;
   retenciones: number;
-  /** debito − credito − retenciones; negative = saldo a favor. */
+  /** The previous period's saldo a favor técnico (0 without one). */
+  saldo_anterior: number;
+  /** Whether the previous period has an IVA document to read it from. */
+  saldo_anterior_known: boolean;
+  /** debito − credito − retenciones − saldo_anterior; negative = saldo a
+   *  favor. */
   saldo: number;
+  /** Other taxes of the purchases book (imp_trib): IVA and IIBB perceptions
+   *  together, the book does not tell them apart. Not subtracted. */
+  tributos_compras: number;
   ventas: number;
   compras: number;
 };
@@ -340,21 +365,52 @@ export function computeIvaPosition(input: {
   debito: number;
   credito: number;
   retenciones: number;
+  saldoAnterior: number | null;
+  tributosCompras: number;
   ventas: number;
   compras: number;
 }): IvaPositionEstimate {
   const debito = round2(input.debito);
   const credito = round2(input.credito);
   const retenciones = round2(input.retenciones);
+  const saldoAnterior = round2(input.saldoAnterior ?? 0);
   return {
     period: input.period,
     debito,
     credito,
     retenciones,
-    saldo: round2(debito - credito - retenciones),
+    saldo_anterior: saldoAnterior,
+    saldo_anterior_known: input.saldoAnterior !== null,
+    saldo: round2(debito - credito - retenciones - saldoAnterior),
+    tributos_compras: round2(input.tributosCompras),
     ventas: input.ventas,
     compras: input.compras,
   };
+}
+
+/**
+ * The saldo a favor técnico the previous period left, from its IVA
+ * documents: the live ones' balances added up; with no live one, the
+ * latest annulled one that has a balance (a month with nothing to pay may
+ * be annulled once its balance is loaded). null when the previous period
+ * has no IVA document at all.
+ */
+export function previousIvaCreditBalance(
+  docs: readonly {
+    status: string;
+    credit_balance: number | null;
+    updated_at: string;
+  }[],
+): number | null {
+  if (docs.length === 0) return null;
+  const live = docs.filter((d) => d.status !== "anulado");
+  if (live.length > 0) {
+    return round2(live.reduce((acc, d) => acc + (d.credit_balance ?? 0), 0));
+  }
+  const annulled = docs
+    .filter((d) => d.credit_balance !== null)
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+  return annulled[0]?.credit_balance ?? 0;
 }
 
 /** Σ IVA of a libro IVA totals' per-rate map. */

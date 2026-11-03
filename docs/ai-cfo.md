@@ -227,6 +227,14 @@ no reparte sueldos, mantenimiento ni gastos generales. Por vehículo: seguros, p
 y compras cargadas solo con centro de costo no están vinculados a un camión. `ai_fleet_margin`
 sigue contando viajes cancelados.
 
+**Impuestos** (`getTaxDocuments`, `features/ai/registry/actions/taxes.ts`, `taxes:read`, así que
+también lo usa el contador): envuelve `listTaxDocumentsAction` y separa los impuestos vencidos,
+los que vencen en los próximos `dueWithinDays` días (15 por defecto), los pagados en `period`
+(por fecha de pago) y los abiertos con importe estimado; los anulados no cuentan y un impuesto
+sin importe no suma (el resumen dice cuántos). Con `ivaPeriod` agrega el estimado de IVA de
+`getIvaPositionEstimateAction`, que tiene su propio gate (`taxes:write` + `accounting:read`): si
+lo rechaza, el resultado sale `partial` con la nota del motivo.
+
 ## Propuestas para todo, siempre con aceptación (roadmap 6.3, hecha)
 
 El AI CFO propone escrituras y **nunca** las ejecuta sin que el usuario acepte. Es el mismo
