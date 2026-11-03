@@ -74,6 +74,39 @@
 
 ---
 
+## Remitos únicos y tarifarios por cliente (2026-11-03, roadmap 4.1 + 4.2)
+
+- [x] **Remito del cliente en la carga** (`shipments.remito_number`): único
+      por cliente entre las cargas no canceladas, sin distinguir mayúsculas ni
+      espacios (índice `shipments_client_remito_unique`). El diálogo de carga
+      avisa mientras se escribe (`shipment_remito_conflict`) y no deja guardar
+      un repetido; el índice lo rechaza igual. Una carga cancelada libera su
+      número.
+- [x] **Tarifario por cliente** (`client_tariffs`): concepto (almacenaje,
+      carga, descarga), unidad, precio, ARS/USD y vigencia, sin superposición
+      por cliente y concepto (guard `guard_client_tariff_overlap`); RPC
+      `client_tariff_at(cliente, concepto, fecha)`. Pestaña **Tarifario** en el
+      detalle del cliente (`storage_billing:read`, edición con
+      `storage_billing:issue`).
+- [x] **Facturación de almacenaje** usa el tarifario del cliente día por día
+      (carga el día de ingreso, descarga el de egreso) y cae a
+      `storage_tariffs` (la del cliente, después la general) en lo que no
+      cubre. USD al oficial del último día del período (o el anterior); sin
+      cotización la preview lo marca y la factura no se emite.
+- [ ] Aprobar las migraciones `20261103080000_shipment_remito_number` y
+      `20261103080100_client_tariffs` junto con el deploy: sin ellas fallan
+      el listado de cargas (columna `remito_number`), la pestaña Tarifario y la
+      facturación de almacenaje (lee `client_tariffs`).
+- [ ] Unificar tarifas: las filas de `storage_tariffs` con cliente conviven
+      con el tarifario; pasarlas a `client_tariffs` y dejar `storage_tariffs`
+      solo para la general.
+- [ ] Concepto **flete** en el tarifario (sugerir `freight_amount` al crear la
+      carga): quedó fuera, el flete se sigue cargando a mano.
+- [ ] Remito en el escaneo (Document Intelligence → carga) y búsqueda de
+      cargas por remito.
+
+---
+
 ## Contador, "Hoy y esta semana" y auditoría (2026-11-02, roadmap 1.9–1.11)
 
 - [x] **Paquete del mes** (`/accounting/package`, `accounting:read`, también
