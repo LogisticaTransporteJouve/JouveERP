@@ -61,6 +61,7 @@ import {
   type PurchaseInvoiceCreateRawInput,
   type PurchaseInvoiceDraft,
 } from "../lib/purchase-invoice-draft";
+import { followHeaderTotal } from "../lib/header-total";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
@@ -374,6 +375,7 @@ export function PurchaseInvoiceForm({
     watchedExentas,
   ]);
 
+  const prevHeaderTotalRef = useRef<number | null>(null);
   useEffect(() => {
     if (!derivedTotals) return;
     if (derivedTotals.mode === "items") {
@@ -388,16 +390,15 @@ export function PurchaseInvoiceForm({
       });
       return;
     }
-    // Header mode: only overwrite if the total wasn't touched manually, or
-    // it matches the previous calculation (±0.01 heuristic).
-    const currentTotal = Number(form.getValues("imp_total") || 0);
-    if (
-      currentTotal === 0 ||
-      Math.abs(currentTotal - derivedTotals.imp_total) < 0.01
-    ) {
-      form.setValue("imp_total", String(derivedTotals.imp_total), {
-        shouldDirty: false,
-      });
+    const previous = prevHeaderTotalRef.current;
+    prevHeaderTotalRef.current = derivedTotals.imp_total;
+    const next = followHeaderTotal(
+      Number(form.getValues("imp_total") || 0),
+      previous,
+      derivedTotals.imp_total,
+    );
+    if (next !== null) {
+      form.setValue("imp_total", String(next), { shouldDirty: false });
     }
   }, [derivedTotals, form]);
 
@@ -536,11 +537,20 @@ export function PurchaseInvoiceForm({
   const isInternalChannel = !watchedChannelIsFiscal;
   const showsExempt = watchedChannelIsFiscal && watchedLetter === "A";
 
-  // Hidden exento / no gravado would still count in the total but be sent as 0.
+  // Off a fiscal A, exento and no gravado move into the net (foldNonComputable),
+  // so the total keeps matching the parts sent. With items the net comes from
+  // the lines and the total is recomputed without them.
   useEffect(() => {
     if (showsExempt) return;
-    for (const name of ["imp_no_gravado", "imp_op_exentas"] as const) {
-      if (Number(form.getValues(name) || 0) !== 0) form.setValue(name, "0");
+    const hidden =
+      Number(form.getValues("imp_no_gravado") || 0) +
+      Number(form.getValues("imp_op_exentas") || 0);
+    if (hidden === 0) return;
+    form.setValue("imp_no_gravado", "0");
+    form.setValue("imp_op_exentas", "0");
+    if (!form.getValues("with_items")) {
+      const neto = Number(form.getValues("imp_neto") || 0);
+      form.setValue("imp_neto", String(+(neto + hidden).toFixed(2)));
     }
   }, [showsExempt, form]);
 

@@ -10,12 +10,19 @@ let stored: Record<string, unknown> | null = null;
 const writes: string[] = [];
 
 function from(table: string) {
+  let channelId: unknown = null;
   const builder = {
     select: () => builder,
-    eq: () => builder,
+    eq: (_col: string, value: unknown) => {
+      channelId = value;
+      return builder;
+    },
     maybeSingle: async () => {
       if (table === "invoicing_channels") {
-        return { data: { is_fiscal: true }, error: null };
+        return {
+          data: { is_fiscal: channelId === CHANNEL_FISCAL },
+          error: null,
+        };
       }
       return { data: stored, error: null };
     },
@@ -92,7 +99,7 @@ describe("letter rule on create", () => {
       expect(res).toEqual({
         ok: false,
         error:
-          "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto.",
+          "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con alícuota «No gravado».",
       });
       expect(writes).toEqual([]);
     },
@@ -111,9 +118,11 @@ describe("letter rule on create", () => {
 
 describe("letter rule and items on update", () => {
   it("refuses switching a stored A with IVA to B", async () => {
+    stored = { ...stored, imp_op_exentas: 0 };
     const res = await updatePurchaseInvoiceAction({
       id: INVOICE_ID,
       letter: "B",
+      imp_iva: 21,
     });
     expect(res.ok).toBe(false);
     expect(writes).toEqual([]);
@@ -154,8 +163,34 @@ describe("letter rule and items on update", () => {
   });
 
   it("does not apply the rule to an internal channel", async () => {
-    stored = { ...stored, channel_id: CHANNEL_INTERNAL, letter: null };
-    await updatePurchaseInvoiceAction({ id: INVOICE_ID, imp_iva: 30 });
+    stored = {
+      ...stored,
+      channel_id: CHANNEL_INTERNAL,
+      letter: "B",
+      imp_op_exentas: 0,
+    };
+    await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      letter: "B",
+      imp_iva: 30,
+    });
     expect(writes).toEqual(["update:purchase_invoices"]);
+  });
+
+  it("refuses moving an internal B with IVA to a fiscal channel", async () => {
+    stored = {
+      ...stored,
+      channel_id: CHANNEL_INTERNAL,
+      letter: "B",
+      imp_op_exentas: 0,
+    };
+    const res = await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      channel_id: CHANNEL_FISCAL,
+      letter: "B",
+      imp_iva: 21,
+    });
+    expect(res.ok).toBe(false);
+    expect(writes).toEqual([]);
   });
 });

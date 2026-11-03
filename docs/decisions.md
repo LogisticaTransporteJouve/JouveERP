@@ -13,9 +13,10 @@ de ARCA dicen de qué es cada tributo. `imp_trib` queda como la suma de las
 cuatro partes. En el asiento, el no gravado, el exento, los municipales y los
 internos son gasto; la percepción de IVA va a "Percepciones IVA sufridas"
 (rol nuevo `percepciones_iva_pagadas`) y la de IIBB a "Percepciones IIBB
-sufridas", como todo `imp_trib` antes. El libro IVA (pantalla, Excel, PDF) y
-el TXT para ARCA declaran cada importe en su campo; el campo "Otros
-tributos" del TXT queda en 0. El estimado de IVA resta las percepciones de
+sufridas", como todo `imp_trib` antes. El TXT para ARCA declara cada importe en
+su campo y deja "Otros tributos" en 0; el libro IVA (pantalla, Excel, PDF)
+muestra no gravado, exento, percepciones de IVA y de IIBB aparte, y junta
+municipales e internos en "Otros trib.". El estimado de IVA resta las percepciones de
 IVA de las compras. En facturas B y C el IVA, el exento y el no gravado van
 dentro del neto.
 

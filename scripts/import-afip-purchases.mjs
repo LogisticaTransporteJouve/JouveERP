@@ -309,22 +309,29 @@ async function main() {
       punto_venta: row.punto_venta,
       numero: row.numero,
       fecha: row.fecha,
-      // Exento and no gravado have their own columns only on letter A; on
-      // B and C they go inside the net, like the purchase form does.
+      // IVA, exento and no gravado have their own columns only on letter A;
+      // on B and C they go inside the net (foldNonComputable, lib/afip/codes.ts).
       ...(mapping.letter === "A"
         ? {
             imp_neto: row.imp_neto,
             imp_no_gravado: row.imp_no_gravado,
             imp_op_exentas: row.imp_op_exentas,
+            imp_iva: row.imp_iva,
           }
         : {
             imp_neto:
               Math.round(
-                (row.imp_neto + row.imp_no_gravado + row.imp_op_exentas) * 100,
+                (row.imp_neto +
+                  row.imp_no_gravado +
+                  row.imp_op_exentas +
+                  row.imp_iva) *
+                  100,
               ) / 100,
+            imp_iva: 0,
           }),
-      imp_iva: row.imp_iva,
+      // ARCA does not say which tribute "otros tributos" is: IIBB until split.
       imp_trib: row.imp_trib,
+      imp_perc_iibb: row.imp_trib,
       imp_total: row.imp_total,
       moneda: row.moneda,
       cae_proveedor: row.cae,
