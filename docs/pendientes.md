@@ -74,6 +74,57 @@
 
 ---
 
+## Guía del sidebar e impuestos como documento (2026-11-03, roadmap 6.5 + 6.6)
+
+- [x] **Guía en el sidebar** (`features/guide`): ayuda corta de la pantalla
+      actual (qué es, pasos y la sección del manual HTML que la cubre) y el
+      checklist de **puesta en marcha** (cuentas, puntos de venta AFIP,
+      importador, tarifas por cliente, saldos iniciales, ajuste inicial,
+      usuarios, impuestos). Cada ítem se marca hecho desde los datos (hay al
+      menos un registro) o a mano ("Ya está"); se ve solo con el permiso de
+      su módulo, denegaciones por usuario incluidas. Plegable; el estado se
+      guarda por usuario en `user_guide_states` (localStorage solo como
+      pista del primer render).
+- [x] **Impuestos** (Contabilidad › Impuestos, `/taxes`, `features/taxes`):
+      `tax_documents` con tipo (IVA, IIBB, anticipo de Ganancias, SICORE,
+      F931, monotributo, otro con nombre), período, vencimiento, importe
+      (manual o estimado desde el libro IVA) y estado pendiente → liquidado
+      → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
+      tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+      mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
+      canal fiscal como movimiento con dueño y su asiento Debe cuenta del
+      impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
+      automáticas 7 días antes del vencimiento (`sync_automatic_tasks`,
+      cron `tasks-daily`). `taxes:read` (owner, admin, finance,
+      fiscal_reader) y `taxes:write` (owner, admin, finance).
+- [ ] Aprobar las migraciones `20261103170000_tax_documents` y
+      `20261103170100_user_guide_states` con el deploy (después de
+      `20261103150000_ai_cross_queries`). Sin ellas falla `/taxes` y la guía
+      del sidebar muestra solo la ayuda de la pantalla (la lectura del
+      checklist falla). Rollback: el código anterior no lee las tablas
+      nuevas; Caja (`v_transactions_tagged`) marca el pago de un impuesto con
+      origen `tax_document` y la app vieja lo muestra como un movimiento con
+      dueño (no editable), que es lo correcto.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`supabase/tests/tax_documents_test.sql`) sin stack local; correr
+      `supabase test db`. La UI (guía, impuestos, calendario) no se probó en
+      el navegador.
+- [ ] Deshacer un pago de impuesto (hoy el egreso no se borra ni el
+      documento vuelve a pendiente) y "Vincular egreso" para tomar un débito
+      automático ya cargado en Caja, como en préstamos.
+- [ ] Resultado de gestión percibido: el pago de un impuesto cae en el
+      rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
+      gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
+      de pasivo (IVA) no es resultado y no suma.
+- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
+      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
+      saldo a favor del mes anterior; lo dice en pantalla.
+- [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
+      ("Manual: Contabilidad › Impuestos"), sin link.
+- [ ] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
+      (no tiene `files:read`).
+- [ ] Herramienta del asistente IA para impuestos (vencimientos y estado).
+
 ## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
 
 - [x] **Margen por cliente** (`getClientMargin`): ingreso neto facturado sin

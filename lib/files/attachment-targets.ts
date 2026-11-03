@@ -12,6 +12,7 @@ export const ATTACHMENT_FK_COLUMN = {
   supplier: "supplier_id",
   transaction: "transaction_id",
   fuel_load: "fuel_load_id",
+  tax_document: "tax_document_id",
 } as const;
 
 export type AttachmentFkTarget = keyof typeof ATTACHMENT_FK_COLUMN;

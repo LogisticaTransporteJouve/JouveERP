@@ -39,6 +39,9 @@ vi.mock("@/features/chat/hooks/use-chat", () => ({
   useChatUnreadCountLite: () => 0,
 }));
 vi.mock("./nav-user", () => ({ NavUser: () => null }));
+vi.mock("@/features/guide/components/sidebar-guide", () => ({
+  SidebarGuide: () => null,
+}));
 vi.mock("./nav-theme", () => ({ NavTheme: () => null }));
 vi.mock("@/components/ui/sidebar", async () => {
   const { Slot } = await import("@radix-ui/react-slot");

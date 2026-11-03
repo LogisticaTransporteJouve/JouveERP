@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useChatUnreadCountLite } from "@/features/chat/hooks/use-chat";
+import { SidebarGuide } from "@/features/guide/components/sidebar-guide";
 import type { Access } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
@@ -178,6 +179,7 @@ export function AppSidebar({
             </Collapsible>
           ))}
         </nav>
+        <SidebarGuide />
       </SidebarContent>
       <SidebarFooter>
         <NavTheme className="p-0" />
