@@ -155,6 +155,8 @@ const GUARDS = [
   "update_payment_order",
   "guard_loan",
   "guard_issued_check_edit",
+  "create_transfer",
+  "reject_check",
 ];
 
 describe("guard hints in migrations", () => {
