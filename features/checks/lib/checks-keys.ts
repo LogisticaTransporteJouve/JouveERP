@@ -5,4 +5,9 @@ export const checksKeys = {
   detail: (id: string) => [...checksKeys.all, "detail", id] as const,
   enCartera: (currency: string) =>
     [...checksKeys.all, "en_cartera", currency] as const,
+  sales: (isFiscal: boolean | null) =>
+    [...checksKeys.all, "sales", { isFiscal }] as const,
+  saleDebts: () => [...checksKeys.all, "sale-debts"] as const,
+  soldExposure: (isFiscal: boolean | null) =>
+    [...checksKeys.all, "sold-exposure", { isFiscal }] as const,
 };

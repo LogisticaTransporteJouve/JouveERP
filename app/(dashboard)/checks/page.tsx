@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
+import { CheckSalesSection } from "@/features/checks/components/check-sales-section";
 import { ChequesTable } from "@/features/checks/components/checks-table";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { requireUserContext } from "@/lib/auth/context";
@@ -61,6 +62,7 @@ export default async function ChequesPage() {
         <Suspense fallback={<Loading />}>
           <ChequesTable channels={channels} actorAccess={ctx.access} />
         </Suspense>
+        <CheckSalesSection canWrite={userCan(ctx.access, "cheques:write")} />
       </Hydrate>
     </div>
   );

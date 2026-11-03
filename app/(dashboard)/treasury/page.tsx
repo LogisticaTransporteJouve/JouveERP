@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { SoldChecksExposureCard } from "@/features/checks/components/sold-checks-exposure-card";
 import { TreasuryPage } from "@/features/treasury/components/treasury-page";
 import { treasurySummaryQuery } from "@/features/treasury/lib/treasury-queries";
 import { requireUserContext } from "@/lib/auth/context";
@@ -21,14 +22,17 @@ export default async function TreasuryRoute() {
   const dehydratedState = await prefetchQueries([treasurySummaryQuery()]);
   return (
     <Hydrate state={dehydratedState}>
-      <TreasuryPage
-        canCollect={userCan(ctx.access, "receipts:write")}
-        canPay={userCan(ctx.access, "payment_orders:write")}
-        canAdvance={
-          userCan(ctx.access, "hr:write") &&
-          userCan(ctx.access, "transactions:write")
-        }
-      />
+      <div className="space-y-6">
+        <TreasuryPage
+          canCollect={userCan(ctx.access, "receipts:write")}
+          canPay={userCan(ctx.access, "payment_orders:write")}
+          canAdvance={
+            userCan(ctx.access, "hr:write") &&
+            userCan(ctx.access, "transactions:write")
+          }
+        />
+        {userCan(ctx.access, "cheques:read") && <SoldChecksExposureCard />}
+      </div>
     </Hydrate>
   );
 }
