@@ -150,7 +150,7 @@ function canReadSomeLink(
 /** files:read opens every attachment the module gates allow. Without it,
  *  a taxes:read holder (the accountant) opens only a tax document's: the
  *  scoped read the RLS on files and file_attachments also grants
- *  (20261104040300). */
+ *  (20261104050400). */
 function canReadFilesOf(
   access: Parameters<typeof userCan>[0],
   target: AttachmentTargetType | "any",

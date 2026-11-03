@@ -1,4 +1,4 @@
--- Impuestos: deshacer un pago y los follow-ups de 20261104040000..220300.
+-- Impuestos: deshacer un pago y los follow-ups de 20261104050100..220300.
 -- pay_tax_document and link_tax_document_payment record their origin (and
 -- the expense account a linked movement had); undo_tax_document_payment
 -- deletes the movement "Pagar" booked, releases a linked one with its

@@ -151,7 +151,7 @@
       fiscal o pagar con "Pagar".
 - [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
       ("Manual: Contabilidad › Impuestos"), sin link.
-- [x] **Deshacer un pago** (`20261104040000`, "Deshacer pago" en el
+- [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
       impuesto pagado; `taxes:write` + `transactions:write`):
       `undo_tax_document_payment` deja el impuesto liquidado (o pendiente si
       el importe era estimado) y una línea en las notas. Si lo pagó "Pagar",
@@ -160,12 +160,12 @@
       (`tax_documents.payment_previous_expense_account_id`) y el asiento
       rehecho. Rechaza un período cerrado y un egreso de "Pagar" conciliado
       con el extracto (primero se desconcilia). Sin pago no hace nada.
-- [x] **Gestión percibido** (`20261104040100`): el pago de un impuesto va
+- [x] **Gestión percibido** (`20261104050200`): el pago de un impuesto va
       al rubro de la cuenta del impuesto si está mapeada en
       `management_buckets`, si no a Costos operativos › Impuestos
       operativos. Devengado no cambia.
 - [x] **Estimado de IVA**: descuenta el saldo a favor técnico del IVA del
-      mes anterior (`tax_documents.credit_balance`, `20261104040200`, se
+      mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
       tributos de las compras.
 - [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
@@ -181,13 +181,13 @@
       `repost_journal` borra el asiento reemplazado (no lo revierte). Sin
       rastro, deshacer deja el movimiento sin cuenta de gasto (va a
       `gastos`).
-- [x] **Adjuntos para el contador** (`20261104040300`): quien tiene
+- [x] **Adjuntos para el contador** (`20261104050400`): quien tiene
       `taxes:read` ve los adjuntos de un impuesto (RLS de `file_attachments`
       y `files`, y las acciones de adjuntos) sin `files:read`; nada más del
       hub de archivos. En `/taxes`, el lector abre "Ver adjuntos".
 - [x] **Herramienta IA** `getTaxDocuments` (`taxes:read`): vencidos, por
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
-- [ ] Aprobar las migraciones `20261104040000` a `20261104040300` con el
+- [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
       payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
