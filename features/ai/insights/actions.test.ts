@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = [];
+let denied: string[] = [];
 
 const rows = [
   "cashflow",
@@ -22,6 +23,16 @@ const rows = [
   period: null,
   status: "open",
   generated_at: `2026-07-0${i + 1}T00:00:00Z`,
+  proposal:
+    kind === "receivables_risk"
+      ? {
+          action: "proposeLateInterestNd",
+          label: "Generar ND por mora",
+          input: { invoice_id: "x" },
+        }
+      : kind === "trip_margin"
+        ? { action: "notAnAction", label: "x", input: {} }
+        : null,
 }));
 
 // The RLS client is mocked to return every row (as a too-broad policy would):
@@ -36,7 +47,7 @@ const chain = {
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(roles),
+    access: resolveAccess(roles, denied),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -56,6 +67,7 @@ async function kindsFor(r: Role[]): Promise<string[]> {
 
 beforeEach(() => {
   roles = [];
+  denied = [];
 });
 
 describe("listInsightsAction", () => {
@@ -77,5 +89,28 @@ describe("listInsightsAction", () => {
 
   it("returns everything to admin", async () => {
     expect(await kindsFor(["admin"])).toHaveLength(rows.length);
+  });
+});
+
+describe("insight proposals", () => {
+  async function proposals() {
+    const res = await listInsightsAction();
+    if (!res.ok) throw new Error(res.error);
+    return Object.fromEntries(res.data.map((c) => [c.kind, c.proposal]));
+  }
+
+  it("offers the button only when the user may run the action", async () => {
+    roles = ["finance"];
+    expect((await proposals()).receivables_risk).toEqual({
+      action: "proposeLateInterestNd",
+      label: "Generar ND por mora",
+    });
+    denied = ["credit_debit_notes:issue"];
+    expect((await proposals()).receivables_risk).toBeNull();
+  });
+
+  it("drops a proposal whose action is not a registry proposal", async () => {
+    roles = ["admin"];
+    expect((await proposals()).trip_margin).toBeNull();
   });
 });

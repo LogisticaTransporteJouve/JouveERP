@@ -5,6 +5,11 @@ import { TransactionCreateSchema } from "@/features/transactions/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import {
+  matchBankLine,
+  matchBankLines,
+  type BankMatchesResult,
+} from "@/lib/commands/match-bank-line";
 import { addDaysIso } from "@/lib/date-range";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
@@ -340,38 +345,10 @@ export async function matchLineAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { line_id, transaction_ids } = parsed.data;
-  const { error } = await getServiceClient().rpc("match_bank_statement_line", {
-    p_line_id: line_id,
-    p_transaction_ids: transaction_ids,
-    p_user_id: ctx.userId,
-  });
-  if (error) {
-    return {
-      ok: false,
-      error: rejected(
-        error,
-        "reconciliation.match.rejected",
-        ctx.userId,
-        line_id,
-        "No se pudo conciliar la línea.",
-      ),
-    };
-  }
-  await logAudit(
-    "bank_statement_line.matched",
-    ctx.userId,
-    { transaction_ids },
-    line_id,
-  );
-  return { ok: true, data: { line_id } };
+  return matchBankLine(ctx.userId, parsed.data);
 }
 
-export type AcceptSuggestionsResult = {
-  matched: number;
-  /** Lines that could not be matched (changed since the page read them). */
-  failed: { line_id: string; error: string }[];
-};
+export type AcceptSuggestionsResult = BankMatchesResult;
 
 /** Accepts several suggestions; each line is matched on its own, so one that
  *  went stale does not undo the others. */
@@ -384,36 +361,10 @@ export async function acceptSuggestionsAction(
   }
   const parsed = AcceptSuggestionsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
-  const service = getServiceClient();
-  const result: AcceptSuggestionsResult = { matched: 0, failed: [] };
-  for (const m of parsed.data.matches) {
-    const { error } = await service.rpc("match_bank_statement_line", {
-      p_line_id: m.line_id,
-      p_transaction_ids: m.transaction_ids,
-      p_user_id: ctx.userId,
-    });
-    if (error) {
-      result.failed.push({
-        line_id: m.line_id,
-        error: rejected(
-          error,
-          "reconciliation.accept.rejected",
-          ctx.userId,
-          m.line_id,
-          "No se pudo conciliar la línea.",
-        ),
-      });
-      continue;
-    }
-    result.matched += 1;
-    await logAudit(
-      "bank_statement_line.matched",
-      ctx.userId,
-      { transaction_ids: m.transaction_ids, suggested: true },
-      m.line_id,
-    );
-  }
-  return { ok: true, data: result };
+  return {
+    ok: true,
+    data: await matchBankLines(ctx.userId, parsed.data.matches),
+  };
 }
 
 /** Back to pending: its movements can be edited again. */

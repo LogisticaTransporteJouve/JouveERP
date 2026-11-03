@@ -335,6 +335,7 @@ export type Database = {
           kind: string
           metrics: Json
           period: string | null
+          proposal: Json | null
           severity: string
           source_refs: Json
           status: string
@@ -352,6 +353,7 @@ export type Database = {
           kind: string
           metrics?: Json
           period?: string | null
+          proposal?: Json | null
           severity: string
           source_refs?: Json
           status?: string
@@ -369,6 +371,7 @@ export type Database = {
           kind?: string
           metrics?: Json
           period?: string | null
+          proposal?: Json | null
           severity?: string
           source_refs?: Json
           status?: string
@@ -408,6 +411,77 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ai_proposals: {
+        Row: {
+          action: string
+          created_at: string
+          decided_at: string | null
+          dedupe_key: string
+          draft: Json
+          error: string | null
+          expires_at: string
+          id: string
+          input: Json
+          insight_id: string | null
+          insight_kind: string | null
+          labels: Json
+          result: Json | null
+          source: string
+          status: string
+          summary: Json
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          decided_at?: string | null
+          dedupe_key: string
+          draft: Json
+          error?: string | null
+          expires_at: string
+          id?: string
+          input?: Json
+          insight_id?: string | null
+          insight_kind?: string | null
+          labels?: Json
+          result?: Json | null
+          source: string
+          status?: string
+          summary: Json
+          title: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          decided_at?: string | null
+          dedupe_key?: string
+          draft?: Json
+          error?: string | null
+          expires_at?: string
+          id?: string
+          input?: Json
+          insight_id?: string | null
+          insight_kind?: string | null
+          labels?: Json
+          result?: Json | null
+          source?: string
+          status?: string
+          summary?: Json
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_proposals_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "ai_insights"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_usage: {
         Row: {

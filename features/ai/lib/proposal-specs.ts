@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import { MatchLineSchema } from "@/features/bank-reconciliation/schema";
+import {
+  CLIENT_TARIFF_CONCEPT_LABELS,
+  CLIENT_TARIFF_UNIT_LABELS,
+  ClientTariffCreateSchema,
+} from "@/features/client-tariffs/schema";
 import { ExchangeRateCreateSchema } from "@/features/exchange-rates/schema";
 import {
   CreateLeaveSchema,
@@ -7,6 +13,8 @@ import {
   LEAVE_KINDS,
 } from "@/features/hr/vacation-schema";
 import { ManualJournalEntryCreateSchema } from "@/features/journal-entries/schema";
+import { IssueLateInterestSchema } from "@/features/late-interest/schema";
+import { TaskCreateSchema } from "@/features/tasks/schema";
 import {
   amountToInput,
   formatAmountInput,
@@ -310,6 +318,140 @@ export const documentScanProposalSpec = defineProposalSpec({
   ],
 });
 
+export const taskProposalSpec = defineProposalSpec({
+  title: "Crear tarea",
+  draft: TaskCreateSchema,
+  fields: [
+    { key: "title", label: "Título", kind: "text" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+    { key: "due_date", label: "Vence", kind: "date" },
+  ],
+  confirmLabel: "Crear tarea",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Título", value: d.title },
+    ...(d.description ? [{ label: "Descripción", value: d.description }] : []),
+    {
+      label: "Vence",
+      value: d.due_date ? formatArgentineDate(d.due_date) : "Sin fecha",
+    },
+    {
+      label: "Responsables",
+      value: d.assignee_ids.length
+        ? d.assignee_ids.map((id) => labels[id] ?? id).join(", ")
+        : "Sin asignar",
+    },
+  ],
+});
+
+export const clientTariffProposalSpec = defineProposalSpec({
+  title: "Cargar tarifa del cliente",
+  draft: ClientTariffCreateSchema,
+  fields: [
+    { key: "price", label: "Precio", kind: "number" },
+    { key: "valid_from", label: "Vigente desde", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar tarifa",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
+    { label: "Concepto", value: CLIENT_TARIFF_CONCEPT_LABELS[d.concept] },
+    { label: "Unidad", value: CLIENT_TARIFF_UNIT_LABELS[d.unit] },
+    { label: "Precio", value: formatMoney(d.price, d.currency) },
+    { label: "Vigente desde", value: formatArgentineDate(d.valid_from) },
+    {
+      label: "Hasta",
+      value: d.valid_to ? formatArgentineDate(d.valid_to) : "Sin fecha de fin",
+    },
+    ...(d.area_id
+      ? [{ label: "Área", value: labels[d.area_id] ?? d.area_id }]
+      : []),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+  ],
+});
+
+/** Up to this many suggested matches go in one proposal (the page accepts
+ *  up to 200 at once; a card lists each one). */
+export const MAX_PROPOSED_MATCHES = 30;
+
+export const BankMatchesDraftSchema = z.object({
+  account_id: z.string().uuid(),
+  matches: z
+    .array(MatchLineSchema)
+    .min(1, "No hay sugerencias para conciliar.")
+    .max(MAX_PROPOSED_MATCHES),
+});
+
+export const bankMatchesProposalSpec = defineProposalSpec({
+  title: "Conciliar extracto",
+  draft: BankMatchesDraftSchema,
+  fields: [],
+  confirmLabel: "Conciliar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
+    ...d.matches.map((m) => ({
+      label: labels[m.line_id] ?? m.line_id,
+      value: m.transaction_ids.map((id) => labels[id] ?? id).join(" + "),
+    })),
+    {
+      label: "Qué pasa",
+      value:
+        "Cada línea se concilia con su movimiento, como al aceptar las sugerencias en Conciliación; una línea que cambió mientras tanto se saltea.",
+    },
+  ],
+});
+
+export const LateInterestNdDraftSchema = IssueLateInterestSchema.extend({
+  /** The interest the card showed; the ND is refused if it changed. */
+  expected_interest: z.number().positive(),
+});
+
+/** Keys of the display labels a late-interest draft carries. */
+export const LATE_INTEREST_LABELS = {
+  client: "client",
+  comprobante: "comprobante",
+  base: "base",
+  period: "period",
+  interest: "interest",
+} as const;
+
+export const lateInterestNdProposalSpec = defineProposalSpec({
+  title: "Generar ND por mora",
+  draft: LateInterestNdDraftSchema,
+  fields: [],
+  confirmLabel: "Emitir ND",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Cliente", value: labels[LATE_INTEREST_LABELS.client] ?? "—" },
+    {
+      label: "Comprobante",
+      value: labels[LATE_INTEREST_LABELS.comprobante] ?? d.invoice_id,
+    },
+    { label: "Saldo vencido", value: labels[LATE_INTEREST_LABELS.base] ?? "—" },
+    {
+      label: "Período",
+      value:
+        labels[LATE_INTEREST_LABELS.period] ??
+        `hasta el ${formatArgentineDate(d.as_of)}`,
+    },
+    { label: "Tasa mensual", value: `${formatRate(d.monthly_rate)} %` },
+    {
+      label: "Interés (neto, más IVA 21 %)",
+      value:
+        labels[LATE_INTEREST_LABELS.interest] ??
+        formatMoney(d.expected_interest),
+    },
+    { label: "Punto de venta", value: String(d.punto_venta) },
+    {
+      label: "Qué pasa",
+      value:
+        "Al aceptar se emite la nota de débito como en Intereses por mora: con CAE de AFIP en el canal fiscal, remito interno en el interno. Si el saldo cambió, no se emite.",
+    },
+  ],
+});
+
 /** Every proposal action's spec, by the action (tool) name. */
 export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeLeave: leaveProposalSpec,
@@ -317,4 +459,8 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeExchangeRate: exchangeRateProposalSpec,
   proposeAiWorkflow: workflowProposalSpec,
   proposeDocumentScan: documentScanProposalSpec,
+  proposeTask: taskProposalSpec,
+  proposeClientTariff: clientTariffProposalSpec,
+  proposeBankMatches: bankMatchesProposalSpec,
+  proposeLateInterestNd: lateInterestNdProposalSpec,
 };

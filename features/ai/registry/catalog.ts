@@ -96,6 +96,13 @@ import {
   getManagementPnLDocuments,
 } from "./actions/management";
 import { getMonthlyPackageStatus } from "./actions/monthly-package";
+import {
+  getLateInterestCandidates,
+  proposeBankMatches,
+  proposeClientTariff,
+  proposeLateInterestNd,
+  proposeTask,
+} from "./actions/operations-proposals";
 import { getTasks } from "./actions/tasks";
 import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
@@ -122,6 +129,8 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getClientSalesSummary,
   getClientMargin,
   getClientPaymentBehavior,
+  getLateInterestCandidates,
+  proposeLateInterestNd,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -138,6 +147,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getChecks,
   getIssuedChecks,
   getRecurringPayments,
+  proposeBankMatches,
   // Contabilidad
   getTrialBalance,
   getLedger,
@@ -201,12 +211,14 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getStorageTariffs,
   getStorageBilling,
   getStorageBillingRuns,
+  proposeClientTariff,
   // AFIP
   getAfipStatus,
   // General
   searchGlobal,
   getAttachments,
   getTasks,
+  proposeTask,
   getAuditEvents,
   proposeAiWorkflow,
   proposeDocumentScan,

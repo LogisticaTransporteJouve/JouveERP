@@ -1,6 +1,12 @@
 "use client";
 
-import { Info, OctagonAlert, Sparkles, TriangleAlert } from "lucide-react";
+import {
+  ClipboardCheck,
+  Info,
+  OctagonAlert,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,6 +23,7 @@ import type { InsightCard as Insight } from "../actions";
 import { useSetInsightStatus } from "../hooks/use-insights";
 import { buildResolvePrompt } from "../lib/resolve-prompt";
 import { IgnoreInsightDialog } from "./ignore-insight-dialog";
+import { InsightProposalDialog } from "./insight-proposal-dialog";
 
 const SEVERITY_ICON = {
   info: Info,
@@ -24,7 +31,8 @@ const SEVERITY_ICON = {
   critical: OctagonAlert,
 } as const;
 
-const MONEY_KEY = /balance|closing|total|amount|90_plus|in$|out$|loss/i;
+const MONEY_KEY =
+  /balance|closing|total|amount|90_plus|in$|out$|loss|interest|cash_change|disbursements|paid$|without_financing/i;
 const METRIC_LABELS: Record<string, string> = {
   starting_balance: "Caja hoy",
   total_in: "Entradas",
@@ -36,6 +44,27 @@ const METRIC_LABELS: Record<string, string> = {
   expiring_soon: "Por vencer",
   loss_count: "Viajes",
   total_loss: "Pérdida",
+  worst_drop_pts: "Mayor caída (puntos)",
+  vehicle_count: "Vehículos",
+  worst_rise_pct: "Mayor suba (%)",
+  fleet_upper_l100: "Tope típico L/100 km",
+  invoice_count: "Comprobantes",
+  total_interest: "Interés",
+  total_interest_usd: "Interés en dólares",
+  no_rate_count: "Sin tasa",
+  line_count: "Líneas",
+  total_amount: "Monto",
+  account_count: "Cuentas",
+  shipment_count: "Cargas",
+  driver_count: "Choferes",
+  draft_count: "Borradores",
+  installment_count: "Cuotas",
+  overdue_count: "Vencidas",
+  total_amount_usd: "En dólares",
+  cash_change: "Variación de caja",
+  loan_disbursements: "Préstamos recibidos",
+  installments_paid: "Cuotas pagadas",
+  change_without_financing: "Sin financiamiento",
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -43,9 +72,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function formatMetric(key: string, value: number): string {
-  return MONEY_KEY.test(key)
-    ? `$${Math.round(value).toLocaleString("es-AR")}`
-    : value.toLocaleString("es-AR");
+  if (!MONEY_KEY.test(key)) return value.toLocaleString("es-AR");
+  const sign = key.endsWith("_usd") ? "US$" : "$";
+  return `${sign}${Math.round(value).toLocaleString("es-AR")}`;
 }
 
 function metricChips(
@@ -73,6 +102,7 @@ export function InsightCard({
 }) {
   const setStatus = useSetInsightStatus();
   const [ignoreOpen, setIgnoreOpen] = useState(false);
+  const [proposalOpen, setProposalOpen] = useState(false);
   const Icon =
     SEVERITY_ICON[insight.severity as keyof typeof SEVERITY_ICON] ?? Info;
   const chips = metricChips(insight.metrics);
@@ -110,7 +140,17 @@ export function InsightCard({
           </div>
         )}
       </CardContent>
-      <CardFooter className="gap-2 pt-0">
+      <CardFooter className="flex-wrap gap-2 pt-0">
+        {insight.proposal && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProposalOpen(true)}
+          >
+            <ClipboardCheck className="size-3.5" />
+            {insight.proposal.label}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -140,6 +180,14 @@ export function InsightCard({
           </Button>
         )}
       </CardFooter>
+      {insight.proposal && (
+        <InsightProposalDialog
+          open={proposalOpen}
+          onOpenChange={setProposalOpen}
+          insightId={insight.id}
+          insightTitle={insight.title}
+        />
+      )}
       {canManage && (
         <IgnoreInsightDialog
           open={ignoreOpen}
