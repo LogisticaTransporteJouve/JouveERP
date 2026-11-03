@@ -37,6 +37,7 @@ describe("useIssueLateInterestNd", () => {
       invoice_id: "00000000-0000-4000-8000-000000000001",
       as_of: "2026-11-03",
       monthly_rate: 3,
+      punto_venta: 3,
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

@@ -66,8 +66,20 @@ const debts: CheckSaleDebt[] = [
 vi.mock("@/features/accounts/hooks/use-accounts", () => ({
   useAccountsList: () => ({
     data: [
-      { id: "acc-usd", name: "Banco USD", is_active: true, currency: "USD", type: "bank" },
-      { id: "acc-ars", name: "Banco ARS", is_active: true, currency: "ARS", type: "bank" },
+      {
+        id: "acc-usd",
+        name: "Banco USD",
+        is_active: true,
+        currency: "USD",
+        type: "bank",
+      },
+      {
+        id: "acc-ars",
+        name: "Banco ARS",
+        is_active: true,
+        currency: "ARS",
+        type: "bank",
+      },
     ],
   }),
 }));
@@ -86,6 +98,7 @@ describe("CheckSalesSection · Pagar", () => {
   it("opens each debt with no account chosen", () => {
     render(<CheckSalesSection canWrite />);
     const [payUsd, payArs] = screen.getAllByRole("button", { name: "Pagar" });
+    if (!payUsd || !payArs) throw new Error("expected a Pagar per debt");
 
     fireEvent.click(payUsd);
     fireEvent.change(screen.getByLabelText("Cuenta"), {
