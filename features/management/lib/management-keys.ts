@@ -1,4 +1,8 @@
-import type { ManagementDrillInput, ManagementReportInput } from "../schema";
+import type {
+  ManagementDrillInput,
+  ManagementReportInput,
+  VehicleMarginInput,
+} from "../schema";
 
 export const managementKeys = {
   all: ["management"] as const,
@@ -7,4 +11,6 @@ export const managementKeys = {
   drill: (input: ManagementDrillInput) =>
     [...managementKeys.all, "drill", input] as const,
   buckets: () => [...managementKeys.all, "buckets"] as const,
+  vehicleMargin: (input: VehicleMarginInput) =>
+    [...managementKeys.all, "vehicle_margin", input] as const,
 };

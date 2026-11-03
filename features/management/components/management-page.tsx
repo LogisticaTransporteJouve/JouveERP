@@ -51,6 +51,7 @@ import {
 } from "../schema";
 import { BucketDialog } from "./bucket-dialog";
 import { DrillDialog, type DrillCell } from "./drill-dialog";
+import { VehicleMarginSection } from "./vehicle-margin-section";
 import { WaterfallChart } from "./waterfall-chart";
 
 const SIDE_LABEL: Record<SideView, string> = {
@@ -179,8 +180,9 @@ export function ManagementPage({
               proveedores.
             </li>
             <li>
-              Todavía no hay margen por camión: los centros de costo no están
-              vinculados a los camiones.
+              El margen por camión suma lo cargado con el centro de costo de
+              cada camión; un camión sin centro vinculado solo lleva sus viajes,
+              combustible y mantenimiento.
             </li>
           </ul>
         </div>
@@ -335,6 +337,16 @@ function ManagementReportView({
           </SelectContent>
         </Select>
       </div>
+
+      {data.partial && (
+        <div className="flex gap-2 rounded-lg border p-3 text-sm">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <p>
+            El resultado llegó al tope de filas que se pueden leer: las cifras
+            pueden estar incompletas.
+          </p>
+        </div>
+      )}
 
       {waterfall.pendingUsd !== 0 && (
         <div className="flex gap-2 rounded-lg border p-3 text-sm">
@@ -602,6 +614,14 @@ function ManagementReportView({
           </div>
         )}
       </div>
+
+      <VehicleMarginSection
+        fromPeriod={data.months[0]!}
+        toPeriod={data.months.at(-1)!}
+        basis={input.basis}
+        inflation={input.inflation}
+        centerLabel={centerLabel}
+      />
 
       {(unclassified.length > 0 || canEdit) && (
         <div className="rounded-lg border bg-card">

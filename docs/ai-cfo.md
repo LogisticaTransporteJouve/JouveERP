@@ -220,12 +220,16 @@ RPC nuevas (migración `20261103150000_ai_cross_queries.sql`, `SECURITY INVOKER`
 `ai_driver_activity`. Las dos de actividad reciben flags `p_include_fuel | km | revenue | hr` que
 el server action prende con `userCan`, así una denegación por usuario deja la columna en `NULL`
 aunque RLS la permita. `getManagementPnL` suma `byMonth` (servicios, costos, margen, costo
-financiero y generación de caja por mes) y marca `partial` si la lectura llegó a las 1000 filas.
+financiero y generación de caja por mes) y marca `partial` si la lectura paginada llegó a su tope
+(50.000 filas).
 
 **Límites.** Margen por cliente: ingresos por fecha de comprobante y costos por fecha de viaje;
-no reparte sueldos, mantenimiento ni gastos generales. Por vehículo: seguros, patentes, cubiertas
-y compras cargadas solo con centro de costo no están vinculados a un camión. `ai_fleet_margin`
-sigue contando viajes cancelados.
+no reparte sueldos, mantenimiento ni gastos generales. Por vehículo, con `management:read`,
+`getVehicleEconomics` suma el costo operativo del centro de costo vinculado al camión
+(`get_vehicle_margin`, por meses completos) y trae aparte el costo sin camión; sin ese permiso,
+seguros, patentes, cubiertas y compras cargadas solo con centro no entran. `getDriverActivity` trae
+las rendiciones de cobranza contra entrega con `receipts:read`. `ai_fleet_margin` no cuenta viajes
+cancelados.
 
 **Impuestos** (`getTaxDocuments`, `features/ai/registry/actions/taxes.ts`, `taxes:read`, así que
 también lo usa el contador): envuelve `listTaxDocumentsAction` y separa los impuestos vencidos,

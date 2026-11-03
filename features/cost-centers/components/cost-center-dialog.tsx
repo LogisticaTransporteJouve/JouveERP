@@ -25,10 +25,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
+  useCostCenterVehicles,
   useCreateCostCenter,
   useUpdateCostCenter,
 } from "../hooks/use-cost-centers";
@@ -46,7 +54,11 @@ const FormSchema = z.object({
   name: z.string().trim().min(2, "Nombre requerido.").max(60),
   description: z.string().trim().max(200),
   is_active: z.boolean(),
+  /** "" = no truck. */
+  vehicle_id: z.string(),
 });
+
+const NO_VEHICLE = "__none";
 
 type FormValues = z.infer<typeof FormSchema>;
 
@@ -63,6 +75,7 @@ export function CostCenterDialog({
 }) {
   const createMut = useCreateCostCenter();
   const updateMut = useUpdateCostCenter();
+  const vehicles = useCostCenterVehicles();
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
@@ -72,6 +85,7 @@ export function CostCenterDialog({
       name: costCenter?.name ?? "",
       description: costCenter?.description ?? "",
       is_active: costCenter?.is_active ?? true,
+      vehicle_id: costCenter?.vehicle_id ?? "",
     },
   });
 
@@ -82,6 +96,7 @@ export function CostCenterDialog({
       name: costCenter?.name ?? "",
       description: costCenter?.description ?? "",
       is_active: costCenter?.is_active ?? true,
+      vehicle_id: costCenter?.vehicle_id ?? "",
     });
   }, [open, costCenter, form]);
 
@@ -91,6 +106,7 @@ export function CostCenterDialog({
       name: values.name,
       description: values.description.trim() || null,
       is_active: values.is_active,
+      vehicle_id: values.vehicle_id || null,
     };
     if (mode === "create") {
       createMut.mutate(payload, {
@@ -107,6 +123,7 @@ export function CostCenterDialog({
           name: payload.name,
           description: payload.description,
           is_active: payload.is_active,
+          vehicle_id: payload.vehicle_id,
         },
         {
           onSuccess: () => {
@@ -185,6 +202,55 @@ export function CostCenterDialog({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <FormField
+              control={form.control}
+              name="vehicle_id"
+              render={({ field }) => {
+                const list = vehicles.data ?? [];
+                const options = list.filter(
+                  (v) => v.is_active || v.id === field.value,
+                );
+                return (
+                  <FormItem>
+                    <FormLabel>Camión</FormLabel>
+                    <Select
+                      value={field.value || NO_VEHICLE}
+                      onValueChange={(v) =>
+                        field.onChange(v === NO_VEHICLE ? "" : v)
+                      }
+                      disabled={vehicles.isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full min-w-0">
+                          <SelectValue
+                            placeholder={
+                              vehicles.isError
+                                ? "No se pudieron cargar los camiones"
+                                : "Cargando…"
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" className="max-h-72">
+                        <SelectItem value={NO_VEHICLE}>Sin camión</SelectItem>
+                        {options.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            <span className="font-mono">{v.patente}</span>
+                            {v.alias ? ` · ${v.alias}` : ""}
+                            {v.is_active ? "" : " (inactivo)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">
+                      Lo cargado con este centro cuenta como costo de ese camión
+                      en el margen por camión de Gestión. Un centro por camión.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <FormField
               control={form.control}

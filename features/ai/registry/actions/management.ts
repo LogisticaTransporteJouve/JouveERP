@@ -22,13 +22,7 @@ import {
 import { PeriodSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import {
-  errResult,
-  money,
-  okResult,
-  reachedCap,
-  type AiRunResult,
-} from "../result";
+import { errResult, money, okResult, type AiRunResult } from "../result";
 
 export const INTERNAL_NOTE =
   "Resultado de gestión: USO INTERNO (fiscal + interno). No es el EERR fiscal: para bancos, ARCA o cualquier tercero usar getIncomeStatement / getBalanceSheet.";
@@ -113,7 +107,7 @@ export const getManagementPnL = defineAiAction({
       centersRes.data.map((c) => [c.id, `${c.code} · ${c.name}`]),
     );
     const rows = filterByCostCenter(
-      res.data,
+      res.data.rows,
       input.costCenterId ?? ALL_COST_CENTERS,
     );
     const waterfall = computeWaterfall(rows);
@@ -128,17 +122,17 @@ export const getManagementPnL = defineAiAction({
       financing_cost_ars: lineMonths.financing_cost?.[month]?.total ?? 0,
       cash_generation_ars: lineMonths.cash_generation?.[month]?.total ?? 0,
     }));
-    const capped = reachedCap(res.data.length);
+    const capped = res.data.partial || previousRes.data.partial;
     const { kpis } = computeKpis(
       rows,
       filterByCostCenter(
-        previousRes.data,
+        previousRes.data.rows,
         input.costCenterId ?? ALL_COST_CENTERS,
       ),
       months,
       input.toPeriod,
     );
-    const byCostCenter = costCenterBreakdown(res.data).map((c) => ({
+    const byCostCenter = costCenterBreakdown(res.data.rows).map((c) => ({
       costCenterId: c.costCenterId,
       costCenter:
         c.costCenterId === null
