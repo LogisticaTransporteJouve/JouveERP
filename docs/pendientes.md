@@ -137,6 +137,9 @@ mitigación en el schema: el límite se respeta operando.
       asiento viejo (el backfill los cuenta en un NOTICE).
 - [ ] Cambiar `invoice_origin_id` de una NC emitida no re-asienta su diferencia
       de cambio (hoy ningún flujo lo cambia).
+- [ ] Resultado de gestión: la cuenta "Diferencias de cambio" no tiene caja
+      asignada, así que aparece en "Sin clasificar" hasta que el owner la
+      clasifique.
 
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 

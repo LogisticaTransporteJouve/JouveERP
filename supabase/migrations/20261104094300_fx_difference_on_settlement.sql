@@ -9,7 +9,7 @@ SET LOCAL statement_timeout = '15min';
 -- Same for a USD purchase paid by a USD payment order and proveedores.
 --
 --   1. COA: an active result account takes the role diferencia_cambio: the
---      first active account named "diferencia(s) de cambio" with no role, or
+--      first active leaf account named "diferencia(s) de cambio" with no role, or
 --      a new 4.2.x "Diferencias de cambio" (ingresos financieros; a loss
 --      posts on its debit side). With no active account holding the role,
 --      every builder below posts exactly as before.
@@ -72,6 +72,8 @@ begin
         and c.system_role is null
         and c.account_type in ('resultado_positivo', 'resultado_negativo')
         and c.name ~* '^diferencias? de cambio'
+        and not exists (select 1 from public.chart_of_accounts ch
+                         where ch.parent_id = c.id and ch.is_active)
       order by c.code
       limit 1
    );
