@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Role, resolveAccess } from "@/lib/auth/permissions";
 import { pagedSupabase } from "@/tests/helpers/paged-supabase";
 
+import type { ReceiptStatus } from "@/features/receipts/schema";
+
 let roles: Role[] = ["finance"];
 let denied: string[] = [];
 let fake = pagedSupabase({});
@@ -52,6 +54,38 @@ const doc = {
   account: { code: "2.1.2.1", name: "IVA Débito Fiscal" },
   payment: null,
 };
+
+// A receipt_retentions row as the estimate's query embeds it. The status is
+// typed against the receipts' CHECK set, so the fixture cannot drift to a
+// value the database never stores.
+type RetentionRow = {
+  id: string;
+  amount: string;
+  tax_type: string;
+  certificate_date: string;
+  receipt: {
+    status: ReceiptStatus;
+    currency: string;
+    cotizacion: number | null;
+    channel: { is_fiscal: boolean };
+  };
+};
+
+function retention(overrides: Partial<RetentionRow> = {}): RetentionRow {
+  return {
+    id: "r1",
+    amount: "40.00",
+    tax_type: "iva",
+    certificate_date: "2026-10-15",
+    receipt: {
+      status: "issued",
+      currency: "ARS",
+      cotizacion: null,
+      channel: { is_fiscal: true },
+    },
+    ...overrides,
+  };
+}
 
 const PAYMENT = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -195,10 +229,13 @@ describe("getIvaPositionEstimateAction", () => {
         },
       ],
     });
-    fake = pagedSupabase({
-      tax_documents: [doc],
-      receipt_retentions: [{ id: "r1", amount: "40.00" }],
-    });
+    fake = pagedSupabase(
+      {
+        tax_documents: [{ ...doc, period: "2026-09" }],
+        receipt_retentions: [retention()],
+      },
+      { applyFilters: true },
+    );
     const res = await getIvaPositionEstimateAction({ period: "2026-10" });
     expect(res).toEqual({
       ok: true,
@@ -258,6 +295,66 @@ describe("getIvaPositionEstimateAction", () => {
       saldo: -1200,
       tributos_compras: 75,
     });
+  });
+
+  it("counts only the IVA retentions of issued fiscal receipts dated in the period, in pesos", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase(
+      {
+        tax_documents: [],
+        receipt_retentions: [
+          retention({ id: "ok", amount: "40.00" }),
+          retention({
+            id: "usd",
+            amount: "10.00",
+            receipt: {
+              ...retention().receipt,
+              currency: "USD",
+              cotizacion: 1200,
+            },
+          }),
+          retention({
+            id: "canceled",
+            receipt: { ...retention().receipt, status: "canceled" },
+          }),
+          retention({
+            id: "internal",
+            receipt: { ...retention().receipt, channel: { is_fiscal: false } },
+          }),
+          retention({ id: "iibb", tax_type: "iibb" }),
+          retention({ id: "september", certificate_date: "2026-09-30" }),
+        ],
+      },
+      { applyFilters: true },
+    );
+    const res = await getIvaPositionEstimateAction({ period: "2026-10" });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.retenciones).toBe(12040);
+  });
+
+  it("a USD retention with no stored rate fails the estimate instead of counting dollars as pesos", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase(
+      {
+        tax_documents: [],
+        receipt_retentions: [
+          retention({
+            receipt: {
+              ...retention().receipt,
+              currency: "USD",
+              cotizacion: null,
+            },
+          }),
+        ],
+      },
+      { applyFilters: true },
+    );
+    expect((await getIvaPositionEstimateAction({ period: "2026-10" })).ok).toBe(
+      false,
+    );
   });
 
   it("without last month's IVA document, the saldo a favor is unknown", async () => {
