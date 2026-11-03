@@ -35,6 +35,8 @@ create temporary table t_day as
 create temporary table t_coa as
   select (select id from public.chart_of_accounts where system_role = 'iva_debito') as iva_debito,
          (select id from public.chart_of_accounts where code = '2.1.2') as deudas_fiscales;
+-- Steps below run as authenticated and read these helpers.
+grant select on t_day, t_coa to authenticated;
 
 insert into public.tax_documents (id, kind, period, due_date, amount, account_id, created_by) values
   ('00000000-0000-0000-0000-000000000c01', 'iva', '2026-10', (select today + 3 from t_day), 1000,
