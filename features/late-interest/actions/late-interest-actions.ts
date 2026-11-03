@@ -17,11 +17,14 @@ import { computeLateInterest } from "../lib/late-interest";
 import {
   ClientRateSchema,
   GeneralRateSchema,
+  IssueLateInterestBulkSchema,
   IssueLateInterestSchema,
   LateInterestListSchema,
   type ClientRateInput,
   type GeneralRateInput,
+  type IssueLateInterestBulkInput,
   type IssueLateInterestInput,
+  type LateInterestBulkResult,
   type LateInterestCandidate,
   type LateInterestListInput,
 } from "../schema";
@@ -46,6 +49,7 @@ type CandidateRow = {
   charge_from: string;
   client_rate: number | null;
   monthly_rate: number | null;
+  balance_days: number;
 };
 
 function firstIssue(error: z.ZodError): string {
@@ -56,7 +60,7 @@ function withPreview(row: CandidateRow, asOf: string): LateInterestCandidate {
   const rate = row.monthly_rate === null ? null : Number(row.monthly_rate);
   const open = Number(row.open_amount);
   const { days, interest } = computeLateInterest({
-    openAmount: open,
+    balanceDays: Number(row.balance_days),
     monthlyRate: rate ?? 0,
     from: row.charge_from,
     to: asOf,
@@ -64,6 +68,7 @@ function withPreview(row: CandidateRow, asOf: string): LateInterestCandidate {
   return {
     ...row,
     open_amount: open,
+    balance_days: Number(row.balance_days),
     client_rate: row.client_rate === null ? null : Number(row.client_rate),
     monthly_rate: rate,
     days,
@@ -235,4 +240,51 @@ export async function issueLateInterestNdAction(
   const parsed = IssueLateInterestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   return issueLateInterestNd(ctx.userId, parsed.data, issueFiscalInvoiceAction);
+}
+
+/**
+ * "Generar ND" for several overdue comprobantes: one ND each, one after the
+ * other through the same issueLateInterestNd (each claims its own period, so
+ * a retry or a double click cannot charge a period twice). One failing does
+ * not stop the rest; the result says what each one got.
+ */
+export async function issueLateInterestNdsBulkAction(
+  input: IssueLateInterestBulkInput,
+): Promise<ActionResult<LateInterestBulkResult[]>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "invoices:issue") ||
+    !userCan(ctx.access, "credit_debit_notes:issue")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para emitir notas de débito.",
+    };
+  }
+  const parsed = IssueLateInterestBulkSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  const results: LateInterestBulkResult[] = [];
+  for (const item of parsed.data.items) {
+    const res = await issueLateInterestNd(
+      ctx.userId,
+      { ...item, as_of: parsed.data.as_of },
+      issueFiscalInvoiceAction,
+    );
+    results.push(
+      res.ok
+        ? {
+            invoice_id: item.invoice_id,
+            ok: true,
+            nd_invoice_id: res.data.invoiceId,
+          }
+        : { invoice_id: item.invoice_id, ok: false, error: res.error },
+    );
+  }
+  await logAudit("late_interest.bulk_issued", ctx.userId, {
+    as_of: parsed.data.as_of,
+    requested: results.length,
+    issued: results.filter((r) => r.ok).length,
+  });
+  return { ok: true, data: results };
 }

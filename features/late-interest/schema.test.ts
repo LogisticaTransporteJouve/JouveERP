@@ -16,28 +16,28 @@ describe("computeLateInterest", () => {
   it("is simple interest at the monthly rate prorated /30 per day", () => {
     expect(
       computeLateInterest({
-        openAmount: 10000,
+        balanceDays: 10000 * 30,
         monthlyRate: 3,
         from: "2026-10-02",
         to: "2026-10-31",
       }),
-    ).toEqual({ days: 30, interest: 300 });
+    ).toEqual({ days: 30, interest: 300, averageBalance: 10000 });
   });
 
   it("counts both ends and rounds to cents", () => {
     expect(
       computeLateInterest({
-        openAmount: 1000,
+        balanceDays: 1000 * 7,
         monthlyRate: 2.5,
         from: "2026-10-01",
         to: "2026-10-07",
       }),
-    ).toEqual({ days: 7, interest: 5.83 });
+    ).toEqual({ days: 7, interest: 5.83, averageBalance: 1000 });
   });
 
   it("charges nothing for an empty period, no balance or no rate", () => {
     const base = {
-      openAmount: 1000,
+      balanceDays: 1000,
       monthlyRate: 3,
       from: "2026-10-10",
       to: "2026-10-10",
@@ -45,9 +45,22 @@ describe("computeLateInterest", () => {
     expect(computeLateInterest({ ...base, to: "2026-10-09" })).toEqual({
       days: 0,
       interest: 0,
+      averageBalance: 0,
     });
-    expect(computeLateInterest({ ...base, openAmount: 0 }).interest).toBe(0);
+    expect(computeLateInterest({ ...base, balanceDays: 0 }).interest).toBe(0);
     expect(computeLateInterest({ ...base, monthlyRate: 0 }).interest).toBe(0);
+  });
+
+  it("charges a partial payment's days on the lower balance", () => {
+    // 10 days at 10.000, then a payment of 4.000: 20 days at 6.000.
+    expect(
+      computeLateInterest({
+        balanceDays: 10 * 10000 + 20 * 6000,
+        monthlyRate: 3,
+        from: "2026-10-02",
+        to: "2026-10-31",
+      }),
+    ).toEqual({ days: 30, interest: 220, averageBalance: 7333.33 });
   });
 
   it("counts days across months", () => {

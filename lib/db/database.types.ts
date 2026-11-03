@@ -9352,6 +9352,7 @@ export type Database = {
       late_interest_candidates: {
         Args: { p_as_of: string }
         Returns: {
+          balance_days: number
           channel_id: string
           channel_is_fiscal: boolean
           charge_from: string
@@ -9376,6 +9377,10 @@ export type Database = {
           p_charge: Database["public"]["Tables"]["late_interest_charges"]["Row"]
         }
         Returns: boolean
+      }
+      late_interest_reductions_after: {
+        Args: { p_from: string; p_invoice_id: string; p_to: string }
+        Returns: number
       }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }

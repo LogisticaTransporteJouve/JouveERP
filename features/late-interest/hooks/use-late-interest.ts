@@ -13,6 +13,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   getLateInterestGeneralRateAction,
   issueLateInterestNdAction,
+  issueLateInterestNdsBulkAction,
   listLateInterestCandidatesAction,
   setClientLateInterestRateAction,
   setLateInterestGeneralRateAction,
@@ -21,6 +22,7 @@ import { lateInterestKeys } from "../lib/late-interest-keys";
 import type {
   ClientRateInput,
   GeneralRateInput,
+  IssueLateInterestBulkInput,
   IssueLateInterestInput,
 } from "../schema";
 
@@ -55,6 +57,21 @@ export function useIssueLateInterestNd() {
     mutationFn: (input: IssueLateInterestInput) =>
       runAction(() => issueLateInterestNdAction(input)),
     onSuccess: () =>
+      Promise.all([
+        invalidate(qc),
+        qc.invalidateQueries({ queryKey: invoicesKeys.all }),
+        qc.invalidateQueries({ queryKey: agingKeys.all }),
+      ]),
+  });
+}
+
+/** Several NDs; refreshes even when some failed (others were issued). */
+export function useIssueLateInterestNdsBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: IssueLateInterestBulkInput) =>
+      runAction(() => issueLateInterestNdsBulkAction(input)),
+    onSettled: () =>
       Promise.all([
         invalidate(qc),
         qc.invalidateQueries({ queryKey: invoicesKeys.all }),

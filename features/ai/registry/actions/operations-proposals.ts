@@ -426,7 +426,7 @@ export const proposeLateInterestNd = defineAiProposal({
       };
     }
     const { days, interest } = computeLateInterest({
-      openAmount: c.open_amount,
+      balanceDays: c.balance_days,
       monthlyRate: rate,
       from: c.charge_from,
       to: asOf,

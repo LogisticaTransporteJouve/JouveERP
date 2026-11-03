@@ -36,6 +36,9 @@ export interface LateInterestCandidate {
   /** Days from charge_from to the as-of date, inclusive (0 = nothing to
    *  charge). */
   days: number;
+  /** Σ of the daily balance over those days (a payment in the period
+   *  lowers it from its date on). */
+  balance_days: number;
   /** Interest of those days at monthly_rate (0 without a rate). */
   interest: number;
 }
@@ -58,6 +61,29 @@ export const IssueLateInterestSchema = z.object({
   punto_venta: z.coerce.number().int().min(1).max(99999),
 });
 export type IssueLateInterestInput = z.input<typeof IssueLateInterestSchema>;
+
+/** Comprobantes one "Generar ND" in bulk takes (each one an AFIP call). */
+export const MAX_BULK_NDS = 50;
+
+export const IssueLateInterestBulkSchema = z.object({
+  as_of: IsoDateSchema,
+  items: z
+    .array(IssueLateInterestSchema.omit({ as_of: true }))
+    .min(1, "Elegí al menos un comprobante.")
+    .max(MAX_BULK_NDS, `Hasta ${MAX_BULK_NDS} notas de débito por vez.`)
+    .refine(
+      (items) => new Set(items.map((i) => i.invoice_id)).size === items.length,
+      "Un comprobante está dos veces.",
+    ),
+});
+export type IssueLateInterestBulkInput = z.input<
+  typeof IssueLateInterestBulkSchema
+>;
+
+/** One comprobante of a bulk run: its ND, or why it was not issued. */
+export type LateInterestBulkResult = {
+  invoice_id: string;
+} & ({ ok: true; nd_invoice_id: string } | { ok: false; error: string });
 
 export const GeneralRateSchema = z.object({
   /** null clears it. */
