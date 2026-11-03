@@ -1,4 +1,4 @@
--- Conciliación, several lines against one movement (20261104010100): the
+-- Conciliación, several lines against one movement (20261104070100): the
 -- lines of a split deposit match the movement when they add up to it; a
 -- retry is a no-op; a reconciliation is never many lines against many
 -- movements; unmatching one line frees the whole reconciliation. One

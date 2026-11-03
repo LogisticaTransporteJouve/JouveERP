@@ -1,4 +1,4 @@
--- Importador, more fields (20261104010000): a supplier keeps its category,
+-- Importador, more fields (20261104070000): a supplier keeps its category,
 -- expense account and cost center; an imported chofer keeps its license on
 -- its driver record and its expiry as a 'licencia' fleet document of the run,
 -- which the undo deletes with the driver (a document loaded by hand blocks
