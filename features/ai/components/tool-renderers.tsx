@@ -101,6 +101,8 @@ const TOOL_LABELS: Record<string, string> = {
   proposeBankMatches: "Propuesta de conciliación",
   proposeLateInterestNd: "Propuesta de ND por mora",
   getLateInterestCandidates: "Interés por mora",
+  getFreightSettlements: "Liquidaciones de fletes",
+  getDriverSettlements: "Rendiciones",
   askQuestions: "Preguntas",
   renderChart: "Gráfico",
   renderTable: "Tabla",

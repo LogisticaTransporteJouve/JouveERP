@@ -103,6 +103,10 @@ import {
   proposeLateInterestNd,
   proposeTask,
 } from "./actions/operations-proposals";
+import {
+  getDriverSettlements,
+  getFreightSettlements,
+} from "./actions/settlements";
 import { getTasks } from "./actions/tasks";
 import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
@@ -131,6 +135,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getClientPaymentBehavior,
   getLateInterestCandidates,
   proposeLateInterestNd,
+  getFreightSettlements,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -147,6 +152,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getChecks,
   getIssuedChecks,
   getRecurringPayments,
+  getDriverSettlements,
   proposeBankMatches,
   // Contabilidad
   getTrialBalance,
