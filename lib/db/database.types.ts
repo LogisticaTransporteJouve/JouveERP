@@ -2007,21 +2007,21 @@ export type Database = {
           {
             foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
             columns: ["receipt_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
             columns: ["receipt_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_receipt_unapplied"
             referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
             columns: ["receipt_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_rejected_check_open"
             referencedColumns: ["source_receipt_id"]
           },

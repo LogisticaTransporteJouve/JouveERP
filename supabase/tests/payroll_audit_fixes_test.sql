@@ -13,8 +13,8 @@ select plan(9);
 
 -- 1. SAC of the final settlement ----------------------------------------------------
 
-insert into public.employees (id, legal_name, pay_frequency, base_salary, hire_date, termination_date) values
-  ('00000000-0000-0000-0000-00000095a001', 'Baja Liquidada', 'mensual', 1000, '2080-01-01', '2087-11-30');
+insert into public.employees (id, legal_name, pay_frequency, base_salary, hire_date, termination_date, is_active) values
+  ('00000000-0000-0000-0000-00000095a001', 'Baja Liquidada', 'mensual', 1000, '2080-01-01', '2087-11-30', false);
 insert into public.payroll_periods (id, year, month) values
   ('00000000-0000-0000-0000-00000095b001', 2087, 11);
 insert into public.payroll_entries (id, period_id, employee_id, sueldo_neto) values
