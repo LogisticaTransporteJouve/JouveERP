@@ -11,6 +11,7 @@ import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { tasksKeys } from "@/features/tasks/lib/tasks-keys";
 import { listPayableTaxDocumentsAction } from "@/features/taxes/actions/tax-payment-link-actions";
 import { taxesKeys } from "@/features/taxes/lib/taxes-keys";
+import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
@@ -23,6 +24,7 @@ import {
   ignoreLineAction,
   listReconciliationAccountsAction,
   matchLineAction,
+  matchLinesToMovementAction,
   restoreLineAction,
   unmatchLineAction,
 } from "../actions/reconciliation-actions";
@@ -32,6 +34,7 @@ import type {
   CreateLineTransactionInput,
   IgnoreLineInput,
   MatchLineInput,
+  MatchLinesToMovementInput,
 } from "../schema";
 
 export function useReconciliationAccounts() {
@@ -51,13 +54,14 @@ export function useReconciliation(accountId: string, from: string, to: string) {
   });
 }
 
-/** A match changes the page and locks or frees movements of Caja. */
+/** A match changes the page and locks or frees movements of Caja (whose
+ *  list marks the reconciled ones). */
 function useReconciliationMutation<I, O>(fn: (input: I) => Promise<O>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: reconciliationKeys.all });
+      invalidateKeys(qc, [reconciliationKeys.all, transactionsKeys.all]);
     },
   });
 }
@@ -65,6 +69,12 @@ function useReconciliationMutation<I, O>(fn: (input: I) => Promise<O>) {
 export function useMatchLine() {
   return useReconciliationMutation((input: MatchLineInput) =>
     runAction(() => matchLineAction(input)),
+  );
+}
+
+export function useMatchLinesToMovement() {
+  return useReconciliationMutation((input: MatchLinesToMovementInput) =>
+    runAction(() => matchLinesToMovementAction(input)),
   );
 }
 

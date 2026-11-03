@@ -943,14 +943,14 @@ export type Database = {
           {
             foreignKeyName: "bank_statement_matches_transaction_id_fkey"
             columns: ["transaction_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bank_statement_matches_transaction_id_fkey"
             columns: ["transaction_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_transactions_tagged"
             referencedColumns: ["id"]
           },
@@ -9411,6 +9411,14 @@ export type Database = {
         Args: {
           p_line_id: string
           p_transaction_ids: string[]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      match_bank_statement_lines: {
+        Args: {
+          p_line_ids: string[]
+          p_transaction_id: string
           p_user_id: string
         }
         Returns: undefined

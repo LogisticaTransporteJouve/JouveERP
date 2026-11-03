@@ -39,6 +39,7 @@ import {
   useCreateLineTransaction,
   useIgnoreLine,
   useMatchLine,
+  useMatchLinesToMovement,
   usePayableTaxDocuments,
 } from "../hooks/use-reconciliation";
 import { sumAmounts } from "../lib/reconcile";
@@ -175,6 +176,154 @@ export function MatchLineDialog({
             <span className="text-muted-foreground">
               {" "}
               · faltan {formatMoneySigned(diff, currency)} para la línea
+            </span>
+          )}
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={close}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            disabled={selected.size === 0 || diff !== 0 || match.isPending}
+            onClick={submit}
+          >
+            {match.isPending ? "Conciliando…" : "Conciliar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Pick the lines a movement was split into by the bank: several pending
+ *  lines whose amounts add up to the movement's. */
+export function MatchMovementLinesDialog({
+  movement,
+  lines,
+  currency,
+  onOpenChange,
+}: {
+  movement: BookMovement | null;
+  /** The period's pending lines. */
+  lines: readonly StatementLine[];
+  currency: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const match = useMatchLinesToMovement();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Same direction first, closest date first.
+  const options = movement
+    ? lines
+        .filter((l) => l.status === "open")
+        .sort(
+          (a, b) =>
+            Number(Math.sign(b.amount) === Math.sign(movement.signed_amount)) -
+              Number(
+                Math.sign(a.amount) === Math.sign(movement.signed_amount),
+              ) ||
+            Math.abs(
+              Date.parse(a.line_date) - Date.parse(movement.transaction_date),
+            ) -
+              Math.abs(
+                Date.parse(b.line_date) - Date.parse(movement.transaction_date),
+              ),
+        )
+    : [];
+  const total = sumAmounts(
+    options.filter((l) => selected.has(l.id)).map((l) => l.amount),
+  );
+  const diff = movement ? sumAmounts([movement.signed_amount, -total]) : 0;
+
+  function close() {
+    setSelected(new Set());
+    onOpenChange(false);
+  }
+
+  function toggle(id: string, on: boolean) {
+    const next = new Set(selected);
+    if (on) next.add(id);
+    else next.delete(id);
+    setSelected(next);
+  }
+
+  function submit() {
+    if (!movement) return;
+    match.mutate(
+      { line_ids: [...selected], transaction_id: movement.id },
+      {
+        onSuccess: () => {
+          toast.success(
+            selected.size === 1
+              ? "Línea conciliada."
+              : `${selected.size} líneas conciliadas con el movimiento.`,
+          );
+          close();
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
+  }
+
+  return (
+    <Dialog open={movement !== null} onOpenChange={(o) => (o ? null : close())}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Conciliar con varias líneas</DialogTitle>
+          <DialogDescription>
+            Cuando el banco parte un movimiento (un depósito o una transferencia
+            en dos o más líneas), elegí las líneas que suman su importe.
+            Desconciliar una de ellas desconcilia todas.
+          </DialogDescription>
+        </DialogHeader>
+        {movement && (
+          <div className="rounded-md border px-3 py-2 text-sm">
+            <p className="font-medium">
+              {movement.description || "(sin descripción)"}
+            </p>
+            <p className="text-muted-foreground">
+              {formatArgentineDate(movement.transaction_date)} ·{" "}
+              <span className="tabular-nums">
+                {formatMoneySigned(movement.signed_amount, currency)}
+              </span>
+            </p>
+          </div>
+        )}
+        <div className="max-h-80 space-y-1 overflow-auto rounded-md border p-2">
+          {options.length === 0 && (
+            <p className="text-muted-foreground p-2 text-sm">
+              No hay líneas pendientes en el extracto de este mes.
+            </p>
+          )}
+          {options.map((l) => (
+            <label
+              key={l.id}
+              className="hover:bg-accent/50 flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm"
+            >
+              <Checkbox
+                checked={selected.has(l.id)}
+                onCheckedChange={(v) => toggle(l.id, v === true)}
+                className="mt-0.5"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{l.description}</span>
+                <span className="text-muted-foreground block text-xs">
+                  {formatArgentineDate(l.line_date)}
+                  {l.reference ? ` · Ref. ${l.reference}` : ""}
+                </span>
+              </span>
+              <span className="tabular-nums">
+                {formatMoneySigned(l.amount, currency)}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="text-sm tabular-nums">
+          Elegidas: {formatMoneySigned(total, currency)}
+          {selected.size > 0 && diff !== 0 && (
+            <span className="text-muted-foreground">
+              {" "}
+              · faltan {formatMoneySigned(diff, currency)} para el movimiento
             </span>
           )}
         </p>

@@ -43,7 +43,7 @@ export function suggestMatches(
   movements: readonly BookMovement[],
   dayWindow: number,
 ): MatchSuggestion[] {
-  const free = movements.filter((m) => m.line_id === null);
+  const free = movements.filter((m) => m.line_ids.length === 0);
   const candidates: (MatchSuggestion & { order: number })[] = [];
   lines.forEach((line, order) => {
     if (line.status !== "open") return;
@@ -117,7 +117,7 @@ export function summarize(input: {
   const last = withBalance[withBalance.length - 1];
   const unmatched = input.movements.filter(
     (m) =>
-      m.line_id === null &&
+      m.line_ids.length === 0 &&
       m.transaction_date >= input.from &&
       m.transaction_date <= input.to,
   );

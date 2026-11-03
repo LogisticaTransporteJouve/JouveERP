@@ -5,6 +5,7 @@ import {
   CreateLineTransactionSchema,
   IgnoreLineSchema,
   MatchLineSchema,
+  MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
   isStatementLineStatus,
 } from "./schema";
@@ -94,5 +95,26 @@ describe("CreateLineTaxPaymentSchema", () => {
     if (!res.success) {
       expect(res.error.issues[0]?.message).toBe("Elegí el impuesto.");
     }
+  });
+});
+
+describe("MatchLinesToMovementSchema", () => {
+  it("takes one to 100 lines and the movement", () => {
+    expect(
+      MatchLinesToMovementSchema.safeParse({
+        line_ids: [ID, ID],
+        transaction_id: ID,
+      }).success,
+    ).toBe(true);
+    expect(
+      MatchLinesToMovementSchema.safeParse({ line_ids: [], transaction_id: ID })
+        .success,
+    ).toBe(false);
+    expect(
+      MatchLinesToMovementSchema.safeParse({
+        line_ids: Array.from({ length: 101 }, () => ID),
+        transaction_id: ID,
+      }).success,
+    ).toBe(false);
   });
 });

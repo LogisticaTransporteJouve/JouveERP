@@ -131,6 +131,8 @@ const GUARDS = [
   "pay_tax_document",
   "link_tax_document_payment",
   "create_bank_statement_line_tax_payment",
+  "guard_bank_statement_match",
+  "match_bank_statement_lines",
 ];
 
 describe("guard hints in migrations", () => {
