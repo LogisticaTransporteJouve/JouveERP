@@ -3,6 +3,51 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-04 — Diferencias de cambio en Gestión: resultado financiero
+
+**Decisión.** La cuenta "Diferencias de cambio" (rol `diferencia_cambio`)
+va en Gestión a "Costo financiero" (`financing_cost`, subrubro `intereses`,
+como la 4.2.1), abajo del margen operativo
+(`20261104102000_management_fx_loan_interest`). Una ganancia por cambio suma
+y una pérdida resta en esa línea; no mueve el margen operativo, el margen %,
+el EBITDA ni el margen por camión. Si el dueño ya le había dado un rubro a esa
+cuenta, se respeta.
+
+**Por qué.** Desde #344 el cobro o el pago en USD a otra cotización asienta
+la diferencia en esa cuenta, que no tenía rubro: caía en "Sin clasificar",
+que entra al margen operativo. El resultado por cambio no es de la
+operación de transporte; en el EERR ya es ingreso financiero.
+
+**Descartado.** Un subrubro propio "Diferencias de cambio" (pide cambiar el
+CHECK de `management_buckets` y un código anterior en un rollback no lo
+conocería); dejarla en "Sin clasificar" con un aviso.
+
+## 2026-11-04 — Diferencia de rendición a cargo del chofer: pide movimientos
+
+**Decisión.** Cargar la diferencia de una rendición al chofer, quitarla o
+cancelar la rendición que la tiene pide `hr:write` y `transactions:write`,
+como el "Adelanto a empleado" manual: desde #345 ese camino saca la plata de
+la caja. Los pagos de planilla y el borrado de un movimiento de la cuenta
+corriente siguen con `hr:write` solo; queda como decisión abierta en
+`docs/pendientes.md`.
+
+**Descartado.** Bajar el adelanto manual a `hr:write` solo.
+
+## 2026-11-04 — NC de una compra a cargo de empleado: baja el cargo
+
+**Decisión.** Una NC contra una compra a cargo de un empleado baja lo que se
+le carga (la compra menos sus NC vivas, con la misma regla neto/total) y su
+neto vuelve a anticipos al personal, no al gasto
+(`20261104102300_employee_charge_net_of_credit_notes`). Una NC que lo deja en
+cero quita el cargo. Si la descripción del cargo la editó el usuario, se
+conserva.
+
+**Por qué.** El empleado seguía debiendo la compra entera y la NC bajaba un
+gasto que nunca fue de la empresa: Gestión mostraba una ganancia.
+
+**Descartado.** Rechazar la NC mientras la compra tenga el cargo: obliga a
+sacarlo, y al volver a ponerlo se carga entero otra vez.
+
 ## 2026-11-04 — Exento, no gravado y reparto de otros tributos en compras
 
 **Decisión.** Toda compra guarda aparte el no gravado y el exento

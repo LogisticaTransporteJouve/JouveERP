@@ -222,12 +222,15 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_row public.purchase_invoices := case when tg_op = 'DELETE' then old else new end;
+  v_row public.purchase_invoices;
 begin
+  v_row := case when tg_op = 'DELETE' then old else new end;
   perform public.sync_purchase_employee_charge(v_row.id);
-  if tg_op <> 'INSERT' and old.kind = 'nc'
-     and old.invoice_origin_id is distinct from v_row.invoice_origin_id then
-    perform public.sync_purchase_employee_charge(old.invoice_origin_id);
+  if tg_op = 'UPDATE' then
+    if old.kind = 'nc'
+       and (new.kind <> 'nc' or old.invoice_origin_id is distinct from new.invoice_origin_id) then
+      perform public.sync_purchase_employee_charge(old.invoice_origin_id);
+    end if;
   end if;
   if v_row.kind = 'nc' then
     perform public.sync_purchase_employee_charge(v_row.invoice_origin_id);
