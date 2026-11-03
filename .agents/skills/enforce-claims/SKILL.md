@@ -145,7 +145,7 @@ self-tests in `.github/scripts/` and `scripts/*.test.mjs`):
 5. **Name pins resolve at the head.** A NULL from `has_function_privilege` on a stale signature, an
    ENOENT, an `undefined` import or a zero-match regex is a silent pass.
 
-Vitest isolates module state per test file by default (`vitest.config.ts` does not turn isolation
+Vitest isolates module state per test file by default (`vitest.config.mts` does not turn isolation
 off), but state leaks between cases in one file: module-level caches, warn-once flags and
 `vi.mock` factories persist unless reset. `vi.mock` is hoisted above imports.
 
