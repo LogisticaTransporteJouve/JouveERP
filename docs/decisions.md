@@ -9,7 +9,8 @@ y qué se descartó.
 partida de apertura: ni su ingreso a cartera ni su rechazo tocan el
 resultado (la deuda y el cheque son anteriores al sistema; devengado ya era
 neutro). El egreso de un cheque rechazado va a Servicios en negativo, del
-lado del recibo que lo cobró: antes era neutro, y el cobro original quedaba
+lado del recibo que lo cobró (y a venta de bienes de uso en la parte que el
+recibo imputó a una): antes era neutro, y el cobro original quedaba
 sumado y un nuevo cobro sumaba otra vez. Devengado no cambia (el asiento va a
 Deudores por cheques rechazados).
 

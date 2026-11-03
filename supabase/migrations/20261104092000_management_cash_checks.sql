@@ -14,7 +14,8 @@ SET LOCAL statement_timeout = '15min';
 --   2. Cash: the outflow of a rejected check (transactions.rejected_check_id:
 --      the bank's debit-back of a deposited check, the refund to the buyer of
 --      a sold one, the cartera's) is service_revenue, negative: it takes back
---      the collection the check counted. It was neutral, so the collection
+--      the collection the check counted, with the asset-sale share of the
+--      receipt that collected it. It was neutral, so the collection
 --      stayed and a later re-collection counted twice. Accrual: unchanged
 --      (the entry debits Deudores por cheques rechazados, not a result).
 --   3. Accrual pending_usd: a fiscal USD movement is pending while it has no
@@ -233,15 +234,17 @@ begin
                      and t.issued_check_id is null and not t.is_payroll
                      and not emp.owned and li.id is null and ld.id is null
                 then cp.id end as account_id,
-           -- Share of a collection that paid asset sales.
+           -- Share of a collection that paid asset sales. A rejected check
+           -- takes back the share of the receipt that collected it.
            case
-             when t.receipt_id is not null then (
+             when t.receipt_id is not null or t.rejected_check_id is not null then (
                select least(1, greatest(0,
                         coalesce(sum(ra.amount_applied * public.management_invoice_asset_share(ra.invoice_id)), 0)
                         / nullif(max(r.total_amount), 0)))
                  from public.receipts r
                  left join public.receipt_allocations ra on ra.receipt_id = r.id
-                where r.id = t.receipt_id)
+                where r.id = coalesce(t.receipt_id,
+                        (select k.source_receipt_id from public.checks k where k.id = t.rejected_check_id)))
              when t.invoice_id is not null then public.management_invoice_asset_share(t.invoice_id)
              else 0
            end as f_asset,
