@@ -27,7 +27,10 @@ import {
   type ClientTariff,
 } from "../schema";
 
-import { ClientTariffDialog } from "./client-tariff-dialog";
+import {
+  ClientTariffDialog,
+  type TariffAreaOption,
+} from "./client-tariff-dialog";
 
 const VIGENCIA_LABEL = {
   vigente: "Vigente",
@@ -51,9 +54,11 @@ function vigencia(t: ClientTariff): string {
 export function ClientTariffsTab({
   clientId,
   canWrite,
+  areaOptions,
 }: {
   clientId: string;
   canWrite: boolean;
+  areaOptions: TariffAreaOption[];
 }) {
   const { data: items } = useClientTariffs(clientId);
   const deleteMut = useDeleteClientTariff();
@@ -61,6 +66,11 @@ export function ClientTariffsTab({
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; tariff: ClientTariff } | null
   >(null);
+
+  const areaLabels = useMemo(
+    () => new Map(areaOptions.map((a) => [a.id, a.label])),
+    [areaOptions],
+  );
 
   const columns = useMemo<ColumnDef<ClientTariff>[]>(() => {
     async function handleDelete(t: ClientTariff) {
@@ -90,6 +100,18 @@ export function ClientTariffsTab({
           </span>
         ),
         meta: { mobile: "primary" },
+      },
+      {
+        id: "area",
+        header: "Área",
+        enableSorting: false,
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
+        cell: ({ row }) =>
+          row.original.area_id
+            ? (areaLabels.get(row.original.area_id) ?? "—")
+            : row.original.concept === "freight"
+              ? "—"
+              : "Todas",
       },
       {
         id: "price",
@@ -170,7 +192,7 @@ export function ClientTariffsTab({
         ),
       },
     ];
-  }, [canWrite, confirm, deleteMut]);
+  }, [areaLabels, canWrite, confirm, deleteMut]);
 
   return (
     <div className="space-y-4">
@@ -182,9 +204,10 @@ export function ClientTariffsTab({
             días que cubren pisan a las tarifas de almacenaje; en el resto se
             usa la tarifa de almacenaje del cliente o, si no tiene, la general.
             Las tarifas en dólares se convierten con la cotización oficial del
-            último día del período facturado (o la anterior más cercana). El
-            flete, por carga y en pesos, precia en las liquidaciones las cargas
-            que no tienen flete propio.
+            último día del período facturado (o la anterior más cercana). Una
+            tarifa de un área pisa, para los pallets de esa área, a la de todas
+            las áreas. El flete, por carga y en pesos, precia en las
+            liquidaciones las cargas que no tienen flete propio.
           </p>
         </div>
         {canWrite && (
@@ -206,6 +229,7 @@ export function ClientTariffsTab({
         <ClientTariffDialog
           clientId={clientId}
           tariff={dialog.mode === "edit" ? dialog.tariff : undefined}
+          areaOptions={areaOptions}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

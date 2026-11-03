@@ -433,6 +433,106 @@ describe("client tariffs (roadmap 4.2)", () => {
   });
 });
 
+describe("area tariffs (roadmap 4.4)", () => {
+  const general: TariffInput = {
+    client_id: null,
+    rate_per_pallet: 10,
+    period: "daily",
+    handling_in: 50,
+    handling_out: 60,
+    valid_from: "2026-01-01",
+    valid_to: null,
+    is_active: true,
+  };
+  const tariff = (over: Partial<ClientTariffInput>): ClientTariffInput => ({
+    client_id: "c1",
+    concept: "storage",
+    unit: "pallet_day",
+    price: 20,
+    currency: "ARS",
+    valid_from: "2026-01-01",
+    valid_to: null,
+    area_id: null,
+    ...over,
+  });
+  const run = (clientTariffs: ClientTariffInput[], area: string | null) =>
+    computeStorageBilling({
+      pallets: [
+        {
+          id: "p1",
+          client_id: "c1",
+          code: "P-1",
+          entry_date: "2026-07-01",
+          exit_date: "2026-07-31",
+          area_id: area,
+        },
+      ],
+      tariffs: [general],
+      clientTariffs,
+      usdRate: null,
+      clientNames: names,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    });
+
+  it("charges the area's tariff to a pallet in that area", () => {
+    const r = run([tariff({}), tariff({ area_id: "frio", price: 50 })], "frio");
+    expect(r.lines[0]?.storage_charge).toBe(31 * 50);
+  });
+
+  it("charges the client's tariff for every area to a pallet in another area or none", () => {
+    const tariffs = [tariff({}), tariff({ area_id: "frio", price: 50 })];
+    expect(run(tariffs, "granel").lines[0]?.storage_charge).toBe(31 * 20);
+    expect(run(tariffs, null).lines[0]?.storage_charge).toBe(31 * 20);
+  });
+
+  it("uses the area tariff on the days it covers and the general client tariff on the rest", () => {
+    const r = run(
+      [
+        tariff({}),
+        tariff({ area_id: "frio", price: 50, valid_from: "2026-07-21" }),
+      ],
+      "frio",
+    );
+    // 1–20 at 20/day, 21–31 (11 days) at 50/day.
+    expect(r.lines[0]?.storage_charge).toBe(20 * 20 + 11 * 50);
+    expect(r.lines[0]?.has_tariff).toBe(true);
+  });
+
+  it("falls back to storage_tariffs on the days neither client tariff covers", () => {
+    const r = run(
+      [tariff({ area_id: "frio", price: 50, valid_from: "2026-07-21" })],
+      "frio",
+    );
+    expect(r.lines[0]?.storage_charge).toBe(20 * 10 + 11 * 50);
+  });
+
+  it("takes carga and descarga from the area tariff first", () => {
+    const r = run(
+      [
+        tariff({ concept: "handling_in", unit: "pallet", price: 100 }),
+        tariff({
+          concept: "handling_in",
+          unit: "pallet",
+          price: 300,
+          area_id: "frio",
+        }),
+        tariff({ concept: "handling_out", unit: "pallet", price: 200 }),
+      ],
+      "frio",
+    );
+    expect(r.lines[0]?.handling_in_charge).toBe(300);
+    expect(r.lines[0]?.handling_out_charge).toBe(200);
+  });
+
+  it("snapshots the area tariff with its area", () => {
+    const r = run([tariff({ area_id: "frio", price: 50 })], "frio");
+    expect(r.applied_tariffs).toContainEqual(
+      expect.objectContaining({ source: "client_tariff", area_id: "frio" }),
+    );
+  });
+});
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

@@ -290,8 +290,13 @@ function rejectDescription(status: Cheque["status"]): string {
   if (status === "endosado") {
     return "El cheque endosado volvió rechazado. La deuda con el proveedor vuelve y el cheque queda como deuda del firmante.";
   }
+  if (status === "vendido") {
+    return "El cheque vendido volvió rechazado. Se le devuelve el valor al comprador (sale de la cuenta de la venta o de la que elijas) y el cheque queda como deuda del firmante.";
+  }
   return "Sale de la cartera y queda como deuda del firmante (Deudores por cheques rechazados).";
 }
+
+const SALE_ACCOUNT = "__sale__";
 
 export function RejectChequeDialog({
   check,
@@ -302,8 +307,17 @@ export function RejectChequeDialog({
 }) {
   const [open, setOpen] = useState(false);
   const mut = useRejectCheque();
+  const { data: accounts } = useAccountsList();
+  const repayAccounts = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.currency === check.currency &&
+      a.type !== "checks" &&
+      a.type !== "echeq",
+  );
 
   const [channelId, setChannelId] = useState(check.channel_id ?? "");
+  const [repayAccountId, setRepayAccountId] = useState(SALE_ACCOUNT);
   const [eventDate, setEventDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
 
@@ -319,6 +333,10 @@ export function RejectChequeDialog({
         channel_id: channelId,
         event_date: eventDate,
         notes,
+        account_id:
+          check.status === "vendido" && repayAccountId !== SALE_ACCOUNT
+            ? repayAccountId
+            : null,
       },
       {
         onSuccess: () => {
@@ -358,6 +376,26 @@ export function RejectChequeDialog({
               <DatePicker value={eventDate} onChange={setEventDate} />
             </div>
           </div>
+          {check.status === "vendido" && (
+            <div className="space-y-1">
+              <Label className="text-xs">Cuenta de la devolución</Label>
+              <Select value={repayAccountId} onValueChange={setRepayAccountId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value={SALE_ACCOUNT}>
+                    La cuenta de la venta
+                  </SelectItem>
+                  {repayAccounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs">Notas (opcional)</Label>
             <Textarea

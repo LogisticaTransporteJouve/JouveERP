@@ -1,12 +1,19 @@
+import { Percent } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { ExportButton } from "@/components/export-button";
+import { Button } from "@/components/ui/button";
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import { AgingTable } from "@/features/aging/components/aging-table";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { CLIENT_AGING_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import {
+  CLIENT_AGING_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -44,7 +51,17 @@ export default async function AgingPage() {
             imputaciones de recibos descuentan automáticamente.
           </p>
         </div>
-        <ExportButton resource="aging" />
+        <div className="flex flex-wrap items-center gap-2">
+          {userCan(ctx.access, "invoices:read") && (
+            <Button variant="outline" asChild>
+              <Link href="/aging/mora">
+                <Percent />
+                Intereses por mora
+              </Link>
+            </Button>
+          )}
+          <ExportButton resource="aging" />
+        </div>
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

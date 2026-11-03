@@ -26,6 +26,7 @@ import { ClientForm } from "@/features/clients/components/client-form";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { counterpartyIdentityLabel } from "@/features/clients/schema";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
+import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
@@ -60,29 +61,31 @@ export default async function ClientDetailPage({
   const isFiscal = result.data.is_fiscal;
   // Pricing (the client's tariffs) is gated like storage billing.
   const canReadTariffs = userCan(ctx.access, "storage_billing:read");
-  const [activeChannels, accountsResult, dehydratedState] = await Promise.all([
-    getActiveInvoicingChannels(),
-    listAccountsAction(),
-    prefetchQueries([
-      {
-        queryKey: clientsKeys.accountByScope(id, isFiscal),
-        queryFn: () =>
-          runAction(() => getClientAccountAction(id, { isFiscal })),
-      },
-      {
-        queryKey: clientsKeys.openingBalance(id),
-        queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
-      },
-      ...(canReadTariffs
-        ? [
-            {
-              queryKey: clientTariffsKeys.byClient(id),
-              queryFn: () => runAction(() => listClientTariffsAction(id)),
-            },
-          ]
-        : []),
-    ]),
-  ]);
+  const [activeChannels, accountsResult, areasResult, dehydratedState] =
+    await Promise.all([
+      getActiveInvoicingChannels(),
+      listAccountsAction(),
+      canReadTariffs ? listStorageAreasAction() : null,
+      prefetchQueries([
+        {
+          queryKey: clientsKeys.accountByScope(id, isFiscal),
+          queryFn: () =>
+            runAction(() => getClientAccountAction(id, { isFiscal })),
+        },
+        {
+          queryKey: clientsKeys.openingBalance(id),
+          queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
+        },
+        ...(canReadTariffs
+          ? [
+              {
+                queryKey: clientTariffsKeys.byClient(id),
+                queryFn: () => runAction(() => listClientTariffsAction(id)),
+              },
+            ]
+          : []),
+      ]),
+    ]);
 
   const client = result.data;
   const canWrite = userCan(ctx.access, "clients:write");
@@ -95,6 +98,13 @@ export default async function ClientDetailPage({
     is_fiscal: c.is_fiscal,
   }));
   const accounts = accountsResult.ok ? accountsResult.data : [];
+  const areaOptions = areasResult?.ok
+    ? areasResult.data.map((a) => ({
+        id: a.id,
+        label: `${a.warehouse_name} · ${a.name}`,
+        is_active: a.is_active,
+      }))
+    : [];
 
   return (
     <PageSideProvider side={isFiscal ? "fiscal" : "internal"}>
@@ -168,6 +178,7 @@ export default async function ClientDetailPage({
                   <ClientTariffsTab
                     clientId={id}
                     canWrite={userCan(ctx.access, "storage_billing:issue")}
+                    areaOptions={areaOptions}
                   />
                 </Suspense>
               </Hydrate>

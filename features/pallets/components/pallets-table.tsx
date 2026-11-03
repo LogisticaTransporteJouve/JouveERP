@@ -2,6 +2,8 @@
 
 import {
   Layers,
+  Lock,
+  LockOpen,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -25,9 +27,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useDeletePallet, usePallets } from "../hooks/use-pallets";
+import {
+  useDeletePallet,
+  usePallets,
+  useUnblockPallet,
+} from "../hooks/use-pallets";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
+import type { AreaOption } from "./area-select";
+import { BlockPalletDialog } from "./block-pallet-dialog";
 import { BulkPalletDialog } from "./bulk-pallet-dialog";
 import { DispatchPalletsDialog } from "./dispatch-pallets-dialog";
 import { PalletDialog } from "./pallet-dialog";
@@ -36,13 +44,17 @@ export function PalletsTable({
   warehouseOptions,
   clientOptions,
   productOptions,
+  areaOptions,
 }: {
   warehouseOptions: { id: string; name: string }[];
   clientOptions: { id: string; legal_name: string }[];
   productOptions: { id: string; name: string }[];
+  areaOptions: AreaOption[];
 }) {
   const { data: items } = usePallets();
   const deleteMut = useDeletePallet();
+  const unblockMut = useUnblockPallet();
+  const [blocking, setBlocking] = useState<Pallet | null>(null);
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; pallet: Pallet } | null
@@ -58,9 +70,9 @@ export function PalletsTable({
     [items, clientFilter],
   );
 
-  // Only pallets still in deposit can be dispatched (selected).
+  // Only pallets still in deposit and not blocked can be dispatched.
   const selectableIds = useMemo(
-    () => filtered.filter((p) => p.status === "en_deposito").map((p) => p.id),
+    () => filtered.filter(isDispatchable).map((p) => p.id),
     [filtered],
   );
 
@@ -97,6 +109,21 @@ export function PalletsTable({
       });
     }
 
+    async function handleUnblock(p: Pallet) {
+      const ok = await confirm({
+        title: `Desbloquear pallet ${p.code}`,
+        description: p.block_reason
+          ? `Motivo del bloqueo: ${p.block_reason}`
+          : "El pallet vuelve a poder despacharse.",
+        confirmLabel: "Desbloquear",
+      });
+      if (!ok) return;
+      unblockMut.mutate(p.id, {
+        onSuccess: () => toast.success(`Pallet ${p.code} desbloqueado.`),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
     return [
       {
         id: "select",
@@ -118,7 +145,7 @@ export function PalletsTable({
         enableSorting: false,
         meta: { headerClassName: "w-10", mobile: "primary" },
         cell: ({ row }) =>
-          row.original.status === "en_deposito" ? (
+          isDispatchable(row.original) ? (
             <Checkbox
               checked={selected.has(row.original.id)}
               onCheckedChange={() => toggleOne(row.original.id)}
@@ -156,6 +183,32 @@ export function PalletsTable({
         meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
+        id: "area",
+        header: "Área",
+        enableSorting: false,
+        cell: ({ row }) => row.original.area?.name ?? "—",
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
+      },
+      {
+        id: "lot",
+        header: "Lote",
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.lot_number ? (
+            <div className="text-sm">
+              <div className="font-mono text-xs">{row.original.lot_number}</div>
+              {row.original.lot_expiry && (
+                <div className="text-muted-foreground text-xs">
+                  Vence {row.original.lot_expiry}
+                </div>
+              )}
+            </div>
+          ) : (
+            "—"
+          ),
+        meta: { mobile: "secondary" },
+      },
+      {
         accessorKey: "quantity",
         header: "Cant.",
         cell: ({ row }) => row.original.quantity ?? "—",
@@ -170,9 +223,20 @@ export function PalletsTable({
         header: "Estado",
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant="secondary">
-            {PALLET_STATUS_LABELS[row.original.status]}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant="secondary">
+              {PALLET_STATUS_LABELS[row.original.status]}
+            </Badge>
+            {row.original.blocked_at && (
+              <Badge
+                variant="outline"
+                title={row.original.block_reason ?? undefined}
+              >
+                <Lock className="size-3" />
+                Bloqueado
+              </Badge>
+            )}
+          </div>
         ),
         meta: { headerClassName: "w-32", mobile: "primary" },
       },
@@ -217,6 +281,18 @@ export function PalletsTable({
                 <Pencil className="size-4" />
                 Editar
               </DropdownMenuItem>
+              {row.original.blocked_at ? (
+                <DropdownMenuItem onClick={() => handleUnblock(row.original)}>
+                  <LockOpen className="size-4" />
+                  Desbloquear
+                </DropdownMenuItem>
+              ) : row.original.status === "en_deposito" &&
+                !row.original.exit_date ? (
+                <DropdownMenuItem onClick={() => setBlocking(row.original)}>
+                  <Lock className="size-4" />
+                  Bloquear
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={() => handleDelete(row.original)}
@@ -229,7 +305,7 @@ export function PalletsTable({
         ),
       },
     ];
-  }, [confirm, deleteMut, selected, selectableIds, headerChecked]);
+  }, [confirm, deleteMut, unblockMut, selected, selectableIds, headerChecked]);
 
   const selectedCount = selected.size;
 
@@ -295,9 +371,20 @@ export function PalletsTable({
           warehouseOptions={warehouseOptions}
           clientOptions={clientOptions}
           productOptions={productOptions}
+          areaOptions={areaOptions}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);
+          }}
+        />
+      )}
+
+      {blocking && (
+        <BlockPalletDialog
+          pallet={blocking}
+          open={blocking !== null}
+          onOpenChange={(o) => {
+            if (!o) setBlocking(null);
           }}
         />
       )}
@@ -306,6 +393,7 @@ export function PalletsTable({
         warehouseOptions={warehouseOptions}
         clientOptions={clientOptions}
         productOptions={productOptions}
+        areaOptions={areaOptions}
         open={bulkOpen}
         onOpenChange={setBulkOpen}
       />
@@ -318,4 +406,8 @@ export function PalletsTable({
       />
     </>
   );
+}
+
+function isDispatchable(p: Pallet): boolean {
+  return p.status === "en_deposito" && p.blocked_at === null;
 }

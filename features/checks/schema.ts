@@ -17,6 +17,7 @@ export const CHECK_STATUSES = [
   "acreditado",
   "endosado",
   "rechazado",
+  "vendido",
 ] as const;
 export type ChequeStatus = (typeof CHECK_STATUSES)[number];
 
@@ -26,6 +27,7 @@ export const CHECK_STATUS_LABEL: Record<ChequeStatus, string> = {
   acreditado: "Acreditado",
   endosado: "Endosado",
   rechazado: "Rechazado",
+  vendido: "Vendido",
 };
 
 export const CHEQUE_CURRENCIES = ["ARS", "USD"] as const;
@@ -109,6 +111,36 @@ export const RejectChequeSchema = z.object({
   channel_id: z.string().min(1, "Canal requerido."),
   event_date: isoDate,
   notes: trimmedNullable,
+  /** A sold check only: the account the buyer is repaid from; absent = the
+   *  sale's account. */
+  account_id: z.string().uuid().nullable().optional(),
+});
+
+const nonNegativeMoney = z.preprocess(
+  moneyAmountPreprocess,
+  z
+    .number()
+    .finite("Importe inválido.")
+    .min(0, "No puede ser negativo.")
+    .max(1_000_000_000_000),
+);
+
+/** Venta (descuento) of cartera checks to a bank or financiera. */
+export const SellChequesSchema = z.object({
+  check_ids: z
+    .array(z.string().uuid())
+    .min(1, "Elegí al menos un cheque.")
+    .max(200, "Hasta 200 cheques por venta."),
+  account_id: z.string().uuid("Elegí la cuenta donde entra el neto."),
+  channel_id: z.string().min(1, "Canal requerido."),
+  sale_date: isoDate,
+  buyer_name: z.string().trim().min(1, "Falta el comprador.").max(120),
+  buyer_cuit: optionalCuit,
+  interest: nonNegativeMoney,
+  commission: nonNegativeMoney,
+  notes: trimmedNullable,
+  /** One per dialog: a repeated submit returns the first sale. */
+  idempotency_key: z.string().uuid(),
 });
 
 export type ChequeCreateInput = z.infer<typeof ChequeCreateSchema>;
@@ -116,6 +148,7 @@ export type ManualChequeCreateInput = z.infer<typeof ManualChequeCreateSchema>;
 export type DepositChequeInput = z.infer<typeof DepositChequeSchema>;
 export type CreditChequeInput = z.infer<typeof CreditChequeSchema>;
 export type RejectChequeInput = z.infer<typeof RejectChequeSchema>;
+export type SellChequesInput = z.input<typeof SellChequesSchema>;
 
 export function isChequeKind(value: unknown): value is ChequeKind {
   return (

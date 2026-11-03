@@ -112,6 +112,9 @@ const GUARDS = [
   "save_driver_settlement",
   "confirm_driver_settlement",
   "cancel_driver_settlement",
+  "guard_pallet_blocked",
+  "guard_late_interest_charge",
+  "sell_checks",
 ];
 
 describe("guard hints in migrations", () => {

@@ -33,11 +33,12 @@ type ClientTariffRow = Pick<
   | "valid_from"
   | "valid_to"
   | "notes"
+  | "area_id"
   | "created_at"
 >;
 
 const SELECT_COLUMNS =
-  "id, client_id, concept, unit, price, currency, valid_from, valid_to, notes, created_at";
+  "id, client_id, concept, unit, price, currency, valid_from, valid_to, notes, area_id, created_at";
 
 /** A row whose concept, unit or currency the app does not know is dropped
  *  and logged, not shown with a wrong label. */
@@ -121,6 +122,7 @@ export async function createClientTariffAction(
       valid_from: d.valid_from,
       valid_to: d.valid_to ?? null,
       notes: d.notes ?? null,
+      area_id: d.area_id ?? null,
       created_by: ctx.userId,
     })
     .select("id")
@@ -149,6 +151,7 @@ export async function createClientTariffAction(
       currency: d.currency,
       valid_from: d.valid_from,
       valid_to: d.valid_to ?? null,
+      area_id: d.area_id ?? null,
     },
     data.id,
   );
@@ -177,6 +180,7 @@ export async function updateClientTariffAction(
       valid_from: d.valid_from,
       valid_to: d.valid_to ?? null,
       notes: d.notes ?? null,
+      area_id: d.area_id ?? null,
     })
     .eq("id", d.id)
     .select("id");
@@ -208,6 +212,7 @@ export async function updateClientTariffAction(
       currency: d.currency,
       valid_from: d.valid_from,
       valid_to: d.valid_to ?? null,
+      area_id: d.area_id ?? null,
     },
     d.id,
   );

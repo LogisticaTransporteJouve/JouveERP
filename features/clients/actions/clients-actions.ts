@@ -323,6 +323,7 @@ export async function getClientReferencesAction(
     { table: "storage_billing_runs", column: "client_id" },
     { table: "storage_tariffs", column: "client_id" },
     { table: "client_tariffs", column: "client_id" },
+    { table: "late_interest_charges", column: "client_id" },
     { table: "client_opening_balances", column: "client_id" },
     { table: "client_opening_balance_allocations", column: "client_id" },
     { table: "file_attachments", column: "client_id" },

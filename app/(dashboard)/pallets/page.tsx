@@ -7,6 +7,7 @@ import {
 import { PalletsTable } from "@/features/pallets/components/pallets-table";
 import { palletsKeys } from "@/features/pallets/lib/pallets-keys";
 import { listProductsAction } from "@/features/products/actions/products-actions";
+import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
 import { listWarehousesAction } from "@/features/warehouses/actions/warehouses-actions";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -22,7 +23,7 @@ export default async function PalletsPageRoute() {
     redirect("/dashboard");
   }
 
-  const [dehydratedState, warehousesRes, clientsRes, productsRes] =
+  const [dehydratedState, warehousesRes, clientsRes, productsRes, areasRes] =
     await Promise.all([
       prefetchQueries([
         {
@@ -33,6 +34,7 @@ export default async function PalletsPageRoute() {
       listWarehousesAction({ onlyActive: true }),
       listPalletClientOptionsAction(),
       listProductsAction(),
+      listStorageAreasAction(),
     ]);
 
   const warehouseOptions = warehousesRes.ok
@@ -47,6 +49,15 @@ export default async function PalletsPageRoute() {
         .map((p) => ({ id: p.id, name: p.name }))
     : [];
 
+  const areaOptions = areasRes.ok
+    ? areasRes.data.map((a) => ({
+        id: a.id,
+        warehouse_id: a.warehouse_id,
+        name: a.name,
+        is_active: a.is_active,
+      }))
+    : [];
+
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
@@ -54,6 +65,7 @@ export default async function PalletsPageRoute() {
           warehouseOptions={warehouseOptions}
           clientOptions={clientOptions}
           productOptions={productOptions}
+          areaOptions={areaOptions}
         />
       </div>
     </Hydrate>

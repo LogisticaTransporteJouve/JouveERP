@@ -27,11 +27,19 @@ export interface Pallet {
   entry_date: string;
   exit_date: string | null;
   notes: string | null;
+  area_id: string | null;
+  lot_number: string | null;
+  lot_expiry: string | null;
+  /** Blocked pallets cannot leave nor be deleted (guard_pallet_blocked). */
+  blocked_at: string | null;
+  blocked_by: string | null;
+  block_reason: string | null;
   created_at: string;
   updated_at: string;
   warehouse: { name: string } | null;
   client: { legal_name: string } | null;
   product: { name: string } | null;
+  area: { name: string } | null;
 }
 
 const optionalUuid = z
@@ -74,6 +82,9 @@ export const PalletCreateSchema = z.object({
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   exit_date: optionalDate,
   notes: optionalText(2000),
+  area_id: optionalUuid,
+  lot_number: optionalText(60),
+  lot_expiry: optionalDate,
 });
 
 export type PalletCreateInput = z.infer<typeof PalletCreateSchema>;
@@ -89,6 +100,9 @@ export const PalletBulkCreateSchema = z.object({
   quantity: optionalAmount,
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   notes: optionalText(2000),
+  area_id: optionalUuid,
+  lot_number: optionalText(60),
+  lot_expiry: optionalDate,
   count: z.coerce
     .number()
     .int("Ingresá una cantidad entera.")
@@ -130,7 +144,21 @@ export const PalletUpdateSchema = z.object({
     .optional(),
   exit_date: optionalDate,
   notes: optionalText(2000),
+  area_id: optionalUuid,
+  lot_number: optionalText(60),
+  lot_expiry: optionalDate,
 });
+
+/** Block a pallet en depósito (it cannot leave until unblocked). */
+export const PalletBlockSchema = z.object({
+  id: z.string().uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Contá el motivo del bloqueo.")
+    .max(500, "Motivo demasiado largo."),
+});
+export type PalletBlockInput = z.input<typeof PalletBlockSchema>;
 
 export type PalletsSummaryRow =
   Database["public"]["Functions"]["ai_pallets_summary"]["Returns"][number];

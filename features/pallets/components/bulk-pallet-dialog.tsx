@@ -36,6 +36,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useCreatePalletsBulk } from "../hooks/use-pallets";
 
+import { AreaSelect, type AreaOption } from "./area-select";
+
 const NONE = "__none__";
 
 const FormSchema = z.object({
@@ -45,6 +47,9 @@ const FormSchema = z.object({
   quantity: z.string(),
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   notes: z.string().trim().max(2000),
+  area_id: z.string(),
+  lot_number: z.string().trim().max(60),
+  lot_expiry: z.string(),
   count: z
     .string()
     .regex(/^\d+$/, "Ingresá una cantidad.")
@@ -66,6 +71,9 @@ const DEFAULTS: FormValues = {
   quantity: "",
   entry_date: "",
   notes: "",
+  area_id: "",
+  lot_number: "",
+  lot_expiry: "",
   count: "",
   code_prefix: "PAL",
 };
@@ -74,12 +82,14 @@ export function BulkPalletDialog({
   warehouseOptions,
   clientOptions,
   productOptions,
+  areaOptions,
   open,
   onOpenChange,
 }: {
   warehouseOptions: { id: string; name: string }[];
   clientOptions: { id: string; legal_name: string }[];
   productOptions: { id: string; name: string }[];
+  areaOptions: AreaOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -96,6 +106,7 @@ export function BulkPalletDialog({
   }, [open, form]);
 
   const count = useWatch({ control: form.control, name: "count" });
+  const warehouseId = useWatch({ control: form.control, name: "warehouse_id" });
   const prefix = useWatch({ control: form.control, name: "code_prefix" });
   const previewCount = /^\d+$/.test(count) ? Number(count) : 0;
 
@@ -108,6 +119,9 @@ export function BulkPalletDialog({
         quantity: values.quantity,
         entry_date: values.entry_date,
         notes: values.notes,
+        area_id: values.area_id,
+        lot_number: values.lot_number,
+        lot_expiry: values.lot_expiry,
         count: values.count,
         code_prefix: values.code_prefix,
       },
@@ -139,7 +153,14 @@ export function BulkPalletDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Depósito</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => {
+                      field.onChange(v);
+                      // An area belongs to one warehouse.
+                      if (v !== field.value) form.setValue("area_id", "");
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Elegí un depósito" />
@@ -153,6 +174,24 @@ export function BulkPalletDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="area_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Área (opcional)</FormLabel>
+                  <FormControl>
+                    <AreaSelect
+                      areaOptions={areaOptions}
+                      warehouseId={warehouseId}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -284,6 +323,34 @@ export function BulkPalletDialog({
                 secuencia.
               </p>
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="lot_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lote (opcional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} maxLength={60} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lot_expiry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vencimiento del lote</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="notes"

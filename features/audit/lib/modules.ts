@@ -23,6 +23,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
   caea: { label: "CAEA" },
   chart_account: { label: "Plan de cuentas", href: () => "/accounting/chart" },
   check: { label: "Cheques recibidos", href: () => "/checks" },
+  check_sale: { label: "Venta de cheques", href: () => "/checks" },
   client: { label: "Clientes", href: (id) => `/clients/${id}` },
   cost_center: {
     label: "Centros de costo",
@@ -54,6 +55,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
   invoice_item: { label: "Ítems de comprobante" },
   issued_check: { label: "Cheques propios", href: () => "/issued-checks" },
   journal_entry: { label: "Libro diario", href: () => "/accounting/journal" },
+  late_interest: { label: "Intereses por mora", href: () => "/aging/mora" },
   leave: { label: "Licencias", href: () => "/hr/vacations" },
   libro_iva: { label: "Libro IVA" },
   loan: { label: "Préstamos", href: (id) => `/loans/${id}` },
@@ -78,6 +80,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
   recurring_task: { label: "Tareas recurrentes", href: () => "/tasks" },
   shipment: { label: "Cargas", href: () => "/cargas" },
   storage: { label: "Facturación de depósito", href: () => "/storage-billing" },
+  storage_area: { label: "Áreas de depósito", href: () => "/warehouses" },
   storage_tariff: {
     label: "Tarifas de depósito",
     href: () => "/storage-tariffs",

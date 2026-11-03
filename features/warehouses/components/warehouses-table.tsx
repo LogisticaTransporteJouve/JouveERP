@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { LayoutGrid, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ import {
 } from "../hooks/use-warehouses";
 import type { Warehouse } from "../schema";
 
+import { StorageAreasDialog } from "./storage-areas-dialog";
 import { WarehouseDialog } from "./warehouse-dialog";
 
 export function WarehousesTable() {
@@ -33,6 +34,7 @@ export function WarehousesTable() {
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; warehouse: Warehouse } | null
   >(null);
+  const [areasFor, setAreasFor] = useState<Warehouse | null>(null);
 
   const columns = useMemo<ColumnDef<Warehouse>[]>(() => {
     async function handleDelete(w: Warehouse) {
@@ -108,6 +110,10 @@ export function WarehousesTable() {
                 <Pencil className="size-4" />
                 Editar
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAreasFor(row.original)}>
+                <LayoutGrid className="size-4" />
+                Áreas
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={() => handleDelete(row.original)}
@@ -154,6 +160,16 @@ export function WarehousesTable() {
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);
+          }}
+        />
+      )}
+
+      {areasFor && (
+        <StorageAreasDialog
+          warehouse={areasFor}
+          open={areasFor !== null}
+          onOpenChange={(o) => {
+            if (!o) setAreasFor(null);
           }}
         />
       )}

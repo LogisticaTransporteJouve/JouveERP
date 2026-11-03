@@ -134,3 +134,31 @@ describe("catalog", () => {
     expect(dailyPrice({ unit: "pallet_day", price: 12 })).toBe(12);
   });
 });
+
+describe("area tariffs (roadmap 4.4)", () => {
+  const base = {
+    client_id: "22222222-2222-4222-8222-222222222222",
+    concept: "storage",
+    unit: "pallet_day",
+    price: 10,
+    valid_from: "2026-11-01",
+  };
+  const AREA = "33333333-3333-4333-8333-333333333333";
+
+  it("takes an optional area for storage, blank = every area", () => {
+    const r = ClientTariffCreateSchema.safeParse({ ...base, area_id: AREA });
+    expect(r.success).toBe(true);
+    const blank = ClientTariffCreateSchema.safeParse({ ...base, area_id: "" });
+    expect(blank.success && blank.data.area_id).toBeNull();
+  });
+
+  it("refuses an area on a flete tariff", () => {
+    const r = ClientTariffCreateSchema.safeParse({
+      ...base,
+      concept: "freight",
+      unit: "shipment",
+      area_id: AREA,
+    });
+    expect(r.success).toBe(false);
+  });
+});

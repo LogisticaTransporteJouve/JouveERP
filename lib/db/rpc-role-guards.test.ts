@@ -136,3 +136,30 @@ describe("ai_usage_today", () => {
     ).toMatch(/to service_role;$/);
   });
 });
+
+// The server action is their gate (cheques:write; invoices:read): no grant to
+// authenticated, so a direct POST /rest/v1/rpc/<fn> is refused.
+describe.each([
+  [
+    "sell_checks",
+    "sell_checks\\(uuid\\[\\], uuid, date, text, text, text, numeric, numeric, text, uuid, uuid\\)",
+  ],
+  ["late_interest_candidates", "late_interest_candidates\\(date\\)"],
+])("%s", (fn, signature) => {
+  it("is executable only by service_role", () => {
+    expect(
+      lastStatement(
+        new RegExp(`revoke all on function public\\.${signature}[^;]*;`, "gi"),
+      ),
+    ).toMatch(/from public, anon, authenticated;$/);
+    expect(
+      lastStatement(
+        new RegExp(
+          `grant execute on function public\\.${signature}[^;]*;`,
+          "gi",
+        ),
+      ),
+    ).toMatch(/to service_role;$/);
+    expect(latestDefinition(fn)).toMatch(/set\s+search_path\s*=\s*''/i);
+  });
+});
