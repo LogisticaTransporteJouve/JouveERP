@@ -16,11 +16,24 @@ vi.mock("@/features/fleet-reports/actions/activity-actions", () => ({
 }));
 vi.mock("@/features/management/actions/management-actions", () => ({
   getManagementPnlAction: vi.fn(),
+  getVehicleMarginAction: vi.fn(),
   listManagementCostCentersAction: vi.fn(),
   getManagementDrillAction: vi.fn(),
 }));
+vi.mock(
+  "@/features/driver-settlements/actions/driver-settlements-actions",
+  () => ({
+    listCodPendingAction: vi.fn(),
+    listDriverSettlementsAction: vi.fn(),
+  }),
+);
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
+import {
+  listCodPendingAction,
+  listDriverSettlementsAction,
+} from "@/features/driver-settlements/actions/driver-settlements-actions";
+import type { DriverSettlement } from "@/features/driver-settlements/schema";
 import {
   getClientNetRevenueAction,
   getClientSalesSummaryAction,
@@ -37,9 +50,13 @@ import type {
 } from "@/features/fleet-reports/schema";
 import {
   getManagementPnlAction,
+  getVehicleMarginAction,
   listManagementCostCentersAction,
 } from "@/features/management/actions/management-actions";
-import type { ManagementRow } from "@/features/management/schema";
+import type {
+  ManagementRow,
+  VehicleMarginRow,
+} from "@/features/management/schema";
 import { resolveAccess, type Role } from "@/lib/auth/permissions";
 import type { AgingPartyRow, AgingReport } from "@/lib/aging";
 
@@ -48,6 +65,7 @@ import {
   getClientPaymentBehavior,
   getDriverActivity,
   getTopCosts,
+  codByDriver,
   getVehicleEconomics,
   groupCosts,
   kmBasis,
@@ -97,7 +115,63 @@ function okData(res: Awaited<ReturnType<typeof getClientMargin.execute>>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(listCodPendingAction).mockResolvedValue({
+    ok: true,
+    data: { shipments: [], byDriver: [] },
+  });
+  vi.mocked(listDriverSettlementsAction).mockResolvedValue({
+    ok: true,
+    data: [],
+  });
+  vi.mocked(getVehicleMarginAction).mockResolvedValue({
+    ok: true,
+    data: {
+      vehicles: [],
+      withoutVehicle: null,
+      unattributed: [],
+      partial: false,
+    },
+  });
 });
+
+function vehicleMargin(v: Partial<VehicleMarginRow>): VehicleMarginRow {
+  return {
+    kind: "vehicle",
+    vehicleId: null,
+    patente: null,
+    isActive: true,
+    costCenterId: null,
+    trips: 0,
+    revenue: 0,
+    tripCost: 0,
+    fuelCost: 0,
+    maintenanceCost: 0,
+    centerCost: 0,
+    net: 0,
+    marginPct: null,
+    pendingUsd: 0,
+    ...v,
+  };
+}
+
+function settlement(v: Partial<DriverSettlement>): DriverSettlement {
+  return {
+    id: "s1",
+    numero: 1,
+    driver_id: "d1",
+    driver_name: "Juan",
+    settlement_date: "2026-10-10",
+    status: "confirmed",
+    notes: null,
+    expected_total: 1000,
+    received_total: 950,
+    difference: -50,
+    cargas: 2,
+    receipts: [],
+    created_at: "2026-10-10T12:00:00Z",
+    ...v,
+  };
+}
 
 describe("pageOf", () => {
   it("slices and says whether more rows follow", () => {
@@ -412,7 +486,79 @@ describe("getVehicleEconomics", () => {
       trip_km: 300,
       revenue_ars: 400,
     });
-    expect(meta.note).toContain("no están vinculadas a un camión");
+    expect(data.rows[0]).toEqual(
+      expect.objectContaining({
+        cost_center_cost_ars: null,
+        cost_center_linked: null,
+      }),
+    );
+    expect(meta.note).toContain("hace falta el permiso de gestión");
+    expect(getVehicleMarginAction).not.toHaveBeenCalled();
+  });
+
+  it("adds the cost of the truck's cost center with management:read, and keeps the rest apart", async () => {
+    vi.mocked(getVehicleMarginAction).mockResolvedValue({
+      ok: true,
+      data: {
+        vehicles: [
+          vehicleMargin({
+            vehicleId: "v1",
+            patente: "AA123BB",
+            costCenterId: "cc1",
+            centerCost: 600,
+          }),
+          vehicleMargin({
+            vehicleId: "v2",
+            patente: "CC456DD",
+            costCenterId: "cc2",
+            centerCost: 250,
+          }),
+        ],
+        withoutVehicle: null,
+        unattributed: [
+          vehicleMargin({ kind: "no_center", centerCost: 70 }),
+          vehicleMargin({
+            kind: "unlinked_center",
+            costCenterId: "cc9",
+            centerCost: 30,
+          }),
+        ],
+        partial: false,
+      },
+    });
+    const { data, meta } = okData(
+      await getVehicleEconomics.execute(ctx(["admin"]), RANGE),
+    );
+    expect(getVehicleMarginAction).toHaveBeenCalledWith({
+      fromPeriod: "2026-10",
+      toPeriod: "2026-10",
+    });
+    expect(data.rows).toEqual([
+      expect.objectContaining({
+        vehicle_id: "v1",
+        cost_center_cost_ars: 600,
+        cost_center_linked: true,
+        net_ars: 2800,
+      }),
+      // Only its center's costs (insurance) in the range.
+      expect.objectContaining({
+        vehicle_id: "v2",
+        cost_center_cost_ars: 250,
+        net_ars: -250,
+      }),
+    ]);
+    expect(data.unattributed_cost_ars).toBe(100);
+    expect(meta.note).not.toContain("meses completos");
+  });
+
+  it("says the center part covers whole months when the range does not", async () => {
+    const { meta } = okData(
+      await getVehicleEconomics.execute(ctx(["admin"]), {
+        from: "2026-10-05",
+        to: "2026-10-20",
+      }),
+    );
+    expect(meta.note).toContain("meses completos 2026-10→2026-10");
   });
 
   it("names the parts a per-user deny leaves out", async () => {
@@ -483,6 +629,98 @@ describe("getDriverActivity", () => {
     );
     expect(meta.note).not.toContain("permiso de RRHH");
   });
+
+  it("brings the driver's cash-on-delivery rendiciones with receipts:read", async () => {
+    vi.mocked(getDriverActivityAction).mockResolvedValue({
+      ok: true,
+      data: [driver({})],
+    });
+    vi.mocked(getFleetMarginAction).mockResolvedValue({ ok: true, data: [] });
+    vi.mocked(listCodPendingAction).mockResolvedValue({
+      ok: true,
+      data: {
+        shipments: [],
+        byDriver: [
+          {
+            driver_id: "d1",
+            driver_name: "Juan",
+            cargas: 2,
+            amount: 300,
+            drafts: 1,
+          },
+          {
+            driver_id: null,
+            driver_name: "Sin chofer",
+            cargas: 1,
+            amount: 80,
+            drafts: 0,
+          },
+        ],
+      },
+    });
+    vi.mocked(listDriverSettlementsAction).mockResolvedValue({
+      ok: true,
+      data: [
+        settlement({}),
+        settlement({ id: "s2", status: "draft", numero: null }),
+        settlement({ id: "s3", settlement_date: "2026-09-30" }),
+        settlement({ id: "s4", status: "cancelled" }),
+      ],
+    });
+    const { data, meta } = okData(
+      await getDriverActivity.execute(ctx(["admin"]), RANGE),
+    );
+    expect(data.rows[0]).toEqual(
+      expect.objectContaining({
+        cod_pending_cargas: 2,
+        cod_pending_ars: 300,
+        cod_draft_settlements: 1,
+        cod_draft_ars: 1000,
+        cod_settlements: 1,
+        cod_settled_expected_ars: 1000,
+        cod_settled_received_ars: 950,
+        cod_settled_difference_ars: -50,
+      }),
+    );
+    expect(meta.note).toContain("sin chofer: $80");
+  });
+
+  it("leaves the rendiciones out (null) without receipts:read", async () => {
+    vi.mocked(getDriverActivityAction).mockResolvedValue({
+      ok: true,
+      data: [driver({})],
+    });
+    vi.mocked(getFleetMarginAction).mockResolvedValue({ ok: true, data: [] });
+    const { data, meta } = okData(
+      await getDriverActivity.execute(ctx(["operations"]), RANGE),
+    );
+    expect(data.rows[0]).toEqual(
+      expect.objectContaining({ cod_pending_ars: null, cod_settlements: null }),
+    );
+    expect(meta.note).toContain("permiso de recibos");
+    expect(listCodPendingAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("codByDriver", () => {
+  it("counts a confirmed rendición only inside the range, and a draft always", () => {
+    const out = codByDriver(
+      { shipments: [], byDriver: [] },
+      [
+        settlement({ settlement_date: "2026-10-31" }),
+        settlement({ id: "s2", settlement_date: "2026-11-01" }),
+        settlement({
+          id: "s3",
+          status: "draft",
+          settlement_date: "2025-01-01",
+        }),
+      ],
+      RANGE,
+    );
+    expect(out.get("d1")).toEqual(
+      expect.objectContaining({ settled: 1, drafts: 1, draftArs: 1000 }),
+    );
+  });
 });
 
 describe("getTopCosts", () => {
@@ -522,12 +760,15 @@ describe("getTopCosts", () => {
   it("ranks the top ones, puts the rest in one row and builds the stacked month table", async () => {
     vi.mocked(getManagementPnlAction).mockResolvedValue({
       ok: true,
-      data: [
-        row({ amount: -300 }),
-        row({ month: "2026-09", amount: -100 }),
-        row({ subbucket: "seguros", amount: -50 }),
-        row({ subbucket: "peajes", amount: -50 }),
-      ],
+      data: {
+        rows: [
+          row({ amount: -300 }),
+          row({ month: "2026-09", amount: -100 }),
+          row({ subbucket: "seguros", amount: -50 }),
+          row({ subbucket: "peajes", amount: -50 }),
+        ],
+        partial: false,
+      },
     });
     const res = await getTopCosts.execute(ctx(["finance"]), {
       fromPeriod: "2026-09",
@@ -566,15 +807,18 @@ describe("getTopCosts", () => {
   it("getManagementPnL gives one chart-ready row per month", async () => {
     vi.mocked(getManagementPnlAction).mockResolvedValue({
       ok: true,
-      data: [
-        row({ month: "2026-10", amount: -300 }),
-        row({
-          month: "2026-10",
-          bucket: "service_revenue",
-          subbucket: null,
-          amount: 1000,
-        }),
-      ],
+      data: {
+        rows: [
+          row({ month: "2026-10", amount: -300 }),
+          row({
+            month: "2026-10",
+            bucket: "service_revenue",
+            subbucket: null,
+            amount: 1000,
+          }),
+        ],
+        partial: false,
+      },
     });
     vi.mocked(listManagementCostCentersAction).mockResolvedValue({
       ok: true,

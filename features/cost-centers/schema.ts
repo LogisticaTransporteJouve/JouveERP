@@ -16,6 +16,8 @@ export const CostCenterCreateSchema = z.object({
   name: z.string().trim().min(2).max(60),
   description: z.string().trim().max(200).optional().nullable(),
   is_active: z.boolean().default(true),
+  /** The truck whose costs this center carries (margen por camión). */
+  vehicle_id: z.string().uuid().nullable().optional(),
 });
 
 export const CostCenterUpdateSchema = z.object({
@@ -23,9 +25,18 @@ export const CostCenterUpdateSchema = z.object({
   name: z.string().trim().min(2).max(60).optional(),
   description: z.string().trim().max(200).nullable().optional(),
   is_active: z.boolean().optional(),
+  vehicle_id: z.string().uuid().nullable().optional(),
 });
 
 export const CostCenterDeleteSchema = z.object({ id: z.string().uuid() });
+
+/** A truck a cost center can be linked to. */
+export type CostCenterVehicle = {
+  id: string;
+  patente: string;
+  alias: string | null;
+  is_active: boolean;
+};
 
 /** What a cost picker offers: postable expense accounts and active centers. */
 export type CostTagOption = { id: string; code: string; name: string };

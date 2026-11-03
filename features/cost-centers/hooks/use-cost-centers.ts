@@ -12,6 +12,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   createCostCenterAction,
   deleteCostCenterAction,
+  listCostCenterVehiclesAction,
   listCostCentersAction,
   updateCostCenterAction,
 } from "../actions/cost-centers-actions";
@@ -32,6 +33,15 @@ export function useCostTagOptions() {
   return useQuery({
     queryKey: costCentersKeys.tagOptions(),
     queryFn: () => runAction(() => listCostTagOptionsAction()),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Trucks a center can be linked to. Not suspense: an optional field. */
+export function useCostCenterVehicles() {
+  return useQuery({
+    queryKey: costCentersKeys.vehicles(),
+    queryFn: () => runAction(() => listCostCenterVehiclesAction()),
     staleTime: 5 * 60_000,
   });
 }

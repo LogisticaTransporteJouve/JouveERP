@@ -12,6 +12,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   getManagementDrillAction,
   getManagementReportAction,
+  getVehicleMarginAction,
   logManagementExportAction,
   setManagementBucketAction,
 } from "../actions/management-actions";
@@ -20,12 +21,21 @@ import type {
   ManagementDrillInput,
   ManagementExportInput,
   ManagementReportInput,
+  VehicleMarginInput,
 } from "../schema";
 
 export function useManagementReport(input: ManagementReportInput) {
   return useSuspenseQuery({
     queryKey: managementKeys.report(input),
     queryFn: () => runAction(() => getManagementReportAction(input)),
+  });
+}
+
+/** Not suspense: a section of the page, with its own loading and error. */
+export function useVehicleMargin(input: VehicleMarginInput) {
+  return useQuery({
+    queryKey: managementKeys.vehicleMargin(input),
+    queryFn: () => runAction(() => getVehicleMarginAction(input)),
   });
 }
 
