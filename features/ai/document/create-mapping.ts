@@ -13,22 +13,19 @@ import {
   type PurchaseIvaRateId,
 } from "@/features/purchase-invoices/schema";
 
-import { foldNonComputable, ivaIsComputable } from "@/lib/afip/codes";
+import {
+  IVA_RATE,
+  IVA_RATE_OPTIONS,
+  IVA_RATE_PERCENT,
+  foldNonComputable,
+  ivaIsComputable,
+  ivaRateIdForPercent,
+} from "@/lib/afip/codes";
 
 import { InvoiceExtractionSchema, type InvoiceExtraction } from "./schemas";
 
-/** Normalized AR alícuota (percent) → AFIP purchase iva_rate_id. */
-const PERCENT_TO_RATE_ID: Record<number, PurchaseIvaRateId> = {
-  0: 3,
-  2.5: 9,
-  5: 8,
-  10.5: 4,
-  21: 5,
-  27: 6,
-};
-
 function alicuotaToRateId(value: unknown): PurchaseIvaRateId | null {
-  return typeof value === "number" ? (PERCENT_TO_RATE_ID[value] ?? null) : null;
+  return typeof value === "number" ? ivaRateIdForPercent(value) : null;
 }
 
 function round(n: number, decimals: number): number {
@@ -265,11 +262,11 @@ function inferRateId(
   neto: number | null,
   iva: number | null,
 ): PurchaseIvaRateId | null {
-  if (iva === null || iva === 0) return PERCENT_TO_RATE_ID[0] ?? null;
+  if (iva === null || iva === 0) return IVA_RATE.ZERO;
   if (!neto || neto <= 0) return null;
   const pct = (iva / neto) * 100;
-  for (const [percent, id] of Object.entries(PERCENT_TO_RATE_ID)) {
-    if (Math.abs(pct - Number(percent)) <= 0.5) return id;
+  for (const { value } of IVA_RATE_OPTIONS) {
+    if (Math.abs(pct - IVA_RATE_PERCENT[value]) <= 0.5) return value;
   }
   return null;
 }

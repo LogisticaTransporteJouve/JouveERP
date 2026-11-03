@@ -46,6 +46,26 @@ export function cbteTipoFor(
   return CBTE_TIPO_BY_KIND_LETTER[kind][letter];
 }
 
+const KIND_LETTER_BY_CBTE_TIPO: ReadonlyMap<
+  number,
+  { kind: InvoiceKind; letter: InvoiceLetter }
+> = new Map(
+  (Object.keys(CBTE_TIPO_BY_KIND_LETTER) as InvoiceKind[]).flatMap((kind) =>
+    (Object.keys(CBTE_TIPO_BY_KIND_LETTER[kind]) as InvoiceLetter[]).map(
+      (letter) =>
+        [CBTE_TIPO_BY_KIND_LETTER[kind][letter], { kind, letter }] as const,
+    ),
+  ),
+);
+
+/** Kind and letter of a CbteTipo the ERP models (A, B, C facturas, NC and
+ *  ND); null for any other (FCE MiPyME, M, tickets…). */
+export function kindLetterForCbteTipo(
+  cbteTipo: number,
+): { kind: InvoiceKind; letter: InvoiceLetter } | null {
+  return KIND_LETTER_BY_CBTE_TIPO.get(cbteTipo) ?? null;
+}
+
 // Only a letter A voucher discriminates IVA for the buyer: on B and C the IVA,
 // exento and no gravado are part of the price.
 export function ivaIsComputable(letter: string | null): boolean {
@@ -259,6 +279,15 @@ export const IVA_RATE_PERCENT: Record<IvaRateId, number> = {
 
 export function ivaRatePercent(id: IvaRateId): number {
   return IVA_RATE_PERCENT[id];
+}
+
+/** The AFIP rate id of an alícuota written as a percent (21, 10.5, "27"…);
+ *  null when it is not one AFIP defines. */
+export function ivaRateIdForPercent(percent: number): IvaRateId | null {
+  for (const option of IVA_RATE_OPTIONS) {
+    if (IVA_RATE_PERCENT[option.value] === percent) return option.value;
+  }
+  return null;
 }
 
 // --------------------------------------------------------------------------

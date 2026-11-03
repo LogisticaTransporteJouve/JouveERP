@@ -10,8 +10,7 @@ import {
   CBTE_TIPO,
   CONDICION_IVA_RECEPTOR,
   DOC_TIPO,
-  type InvoiceKind,
-  type InvoiceLetter,
+  kindLetterForCbteTipo,
 } from "./codes";
 import { PadronNoConstanciaError } from "./padron";
 import type { ContributorInfo } from "./types";
@@ -66,21 +65,6 @@ export const SYNC_CBTE_TIPOS = [
   CBTE_TIPO.NC_B,
 ] as const;
 
-const KIND_LETTER_BY_TIPO: Record<
-  number,
-  { kind: InvoiceKind; letter: InvoiceLetter }
-> = {
-  1: { kind: "factura", letter: "A" },
-  2: { kind: "nd", letter: "A" },
-  3: { kind: "nc", letter: "A" },
-  6: { kind: "factura", letter: "B" },
-  7: { kind: "nd", letter: "B" },
-  8: { kind: "nc", letter: "B" },
-  11: { kind: "factura", letter: "C" },
-  12: { kind: "nd", letter: "C" },
-  13: { kind: "nc", letter: "C" },
-};
-
 type ClientIvaCondition =
   | "responsable_inscripto"
   | "monotributo"
@@ -121,7 +105,7 @@ export function clientIvaConditionFor(info: VoucherInfo): ClientIvaCondition {
       ? undefined
       : IVA_CONDITION_BY_RECEPTOR[info.condicionIvaReceptorId];
   if (byReceptor) return byReceptor;
-  return KIND_LETTER_BY_TIPO[info.cbteTipo]?.letter === "A"
+  return kindLetterForCbteTipo(info.cbteTipo)?.letter === "A"
     ? "responsable_inscripto"
     : "consumidor_final";
 }
@@ -138,7 +122,7 @@ export function voucherToInvoiceInsert(
     originUnlinked?: boolean;
   },
 ): InvoiceInsert | null {
-  const kl = KIND_LETTER_BY_TIPO[info.cbteTipo];
+  const kl = kindLetterForCbteTipo(info.cbteTipo);
   const fecha = afipDateToIso(info.cbteFch);
   if (!kl || !fecha) return null;
   return {
@@ -416,7 +400,7 @@ async function importVoucher(
   const info = await afip.getVoucherInfo(target.punto_venta, cbteTipo, nro);
   if (!info) return { kind: "missing" };
 
-  const kind = KIND_LETTER_BY_TIPO[cbteTipo]?.kind;
+  const kind = kindLetterForCbteTipo(cbteTipo)?.kind;
   const origin =
     kind && kind !== "factura"
       ? await resolveOrigin(supabase, afip, info)
@@ -528,7 +512,7 @@ export async function syncIssuedPair(
   }
 
   const clientCache = new Map<string, string>();
-  const isNcNd = KIND_LETTER_BY_TIPO[cbteTipo]?.kind !== "factura";
+  const isNcNd = kindLetterForCbteTipo(cbteTipo)?.kind !== "factura";
 
   if (opts.retryGaps && isNcNd && result.last_local > 0) {
     const gaps = hourlyWindow(
