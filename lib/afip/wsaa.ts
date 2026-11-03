@@ -24,8 +24,20 @@ import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { getAfipCert, getAfipKey, getWsaaUrl } from "./env";
+import { AfipTransportError } from "./errors";
 import { afipFetch } from "./http";
 import type { AccessTicket } from "./types";
+
+/** WSAA refused a login because a TA it issued is still valid. Retriable: the
+ *  instance that holds it may store it in afip_ta_cache. */
+export class WsaaAlreadyAuthenticatedError extends AfipTransportError {
+  constructor() {
+    super(
+      "AFIP ya emitió un ticket de acceso vigente que no está guardado: se reintenta.",
+    );
+    this.name = "WsaaAlreadyAuthenticatedError";
+  }
+}
 
 const SAFETY_MARGIN_MS = 5 * 60 * 1000;
 
@@ -167,6 +179,9 @@ async function callWsaa(cms: string): Promise<AccessTicket> {
       status: res.status,
       body: text.slice(0, 800),
     });
+    if (text.includes("alreadyAuthenticated")) {
+      throw new WsaaAlreadyAuthenticatedError();
+    }
     throw new Error(`WSAA HTTP ${res.status}: ${text.slice(0, 800)}`);
   }
 
@@ -206,8 +221,12 @@ async function readTaFromDb(service: string): Promise<AccessTicket | null> {
     .maybeSingle();
 
   if (error) {
+    // Not "no TA": a fresh login while another instance's TA is valid gets
+    // alreadyAuthenticated. Retriable, like a network failure.
     logger.warn("wsaa.db_cache_read_failed", { service, err: error.message });
-    return null;
+    throw new AfipTransportError(
+      `No se pudo leer el ticket de acceso de AFIP guardado: ${error.message}`,
+    );
   }
   if (!data) return null;
 
@@ -220,29 +239,56 @@ async function readTaFromDb(service: string): Promise<AccessTicket | null> {
   };
 }
 
+/** Waits between upsert tries of a fresh TA. */
+export const TA_WRITE_RETRY_DELAYS_MS = [200, 600];
+
+/** Stores the TA for the other instances, retrying a failed upsert. Throws
+ *  (retriable) when it cannot: a TA only this instance holds leaves every
+ *  other one with alreadyAuthenticated until it expires. */
 async function writeTaToDb(service: string, ta: AccessTicket): Promise<void> {
   const supabase = getServiceClient();
-  const { error } = await supabase.from("afip_ta_cache").upsert(
-    {
-      service,
-      token: ta.token,
-      sign: ta.sign,
-      expiration_time: ta.expiration_time.toISOString(),
-      cached_at: new Date().toISOString(),
-    },
-    { onConflict: "service" },
-  );
-  if (error) {
+  let lastError = "";
+  for (let i = 0; i <= TA_WRITE_RETRY_DELAYS_MS.length; i++) {
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, TA_WRITE_RETRY_DELAYS_MS[i - 1]));
+    }
+    const { error } = await supabase.from("afip_ta_cache").upsert(
+      {
+        service,
+        token: ta.token,
+        sign: ta.sign,
+        expiration_time: ta.expiration_time.toISOString(),
+        cached_at: new Date().toISOString(),
+      },
+      { onConflict: "service" },
+    );
+    if (!error) return;
+    lastError = error.message;
     logger.warn("wsaa.db_cache_write_failed", {
       service,
-      err: error.message,
+      try: i + 1,
+      err: lastError,
     });
   }
+  throw new AfipTransportError(
+    `No se pudo guardar el ticket de acceso de AFIP: ${lastError}`,
+  );
+}
+
+/** Services whose in-memory TA has not reached afip_ta_cache yet. */
+const unpersisted = new Set<string>();
+
+async function persist(service: string, ta: AccessTicket): Promise<void> {
+  await writeTaToDb(service, ta);
+  unpersisted.delete(service);
 }
 
 export async function getAccessTicket(service: string): Promise<AccessTicket> {
   const mem = memCache.get(service);
-  if (mem && isStillValid(mem)) return mem;
+  if (mem && isStillValid(mem)) {
+    if (unpersisted.has(service)) await persist(service, mem);
+    return mem;
+  }
 
   // Coalesce concurrent calls for the same service.
   const flight = inFlight.get(service);
@@ -259,9 +305,24 @@ export async function getAccessTicket(service: string): Promise<AccessTicket> {
       logger.info("wsaa.requesting_fresh_ta", { service });
       const xml = buildLoginTicketRequest(service);
       const cms = signCms(xml, getAfipCert(), getAfipKey());
-      const ta = await callWsaa(cms);
+      let ta: AccessTicket;
+      try {
+        ta = await callWsaa(cms);
+      } catch (err) {
+        if (!(err instanceof WsaaAlreadyAuthenticatedError)) throw err;
+        // Another instance logged in since the read: its TA may be stored now.
+        const stored = await readTaFromDb(service);
+        if (stored && isStillValid(stored)) {
+          memCache.set(service, stored);
+          return stored;
+        }
+        throw err;
+      }
+      // Kept in memory first: a failed write must not lose a TA AFIP will
+      // not issue again; the next call retries the write.
       memCache.set(service, ta);
-      await writeTaToDb(service, ta);
+      unpersisted.add(service);
+      await persist(service, ta);
       return ta;
     } finally {
       inFlight.delete(service);

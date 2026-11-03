@@ -15,6 +15,7 @@ import { runAction } from "@/lib/query/run-action";
 import {
   clearAccountOpeningBalanceAction,
   createAccountAction,
+  getAccountHasMovementsAction,
   getAccountOpeningBalanceAction,
   listAccountsAction,
   setAccountActiveAction,
@@ -62,6 +63,17 @@ export function useSetAccountActive() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountsKeys.all });
     },
+  });
+}
+
+/** Read fresh each time the edit form opens: a movement booked elsewhere
+ *  freezes the account's currency, type and opening balance. */
+export function useAccountHasMovements(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: accountsKeys.hasMovements(id),
+    queryFn: () => runAction(() => getAccountHasMovementsAction(id)),
+    staleTime: 0,
+    enabled,
   });
 }
 

@@ -257,13 +257,15 @@ export async function getCashFlowAction(input: {
     ...onAccountNetting(recvCredit, recvByScope, "in", firstFwd, arsAtRate),
   );
 
-  // Open supplier payables → expected payment in the month of their due date
-  // (overdue ones clamp to the first projected month), channel-split.
+  // Open supplier payables (factura/ND net of the NCs with no origin, and
+  // bounced checks we delivered) → expected payment in the month of their due
+  // date (overdue ones clamp to the first projected month), channel-split. A
+  // bounced check has no purchase_invoice_id: document_id is the total order.
   const { data: pay, error: payErr } = await paginateRange((from, to) =>
     supabase
       .from("v_supplier_aging_documents")
       .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
-      .order("purchase_invoice_id", { ascending: true })
+      .order("document_id", { ascending: true })
       .range(from, to),
   );
   if (payErr) return failed("payables", payErr);

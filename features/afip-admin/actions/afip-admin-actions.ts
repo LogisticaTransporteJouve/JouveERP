@@ -369,10 +369,13 @@ export async function getCaeaStatusAction(): Promise<ActionResult<CaeaStatus>> {
       .is("caea_informed_at", null)
       .eq("status", "emitted"),
   ]);
-  if (codesRes.error) {
+  // A failed count is not "nothing to inform": the warning it hides guards a
+  // legal deadline (fch_tope_inf).
+  const failed = codesRes.error ?? pendingRes.error;
+  if (failed || pendingRes.count === null) {
     logger.error("caea.status.failed", {
       userId: ctx.userId,
-      error: codesRes.error,
+      error: failed ?? "pending count missing",
     });
     return { ok: false, error: "No se pudo leer el estado CAEA." };
   }
@@ -380,7 +383,7 @@ export async function getCaeaStatusAction(): Promise<ActionResult<CaeaStatus>> {
     ok: true,
     data: {
       codes: codesRes.data ?? [],
-      pendingToInform: pendingRes.count ?? 0,
+      pendingToInform: pendingRes.count,
     },
   };
 }

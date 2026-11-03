@@ -842,4 +842,21 @@ describe("createSalesInvoiceFromExtractionAction", () => {
     expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
     expect(extraction()?.status).toBe("pending_review");
   });
+
+  it("requests no CAE when the duplicate lookup of the scan failed", async () => {
+    seed("sales_invoice", { client_id: CLIENT_ID, duplicate_unknown: true });
+
+    const res = await createSalesInvoiceFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      channelId: "ch1",
+      puntoVenta: 3,
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error:
+        "No se pudo verificar si el comprobante ya está registrado: volvé a escanearlo.",
+    });
+    expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
+  });
 });

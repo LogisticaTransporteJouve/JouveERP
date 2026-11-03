@@ -219,3 +219,21 @@ export type ExtractableKind = keyof typeof EXTRACTION_SCHEMAS;
 export function isExtractableKind(kind: string): kind is ExtractableKind {
   return kind in EXTRACTION_SCHEMAS;
 }
+
+/** What the duplicate lookup of a scan found (`matches.duplicate_of` /
+ *  `duplicate_unknown`, written by store.ts): "unknown" when it failed. */
+export type DuplicateCheck = "found" | "none" | "unknown";
+
+export const DUPLICATE_UNKNOWN_MESSAGE =
+  "No se pudo verificar si el comprobante ya está registrado: volvé a escanearlo.";
+
+export function duplicateCheckOf(matches: unknown): DuplicateCheck {
+  if (typeof matches !== "object" || matches === null) return "none";
+  if ("duplicate_of" in matches && typeof matches.duplicate_of === "string") {
+    return "found";
+  }
+  if ("duplicate_unknown" in matches && matches.duplicate_unknown === true) {
+    return "unknown";
+  }
+  return "none";
+}

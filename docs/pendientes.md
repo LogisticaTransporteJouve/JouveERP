@@ -108,6 +108,67 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Tesorería: auditoría w2 (2026-11-04)
+
+- [x] **Cheques en USD entregados a un proveedor** (`20261104101000`): el
+      cobro, el rechazo y la anulación de un cheque propio de una OP, y el
+      rechazo de un cheque endosado, asientan a la cotización de la OP (la
+      misma con la que la OP los acreditó); `cheques_diferidos_emitidos` y
+      proveedores se revierten exactos. Antes asentaban los dólares como
+      pesos.
+- [x] El rechazo de un cheque endosado asienta en la fecha del rechazo y el de
+      un cheque propio en `rejected_at` (antes, el día de la carga).
+      `reject_check` corre con `search_path = ''`.
+- [ ] Diferencia de cambio del lado del banco al cobrar un cheque propio USD
+      de una OP: el banco se acredita a la cotización de la OP, no a la del
+      día del cobro.
+- [ ] Asientos ya hechos de cheques USD de OP (cobro, rechazo, anulación) y
+      de rechazos de endosados quedan con el importe viejo; re-asentarlos
+      cambia períodos pasados: lo decide el owner.
+- [x] **Cheque entregado que rebota** (`20261104101400`): la deuda vuelve a
+      la cuenta corriente del proveedor (fila "Cheque rechazado" con el
+      número de la OP), al aging, al flujo de caja y a las herramientas de
+      IA de proveedores. Se paga con una OP nueva a cuenta e "Imputar" →
+      "Cheques rechazados" (del más viejo). Los mensajes de anular y editar
+      la OP dicen ese camino.
+- [ ] Saldo de apertura de proveedor: el saldo real al corte no cuenta los
+      cheques entregados rechazados.
+- [ ] Un cheque rechazado USD pagado por una OP a otra cotización deja la
+      diferencia en proveedores (sin `diferencia_cambio`).
+- [ ] La OP nueva no imputa el cheque rechazado al crearla (solo a cuenta y
+      después "Imputar"); las tareas automáticas no crean "Pagar" para un
+      cheque rechazado.
+- [x] **NC de compra sin origen** (`20261104101400`): el aging por documento
+      reparte su crédito (mismo canal y moneda, del más vencido al más
+      nuevo), así el flujo de caja y la IA ven lo mismo que los totales del
+      aging. Ahora el crédito queda en su canal: una NC sin origen de un
+      canal ya no baja la deuda de otro.
+- [x] **Cuentas con movimientos** (`20261104101100`): moneda, tipo y saldo
+      inicial quedan fijos (guarda en la base y campos deshabilitados en el
+      formulario); el saldo se corrige con "Ajustar saldo".
+- [x] **Préstamo en USD** (`20261104101300`): el capital de cada cuota baja
+      `prestamos` a la cotización del desembolso y la diferencia va a
+      `diferencia_cambio`. Un préstamo importado (sin movimiento de
+      desembolso) asienta como antes; las cuotas ya pagadas conservan su
+      asiento.
+- [x] "Pagar" un impuesto pide también `transactions:write` (mueve Caja),
+      como vincular y deshacer.
+- [x] Transferir desde o hacia una cartera de cheques se rechaza en la base
+      (`20261104101200`).
+- [ ] `create_transfer` no tiene clave de idempotencia: un reintento crea
+      otra transferencia.
+- [x] Conciliación: la diferencia compara el saldo del extracto con el de
+      libros a la fecha de ese saldo.
+- [x] Tesorería muestra las carteras de cheques en USD aparte.
+- [x] Deudas por cheques vendidos: todas las pendientes (sin tope de 200) y
+      las últimas 100 pagadas (llegó con #348).
+- [ ] Aprobar las migraciones `20261104101000`–`20261104101400` con el
+      deploy.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`check_journal_op_rate`, `account_frozen_after_movements`,
+      `transfer_check_cartera`, `loan_usd_capital_fx`,
+      `supplier_rejected_checks`).
+
 ## Auditoría: IA, tareas y accesos (2026-11-04)
 
 - [x] **Insights:** una lectura que falla conserva las tarjetas de su tipo
@@ -1014,7 +1075,10 @@ mitigación en el schema: el límite se respeta operando.
 - [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
       `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
       `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
-      Inngest se vuelve a mandar con su clave.
+      Inngest se vuelve a mandar con su clave. La NC de un remito facturado es
+      la excepción: `credit-billed-remito` la manda con una clave por corrida,
+      así que una primera corrida lenta puede tener una segunda; es interna y
+      las dos terminan en el mismo número.
 - [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
       run; si `inngest.send` falla el borrador no se borra.
 - [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
@@ -1041,3 +1105,45 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
       leer la fila, o el run se canceló) no la resuelve el cron: frena la
       importación de ARCA de su par hasta que alguien la marque fallida.
+
+### Emisión AFIP — auditoría, segunda vuelta (2026-11-04)
+
+- [x] Un run que agota los reintentos con un pedido reciente a AFIP (menos de
+      30 min) no se marca fallido por un "no registrado" de AFIP: un pedido
+      que se cortó por el límite de 20 s puede seguir procesándose. Queda en
+      `emitting` y lo decide `issue-invoice-reconcile`. Un rechazo de AFIP
+      (error no reintentable) sigue marcándose fallido en el momento.
+- [x] El aviso al remito facturado de un CAE recuperado (por el `onFailure` o
+      por el cron) sale en un paso propio: un reintento ya no lo pierde.
+- [x] WSAA: el ticket nuevo se guarda en `afip_ta_cache` con reintentos antes
+      de usarse; si no se puede guardar, el paso falla y se reintenta sin
+      pedir otro login. Un error al leer el ticket guardado no se toma como
+      "no hay ticket", y un `alreadyAuthenticated` vuelve a leer el guardado.
+- [x] Estado CAEA: si falla el conteo de comprobantes sin informar, el panel y
+      la herramienta de IA muestran el error en vez de "0".
+- [x] Escaneo de una factura de venta: si no se pudo verificar si ya estaba
+      cargada, "Emitir factura" queda deshabilitado y la acción la rechaza;
+      el borrador de compra lo avisa.
+- [x] Un comprobante fiscal en dólares necesita cotización mayor a 1 también
+      en la base (`guard_invoice_cotizacion`), para cualquier escritor.
+- [x] El total del listado de Comprobantes suma solo los emitidos (antes
+      sumaba borradores); la cantidad sigue contando todas las filas listadas.
+- [x] CAEA: no se emite con un CAEA ya informado "sin movimiento" para ese
+      punto de venta (el comprobante falla con el aviso de emitirlo de nuevo
+      con una fecha de la quincena vigente),
+      y "sin movimiento" espera mientras haya un borrador del punto de venta
+      con fecha dentro de la vigencia.
+- [x] El barrido de archivos huérfanos borra solo los que siguen huérfanos al
+      borrar (`delete_orphan_files`) y después saca sus bytes.
+- [x] El mail semanal del aging va con clave de idempotencia: un reintento no
+      lo manda dos veces.
+- [ ] Mail manual de un comprobante, recibo o liquidación: sin clave de
+      idempotencia. Hace falta un id de pedido que el diálogo mande a las tres
+      acciones; hoy el doble envío lo frena solo el botón deshabilitado.
+- [ ] `build_invoice_journal_lines` y `libro_iva_ventas` siguen tomando una
+      cotización 1 guardada como válida en un comprobante en dólares viejo (la
+      guarda nueva frena las filas nuevas). Revisar si hay alguna:
+      `select id, fecha, cotizacion from invoices where moneda <> 'PES' and cotizacion <= 1`.
+- [ ] CAEA: un borrador trabado con fecha dentro de una vigencia vencida
+      frena el "sin movimiento" de su punto de venta hasta la fecha tope; hay
+      que emitirlo o marcarlo fallido.
