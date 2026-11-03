@@ -342,6 +342,7 @@ export function TransactionsTable({
   const canWrite = userCan(actorAccess, "transactions:write");
   const canDelete = userCan(actorAccess, "transactions:delete");
   const canCollect = userCan(actorAccess, "receipts:write");
+  const canEditRetentions = userCan(actorAccess, "retentions:write");
   const canPay = userCan(actorAccess, "payment_orders:write");
   const canAdvance = canWrite && userCan(actorAccess, "hr:write");
   const confirm = useConfirm();
@@ -399,7 +400,9 @@ export function TransactionsTable({
         actions={
           <>
             <ExportButton resource="transactions" />
-            {canCollect && <CollectDialog />}
+            {canCollect && (
+              <CollectDialog canEditRetentions={canEditRetentions} />
+            )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
             {canWrite && (
@@ -407,6 +410,7 @@ export function TransactionsTable({
                 channels={channels}
                 canCollect={canCollect}
                 canPay={canPay}
+                canEditRetentions={canEditRetentions}
               />
             )}
           </>

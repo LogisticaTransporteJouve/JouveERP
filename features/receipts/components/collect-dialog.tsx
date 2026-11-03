@@ -35,11 +35,14 @@ export function CollectDialog({
   initialClient,
   initialAllocations,
   trigger,
+  canEditRetentions,
 }: {
   side?: ScopeSide;
   initialClient?: PickedClient | null;
   initialAllocations?: AllocationDraft[];
   trigger?: React.ReactNode;
+  /** retentions:write: without it the form offers no retentions editor. */
+  canEditRetentions: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
@@ -76,6 +79,7 @@ export function CollectDialog({
               side={side}
               initialClient={initialClient ?? null}
               initialAllocations={initialAllocations}
+              canEditRetentions={canEditRetentions}
               onDone={() => setOpen(false)}
             />
           </Suspense>
@@ -89,11 +93,13 @@ function CollectForm({
   side,
   initialClient,
   initialAllocations,
+  canEditRetentions,
   onDone,
 }: {
   side: ScopeSide;
   initialClient: PickedClient | null;
   initialAllocations?: AllocationDraft[];
+  canEditRetentions: boolean;
   onDone: () => void;
 }) {
   const { channels } = useScope();
@@ -113,6 +119,7 @@ function CollectForm({
         accounts={accounts}
         initialClient={initialClient}
         initialAllocations={initialAllocations}
+        canEditRetentions={canEditRetentions}
         onSuccess={onDone}
         onCancel={onDone}
       />

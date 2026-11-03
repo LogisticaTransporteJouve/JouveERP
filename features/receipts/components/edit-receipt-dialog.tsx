@@ -25,12 +25,15 @@ export function EditReceiptDialog({
   puntoVenta,
   channels,
   accounts,
+  canEditRetentions,
 }: {
   receiptId: string;
   numero: number;
   puntoVenta: number;
   channels: ChannelOption[];
   accounts: Account[];
+  /** retentions:write: without it the form offers no retentions editor. */
+  canEditRetentions: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const detailQuery = useReceiptDetail(receiptId, { enabled: open });
@@ -70,6 +73,7 @@ export function EditReceiptDialog({
             mode="edit"
             channels={channels}
             accounts={accounts}
+            canEditRetentions={canEditRetentions}
             receipt={detail}
             onSuccess={() => setOpen(false)}
             onCancel={() => setOpen(false)}

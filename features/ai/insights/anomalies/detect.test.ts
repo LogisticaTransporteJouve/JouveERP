@@ -13,6 +13,7 @@ function row(p: Partial<PurchaseRow> & { id: string }): PurchaseRow {
     supplier_id: "s1",
     supplier_name: "Proveedor SA",
     imp_total: 1000,
+    currency: "ARS",
     fecha: "2026-06-01",
     numero: 1,
     punto_venta: 1,
@@ -102,6 +103,40 @@ describe("detectUnusualAmounts", () => {
     const f = detectUnusualAmounts([
       row({ id: "a", imp_total: 100 }),
       row({ id: "b", imp_total: 9999, numero: 2 }),
+    ]);
+    expect(f).toHaveLength(0);
+  });
+
+  it("never measures a peso invoice against a dollar history", () => {
+    const usd = [1800, 1900, 2000, 2100, 2200].map((amt, i) =>
+      row({ id: `u${i}`, imp_total: amt, numero: i + 1, currency: "USD" }),
+    );
+    const ars = row({ id: "ars", imp_total: 2_400_000, numero: 99 });
+    expect(detectUnusualAmounts([...usd, ars])).toHaveLength(0);
+  });
+
+  it("prints a dollar outlier and its range in dollars", () => {
+    const usd = [100, 110, 120, 130, 140].map((amt, i) =>
+      row({ id: `u${i}`, imp_total: amt, numero: i + 1, currency: "USD" }),
+    );
+    const spike = row({
+      id: "spike",
+      imp_total: 5000,
+      numero: 99,
+      currency: "USD",
+    });
+    const [f] = detectUnusualAmounts([...usd, spike]);
+    expect(f?.finding).toContain("por US$5.000");
+    expect(f?.finding).toMatch(/rango habitual \(US\$\d+–US\$\d+\)/);
+    expect(f?.metrics).toMatchObject({ currency: "USD" });
+  });
+});
+
+describe("currency split in duplicates", () => {
+  it("never pairs a peso and a dollar invoice with the same figure", () => {
+    const f = detectDuplicateInvoices([
+      row({ id: "a", numero: 10, fecha: "2026-06-01" }),
+      row({ id: "b", numero: 11, fecha: "2026-06-15", currency: "USD" }),
     ]);
     expect(f).toHaveLength(0);
   });

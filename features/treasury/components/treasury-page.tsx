@@ -45,10 +45,13 @@ export function TreasuryPage({
   canCollect = false,
   canPay = false,
   canAdvance = false,
+  canEditRetentions = false,
 }: {
   canCollect?: boolean;
   canPay?: boolean;
   canAdvance?: boolean;
+  /** retentions:write, for the "Cobrar a cliente" receipt form. */
+  canEditRetentions?: boolean;
 }) {
   const query = useTreasurySummary();
   const [search, setSearch] = useState("");
@@ -173,7 +176,9 @@ export function TreasuryPage({
         </div>
         {(canCollect || canPay || canAdvance) && (
           <div className="flex flex-wrap gap-2">
-            {canCollect && <CollectDialog />}
+            {canCollect && (
+              <CollectDialog canEditRetentions={canEditRetentions} />
+            )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
           </div>

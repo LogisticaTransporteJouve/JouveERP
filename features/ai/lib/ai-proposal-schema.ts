@@ -18,6 +18,14 @@ export type AiProposalStatus = (typeof AI_PROPOSAL_STATUSES)[number];
  *  read when it was prepared. */
 export const AI_PROPOSAL_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** An accepted proposal with no outcome this long after its claim is taken
+ *  as interrupted: well past the longest a server action runs. */
+export const AI_PROPOSAL_STALE_ACCEPT_MS = 15 * 60 * 1000;
+
+/** The error an interrupted accepted proposal is closed with. */
+export const AI_PROPOSAL_UNKNOWN_OUTCOME =
+  "No se sabe si la acción se completó: revisá el resultado antes de volver a aceptarla.";
+
 export const AI_PROPOSAL_COLUMNS =
   "id, action, source, insight_id, insight_kind, dedupe_key, draft, labels, summary, title, status, result, error, expires_at, created_at, decided_at";
 
@@ -52,6 +60,18 @@ export const aiProposalRowSchema = z.object({
 });
 
 export type AiProposalRow = z.infer<typeof aiProposalRowSchema>;
+
+/** Accepted with no result nor error, and claimed longer ago than the stale
+ *  window: the request that ran it died before recording what happened. */
+export function isStaleAccepted(row: AiProposalRow, now: number): boolean {
+  return (
+    row.status === "accepted" &&
+    row.result === null &&
+    row.error === null &&
+    row.decided_at !== null &&
+    Date.parse(row.decided_at) <= now - AI_PROPOSAL_STALE_ACCEPT_MS
+  );
+}
 
 /** What the insight card's dialog shows. */
 export type AiProposalCard = {

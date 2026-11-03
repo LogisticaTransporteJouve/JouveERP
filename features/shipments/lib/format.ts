@@ -69,6 +69,15 @@ export function remitoMatches(
   return groups[groups.length - 2] === scanned.sales_point;
 }
 
+/** POSIX regex (Postgres `~`) for a remito whose last digit group is
+ *  `number`, leading zeros aside: the SQL side of `remitoMatches`. */
+export function remitoNumberPattern(number: number): string {
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new Error(`remitoNumberPattern: invalid number ${number}`);
+  }
+  return `(^|[^0-9])0*${number}[^0-9]*$`;
+}
+
 /** "0001-00001234", or the bare number without a punto de venta. */
 export function scannedRemitoLabel(scanned: {
   sales_point: number | null;

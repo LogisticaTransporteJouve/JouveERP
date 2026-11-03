@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   CalendarClock,
@@ -13,7 +14,14 @@ import type { DueDateItem } from "../schema";
 
 const MAX_VISIBLE = 12;
 
-export function DueDatesCard({ items }: { items: DueDateItem[] }) {
+export function DueDatesCard({
+  items,
+  failed = [],
+}: {
+  items: DueDateItem[];
+  /** Sections whose read failed: their items are missing. */
+  failed?: string[];
+}) {
   const visible = items.slice(0, MAX_VISIBLE);
   const hidden = items.length - visible.length;
 
@@ -24,10 +32,23 @@ export function DueDatesCard({ items }: { items: DueDateItem[] }) {
       description="Cobros, pagos y documentos de los próximos 14 días, de todos los canales"
     >
       <div className="rounded-lg border bg-card">
-        {visible.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Sin vencimientos en los próximos 14 días.
+        {failed.length > 0 && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 border-b p-3 text-xs text-muted-foreground"
+          >
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              No se pudieron leer: {failed.join(", ")}. Recargá la página.
+            </span>
           </p>
+        )}
+        {visible.length === 0 ? (
+          failed.length === 0 && (
+            <p className="p-4 text-sm text-muted-foreground">
+              Sin vencimientos en los próximos 14 días.
+            </p>
+          )
         ) : (
           <ul className="divide-y">
             {visible.map((item) => (

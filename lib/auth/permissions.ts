@@ -24,10 +24,6 @@ export const PERMISSIONS = [
   "users:assign_role",
   "audit:read",
 
-  // Channels and business units
-  "channels:read",
-  "channels:write",
-
   // Clients
   "clients:read",
   "clients:write",
@@ -52,7 +48,6 @@ export const PERMISSIONS = [
   // Files (K.10 — attachments on entities)
   "files:read",
   "files:write",
-  "files:admin",
 
   // AFIP
   "padron:lookup",
@@ -80,14 +75,14 @@ export const PERMISSIONS = [
   "invoices:issue",
   "invoices:cancel",
 
-  // Collections, receipts, checks, retentions, NC/ND (Phase F)
+  // Collections, receipts, checks, retentions, NC/ND (Phase F). Retentions
+  // are read with the receipt (receipts:read); loading or changing them takes
+  // retentions:write too. NC/ND are read as comprobantes (invoices:read).
   "receipts:read",
   "receipts:write",
   "cheques:read",
   "cheques:write",
-  "retentions:read",
   "retentions:write",
-  "credit_debit_notes:read",
   "credit_debit_notes:issue",
 
   // Fleet and trips (Phase G)
@@ -135,7 +130,8 @@ export const PERMISSIONS = [
   "pallets:write",
   "products:read",
   "products:write",
-  "stock_movements:read",
+  // Entering, dispatching or removing a pallet (with pallets:write); the
+  // movements are read with the pallets (pallets:read).
   "stock_movements:write",
   "storage_billing:read",
   "storage_billing:issue",
@@ -212,11 +208,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "receipts:write",
     "cheques:read",
     "cheques:write",
-    "retentions:read",
     "retentions:write",
-    "credit_debit_notes:read",
     "credit_debit_notes:issue",
-    "channels:read",
     "accounting:read",
     "accounting:write",
     "management:read",
@@ -253,7 +246,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "fleet_documents:write",
     "fleet_km:read",
     "fleet_km:write",
-    "channels:read",
     "ai:chat",
     "ai:read",
     "tasks:read",
@@ -266,7 +258,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "pallets:read",
     "pallets:write",
     "products:read",
-    "stock_movements:read",
     "stock_movements:write",
     "files:read",
     "files:write",
@@ -284,9 +275,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   fiscal_reader: [
     "clients:read",
     "suppliers:read",
-    "channels:read",
     "invoices:read",
-    "credit_debit_notes:read",
     "purchase_invoices:read",
     "accounting:read",
     "taxes:read",

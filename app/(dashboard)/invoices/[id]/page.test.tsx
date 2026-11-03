@@ -69,11 +69,14 @@ vi.mock("@/features/receipts/actions/receipts-actions", () => ({
 vi.mock("@/features/receipts/components/collect-dialog", () => ({
   CollectDialog: ({
     initialAllocations,
+    canEditRetentions,
   }: {
     initialAllocations?: { amount_applied: string }[];
+    canEditRetentions: boolean;
   }) => (
     <button type="button">
       stub-cobrar {initialAllocations?.[0]?.amount_applied}
+      {canEditRetentions ? " con-retenciones" : ""}
     </button>
   ),
 }));
@@ -243,6 +246,14 @@ describe("invoice detail — Cobrar", () => {
   });
 
   it("offers Cobrar for what the comprobante still owes", async () => {
+    h.detail = base(true);
+    h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
+    await renderPage();
+    expect(screen.getByText("stub-cobrar 60,50 con-retenciones")).toBeTruthy();
+  });
+
+  it("opens Cobrar without the retentions editor when retentions:write is denied", async () => {
+    h.access = resolveAccess(["finance"], ["retentions:write"]);
     h.detail = base(true);
     h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
     await renderPage();

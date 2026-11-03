@@ -67,11 +67,13 @@ function buildReceiptColumns({
   accounts,
   canWrite,
   canSendEmail,
+  canEditRetentions,
 }: {
   channels: ChannelOption[];
   accounts: Account[];
   canWrite: boolean;
   canSendEmail: boolean;
+  canEditRetentions: boolean;
 }): ColumnDef<ReceiptListItem>[] {
   return [
     {
@@ -175,6 +177,7 @@ function buildReceiptColumns({
                 puntoVenta={r.punto_venta}
                 channels={channels}
                 accounts={accounts}
+                canEditRetentions={canEditRetentions}
               />
             )}
             {canWrite && !isCanceled && (
@@ -205,6 +208,7 @@ export function ReceiptsTable({
   const { data: accounts } = useAccountsList();
   const canWrite = userCan(actorAccess, "receipts:write");
   const canSendEmail = userCan(actorAccess, "email:send");
+  const canEditRetentions = userCan(actorAccess, "retentions:write");
 
   const { params, committed, update, reset, isFiltered } = useListParams({
     initial: initialParams,
@@ -232,8 +236,15 @@ export function ReceiptsTable({
   ]);
 
   const columns = useMemo(
-    () => buildReceiptColumns({ channels, accounts, canWrite, canSendEmail }),
-    [channels, accounts, canWrite, canSendEmail],
+    () =>
+      buildReceiptColumns({
+        channels,
+        accounts,
+        canWrite,
+        canSendEmail,
+        canEditRetentions,
+      }),
+    [channels, accounts, canWrite, canSendEmail, canEditRetentions],
   );
 
   return (
@@ -249,7 +260,11 @@ export function ReceiptsTable({
             />
             <ExportButton resource="receipts" />
             {canWrite && (
-              <NewReceiptDialog channels={channels} accounts={accounts} />
+              <NewReceiptDialog
+                channels={channels}
+                accounts={accounts}
+                canEditRetentions={canEditRetentions}
+              />
             )}
           </>
         }

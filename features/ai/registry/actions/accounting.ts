@@ -287,7 +287,8 @@ export async function runJournalEntries(input: {
   const res = await listJournalEntriesAction({
     period: input.period ?? null,
     isFiscal,
-    limit: input.limit ?? 25,
+    // The action refuses past 500; a bounded page reports `partial` instead.
+    limit: Math.min(200, Math.max(1, Math.trunc(input.limit ?? 25))),
   });
   if (!res.ok) return errResult(res.error);
   return okResult(
@@ -313,7 +314,7 @@ export const getJournalEntries = defineAiAction({
   input: z.object({
     period: z.string().nullish().describe("Period YYYY-MM, optional."),
     scope: ScopeInputSchema,
-    limit: z.number().nullish().describe("Max entries (default 25)."),
+    limit: z.number().nullish().describe("Max entries (default 25, max 200)."),
   }),
   run: (_ctx, input) => runJournalEntries(input),
 });

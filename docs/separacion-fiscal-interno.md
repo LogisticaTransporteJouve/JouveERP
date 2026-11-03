@@ -94,8 +94,8 @@ No hay RLS por canal. `invoices`, `receipts`, `purchase_invoices`, `transactions
 `journal_entries` se leen con `user_has_role(owner, admin, finance)`: quien ve
 facturación ve los cuatro canales. `journal_entries` además tiene una policy `ALL`
 para owner/admin. No existe un rol "solo fiscal" (por ejemplo, para un contador
-externo). Los permisos `channels:read/write` gatean la configuración de canales,
-no los datos.
+externo). No hay permisos de canales: `channels:read/write` salieron de la matriz
+porque ningún gate los leía (auditoría w1-s4 F4).
 
 ### 1.5 UI: selector global y filtros
 

@@ -9944,6 +9944,10 @@ export type Database = {
       }
       refresh_search_index: { Args: never; Returns: undefined }
       refresh_search_index_if_dirty: { Args: never; Returns: boolean }
+      regenerate_ai_insights: {
+        Args: { p_kinds: string[]; p_rows: Json }
+        Returns: number
+      }
       reject_check: {
         Args: {
           p_account_id: string

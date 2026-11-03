@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { remitoMatches } from "../lib/format";
+import { remitoMatches, remitoNumberPattern } from "../lib/format";
 
 const RemitoSearchSchema = z.object({
   sales_point: z.number().int().min(0).max(99999).nullable(),
@@ -40,14 +40,16 @@ export async function findShipmentsByRemitoAction(input: {
   if (!parsed.success) return { ok: false, error: "Remito inválido." };
 
   const supabase = await createSupabaseClient();
-  // The number's digits appear in the typed remito; the exact comparison
-  // runs below. Capped: a remito matches a handful of cargas at most.
+  // The number is the remito's last digit group (leading zeros aside) in
+  // SQL, so the cap below only ever cuts real matches: a substring filter
+  // let 200 newer cargas with those digits anywhere (…0037…, …1375…) hide
+  // an older exact one. The punto de venta is compared below.
   const { data, error } = await supabase
     .from("shipments")
     .select(
       "id, remito_number, scheduled_date, status, client:clients(legal_name)",
     )
-    .ilike("remito_number", `%${parsed.data.number}%`)
+    .filter("remito_number", "match", remitoNumberPattern(parsed.data.number))
     .neq("status", "cancelled")
     .order("scheduled_date", { ascending: false, nullsFirst: false })
     .order("id")

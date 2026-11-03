@@ -4,13 +4,12 @@ import type { Json } from "@/lib/db/database.types";
 import { formatArgentineDate } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { SCOPE_LABEL } from "@/lib/scope";
-import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
-import { gatherFleetInsights } from "./fleet/gather";
-import { INDICATOR_KINDS, type IndicatorKind } from "./indicators/detect";
+import { gatherFleetDocExpiry, gatherTripMargins } from "./fleet/gather";
+import { INDICATOR_KINDS } from "./indicators/detect";
 import { gatherIndicators } from "./indicators/gather";
 import { insightFingerprint } from "./lib/fingerprint";
 import {
@@ -142,12 +141,31 @@ function receivablesInsight(risk: ReceivablesRisk): InsightRow {
   };
 }
 
-/** The current insight set, and the indicator kinds whose reads failed (their
- *  previous cards stay). */
+type AnalystKind = (typeof ANALYST_KINDS)[number];
+
+/** Runs one gather; when its reads fail, records its kinds in `failed` (the
+ *  previous cards stay) instead of sinking the rest of the run. */
+async function isolated<T>(
+  kinds: readonly AnalystKind[],
+  failed: AnalystKind[],
+  run: () => Promise<T[]>,
+): Promise<T[]> {
+  try {
+    return await run();
+  } catch (error) {
+    logger.error("ai.insights.gather_failed", { kinds, error });
+    failed.push(...kinds);
+    return [];
+  }
+}
+
+/** The current insight set, and the kinds whose reads failed (their previous
+ *  cards stay). */
 async function computeInsights(
   today: string,
-): Promise<{ rows: InsightRow[]; failed: IndicatorKind[] }> {
+): Promise<{ rows: InsightRow[]; failed: AnalystKind[] }> {
   const rows: InsightRow[] = [];
+  const failed: AnalystKind[] = [];
 
   const inputs = await gatherCashFlow(today, HORIZON_WEEKS);
   const projection = projectCashFlow({
@@ -161,7 +179,11 @@ async function computeInsights(
   const risk = await gatherReceivablesRisk();
   if (risk.clientCount > 0) rows.push(receivablesInsight(risk));
 
-  const anomalies = await gatherAnomalies(today);
+  const anomalies = await isolated(
+    ["dup_invoice", "unusual_amount"],
+    failed,
+    () => gatherAnomalies(today),
+  );
   for (const a of anomalies) {
     rows.push({
       kind: a.kind,
@@ -173,7 +195,14 @@ async function computeInsights(
     });
   }
 
-  const fleet = await gatherFleetInsights(today);
+  const fleet = [
+    ...(await isolated(["fleet_doc_expiry"], failed, () =>
+      gatherFleetDocExpiry(today),
+    )),
+    ...(await isolated(["trip_margin"], failed, () =>
+      gatherTripMargins(today),
+    )),
+  ];
   for (const f of fleet) {
     rows.push({
       kind: f.kind,
@@ -198,7 +227,7 @@ async function computeInsights(
     });
   }
 
-  return { rows, failed: indicators.failed };
+  return { rows, failed: [...failed, ...indicators.failed] };
 }
 
 /** Computes the current insight set (cash flow, receivables, anomalies,
@@ -207,84 +236,36 @@ export async function buildInsights(today: string): Promise<InsightRow[]> {
   return (await computeInsights(today)).rows;
 }
 
-/** Drops findings the user already ignored (same fingerprint) and tags the
- *  rest with theirs. */
-export function withoutIgnored(
-  rows: readonly InsightRow[],
-  ignored: ReadonlySet<string>,
-): (InsightRow & { fingerprint: string | null })[] {
-  return rows
-    .map((row) => ({
-      ...row,
-      fingerprint: insightFingerprint(row.kind, row.source_refs),
-    }))
-    .filter((row) => !row.fingerprint || !ignored.has(row.fingerprint));
-}
-
 /**
  * Regenerates the analyst's insights: replaces every prior open or
- * acknowledged row of its kinds with the freshly computed set, so each finding
- * shows once. A finding someone ignored is skipped; one someone acknowledged
- * keeps that status (matched by fingerprint). Aggregate cards (cash flow,
+ * acknowledged row of its kinds (except the kinds whose reads failed) with
+ * the freshly computed set, so each finding shows once. The swap is one
+ * transaction in `regenerate_ai_insights`, serialized by an advisory lock,
+ * which also skips a finding someone ignored and keeps acknowledged the one
+ * someone acknowledged (matched by fingerprint). Aggregate cards (cash flow,
  * receivables) have no fingerprint and come back open with today's figures.
  */
 export async function regenerateInsights(today: string): Promise<number> {
   const { rows: computed, failed } = await computeInsights(today);
-  const service = getServiceClient();
+  const kinds = ANALYST_KINDS.filter((k) => !failed.includes(k));
+  const rows = computed.map((row) => ({
+    kind: row.kind,
+    severity: row.severity,
+    title: row.title,
+    finding: row.finding,
+    metrics: row.metrics,
+    source_refs: row.source_refs,
+    proposal: row.proposal ?? null,
+    fingerprint: insightFingerprint(row.kind, row.source_refs),
+  }));
 
-  // Only the fingerprints this run produced, in URL-safe chunks: a growing
-  // pile of ignored findings is never read whole (PostgREST caps responses).
-  const candidates = computed
-    .map((row) => insightFingerprint(row.kind, row.source_refs))
-    .filter((f): f is string => f !== null);
-  const reviewed = await fetchInChunks(candidates, (chunk) =>
-    service
-      .from("ai_insights")
-      .select("fingerprint, status")
-      .in("status", ["dismissed", "acknowledged"])
-      .in("fingerprint", chunk),
+  const { data, error } = await getServiceClient().rpc(
+    "regenerate_ai_insights",
+    { p_kinds: kinds, p_rows: toJson(rows) },
   );
-  if (reviewed.error) {
-    logger.error("ai.insights.dismissed.failed", { error: reviewed.error });
-    throw new Error(reviewed.error.message);
+  if (error) {
+    logger.error("ai.insights.regenerate.failed", { error });
+    throw new Error(error.message);
   }
-  const fingerprintsWith = (status: string) =>
-    new Set(
-      reviewed.data
-        .filter((r) => r.status === status)
-        .map((r) => r.fingerprint)
-        .filter((f): f is string => f !== null),
-    );
-  const acknowledged = fingerprintsWith("acknowledged");
-  const rows = withoutIgnored(computed, fingerprintsWith("dismissed")).map(
-    (row) => ({
-      ...row,
-      status:
-        row.fingerprint && acknowledged.has(row.fingerprint)
-          ? ("acknowledged" as const)
-          : ("open" as const),
-    }),
-  );
-
-  const { error: delError } = await service
-    .from("ai_insights")
-    .delete()
-    .in(
-      "kind",
-      ANALYST_KINDS.filter((k) => !(failed as readonly string[]).includes(k)),
-    )
-    .in("status", ["open", "acknowledged"]);
-  if (delError) {
-    logger.error("ai.insights.delete.failed", { error: delError });
-    throw delError;
-  }
-
-  if (rows.length > 0) {
-    const { error: insError } = await service.from("ai_insights").insert(rows);
-    if (insError) {
-      logger.error("ai.insights.insert.failed", { error: insError });
-      throw insError;
-    }
-  }
-  return rows.length;
+  return data ?? 0;
 }

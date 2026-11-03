@@ -28,6 +28,7 @@ import { IsoDateSchema } from "@/lib/validation/common";
 import type { ClientsListLegalJoin } from "@/features/clients/schema";
 
 import type { ReceiptListFilters } from "../lib/receipt-list-filters";
+import { sameRetentions } from "../lib/retentions";
 
 import {
   allocationPayload,
@@ -63,6 +64,8 @@ function narrowReceipt(row: {
   return row as Receipt;
 }
 
+const NO_RETENTIONS = "No tenés permiso para cargar o editar retenciones.";
+
 const RECEIPT_COLUMNS =
   "id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
 
@@ -92,8 +95,10 @@ export async function listReceiptsAction(input?: {
     return { ok: false, error: "No tenés permiso para ver recibos." };
   }
 
-  const offset = input?.offset ?? 0;
-  const limit = input?.limit ?? 50;
+  const offset = Math.max(0, Math.trunc(input?.offset ?? 0));
+  // Bounded like the other lists: a page over PostgREST's max_rows would
+  // come back cut and look complete.
+  const limit = Math.min(200, Math.max(1, Math.trunc(input?.limit ?? 50)));
   const supabase = await createSupabaseClient();
   let query = supabase
     .from("receipts")
@@ -145,7 +150,11 @@ export async function listReceiptsAction(input?: {
 
   return {
     ok: true,
-    data: { items, nextOffset: items.length === limit ? offset + limit : null },
+    // A full page of raw rows means more may follow, even if one was dropped.
+    data: {
+      items,
+      nextOffset: (data ?? []).length === limit ? offset + limit : null,
+    },
   };
 }
 
@@ -748,6 +757,12 @@ export async function createReceiptAction(
     };
   }
   const data = parsed.data;
+  if (
+    (data.retentions ?? []).length > 0 &&
+    !userCan(ctx.access, "retentions:write")
+  ) {
+    return { ok: false, error: NO_RETENTIONS };
+  }
 
   const pos = await loadChannelPos(data.channel_id);
   if (!pos) {
@@ -911,6 +926,27 @@ export async function updateReceiptAction(
   const data = parsed.data;
 
   const supabase = await createSupabaseClient();
+  // update_receipt rewrites the retentions: without retentions:write, only
+  // the stored ones may come back, unchanged.
+  if (!userCan(ctx.access, "retentions:write")) {
+    const stored = await supabase
+      .from("receipt_retentions")
+      .select(
+        "kind, tax_type, jurisdiction, certificate_number, certificate_date, amount, notes",
+      )
+      .eq("receipt_id", data.id);
+    if (stored.error) {
+      logger.error("receipts.update.retentions_read_failed", {
+        userId: ctx.userId,
+        id: data.id,
+        error: stored.error,
+      });
+      return { ok: false, error: "No se pudo leer el recibo." };
+    }
+    if (!sameRetentions(stored.data, data.retentions ?? [])) {
+      return { ok: false, error: NO_RETENTIONS };
+    }
+  }
   const { error } = await supabase.rpc("update_receipt", {
     p_id: data.id,
     p_recibo_date: data.receipt_date,

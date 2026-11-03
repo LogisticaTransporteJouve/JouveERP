@@ -224,9 +224,9 @@ export function buildStorageKey(fileId: string, filename: string): string {
 ### 3.1 Tabla `files`
 
 Lectura: cualquier authenticated. Escritura: rol `finance` u `operations`
-para subir; `owner|finance|operations` para borrar el propio o si tiene
-`files:admin`. Ajustar a los permisos finales de la matriz cuando se cierre
-la feature.
+para subir; `owner|finance|operations` para borrar el propio, y `owner|admin`
+el de otros (RLS). `files:admin` salió de la matriz:
+ningún gate lo leía (auditoría w1-s4 F4).
 
 ```sql
 alter table public.files enable row level security;
@@ -978,7 +978,6 @@ En `lib/auth/permissions.ts`:
 ```ts
 "files:read",   // ver adjuntos y descargar
 "files:write",  // subir y atachar
-"files:admin",  // borrar adjuntos de otros
 ```
 
 Asignación inicial:
@@ -987,7 +986,6 @@ Asignación inicial:
 |---|---|---|---|---|---|---|
 | `files:read`  | ✓ | ✓ | ✓ | ✓ | ✓ | (limitado en G.3) |
 | `files:write` | ✓ | ✓ | ✓ | ✓ | ✓ | (limitado en G.3) |
-| `files:admin` | ✓ | ✓ |   |   |   |   |
 
 `driver` sigue la regla `:own` que ya quedó diferida a Fase G.3 — su
 acceso queda gated por el target (solo archivos de sus propios viajes).
