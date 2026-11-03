@@ -57,7 +57,7 @@ On the branch. Its fixes are committed the same way.
 - `git push -u origin <branch>`. The pre-push hook (`scripts/hooks/pre-push.sh`) runs the
   forbidden-words check, the migration checks, `pnpm lint`, `pnpm typecheck` and `pnpm test`; let it
   run. Use `--no-verify` only when it fails for a reason outside this change (for example eslint
-  scanning other agents' worktrees under `.claude/worktrees/`), after running the same checks
+  scanning other agents' worktrees under the agent worktrees folder), after running the same checks
   yourself, and say so in the report.
 - Write the PR body following `.agents/skills/nav-github/SKILL.md` §PR descriptions: the
   `.github/pull_request_template.md` sections in Spanish, starting with `## Resumen` (2–4
