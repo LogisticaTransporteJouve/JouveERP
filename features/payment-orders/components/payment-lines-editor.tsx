@@ -18,7 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ACCOUNT_TYPE_LABEL, type Account } from "@/features/accounts/schema";
+import {
+  ACCOUNT_TYPE_LABEL,
+  type Account,
+} from "@/features/accounts/schema";
 import type { EnCarteraCheck } from "@/features/checks/actions/checks-actions";
 import { formatAmountInput, formatArgentineDate } from "@/lib/format";
 
@@ -53,7 +56,9 @@ export type IssueLineDraft = {
 };
 
 export type PaymentLineDraft =
-  AccountLineDraft | EndorseLineDraft | IssueLineDraft;
+  | AccountLineDraft
+  | EndorseLineDraft
+  | IssueLineDraft;
 
 import { formatNumber2 } from "@/lib/format";
 const moneyFmt = { format: (n: number) => formatNumber2(n) };
@@ -144,12 +149,7 @@ export function PaymentLinesEditor({
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Medios de pago</Label>
         <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addAccount}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={addAccount}>
             <Plus className="size-3.5" />
             Cuenta
           </Button>
@@ -205,12 +205,7 @@ export function PaymentLinesEditor({
                   </div>
                 </PopoverContent>
               </Popover>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addIssue}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={addIssue}>
                 <Wallet className="size-3.5" />
                 Emitir cheque
               </Button>
@@ -382,9 +377,7 @@ export function PaymentLinesEditor({
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">
-                      Chequera (cuenta bancaria)
-                    </Label>
+                    <Label className="text-xs">Chequera (cuenta bancaria)</Label>
                     <Select
                       value={line.account_id}
                       onValueChange={(v) => update(idx, { account_id: v })}

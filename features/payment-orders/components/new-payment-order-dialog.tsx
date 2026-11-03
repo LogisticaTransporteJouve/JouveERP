@@ -44,8 +44,8 @@ export function NewPaymentOrderDialog({
         <DialogHeader>
           <DialogTitle>Nueva orden de pago</DialogTitle>
           <DialogDescription>
-            El número se asigna automáticamente al canal. Una vez emitida, podés
-            editar montos, imputaciones o anular.
+            El número se asigna automáticamente al canal. Una vez emitida,
+            podés editar montos, imputaciones o anular.
           </DialogDescription>
         </DialogHeader>
         <PaymentOrderForm
