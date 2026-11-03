@@ -22,6 +22,8 @@ describe("guideForPath", () => {
       "Conciliación bancaria",
     );
     expect(guideForPath("/taxes")?.title).toBe("Impuestos");
+    expect(guideForPath("/aging/mora")?.title).toBe("Intereses por mora");
+    expect(guideForPath("/aging")?.title).toBe("Aging clientes");
   });
 
   it("does not match a sibling sharing a prefix", () => {

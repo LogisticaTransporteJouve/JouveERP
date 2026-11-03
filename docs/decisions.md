@@ -29,6 +29,147 @@ costo y deja sin elegir cuenta, centro y reparto de tributos.
 una marca «fuera de gestión» en cada compra (la cuenta ya lo dice y lo usan
 los reportes).
 
+## 2026-11-04 — Diferencias de cambio en Gestión: resultado financiero
+
+**Decisión.** La cuenta "Diferencias de cambio" (rol `diferencia_cambio`)
+va en Gestión a "Costo financiero" (`financing_cost`, subrubro `intereses`,
+como la 4.2.1), abajo del margen operativo
+(`20261104102000_management_fx_loan_interest`). Una ganancia por cambio suma
+y una pérdida resta en esa línea; no mueve el margen operativo, el margen %,
+el EBITDA ni el margen por camión. Si el dueño ya le había dado un rubro a esa
+cuenta, se respeta.
+
+**Por qué.** Desde #344 el cobro o el pago en USD a otra cotización asienta
+la diferencia en esa cuenta, que no tenía rubro: caía en "Sin clasificar",
+que entra al margen operativo. El resultado por cambio no es de la
+operación de transporte; en el EERR ya es ingreso financiero.
+
+**Descartado.** Un subrubro propio "Diferencias de cambio" (pide cambiar el
+CHECK de `management_buckets` y un código anterior en un rollback no lo
+conocería); dejarla en "Sin clasificar" con un aviso.
+
+## 2026-11-04 — Diferencia de rendición a cargo del chofer: pide movimientos
+
+**Decisión.** Cargar la diferencia de una rendición al chofer, quitarla o
+cancelar la rendición que la tiene pide `hr:write` y `transactions:write`,
+como el "Adelanto a empleado" manual: desde #345 ese camino saca la plata de
+la caja. Los pagos de planilla y el borrado de un movimiento de la cuenta
+corriente siguen con `hr:write` solo; queda como decisión abierta en
+`docs/pendientes.md`.
+
+**Descartado.** Bajar el adelanto manual a `hr:write` solo.
+
+## 2026-11-04 — NC de una compra a cargo de empleado: baja el cargo
+
+**Decisión.** Una NC contra una compra a cargo de un empleado baja lo que se
+le carga (la compra menos sus NC vivas, con la misma regla neto/total) y su
+neto vuelve a anticipos al personal, no al gasto
+(`20261104102300_employee_charge_net_of_credit_notes`). Una NC que lo deja en
+cero quita el cargo. Si la descripción del cargo la editó el usuario, se
+conserva.
+
+**Por qué.** El empleado seguía debiendo la compra entera y la NC bajaba un
+gasto que nunca fue de la empresa: Gestión mostraba una ganancia.
+
+**Descartado.** Rechazar la NC mientras la compra tenga el cargo: obliga a
+sacarlo, y al volver a ponerlo se carga entero otra vez.
+## 2026-11-04 — Cheque entregado a un proveedor que rebota
+
+**Decisión.** Un cheque que una OP emitida le entregó al proveedor (de
+terceros endosado o propio) y que el banco rechaza es deuda con el
+proveedor otra vez, como lo es un cheque rechazado de un cliente del otro
+lado: `v_supplier_rejected_check_open` lo lista, la cuenta corriente suma
+una fila "Cheque rechazado" en la fecha del rechazo, y el aging lo trae
+como documento (`document_type = 'rejected_check'`). La OP original no se
+toca (sus facturas siguen pagadas; el asiento del rechazo ya devolvió
+proveedores). Se paga con una OP nueva a cuenta e "Imputar" → "Cheques
+rechazados", que imputa en `payment_order_rejected_check_allocations`
+(FIFO por fecha de rechazo; la base revisa proveedor, canal, moneda y
+saldo). Los cheques USD se asientan a la cotización de la OP que los
+entregó.
+
+**Por qué.** Desde #343 la OP con un cheque rechazado no se anula ni se
+edita, y cargar una ND de compra acreditaba proveedores por segunda vez: la
+deuda estaba en el mayor y en ningún otro lado. Imputar desde el saldo a
+cuenta reutiliza el flujo que ya existía para las facturas.
+
+**Descartado.** Permitir anular la OP (revierte su asiento sobre el del
+rechazo y duplica la deuda); imputar el cheque al crear la OP (cambia la
+firma de `create_payment_order` y el formulario; queda pendiente).
+
+**También.** El crédito de las NC de compra sin origen se reparte en el
+aging por documento por proveedor, canal y moneda, como en clientes
+(#344), y los totales dejan de restarlo aparte: antes se compensaba entre
+canales en los totales y no aparecía en el flujo de caja. Moneda, tipo y
+saldo inicial de una cuenta con movimientos quedan fijos; el saldo se
+corrige con el ajuste con fecha.
+
+## 2026-11-04 — Emisión AFIP, segunda vuelta: pedidos cortados, ticket de WSAA y CAEA
+
+**Pedido cortado.** Con el límite de 20 s, un `FECAESolicitar` que se corta
+de nuestro lado puede seguir procesándose en AFIP, que mientras tanto contesta
+"no registrado". El `onFailure` de `issue-invoice` ya no marca fallido un
+comprobante con un número enviado hace menos de 30 min (`STUCK_AFTER_MS`)
+salvo que el último error sea no reintentable (un rechazo de AFIP): lo deja en
+`emitting` y lo decide `issue-invoice-reconcile`. Descartado: leer `timedOut`
+del error, porque el error que llega al `onFailure` es el del último intento
+(puede ser un error de la base después de un intento cortado).
+
+**Aviso al remito.** `recoverOnFailure` ya no manda el evento; devuelve si el
+comprobante quedó emitido con remito y el que llama lo manda en un paso propio
+(`step.sendEvent`), también cuando un intento anterior ya lo había emitido.
+
+**Ticket de WSAA.** El ticket nuevo queda en memoria primero (AFIP no da otro)
+y se guarda en `afip_ta_cache` con dos reintentos; si no se guarda, el paso
+falla como reintentable y el próximo uso vuelve a intentar guardarlo antes de
+usarlo. Un error al leer la tabla es reintentable, no "no hay ticket", y un
+`alreadyAuthenticated` vuelve a leer la tabla (otra instancia pudo guardarlo).
+
+**CAEA "sin movimiento".** `emit_caea_invoice` rechaza un CAEA ya informado
+sin movimiento para el punto de venta, y `caea-inform` no lo informa mientras
+haya un borrador de ese punto de venta con fecha dentro de la vigencia.
+Descartado: rechazar toda emisión después del fin de la vigencia, porque no
+está claro que AFIP rechace un comprobante generado fuera de la quincena con
+fecha dentro de ella.
+
+**Cotización y totales.** Un comprobante fiscal en dólares con cotización 1
+se rechaza en la base (solo al insertar o al cambiar moneda o cotización: las
+filas existentes no se tocan). El total del listado de Comprobantes suma solo
+los emitidos; la cantidad sigue contando todas las filas, porque rotula el
+grupo de filas listadas.
+## 2026-11-04 — Insights y propuestas: cortar después de ordenar, avisar antes de reofrecer
+
+**Decisión.** `listInsightsAction` lee todas las tarjetas vivas (el set lo
+acota la última corrida del analista), filtra las del dominio del usuario,
+ordena por gravedad y recién ahí corta en 50, devolviendo el total para que
+el panel diga "Mostrando 50 de N". Una propuesta aceptada cuyo pedido murió
+se cierra como fallida y esa misma fila se devuelve, con "No se sabe si la
+acción se completó"; la propuesta nueva se arma en la apertura siguiente.
+
+**Por qué.** Una corrida comparte `generated_at`: el `limit(50)` en SQL
+devolvía 50 cualesquiera, así que una crítica podía quedar afuera y un
+usuario de operaciones podía no ver ninguna de las suyas. Reofrecer
+"Aceptar" sin mostrar el aviso permitía repetir una escritura que quizás ya
+se hizo (una tarea).
+
+**Descartado.** Ordenar por gravedad en SQL (`severity` es texto: el orden
+alfabético no es el de gravedad) y mostrar el aviso junto a la propuesta
+nueva (dos tarjetas en el mismo diálogo).
+
+## 2026-11-04 — Lecturas que fallan en indicadores y clasificador de gastos
+
+**Decisión.** El margen por cliente o camión pasado el tope del RPC
+(`ai_fleet_margin`, 500 grupos, sin offset) falla el indicador, que conserva
+sus tarjetas, en vez de leer costo 0. El catálogo de cuentas de gasto y
+centros de costo que lee el clasificador tira el error y el paso de Inngest
+reintenta. Si se agotan los reintentos, la extracción queda fallida (antes
+se guardaba con "sin sugerencia" como si no hubiera catálogo).
+
+**Descartado.** Paginar `ai_fleet_margin`: pide una migración, y pasar de
+500 clientes o camiones con viajes en 90 días no es el caso de una sola
+empresa de logística; si pasa, el log `ai.insights.indicator_failed` lo
+muestra.
+
 ## 2026-11-04 — Exento, no gravado y reparto de otros tributos en compras
 
 **Decisión.** Toda compra guarda aparte el no gravado y el exento

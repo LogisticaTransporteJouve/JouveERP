@@ -23,6 +23,7 @@ import {
   documentTypeLabel,
   statusConfig,
 } from "../lib/document-config";
+import { duplicateCheckOf } from "../schemas";
 
 import { DocumentDetail } from "./detail/document-detail";
 import { ReviewActions } from "./review-actions";
@@ -43,10 +44,11 @@ function matchInfo(matches: unknown): {
       : typeof matches.client_name === "string"
         ? matches.client_name
         : undefined;
+  const duplicate = duplicateCheckOf(matches);
   return {
     name,
-    duplicate: typeof matches.duplicate_of === "string",
-    duplicateUnknown: matches.duplicate_unknown === true,
+    duplicate: duplicate === "found",
+    duplicateUnknown: duplicate === "unknown",
   };
 }
 

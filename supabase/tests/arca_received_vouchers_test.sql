@@ -1,4 +1,4 @@
--- ARCA received vouchers tray (20261104097000): who reads it, who can write
+-- ARCA received vouchers tray (20261104102500): who reads it, who can write
 -- it, how a voucher links to a purchase already loaded (on ingest and through
 -- the trigger) and the unsupported ⇔ no kind rule. One transaction, rolled
 -- back.

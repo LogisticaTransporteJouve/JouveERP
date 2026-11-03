@@ -24,6 +24,7 @@ vi.mock("./gather", () => ({
   gatherReceivablesRisk: async () => ({
     clientCount: 0,
     total90Plus: 0,
+    usdOmitted: false,
     top: [],
   }),
 }));

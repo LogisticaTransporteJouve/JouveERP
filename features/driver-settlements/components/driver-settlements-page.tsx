@@ -100,8 +100,8 @@ export function DriverSettlementsPage({
 }: {
   /** receipts:write. */
   canWrite: boolean;
-  /** hr:write: charging the difference to the driver, or taking it back,
-   *  writes his employee account. */
+  /** hr:write + transactions:write: charging the difference to the driver,
+   *  or taking it back, writes his employee account and the cash account. */
   canChargeDriver: boolean;
 }) {
   const { settlements, hasNextPage, fetchNextPage, isFetchingNextPage } =
@@ -315,8 +315,8 @@ export function DriverSettlementsPage({
           const s = row.original;
           const isDraft = canWrite && s.status === "draft";
           const canCancel = canWrite && s.status !== "cancelled";
-          // The driver's account holds it: only hr:write takes it back
-          // (the RPC refuses too).
+          // The driver's account holds it: only hr:write + transactions:write
+          // take it back (the RPC refuses too).
           const driverHeld =
             s.difference_charged_to === "driver" ||
             s.difference_posted !== null;
@@ -369,7 +369,7 @@ export function DriverSettlementsPage({
                   >
                     <Undo2 className="size-4" />
                     {needsHr
-                      ? "Quitar diferencia (requiere permiso de RRHH)"
+                      ? "Quitar diferencia (requiere permiso de RRHH y movimientos)"
                       : "Quitar diferencia"}
                   </DropdownMenuItem>
                 )}
@@ -404,7 +404,7 @@ export function DriverSettlementsPage({
                     >
                       <XCircle className="size-4" />
                       {needsHr
-                        ? "Cancelar (la diferencia está en la cta. cte. del chofer: requiere RRHH)"
+                        ? "Cancelar (la diferencia está en la cta. cte. del chofer: requiere RRHH y movimientos)"
                         : "Cancelar"}
                     </DropdownMenuItem>
                   </>

@@ -199,10 +199,11 @@ export const PaymentOrderCancelSchema = z.object({
 export const PaymentOrderAllocateSchema = z
   .object({
     payment_order_id: z.string().uuid(),
-    mode: z.enum(["fifo", "manual"]),
+    /** rejected_checks: FIFO over the checks it delivered that bounced. */
+    mode: z.enum(["fifo", "manual", "rejected_checks"]),
     allocations: z.array(AllocationSchema).optional().default([]),
   })
-  .refine((v) => v.mode === "fifo" || v.allocations.length > 0, {
+  .refine((v) => v.mode !== "manual" || v.allocations.length > 0, {
     message: "Elegí al menos una factura.",
     path: ["allocations"],
   });
@@ -215,6 +216,9 @@ export type PaymentLineEndorseInput = z.infer<typeof PaymentLineEndorseSchema>;
 export type PaymentLineIssueInput = z.infer<typeof PaymentLineIssueSchema>;
 export type IssuedCheckPayload = z.infer<typeof IssuedCheckPayloadSchema>;
 export type AllocationInput = z.infer<typeof AllocationSchema>;
+export type PaymentOrderAllocateInput = z.infer<
+  typeof PaymentOrderAllocateSchema
+>;
 
 export function isPaymentOrderStatus(v: unknown): v is PaymentOrderStatus {
   return (

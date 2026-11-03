@@ -94,12 +94,23 @@ export function sumAmounts(amounts: readonly number[]): number {
   return amounts.reduce((acc, a) => acc + cents(a), 0) / 100;
 }
 
+/** The statement's own balance: its last line with a balance (by date,
+ *  then file order, the order `lines` arrive in). */
+export function lastStatementBalance(
+  lines: readonly StatementLine[],
+): StatementLine | undefined {
+  return lines.filter((l) => l.balance !== null).at(-1);
+}
+
 /**
  * The page's totals. `lines` are the period's; `movements` may reach past
  * it (the manual match offers a wider window), so only those dated inside
  * [from, to] count as the period's unmatched book movements. The statement
  * balance is the last line with a balance (by date, then file order), the
- * book balance comes from the account's opening balance and movements.
+ * book balance comes from the account's opening balance and movements:
+ * `bookBalance` at the period's end (shown), `bookBalanceAtStatement` on the
+ * statement balance's date, which the difference compares against (so book
+ * movements after the bank's last balance are not a difference).
  */
 export function summarize(input: {
   lines: readonly StatementLine[];
@@ -107,14 +118,14 @@ export function summarize(input: {
   from: string;
   to: string;
   bookBalance: number;
+  bookBalanceAtStatement: number;
 }): ReconciliationSummary {
   const by = (status: StatementLine["status"]) =>
     input.lines.filter((l) => l.status === status);
   const matched = by("matched");
   const open = by("open");
   const ignored = by("ignored");
-  const withBalance = input.lines.filter((l) => l.balance !== null);
-  const last = withBalance[withBalance.length - 1];
+  const last = lastStatementBalance(input.lines);
   const unmatched = input.movements.filter(
     (m) =>
       m.line_ids.length === 0 &&
@@ -129,7 +140,7 @@ export function summarize(input: {
     difference:
       statementBalance === null
         ? null
-        : sumAmounts([statementBalance, -input.bookBalance]),
+        : sumAmounts([statementBalance, -input.bookBalanceAtStatement]),
     matched_count: matched.length,
     matched_total: sumAmounts(matched.map((l) => l.amount)),
     open_count: open.length,

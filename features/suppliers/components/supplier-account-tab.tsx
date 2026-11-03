@@ -42,7 +42,6 @@ import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { amountToInput, formatArgentineDate } from "@/lib/format";
 import { SCOPE_LABEL } from "@/lib/scope";
-import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
 import type { SupplierAccountMovement } from "../actions/account-actions";
 import type { StatementCurrency } from "@/lib/allocations";
@@ -50,31 +49,12 @@ import {
   useClearSupplierOpeningBalance,
   useSupplierAccount,
 } from "../hooks/use-suppliers";
+import {
+  SUPPLIER_MOVEMENT_KIND_LABEL,
+  formatSupplierMovementNumber,
+} from "../lib/account-movement-format";
 import { suppliersKeys } from "../lib/suppliers-keys";
 import { SupplierOpeningBalanceDialog } from "./opening-balance-dialog";
-
-const KIND_LABEL: Record<string, string> = {
-  factura: "Factura",
-  nc: "Nota de Crédito",
-  nd: "Nota de Débito",
-  payment_order: "Orden de Pago",
-  opening_balance: "Ajuste de saldo",
-};
-
-function formatDocumentNumber(m: SupplierAccountMovement): string {
-  if (m.source_type === "opening_balance") return "—";
-  if (!m.punto_venta || !m.numero) return "—";
-  if (m.source_type === "payment_order") {
-    const pos = String(m.punto_venta).padStart(5, "0");
-    return `OP${pos}-${String(m.numero).padStart(8, "0")}`;
-  }
-  return formatInvoiceNumber({
-    kind: m.kind,
-    letter: m.letter,
-    punto_venta: m.punto_venta,
-    numero: m.numero,
-  });
-}
 
 function movementHref(m: SupplierAccountMovement): string | null {
   if (!m.source_id) return null;
@@ -214,7 +194,7 @@ export function SupplierAccountTab({
                   variant="secondary"
                   className="bg-muted text-muted-foreground dark:text-muted-foreground"
                 >
-                  {KIND_LABEL[m.kind] ?? m.kind}
+                  {SUPPLIER_MOVEMENT_KIND_LABEL[m.kind] ?? m.kind}
                 </Badge>
               );
             },
@@ -239,10 +219,10 @@ export function SupplierAccountTab({
                 <span className="inline-flex items-center gap-2 font-mono text-xs">
                   {href ? (
                     <Link href={href} className="hover:underline">
-                      {formatDocumentNumber(m)}
+                      {formatSupplierMovementNumber(m)}
                     </Link>
                   ) : (
-                    formatDocumentNumber(m)
+                    formatSupplierMovementNumber(m)
                   )}
                   {showOutstandingBadge &&
                     (m.outstanding === 0 ? (

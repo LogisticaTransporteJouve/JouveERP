@@ -138,6 +138,13 @@ describe("payTaxDocumentAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("a per-user deny of transactions:write refuses it (the outflow is a Caja movement)", async () => {
+    denied = ["transactions:write"];
+    const res = await payTaxDocumentAction(PAYMENT);
+    expect(res.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("pays through pay_tax_document", async () => {
     rpc.mockResolvedValue({ data: "tx1", error: null });
     const res = await payTaxDocumentAction(PAYMENT);

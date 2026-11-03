@@ -176,6 +176,19 @@ export const caeaInform = inngest.createFunction(
             .eq("punto_venta", pv);
           if (usedErr) throw new Error(`load-caea-usage: ${usedErr.message}`);
           if (count === null || count > 0) continue;
+          // A pending draft dated inside the vigencia may still be emitted
+          // under this CAEA (issue-invoice picks it by voucher date): wait.
+          const { count: pending, error: pendingErr } = await supabase
+            .from("invoices")
+            .select("id", { count: "exact", head: true })
+            .in("status", ["draft", "emitting"])
+            .eq("punto_venta", pv)
+            .gte("fecha", code.fch_vig_desde)
+            .lte("fecha", code.fch_vig_hasta);
+          if (pendingErr) {
+            throw new Error(`load-caea-pending: ${pendingErr.message}`);
+          }
+          if (pending === null || pending > 0) continue;
           try {
             await informCaeaNoMovement(pv, code.caea);
           } catch (err) {

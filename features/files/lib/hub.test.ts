@@ -5,7 +5,6 @@ import { ROLES, resolveAccess } from "@/lib/auth/permissions";
 import {
   HUB_ENTITY_TYPES,
   buildHubOrFilter,
-  containsPattern,
   hubEntityHref,
   hubScope,
   nextIsoDay,
@@ -112,11 +111,6 @@ describe("buildHubOrFilter", () => {
 });
 
 describe("helpers", () => {
-  it("escapes LIKE wildcards in a search", () => {
-    expect(containsPattern("100%_a\\b")).toBe("%100\\%\\_a\\\\b%");
-    expect(containsPattern("a*b")).toBe("%a_b%");
-  });
-
   it("computes the exclusive day bound across months", () => {
     expect(nextIsoDay("2026-02-28")).toBe("2026-03-01");
     expect(nextIsoDay("2026-12-31")).toBe("2027-01-01");

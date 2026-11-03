@@ -165,9 +165,10 @@ export async function prepareInsightProposalAction(
 
 /** The caller's latest proposal with this key when it should be shown again
  *  instead of preparing a new one: still pending and in time, or accepted.
- *  A pending one past its time is closed as expired first; an accepted one
+ *  A pending one past its time is closed as expired first. An accepted one
  *  whose request died before recording an outcome is closed as failed
- *  (outcome unknown), so the insight can be prepared again. */
+ *  (outcome unknown) and shown with that warning, so the user checks the
+ *  result before a new one is offered on the next open. */
 async function reusable(
   ctx: Ctx,
   dedupeKey: string,
@@ -197,8 +198,14 @@ async function reusable(
         },
         latest.id,
       );
+      return {
+        ...latest,
+        status: "failed",
+        error: AI_PROPOSAL_UNKNOWN_OUTCOME,
+      };
     }
-    return null;
+    // Another request recorded an outcome or closed it first: show that.
+    return getProposal(ctx.userId, latest.id);
   }
   if (latest.status !== "pending") return null;
   if (Date.parse(latest.expires_at) > Date.now()) return latest;

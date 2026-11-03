@@ -41,11 +41,18 @@ export function PalletsTable({
   clientOptions,
   productOptions,
   areaOptions,
+  canWrite,
+  canMoveStock,
 }: {
   warehouseOptions: { id: string; name: string }[];
   clientOptions: { id: string; legal_name: string }[];
   productOptions: { id: string; name: string }[];
   areaOptions: AreaOption[];
+  /** pallets:write: edit and block. */
+  canWrite: boolean;
+  /** pallets:write + stock_movements:write: create, dispatch, delete and
+   *  the stock fields of an edit (same predicate as the actions). */
+  canMoveStock: boolean;
 }) {
   const { data: items } = usePallets();
   const deleteMut = useDeletePallet();
@@ -107,35 +114,37 @@ export function PalletsTable({
       });
     }
 
-    return [
-      {
-        id: "select",
-        header: () => (
+    const selectColumn: ColumnDef<Pallet> = {
+      id: "select",
+      header: () => (
+        <Checkbox
+          checked={headerChecked}
+          onCheckedChange={(v) =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (v) selectableIds.forEach((id) => next.add(id));
+              else selectableIds.forEach((id) => next.delete(id));
+              return next;
+            })
+          }
+          aria-label="Seleccionar todos"
+          disabled={selectableIds.length === 0}
+        />
+      ),
+      enableSorting: false,
+      meta: { headerClassName: "w-10", mobile: "primary" },
+      cell: ({ row }) =>
+        isDispatchable(row.original) ? (
           <Checkbox
-            checked={headerChecked}
-            onCheckedChange={(v) =>
-              setSelected((prev) => {
-                const next = new Set(prev);
-                if (v) selectableIds.forEach((id) => next.add(id));
-                else selectableIds.forEach((id) => next.delete(id));
-                return next;
-              })
-            }
-            aria-label="Seleccionar todos"
-            disabled={selectableIds.length === 0}
+            checked={selected.has(row.original.id)}
+            onCheckedChange={() => toggleOne(row.original.id)}
+            aria-label={`Seleccionar ${row.original.code}`}
           />
-        ),
-        enableSorting: false,
-        meta: { headerClassName: "w-10", mobile: "primary" },
-        cell: ({ row }) =>
-          isDispatchable(row.original) ? (
-            <Checkbox
-              checked={selected.has(row.original.id)}
-              onCheckedChange={() => toggleOne(row.original.id)}
-              aria-label={`Seleccionar ${row.original.code}`}
-            />
-          ) : null,
-      },
+        ) : null,
+    };
+
+    return [
+      ...(canMoveStock ? [selectColumn] : []),
       {
         accessorKey: "code",
         header: "Código",
@@ -248,55 +257,66 @@ export function PalletsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12", mobile: "primary" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", pallet: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              {row.original.blocked_at ? (
+        cell: ({ row }) =>
+          canWrite ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() =>
-                    setBlocking({ pallet: row.original, mode: "unblock" })
+                    setDialog({ mode: "edit", pallet: row.original })
                   }
                 >
-                  <LockOpen className="size-4" />
-                  Desbloquear
+                  <Pencil className="size-4" />
+                  Editar
                 </DropdownMenuItem>
-              ) : row.original.status === "en_deposito" &&
-                !row.original.exit_date ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    setBlocking({ pallet: row.original, mode: "block" })
-                  }
-                >
-                  <Lock className="size-4" />
-                  Bloquear
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+                {row.original.blocked_at ? (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setBlocking({ pallet: row.original, mode: "unblock" })
+                    }
+                  >
+                    <LockOpen className="size-4" />
+                    Desbloquear
+                  </DropdownMenuItem>
+                ) : row.original.status === "en_deposito" &&
+                  !row.original.exit_date ? (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setBlocking({ pallet: row.original, mode: "block" })
+                    }
+                  >
+                    <Lock className="size-4" />
+                    Bloquear
+                  </DropdownMenuItem>
+                ) : null}
+                {canMoveStock && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(row.original)}
+                  >
+                    <Trash2 className="size-4" />
+                    Borrar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null,
       },
     ];
-  }, [confirm, deleteMut, selected, selectableIds, headerChecked]);
+  }, [
+    confirm,
+    deleteMut,
+    selected,
+    selectableIds,
+    headerChecked,
+    canWrite,
+    canMoveStock,
+  ]);
 
   const selectedCount = selected.size;
 
@@ -310,21 +330,25 @@ export function PalletsTable({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {selectedCount > 0 && (
+          {canMoveStock && selectedCount > 0 && (
             <Button onClick={() => setDispatchOpen(true)}>
               <Truck />
               Despachar ({selectedCount})
             </Button>
           )}
           <ExportButton resource="pallets" />
-          <Button variant="outline" onClick={() => setBulkOpen(true)}>
-            <Layers />
-            Cargar varios
-          </Button>
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo pallet
-          </Button>
+          {canMoveStock && (
+            <>
+              <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                <Layers />
+                Cargar varios
+              </Button>
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo pallet
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -363,6 +387,7 @@ export function PalletsTable({
           clientOptions={clientOptions}
           productOptions={productOptions}
           areaOptions={areaOptions}
+          canMoveStock={canMoveStock}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

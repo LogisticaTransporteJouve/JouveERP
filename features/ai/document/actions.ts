@@ -48,7 +48,11 @@ import {
   buildPurchaseInvoiceDraft,
   buildSalesInvoiceItems,
 } from "./create-mapping";
-import { InvoiceExtractionSchema } from "./schemas";
+import {
+  DUPLICATE_UNKNOWN_MESSAGE,
+  duplicateCheckOf,
+  InvoiceExtractionSchema,
+} from "./schemas";
 import { guardExtractionQuota, startExtraction } from "./start";
 import { DOCUMENT_KINDS } from "./types";
 
@@ -338,7 +342,7 @@ export async function getPurchaseInvoiceDraftAction(
     costCenterId: expense.costCenterId,
     usdRate,
     confidence: ext.confidence,
-    duplicate: isRecord(ext.matches) && Boolean(ext.matches.duplicate_of),
+    duplicate: duplicateCheckOf(ext.matches),
   });
   if (!draft) return { ok: false, error: "No se pudieron mapear los datos." };
 
@@ -1119,11 +1123,16 @@ export async function createSalesInvoiceFromExtractionAction(
       error: "Asociá un cliente antes de emitir la factura.",
     };
   }
-  if (isRecord(loaded.ext.matches) && loaded.ext.matches.duplicate_of) {
+  // The emission requests a CAE: a lookup that failed is not "no duplicate".
+  const duplicate = duplicateCheckOf(loaded.ext.matches);
+  if (duplicate === "found") {
     return {
       ok: false,
       error: "Ese comprobante ya está registrado — no se vuelve a emitir.",
     };
+  }
+  if (duplicate === "unknown") {
+    return { ok: false, error: DUPLICATE_UNKNOWN_MESSAGE };
   }
 
   const header = InvoiceExtractionSchema.safeParse(loaded.ext.payload);

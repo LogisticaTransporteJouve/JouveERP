@@ -82,6 +82,7 @@ export function PalletDialog({
   clientOptions,
   productOptions,
   areaOptions,
+  canMoveStock,
   open,
   onOpenChange,
 }: {
@@ -91,6 +92,8 @@ export function PalletDialog({
   clientOptions: { id: string; legal_name: string }[];
   productOptions: { id: string; name: string }[];
   areaOptions: AreaOption[];
+  /** Without it only the fields that move no stock can change. */
+  canMoveStock: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -98,6 +101,7 @@ export function PalletDialog({
   const updateMut = useUpdatePallet();
   const isSaving = createMut.isPending || updateMut.isPending;
   const isEdit = mode === "edit";
+  const stockLocked = !canMoveStock;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -166,6 +170,7 @@ export function PalletDialog({
                   <FormLabel>Depósito</FormLabel>
                   <Select
                     value={field.value}
+                    disabled={stockLocked}
                     onValueChange={(v) => {
                       field.onChange(v);
                       // An area belongs to one warehouse.
@@ -278,7 +283,11 @@ export function PalletDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Estado</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      disabled={stockLocked}
+                      onValueChange={field.onChange}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -337,6 +346,7 @@ export function PalletDialog({
                       type="number"
                       inputMode="decimal"
                       step="0.01"
+                      disabled={stockLocked}
                     />
                   </FormControl>
                   <FormMessage />
@@ -351,7 +361,7 @@ export function PalletDialog({
                   <FormItem>
                     <FormLabel>Ingreso</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <Input {...field} type="date" disabled={stockLocked} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -364,13 +374,19 @@ export function PalletDialog({
                   <FormItem>
                     <FormLabel>Egreso (opcional)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <Input {...field} type="date" disabled={stockLocked} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+            {stockLocked && (
+              <p className="text-muted-foreground text-xs">
+                Depósito, estado, cantidad y fechas mueven stock: no tenés
+                permiso para cambiarlos.
+              </p>
+            )}
             <FormField
               control={form.control}
               name="notes"

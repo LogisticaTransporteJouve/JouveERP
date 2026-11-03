@@ -20,10 +20,12 @@ export type TreasurySummary = {
   /** Liquid balance per currency (banks + cash + wallets + investment). */
   liquid_now: Record<TreasuryCurrency, number>;
   liquid_prev_eom: Record<TreasuryCurrency, number>;
-  /** Physical checks + e-cheq in portfolio (ARS). Not liquidity until credited.
-   *  Checks only exist in ARS in this business. */
+  /** Physical checks + e-cheq in portfolio (ARS). Not liquidity until credited. */
   checks_now: number;
   checks_prev_eom: number;
+  /** The same for USD check carteras (pesos and dollars never sum). */
+  checks_usd_now: number;
+  checks_usd_prev_eom: number;
   /** Checks in portfolio due within the next 7 days — about to turn into
    *  liquidity (deposit/crediting). */
   checks_due_soon: { count: number; amount: number };
@@ -36,7 +38,12 @@ export type TreasurySummary = {
 /** Types considered "liquid" for the currency total. The check-in-portfolio
  *  types (checks, echeq) are summed separately. */
 export function isLiquidAccountType(type: AccountType): boolean {
-  return type === "bank" || type === "cash" || type === "wallet" || type === "investment";
+  return (
+    type === "bank" ||
+    type === "cash" ||
+    type === "wallet" ||
+    type === "investment"
+  );
 }
 
 export function isCheckAccountType(type: AccountType): boolean {

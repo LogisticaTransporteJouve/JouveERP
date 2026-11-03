@@ -42,8 +42,15 @@ function utc(date: string): number {
 
 export function finalSettlement(b: FinalSettlementBasis): FinalSettlement {
   const salary = Math.max(b.monthlySalary, 0);
-  // A month counts as 30 days; the 31st adds nothing.
-  const daysWorked = Math.min(Number(b.terminationDate.slice(8, 10)), 30);
+  // A month counts as 30 days; the 31st adds nothing. Hired that same
+  // month, the days before the hire date were not worked.
+  const lastDay = Math.min(Number(b.terminationDate.slice(8, 10)), 30);
+  const hiredThatMonth =
+    b.hireDate.slice(0, 7) === b.terminationDate.slice(0, 7);
+  const firstDay = hiredThatMonth
+    ? Math.min(Number(b.hireDate.slice(8, 10)), 30)
+    : 1;
+  const daysWorked = Math.max(lastDay - firstDay + 1, 0);
   const proratedSalary = round((salary / 30) * daysWorked, 2);
 
   const year = Number(b.terminationDate.slice(0, 4));
@@ -64,4 +71,14 @@ export function finalSettlement(b: FinalSettlementBasis): FinalSettlement {
   const vacationAmount = round((salary / 25) * vacationDays, 2);
 
   return { daysWorked, proratedSalary, vacationDays, vacationAmount };
+}
+
+/** The proportional SAC still owed on leaving: the half's SAC planilla
+ *  already pays what its entry holds (filled while the employee was active),
+ *  so only the rest goes into the final settlement. */
+export function sacStillOwed(
+  suggested: number,
+  alreadyInSacPlanilla: number,
+): number {
+  return round(Math.max(suggested - Math.max(alreadyInSacPlanilla, 0), 0), 2);
 }

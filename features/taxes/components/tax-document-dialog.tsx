@@ -95,12 +95,15 @@ export function TaxDocumentDialog({
   onOpenChange,
   doc,
   canAttach,
+  canEstimate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** null = new document. */
   doc: TaxDocument | null;
   canAttach: boolean;
+  /** Estimar reads the libro IVA: it takes accounting:read. */
+  canEstimate: boolean;
 }) {
   const [form, setForm] = useState<FormState>(() => initialState(doc));
   const [estimate, setEstimate] = useState<IvaPositionEstimate | null>(null);
@@ -337,7 +340,7 @@ export function TaxDocumentDialog({
                   }))
                 }
               />
-              {form.kind === "iva" && !readOnly && (
+              {form.kind === "iva" && !readOnly && canEstimate && (
                 <Button
                   type="button"
                   variant="outline"

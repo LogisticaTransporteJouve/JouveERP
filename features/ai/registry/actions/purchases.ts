@@ -263,7 +263,7 @@ export const getSupplierUpcomingDues = defineAiAction({
     "suppliers",
   ],
   description:
-    "Facturas de proveedores con saldo que vencen en los próximos N días (incluye las ya vencidas), de la más próxima a la más lejana. Vencimiento: fecha de vto. o fecha + plazo del proveedor. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
+    "Facturas de proveedores con saldo que vencen en los próximos N días (incluye las ya vencidas), de la más próxima a la más lejana, y los cheques que les entregamos y fueron rechazados (kind rejected_check, vencen el día del rechazo). Vencimiento: fecha de vto. o fecha + plazo del proveedor. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: SupplierUpcomingDuesInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);
