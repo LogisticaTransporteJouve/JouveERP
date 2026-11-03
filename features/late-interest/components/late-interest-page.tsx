@@ -1,0 +1,250 @@
+"use client";
+
+import { FilePlus2, MoreHorizontal, Percent } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+
+import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
+import { paymentCurrencyOf } from "@/lib/fx";
+
+import {
+  useLateInterestCandidates,
+  useLateInterestGeneralRate,
+} from "../hooks/use-late-interest";
+import { comprobanteLabel } from "../lib/late-interest";
+import type { LateInterestCandidate } from "../schema";
+
+import { IssueLateInterestDialog } from "./issue-late-interest-dialog";
+import {
+  LateInterestRateDialog,
+  type RateTarget,
+} from "./late-interest-rate-dialog";
+
+function rateLabel(c: LateInterestCandidate): string {
+  if (c.monthly_rate === null) return "Sin tasa";
+  return `${c.monthly_rate}%${c.client_rate === null ? " (general)" : ""}`;
+}
+
+/**
+ * Intereses por mora: the overdue comprobantes with open balance and the
+ * interest their next ND would charge up to the chosen date. Nothing is
+ * charged until the user generates the ND of a row.
+ */
+export function LateInterestPage({
+  initialAsOf,
+  canIssue,
+  canSetGeneralRate,
+  canSetClientRate,
+}: {
+  initialAsOf: string;
+  canIssue: boolean;
+  canSetGeneralRate: boolean;
+  canSetClientRate: boolean;
+}) {
+  const isFiscal = useScopeIsFiscal();
+  const [asOf, setAsOf] = useState(initialAsOf);
+  const [isPending, startTransition] = useTransition();
+  const { data: items } = useLateInterestCandidates(asOf, isFiscal);
+  const { data: general } = useLateInterestGeneralRate();
+  const [issuing, setIssuing] = useState<LateInterestCandidate | null>(null);
+  const [rateTarget, setRateTarget] = useState<RateTarget | null>(null);
+  const today = todayInAR();
+
+  const columns = useMemo<ColumnDef<LateInterestCandidate>[]>(() => {
+    const base: ColumnDef<LateInterestCandidate>[] = [
+      {
+        accessorKey: "client_name",
+        header: "Cliente",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.client_name}</span>
+        ),
+        meta: { mobile: "primary" },
+      },
+      {
+        id: "comprobante",
+        header: "Comprobante",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {comprobanteLabel(row.original)}
+          </span>
+        ),
+        meta: { mobile: "secondary" },
+      },
+      {
+        accessorKey: "due_date",
+        header: "Vencimiento",
+        cell: ({ row }) => formatArgentineDate(row.original.due_date),
+        meta: { cellClassName: "tabular-nums", mobile: "secondary" },
+      },
+      {
+        accessorKey: "open_amount",
+        header: "Saldo",
+        cell: ({ row }) =>
+          formatMoney(
+            row.original.open_amount,
+            paymentCurrencyOf(row.original.moneda),
+          ),
+        meta: { align: "right", cellClassName: "tabular-nums" },
+      },
+      {
+        id: "charged_to",
+        header: "Cobrado hasta",
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.charged_to
+            ? formatArgentineDate(row.original.charged_to)
+            : "—",
+        meta: { cellClassName: "tabular-nums", mobile: "secondary" },
+      },
+      {
+        accessorKey: "days",
+        header: "Días",
+        meta: { align: "right", cellClassName: "tabular-nums" },
+      },
+      {
+        id: "rate",
+        header: "Tasa mensual",
+        enableSorting: false,
+        cell: ({ row }) => rateLabel(row.original),
+        meta: { cellClassName: "text-sm", mobile: "secondary" },
+      },
+      {
+        accessorKey: "interest",
+        header: "Interés",
+        cell: ({ row }) =>
+          row.original.interest > 0
+            ? formatMoney(
+                row.original.interest,
+                paymentCurrencyOf(row.original.moneda),
+              )
+            : "—",
+        meta: {
+          align: "right",
+          cellClassName: "tabular-nums",
+          mobile: "primary",
+        },
+      },
+    ];
+    if (!canIssue && !canSetClientRate) return base;
+    return [
+      ...base,
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { headerClassName: "w-12", mobile: "primary" },
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Acciones">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canIssue && (
+                <DropdownMenuItem
+                  disabled={row.original.days === 0}
+                  onClick={() => setIssuing(row.original)}
+                >
+                  <FilePlus2 className="size-4" />
+                  Generar ND
+                </DropdownMenuItem>
+              )}
+              {canSetClientRate && (
+                <DropdownMenuItem
+                  onClick={() =>
+                    setRateTarget({
+                      kind: "client",
+                      clientId: row.original.client_id,
+                      clientName: row.original.client_name,
+                      current: row.original.client_rate,
+                    })
+                  }
+                >
+                  <Percent className="size-4" />
+                  Tasa del cliente
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ];
+  }, [canIssue, canSetClientRate]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="li-as-of">Calcular hasta</Label>
+          <Input
+            id="li-as-of"
+            type="date"
+            className="w-44"
+            value={asOf}
+            max={today}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (/^\d{4}-\d{2}-\d{2}$/.test(next) && next <= today) {
+                startTransition(() => setAsOf(next));
+              }
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            Tasa general:{" "}
+            {general.monthly_rate === null
+              ? "sin definir"
+              : `${general.monthly_rate}% mensual`}
+          </span>
+          {canSetGeneralRate && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setRateTarget({
+                  kind: "general",
+                  current: general.monthly_rate,
+                })
+              }
+            >
+              <Percent />
+              Cambiar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className={isPending ? "opacity-60" : undefined}>
+        <DataTable
+          columns={columns}
+          data={items}
+          getRowId={(c) => c.invoice_id}
+          emptyMessage="No hay comprobantes vencidos con saldo abierto."
+        />
+      </div>
+
+      <IssueLateInterestDialog
+        candidate={issuing}
+        asOf={asOf}
+        onClose={() => setIssuing(null)}
+      />
+      <LateInterestRateDialog
+        target={rateTarget}
+        onClose={() => setRateTarget(null)}
+      />
+    </div>
+  );
+}

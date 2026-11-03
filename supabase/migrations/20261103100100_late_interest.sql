@@ -294,8 +294,8 @@ create trigger invoices_release_late_interest
 ------------------------------------------------------------------------------
 -- Every emitted factura or ND with open balance that is overdue on p_as_of
 -- (an interest ND aside), the day its next charge starts (the day after the
--- due date or after the last live charge) and the monthly rate that applies
--- (the client's, else the general one; null = none set).
+-- due date or after the last live charge), the client's own monthly rate and
+-- the one that applies (the client's, else the general one; null = none set).
 create function public.late_interest_candidates(p_as_of date)
 returns table (
   invoice_id      uuid,
@@ -313,6 +313,7 @@ returns table (
   open_amount     numeric,
   charged_to      date,
   charge_from     date,
+  client_rate     numeric,
   monthly_rate    numeric
 )
 language sql
@@ -335,6 +336,7 @@ as $$
          d.open_amount,
          lc.charged_to,
          greatest(coalesce(d.fch_vto_pago, d.fecha), coalesce(lc.charged_to, d.fecha)) + 1,
+         cl.late_interest_monthly_rate,
          coalesce(cl.late_interest_monthly_rate,
                   (select (s.value #>> '{}')::numeric
                      from public.finance_settings s

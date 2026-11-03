@@ -8518,6 +8518,7 @@ export type Database = {
           charged_to: string
           client_id: string
           client_name: string
+          client_rate: number
           due_date: string
           fecha: string
           invoice_id: string
