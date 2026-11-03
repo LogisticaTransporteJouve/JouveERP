@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import { runAction } from "@/lib/query/run-action";
@@ -22,8 +18,6 @@ export function useAttachments(
   targetType: AttachmentTargetType,
   targetId: string,
 ) {
-  const queryClient = useQueryClient();
-
   useRealtimeInvalidate([
     {
       table: "file_attachments",
@@ -31,24 +25,12 @@ export function useAttachments(
     },
   ]);
 
+  // A failed read stays an error (the zone says so): shown as "no
+  // attachments" it reads as a document that was never attached.
   return useQuery({
     queryKey: filesKeys.attachments(targetType, targetId),
-    queryFn: async () => {
-      // runAction throws on { ok: false }, so a thrown error becomes the
-      // query error — but list failures here are best-effort UI, so we
-      // return [] on error and rely on the explicit invalidate above to
-      // refetch when realtime fires.
-      try {
-        return await runAction(() =>
-          listAttachmentsAction({ targetType, targetId }),
-        );
-      } catch {
-        queryClient.invalidateQueries({
-          queryKey: filesKeys.attachments(targetType, targetId),
-        });
-        return [];
-      }
-    },
+    queryFn: () =>
+      runAction(() => listAttachmentsAction({ targetType, targetId })),
   });
 }
 

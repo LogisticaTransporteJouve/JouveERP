@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -50,7 +50,12 @@ export function AttachmentsZone({
     mimeType: string | null;
   } | null>(null);
 
-  const { data: rows = [], isLoading } = useAttachments(targetType, targetId);
+  const {
+    data: rows = [],
+    isLoading,
+    isError,
+    error,
+  } = useAttachments(targetType, targetId);
   const uploadMutation = useUploadFile();
   const detachMutation = useDetachFile(targetType, targetId);
 
@@ -94,11 +99,17 @@ export function AttachmentsZone({
         <div className="space-y-3">
           {kinds.length > 1 ? (
             <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground" htmlFor="attachment-kind">
+              <label
+                className="text-xs text-muted-foreground"
+                htmlFor="attachment-kind"
+              >
                 Tipo:
               </label>
               <Select value={kind} onValueChange={setKind}>
-                <SelectTrigger id="attachment-kind" className="h-8 w-44 text-xs">
+                <SelectTrigger
+                  id="attachment-kind"
+                  className="h-8 w-44 text-xs"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -130,6 +141,13 @@ export function AttachmentsZone({
           <Loader2 className="size-4 animate-spin" />
           Cargando adjuntos…
         </div>
+      ) : isError ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <TriangleAlert className="size-4 shrink-0" />
+          {error instanceof Error && error.message
+            ? error.message
+            : "No se pudieron leer los adjuntos."}
+        </p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {canWrite ? "Todavía no hay adjuntos." : "Sin adjuntos."}
