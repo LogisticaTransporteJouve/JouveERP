@@ -439,9 +439,8 @@ describe("caea-inform", () => {
 });
 
 describe("issue-invoice onFailure", () => {
-  const failure = (status: string) => {
-    h.db.invoices = [draft({ status })];
-    return h.onFailures.get("issue-invoice")?.({
+  const onFailure = (error: Error) =>
+    h.onFailures.get("issue-invoice")?.({
       event: {
         data: {
           event: {
@@ -449,13 +448,32 @@ describe("issue-invoice onFailure", () => {
           },
         },
       },
-      error: new Error("persist-cae: db down"),
+      error,
+      step,
     });
+
+  const failure = (status: string, overrides: Row = {}) => {
+    h.db.invoices = [draft({ status, ...overrides })];
+    return onFailure(new Error("persist-cae: db down"));
   };
 
   it("never turns an emitted voucher into a failed one", async () => {
     await failure("emitted");
     expect(h.db.invoices?.[0]?.status).toBe("emitted");
+    expect(h.sent).toEqual([]);
+  });
+
+  it("settles the remito of a factura emitted before its run failed", async () => {
+    await failure("emitted", { source_remito_id: "r1" });
+    expect(h.sent).toEqual([
+      {
+        id: "remito-billed",
+        events: {
+          name: "invoice/remito.billed",
+          data: { factura_id: INVOICE_ID },
+        },
+      },
+    ]);
   });
 
   it("fails a pending emission", async () => {
@@ -463,32 +481,38 @@ describe("issue-invoice onFailure", () => {
     expect(h.db.invoices?.[0]?.status).toBe("failed");
   });
 
-  const failureWithAttempt = () => {
-    h.db.invoices = [draft({ status: "emitting", afip_attempted_numero: 6 })];
-    return h.onFailures.get("issue-invoice")?.({
-      event: {
-        data: {
-          event: {
-            data: { invoice_id: INVOICE_ID, idempotency_key: "k1" },
-          },
-        },
-      },
-      error: new Error("persist-cae: db down"),
-    });
+  const minutesAgo = (minutes: number) =>
+    new Date(Date.now() - minutes * 60_000).toISOString();
+
+  const failureWithAttempt = (
+    error: Error = new Error("persist-cae: db down"),
+    overrides: Row = {},
+  ) => {
+    h.db.invoices = [
+      draft({
+        status: "emitting",
+        afip_attempted_numero: 6,
+        updated_at: minutesAgo(1),
+        ...overrides,
+      }),
+    ];
+    return onFailure(error);
+  };
+
+  const voucher6 = {
+    ptoVta: 9,
+    cbteTipo: 1,
+    cbteNro: 6,
+    cae: "75000000000006",
+    caeFchVto: "20261024",
+    impTotal: 121,
+    cbteFch: "20261014",
+    docTipo: 80,
+    docNro: "30712345678",
   };
 
   it("keeps the CAE AFIP authorized for this invoice", async () => {
-    vi.mocked(getVoucherInfo).mockResolvedValueOnce({
-      ptoVta: 9,
-      cbteTipo: 1,
-      cbteNro: 6,
-      cae: "75000000000006",
-      caeFchVto: "20261024",
-      impTotal: 121,
-      cbteFch: "20261014",
-      docTipo: 80,
-      docNro: "30712345678",
-    } as never);
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(voucher6 as never);
     await failureWithAttempt();
     expect(h.db.invoices?.[0]).toMatchObject({
       status: "emitted",
@@ -497,15 +521,33 @@ describe("issue-invoice onFailure", () => {
     });
   });
 
-  it("fails it when AFIP has no voucher at that number", async () => {
+  it("settles the remito of a recovered factura in its own step", async () => {
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(voucher6 as never);
+    await failureWithAttempt(undefined, { source_remito_id: "r1" });
+    expect(h.sent.map((s) => s.id)).toEqual(["remito-billed"]);
+  });
+
+  it("leaves a recent attempt to the reconcile: AFIP may still be processing a timed-out request", async () => {
     vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
-    await failureWithAttempt();
+    await failureWithAttempt(new Error("AFIP no respondió en 20 s"));
+    expect(h.db.invoices?.[0]?.status).toBe("emitting");
+  });
+
+  it("fails a recent attempt AFIP rejected", async () => {
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
+    await failureWithAttempt(new NonRetriableError("10015: receptor inválido"));
+    expect(h.db.invoices?.[0]?.status).toBe("failed");
+  });
+
+  it("fails it when AFIP has no voucher at a number sent long ago", async () => {
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
+    await failureWithAttempt(undefined, { updated_at: minutesAgo(31) });
     expect(h.db.invoices?.[0]?.status).toBe("failed");
   });
 
   it("leaves it emitting when AFIP does not answer", async () => {
     vi.mocked(getVoucherInfo).mockRejectedValueOnce(new Error("timeout"));
-    await failureWithAttempt();
+    await failureWithAttempt(undefined, { updated_at: minutesAgo(31) });
     expect(h.db.invoices?.[0]?.status).toBe("emitting");
   });
 });
@@ -591,6 +633,22 @@ describe("issue-invoice-reconcile", () => {
     vi.mocked(getVoucherInfo).mockResolvedValueOnce(voucher6 as never);
     await reconcile();
     expect(h.db.invoices?.[0]).toMatchObject({ status: "emitted", numero: 6 });
+    expect(h.sent).toEqual([]);
+  });
+
+  it("settles the remito of a recovered factura in a step of its own", async () => {
+    stuck({ source_remito_id: "r1" });
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(voucher6 as never);
+    await reconcile();
+    expect(h.sent).toEqual([
+      {
+        id: `remito-billed-${INVOICE_ID}`,
+        events: {
+          name: "invoice/remito.billed",
+          data: { factura_id: INVOICE_ID },
+        },
+      },
+    ]);
   });
 
   it("fails a stuck invoice AFIP has no voucher of, which frees its claims", async () => {
