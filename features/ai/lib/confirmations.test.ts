@@ -63,6 +63,7 @@ const ROW: AiConfirmation = {
   summary: [{ label: "Fecha", value: "16 oct 2026" }],
   status: "confirmed",
   result_id: null,
+  result_note: null,
   error: null,
   created_at: "2026-10-16T12:00:00Z",
   decided_at: "2026-10-16T12:01:00Z",
@@ -220,12 +221,14 @@ describe("proposalStatusNote", () => {
         revision: 2,
         origin: "user",
         result_id: "r9",
+        result_note: "2 conciliadas.",
       },
       { ...ROW, id: "c4", revision_key: "k2", status: "declined" },
     ]);
     expect(note).toContain("revisionKey k1, revision 2): confirmada");
     expect(note).toContain("el usuario editó el borrador");
     expect(note).toContain("id creado r9");
+    expect(note).toContain("resultado: 2 conciliadas.");
     expect(note).toContain("revisionKey k2, revision 1): descartada");
     expect(note).not.toContain("revision 1): reemplazada");
   });

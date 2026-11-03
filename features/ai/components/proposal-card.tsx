@@ -74,7 +74,10 @@ export function ProposalCard({
 
   function onConfirm(id: string) {
     confirm.mutate(id, {
-      onSuccess: () => toast.success("Listo, quedó registrado."),
+      onSuccess: (res) =>
+        toast.success(
+          res.note ? `Listo: ${res.note}` : "Listo, quedó registrado.",
+        ),
       onError: (e) => toast.error(e.message),
     });
   }
@@ -106,6 +109,10 @@ export function ProposalCard({
 
       {row?.status === "failed" && row.error && (
         <p className="text-xs">{row.error}</p>
+      )}
+
+      {row?.status === "confirmed" && row.result_note && (
+        <p className="text-muted-foreground text-xs">{row.result_note}</p>
       )}
 
       {row?.status === "pending" && (

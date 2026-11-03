@@ -189,17 +189,21 @@ export async function claimConfirmation(
   return data ? (parseConfirmationRows([data])[0] ?? null) : null;
 }
 
-/** Records what the confirmed write produced: the created id, or the error
- *  that turned the revision into `failed`. */
+/** Records what the confirmed write produced: the created id and the note it
+ *  reported ("12 conciliadas"), or the error that turned the revision into
+ *  `failed`. */
 export async function recordConfirmationOutcome(
   userId: string,
   id: string,
-  outcome: { resultId: string } | { error: string },
+  outcome: { resultId: string; note?: string } | { error: string },
 ): Promise<void> {
   const service = getServiceClient();
   const patch =
     "resultId" in outcome
-      ? { result_id: outcome.resultId }
+      ? {
+          result_id: outcome.resultId,
+          ...(outcome.note ? { result_note: outcome.note.slice(0, 500) } : {}),
+        }
       : { status: "failed", error: outcome.error.slice(0, 500) };
   const { error } = await service
     .from("ai_chat_confirmations")
@@ -241,6 +245,7 @@ export function proposalStatusNote(rows: readonly AiConfirmation[]): string {
     if (r.origin === "user")
       parts.push("el usuario editó el borrador en la tarjeta");
     if (r.result_id) parts.push(`id creado ${r.result_id}`);
+    if (r.result_note) parts.push(`resultado: ${r.result_note}`);
     return parts.join("; ");
   });
   return `Propuestas en esta conversación (estado real; las decisiones de las tarjetas las toma el usuario, no vos):\n${lines.join("\n")}`;
