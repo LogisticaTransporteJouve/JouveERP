@@ -96,6 +96,7 @@ const GUARDS = [
   "record_employee_account_cash",
   "delete_employee_account_movement",
   "apply_salary_raise",
+  "guard_client_tariff_overlap",
 ];
 
 describe("guard hints in migrations", () => {

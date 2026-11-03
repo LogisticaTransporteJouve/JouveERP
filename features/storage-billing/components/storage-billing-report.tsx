@@ -112,8 +112,17 @@ export function StorageBillingReport() {
       {data && data.pallets_without_tariff > 0 && (
         <p className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm">
           <AlertTriangle className="size-4 shrink-0" />
-          {data.pallets_without_tariff} pallet(s) sin tarifa vigente — cargá una
-          tarifa para que se facturen.
+          {data.pallets_without_tariff} pallet(s) con días sin tarifa vigente —
+          cargá una tarifa para que se facturen.
+        </p>
+      )}
+
+      {data && data.pallets_without_rate > 0 && (
+        <p className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0" />
+          {data.pallets_without_rate} pallet(s) con tarifa del cliente en USD y
+          sin cotización del dólar al cierre del rango — cargala para poder
+          facturarlos.
         </p>
       )}
 
@@ -203,34 +212,44 @@ export function StorageBillingReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.lines.map((l) => (
-                    <TableRow key={l.pallet_id}>
-                      <TableCell className="font-mono text-xs">
-                        {l.code}
-                      </TableCell>
-                      <TableCell>{l.client_name}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {l.days}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {l.has_tariff ? money(l.daily_rate) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {l.has_tariff ? money(l.handling_in_charge) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {l.has_tariff ? money(l.handling_out_charge) : "—"}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-mono tabular-nums",
-                          !l.has_tariff && "text-muted-foreground",
-                        )}
-                      >
-                        {l.has_tariff ? money(l.charge) : "sin tarifa"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {data.lines.map((l) => {
+                    // Some days or a movement left unpriced (no tariff, or a
+                    // USD tariff without a rate).
+                    const incomplete = !l.has_tariff || l.missing_rate;
+                    const priced = l.charge > 0 || !incomplete;
+                    return (
+                      <TableRow key={l.pallet_id}>
+                        <TableCell className="font-mono text-xs">
+                          {l.code}
+                        </TableCell>
+                        <TableCell>{l.client_name}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {l.days}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {priced ? money(l.daily_rate) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {priced ? money(l.handling_in_charge) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {priced ? money(l.handling_out_charge) : "—"}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right font-mono tabular-nums",
+                            incomplete && "text-muted-foreground",
+                          )}
+                        >
+                          {priced
+                            ? `${money(l.charge)}${incomplete ? " (parcial)" : ""}`
+                            : l.missing_rate
+                              ? "sin cotización"
+                              : "sin tarifa"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

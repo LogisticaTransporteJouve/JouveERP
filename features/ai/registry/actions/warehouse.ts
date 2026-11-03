@@ -100,9 +100,9 @@ export const getStorageBilling = defineAiAction({
   domain: "deposito",
   permission: "storage_billing:read",
   sideEffect: "read",
-  sources: ["pallets", "storage_tariffs", "clients"],
+  sources: ["pallets", "storage_tariffs", "client_tariffs", "clients"],
   description:
-    "Facturación de almacenaje calculada para un rango de fechas: por cliente pallets y cargo, total de almacenaje y movimientos, y pallets sin tarifa. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
+    "Facturación de almacenaje calculada para un rango de fechas (con el tarifario propio de cada cliente donde lo tiene y la tarifa de almacenaje en el resto): por cliente pallets y cargo, total de almacenaje y movimientos, pallets sin tarifa y pallets con tarifa en USD sin cotización. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
   input: z
     .object({
       periodStart: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
@@ -116,7 +116,7 @@ export const getStorageBilling = defineAiAction({
     return okResult(
       `${SCOPE_LABEL.all} (sin canal hasta facturar): almacenaje ${input.periodStart}→${input.periodEnd}: ${money(d.total)} ` +
         `(almacenaje ${money(d.storage_total)} + movimientos ${money(d.handling_total)}) · ` +
-        `${d.byClient.length} clientes · ${d.pallets_without_tariff} pallets sin tarifa.`,
+        `${d.byClient.length} clientes · ${d.pallets_without_tariff} pallets sin tarifa · ${d.pallets_without_rate} sin cotización USD.`,
       {
         byClient: d.byClient,
         totals: {
@@ -125,6 +125,7 @@ export const getStorageBilling = defineAiAction({
           handling_total: d.handling_total,
         },
         pallets_without_tariff: d.pallets_without_tariff,
+        pallets_without_rate: d.pallets_without_rate,
       },
       {
         currency: "ARS",

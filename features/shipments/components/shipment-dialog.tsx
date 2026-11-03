@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -148,8 +148,14 @@ export function ShipmentDialog({
 
   // Duplicate remito: checked against the client's live cargas as the user
   // types; the unique index refuses it anyway.
-  const watchedClientId = form.watch("client_id");
-  const typedRemito = form.watch("remito_number");
+  const watchedClientId = useWatch({
+    control: form.control,
+    name: "client_id",
+  });
+  const typedRemito = useWatch({
+    control: form.control,
+    name: "remito_number",
+  });
   const debouncedRemito = useDebouncedValue(typedRemito, 400);
   const remitoCheck = useShipmentRemitoConflict({
     clientId: open ? watchedClientId : "",
