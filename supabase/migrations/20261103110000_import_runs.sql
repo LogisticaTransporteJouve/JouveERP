@@ -44,9 +44,14 @@ create table public.import_runs (
   file_name      text not null check (char_length(file_name) between 1 and 255),
   file_sha256    text not null check (file_sha256 ~ '^[0-9a-f]{64}$'),
   mapping        jsonb not null default '{}'::jsonb check (jsonb_typeof(mapping) = 'object'),
+  -- Row counts of one file (a run takes up to 5000 rows).
+  -- squawk-ignore prefer-bigint-over-int
   total_rows     integer not null check (total_rows >= 0),
+  -- squawk-ignore prefer-bigint-over-int
   inserted_rows  integer not null default 0 check (inserted_rows >= 0),
+  -- squawk-ignore prefer-bigint-over-int
   skipped_rows   integer not null default 0 check (skipped_rows >= 0),
+  -- squawk-ignore prefer-bigint-over-int
   invalid_rows   integer not null default 0 check (invalid_rows >= 0),
   created_by     uuid references auth.users (id) on delete set null,
   created_at     timestamptz not null default now(),
