@@ -4,8 +4,9 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 // The layout a receipt and a payment order share: issuer header, the
 // counterparty box, payment lines, allocations, totals and notes. Neither is
-// a fiscal document — no CAE, no QR, no AFIP letter. Each template supplies
-// its own words, its extra sections and its totals.
+// a fiscal document — no CAE, no QR, no AFIP letter (a receipt shows the
+// internal "X" box). Each template supplies its own words, its extra sections
+// and its totals.
 
 export interface VoucherPaymentLine {
   account_name: string;
@@ -59,6 +60,16 @@ export const voucherStyles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerLeft: { flex: 1 },
+  letterBox: {
+    alignSelf: "center",
+    alignItems: "center",
+    width: 70,
+    border: "1pt solid #0a0a0a",
+    paddingVertical: 4,
+    marginHorizontal: 12,
+  },
+  letter: { fontSize: 26, fontWeight: "bold" },
+  letterNote: { fontSize: 6, textAlign: "center", marginTop: 2 },
   headerRight: { flex: 1, textAlign: "right" },
   emisorName: { fontSize: 14, fontWeight: "bold" },
   meta: { marginTop: 4, lineHeight: 1.4 },
@@ -143,6 +154,7 @@ export function formatVoucherAmount(value: number, currency: string): string {
 
 export function VoucherDocument({
   title,
+  letter,
   number,
   canceledLabel,
   partyTitle,
@@ -163,6 +175,8 @@ export function VoucherDocument({
   signatures = false,
 }: {
   title: string;
+  /** Letter box between the issuer and the title, e.g. "X" on a receipt. */
+  letter?: string;
   number: string;
   /** Watermark of a canceled voucher ("ANULADO" / "ANULADA"). */
   canceledLabel: string;
@@ -202,6 +216,14 @@ export function VoucherDocument({
               {emisor.division_label && <Text>{emisor.division_label}</Text>}
             </View>
           </View>
+          {letter && (
+            <View style={styles.letterBox}>
+              <Text style={styles.letter}>{letter}</Text>
+              <Text style={styles.letterNote}>
+                Documento no válido como factura
+              </Text>
+            </View>
+          )}
           <View style={styles.headerRight}>
             <Text style={styles.heading}>{title}</Text>
             <Text style={styles.subheading}>{number}</Text>

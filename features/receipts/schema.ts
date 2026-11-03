@@ -329,8 +329,15 @@ export type ReceiptAllocationStatusRow = {
 };
 
 /**
- * Format `R{POS:4}-{numero:8}` — e.g. `R0003-00000001`. Used everywhere a
- * recibo number is rendered (table, dialog title, PDF when added in F.7).
+ * A recibo de cobranza is an "X" document (not valid as an invoice); "R" is
+ * the fiscal remito. The SQL labels (journal descriptions, caja movements,
+ * global search) use the same letter: see 20261103210000_receipts_letter_x.
+ */
+export const RECEIPT_LETTER = "X";
+
+/**
+ * Format `X{POS:4}-{numero:8}` — e.g. `X0003-00000001`. The only formatter of
+ * a recibo number: table, dialogs, PDF, email, exports, cuenta corriente.
  */
 export function formatReceiptNumber(
   puntoVenta: number,
@@ -338,5 +345,5 @@ export function formatReceiptNumber(
 ): string {
   const pos = String(puntoVenta).padStart(4, "0");
   const num = String(numero).padStart(8, "0");
-  return `R${pos}-${num}`;
+  return `${RECEIPT_LETTER}${pos}-${num}`;
 }
