@@ -702,3 +702,41 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
       por el acceso de quien subió el documento.
+
+---
+
+## Emisión AFIP — auditoría (2026-11-04)
+
+- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
+      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
+      que solo lo intentaron, el que coincide con el comprobante de AFIP.
+- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
+      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
+      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
+      Inngest se vuelve a mandar con su clave.
+- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
+      run; si `inngest.send` falla el borrador no se borra.
+- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
+      5 s el piso CAEA).
+- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
+      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
+      número en la importación de ARCA.
+- [x] La importación de ARCA guarda un comprobante de un período cerrado con
+      su asiento en `pending_journal_entries`.
+- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
+      "sin movimiento".
+- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
+      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
+      hasta que alguien decida de cuál es el de AFIP.
+- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
+      (cada una cerca de 20 s) el paso puede pasar los 300 s.
+- [ ] Antes de promover `issue-invoice-reconcile`: su primera corrida vuelve
+      a mandar a AFIP los borradores de los últimos 3 días y resuelve las
+      emisiones trabadas que ya existen. El owner revisa esas filas antes
+      (`select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting'`):
+      un borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces.
+- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
+      leer la fila, o el run se canceló) no la resuelve el cron: frena la
+      importación de ARCA de su par hasta que alguien la marque fallida.

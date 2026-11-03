@@ -145,10 +145,11 @@ export const caeaInform = inngest.createFunction(
         .gte("fch_tope_inf", today);
       if (error) throw new Error(`load-expired-caea: ${error.message}`);
 
-      const { data: pos } = await supabase
+      const { data: pos, error: posErr } = await supabase
         .from("sales_points")
         .select("numero, last_known_emission_type, is_enabled")
         .eq("is_enabled", true);
+      if (posErr) throw new Error(`load-caea-pvs: ${posErr.message}`);
       const caeaPvs = (pos ?? [])
         .filter((p) =>
           (p.last_known_emission_type ?? "").toUpperCase().includes("CAEA"),
@@ -162,15 +163,19 @@ export const caeaInform = inngest.createFunction(
             ? (code.no_movement_pvs as number[])
             : [],
         );
-        const { data: used } = await supabase
-          .from("invoices")
-          .select("punto_venta")
-          .eq("emission_type", "caea")
-          .eq("cae", code.caea);
-        const usedPvs = new Set((used ?? []).map((u) => u.punto_venta));
-
         for (const pv of caeaPvs) {
-          if (alreadyDone.has(pv) || usedPvs.has(pv)) continue;
+          if (alreadyDone.has(pv)) continue;
+          // "Sin movimiento" is an AFIP filing: it goes out only when the read
+          // proves the PV issued nothing under this CAEA. A failed read throws
+          // (the step retries); a per-PV count is not capped like a row list.
+          const { count, error: usedErr } = await supabase
+            .from("invoices")
+            .select("id", { count: "exact", head: true })
+            .eq("emission_type", "caea")
+            .eq("cae", code.caea)
+            .eq("punto_venta", pv);
+          if (usedErr) throw new Error(`load-caea-usage: ${usedErr.message}`);
+          if (count === null || count > 0) continue;
           try {
             await informCaeaNoMovement(pv, code.caea);
           } catch (err) {

@@ -5,7 +5,7 @@
 
 begin;
 
-select plan(14);
+select plan(16);
 
 create function pg_temp.live_entries(p_id uuid) returns int
 language sql as $$
@@ -127,17 +127,26 @@ select is(
   'running it again posts nothing and keeps one entry'
 );
 
--- The ARCA import (INSERT of an emitted row) is unchanged ---------------------
+-- The ARCA import (INSERT of an emitted row) is saved too (20261104090500) ---
 
-select throws_ok(
+select lives_ok(
   $$insert into public.invoices
-      (channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto, doc_tipo, doc_nro,
+      (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto, doc_tipo, doc_nro,
        imp_neto, imp_iva, imp_total, cbte_tipo_afip, iva_condition_receptor, cae, cae_vencimiento,
        status, idempotency_key)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-000000000ac1', 'factura', 'A', 3, 98002, '1998-03-12', 2, 80,
+    values ('00000000-0000-0000-0000-000000000ae3', 'jouve_fiscal', '00000000-0000-0000-0000-000000000ac1',
+       'factura', 'A', 3, 98002, '1998-03-12', 2, 80,
        '20999999984', 100, 21, 121, 1, 1, '75000000000002', '1998-03-22', 'emitted', 'period-guard-arca')$$,
-  '55006', null,
-  'an imported emitted voucher in a closed period still fails (the import stops, by decision)'
+  'an imported emitted voucher in a closed period is saved (the import does not stop)'
+);
+
+select is(pg_temp.live_entries('00000000-0000-0000-0000-000000000ae3'), 0, 'the imported voucher posts no entry in the closed period');
+
+select is(
+  (select error_code from public.pending_journal_entries
+    where source_table = 'invoices' and source_id = '00000000-0000-0000-0000-000000000ae3'),
+  '55006',
+  'the imported voucher''s entry waits in pending_journal_entries'
 );
 
 -- Privileges -------------------------------------------------------------------
