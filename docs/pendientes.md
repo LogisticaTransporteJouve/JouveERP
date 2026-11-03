@@ -108,6 +108,20 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Recibidos de ARCA (2026-11-04)
+
+- [x] Bandeja de Mis Comprobantes → Recibidos: subir el archivo, aceptar
+      cada comprobante como compra (importes de ARCA) o descartarlo
+      (`20261104097000`, `/purchases/arca`).
+- [x] Compras en una cuenta asignada a Neutro no suman en Gestión, tampoco
+      en caja (`20261104097100`).
+- [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»): falta
+      que el dueño grabe el flujo de login (HAR) y guardar la clave fiscal en
+      Vault.
+- [ ] Validar el lector con un archivo real y actual de ARCA (NC, B/C, USD y
+      otros tributos): los encabezados se tomaron del formato conocido.
+- [ ] FCE MiPyME y tipo M quedan en «No soportados»: se cargan a mano.
+
 ## Auditoría: IA, tareas y accesos (2026-11-04)
 
 - [x] **Insights:** una lectura que falla conserva las tarjetas de su tipo
