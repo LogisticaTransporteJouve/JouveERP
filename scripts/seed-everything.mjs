@@ -403,6 +403,8 @@ async function importPurchases(supabase, path, opts) {
       imp_neto: r.imp_neto,
       imp_iva: r.imp_iva,
       imp_trib: r.imp_trib,
+      // The export does not tell the tributes apart: they are IIBB.
+      imp_perc_iibb: r.imp_trib,
       imp_total: r.imp_total,
       moneda: r.moneda,
       cae_proveedor: r.cae,

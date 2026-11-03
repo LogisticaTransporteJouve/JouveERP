@@ -297,6 +297,19 @@ describe("buildPurchaseInvoiceDraft", () => {
     expect(draft?.warnings).toEqual([]);
   });
 
+  it("puts the IVA of a factura B into its net, the way the buyer books it", () => {
+    const draft = buildPurchaseInvoiceDraft(
+      {
+        ...COMPLETE,
+        letter: "B",
+        items: [{ description: "Servicio", quantity: 1, net_amount: 1210 }],
+      },
+      OPTS,
+    );
+    expect(draft).toMatchObject({ imp_neto: 1210, imp_iva: 0, imp_trib: 30 });
+    expect(draft?.items[0]?.iva_rate_id).toBeNull();
+  });
+
   it("passes through the suggested account and cost center", () => {
     const account = {
       id: "22222222-2222-4222-8222-222222222222",

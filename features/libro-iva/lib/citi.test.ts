@@ -72,13 +72,25 @@ function compraDoc(
     cotizacion: 1,
     ...overrides,
   };
+  const breakdown = overrides.breakdown ?? iibbOnly(base.imp_trib);
+  const orig = overrides.orig ?? {
+    per_rate: base.per_rate,
+    breakdown,
+    imp_trib: base.imp_trib,
+    imp_total: base.imp_total,
+  };
+  return { ...base, breakdown, orig };
+}
+
+/** A purchase whose otros tributos are all IIBB (every one before the split). */
+function iibbOnly(trib: number): LibroIvaComprasGroupedRow["breakdown"] {
   return {
-    ...base,
-    orig: overrides.orig ?? {
-      per_rate: base.per_rate,
-      imp_trib: base.imp_trib,
-      imp_total: base.imp_total,
-    },
+    no_gravado: 0,
+    exentas: 0,
+    perc_iva: 0,
+    perc_iibb: trib,
+    perc_municipales: 0,
+    impuestos_internos: 0,
   };
 }
 
@@ -177,6 +189,79 @@ describe("buildVentasTxt", () => {
 });
 
 describe("buildComprasTxt", () => {
+  it("declares exento, no gravado and each tribute in its own field", () => {
+    const breakdown = {
+      no_gravado: 10,
+      exentas: 40,
+      perc_iva: 30,
+      perc_iibb: 20,
+      perc_municipales: 0,
+      impuestos_internos: 0,
+    };
+    const r = buildComprasTxt(
+      [compraDoc({ imp_total: 1310, breakdown, orig: undefined })],
+      "2026-06",
+    );
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(104, 119)).toBe("000000000131000"); // total
+    expect(cbte.slice(119, 134)).toBe("000000000001000"); // no gravado
+    expect(cbte.slice(134, 149)).toBe("000000000004000"); // exento
+    expect(cbte.slice(149, 164)).toBe("000000000003000"); // percepciones IVA
+    expect(cbte.slice(179, 194)).toBe("000000000002000"); // percepciones IIBB
+    expect(r.warnings).toEqual([]);
+  });
+
+  it("keeps an exempt-only A voucher, with one 0% alícuota and code E", () => {
+    const r = buildComprasTxt(
+      [
+        compraDoc({
+          imp_trib: 0,
+          imp_total: 80,
+          per_rate: { [-1]: { neto: 0, iva: 0 } },
+          breakdown: {
+            no_gravado: 0,
+            exentas: 80,
+            perc_iva: 0,
+            perc_iibb: 0,
+            perc_municipales: 0,
+            impuestos_internos: 0,
+          },
+        }),
+      ],
+      "2026-06",
+    );
+    expect(r.documents).toBe(1);
+    expect(r.warnings).toEqual([]);
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(237, 238)).toBe("1"); // cant alícuotas
+    expect(cbte.slice(238, 239)).toBe("E"); // cód. operación
+    const alic = r.files[1]!.content.split("\r\n")[0]!;
+    expect(alic.slice(65, 69)).toBe("0003"); // 0%
+  });
+
+  it("marks a voucher with only no gravado as N", () => {
+    const r = buildComprasTxt(
+      [
+        compraDoc({
+          imp_trib: 0,
+          imp_total: 60,
+          per_rate: { [-1]: { neto: 0, iva: 0 } },
+          breakdown: {
+            no_gravado: 60,
+            exentas: 0,
+            perc_iva: 0,
+            perc_iibb: 0,
+            perc_municipales: 0,
+            impuestos_internos: 0,
+          },
+        }),
+      ],
+      "2026-06",
+    );
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(238, 239)).toBe("N");
+  });
+
   it("emits a 325-char cbte line and an 84-char alícuota line for letter A", () => {
     const r = buildComprasTxt([compraDoc()], "2026-06");
     const cbte = r.files[0]!.content.split("\r\n")[0]!;
@@ -193,7 +278,8 @@ describe("buildComprasTxt", () => {
     expect(cbte.slice(104, 119)).toBe("000000000126000"); // total 1260.00
     expect(cbte.slice(237, 238)).toBe("1"); // cant alícuotas
     expect(cbte.slice(239, 254)).toBe("000000000021000"); // crédito fiscal 210.00
-    expect(cbte.slice(254, 269)).toBe("000000000005000"); // otros tributos 50.00
+    expect(cbte.slice(179, 194)).toBe("000000000005000"); // percepciones IIBB
+    expect(cbte.slice(254, 269)).toBe("0".repeat(15)); // otros tributos: each one in its field
     expect(cbte.slice(269, 280)).toBe("0".repeat(11)); // CUIT emisor
     expect(cbte.slice(310, 325)).toBe("0".repeat(15)); // IVA comisión
 
@@ -225,6 +311,7 @@ describe("buildComprasTxt", () => {
           per_rate: { 5: { neto: 100_000, iva: 21_000 } },
           orig: {
             per_rate: { 5: { neto: 100, iva: 21 } },
+            breakdown: iibbOnly(5),
             imp_trib: 5,
             imp_total: 126,
           },
@@ -236,7 +323,8 @@ describe("buildComprasTxt", () => {
     expect(cbte.slice(104, 119)).toBe("000000000012600"); // total US$ 126.00
     expect(cbte.slice(224, 237)).toBe("DOL1000000000");
     expect(cbte.slice(239, 254)).toBe("000000000002100"); // crédito fiscal US$ 21
-    expect(cbte.slice(254, 269)).toBe("000000000000500"); // otros tributos US$ 5
+    expect(cbte.slice(179, 194)).toBe("000000000000500"); // percepciones IIBB
+    expect(cbte.slice(254, 269)).toBe("0".repeat(15)); // otros tributos: each one in its field
   });
 
   it("maps NC/ND kinds to their voucher codes", () => {

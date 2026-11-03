@@ -5530,8 +5530,14 @@ export type Database = {
           fch_vto_pago: string | null
           fecha: string
           id: string
+          imp_impuestos_internos: number
           imp_iva: number
           imp_neto: number
+          imp_no_gravado: number
+          imp_op_exentas: number
+          imp_perc_iibb: number
+          imp_perc_iva: number
+          imp_perc_municipales: number
           imp_total: number
           imp_trib: number
           imputed_to_id: string | null
@@ -5562,8 +5568,14 @@ export type Database = {
           fch_vto_pago?: string | null
           fecha: string
           id?: string
+          imp_impuestos_internos?: number
           imp_iva?: number
           imp_neto?: number
+          imp_no_gravado?: number
+          imp_op_exentas?: number
+          imp_perc_iibb?: number
+          imp_perc_iva?: number
+          imp_perc_municipales?: number
           imp_total: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -5594,8 +5606,14 @@ export type Database = {
           fch_vto_pago?: string | null
           fecha?: string
           id?: string
+          imp_impuestos_internos?: number
           imp_iva?: number
           imp_neto?: number
+          imp_no_gravado?: number
+          imp_op_exentas?: number
+          imp_perc_iibb?: number
+          imp_perc_iva?: number
+          imp_perc_municipales?: number
           imp_total?: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -9634,12 +9652,16 @@ export type Database = {
           channel_id: string
           channel_name: string
           cotizacion: number
+          exentas: number
+          exentas_orig: number
           fecha: string
           has_items: boolean
           imp_total: number
           imp_total_orig: number
           imp_trib: number
           imp_trib_orig: number
+          impuestos_internos: number
+          impuestos_internos_orig: number
           iva: number
           iva_orig: number
           iva_rate_id: number
@@ -9649,7 +9671,15 @@ export type Database = {
           moneda: string
           neto: number
           neto_orig: number
+          no_gravado: number
+          no_gravado_orig: number
           numero: number
+          perc_iibb: number
+          perc_iibb_orig: number
+          perc_iva: number
+          perc_iva_orig: number
+          perc_municipales: number
+          perc_municipales_orig: number
           punto_venta: number
           purchase_invoice_id: string
           supplier_cuit: string
@@ -10404,6 +10434,7 @@ export type Database = {
         | "iva_percibido"
         | "iva_retenido"
         | "percepciones_iibb_pagadas"
+        | "percepciones_iva_pagadas"
         | "percepciones_iibb_cobradas"
         | "retenciones_pagadas"
         | "retenciones_cobradas"
@@ -10599,6 +10630,7 @@ export const Constants = {
         "iva_percibido",
         "iva_retenido",
         "percepciones_iibb_pagadas",
+        "percepciones_iva_pagadas",
         "percepciones_iibb_cobradas",
         "retenciones_pagadas",
         "retenciones_cobradas",

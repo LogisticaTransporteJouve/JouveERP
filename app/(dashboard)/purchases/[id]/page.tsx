@@ -25,6 +25,8 @@ import {
 import {
   purchaseKindLabel,
   PURCHASE_IVA_RATE_LABEL,
+  PURCHASE_TRIBUTE_FIELDS,
+  PURCHASE_TRIBUTE_LABEL,
   formatInvoiceNumber,
 } from "@/features/purchase-invoices/schema";
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
@@ -109,6 +111,23 @@ export default async function PurchaseInvoiceDetailPage({
   const outstanding = Math.max(
     0,
     invoice.imp_total - paidByActive - creditedByImputation,
+  );
+
+  // The parts a purchase states beyond neto and IVA; zeros are left out.
+  const breakdown = invoice.amount_breakdown;
+  const breakdownRows = (
+    [
+      ["No gravado", breakdown?.imp_no_gravado],
+      ["Exento", breakdown?.imp_op_exentas],
+      ...PURCHASE_TRIBUTE_FIELDS.map(
+        (field) =>
+          [`· ${PURCHASE_TRIBUTE_LABEL[field]}`, breakdown?.[field]] as const,
+      ),
+    ] satisfies (readonly [string, number | undefined])[]
+  ).map(([label, value]) =>
+    value ? (
+      <Row key={label} label={label} value={money(value, invoice.moneda)} />
+    ) : null,
   );
 
   return (
@@ -244,11 +263,13 @@ export default async function PurchaseInvoiceDetailPage({
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm">
             <Row label="Neto" value={money(invoice.imp_neto, invoice.moneda)} />
+            {breakdownRows.slice(0, 2)}
             <Row label="IVA" value={money(invoice.imp_iva, invoice.moneda)} />
             <Row
               label="Otros tributos"
               value={money(invoice.imp_trib, invoice.moneda)}
             />
+            {breakdownRows.slice(2)}
             <Row
               label="Total"
               value={money(invoice.imp_total, invoice.moneda)}

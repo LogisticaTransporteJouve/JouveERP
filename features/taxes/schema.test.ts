@@ -201,6 +201,7 @@ describe("computeIvaPosition", () => {
         credito: 1050,
         retenciones: 50.5,
         saldoAnterior: 100,
+        percepcionesCompras: 0,
         tributosCompras: 12.345,
         ventas: 3,
         compras: 2,
@@ -212,10 +213,31 @@ describe("computeIvaPosition", () => {
       retenciones: 50.5,
       saldo_anterior: 100,
       saldo_anterior_known: true,
+      percepciones_compras: 0,
       saldo: 899.5,
       tributos_compras: 12.35,
       ventas: 3,
       compras: 2,
+    });
+  });
+
+  it("subtracts the purchases' IVA perceptions as a payment on account", () => {
+    expect(
+      computeIvaPosition({
+        period: "2026-10",
+        debito: 1000,
+        credito: 400,
+        retenciones: 0,
+        saldoAnterior: 0,
+        percepcionesCompras: 30,
+        tributosCompras: 20,
+        ventas: 1,
+        compras: 1,
+      }),
+    ).toMatchObject({
+      percepciones_compras: 30,
+      saldo: 570,
+      tributos_compras: 20,
     });
   });
 
@@ -227,6 +249,7 @@ describe("computeIvaPosition", () => {
         credito: 300,
         retenciones: 0,
         saldoAnterior: null,
+        percepcionesCompras: 0,
         tributosCompras: 0,
         ventas: 1,
         compras: 1,
