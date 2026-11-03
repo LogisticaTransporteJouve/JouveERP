@@ -103,6 +103,21 @@ describe("getManagementPnlAction", () => {
     });
   });
 
+  it("marks the report partial when a row's bucket is unknown", async () => {
+    rpc.mockReturnValue(
+      pageable({
+        data: [pnlRow(), pnlRow({ bucket: "bucket_from_a_newer_schema" })],
+        error: null,
+      }),
+    );
+    const res = await getManagementPnlAction({
+      fromPeriod: "2026-09",
+      toPeriod: "2026-09",
+    });
+    expect(res.ok && res.data.rows).toHaveLength(1);
+    expect(res.ok && res.data.partial).toBe(true);
+  });
+
   it("pages past PostgREST's 1000-row cap over a total order", async () => {
     const builder = pageable(
       { data: Array.from({ length: 1000 }, () => pnlRow()), error: null },

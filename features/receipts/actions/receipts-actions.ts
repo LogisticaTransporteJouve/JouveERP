@@ -17,6 +17,7 @@ import {
   type UsdRate,
 } from "@/lib/fx";
 import { logger } from "@/lib/logger";
+import { containsPattern } from "@/lib/supabase/like-pattern";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { isListGroup, type ListGroup } from "@/lib/list-period";
 import { parseSearchTerm } from "@/lib/list-search";
@@ -123,7 +124,7 @@ export async function listReceiptsAction(input?: {
   const term = parseSearchTerm(input?.query);
   if (term.numero !== null) query = query.eq("numero", term.numero);
   if (term.name !== null) {
-    query = query.ilike("clients.legal_name", `%${term.name}%`);
+    query = query.ilike("clients.legal_name", containsPattern(term.name));
   }
 
   const { data, error } = await query;

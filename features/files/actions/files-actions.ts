@@ -396,7 +396,7 @@ export async function listAttachmentsAction(
       targetId,
       error: error.message,
     });
-    return { ok: false, error: error.message };
+    return { ok: false, error: "No se pudieron leer los adjuntos." };
   }
 
   const rows: FileAttachmentRow[] = (data ?? []).flatMap((row) => {

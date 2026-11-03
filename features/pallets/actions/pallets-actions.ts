@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
+import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import {
@@ -15,7 +15,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { movesStock } from "../lib/moves-stock";
+import { canMoveStock, movesStock } from "../lib/moves-stock";
 import {
   PalletBlockSchema,
   PalletUnblockSchema,
@@ -71,13 +71,6 @@ function narrow(row: PalletSelectRow): Pallet | null {
 
 const NO_STOCK_MOVEMENTS =
   "No tenés permiso para registrar movimientos de stock.";
-
-/** Entering, dispatching or removing a pallet moves stock: it takes the
- *  pallet write and the stock-movement write (a per-user deny of either
- *  stops it). */
-function canMoveStock(access: Access): boolean {
-  return userCanAll(access, ["pallets:write", "stock_movements:write"]);
-}
 
 const SELECT_COLUMNS =
   "id, warehouse_id, client_id, product_id, code, quantity, status, entry_date, exit_date, notes, area_id, lot_number, lot_expiry, blocked_at, blocked_by, block_reason, created_at, updated_at, warehouse:warehouses(name), client:clients(legal_name), product:products(name), area:storage_areas(name)";

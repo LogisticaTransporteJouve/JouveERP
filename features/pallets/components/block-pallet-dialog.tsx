@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatArgentineDateTime } from "@/lib/format";
 
 import {
   useBlockPallet,
@@ -120,7 +121,7 @@ export function BlockPalletDialog({
                     <span className="font-medium">
                       {e.action === "blocked" ? "Bloqueado" : "Desbloqueado"}
                     </span>{" "}
-                    el {new Date(e.created_at).toLocaleString("es-AR")}
+                    el {formatArgentineDateTime(e.created_at)}
                     {e.actor_name ? ` por ${e.actor_name}` : ""}
                     {e.reason ? ` · ${e.reason}` : ""}
                   </li>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, RefreshCw, Sparkles } from "lucide-react";
+import { ChevronDown, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +20,9 @@ export function InsightsPanel({
   canRecalculate?: boolean;
   onAsk: (question: string) => void;
 }) {
-  const { data: insights = [], isLoading } = useInsights();
+  const { data, isLoading, isError, error } = useInsights();
+  const insights = data?.items ?? [];
+  const total = data?.total ?? 0;
   const runAnalyst = useRunAnalyst();
   const [open, setOpen] = useState(true);
 
@@ -33,7 +35,7 @@ export function InsightsPanel({
   }
 
   if (isLoading) return null;
-  if (insights.length === 0 && !canRecalculate) return null;
+  if (!isError && insights.length === 0 && !canRecalculate) return null;
 
   return (
     <section className="space-y-2">
@@ -44,7 +46,7 @@ export function InsightsPanel({
           className="text-muted-foreground flex items-center gap-1 text-sm font-medium hover:text-foreground"
         >
           <Sparkles className="size-4" />
-          Insights{insights.length > 0 ? ` (${insights.length})` : ""}
+          Insights{total > 0 ? ` (${total})` : ""}
           <ChevronDown
             className={cn("size-4 transition-transform", !open && "-rotate-90")}
           />
@@ -66,7 +68,14 @@ export function InsightsPanel({
       </div>
 
       {open &&
-        (insights.length === 0 ? (
+        (isError ? (
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <TriangleAlert className="size-3.5 shrink-0" />
+            {error instanceof Error
+              ? error.message
+              : "No se pudieron cargar los insights."}
+          </p>
+        ) : insights.length === 0 ? (
           <p className="text-muted-foreground text-xs">
             No hay insights todavía. Recalculá para generarlos.
           </p>
@@ -80,6 +89,11 @@ export function InsightsPanel({
                 onAsk={onAsk}
               />
             ))}
+            {total > insights.length && (
+              <p className="text-muted-foreground text-xs sm:col-span-2">
+                Mostrando {insights.length} de {total}: primero los más graves.
+              </p>
+            )}
           </div>
         ))}
     </section>

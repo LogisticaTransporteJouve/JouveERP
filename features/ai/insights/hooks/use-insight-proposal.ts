@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 import { runAction } from "@/lib/query/run-action";
 
@@ -9,7 +10,6 @@ import {
   dismissAiProposalAction,
   prepareInsightProposalAction,
 } from "../../actions/proposal-actions";
-import { insightsKeys } from "../lib/insights-keys";
 
 /** Prepares (or reopens) the proposal an insight offers. */
 export function usePrepareInsightProposal() {
@@ -19,12 +19,19 @@ export function usePrepareInsightProposal() {
   });
 }
 
+/** The write lands in another feature (a task, an ND, a bank match), so
+ *  every cached query is invalidated, as when a chat proposal is confirmed,
+ *  and the server-rendered dashboard widgets are refreshed. */
 export function useAcceptAiProposal() {
   const qc = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: (id: string) => runAction(() => acceptAiProposalAction(id)),
-    // The write may change what an indicator shows (a task, an ND).
-    onSettled: () => qc.invalidateQueries({ queryKey: insightsKeys.list() }),
+    // Not awaited: the toast should not wait for every refetch.
+    onSettled: () => {
+      void qc.invalidateQueries();
+      router.refresh();
+    },
   });
 }
 
