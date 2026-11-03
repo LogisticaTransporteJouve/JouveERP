@@ -6,8 +6,10 @@ import {
   IVA_RATE,
   cbteTipoFor,
   condicionIvaReceptorFor,
+  foldNonComputable,
   isReceptorConditionValidForLetter,
   isServiciosConcepto,
+  ivaIsComputable,
   ivaRatePercent,
   letterFor,
 } from "./codes";
@@ -126,5 +128,37 @@ describe("isReceptorConditionValidForLetter", () => {
         CONDICION_IVA_RECEPTOR.RESPONSABLE_INSCRIPTO,
       ),
     ).toBe(false);
+  });
+});
+
+describe("ivaIsComputable", () => {
+  it("is true only for letter A", () => {
+    expect(ivaIsComputable("A")).toBe(true);
+    expect(ivaIsComputable("B")).toBe(false);
+    expect(ivaIsComputable("C")).toBe(false);
+    expect(ivaIsComputable(null)).toBe(false);
+  });
+});
+
+describe("foldNonComputable", () => {
+  const parts = {
+    imp_neto: 100,
+    imp_no_gravado: 5,
+    imp_op_exentas: 10,
+    imp_iva: 21,
+  };
+
+  it("keeps an A voucher as it is", () => {
+    expect(foldNonComputable("A", parts)).toEqual(parts);
+  });
+
+  it("puts IVA, exento and no gravado into the net of a B or C voucher", () => {
+    expect(foldNonComputable("B", parts)).toEqual({
+      imp_neto: 136,
+      imp_no_gravado: 0,
+      imp_op_exentas: 0,
+      imp_iva: 0,
+    });
+    expect(foldNonComputable("C", parts).imp_neto).toBe(136);
   });
 });

@@ -398,12 +398,19 @@ export function TaxDocumentDialog({
                     dejó saldo a favor, restalo a mano.
                   </p>
                 )}
+                {estimate.percepciones_compras !== 0 && (
+                  <p className="text-muted-foreground">
+                    Se restan {formatMoney(estimate.percepciones_compras)} de
+                    percepciones de IVA de las compras.
+                  </p>
+                )}
                 {estimate.tributos_compras !== 0 && (
                   <p className="text-muted-foreground">
-                    Las compras tienen {formatMoney(estimate.tributos_compras)}{" "}
-                    de otros tributos (percepciones de IVA e IIBB juntas: el
-                    libro no las separa). No se descuentan: restá a mano las de
-                    IVA.
+                    Las compras tienen además{" "}
+                    {formatMoney(estimate.tributos_compras)} de otros tributos
+                    que no se restan (IIBB, municipales, internos y los que no
+                    se repartieron): si alguno es percepción de IVA, repartilo
+                    en la compra.
                   </p>
                 )}
               </div>

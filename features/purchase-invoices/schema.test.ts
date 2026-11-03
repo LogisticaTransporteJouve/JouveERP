@@ -4,6 +4,7 @@ import {
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceItemSchema,
+  PurchaseInvoiceUpdateSchema,
   formatInvoiceNumber,
   isPurchaseInvoiceKind,
   isPurchaseInvoiceStatus,
@@ -123,6 +124,41 @@ describe("PurchaseInvoiceCreateSchema", () => {
     expect(PurchaseInvoiceCreateSchema.safeParse(valid).success).toBe(true);
   });
 
+  it("defaults exento, no gravado and the tribute split to 0", () => {
+    const r = PurchaseInvoiceCreateSchema.parse(valid);
+    expect(r).toMatchObject({
+      imp_no_gravado: 0,
+      imp_op_exentas: 0,
+      imp_perc_iva: 0,
+      imp_perc_iibb: 0,
+      imp_perc_municipales: 0,
+      imp_impuestos_internos: 0,
+    });
+  });
+
+  it("refuses items without a rate next to header exento", () => {
+    const item = {
+      description: "Sin alícuota",
+      quantity: 1,
+      unit_price: 50,
+      iva_rate_id: null,
+      line_neto: 50,
+      line_iva: 0,
+      line_total: 50,
+    };
+    expect(
+      PurchaseInvoiceCreateSchema.safeParse({
+        ...valid,
+        imp_op_exentas: 50,
+        items: [item],
+      }).success,
+    ).toBe(false);
+    expect(
+      PurchaseInvoiceCreateSchema.safeParse({ ...valid, items: [item] })
+        .success,
+    ).toBe(true);
+  });
+
   it("rechaza NC sin motivo", () => {
     expect(
       PurchaseInvoiceCreateSchema.safeParse({ ...valid, kind: "nc" }).success,
@@ -191,5 +227,13 @@ describe("PurchaseInvoiceCreateSchema — foreign currency", () => {
 
   it("keeps pesos at rate 1", () => {
     expect(PurchaseInvoiceCreateSchema.safeParse(base).success).toBe(true);
+  });
+});
+
+describe("PurchaseInvoiceUpdateSchema", () => {
+  it("leaves the breakdown out when the edit does not send it", () => {
+    const r = PurchaseInvoiceUpdateSchema.parse({ id: UUID, notes: "x" });
+    expect(r.imp_perc_iibb).toBeUndefined();
+    expect(r.imp_op_exentas).toBeUndefined();
   });
 });

@@ -2,8 +2,8 @@
 
 > Lista de trabajo vigente: lo que falta (código, datos y configuración) son
 > los ítems `[ ]` de **Antes de promover**, de **Límites de rollback** y de
-> todas las secciones fechadas (de "Emisión AFIP — auditoría" para abajo, la
-> más nueva arriba). Las §1–§4 son el cierre de la tanda 2026-07-04 y quedan
+> todas las secciones fechadas, que siguen a las §1–§4 (la más nueva arriba).
+> Las §1–§4 son el cierre de la tanda 2026-07-04 y quedan
 > como historia: sus cifras y su "backlog vacío" son de esa fecha. Cuando se
 > resuelve un punto, se marca acá y se sincroniza el roadmap.
 
@@ -26,11 +26,27 @@
 ## Antes de promover
 
 Lo que el owner revisa y aprueba antes de correr **Promote to production**
-con un commit que incluya las auditorías #340–#346 (#339 no está mergeado y
-no entra). Las consultas son de solo lectura y se corren en el SQL editor de
-producción **antes** de promover: `promote-to-production.yml` aplica todas las
-migraciones pendientes juntas. Las de cada sección más vieja siguen con su
-ítem "Aprobar …" en su sección.
+con un commit que incluya #339–#346. Las consultas son de solo lectura y se
+corren en el SQL editor de producción **antes** de promover:
+`promote-to-production.yml` aplica todas las migraciones pendientes juntas.
+Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección.
+
+- [ ] **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
+      tributos por compra): el backfill pasa el `imp_trib` de cada compra a
+      percepción de IIBB. El asiento no cambia, pero el TXT del libro IVA
+      Compras de un período ya presentado declara esos tributos en el campo de
+      IIBB y no en "Otros tributos": lo aprueban el dueño y el contador
+      (`docs/decisions.md`). Compras que cambian, por período:
+      `select to_char(fecha, 'YYYY-MM') as periodo, count(*), sum(imp_trib) from purchase_invoices where imp_trib <> 0 group by 1 order by 1;`
+- [ ] **Aprobar `20261104096200`–`20261104096700`** (#339). `096200` agrega
+      el rol `percepciones_iva_pagadas` al enum del plan de cuentas: no se
+      puede quitar. Rollback: un trigger pasa a IIBB el `imp_trib` que manda
+      el código anterior, pero cambiar los tributos desde el código anterior en
+      una compra que ya los tiene repartidos (percepción de IVA, municipales o
+      internos) se rechaza ("Los tributos no suman…"); el código anterior no
+      ve el exento ni el no gravado. Con código anterior a #339 no editar la
+      cuenta "Percepciones IVA sufridas" en Plan de cuentas (no conoce el
+      rol, como "Diferencias de cambio" abajo).
 
 - [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
       migración): su primera corrida vuelve a mandar a AFIP los borradores de
@@ -543,9 +559,10 @@ mitigación en el schema: el límite se respeta operando.
       rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
       de pasivo (IVA) no es resultado y no suma.
-- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
-      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
-      saldo a favor del mes anterior; lo dice en pantalla.
+- [x] Estimado de IVA: descuenta las percepciones de IVA de las compras
+      que las tienen repartidas (`imp_perc_iva`, `20261104096400`; las
+      compras anteriores quedan como IIBB) y el saldo a favor del mes
+      anterior.
 - [x] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
       (no tiene `files:read`).
 - [x] Herramienta del asistente IA para impuestos (vencimientos y estado).
@@ -580,12 +597,10 @@ mitigación en el schema: el límite se respeta operando.
       mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
       tributos de las compras.
-- [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
-      descuentan. `purchase_invoices` tiene un solo `imp_trib` (IVA e IIBB
-      juntas, y el asiento lo manda entero a percepciones IIBB); separarlas
-      pide una columna nueva en compras (carga manual, importador AFIP y
-      escaneo) y un asiento que las separe. Hoy el estimado muestra el total
-      de `imp_trib` para restarlo a mano.
+- [x] Estimado de IVA: las percepciones de IVA sufridas en compras se
+      descuentan cuando la compra las reparte. `imp_trib` se reparte en percepción IVA, percepción IIBB,
+      municipales e impuestos internos (`20261104096400`); cada parte va a
+      su cuenta en el asiento y a su campo en el libro IVA y el TXT.
 - [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
       log de auditoría (vinculado si está `tax_document.payment_linked`; si
       no, "Pagar"); la cuenta de gasto previa sale del último

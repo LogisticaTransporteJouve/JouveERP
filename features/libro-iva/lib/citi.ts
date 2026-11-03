@@ -8,6 +8,8 @@
 // junto con su código de moneda y tipo de cambio; ARCA los pasa a pesos. Por
 // eso se usan las cifras `orig` y no las del libro en pesos.
 
+import { ivaIsComputable } from "@/lib/afip/codes";
+
 import type {
   LibroIvaComprasGroupedRow,
   LibroIvaVentasGroupedRow,
@@ -329,24 +331,41 @@ export function buildComprasTxt(
       continue;
     }
 
-    const discriminated = doc.letter === "A";
+    const discriminated = ivaIsComputable(doc.letter);
+    const b = doc.orig.breakdown;
+    const outsideNet = b.no_gravado + b.exentas;
     let alicuotas: { rateId: number; neto: number; iva: number }[] = [];
     if (discriminated) {
       const resolved = resolveAlicuotas(doc.orig.per_rate);
-      if (resolved === null || resolved.length === 0) {
+      if (resolved === null) {
         warnings.push(
           `Compra ${label}: no se pudo derivar la alícuota — excluida.`,
         );
         continue;
       }
-      alicuotas = resolved;
+      if (resolved.length === 0 && outsideNet === 0) {
+        warnings.push(
+          `Compra ${label}: no se pudo derivar la alícuota — excluida.`,
+        );
+        continue;
+      }
+      // An A voucher with nothing gravado still lists one 0% alícuota.
+      alicuotas =
+        resolved.length > 0 ? resolved : [{ rateId: 3, neto: 0, iva: 0 }];
     }
     const ivaComputable = alicuotas.reduce((s, a) => s + a.iva, 0);
-    // Spec campo 20: an A voucher whose only alícuota is 0% is exempt.
-    const codOperacion = discriminated && ivaComputable === 0 ? "E" : "0";
+    // Spec campo 20 for an A voucher without IVA: exento, or no gravado.
+    const codOperacion =
+      discriminated && ivaComputable === 0
+        ? b.exentas > 0 || b.no_gravado === 0
+          ? "E"
+          : "N"
+        : "0";
     if (discriminated) {
       const parts =
-        doc.orig.imp_trib + alicuotas.reduce((s, a) => s + a.neto + a.iva, 0);
+        doc.orig.imp_trib +
+        outsideNet +
+        alicuotas.reduce((s, a) => s + a.neto + a.iva, 0);
       if (Math.abs(doc.orig.imp_total - parts) > TOTAL_TOLERANCE) {
         warnings.push(
           `Compra ${label}: el total (${doc.orig.imp_total.toFixed(2)}) no es la suma de sus partes (${parts.toFixed(2)}); ARCA lo va a rechazar.`,
@@ -373,19 +392,20 @@ export function buildComprasTxt(
         docDigits(doc.supplier_cuit, 20) +
         text(doc.supplier_legal_name, 30) +
         amount(doc.orig.imp_total) +
-        amount(0) +
-        amount(0) +
-        amount(0) +
-        amount(0) +
-        amount(0) +
-        amount(0) +
-        amount(0) +
+        amount(b.no_gravado) +
+        amount(b.exentas) +
+        amount(b.perc_iva) +
+        amount(0) + // percepciones de otros impuestos nacionales
+        amount(b.perc_iibb) +
+        amount(b.perc_municipales) +
+        amount(b.impuestos_internos) +
         text(moneda, 3) +
         exchangeRate(cotiz) +
         num(alicuotas.length, 1) +
         codOperacion +
         amount(ivaComputable) +
-        amount(doc.orig.imp_trib) +
+        // Otros tributos: every tribute already sits in its own field above.
+        amount(0) +
         num(0, 11) +
         text("", 30) +
         amount(0),

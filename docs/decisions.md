@@ -8,16 +8,18 @@ y qué se descartó.
 **Decisión.** Una versión de migración nueva tiene que ser una fecha y hora
 UTC reales: `scripts/check-migrations.sh` (pre-push y CI) rechaza minutos o
 segundos de 60 o más, horas de 24 o más y días que no existen. Las futuras
-siguen aceptándose hasta un día por delante, como antes: `main` ya tiene
-`20261104096100` (minuto 61) y se adelantó unas 13 h, y las migraciones
-mergeadas no se renombran. `pnpm db:restamp` deja de negarse cuando `main`
-está adelantado: estampa el segundo siguiente al máximo de `main` leído como
-hora real (`…096100` cuenta como 10:01:00, el próximo es `…100101`).
+siguen aceptándose hasta un día por delante, como antes: `main` ya llega a
+`20261104096700` (minutos 60 a 67 en `096000`–`096700`), unas 13 h por
+delante, y las migraciones mergeadas no se renombran. `pnpm db:restamp` deja
+de negarse cuando `main` está adelantado: estampa el segundo siguiente al
+máximo de `main` leído como hora real (`…096100` cuenta como 10:01:00, el
+próximo es `…100101`).
 
 **Descartado.** Rechazar toda versión más de una hora por delante del reloj:
 con `main` adelantado bloquearía cada migración nueva hasta que el reloj lo
-pase. Renombrar `20261104096000`/`096100`: producción ya las registra por su
-versión.
+pase. Renombrar las mergeadas con minuto imposible: nunca se edita una
+migración mergeada (`CLAUDE.md`), y la versión es la clave con la que cada
+base la registra.
 
 ## 2026-11-04 — Invitar usuario: roles por `set_user_access`
 
@@ -28,6 +30,35 @@ también a la invitación, y una cuenta que ya tiene roles se rechaza en la mism
 transacción (antes: una lectura y después la escritura). La tolerancia "antes
 de que exista el RPC" no hace falta: `promote-to-production.yml` aplica las
 migraciones antes del código, y el RPC (`20261028140000`) es anterior.
+
+## 2026-11-04 — Exento, no gravado y reparto de otros tributos en compras
+
+**Decisión.** Toda compra guarda aparte el no gravado y el exento
+(`imp_no_gravado`, `imp_op_exentas`) y reparte sus otros tributos en
+percepción de IVA, percepción de IIBB, municipales e impuestos internos; la
+persona los reparte a mano, porque ni el comprobante escaneado ni el archivo
+de ARCA dicen de qué es cada tributo. `imp_trib` queda como la suma de las
+cuatro partes. En el asiento, el no gravado, el exento, los municipales y los
+internos son gasto; la percepción de IVA va a "Percepciones IVA sufridas"
+(rol nuevo `percepciones_iva_pagadas`) y la de IIBB a "Percepciones IIBB
+sufridas", como todo `imp_trib` antes. El TXT para ARCA declara cada importe en
+su campo y deja "Otros tributos" en 0; el libro IVA (pantalla, Excel, PDF)
+muestra no gravado, exento, percepciones de IVA y de IIBB aparte, y junta
+municipales e internos en "Otros trib.". El estimado de IVA resta las percepciones de
+IVA de las compras. En facturas B y C el IVA, el exento y el no gravado van
+dentro del neto.
+
+**Por qué.** El libro IVA declaraba el exento como neto al 0% y todas las
+percepciones como un solo "Otros tributos", y el estimado de IVA no podía
+restar las percepciones de IVA.
+
+**Cambia lo ya cargado.** Las compras existentes pasan su `imp_trib` a
+percepción de IIBB: su asiento no cambia, pero el TXT de un período ya
+presentado con tributos ahora los declara en el campo de IIBB y no en "Otros
+tributos". Lo aprueban el dueño y el contador.
+
+**Descartado.** Ítems sin alícuota para el exento (hay compras sin ítems) y
+dejar todo como antes con un aviso.
 
 ## 2026-11-04 — Permisos sin gate: se cablean o se quitan
 

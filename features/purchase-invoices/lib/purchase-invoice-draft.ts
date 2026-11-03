@@ -116,6 +116,8 @@ export type PurchaseInvoiceDraftPatch = {
   imp_neto: string;
   imp_iva: string;
   imp_trib: string;
+  /** A scanned document does not tell its tributes apart: they start as IIBB. */
+  imp_perc_iibb: string;
   imp_total: string;
   moneda: string;
   cotizacion: string;
@@ -178,6 +180,7 @@ export function draftToFormPatch(
       imp_neto: str(data.imp_neto, "0"),
       imp_iva: str(data.imp_iva, "0"),
       imp_trib: str(data.imp_trib, "0"),
+      imp_perc_iibb: str(data.imp_trib, "0"),
       imp_total: str(data.imp_total, ""),
       moneda: data.moneda,
       // A foreign-currency draft without a rate stays empty: the user types it.
@@ -196,25 +199,32 @@ export function draftToFormPatch(
 }
 
 /**
- * Header totals check: neto + IVA + otros tributos must equal the total (±1
- * cent). Returns the gap, or null when the amounts close or are incomplete.
+ * Header totals check: neto + no gravado + exento + IVA + otros tributos must
+ * equal the total (±1 cent). Returns the gap, or null when the amounts close
+ * or are incomplete.
  */
 export function totalsGap(values: {
   imp_neto: string;
   imp_iva: string;
   imp_trib: string;
+  imp_no_gravado?: string;
+  imp_op_exentas?: string;
   imp_total: string;
 }): number | null {
   const n = [
     values.imp_neto,
     values.imp_iva,
     values.imp_trib,
+    values.imp_no_gravado ?? "",
+    values.imp_op_exentas ?? "",
     values.imp_total,
   ].map((v) => (v === "" ? 0 : Number(v)));
   if (n.some((v) => !Number.isFinite(v))) return null;
-  const [neto = 0, iva = 0, trib = 0, total = 0] = n;
+  const [neto = 0, iva = 0, trib = 0, noGravado = 0, exentas = 0, total = 0] =
+    n;
   if (values.imp_total === "" || total === 0) return null;
-  const gap = Math.round((total - (neto + iva + trib)) * 100) / 100;
+  const gap =
+    Math.round((total - (neto + iva + trib + noGravado + exentas)) * 100) / 100;
   return Math.abs(gap) > 0.01 ? gap : null;
 }
 
