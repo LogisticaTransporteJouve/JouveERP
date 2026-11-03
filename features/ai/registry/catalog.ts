@@ -11,6 +11,13 @@ import {
 import { getAfipStatus } from "./actions/afip";
 import { getAuditEvents } from "./actions/audit";
 import {
+  getClientMargin,
+  getClientPaymentBehavior,
+  getDriverActivity,
+  getTopCosts,
+  getVehicleEconomics,
+} from "./actions/cross";
+import {
   getAccounts,
   getChecks,
   getIssuedChecks,
@@ -113,6 +120,8 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getReceipts,
   searchClients,
   getClientSalesSummary,
+  getClientMargin,
+  getClientPaymentBehavior,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -142,6 +151,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getBalanceSheet,
   getManagementPnL,
   getManagementPnLDocuments,
+  getTopCosts,
   getCostCenterBreakdown,
   getExpenseByCategory,
   getLoans,
@@ -179,6 +189,8 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getVehicleKm,
   getFleetProfitability,
   getFleetMargin,
+  getVehicleEconomics,
+  getDriverActivity,
   getDrivers,
   getShipmentsSummary,
   getTodayOverview,

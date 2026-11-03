@@ -89,12 +89,16 @@ export function buildArtifactTools(
       description:
         "Show the user a chart built from one of your read queries. The server runs " +
         "the query with the given input and plots its rows: you choose the form " +
-        "(bar: compare categories or periods; hbar: rankings with long names; line: " +
-        "a trend over time) and which row fields to plot, never the values. x must " +
-        "be one value per row (a period, a name): use a query already grouped by it. " +
-        "Up to 3 series that share a unit; never mix amounts with counts or " +
-        "percentages in one chart. Write the title and the x and series labels in " +
-        "Spanish for the user. If it fails, the error lists the fields you can use.",
+        "(bar: compare categories or periods; stacked: the parts of a whole per " +
+        "period or category, e.g. costs by category per month; hbar: rankings with " +
+        "long names; line: a trend over time) and which row fields to plot, never " +
+        "the values. x must be one value per row (a period, a name): use a query " +
+        "already grouped by it. When the result has several lists (e.g. " +
+        "getManagementPnL's byMonth), name the one to plot in dataset. Up to 3 " +
+        "series (6 in stacked) that share a unit (valueFormat: money = pesos, usd, " +
+        "percent, km, count); never mix amounts with counts, km or percentages in " +
+        "one chart. Write the title and the x and series labels in Spanish for the " +
+        "user. If it fails, the error lists the fields or lists you can use.",
       inputSchema: z.object({ ...sourceShape, chart: chartConfigSchema }),
       execute: ({ action, input, chart }, { toolCallId }) =>
         render(
@@ -109,7 +113,8 @@ export function buildArtifactTools(
       description:
         "Show the user a table built from one of your read queries, with CSV export. " +
         "The server runs the query with the given input; you choose the title and, " +
-        "optionally, which row fields to show in order with Spanish headers. Use it " +
+        "optionally, which row fields to show in order with Spanish headers (and " +
+        "the dataset, when the result has several lists). Use it " +
         "when the user asks for a list or a table, or to export.",
       inputSchema: z.object({ ...sourceShape, table: tableConfigSchema }),
       execute: ({ action, input, table }, { toolCallId }) =>

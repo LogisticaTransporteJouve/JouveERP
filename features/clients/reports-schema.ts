@@ -31,3 +31,20 @@ export const ClientSalesSummaryInputSchema = z
 
 export type ClientSalesSummaryRow =
   Database["public"]["Functions"]["ai_client_sales_summary"]["Returns"][number];
+
+/** Input of the per-client net revenue read (paged, at most 500 a page). */
+export const ClientNetRevenueInputSchema = z
+  .object({
+    from: IsoDateSchema,
+    to: IsoDateSchema,
+    scope: ScopeInputSchema,
+    limit: z.number().int().min(1).max(500).nullish(),
+    offset: z.number().int().min(0).nullish(),
+  })
+  .refine(
+    (v) => v.from <= v.to,
+    "La fecha desde es posterior a la fecha hasta.",
+  );
+
+export type ClientNetRevenueRow =
+  Database["public"]["Functions"]["ai_client_net_revenue"]["Returns"][number];

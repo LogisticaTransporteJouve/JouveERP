@@ -56,3 +56,44 @@ export function barPath(
       return `M ${x2} ${y} H ${x + r} Q ${x} ${y} ${x} ${y + r} V ${y2 - r} Q ${x} ${y2} ${x + r} ${y2} H ${x2} Z`;
   }
 }
+
+/** Where one series of a stacked column sits: from its base to its end. */
+export type StackSegment = { from: number; to: number };
+
+/**
+ * The segments of one stacked column, in series order: positive values stack
+ * up from zero and negative ones down from it, so a column with costs and
+ * refunds still shows each part. A null or zero value has no segment.
+ */
+export function stackSegments(
+  values: readonly (number | null)[],
+): (StackSegment | null)[] {
+  let up = 0;
+  let down = 0;
+  return values.map((v) => {
+    if (v === null || v === 0) return null;
+    if (v > 0) {
+      const seg = { from: up, to: up + v };
+      up += v;
+      return seg;
+    }
+    const seg = { from: down, to: down + v };
+    down += v;
+    return seg;
+  });
+}
+
+/** The lowest and highest point a stacked column reaches (zero included). */
+export function stackExtent(values: readonly (number | null)[]): {
+  min: number;
+  max: number;
+} {
+  let up = 0;
+  let down = 0;
+  for (const v of values) {
+    if (v === null) continue;
+    if (v > 0) up += v;
+    else down += v;
+  }
+  return { min: down, max: up };
+}

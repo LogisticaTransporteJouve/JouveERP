@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 
-import { barPath, niceTicks } from "@/lib/chart-geometry";
+import {
+  barPath,
+  niceTicks,
+  stackExtent,
+  stackSegments,
+} from "@/lib/chart-geometry";
 
 import {
   formatAxisValue,
@@ -12,9 +17,20 @@ import {
 import type { ChartArtifact } from "../artifacts/spec";
 
 // Monochrome: series differ by ink strength and, on lines, by dash pattern.
+// The only colour is the primary ring on the focused point (house UI rule).
 const SERIES_OPACITY = [0.8, 0.45, 0.2];
+const STACK_OPACITY = [0.85, 0.66, 0.5, 0.36, 0.24, 0.14];
 const SERIES_DASH = [undefined, "6 4", "2 3"];
 const BAR_GAP = 2;
+const HIT_CLASS = "outline-none focus-visible:stroke-primary";
+
+function seriesOpacity(type: ChartArtifact["chart"]["type"], i: number) {
+  return (
+    (type === "stacked" ? STACK_OPACITY[i] : SERIES_OPACITY[i]) ??
+    STACK_OPACITY.at(-1) ??
+    0.14
+  );
+}
 
 const VB_W = 640;
 const PAD_R = 12;
@@ -25,11 +41,15 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-/** The y (or x, for horizontal bars) domain: always includes zero. */
-function domain(points: ChartArtifact["points"]) {
-  const values = points.flatMap((p) =>
-    p.values.filter((v): v is number => v !== null),
-  );
+/** The y (or x, for horizontal bars) domain: always includes zero; a stacked
+ *  column reaches the sum of each side. */
+function domain(points: ChartArtifact["points"], stacked = false) {
+  const values = stacked
+    ? points.flatMap((p) => {
+        const { min, max } = stackExtent(p.values);
+        return [min, max];
+      })
+    : points.flatMap((p) => p.values.filter((v): v is number => v !== null));
   const min = Math.min(0, ...values);
   const rawMax = Math.max(0, ...values);
   const max = rawMax === min ? min + 1 : rawMax;
@@ -85,7 +105,7 @@ function Legend({ artifact }: ChartProps) {
                 height="10"
                 rx="2"
                 fill="currentColor"
-                fillOpacity={SERIES_OPACITY[i]}
+                fillOpacity={seriesOpacity(artifact.chart.type, i)}
               />
             )}
           </svg>
@@ -135,6 +155,20 @@ function Tooltip({
             </dd>
           </div>
         ))}
+        {artifact.chart.type === "stacked" && (
+          <div className="flex items-center justify-between gap-2 border-t pt-0.5">
+            <dt className="text-muted-foreground">Total</dt>
+            <dd className="font-mono">
+              {formatValue(
+                point.values.some((v) => v !== null)
+                  ? point.values.reduce<number>((a, v) => a + (v ?? 0), 0)
+                  : null,
+                artifact.chart.valueFormat,
+                currency,
+              )}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );
@@ -160,25 +194,26 @@ function ColumnsOrLines({ artifact }: ChartProps) {
   const vbH = 240;
   const padL = 64;
 
+  const stacked = chart.type === "stacked";
   const geo = useMemo(() => {
-    const { lo, hi, ticks } = domain(points);
+    const { lo, hi, ticks } = domain(points, stacked);
     const innerH = vbH - PAD_T - PAD_B;
     const innerW = VB_W - padL - PAD_R;
     const y = (v: number) => PAD_T + ((hi - v) / (hi - lo || 1)) * innerH;
     const slot = innerW / Math.max(points.length, 1);
-    const k = chart.series.length;
+    const k = stacked ? 1 : chart.series.length;
     const barW = Math.max(
       2,
-      Math.min(24, (slot * 0.7 - BAR_GAP * (k - 1)) / k),
+      Math.min(stacked ? 32 : 24, (slot * 0.7 - BAR_GAP * (k - 1)) / k),
     );
     const labelEvery = Math.ceil(points.length / 10);
     return { y, ticks, slot, barW, labelEvery };
-  }, [points, chart.series.length, padL]);
+  }, [points, chart.series.length, padL, stacked]);
 
   const { y, ticks, slot, barW, labelEvery } = geo;
   const zeroY = y(0);
   const cx = (i: number) => padL + i * slot + slot / 2;
-  const k = chart.series.length;
+  const k = stacked ? 1 : chart.series.length;
   const groupW = k * barW + (k - 1) * BAR_GAP;
 
   return (
@@ -238,6 +273,41 @@ function ColumnsOrLines({ artifact }: ChartProps) {
               );
             }),
           )}
+
+        {stacked &&
+          points.map((p, i) => {
+            const segments = stackSegments(p.values);
+            // Only the outermost segment of each side gets the rounded end.
+            const lastUp = segments.findLastIndex(
+              (g) => g !== null && g.to > 0,
+            );
+            const lastDown = segments.findLastIndex(
+              (g) => g !== null && g.to < 0,
+            );
+            const x0 = padL + i * slot + (slot - barW) / 2;
+            return segments.map((g, s) => {
+              if (!g) return null;
+              const up = g.to > 0;
+              const outer = s === (up ? lastUp : lastDown);
+              return (
+                <path
+                  key={`${p.x}-${s}`}
+                  d={barPath(
+                    x0,
+                    Math.min(y(g.from), y(g.to)),
+                    barW,
+                    Math.abs(y(g.to) - y(g.from)),
+                    up ? "top" : "bottom",
+                    outer ? 4 : 0,
+                  )}
+                  fill="currentColor"
+                  fillOpacity={
+                    seriesOpacity("stacked", s) + (active === i ? 0.1 : 0)
+                  }
+                />
+              );
+            });
+          })}
 
         {chart.type === "line" &&
           chart.series.map((s, si) => {
@@ -313,6 +383,8 @@ function ColumnsOrLines({ artifact }: ChartProps) {
               width={slot}
               height={vbH - PAD_T - PAD_B}
               fill="transparent"
+              strokeWidth="2"
+              className={HIT_CLASS}
               tabIndex={0}
               aria-label={pointLabel(artifact, i)}
               onMouseEnter={() => setActive(i)}
@@ -422,6 +494,8 @@ function HorizontalBars({ artifact }: ChartProps) {
                 width={VB_W}
                 height={rowH}
                 fill="transparent"
+                strokeWidth="2"
+                className={HIT_CLASS}
                 tabIndex={0}
                 aria-label={pointLabel(artifact, i)}
                 onMouseEnter={() => setActive(i)}

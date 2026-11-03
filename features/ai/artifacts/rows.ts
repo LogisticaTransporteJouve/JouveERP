@@ -6,8 +6,16 @@ export function isRecord(value: unknown): value is DataRow {
 }
 
 /** The rows in a tool's `data`: the array itself, or its first property that
- *  is an array of objects (e.g. `clients`, `items`, `rows`). */
-export function resolveRows(data: unknown): DataRow[] | null {
+ *  is an array of objects (e.g. `clients`, `items`, `rows`). With `dataset`,
+ *  only that property of `data`. */
+export function resolveRows(data: unknown, dataset?: string): DataRow[] | null {
+  if (dataset !== undefined) {
+    if (!isRecord(data) || !Object.hasOwn(data, dataset)) return null;
+    const value = data[dataset];
+    if (!Array.isArray(value)) return null;
+    const rows = value.filter(isRecord);
+    return rows.length ? rows : null;
+  }
   if (Array.isArray(data)) {
     const rows = data.filter(isRecord);
     return rows.length ? rows : null;
@@ -23,19 +31,29 @@ export function resolveRows(data: unknown): DataRow[] | null {
   return null;
 }
 
+/** The keys of `data` that hold a list of rows, for an error the model can
+ *  recover from when it names a dataset that is not there. */
+export function datasetsOf(data: unknown): string[] {
+  if (!isRecord(data)) return [];
+  return Object.entries(data)
+    .filter(([, value]) => Array.isArray(value) && value.some(isRecord))
+    .map(([key]) => key);
+}
+
 /** How a field's values read. */
 export type FieldFormat =
-  "code" | "percent" | "count" | "usd" | "money" | "number";
+  "code" | "percent" | "count" | "km" | "usd" | "money" | "number";
 
 const COUNT_NOUNS =
   "clients|suppliers|documents|groups|invoices|receipts|employees|drivers|trips|vehicles|items|rows|movements|entries|records|checks|loads|shipments|pallets|products|orders|units|days|leaves|periods";
 
 /**
  * A field's format from its name, first matching rule wins: identifiers and
- * codes (kept as text), percentages, counts, foreign-currency amounts, money,
- * then plain numbers. The order matters: `margin_pct` is a percentage,
- * `total_clients` a count and `cost_center_code` a code, though each also
- * looks like money.
+ * codes (kept as text), percentages, amounts per unit (money), counts,
+ * kilometres, foreign-currency amounts, money, then plain numbers. The order
+ * matters: `margin_pct` is a percentage, `total_clients` a count,
+ * `cost_center_code` a code and `cost_per_km_ars` money, though each also
+ * looks like something else.
  */
 const FORMAT_RULES: readonly [FieldFormat, RegExp][] = [
   [
@@ -43,6 +61,7 @@ const FORMAT_RULES: readonly [FieldFormat, RegExp][] = [
     /(^|_)(code|codigo|number|numero|nro|cuit|cuil|cbu|dni|cae|caea|plate|patente|zip)$|^(cuit|cuil|cbu|numero|nro)(_|$)/i,
   ],
   ["percent", /(^|_)(pct|percent|percentage|porcentaje)($|_)/i],
+  ["money", /_per_km(_ars)?$/i],
   [
     "count",
     new RegExp(
@@ -50,10 +69,11 @@ const FORMAT_RULES: readonly [FieldFormat, RegExp][] = [
       "i",
     ),
   ],
+  ["km", /(^|_)(km|kms|kilometros)($|_)/i],
   ["usd", /(^|_)(usd|foreign|fx|dolares)($|_)/i],
   [
     "money",
-    /total|saldo|importe|imp_|amount|monto|neto|iva|debe|haber|debit|credit|balance|running|bucket|open|cost|margin|revenue|expense|paid|billed|collected/i,
+    /total|saldo|importe|imp_|amount|monto|neto|iva|debe|haber|debit|credit|balance|running|bucket|open|cost|margin|revenue|expense|paid|billed|collected|(^|_)ars($|_)/i,
   ],
 ];
 

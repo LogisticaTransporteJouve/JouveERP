@@ -11,7 +11,7 @@ import {
   type BuildResult,
 } from "./build";
 import { LEGACY_FIELDS_NOTE, upgradeLegacyFields } from "./legacy-fields";
-import { resolveRows } from "./rows";
+import { datasetsOf, resolveRows } from "./rows";
 import type { Artifact, ArtifactMeta, PinRequest } from "./spec";
 
 /** The read actions an artifact may be built from, for this access. The
@@ -62,11 +62,16 @@ export async function runArtifact(
   const res = await action.execute(ctx, request.source.input);
   if (!res.ok) return { ok: false, error: res.error, denied: false };
 
-  const rows = resolveRows(res.data);
+  const dataset = request.config.dataset;
+  const rows = resolveRows(res.data, dataset);
   if (!rows) {
+    const lists = datasetsOf(res.data);
     return {
       ok: false,
-      error: "The query returned no rows to show.",
+      error:
+        dataset !== undefined && !lists.includes(dataset)
+          ? `The result has no list "${dataset}". Lists: ${lists.join(", ") || "(none)"}.`
+          : "The query returned no rows to show.",
       denied: false,
     };
   }

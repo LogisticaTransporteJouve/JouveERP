@@ -35,6 +35,7 @@ export function formatValue(
   if (format === "usd") return formatMoney(value, "USD");
   if (format === "percent") return `${numberFmt.format(value)} %`;
   if (format === "count") return formatInteger(value);
+  if (format === "km") return `${formatInteger(value)} km`;
   return numberFmt.format(value);
 }
 
@@ -48,6 +49,7 @@ export function formatAxisValue(
   if (format === "usd") return `US$ ${n}`;
   if (format === "money") return `${currency === "USD" ? "US$" : "$"} ${n}`;
   if (format === "percent") return `${n} %`;
+  if (format === "km") return `${n} km`;
   return n;
 }
 

@@ -5,6 +5,8 @@ export const ARTIFACT_LIMITS = {
   chartPoints: 60,
   hbarPoints: 30,
   series: 3,
+  /** A stacked bar shows the parts of a whole, so it takes more series. */
+  stackedSeries: 6,
   tableRows: 300,
   tableColumns: 12,
   titleLength: 120,
@@ -18,15 +20,18 @@ export const ARTIFACT_LIMITS = {
   turnBytes: 400_000,
 } as const;
 
-export const CHART_TYPES = ["bar", "hbar", "line"] as const;
+/** bar: grouped columns; stacked: columns whose series add up (parts of a
+ *  whole, positives up and negatives down); hbar: a ranking; line: a trend. */
+export const CHART_TYPES = ["bar", "stacked", "hbar", "line"] as const;
 
 /** How numbers read: money in the artifact's currency, USD, percentages,
- *  counts (integers) or plain numbers. */
+ *  counts (integers), kilometres or plain numbers. */
 export const VALUE_FORMATS = [
   "money",
   "usd",
   "percent",
   "count",
+  "km",
   "number",
 ] as const;
 export type ValueFormat = (typeof VALUE_FORMATS)[number];
@@ -43,6 +48,30 @@ const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;
 
 const title = z.string().trim().min(1).max(ARTIFACT_LIMITS.titleLength);
+
+/** Which array of the query's result to read when it has more than one (e.g.
+ *  getManagementPnL's byMonth); without it, the first array of objects. */
+const dataset = fieldName.describe(
+  "Optional: the key of the array in the query result to read (e.g. byMonth). Default: its first list of rows.",
+);
+
+/** Only a stacked bar takes more than ARTIFACT_LIMITS.series series. */
+function seriesFitType(
+  value: { type: ChartType; series?: readonly unknown[] },
+  ctx: z.RefinementCtx,
+): void {
+  const max =
+    value.type === "stacked"
+      ? ARTIFACT_LIMITS.stackedSeries
+      : ARTIFACT_LIMITS.series;
+  if ((value.series?.length ?? 0) > max) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["series"],
+      message: `A ${value.type} chart takes up to ${max} series.`,
+    });
+  }
+}
 const label = z.string().trim().min(1).max(ARTIFACT_LIMITS.labelLength);
 
 /**
@@ -50,27 +79,31 @@ const label = z.string().trim().min(1).max(ARTIFACT_LIMITS.labelLength);
  * Never values — the points come from the read action the server runs.
  * `x` and `series` default to the first label-like and first numeric field.
  */
-export const chartConfigSchema = z.strictObject({
-  type: z.enum(CHART_TYPES),
-  title,
-  x: fieldName.optional(),
-  xLabel: label.optional(),
-  series: z
-    .array(z.strictObject({ field: fieldName, label: label.optional() }))
-    .min(1)
-    .max(ARTIFACT_LIMITS.series)
-    .refine((s) => unique(s.map((x) => x.field)), "Repeated series field.")
-    .optional(),
-  sort: z.enum(["none", "asc", "desc"]).optional(),
-  limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
-  valueFormat: z.enum(VALUE_FORMATS).optional(),
-});
+export const chartConfigSchema = z
+  .strictObject({
+    type: z.enum(CHART_TYPES),
+    title,
+    dataset: dataset.optional(),
+    x: fieldName.optional(),
+    xLabel: label.optional(),
+    series: z
+      .array(z.strictObject({ field: fieldName, label: label.optional() }))
+      .min(1)
+      .max(ARTIFACT_LIMITS.stackedSeries)
+      .refine((s) => unique(s.map((x) => x.field)), "Repeated series field.")
+      .optional(),
+    sort: z.enum(["none", "asc", "desc"]).optional(),
+    limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
+    valueFormat: z.enum(VALUE_FORMATS).optional(),
+  })
+  .superRefine(seriesFitType);
 export type ChartConfig = z.infer<typeof chartConfigSchema>;
 
 /** The model's choice for a table: which row fields to show, in order, and
  *  their headers. */
 export const tableConfigSchema = z.strictObject({
   title,
+  dataset: dataset.optional(),
   columns: z
     .array(z.strictObject({ field: fieldName, label: label.optional() }))
     .min(1)
@@ -106,19 +139,22 @@ const metaSchema = z.strictObject({
 });
 export type ArtifactMeta = z.infer<typeof metaSchema>;
 
-export const resolvedChartSchema = z.strictObject({
-  type: z.enum(CHART_TYPES),
-  title,
-  x: fieldName,
-  xLabel: label,
-  series: z
-    .array(z.strictObject({ field: fieldName, label }))
-    .min(1)
-    .max(ARTIFACT_LIMITS.series),
-  sort: z.enum(["none", "asc", "desc"]),
-  limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
-  valueFormat: z.enum(VALUE_FORMATS),
-});
+export const resolvedChartSchema = z
+  .strictObject({
+    type: z.enum(CHART_TYPES),
+    title,
+    dataset: fieldName.optional(),
+    x: fieldName,
+    xLabel: label,
+    series: z
+      .array(z.strictObject({ field: fieldName, label }))
+      .min(1)
+      .max(ARTIFACT_LIMITS.stackedSeries),
+    sort: z.enum(["none", "asc", "desc"]),
+    limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
+    valueFormat: z.enum(VALUE_FORMATS),
+  })
+  .superRefine(seriesFitType);
 export type ResolvedChart = z.infer<typeof resolvedChartSchema>;
 
 const cellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -154,6 +190,7 @@ const tableArtifactSchema = z.strictObject({
   kind: z.literal("table"),
   title,
   source: artifactSourceSchema,
+  dataset: fieldName.optional(),
   columns: z.array(tableColumnSchema).min(1).max(ARTIFACT_LIMITS.tableColumns),
   rows: z.array(z.array(cellSchema)).max(ARTIFACT_LIMITS.tableRows),
   /** Rows beyond the table's cap were left out. */
@@ -197,6 +234,7 @@ export function pinRequestOf(artifact: Artifact): PinRequest {
     const {
       type,
       title: t,
+      dataset: d,
       x,
       xLabel,
       series,
@@ -210,6 +248,7 @@ export function pinRequestOf(artifact: Artifact): PinRequest {
       config: {
         type,
         title: t,
+        ...(d ? { dataset: d } : {}),
         x,
         xLabel,
         series,
@@ -224,6 +263,7 @@ export function pinRequestOf(artifact: Artifact): PinRequest {
     source: artifact.source,
     config: {
       title: artifact.title,
+      ...(artifact.dataset ? { dataset: artifact.dataset } : {}),
       columns: artifact.columns.map((c) => ({ field: c.key, label: c.label })),
     },
   };
