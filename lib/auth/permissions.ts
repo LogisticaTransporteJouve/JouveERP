@@ -148,6 +148,12 @@ export const PERMISSIONS = [
   // historic payroll and trips. Owner and admin only; write = import and undo.
   "imports:read",
   "imports:write",
+
+  // Impuestos (roadmap 6.6): tax obligations as documents (IVA, IIBB,
+  // Ganancias, SICORE, F931…). The accountant reads them; write = load,
+  // liquidate, annul and pay.
+  "taxes:read",
+  "taxes:write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -222,6 +228,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "storage_billing:issue",
     "tasks:read",
     "tasks:write",
+    "taxes:read",
+    "taxes:write",
   ],
 
   operations: [
@@ -281,6 +289,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "credit_debit_notes:read",
     "purchase_invoices:read",
     "accounting:read",
+    "taxes:read",
   ],
 };
 

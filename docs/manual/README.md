@@ -36,7 +36,7 @@ docs/manual/
 ├── sales.html              # Clientes · Comprobantes · Recibos · Aging
 ├── purchases.html          # Proveedores · Categorías · Compras · OPs · Aging
 ├── treasury.html           # Cuentas · Caja · Cheques recibidos · Cheques propios
-├── accounting.html         # Plan · Diario · Mayor · IVA · Balance · CC · Inflación
+├── accounting.html         # Plan · Diario · Mayor · IVA · Balance · CC · Inflación · Impuestos
 ├── hr.html                 # Empleados · Asistencia · Sueldos · Pagos · Vacaciones
 ├── admin.html              # Usuarios · Padrón · POS · Preview PDF · Backups
 ├── collaboration.html      # Chat · Búsqueda · Notif · Adjuntos · Perfil

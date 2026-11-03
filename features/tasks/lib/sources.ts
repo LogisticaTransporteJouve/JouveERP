@@ -61,6 +61,12 @@ export const TASK_SOURCES: Record<AutomaticTaskKind, TaskSource> = {
     assign: ["fleet_km:write"],
     href: "/vehicle-km",
   },
+  tax_document: {
+    label: "Impuesto",
+    read: ["taxes:read"],
+    assign: ["taxes:write"],
+    href: "/taxes",
+  },
 };
 
 /** What a viewer without the source module's permission sees as the title. */
