@@ -132,6 +132,7 @@ const GUARDS = [
   "commit_import_run",
   "undo_import_run",
   "apply_client_opening_balance_core",
+  "apply_supplier_opening_balance",
   "guard_bank_statement_line",
   "guard_transaction_reconciled",
   "match_bank_statement_line",
