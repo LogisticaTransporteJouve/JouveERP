@@ -1359,6 +1359,59 @@ export type Database = {
           },
         ]
       }
+      client_tariffs: {
+        Row: {
+          client_id: string
+          concept: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          price: number
+          unit: string
+          updated_at: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          client_id: string
+          concept: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          price: number
+          unit: string
+          updated_at?: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          client_id?: string
+          concept?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          unit?: string
+          updated_at?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_tariffs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -5048,6 +5101,7 @@ export type Database = {
           invoicing_claimed_at: string | null
           notes: string | null
           origin: string | null
+          remito_number: string | null
           scheduled_date: string | null
           status: string
           trip_id: string | null
@@ -5068,6 +5122,7 @@ export type Database = {
           invoicing_claimed_at?: string | null
           notes?: string | null
           origin?: string | null
+          remito_number?: string | null
           scheduled_date?: string | null
           status?: string
           trip_id?: string | null
@@ -5088,6 +5143,7 @@ export type Database = {
           invoicing_claimed_at?: string | null
           notes?: string | null
           origin?: string | null
+          remito_number?: string | null
           scheduled_date?: string | null
           status?: string
           trip_id?: string | null
@@ -7432,6 +7488,29 @@ export type Database = {
         Args: { p_supplier_id: string }
         Returns: undefined
       }
+      client_tariff_at: {
+        Args: { p_client_id: string; p_concept: string; p_date: string }
+        Returns: {
+          client_id: string
+          concept: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          price: number
+          unit: string
+          updated_at: string
+          valid_from: string
+          valid_to: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "client_tariffs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       clients:
         | {
             Args: { "": Database["public"]["Views"]["v_client_aging"]["Row"] }
@@ -8303,6 +8382,20 @@ export type Database = {
         Returns: undefined
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      shipment_remito_conflict: {
+        Args: {
+          p_client_id: string
+          p_exclude_id?: string
+          p_remito_number: string
+        }
+        Returns: {
+          destination: string
+          id: string
+          origin: string
+          scheduled_date: string
+          status: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sync_automatic_tasks: {

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   FreightInvoiceSchema,
+  REMITO_NUMBER_MAX,
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_STATUSES,
   ShipmentCreateSchema,
+  ShipmentRemitoCheckSchema,
   ShipmentStatusChangeSchema,
   isShipmentStatus,
 } from "./schema";
@@ -48,9 +50,9 @@ describe("ShipmentCreateSchema", () => {
   });
 
   it("rejects a non-uuid client_id", () => {
-    expect(
-      ShipmentCreateSchema.safeParse({ client_id: "abc" }).success,
-    ).toBe(false);
+    expect(ShipmentCreateSchema.safeParse({ client_id: "abc" }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a negative freight_amount", () => {
@@ -133,5 +135,38 @@ describe("isShipmentStatus", () => {
     for (const s of SHIPMENT_STATUSES) {
       expect(SHIPMENT_STATUS_LABELS[s]).toBeTruthy();
     }
+  });
+});
+
+describe("remito number", () => {
+  it("trims it and stores an empty one as null", () => {
+    const typed = ShipmentCreateSchema.parse({ remito_number: " 0001-123 " });
+    expect(typed.remito_number).toBe("0001-123");
+    const blank = ShipmentCreateSchema.parse({ remito_number: "   " });
+    expect(blank.remito_number).toBeNull();
+  });
+
+  it("rejects one longer than the column allows", () => {
+    expect(
+      ShipmentCreateSchema.safeParse({
+        remito_number: "9".repeat(REMITO_NUMBER_MAX + 1),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("checks a duplicate only with a client and a number", () => {
+    const client_id = "11111111-1111-4111-8111-111111111111";
+    expect(
+      ShipmentRemitoCheckSchema.safeParse({ client_id, remito_number: "A-1" })
+        .success,
+    ).toBe(true);
+    expect(
+      ShipmentRemitoCheckSchema.safeParse({ client_id, remito_number: "  " })
+        .success,
+    ).toBe(false);
+    expect(
+      ShipmentRemitoCheckSchema.safeParse({ client_id: "", remito_number: "1" })
+        .success,
+    ).toBe(false);
   });
 });

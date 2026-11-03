@@ -32,6 +32,7 @@ export interface Shipment {
   client_id: string | null;
   trip_id: string | null;
   channel_id: string | null;
+  remito_number: string | null;
   origin: string | null;
   destination: string | null;
   description: string | null;
@@ -101,10 +102,15 @@ const optionalDate = z
   .nullable()
   .optional();
 
+/** The client's remito number: unique per client among live cargas
+ *  (shipments_client_remito_unique), compared trimmed and case-insensitive. */
+export const REMITO_NUMBER_MAX = 60;
+
 export const ShipmentCreateSchema = z.object({
   client_id: optionalUuid,
   trip_id: optionalUuid,
   channel_id: optionalChannel,
+  remito_number: optionalText(REMITO_NUMBER_MAX),
   origin: optionalText(160),
   destination: optionalText(160),
   description: optionalText(500),
@@ -119,6 +125,7 @@ export const ShipmentUpdateSchema = z.object({
   client_id: optionalUuid,
   trip_id: optionalUuid,
   channel_id: optionalChannel,
+  remito_number: optionalText(REMITO_NUMBER_MAX),
   origin: optionalText(160),
   destination: optionalText(160),
   description: optionalText(500),
@@ -126,6 +133,25 @@ export const ShipmentUpdateSchema = z.object({
   freight_amount: optionalAmount,
   notes: optionalText(2000),
 });
+
+/** The duplicate check the carga form runs before saving. */
+export const ShipmentRemitoCheckSchema = z.object({
+  client_id: z.string().uuid(),
+  remito_number: z.string().trim().min(1).max(REMITO_NUMBER_MAX),
+  exclude_id: z.string().uuid().nullable().optional(),
+});
+export type ShipmentRemitoCheckInput = z.input<
+  typeof ShipmentRemitoCheckSchema
+>;
+
+/** A live carga of the client that already holds a remito number. */
+export interface ShipmentRemitoConflict {
+  id: string;
+  scheduled_date: string | null;
+  status: string;
+  origin: string | null;
+  destination: string | null;
+}
 
 /** Assigns cargas to a trip (tripId) or takes them off it (null). */
 export const ShipmentTripAssignSchema = z.object({

@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -33,6 +34,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { formatArgentineDate } from "@/lib/format";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import {
@@ -43,16 +46,36 @@ import {
 import {
   useCreateShipment,
   useShipmentOptions,
+  useShipmentRemitoConflict,
   useUpdateShipment,
 } from "../hooks/use-shipments";
-import { type Shipment } from "../schema";
+import { formatRoute } from "../lib/format";
+import {
+  REMITO_NUMBER_MAX,
+  SHIPMENT_STATUS_LABELS,
+  isShipmentStatus,
+  type Shipment,
+  type ShipmentRemitoConflict,
+} from "../schema";
 
 const NONE = "__none__";
+
+function remitoConflictLabel(c: ShipmentRemitoConflict): string {
+  const parts = [
+    c.scheduled_date ? formatArgentineDate(c.scheduled_date) : "sin fecha",
+    formatRoute(c.origin, c.destination),
+  ];
+  if (isShipmentStatus(c.status)) {
+    parts.push(SHIPMENT_STATUS_LABELS[c.status].toLowerCase());
+  }
+  return parts.join(" · ");
+}
 
 // Plain string form, validated/coerced into the action schemas server-side.
 const FormSchema = z.object({
   client_id: z.string(),
   trip_id: z.string(),
+  remito_number: z.string().trim().max(REMITO_NUMBER_MAX),
   origin: z.string().trim().max(160),
   destination: z.string().trim().max(160),
   description: z.string().trim().max(500),
@@ -80,6 +103,7 @@ function toDefaults(shipment?: Shipment): FormValues {
   return {
     client_id: shipment?.client_id ?? "",
     trip_id: shipment?.trip_id ?? "",
+    remito_number: shipment?.remito_number ?? "",
     origin: shipment?.origin ?? "",
     destination: shipment?.destination ?? "",
     description: shipment?.description ?? "",
@@ -122,10 +146,34 @@ export function ShipmentDialog({
     setClient(pickedFrom(shipment));
   }, [open, shipment, form]);
 
+  // Duplicate remito: checked against the client's live cargas as the user
+  // types; the unique index refuses it anyway.
+  const watchedClientId = useWatch({
+    control: form.control,
+    name: "client_id",
+  });
+  const typedRemito = useWatch({
+    control: form.control,
+    name: "remito_number",
+  });
+  const debouncedRemito = useDebouncedValue(typedRemito, 400);
+  const remitoCheck = useShipmentRemitoConflict({
+    clientId: open ? watchedClientId : "",
+    remitoNumber: debouncedRemito,
+    excludeId: shipment?.id ?? null,
+  });
+  // Only for the number on screen: while the debounce runs the last answer
+  // belongs to the previous one.
+  const remitoConflict =
+    debouncedRemito.trim() === typedRemito.trim()
+      ? (remitoCheck.data ?? null)
+      : null;
+
   function onSubmit(values: FormValues) {
     const payload = {
       client_id: values.client_id,
       trip_id: values.trip_id,
+      remito_number: values.remito_number,
       origin: values.origin,
       destination: values.destination,
       description: values.description,
@@ -189,6 +237,42 @@ export function ShipmentDialog({
                       }}
                       isFiscal={null}
                     />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="remito_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Remito del cliente</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="0001-00012345"
+                        maxLength={REMITO_NUMBER_MAX}
+                        autoComplete="off"
+                      />
+                    </FormControl>
+                    {remitoConflict && (
+                      <p
+                        role="alert"
+                        className="flex items-start gap-2 text-sm text-muted-foreground"
+                      >
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                        <span>
+                          Ese remito ya está en otra carga del cliente (
+                          {remitoConflictLabel(remitoConflict)}). Cambiá el
+                          número o cancelá esa carga para usarlo.
+                        </span>
+                      </p>
+                    )}
+                    {remitoCheck.isError && (
+                      <p className="text-sm text-muted-foreground">
+                        No se pudo verificar si el remito está repetido.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -328,7 +412,11 @@ export function ShipmentDialog({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                  disabled={
+                    isSaving ||
+                    remitoConflict !== null ||
+                    (isEdit && !form.formState.isDirty)
+                  }
                 >
                   {isEdit ? "Guardar" : "Crear"}
                 </Button>

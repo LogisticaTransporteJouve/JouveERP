@@ -6,18 +6,25 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { fetchUsdRateOnOrBefore } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import {
+  isClientTariffConcept,
+  isClientTariffCurrency,
+  isClientTariffUnit,
+} from "@/features/client-tariffs/schema";
 import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import type { CreateComprobanteInput } from "@/features/invoices/schema";
 
 import {
   computeStorageBilling,
+  type ClientTariffInput,
   type PalletInput,
   type StorageBilling,
   type TariffInput,
@@ -25,6 +32,62 @@ import {
 import { StorageInvoiceSchema, type StorageBillingRun } from "../schema";
 
 type RangeInput = { periodStart: string; periodEnd: string };
+
+type ServiceClient = ReturnType<typeof getServiceClient>;
+
+/**
+ * The client tariffs that touch [periodStart, periodEnd] (one client's, or
+ * every client's) and, when one of them is in USD, the official rate on or
+ * before periodEnd (null when none is loaded). Drained past max_rows: a
+ * truncated read would bill at the fallback tariff silently.
+ */
+async function loadClientTariffs(
+  supabase: ServiceClient,
+  range: RangeInput,
+  clientId: string | null,
+): Promise<
+  | { ok: true; clientTariffs: ClientTariffInput[]; usdRate: number | null }
+  | { ok: false; error: unknown }
+> {
+  const res = await paginateRange((from, to) => {
+    let q = supabase
+      .from("client_tariffs")
+      .select(
+        "id, client_id, concept, unit, price, currency, valid_from, valid_to",
+      )
+      .lte("valid_from", range.periodEnd)
+      .or(`valid_to.is.null,valid_to.gte.${range.periodStart}`);
+    if (clientId) q = q.eq("client_id", clientId);
+    return q.order("id").range(from, to);
+  });
+  if (res.error) return { ok: false, error: res.error };
+
+  const clientTariffs: ClientTariffInput[] = [];
+  for (const t of res.data ?? []) {
+    if (
+      !isClientTariffConcept(t.concept) ||
+      !isClientTariffUnit(t.unit) ||
+      !isClientTariffCurrency(t.currency)
+    ) {
+      // A row this code cannot price must not bill at the fallback quietly.
+      return { ok: false, error: { unknownTariff: t.id } };
+    }
+    clientTariffs.push({
+      client_id: t.client_id,
+      concept: t.concept,
+      unit: t.unit,
+      price: Number(t.price),
+      currency: t.currency,
+      valid_from: t.valid_from,
+      valid_to: t.valid_to,
+    });
+  }
+
+  const usdRate = clientTariffs.some((t) => t.currency === "USD")
+    ? ((await fetchUsdRateOnOrBefore(supabase, range.periodEnd))?.rate ?? null)
+    : null;
+  return { ok: true, clientTariffs, usdRate };
+}
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -50,7 +113,7 @@ export async function getStorageBillingAction(
 
   // Drained past max_rows: a truncated pallet, tariff or client list would
   // under-bill silently.
-  const [palletsRes, tariffsRes, clientsRes] = await Promise.all([
+  const [palletsRes, tariffsRes, clientsRes, ownRes] = await Promise.all([
     paginateRange((from, to) =>
       supabase
         .from("pallets")
@@ -77,10 +140,15 @@ export async function getStorageBillingAction(
         .order("id")
         .range(from, to),
     ),
+    loadClientTariffs(supabase, input, null),
   ]);
 
-  const firstError = palletsRes.error ?? tariffsRes.error ?? clientsRes.error;
-  if (firstError) {
+  const firstError =
+    palletsRes.error ??
+    tariffsRes.error ??
+    clientsRes.error ??
+    (ownRes.ok ? null : ownRes.error);
+  if (firstError || !ownRes.ok) {
     logger.error("storage.billing.failed", {
       userId: ctx.userId,
       error: firstError,
@@ -115,6 +183,8 @@ export async function getStorageBillingAction(
     data: computeStorageBilling({
       pallets,
       tariffs,
+      clientTariffs: ownRes.clientTariffs,
+      usdRate: ownRes.usdRate,
       clientNames,
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
@@ -224,7 +294,7 @@ export async function invoiceStorageAction(
   // Pallets through the service client (after the gate above), as in the
   // preview: their RLS leaves finance out.
   const reader = getServiceClient();
-  const [palletsRes, tariffsRes] = await Promise.all([
+  const [palletsRes, tariffsRes, ownRes] = await Promise.all([
     paginateRange((from, to) =>
       reader
         .from("pallets")
@@ -245,11 +315,19 @@ export async function invoiceStorageAction(
         .order("id")
         .range(from, to),
     ),
+    loadClientTariffs(
+      reader,
+      { periodStart: period_start, periodEnd: period_end },
+      client_id,
+    ),
   ]);
-  if (palletsRes.error || tariffsRes.error) {
+  if (palletsRes.error || tariffsRes.error || !ownRes.ok) {
     logger.error("storage.invoice.compute.failed", {
       userId: ctx.userId,
-      error: palletsRes.error ?? tariffsRes.error,
+      error:
+        palletsRes.error ??
+        tariffsRes.error ??
+        (ownRes.ok ? null : ownRes.error),
     });
     return { ok: false, error: "No se pudo calcular el almacenaje." };
   }
@@ -273,10 +351,19 @@ export async function invoiceStorageAction(
   const billing = computeStorageBilling({
     pallets,
     tariffs,
+    clientTariffs: ownRes.clientTariffs,
+    usdRate: ownRes.usdRate,
     clientNames: new Map([[client_id, client.legal_name]]),
     periodStart: period_start,
     periodEnd: period_end,
   });
+  // A USD tariff without a rate would bill its days at nothing.
+  if (billing.pallets_without_rate > 0) {
+    return {
+      ok: false,
+      error: `Falta la cotización del dólar al ${fmtDate(period_end)} (o anterior) para las tarifas en USD del cliente. Cargala en Contabilidad › Cotización USD y volvé a facturar.`,
+    };
+  }
   const storage = billing.storage_total;
   const loading = round2(
     billing.lines.reduce((s, l) => s + l.handling_in_charge, 0),
