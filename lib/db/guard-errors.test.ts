@@ -115,6 +115,10 @@ const GUARDS = [
   "guard_pallet_blocked",
   "guard_late_interest_charge",
   "sell_checks",
+  "guard_import_run",
+  "guard_historic_row",
+  "commit_import_run",
+  "undo_import_run",
 ];
 
 describe("guard hints in migrations", () => {

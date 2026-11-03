@@ -28,17 +28,21 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // ⌘K (Ctrl+K on Windows) opens search. Only when we're in
-  // /chat — the listener lives in the component, which mounts with the shell.
+  // ⌘K (Ctrl+K on Windows) opens chat search while /chat is mounted.
+  // Capture phase + stopImmediatePropagation so the global search's
+  // ⌘K listener doesn't also open its dialog, whose focus would dismiss
+  // this one.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        e.stopImmediatePropagation();
         setSearchOpen(true);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, []);
 
   const selfChannels = channels.filter((c) => c.kind === "self");
@@ -88,7 +92,9 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
             </Section>
           ) : null}
 
-          <Section title={`Mensajes directos${dms.length ? ` · ${dms.length}` : ""}`}>
+          <Section
+            title={`Mensajes directos${dms.length ? ` · ${dms.length}` : ""}`}
+          >
             {dms.length === 0 ? (
               <EmptyHint>No tenés DMs abiertos.</EmptyHint>
             ) : (
@@ -103,7 +109,9 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
             )}
           </Section>
 
-          <Section title={`Grupos${groups.length ? ` · ${groups.length}` : ""}`}>
+          <Section
+            title={`Grupos${groups.length ? ` · ${groups.length}` : ""}`}
+          >
             {groups.length === 0 ? (
               <EmptyHint>No estás en ningún grupo.</EmptyHint>
             ) : (
@@ -144,9 +152,7 @@ function Section({
 }
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-2 py-1 text-xs text-muted-foreground">{children}</p>
-  );
+  return <p className="px-2 py-1 text-xs text-muted-foreground">{children}</p>;
 }
 
 function ChannelRow({
@@ -165,9 +171,7 @@ function ChannelRow({
       href={`/chat/${channel.id}`}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
-        active
-          ? "bg-accent text-accent-foreground"
-          : "hover:bg-accent/50",
+        active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
       )}
     >
       <ChannelLeading channel={channel} />

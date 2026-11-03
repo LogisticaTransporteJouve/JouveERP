@@ -41,6 +41,7 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
     href: () => "/accounting/exchange-rates",
   },
   file: { label: "Archivos", href: () => "/files" },
+  import_run: { label: "Importador", href: () => "/admin/imports" },
   fleet_document: {
     label: "Documentos de flota",
     href: () => "/fleet-documents",
