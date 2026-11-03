@@ -54,7 +54,7 @@ async function loadClientTariffs(
     let q = supabase
       .from("client_tariffs")
       .select(
-        "id, client_id, concept, unit, price, currency, valid_from, valid_to",
+        "id, client_id, concept, unit, price, currency, valid_from, valid_to, area_id",
       )
       .in("concept", [...STORAGE_TARIFF_CONCEPTS])
       .lte("valid_from", range.periodEnd)
@@ -82,6 +82,7 @@ async function loadClientTariffs(
       currency: t.currency,
       valid_from: t.valid_from,
       valid_to: t.valid_to,
+      area_id: t.area_id,
     });
   }
 
@@ -119,7 +120,7 @@ export async function getStorageBillingAction(
     paginateRange((from, to) =>
       supabase
         .from("pallets")
-        .select("id, client_id, code, entry_date, exit_date")
+        .select("id, client_id, code, entry_date, exit_date, area_id")
         .lte("entry_date", input.periodEnd)
         .or(`exit_date.is.null,exit_date.gte.${input.periodStart}`)
         .order("id")
@@ -164,6 +165,7 @@ export async function getStorageBillingAction(
     code: p.code,
     entry_date: p.entry_date,
     exit_date: p.exit_date,
+    area_id: p.area_id,
   }));
 
   const tariffs: TariffInput[] = (tariffsRes.data ?? []).map((t) => ({
@@ -300,7 +302,7 @@ export async function invoiceStorageAction(
     paginateRange((from, to) =>
       reader
         .from("pallets")
-        .select("id, client_id, code, entry_date, exit_date")
+        .select("id, client_id, code, entry_date, exit_date, area_id")
         .eq("client_id", client_id)
         .lte("entry_date", period_end)
         .or(`exit_date.is.null,exit_date.gte.${period_start}`)
@@ -339,6 +341,7 @@ export async function invoiceStorageAction(
     code: p.code,
     entry_date: p.entry_date,
     exit_date: p.exit_date,
+    area_id: p.area_id,
   }));
   const tariffs: TariffInput[] = (tariffsRes.data ?? []).map((t) => ({
     client_id: t.client_id,

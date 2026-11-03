@@ -9,6 +9,10 @@
 // day for the descarga — and, for what it does not cover, the storage tariff
 // (storage_tariffs: the client-specific one wins over the general, latest
 // valid_from), as before. A USD client tariff is converted at `usdRate`.
+//
+// Areas (roadmap 4.4): for a pallet in an area, the client's tariff for that
+// area wins over the client's tariff for every area (area_id null) on the
+// days and events it covers.
 
 import {
   dailyPrice,
@@ -26,6 +30,8 @@ export type PalletInput = {
   code: string;
   entry_date: string;
   exit_date: string | null;
+  /** Warehouse area; null or absent = none. */
+  area_id?: string | null;
 };
 
 export type TariffInput = {
@@ -48,6 +54,8 @@ export type ClientTariffInput = {
   currency: ClientTariffCurrency;
   valid_from: string;
   valid_to: string | null;
+  /** The area it is limited to; null or absent = every area. */
+  area_id?: string | null;
 };
 
 export type BillingLine = {
@@ -139,6 +147,10 @@ function pickTariff(
   return applicable[0] ?? null;
 }
 
+function isGeneral(t: ClientTariffInput): boolean {
+  return (t.area_id ?? null) === null;
+}
+
 /** The client tariff of `concept` in force on `day`, if any. */
 function clientTariffOn(
   own: readonly ClientTariffInput[],
@@ -196,7 +208,7 @@ export function computeStorageBilling(input: {
   function own(t: ClientTariffInput, amount: number): number | null {
     const ars = toArs(amount, t.currency, input.usdRate);
     if (ars === null) return null;
-    const key = `client_tariff|${t.client_id}|${t.concept}|${t.valid_from}`;
+    const key = `client_tariff|${t.client_id}|${t.concept}|${t.area_id ?? ""}|${t.valid_from}`;
     if (!appliedTariffs.has(key)) {
       appliedTariffs.set(key, {
         source: "client_tariff",
@@ -217,19 +229,37 @@ export function computeStorageBilling(input: {
     const days = end - start + 1;
 
     const ownTariffs = ownByClient.get(pallet.client_id) ?? [];
+    const area = pallet.area_id ?? null;
+    // The client's tariffs for this pallet's area, and for every area.
+    const areaTariffs =
+      area === null ? [] : ownTariffs.filter((t) => t.area_id === area);
+    const generalTariffs = ownTariffs.filter(isGeneral);
     const fallback = pickTariff(input.tariffs, pallet.client_id, pStart, pEnd);
     let missingRate = false;
 
-    // Storage: the client's tariffs on the days they cover, the fallback on
-    // the rest.
+    // Within [start, end], the days a tariff is in force.
+    const clip = (t: ClientTariffInput): [number, number] => [
+      Math.max(start, dayNum(t.valid_from)),
+      Math.min(end, t.valid_to === null ? end : dayNum(t.valid_to)),
+    ];
+    const areaStorage = areaTariffs.filter((t) => t.concept === "storage");
+
+    // Storage: the area's tariffs on the days they cover, then the client's
+    // tariffs for every area on the days left, the fallback on the rest.
     let storageCharge = 0;
     let covered = 0;
-    for (const t of ownTariffs) {
+    for (const t of [...areaStorage, ...generalTariffs]) {
       if (t.concept !== "storage") continue;
-      const from = Math.max(start, dayNum(t.valid_from));
-      const to = Math.min(end, t.valid_to === null ? end : dayNum(t.valid_to));
+      const [from, to] = clip(t);
       if (to < from) continue;
-      const n = to - from + 1;
+      let n = to - from + 1;
+      if (isGeneral(t)) {
+        for (const a of areaStorage) {
+          const [af, at] = clip(a);
+          n -= Math.max(0, Math.min(to, at) - Math.max(from, af) + 1);
+        }
+      }
+      if (n <= 0) continue;
       covered += n;
       const daily = own(t, dailyPrice(t));
       if (daily === null) {
@@ -260,7 +290,9 @@ export function computeStorageBilling(input: {
       day: number | null,
     ): number => {
       if (day === null || day < pStart || day > pEnd) return 0;
-      const t = clientTariffOn(ownTariffs, concept, day);
+      const t =
+        clientTariffOn(areaTariffs, concept, day) ??
+        clientTariffOn(generalTariffs, concept, day);
       if (t) {
         const ars = own(t, t.price);
         if (ars === null) missingRate = true;

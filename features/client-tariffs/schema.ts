@@ -88,11 +88,19 @@ export interface ClientTariff {
   valid_from: string;
   valid_to: string | null;
   notes: string | null;
+  /** Area of a warehouse the tariff applies to; null = every area. */
+  area_id: string | null;
   created_at: string;
 }
 
 const optionalDate = z
   .union([z.literal(""), IsoDateSchema])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
+const optionalUuid = z
+  .union([z.literal(""), z.string().uuid()])
   .transform((v) => (v === "" ? null : v))
   .nullable()
   .optional();
@@ -117,6 +125,7 @@ const TariffFields = z.object({
   valid_from: IsoDateSchema,
   valid_to: optionalDate,
   notes: optionalNotes,
+  area_id: optionalUuid,
 });
 
 function checkTariff(
@@ -136,6 +145,14 @@ function checkTariff(
       code: "custom",
       message: "El flete se tarifa en pesos.",
       path: ["currency"],
+    });
+  }
+  // client_tariffs_area_concept: flete prices cargas, not stored pallets.
+  if (d.concept === "freight" && d.area_id) {
+    ctx.addIssue({
+      code: "custom",
+      message: "El flete no lleva área.",
+      path: ["area_id"],
     });
   }
   if (d.valid_to && d.valid_to < d.valid_from) {

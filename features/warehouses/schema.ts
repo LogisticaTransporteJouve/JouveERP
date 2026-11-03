@@ -53,6 +53,7 @@ export const WarehouseToggleSchema = z.object({
 export interface StorageArea {
   id: string;
   warehouse_id: string;
+  warehouse_name: string;
   name: string;
   is_active: boolean;
   notes: string | null;

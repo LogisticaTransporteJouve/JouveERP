@@ -47,6 +47,12 @@ import {
   type ClientTariff,
 } from "../schema";
 
+export type TariffAreaOption = {
+  id: string;
+  label: string;
+  is_active: boolean;
+};
+
 // Plain strings on screen; the action schema coerces and checks the rest
 // (unit per concept, vigencia order). Overlaps are refused by the DB guard.
 const FormSchema = z.object({
@@ -62,6 +68,7 @@ const FormSchema = z.object({
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   valid_to: z.string(),
   notes: z.string().trim().max(500),
+  area_id: z.string(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -75,16 +82,22 @@ function toDefaults(tariff?: ClientTariff): FormValues {
     valid_from: tariff?.valid_from ?? "",
     valid_to: tariff?.valid_to ?? "",
     notes: tariff?.notes ?? "",
+    area_id: tariff?.area_id ?? "",
   };
 }
+
+const ALL_AREAS = "__all__";
 
 export function ClientTariffDialog({
   clientId,
   tariff,
+  areaOptions,
   open,
   onOpenChange,
 }: {
   clientId: string;
+  /** Warehouse areas a storage tariff may be limited to. */
+  areaOptions: TariffAreaOption[];
   /** The tariff to edit; none creates one. */
   tariff?: ClientTariff;
   open: boolean;
@@ -116,6 +129,7 @@ export function ClientTariffDialog({
       valid_from: values.valid_from,
       valid_to: values.valid_to,
       notes: values.notes,
+      area_id: values.concept === "freight" ? "" : values.area_id,
     };
     const onError = (err: Error) => toast.error(err.message);
     if (tariff) {
@@ -177,11 +191,12 @@ export function ClientTariffDialog({
                             shouldDirty: true,
                           });
                         }
-                        // Flete is priced in pesos only.
+                        // Flete is priced in pesos only, for any area.
                         if (next === "freight") {
                           form.setValue("currency", "ARS", {
                             shouldDirty: true,
                           });
+                          form.setValue("area_id", "", { shouldDirty: true });
                         }
                       }}
                     >
@@ -231,6 +246,42 @@ export function ClientTariffDialog({
                 )}
               />
             </div>
+            {concept !== "freight" && areaOptions.length > 0 && (
+              <FormField
+                control={form.control}
+                name="area_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Área del depósito</FormLabel>
+                    <Select
+                      value={field.value === "" ? ALL_AREAS : field.value}
+                      onValueChange={(v) =>
+                        field.onChange(v === ALL_AREAS ? "" : v)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={ALL_AREAS}>
+                          Todas las áreas
+                        </SelectItem>
+                        {areaOptions
+                          .filter((a) => a.is_active || a.id === field.value)
+                          .map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <div className="grid grid-cols-[1fr_7rem] gap-3">
               <FormField
                 control={form.control}

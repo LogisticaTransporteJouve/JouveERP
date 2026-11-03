@@ -23,7 +23,8 @@ import {
   type StorageAreaUpdateInput,
 } from "../schema";
 
-const SELECT_COLUMNS = "id, warehouse_id, name, is_active, notes";
+const SELECT_COLUMNS =
+  "id, warehouse_id, name, is_active, notes, warehouse:warehouses(name)";
 const WRITE_DENIED = "No tenés permiso para editar áreas de depósito.";
 
 function firstIssue(error: z.ZodError): string {
@@ -65,7 +66,13 @@ export async function listStorageAreasAction(
     logger.error("storage_areas.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las áreas." };
   }
-  return { ok: true, data: data ?? [] };
+  return {
+    ok: true,
+    data: (data ?? []).map(({ warehouse, ...a }) => ({
+      ...a,
+      warehouse_name: warehouse?.name ?? "—",
+    })),
+  };
 }
 
 export async function createStorageAreaAction(
