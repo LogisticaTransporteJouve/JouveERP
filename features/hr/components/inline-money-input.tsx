@@ -5,43 +5,74 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Props = {
-  value: number;
-  onCommit: (value: number) => Promise<void> | void;
-  disabled?: boolean;
-  className?: string;
-};
+type Common = { disabled?: boolean; className?: string; placeholder?: string };
+
+// `nullable`: an empty cell stands for "not loaded" and commits null.
+type Props = Common &
+  (
+    | {
+        nullable?: false;
+        value: number;
+        onCommit: (value: number) => Promise<void> | void;
+      }
+    | {
+        nullable: true;
+        value: number | null;
+        onCommit: (value: number | null) => Promise<void> | void;
+      }
+  );
+
+function toText(value: number | null): string {
+  return value === null ? "" : String(value);
+}
 
 // Cell-style inline edit. Right-aligned, monospace, transparent border in
 // rest state; visible border + ring on focus. onBlur commits if the value
 // changed; ESC reverts.
-export function InlineMoneyInput({
-  value,
-  onCommit,
-  disabled,
-  className,
-}: Props) {
-  const [text, setText] = useState<string>(String(value ?? 0));
-  const initialRef = useRef<string>(String(value ?? 0));
+export function InlineMoneyInput(props: Props) {
+  const { value, disabled, className, placeholder } = props;
+  const [text, setText] = useState<string>(toText(value));
+  const initialRef = useRef<string>(toText(value));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const next = String(value ?? 0);
+    const next = toText(value);
     setText(next);
     initialRef.current = next;
   }, [value]);
 
+  async function commit(next: number | null) {
+    if (props.nullable) await props.onCommit(next);
+    else if (next !== null) await props.onCommit(next);
+  }
+
   async function commitIfChanged() {
     if (saving) return;
-    const parsed = Number(text.replace(/,/g, "."));
-    if (!Number.isFinite(parsed) || parsed < 0) {
+    const trimmed = text.trim();
+    if (trimmed === "" && props.nullable) {
+      if (initialRef.current === "") return;
+      setSaving(true);
+      try {
+        await commit(null);
+        initialRef.current = "";
+      } catch {
+        setText(initialRef.current);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    const parsed = Number(trimmed.replace(/,/g, "."));
+    if (trimmed === "" || !Number.isFinite(parsed) || parsed < 0) {
       setText(initialRef.current);
       return;
     }
-    if (Number(initialRef.current) === parsed) return;
+    if (initialRef.current !== "" && Number(initialRef.current) === parsed) {
+      return;
+    }
     setSaving(true);
     try {
-      await onCommit(parsed);
+      await commit(parsed);
       initialRef.current = String(parsed);
     } catch {
       setText(initialRef.current);
@@ -55,6 +86,7 @@ export function InlineMoneyInput({
       type="text"
       inputMode="decimal"
       value={text}
+      placeholder={placeholder}
       disabled={disabled || saving}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => void commitIfChanged()}

@@ -46,7 +46,7 @@ export default async function PayrollPeriodPage({
 
   const dehydratedState = await prefetchQueries([
     {
-      queryKey: payrollKeys.period(year, month),
+      queryKey: payrollKeys.periodOfKind(year, month, "monthly"),
       queryFn: () => runAction(() => getPayrollPeriodAction(year, month)),
     },
   ]);

@@ -19,9 +19,11 @@ import {
   removePayrollEntryExtraAction,
   reopenPayrollPeriodAction,
   seedPayrollPeriodAction,
+  seedSacPeriodAction,
   updatePayrollEntryAction,
 } from "../actions/payroll-actions";
 import { payrollKeys } from "../lib/payroll-keys";
+import type { PayrollPeriodKind, SacHalf } from "../payroll-schema";
 
 export function usePayrollPeriods() {
   return useSuspenseQuery({
@@ -30,10 +32,14 @@ export function usePayrollPeriods() {
   });
 }
 
-export function usePayrollPeriod(year: number, month: number) {
+export function usePayrollPeriod(
+  year: number,
+  month: number,
+  kind: PayrollPeriodKind = "monthly",
+) {
   return useSuspenseQuery({
-    queryKey: payrollKeys.period(year, month),
-    queryFn: () => runAction(() => getPayrollPeriodAction(year, month)),
+    queryKey: payrollKeys.periodOfKind(year, month, kind),
+    queryFn: () => runAction(() => getPayrollPeriodAction(year, month, kind)),
     staleTime: 10 * 60_000,
   });
 }
@@ -43,6 +49,17 @@ export function useSeedPayrollPeriod() {
   return useMutation({
     mutationFn: (input: { year: number; month: number }) =>
       runAction(() => seedPayrollPeriodAction(input)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: payrollKeys.all });
+    },
+  });
+}
+
+export function useSeedSacPeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { year: number; half: SacHalf }) =>
+      runAction(() => seedSacPeriodAction(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.all });
     },
@@ -92,6 +109,8 @@ type UpdateEntryVars = {
   viaticos?: number;
   deudas?: number;
   telefono?: number;
+  embargo?: number;
+  recibo_neto?: number | null;
   notes?: string | null;
 };
 

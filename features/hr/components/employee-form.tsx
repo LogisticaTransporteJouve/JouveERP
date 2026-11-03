@@ -64,6 +64,11 @@ type FormValues = {
   license_number: string;
   license_category: string;
   driver_phone: string;
+  convenio: string;
+  categoria: string;
+  obra_social: string;
+  art: string;
+  retribucion_formal: string;
 };
 
 function employeeToValues(employee: Employee | undefined): FormValues {
@@ -87,6 +92,14 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     license_number: "",
     license_category: "",
     driver_phone: "",
+    convenio: employee?.convenio ?? "",
+    categoria: employee?.categoria ?? "",
+    obra_social: employee?.obra_social ?? "",
+    art: employee?.art ?? "",
+    retribucion_formal:
+      employee?.retribucion_formal != null
+        ? String(employee.retribucion_formal)
+        : "",
   };
 }
 
@@ -103,6 +116,11 @@ function withoutVacationFields(values: FormValues) {
     is_monotributo: values.is_monotributo,
     hire_date: values.hire_date,
     notes: values.notes,
+    convenio: values.convenio,
+    categoria: values.categoria,
+    obra_social: values.obra_social,
+    art: values.art,
+    retribucion_formal: values.retribucion_formal,
     // Driver data only travels with a driver position.
     ...(isDriverPosition(values.position)
       ? {
@@ -328,8 +346,8 @@ export function EmployeeForm({
                   />
                 </FormControl>
                 <FormDescription>
-                  Vacío para choferes que cobran semanal — sólo el viático va
-                  por planilla mensual.
+                  El sueldo pactado. Un chofer mensual lleva su sueldo acá;
+                  vacío solo para quien cobra semanal.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -446,6 +464,66 @@ export function EmployeeForm({
             </div>
           </div>
         )}
+
+        <div className="space-y-3 rounded-md border p-4">
+          <div>
+            <h3 className="text-sm font-medium">Datos formales</h3>
+            <p className="text-xs text-muted-foreground">
+              Lo que figura en el recibo del liquidador. Opcional.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                ["convenio", "Convenio", "Ej. CCT 40/89 Camioneros"],
+                ["categoria", "Categoría", "Ej. 1.ª categoría"],
+                ["obra_social", "Obra social", ""],
+                ["art", "ART", ""],
+              ] as const
+            ).map(([name, label, placeholder]) => (
+              <FormField
+                key={name}
+                control={form.control}
+                name={name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{label}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        autoComplete="off"
+                        placeholder={placeholder}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+            <FormField
+              control={form.control}
+              name="retribucion_formal"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Retribución formal</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      autoComplete="off"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Bruto del recibo. Solo informativo.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         {mode === "create" && canSetVacations && (
           <div className="space-y-3 rounded-md border p-4">

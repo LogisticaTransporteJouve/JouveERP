@@ -46,27 +46,22 @@ import {
   exceedsBalance,
   payrollPayableAccounts,
 } from "../lib/payroll-payments";
+import { suggestedPayment } from "../lib/payroll-split";
 import {
+  isPayrollPaymentMethod,
   PAYROLL_PAYMENT_METHOD_LABEL,
   PAYROLL_PAYMENT_METHODS,
+  type PayrollEntryResolved,
   type PayrollPaymentMethod,
 } from "../payroll-schema";
 
-type EmployeeOption = {
-  entry_id: string;
-  employee_id: string;
-  employee_name: string;
-  saldo: number;
-};
-
 type ChannelOption = { id: string; name: string };
+
+const AMOUNT_RE = /^\d+(\.\d{1,2})?$/;
 
 const FormSchema = z.object({
   account_id: z.string().uuid("Seleccioná una cuenta."),
   channel_id: z.string().min(1, "Canal requerido."),
-  amount_each: z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Monto inválido (ej. 500000)."),
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500).optional(),
@@ -74,14 +69,32 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
+/** Suggested amount per entry for a method, as an editable string. */
+function suggestedAmounts(
+  entries: readonly PayrollEntryResolved[],
+  method: PayrollPaymentMethod,
+): Record<string, string> {
+  return Object.fromEntries(
+    entries.map((e) => {
+      const amount = suggestedPayment(e, method);
+      return [e.id, amount > 0 ? String(amount) : ""];
+    }),
+  );
+}
+
+function parseAmount(raw: string | undefined): number | null {
+  const value = (raw ?? "").trim();
+  return AMOUNT_RE.test(value) && Number(value) > 0 ? Number(value) : null;
+}
+
 export function BulkPayrollPaymentDialog({
-  employees,
+  entries,
   channels,
   year,
   month,
   disabled,
 }: {
-  employees: EmployeeOption[];
+  entries: PayrollEntryResolved[];
   channels: ChannelOption[];
   year: number;
   month: number;
@@ -89,6 +102,7 @@ export function BulkPayrollPaymentDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
   const { data: accountsData } = useAccountsList();
   const payableAccounts = useMemo(
     () => payrollPayableAccounts(accountsData ?? []),
@@ -103,46 +117,54 @@ export function BulkPayrollPaymentDialog({
     defaultValues: {
       account_id: payableAccounts[0]?.id ?? "",
       channel_id: defaultChannel,
-      amount_each: "",
-      method: "transferencia" as PayrollPaymentMethod,
+      method: "transferencia",
       paid_at: todayInAR(),
       notes: "",
     },
   });
+  const method = useWatch({ control: form.control, name: "method" });
+
+  // Each method suggests its own share (transfer = receipt net − garnishment
+  // − discounts; cash = the rest); switching it re-suggests every amount.
+  function applySuggestions(next: PayrollPaymentMethod) {
+    const suggested = suggestedAmounts(entries, next);
+    setAmounts(suggested);
+    setSelected(
+      new Set(entries.filter((e) => suggested[e.id] !== "").map((e) => e.id)),
+    );
+  }
 
   useEffect(() => {
     setAllowOverpay(false);
     if (!open) {
       setSelected(new Set());
+      setAmounts({});
       return;
     }
-    // Pre-select everyone with a balance > 0.
-    setSelected(
-      new Set(employees.filter((e) => e.saldo > 0).map((e) => e.entry_id)),
-    );
     form.reset({
       account_id: payableAccounts[0]?.id ?? "",
       channel_id: defaultChannel,
-      amount_each: "",
       method: "transferencia",
       paid_at: todayInAR(),
       notes: "",
     });
+    applySuggestions("transferencia");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const selectedCount = selected.size;
-  const amountEach = Number(
-    useWatch({ control: form.control, name: "amount_each" }) || 0,
+  const selectedEntries = entries.filter((e) => selected.has(e.id));
+  const invalidCount = selectedEntries.filter(
+    (e) => parseAmount(amounts[e.id]) === null,
+  ).length;
+  const totalAmount = selectedEntries.reduce(
+    (sum, e) => sum + (parseAmount(amounts[e.id]) ?? 0),
+    0,
   );
-  const totalAmount = selectedCount * amountEach;
-  const overpaidCount =
-    amountEach > 0
-      ? employees.filter(
-          (e) =>
-            selected.has(e.entry_id) && exceedsBalance(amountEach, e.saldo),
-        ).length
-      : 0;
+  const overpaidCount = selectedEntries.filter((e) => {
+    const amount = parseAmount(amounts[e.id]);
+    return amount !== null && exceedsBalance(amount, e.saldo);
+  }).length;
+  const selectedCount = selected.size;
 
   function toggleEmployee(entryId: string, checked: boolean) {
     setSelected((prev) => {
@@ -154,11 +176,7 @@ export function BulkPayrollPaymentDialog({
   }
 
   function toggleAll(checked: boolean) {
-    if (checked) {
-      setSelected(new Set(employees.map((e) => e.entry_id)));
-    } else {
-      setSelected(new Set());
-    }
+    setSelected(checked ? new Set(entries.map((e) => e.id)) : new Set());
   }
 
   function onSubmit(values: FormValues) {
@@ -166,12 +184,20 @@ export function BulkPayrollPaymentDialog({
       toast.error("Seleccioná al menos un empleado.");
       return;
     }
+    const items: { entry_id: string; amount: number }[] = [];
+    for (const e of selectedEntries) {
+      const amount = parseAmount(amounts[e.id]);
+      if (amount === null) {
+        toast.error("Completá un monto válido para cada empleado elegido.");
+        return;
+      }
+      items.push({ entry_id: e.id, amount });
+    }
     mut.mutate(
       {
-        entry_ids: [...selected],
+        items,
         account_id: values.account_id,
         channel_id: values.channel_id,
-        amount_each: Number(values.amount_each),
         method: values.method,
         paid_at: values.paid_at,
         notes: values.notes?.trim() ? values.notes : null,
@@ -202,73 +228,42 @@ export function BulkPayrollPaymentDialog({
         <DialogHeader>
           <DialogTitle>Pago masivo de sueldos</DialogTitle>
           <DialogDescription>
-            Transferí el mismo monto a varios empleados de una. Se genera un
-            pago + transaction de caja por cada uno.
+            Un pago por empleado, cada uno con su monto. Con el neto del recibo
+            cargado se sugiere la transferencia (recibo − embargo − descuentos)
+            o el efectivo (el resto); sin recibo, el saldo.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Employee selector */}
-            <div className="rounded-md border">
-              <div className="flex items-center justify-between border-b px-3 py-2">
-                <Label className="flex items-center gap-2 text-sm font-medium">
-                  <Checkbox
-                    checked={
-                      selectedCount === employees.length && employees.length > 0
-                    }
-                    onCheckedChange={(v) => toggleAll(Boolean(v))}
-                  />
-                  Empleados ({selectedCount}/{employees.length})
-                </Label>
-                <span className="text-xs text-muted-foreground">
-                  Saldo actual
-                </span>
-              </div>
-              <div className="max-h-56 overflow-y-auto">
-                {employees.map((e) => (
-                  <label
-                    key={e.entry_id}
-                    className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selected.has(e.entry_id)}
-                        onCheckedChange={(v) =>
-                          toggleEmployee(e.entry_id, Boolean(v))
-                        }
-                      />
-                      <span>{e.employee_name}</span>
-                    </div>
-                    <span
-                      className={`font-mono text-xs ${
-                        e.saldo > 0
-                          ? "text-muted-foreground dark:text-muted-foreground"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {formatMoney(e.saldo)}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="amount_each"
+                name="method"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Monto por empleado</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="500000"
-                        {...field}
-                      />
-                    </FormControl>
+                    <FormLabel>Método</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) => {
+                        if (!isPayrollPaymentMethod(v)) return;
+                        field.onChange(v);
+                        applySuggestions(v);
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAYROLL_PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {PAYROLL_PAYMENT_METHOD_LABEL[m]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -291,13 +286,73 @@ export function BulkPayrollPaymentDialog({
               />
             </div>
 
+            <div className="rounded-md border">
+              <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={
+                      selectedCount === entries.length && entries.length > 0
+                    }
+                    onCheckedChange={(v) => toggleAll(Boolean(v))}
+                  />
+                  Empleados ({selectedCount}/{entries.length})
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  Saldo · {PAYROLL_PAYMENT_METHOD_LABEL[method]}
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {entries.map((e) => {
+                  const isSelected = selected.has(e.id);
+                  const amount = parseAmount(amounts[e.id]);
+                  const over =
+                    isSelected &&
+                    amount !== null &&
+                    exceedsBalance(amount, e.saldo);
+                  return (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
+                    >
+                      <Label className="flex min-w-0 flex-1 items-center gap-2 font-normal">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(v) =>
+                            toggleEmployee(e.id, Boolean(v))
+                          }
+                        />
+                        <span className="truncate">
+                          {e.employee_legal_name}
+                        </span>
+                      </Label>
+                      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+                        {formatMoney(e.saldo)}
+                      </span>
+                      <Input
+                        aria-label={`Monto para ${e.employee_legal_name}`}
+                        inputMode="decimal"
+                        className="h-8 w-32 text-right font-mono"
+                        value={amounts[e.id] ?? ""}
+                        disabled={!isSelected}
+                        aria-invalid={isSelected && (amount === null || over)}
+                        onChange={(ev) => {
+                          const value = ev.target.value;
+                          setAmounts((prev) => ({ ...prev, [e.id]: value }));
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="account_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cuenta</FormLabel>
+                    <FormLabel>Cuenta en pesos</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -318,10 +373,10 @@ export function BulkPayrollPaymentDialog({
               />
               <FormField
                 control={form.control}
-                name="method"
+                name="channel_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Método</FormLabel>
+                    <FormLabel>Canal</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -329,9 +384,9 @@ export function BulkPayrollPaymentDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {PAYROLL_PAYMENT_METHODS.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {PAYROLL_PAYMENT_METHOD_LABEL[m]}
+                        {channels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -344,31 +399,6 @@ export function BulkPayrollPaymentDialog({
 
             <FormField
               control={form.control}
-              name="channel_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Canal</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {channels.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
@@ -376,7 +406,7 @@ export function BulkPayrollPaymentDialog({
                   <FormControl>
                     <Textarea
                       rows={2}
-                      placeholder="Ej. transferencia consolidada 15 mayo"
+                      placeholder="Ej. transferencias del día 5"
                       {...field}
                       value={field.value ?? ""}
                     />
@@ -389,8 +419,10 @@ export function BulkPayrollPaymentDialog({
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {selectedCount} empleado{selectedCount !== 1 ? "s" : ""} ×{" "}
-                  {formatMoney(amountEach)}
+                  {selectedCount} empleado{selectedCount !== 1 ? "s" : ""}
+                  {invalidCount > 0
+                    ? ` · ${invalidCount} sin monto válido`
+                    : ""}
                 </span>
                 <span className="font-mono font-medium">
                   Total: {formatMoney(totalAmount)}
@@ -401,8 +433,8 @@ export function BulkPayrollPaymentDialog({
             {overpaidCount > 0 && (
               <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
                 <p>
-                  {overpaidCount} empleado(s) quedarían con saldo negativo con{" "}
-                  {formatMoney(amountEach)} cada uno.
+                  {overpaidCount} empleado(s) quedarían con saldo negativo con
+                  el monto cargado.
                 </p>
                 <Label className="flex items-center gap-2 font-normal">
                   <Checkbox
@@ -431,7 +463,9 @@ export function BulkPayrollPaymentDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={mut.isPending || selectedCount === 0}
+                disabled={
+                  mut.isPending || selectedCount === 0 || invalidCount > 0
+                }
               >
                 {mut.isPending
                   ? "Registrando…"

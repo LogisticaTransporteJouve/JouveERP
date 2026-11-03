@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-import { listPayrollPeriodsAction } from "@/features/hr/actions/payroll-actions";
+import { getFinalSettlementAction } from "@/features/hr/actions/final-settlement-actions";
+import { listGarnishmentsAction } from "@/features/hr/actions/garnishments-actions";
+import {
+  getPayrollPeriodAction,
+  listPayrollPeriodsAction,
+} from "@/features/hr/actions/payroll-actions";
+import { payrollOtros, suggestedSplit } from "@/features/hr/lib/payroll-split";
+import { formatPayrollPeriod, sacMonth } from "@/features/hr/payroll-schema";
 import {
   getAttendanceSummaryAction,
   getDriverExtrasAction,
@@ -38,7 +45,7 @@ export const getPayrollSummary = defineAiAction({
   sideEffect: "read",
   sources: ["ai_payroll_summary", "v_payroll_entries_with_payments"],
   description:
-    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono), total a pagar, pagado y saldo. Montos netos (no hay bruto ni cargas sociales). Las liquidaciones no tienen canal: el alcance opcional (fiscal/internal/all) solo filtra lo pagado, por el canal de cada pago; el saldo es siempre el real.",
+    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono, embargo), total a pagar, pagado y saldo. El SAC (aguinaldo) cuenta en junio y diciembre. Montos netos (no hay bruto ni cargas sociales). Las liquidaciones no tienen canal: el alcance opcional (fiscal/internal/all) solo filtra lo pagado, por el canal de cada pago; el saldo es siempre el real.",
   input: PayrollSummaryInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);
@@ -71,7 +78,7 @@ export const getPayrollConcepts = defineAiAction({
   sideEffect: "read",
   sources: ["ai_payroll_concepts", "payroll_entries", "payroll_entry_extras"],
   description:
-    "Sueldos por concepto en un rango de períodos: conceptos fijos (sueldo neto, vacaciones, viáticos; deudas y teléfono en negativo) y cada extra/horas extra agrupado por descripción. Opción solo choferes.",
+    "Sueldos por concepto en un rango de períodos: conceptos fijos (sueldo neto, vacaciones, viáticos; deudas, teléfono y embargo en negativo) y cada extra/horas extra agrupado por descripción. Opción solo choferes.",
   input: PayrollConceptsInputSchema,
   run: async (_ctx, input) => {
     const res = await getPayrollConceptsAction(input);
@@ -197,7 +204,7 @@ export const getPayrollPeriods = defineAiAction({
   sideEffect: "read",
   sources: ["payroll_periods"],
   description:
-    "Períodos de liquidación de sueldos (año, mes, estado borrador/cerrado, fecha de cierre). Sin parámetros.",
+    "Períodos de liquidación de sueldos: mensuales y de SAC (aguinaldo, kind 'sac' en el mes 6 o 12), con año, mes, estado borrador/cerrado y fecha de cierre. Sin parámetros.",
   input: z.object({}),
   run: async () => {
     const res = await listPayrollPeriodsAction();
@@ -206,6 +213,125 @@ export const getPayrollPeriods = defineAiAction({
     return okResult(
       `${res.data.length} períodos de liquidación (${open} en borrador).`,
       res.data,
+    );
+  },
+});
+
+export const getPayrollPeriodDetail = defineAiAction({
+  name: "getPayrollPeriodDetail",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["payroll_periods", "v_payroll_entries_with_payments"],
+  description:
+    "Planilla de un período, por empleado: sueldo pactado, neto del recibo del liquidador, otros (pactado − recibo), extras, vacaciones, viáticos, descuentos y embargo, total, pagado (por transferencia y efectivo), saldo y el reparto sugerido (transferencia = recibo − embargo − descuentos; efectivo = el resto). Para el SAC usá kind 'sac' con month 6 (1.er semestre) o 12 (2.º).",
+  input: z.object({
+    year: z.number().int().describe("Año, ej. 2026."),
+    month: z.number().int().min(1).max(12).describe("Mes 1-12."),
+    kind: z
+      .enum(["monthly", "sac"])
+      .nullish()
+      .describe("monthly (default) o sac."),
+  }),
+  run: async (_ctx, input) => {
+    const kind = input.kind ?? "monthly";
+    const month =
+      kind === "sac" ? sacMonth(input.month <= 6 ? 1 : 2) : input.month;
+    const res = await getPayrollPeriodAction(input.year, month, kind);
+    if (!res.ok) return errResult(res.error);
+    const label = formatPayrollPeriod(input.year, month, kind);
+    if (!res.data.period) {
+      return okResult(`No hay planilla de ${label}.`, {
+        period: null,
+        rows: [],
+      });
+    }
+    const rows = res.data.entries.map((e) => ({
+      employee_id: e.employee_id,
+      employee: e.employee_legal_name,
+      sueldo_pactado: e.sueldo_neto,
+      recibo_neto: e.recibo_neto,
+      otros: payrollOtros(e),
+      extras: e.extras_total,
+      vacaciones: e.vacaciones_monto,
+      viaticos: e.viaticos,
+      deudas: e.deudas,
+      telefono: e.telefono,
+      embargo: e.embargo,
+      total_a_pagar: e.total_a_pagar,
+      pagado: e.paid_total,
+      pagado_transferencia: e.paid_transferencia,
+      pagado_efectivo: e.paid_efectivo,
+      saldo: e.saldo,
+      sugerido: suggestedSplit(e),
+    }));
+    const withoutReceipt = rows.filter((r) => r.recibo_neto === null).length;
+    return okResult(
+      `${label} (${res.data.period.status === "closed" ? "cerrada" : "borrador"}): ${rows.length} empleados · total ${money(
+        sumBy(rows, (r) => r.total_a_pagar),
+      )} · saldo ${money(sumBy(rows, (r) => r.saldo))} · embargos ${money(
+        sumBy(rows, (r) => r.embargo),
+      )}${withoutReceipt > 0 ? ` · ${withoutReceipt} sin recibo cargado` : ""}.`,
+      { period: res.data.period, rows },
+      { currency: "ARS", note: PAYROLL_NOTE },
+    );
+  },
+});
+
+export const getGarnishments = defineAiAction({
+  name: "getGarnishments",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["employee_garnishments"],
+  description:
+    "Embargos sobre sueldos: porcentaje del neto del recibo o monto fijo, vigencia (desde/hasta), beneficiario y juzgado. De un empleado o de todos.",
+  input: z.object({
+    employeeId: z
+      .string()
+      .uuid()
+      .nullish()
+      .describe("employee_id (de searchEmployees); vacío = todos."),
+  }),
+  run: async (_ctx, input) => {
+    const res = await listGarnishmentsAction(input.employeeId ?? undefined);
+    if (!res.ok) return errResult(res.error);
+    const open = res.data.filter((g) => g.active_to === null).length;
+    return okResult(
+      `${res.data.length} embargos (${open} sin fecha de fin).`,
+      res.data,
+      { partial: reachedCap(res.data.length, 500) },
+    );
+  },
+});
+
+export const getFinalSettlement = defineAiAction({
+  name: "getFinalSettlement",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: [
+    "employees",
+    "v_employee_vacation_balances",
+    "payroll_sac_suggestion",
+  ],
+  description:
+    "Liquidación final sugerida de un empleado dado de baja: sueldo por los días trabajados del último mes, días y monto de vacaciones no gozadas y SAC proporcional. Es una sugerencia; lo cargado en la planilla puede diferir.",
+  input: z.object({
+    employeeId: z.string().uuid().describe("employee_id del empleado."),
+  }),
+  run: async (_ctx, input) => {
+    const res = await getFinalSettlementAction(input.employeeId);
+    if (!res.ok) return errResult(res.error);
+    const d = res.data;
+    return okResult(
+      `Liquidación final (baja ${d.termination_date}): sueldo ${money(
+        d.prorated_salary,
+      )} por ${d.days_worked} días · vacaciones ${d.vacation_days} días ${money(
+        d.vacation_amount,
+      )} · SAC proporcional ${money(d.sac_amount)}.`,
+      d,
+      { currency: "ARS" },
     );
   },
 });

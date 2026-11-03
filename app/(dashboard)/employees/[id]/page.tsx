@@ -12,7 +12,9 @@ import {
 import { EmployeeDocumentsCard } from "@/features/employee-documents/components/employee-documents-card";
 import { getEmployeeByIdAction } from "@/features/hr/actions/employees-actions";
 import { EditEmployeeDialog } from "@/features/hr/components/edit-employee-dialog";
+import { EmployeeGarnishmentsCard } from "@/features/hr/components/employee-garnishments-card";
 import { EmployeeVacationsCard } from "@/features/hr/components/employee-vacations-card";
+import { FinalSettlementCard } from "@/features/hr/components/final-settlement-card";
 import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-employee-dialog";
 import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
@@ -130,6 +132,20 @@ export default async function EmployeeDetailPage({
         </div>
       </div>
 
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Datos formales</h2>
+        <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+          <Row label="Convenio" value={employee.convenio ?? "—"} />
+          <Row label="Categoría" value={employee.categoria ?? "—"} />
+          <Row label="Obra social" value={employee.obra_social ?? "—"} />
+          <Row label="ART" value={employee.art ?? "—"} />
+          <Row
+            label="Retribución formal"
+            value={money(employee.retribucion_formal)}
+          />
+        </dl>
+      </div>
+
       {employee.notes && (
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Notas</h2>
@@ -150,6 +166,12 @@ export default async function EmployeeDetailPage({
           />
         </div>
       </div>
+
+      <EmployeeGarnishmentsCard employeeId={employee.id} canWrite={canWrite} />
+
+      {!employee.is_active && employee.termination_date && canWrite && (
+        <FinalSettlementCard employeeId={employee.id} />
+      )}
 
       <EmployeeDocumentsCard employeeId={employee.id} canWrite={canWrite} />
     </div>

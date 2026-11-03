@@ -13,10 +13,12 @@ import { usePayrollPeriods } from "../hooks/use-payroll";
 import {
   PAYROLL_STATUS_LABEL,
   formatPayrollPeriod,
+  payrollPeriodHref,
   type PayrollPeriod,
 } from "../payroll-schema";
 
 import { NewPayrollPeriodDialog } from "./new-payroll-period-dialog";
+import { NewSacPeriodDialog } from "./new-sac-period-dialog";
 
 export function PayrollPeriodsList({ actorAccess }: { actorAccess: Access }) {
   const { data: periods } = usePayrollPeriods();
@@ -30,10 +32,18 @@ export function PayrollPeriodsList({ actorAccess }: { actorAccess: Access }) {
         enableSorting: false,
         cell: ({ row }) => (
           <Link
-            href={`/hr/payroll/${row.original.year}/${row.original.month}`}
+            href={payrollPeriodHref(
+              row.original.year,
+              row.original.month,
+              row.original.kind,
+            )}
             className="hover:underline"
           >
-            {formatPayrollPeriod(row.original.year, row.original.month)}
+            {formatPayrollPeriod(
+              row.original.year,
+              row.original.month,
+              row.original.kind,
+            )}
           </Link>
         ),
         meta: { cellClassName: "font-medium" },
@@ -79,7 +89,11 @@ export function PayrollPeriodsList({ actorAccess }: { actorAccess: Access }) {
         meta: { align: "right" },
         cell: ({ row }) => (
           <Link
-            href={`/hr/payroll/${row.original.year}/${row.original.month}`}
+            href={payrollPeriodHref(
+              row.original.year,
+              row.original.month,
+              row.original.kind,
+            )}
             className="text-sm text-primary hover:underline"
           >
             Abrir →
@@ -96,10 +110,15 @@ export function PayrollPeriodsList({ actorAccess }: { actorAccess: Access }) {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Sueldos</h1>
           <p className="text-sm text-muted-foreground">
-            Períodos mensuales. Una fila por mes con planilla editable.
+            Una planilla editable por mes, y una por semestre para el SAC.
           </p>
         </div>
-        {canWrite && <NewPayrollPeriodDialog />}
+        {canWrite && (
+          <div className="flex items-center gap-2">
+            <NewSacPeriodDialog />
+            <NewPayrollPeriodDialog />
+          </div>
+        )}
       </div>
 
       <DataTable
