@@ -9139,6 +9139,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
@@ -9174,6 +9175,7 @@ export type Database = {
           cuil: string | null
           hire_date: string
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_monotributo: boolean
           legal_name: string
@@ -9276,6 +9278,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
