@@ -14,6 +14,11 @@ import {
 // The go-live kinds (5.3) and bank statements (5.4).
 
 const CLI_1 = "00000000-0000-4000-8000-0000000000c1";
+const WH_1 = "00000000-0000-4000-8000-0000000002a1";
+const WH_2 = "00000000-0000-4000-8000-0000000002a2";
+const AREA_FRIO_1 = "00000000-0000-4000-8000-0000000002b1";
+const AREA_FRIO_2 = "00000000-0000-4000-8000-0000000002b2";
+const AREA_RACK = "00000000-0000-4000-8000-0000000002b3";
 const CARTERA = {
   id: "00000000-0000-4000-8000-0000000000e1",
   name: "Cheques en cartera",
@@ -46,6 +51,32 @@ const LOOKUPS: ImportLookups = {
   account: null,
   channelId: null,
   tariffs: [],
+  supplierCategories: [],
+  expenseAccounts: [],
+  costCenters: [],
+  areas: [
+    {
+      id: AREA_FRIO_1,
+      name: "Cámara de frío",
+      is_active: true,
+      warehouse_id: WH_1,
+      warehouse_name: "Depósito Norte",
+    },
+    {
+      id: AREA_FRIO_2,
+      name: "Cámara de frío",
+      is_active: true,
+      warehouse_id: WH_2,
+      warehouse_name: "Depósito Sur",
+    },
+    {
+      id: AREA_RACK,
+      name: "Rack",
+      is_active: false,
+      warehouse_id: WH_1,
+      warehouse_name: "Depósito Norte",
+    },
+  ],
 };
 
 function build(
@@ -110,6 +141,7 @@ describe("client tariffs", () => {
           {
             client_id: CLI_1,
             concept: "storage",
+            area_id: null,
             valid_from: "2025-01-01",
             valid_to: null,
           },
@@ -120,7 +152,104 @@ describe("client tariffs", () => {
     expect(rows[1]?.errors[0]).toMatch(/Se superpone con la tarifa vigente/);
     // Same start as the loaded one: the same tariff, skipped as a duplicate.
     expect(rows[2]?.status).toBe("ready");
-    expect(rows[2]?.key).toBe(`${CLI_1}|storage|2025-01-01`);
+    expect(rows[2]?.key).toBe(`${CLI_1}|storage||2025-01-01`);
+  });
+
+  describe("per area", () => {
+    const areaColumns = [
+      "client",
+      "concept",
+      "warehouse",
+      "area",
+      "price",
+      "valid_from",
+    ];
+
+    it("finds the area by name within its warehouse", () => {
+      const [norte, rack] = build("client_tariffs", areaColumns, [
+        [
+          "LogiSur",
+          "Almacenaje",
+          "deposito norte",
+          "cámara de frío",
+          "20",
+          "01/01/2026",
+        ],
+        ["LogiSur", "Almacenaje", "", "Rack", "15", "01/01/2026"],
+      ]);
+      expect(norte?.status).toBe("ready");
+      expect(norte?.payload).toMatchObject({ area_id: AREA_FRIO_1 });
+      expect(norte?.key).toBe(`${CLI_1}|storage|${AREA_FRIO_1}|2026-01-01`);
+      expect(norte?.detail).toContain("Área Cámara de frío (Depósito Norte)");
+      expect(norte?.warnings[0]).toMatch(/pisa a la general del cliente/);
+      // A name only one warehouse has needs no warehouse.
+      expect(rack?.payload).toMatchObject({ area_id: AREA_RACK });
+      expect(rack?.warnings).toContain("El área Rack está inactiva.");
+    });
+
+    it("refuses an ambiguous or unknown area and an area on a flete", () => {
+      const [ambiguous, unknown, freight] = build(
+        "client_tariffs",
+        areaColumns,
+        [
+          ["LogiSur", "Almacenaje", "", "Cámara de frío", "20", "01/01/2026"],
+          ["LogiSur", "Carga", "Depósito Sur", "Rack", "5", "01/01/2026"],
+          ["LogiSur", "Flete", "", "Rack", "9000", "01/01/2026"],
+        ],
+      );
+      expect(ambiguous?.errors).toEqual([
+        'Hay un área "Cámara de frío" en más de un depósito: agregá la columna Depósito.',
+      ]);
+      expect(unknown?.errors).toEqual([
+        'No hay un área "Rack" en el depósito Depósito Sur.',
+      ]);
+      expect(freight?.errors).toEqual(["El flete no lleva área."]);
+    });
+
+    it("an area tariff overlaps only tariffs of its own area", () => {
+      const rows = build(
+        "client_tariffs",
+        areaColumns,
+        [
+          [
+            "LogiSur",
+            "Almacenaje",
+            "Depósito Norte",
+            "Cámara de frío",
+            "20",
+            "01/03/2026",
+          ],
+          [
+            "LogiSur",
+            "Almacenaje",
+            "Depósito Sur",
+            "Cámara de frío",
+            "20",
+            "01/03/2026",
+          ],
+        ],
+        {
+          tariffs: [
+            {
+              client_id: CLI_1,
+              concept: "storage",
+              area_id: null,
+              valid_from: "2026-01-01",
+              valid_to: null,
+            },
+            {
+              client_id: CLI_1,
+              concept: "storage",
+              area_id: AREA_FRIO_2,
+              valid_from: "2026-01-01",
+              valid_to: null,
+            },
+          ],
+        },
+      );
+      expect(rows[0]?.status).toBe("ready");
+      expect(rows[1]?.errors[0]).toMatch(/Se superpone con la tarifa vigente/);
+    });
   });
 
   it("refuses two overlapping rows of the file", () => {

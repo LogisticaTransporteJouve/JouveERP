@@ -29,7 +29,7 @@ function mov(p: Partial<BookMovement> & { id: string }): BookMovement {
     signed_amount: -100,
     description: null,
     source_document: null,
-    line_id: null,
+    line_ids: [],
     ...p,
   };
 }
@@ -89,7 +89,7 @@ describe("suggestMatches", () => {
   it("skips lines not open, movements already reconciled and opposite signs", () => {
     const out = suggestMatches(
       [line({ id: "l1", status: "ignored" }), line({ id: "l2", amount: 100 })],
-      [mov({ id: "a", line_id: "x" }), mov({ id: "b" })],
+      [mov({ id: "a", line_ids: ["x"] }), mov({ id: "b" })],
       5,
     );
     expect(out).toEqual([]);
@@ -105,7 +105,7 @@ describe("summarize", () => {
         line({ id: "3", amount: -5, status: "ignored", ignore_reason: "x" }),
       ],
       movements: [
-        mov({ id: "a", signed_amount: 500, line_id: "1" }),
+        mov({ id: "a", signed_amount: 500, line_ids: ["1"] }),
         mov({ id: "b", signed_amount: -30 }),
         mov({ id: "c", signed_amount: -1, transaction_date: "2026-11-02" }),
       ],

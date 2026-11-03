@@ -143,6 +143,8 @@ const GUARDS = [
   "pay_tax_document",
   "link_tax_document_payment",
   "create_bank_statement_line_tax_payment",
+  "guard_bank_statement_match",
+  "match_bank_statement_lines",
   "recategorize_expense",
   "undo_tax_document_payment",
   "get_vehicle_margin",

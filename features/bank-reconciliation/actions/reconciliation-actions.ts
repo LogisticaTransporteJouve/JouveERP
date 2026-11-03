@@ -26,6 +26,7 @@ import {
   IgnoreLineSchema,
   LineIdSchema,
   MatchLineSchema,
+  MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
   SUGGESTION_DAY_WINDOW,
   isStatementLineStatus,
@@ -241,7 +242,13 @@ export async function getReconciliationAction(
       m.transaction_id,
     ]);
   }
-  const lineOfTx = new Map(byTx.data.map((m) => [m.transaction_id, m.line_id]));
+  const linesOfTx = new Map<string, string[]>();
+  for (const m of byTx.data) {
+    linesOfTx.set(m.transaction_id, [
+      ...(linesOfTx.get(m.transaction_id) ?? []),
+      m.line_id,
+    ]);
+  }
 
   const lines: StatementLine[] = chronological(lineRes.data).flatMap((l) => {
     if (!isStatementLineStatus(l.status)) {
@@ -272,7 +279,7 @@ export async function getReconciliationAction(
             signed_amount: signed(t.kind, Number(t.amount)),
             description: t.description,
             source_document: t.source_document,
-            line_id: lineOfTx.get(t.id) ?? null,
+            line_ids: linesOfTx.get(t.id) ?? [],
           },
         ]
       : [],
@@ -367,7 +374,53 @@ export async function acceptSuggestionsAction(
   };
 }
 
-/** Back to pending: its movements can be edited again. */
+/** Several lines the bank split one movement into, matched with it when
+ *  they add up to its signed amount. A retry of the same match is a no-op. */
+export async function matchLinesToMovementAction(
+  input: unknown,
+): Promise<ActionResult<{ transaction_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "transactions:write")) {
+    return { ok: false, error: WRITE_DENIED };
+  }
+  const parsed = MatchLinesToMovementSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { line_ids, transaction_id } = parsed.data;
+  const { error } = await getServiceClient().rpc("match_bank_statement_lines", {
+    p_line_ids: line_ids,
+    p_transaction_id: transaction_id,
+    p_user_id: ctx.userId,
+  });
+  if (error) {
+    return {
+      ok: false,
+      error: rejected(
+        error,
+        "reconciliation.match_lines.rejected",
+        ctx.userId,
+        transaction_id,
+        "No se pudieron conciliar las líneas.",
+      ),
+    };
+  }
+  for (const lineId of line_ids) {
+    await logAudit(
+      "bank_statement_line.matched",
+      ctx.userId,
+      { transaction_ids: [transaction_id], split: true },
+      lineId,
+    );
+  }
+  return { ok: true, data: { transaction_id } };
+}
+
+/** Back to pending with the rest of its reconciliation (the other lines of
+ *  a split movement): its movements can be edited again. */
 export async function unmatchLineAction(
   input: unknown,
 ): Promise<ActionResult<{ line_id: string }>> {

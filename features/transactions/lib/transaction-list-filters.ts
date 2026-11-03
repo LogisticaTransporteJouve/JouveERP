@@ -6,15 +6,18 @@ import {
 import { UuidSchema } from "@/lib/validation/common";
 
 import {
+  isReconciledFilter,
   isTransactionKind,
+  type ReconciledFilter,
   type TransactionFilters,
   type TransactionKind,
 } from "../schema";
 
-/** Caja's URL state: `?account&kind&period&from&to`. */
+/** Caja's URL state: `?account&kind&reconciled&period&from&to`. */
 export interface TransactionListParams {
   accountId: string | null;
   kind: TransactionKind | null;
+  reconciled: ReconciledFilter | null;
   period: PeriodSelection;
 }
 
@@ -22,6 +25,7 @@ export interface TransactionListParams {
 export const DEFAULT_TRANSACTION_LIST_PARAMS: TransactionListParams = {
   accountId: null,
   kind: null,
+  reconciled: null,
   period: { preset: null, from: null, to: null },
 };
 
@@ -32,6 +36,9 @@ export function parseTransactionListParams(
   return {
     accountId: account.success ? account.data : null,
     kind: isTransactionKind(params.kind) ? params.kind : null,
+    reconciled: isReconciledFilter(params.reconciled)
+      ? params.reconciled
+      : null,
     period: parsePeriodParams(params),
   };
 }
@@ -42,6 +49,7 @@ export function transactionListParamsToUrl(
   return {
     account: params.accountId,
     kind: params.kind,
+    reconciled: params.reconciled,
     period: params.period.preset,
     from: params.period.from,
     to: params.period.to,
@@ -59,6 +67,7 @@ export function transactionListFilters(
     is_fiscal: isFiscal,
     account_id: params.accountId,
     kind: params.kind,
+    reconciled: params.reconciled,
     date_from: range?.from ?? null,
     date_to: range?.to ?? null,
   };
