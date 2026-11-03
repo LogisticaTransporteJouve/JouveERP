@@ -244,7 +244,8 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
     (`23514`);
   - `en_cartera`: sale de la cartera del cheque (Haber `cheques_cartera`);
   - `endosado`: sin egreso; el trigger asienta Debe `cheques_rechazados` / Haber
-    `proveedores`.
+    `proveedores`. La OP que lo endosó ya no se anula ni se edita
+    (`20261104093000`): el cheque rechazado no vuelve a la cartera.
 - **Préstamos (roadmap 2.3, `20261103040100`):** el desembolso
   (`loans.disbursement_transaction_id`, `record_loan_disbursement`) asienta
   Debe banco / Haber `prestamos`. El pago de una cuota con desglose
@@ -253,7 +254,18 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   `prestamos` (capital), `intereses_pagados` (interés + otros cargos; `gastos`
   si ningún activo tiene el rol), `iva_credito`, `percepciones_iibb_pagadas`
   y Haber el banco; cada componente se convierte y redondea una vez y el
-  capital absorbe el redondeo. Sin desglose: Debe `gastos`, como siempre. El
+  capital absorbe el redondeo. Sin desglose (`capital_amount` nulo, el
+  cronograma por defecto y las cuotas importadas), si el pasivo del préstamo
+  está asentado (desembolso registrado o préstamo importado, `20261104093100`)
+  la cuota paga primero capital: Debe `prestamos` por lo que le queda al
+  capital después de las cuotas anteriores (por número; una con desglose cuenta
+  su capital, una sin desglose su importe), hasta lo pagado; el resto va a
+  intereses (`intereses_pagados`, `gastos`, o la cuenta de gasto del
+  movimiento). Pagadas en orden, `prestamos` termina en capital − Σ pagado, lo
+  mismo que muestra la pantalla y lee el resultado de gestión. Sin pasivo
+  asentado (préstamo sin desembolso ni importación): Debe `gastos`, como
+  siempre. Un préstamo con desembolso o cuotas pagadas no se anula ni se borra
+  y su desembolso no cambia (`guard_loan`, `20261104093200`). El
   movimiento se asienta al insertarse como suelto y `pay_loan_installment` /
   `adopt_loan_installment_payment` / `record_loan_disbursement` lo re-asientan
   al vincularlo. Una cuota pagada no cambia importe, desglose ni movimiento
@@ -348,6 +360,11 @@ desde caja. Emitirlo no mueve plata; rechazarlo o anularlo tampoco. Un cheque
 OP, a la fecha de la OP, y cobrarlo no agrega nada. Los cheques sin OP cobrados
 antes de este cambio no tienen egreso (no se rellena: puede que se haya cargado
 a mano). Sin canal el cobro se rechaza: el egreso necesita uno.
+Como un cheque sin OP nunca acreditó `cheques_diferidos_emitidos`, su cobro
+asienta Debe la cuenta de gasto por defecto del proveedor (o `gastos`) / Haber
+banco, no la reversa del pasivo (`20261104093300`). Una vez fuera de
+`emitted`, su importe, moneda y cuenta no cambian, y una OP no se le liga
+después (`guard_issued_check_edit`): solo la OP lo carga como línea.
 
 **UI:** `/transactions` (título "Caja"), `TransactionForm` 3-way (income/expense/
 transfer), filtros sincronizados a URL, `useRealtimeInvalidate`.

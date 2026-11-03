@@ -111,6 +111,28 @@
       general de todas las áreas (no cargarlas hasta que el deploy quede
       firme) y cobra la mora sobre el saldo de hoy.
 
+## Tesorería: auditoría de cheques, OP y préstamos (2026-11-04)
+
+- [x] Anular o editar una OP no devuelve a cartera un cheque endosado
+      rechazado; se rechaza con mensaje.
+- [x] Cuotas sin desglose bajan `prestamos` (capital primero) si el pasivo
+      está asentado; anular un préstamo con plata se rechaza.
+- [x] Cheque propio sin OP: el cobro asienta gasto, no reversa de pasivo; no
+      cambia importe, moneda ni cuenta después de emitido; no se le liga OP.
+- [x] Mora: el prorrateo cuenta solo NC emitidas.
+- [x] Cheques y cheques propios: completos los abiertos, 500 recientes del
+      resto con aviso; la guarda de cuentas de cheques falla cerrada.
+- [x] UI: "Pagar" deuda de cheque vendido sin estado viejo; ND por mora
+      refresca aunque falle el vínculo; resultados de varias ND con su
+      comprobante.
+- [ ] Aprobar las migraciones `20261104093000`–`20261104093400` con el deploy.
+- [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
+      propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
+      re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`).
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`payment_order_rejected_endorsed_checks`, `loan_liability`,
+      `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
+
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
 - [x] **Propuestas fuera del chat** (`ai_proposals`): preparar con los permisos de quien hace
