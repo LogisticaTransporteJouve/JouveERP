@@ -4,6 +4,8 @@ import {
   comprobanteLabel,
   computeLateInterest,
 } from "@/features/late-interest/lib/late-interest";
+import { suggestMatches } from "@/features/bank-reconciliation/lib/reconcile";
+import { SUGGESTION_DAY_WINDOW } from "@/features/bank-reconciliation/schema";
 import { MONEDA } from "@/lib/afip/codes";
 import { logger } from "@/lib/logger";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
@@ -15,18 +17,25 @@ import {
   CASH_WINDOW_DAYS,
   COMPARE_DAYS,
   LOAN_HORIZON_DAYS,
+  OVERDUE_GROWTH_DAYS,
   addDays,
   detectCashVsFinancing,
   detectClientMarginDrop,
   detectFuelOutliers,
   detectLateInterestUncharged,
   detectLoanInstallmentsDue,
+  detectOverdueGrowth,
   detectPendingSettlements,
   detectUnreconciledLines,
   detectVehicleCostPerKm,
+  lateBankLines,
+  mainBankAccount,
+  type BankMatchHint,
   type ClientMarginPair,
   type IndicatorFinding,
   type IndicatorKind,
+  type OpenBankLine,
+  type OverdueSnapshot,
   type VehicleCostPair,
   type VehicleFuelRow,
 } from "./detect";
@@ -242,13 +251,101 @@ async function lateInterest(today: string): Promise<IndicatorFinding[]> {
 
 // ─── Bank lines ──────────────────────────────────────────────────────────────
 
+/** A whole year at most: the reconciliation page's own period limit. */
+const MAX_MATCH_PERIOD_DAYS = 365;
+
+/** How many suggestions the reconciliation page would offer for these late
+ *  lines of one account (its suggestMatches over the account's movements
+ *  around them, the reconciled ones excluded). */
+async function bankMatchHint(
+  accountId: string,
+  lines: readonly (OpenBankLine & {
+    description: string;
+    reference: string | null;
+  })[],
+): Promise<BankMatchHint | null> {
+  const dates = lines.map((l) => l.line_date).sort();
+  const to = dates[dates.length - 1];
+  const first = dates[0];
+  if (!to || !first) return null;
+  const from =
+    first < addDays(to, -MAX_MATCH_PERIOD_DAYS)
+      ? addDays(to, -MAX_MATCH_PERIOD_DAYS)
+      : first;
+  const service = getServiceClient();
+  const tx = must(
+    await paginateRange((f, t) =>
+      service
+        .from("v_transactions_tagged")
+        .select("id, transaction_date, kind, amount, description")
+        .eq("account_id", accountId)
+        .gte("transaction_date", addDays(from, -SUGGESTION_DAY_WINDOW))
+        .lte("transaction_date", addDays(to, SUGGESTION_DAY_WINDOW))
+        .order("id")
+        .range(f, t),
+    ),
+    "bank_match_movements",
+  );
+  const ids = tx.flatMap((t) => (t.id ? [t.id] : []));
+  const matched = new Set(
+    must(
+      await fetchInChunks(ids, (chunk) =>
+        service
+          .from("bank_statement_matches")
+          .select("transaction_id")
+          .in("transaction_id", chunk),
+      ),
+      "bank_match_matches",
+    ).map((m) => m.transaction_id),
+  );
+  const suggestions = suggestMatches(
+    lines
+      .filter((l) => l.line_date >= from)
+      .map((l) => ({
+        id: l.id,
+        line_date: l.line_date,
+        description: l.description,
+        amount: l.amount,
+        balance: null,
+        reference: l.reference,
+        status: "open" as const,
+        ignore_reason: null,
+        transaction_ids: [],
+      })),
+    tx.flatMap((t) =>
+      t.id && t.transaction_date && t.kind && t.amount !== null
+        ? [
+            {
+              id: t.id,
+              transaction_date: t.transaction_date,
+              kind: t.kind,
+              signed_amount:
+                t.kind === "income" || t.kind === "transfer_in"
+                  ? Number(t.amount)
+                  : -Number(t.amount),
+              description: t.description,
+              source_document: null,
+              // Any non-null value marks it taken; suggestMatches only
+              // offers free movements.
+              line_id: matched.has(t.id) ? "matched" : null,
+            },
+          ]
+        : [],
+    ),
+    SUGGESTION_DAY_WINDOW,
+  );
+  return { account_id: accountId, from, to, suggestions: suggestions.length };
+}
+
 async function unreconciledLines(today: string): Promise<IndicatorFinding[]> {
   const service = getServiceClient();
   const rows = must(
     await paginateRange((from, to) =>
       service
         .from("bank_statement_lines")
-        .select("id, line_date, amount, account:accounts(name)")
+        .select(
+          "id, account_id, line_date, amount, description, reference, account:accounts(name)",
+        )
         .eq("status", "open")
         .lt("line_date", addDays(today, -BANK_LINE_MAX_AGE_DAYS))
         .order("id")
@@ -256,15 +353,26 @@ async function unreconciledLines(today: string): Promise<IndicatorFinding[]> {
     ),
     "bank_statement_lines",
   );
-  return detectUnreconciledLines(
-    rows.map((r) => ({
-      id: r.id,
-      account_name: r.account?.name ?? "—",
-      line_date: r.line_date,
-      amount: Number(r.amount),
-    })),
-    today,
-  );
+  const lines = rows.map((r) => ({
+    id: r.id,
+    account_id: r.account_id,
+    account_name: r.account?.name ?? "—",
+    line_date: r.line_date,
+    amount: Number(r.amount),
+    description: r.description,
+    reference: r.reference,
+  }));
+  const main = mainBankAccount(lateBankLines(lines, today));
+  // A failed suggestion read only costs the card its match proposal.
+  let hint: BankMatchHint | null = null;
+  if (main) {
+    try {
+      hint = await bankMatchHint(main.account_id, main.lines);
+    } catch (error) {
+      logger.warn("ai.insights.bank_match_hint_failed", { error });
+    }
+  }
+  return detectUnreconciledLines(lines, today, hint);
 }
 
 // ─── Driver rendiciones ──────────────────────────────────────────────────────
@@ -424,6 +532,53 @@ async function cashVsFinancing(today: string): Promise<IndicatorFinding[]> {
   return detectCashVsFinancing({ cashChange, disbursements, installmentsPaid });
 }
 
+// ─── Overdue receivables growth ──────────────────────────────────────────────
+
+const SNAPSHOT_COLUMNS = "snapshot_date, ars_overdue, usd_overdue";
+
+function toOverdue(r: {
+  snapshot_date: string;
+  ars_overdue: number;
+  usd_overdue: number;
+}): OverdueSnapshot {
+  return {
+    snapshot_date: r.snapshot_date,
+    ars_overdue: Number(r.ars_overdue),
+    usd_overdue: Number(r.usd_overdue),
+  };
+}
+
+/** The latest aging snapshot (aging-snapshot cron) and the latest one at
+ *  least OVERDUE_GROWTH_DAYS before it. */
+async function overdueGrowth(today: string): Promise<IndicatorFinding[]> {
+  const service = getServiceClient();
+  const latest = await service
+    .from("aging_snapshots")
+    .select(SNAPSHOT_COLUMNS)
+    .lte("snapshot_date", today)
+    .order("snapshot_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latest.error) throw latest.error;
+  if (!latest.data) return [];
+  const earlier = await service
+    .from("aging_snapshots")
+    .select(SNAPSHOT_COLUMNS)
+    .lte(
+      "snapshot_date",
+      addDays(latest.data.snapshot_date, -OVERDUE_GROWTH_DAYS),
+    )
+    .order("snapshot_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (earlier.error) throw earlier.error;
+  return detectOverdueGrowth(
+    toOverdue(latest.data),
+    earlier.data ? toOverdue(earlier.data) : null,
+    today,
+  );
+}
+
 // ─── All indicators ──────────────────────────────────────────────────────────
 
 export type IndicatorRun = {
@@ -460,6 +615,10 @@ export async function gatherIndicators(today: string): Promise<IndicatorRun> {
     },
     { kinds: ["loan_installments_due"], run: () => loanInstallments(today) },
     { kinds: ["cash_vs_financing"], run: () => cashVsFinancing(today) },
+    {
+      kinds: ["receivables_overdue_growth"],
+      run: () => overdueGrowth(today),
+    },
   ];
   const settled = await Promise.allSettled(jobs.map((j) => j.run()));
   const out: IndicatorRun = { findings: [], failed: [] };
