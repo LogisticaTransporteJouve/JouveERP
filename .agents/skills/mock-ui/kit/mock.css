@@ -1,0 +1,20 @@
+/* Mock-only styles. Everything else on the page is JouveERP's own CSS (app/globals.css). */
+:root { --mock-new: oklch(0.62 0.19 255); }
+.mock-new { outline: 1.5px dashed var(--mock-new); outline-offset: 3px; border-radius: 8px; }
+.mock-new-inline { display: inline-flex; }
+/* A whole panel or card edge: the mark sits inside it instead of spilling past the card. */
+.mock-new-inset { outline-offset: -2px; border-radius: 0; }
+.mock-clean .mock-new { outline: none; background: none; }
+/* Top centre: the one spot of JouveERP's header that never holds a control (between the breadcrumb and the search and bell). */
+.mock-bar { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 16px); display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; border: 0.5px solid var(--border); background: var(--popover); color: var(--popover-foreground); box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); font: 500 11px/1 var(--font-sans); }
+.mock-bar button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.mock-bar button:hover, .mock-bar button[aria-pressed="true"] { background: var(--accent); }
+.mock-bar button:focus-visible { outline: 2px solid var(--ring); }
+.mock-bar svg { width: 13px; height: 13px; }
+.mock-bar .mock-new-key { width: 14px; height: 10px; border-radius: 3px; outline: 1.5px dashed var(--mock-new); }
+.mock-help { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 54px); width: min(340px, calc(100vw - 24px)); padding: 14px 16px; border-radius: 10px; border: 0.5px solid var(--border); background: var(--popover); color: var(--popover-foreground); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); font: 12px/1.5 var(--font-sans); }
+.mock-help h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.mock-help p { margin: 0 0 8px; color: var(--muted-foreground); }
+.mock-help ol { margin: 0; padding-left: 18px; list-style: decimal; display: flex; flex-direction: column; gap: 4px; }
+.mock-toast { position: fixed; z-index: 70; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 44px); width: min(356px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--popover); color: var(--popover-foreground); box-shadow: 0 4px 12px rgb(0 0 0 / 0.1); font: 500 13px/1.4 var(--font-sans); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }

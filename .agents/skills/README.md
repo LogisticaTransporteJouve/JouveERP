@@ -37,6 +37,9 @@ Common entry points:
 - Run a resumable campaign over many items → `/long-loop`; clean up a markdown doc → `/improve-text-md`
 - Write or review SQL → `supabase-postgres-best-practices`
 - Make text shorter without losing meaning → `/tighten`
+- The same chain with the user in the loop and a readable page at each stage → `/td-plan`,
+  `/td-implement`, `/td-review`, `/td-build`; explain a flow, a PR or a set of issues as a page →
+  `/td-explain`; a clickable mock of a screen built from the real UI → `/mock-ui`
 
 Prerequisites:
 
@@ -76,6 +79,17 @@ running; `pnpm test:scripts` and `pnpm check:migrations` for the tooling gates. 
 | `auto-ship-gate` | Readiness manifest (`_shared/pr-readiness/manifest.md`), then the bot/CI loop, PR kept draft    |
 | `auto-build`     | The whole chain: plan → implement → review → ship gate                                          |
 
+The `td-*` skills run the same rails with the user in the loop, and hand the user an artifact page
+at each stage:
+
+| Skill          | What it does                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| `td-plan`      | `adv-planning` plus one-at-a-time decisions with the user and a plan page                         |
+| `td-implement` | `auto-implement` over a td-plan plan: stops on a false premise, commits per phase, never pushes   |
+| `td-review`    | `adv-review` plus a review page; on someone else's PR, a native GitHub review for the user to post |
+| `td-build`     | td-plan → td-implement → td-review → draft PR, with a progress bar on the plan page                |
+| `td-explain`   | Read-only page that walks one concrete case through a flow, a PR or a set of issues               |
+
 ## Scaffolds
 
 | Skill            | What it does                                                                            |
@@ -114,6 +128,7 @@ coverage table the seat must fill. Either missing makes the wave NON-CLEAN.
 | `restamp-migrations` | Fresh UTC timestamps for this branch's migrations (`pnpm db:restamp`)          |
 | `long-loop`          | A resumable, disk-backed campaign over hundreds of items                       |
 | `improve-text-md`    | Contradiction, dedupe and anchoring pass over a markdown document              |
+| `mock-ui`            | A clickable mock built from the real shell, `components/ui` and `app/globals.css` (kit in `mock-ui/kit/`) |
 
 ## Reusable references
 
