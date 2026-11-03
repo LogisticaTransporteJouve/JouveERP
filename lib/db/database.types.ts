@@ -1514,6 +1514,191 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_settlement_items: {
+        Row: {
+          created_at: string
+          expected_amount: number
+          id: string
+          note: string | null
+          released: boolean
+          settlement_id: string
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_amount: number
+          id?: string
+          note?: string | null
+          released?: boolean
+          settlement_id: string
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          note?: string | null
+          released?: boolean
+          settlement_id?: string
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_settlement_items_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_settlement_lines: {
+        Row: {
+          account_id: string
+          amount: number
+          bank_name: string | null
+          check_due_date: string | null
+          check_issue_date: string | null
+          check_number: string | null
+          created_at: string
+          drawer_cuit: string | null
+          drawer_name: string | null
+          id: string
+          item_id: string
+          receipt_id: string | null
+          reference: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          bank_name?: string | null
+          check_due_date?: string | null
+          check_issue_date?: string | null
+          check_number?: string | null
+          created_at?: string
+          drawer_cuit?: string | null
+          drawer_name?: string | null
+          id?: string
+          item_id: string
+          receipt_id?: string | null
+          reference?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          bank_name?: string | null
+          check_due_date?: string | null
+          check_issue_date?: string | null
+          check_number?: string | null
+          created_at?: string
+          drawer_cuit?: string | null
+          drawer_name?: string | null
+          id?: string
+          item_id?: string
+          receipt_id?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_settlement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+        ]
+      }
+      driver_settlements: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_by: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          notes: string | null
+          numero: number | null
+          settlement_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          notes?: string | null
+          numero?: number | null
+          settlement_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          notes?: string | null
+          numero?: number | null
+          settlement_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_settlements_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string
@@ -2485,6 +2670,136 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freight_settlement_items: {
+        Row: {
+          amount: number
+          client_tariff_id: string | null
+          created_at: string
+          id: string
+          price_source: string
+          released: boolean
+          settlement_id: string
+          shipment_id: string
+        }
+        Insert: {
+          amount: number
+          client_tariff_id?: string | null
+          created_at?: string
+          id?: string
+          price_source: string
+          released?: boolean
+          settlement_id: string
+          shipment_id: string
+        }
+        Update: {
+          amount?: number
+          client_tariff_id?: string | null
+          created_at?: string
+          id?: string
+          price_source?: string
+          released?: boolean
+          settlement_id?: string
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freight_settlement_items_client_tariff_id_fkey"
+            columns: ["client_tariff_id"]
+            isOneToOne: false
+            referencedRelation: "client_tariffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freight_settlement_items_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "freight_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freight_settlement_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freight_settlements: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_by: string | null
+          client_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string | null
+          invoicing_claimed_at: string | null
+          notes: string | null
+          numero: number | null
+          period_end: string
+          period_start: string
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          client_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoicing_claimed_at?: string | null
+          notes?: string | null
+          numero?: number | null
+          period_end: string
+          period_start: string
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          client_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoicing_claimed_at?: string | null
+          notes?: string | null
+          numero?: number | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freight_settlements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freight_settlements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -5089,6 +5404,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           client_id: string | null
+          cod_amount: number | null
           created_at: string
           created_by: string | null
           delivery_date: string | null
@@ -5110,6 +5426,7 @@ export type Database = {
         Insert: {
           channel_id?: string | null
           client_id?: string | null
+          cod_amount?: number | null
           created_at?: string
           created_by?: string | null
           delivery_date?: string | null
@@ -5131,6 +5448,7 @@ export type Database = {
         Update: {
           channel_id?: string | null
           client_id?: string | null
+          cod_amount?: number | null
           created_at?: string
           created_by?: string | null
           delivery_date?: string | null
@@ -7450,6 +7768,14 @@ export type Database = {
         }
         Returns: number
       }
+      cancel_driver_settlement: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      cancel_freight_settlement: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: undefined
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -7569,6 +7895,14 @@ export type Database = {
       coa_role_for_account: {
         Args: { p_account_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]
+      }
+      confirm_driver_settlement: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: string[]
+      }
+      confirm_freight_settlement: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: number
       }
       create_chat_group: {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
@@ -7711,6 +8045,32 @@ export type Database = {
           bucket: string
           bucket_path: string
           id: string
+        }[]
+      }
+      freight_price: {
+        Args: { p_shipment_id: string }
+        Returns: {
+          amount: number
+          client_tariff_id: string
+          price_source: string
+        }[]
+      }
+      freight_settlement_candidates: {
+        Args: {
+          p_client_id: string
+          p_period_end: string
+          p_period_start: string
+          p_settlement_id?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          origin: string
+          price_source: string
+          remito_number: string
+          service_date: string
+          shipment_id: string
         }[]
       }
       get_account_balances: {
@@ -7963,6 +8323,10 @@ export type Database = {
           punto_venta: number
         }[]
       }
+      link_freight_settlement_invoice: {
+        Args: { p_invoice_id: string; p_settlement_id: string }
+        Returns: undefined
+      }
       list_chat_assignable_users: {
         Args: never
         Returns: {
@@ -8175,6 +8539,29 @@ export type Database = {
         Returns: undefined
       }
       reverse_journal_entry: { Args: { p_entry_id: string }; Returns: string }
+      save_driver_settlement: {
+        Args: {
+          p_driver_id: string
+          p_items: Json
+          p_notes: string
+          p_settlement_date: string
+          p_settlement_id?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      save_freight_settlement: {
+        Args: {
+          p_client_id: string
+          p_notes: string
+          p_period_end: string
+          p_period_start: string
+          p_settlement_id?: string
+          p_shipment_ids: string[]
+          p_user_id: string
+        }
+        Returns: string
+      }
       search_chat_messages: {
         Args: { p_channel?: string; p_limit?: number; p_query: string }
         Returns: {

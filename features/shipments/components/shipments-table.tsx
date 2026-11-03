@@ -174,6 +174,11 @@ export function ShipmentsTable() {
                 Facturado
               </span>
             )}
+            {row.original.cod_amount !== null && (
+              <span className="text-xs text-muted-foreground">
+                Contra entrega {formatMoney(row.original.cod_amount)}
+              </span>
+            )}
           </div>
         ),
         meta: { align: "right", headerClassName: "w-40", mobile: "primary" },

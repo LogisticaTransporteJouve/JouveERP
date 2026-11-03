@@ -177,6 +177,12 @@ export function ClientTariffDialog({
                             shouldDirty: true,
                           });
                         }
+                        // Flete is priced in pesos only.
+                        if (next === "freight") {
+                          form.setValue("currency", "ARS", {
+                            shouldDirty: true,
+                          });
+                        }
                       }}
                     >
                       <FormControl>
@@ -251,7 +257,11 @@ export function ClientTariffDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Moneda</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={concept === "freight"}
+                    >
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue />

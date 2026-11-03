@@ -17,6 +17,7 @@ import {
   FolderOpen,
   Fuel,
   Gauge,
+  HandCoins,
   History,
   IdCard,
   LayoutDashboard,
@@ -342,6 +343,18 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Cargas",
         icon: Package,
         permission: "shipments:read",
+      },
+      {
+        href: "/liquidaciones",
+        label: "Liquidaciones",
+        icon: FileText,
+        permission: "invoices:read",
+      },
+      {
+        href: "/rendiciones",
+        label: "Rendiciones",
+        icon: HandCoins,
+        permission: "receipts:read",
       },
       {
         href: "/fuel",

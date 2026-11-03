@@ -97,6 +97,21 @@ const GUARDS = [
   "delete_employee_account_movement",
   "apply_salary_raise",
   "guard_client_tariff_overlap",
+  "guard_freight_settlement",
+  "guard_freight_settlement_item",
+  "guard_shipment_freight_settlement",
+  "save_freight_settlement",
+  "confirm_freight_settlement",
+  "link_freight_settlement_invoice",
+  "cancel_freight_settlement",
+  "guard_driver_settlement",
+  "guard_driver_settlement_item",
+  "guard_driver_settlement_line",
+  "guard_shipment_driver_settlement",
+  "guard_trip_driver_settlement",
+  "save_driver_settlement",
+  "confirm_driver_settlement",
+  "cancel_driver_settlement",
 ];
 
 describe("guard hints in migrations", () => {

@@ -41,6 +41,8 @@ export interface Shipment {
   delivery_date: string | null;
   failure_reason: string | null;
   freight_amount: number | null;
+  /** Cash on delivery: what the driver collects at delivery (null = no). */
+  cod_amount: number | null;
   invoice_id: string | null;
   notes: string | null;
   created_at: string;
@@ -93,6 +95,17 @@ const optionalAmount = z
   .nullable()
   .optional();
 
+/** Empty = not cash-on-delivery; otherwise a positive amount
+ *  (shipments_cod_amount_positive). */
+const optionalCodAmount = z
+  .union([
+    z.literal(""),
+    z.coerce.number().positive("El monto a cobrar tiene que ser mayor a 0."),
+  ])
+  .transform((v) => (v === "" ? null : v))
+  .nullable()
+  .optional();
+
 const optionalDate = z
   .union([
     z.literal(""),
@@ -116,6 +129,7 @@ export const ShipmentCreateSchema = z.object({
   description: optionalText(500),
   scheduled_date: optionalDate,
   freight_amount: optionalAmount,
+  cod_amount: optionalCodAmount,
   notes: optionalText(2000),
 });
 export type ShipmentCreateInput = z.infer<typeof ShipmentCreateSchema>;
@@ -131,6 +145,7 @@ export const ShipmentUpdateSchema = z.object({
   description: optionalText(500),
   scheduled_date: optionalDate,
   freight_amount: optionalAmount,
+  cod_amount: optionalCodAmount,
   notes: optionalText(2000),
 });
 

@@ -38,11 +38,12 @@ import { freightInvoiceDates } from "../lib/freight-invoice";
 const UNASSIGNED_LIMIT = 200;
 
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, cod_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
 function narrow(row: {
   status: string;
   freight_amount: number | null;
+  cod_amount: number | null;
   [key: string]: unknown;
 }): Shipment | null {
   if (!isShipmentStatus(row.status)) {
@@ -53,6 +54,7 @@ function narrow(row: {
     ...row,
     freight_amount:
       row.freight_amount === null ? null : Number(row.freight_amount),
+    cod_amount: row.cod_amount === null ? null : Number(row.cod_amount),
   } as Shipment;
 }
 
@@ -218,6 +220,7 @@ export async function createShipmentAction(
       description: parsed.data.description ?? null,
       scheduled_date: parsed.data.scheduled_date ?? null,
       freight_amount: parsed.data.freight_amount ?? null,
+      cod_amount: parsed.data.cod_amount ?? null,
       notes: parsed.data.notes ?? null,
       created_by: ctx.userId,
     })
@@ -266,6 +269,7 @@ export async function updateShipmentAction(
       ...(rest.freight_amount !== undefined && {
         freight_amount: rest.freight_amount,
       }),
+      ...(rest.cod_amount !== undefined && { cod_amount: rest.cod_amount }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
     .eq("id", id)
@@ -351,6 +355,13 @@ export async function changeShipmentStatusAction(
     return { ok: false, error: REMITO_TAKEN_ERROR };
   }
   if (updErr) {
+    // A carga in a live liquidación or rendición keeps its status.
+    const guardError = mapDbGuardError(updErr, {
+      slug: "shipments.status.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("shipments.status.update_failed", {
       userId: ctx.userId,
       error: updErr,
@@ -543,7 +554,11 @@ export async function invoiceFreightAction(
 
   const supabase = await createSupabaseClient();
   const shipmentId = parsed.data.shipmentId;
-  const claim = await claimShipmentForInvoicing(supabase, shipmentId);
+  const claim = await claimShipmentForInvoicing(
+    supabase,
+    shipmentId,
+    ctx.userId,
+  );
   if (!claim.ok) return claim;
   const result = await issueFreightInvoice(supabase, parsed.data);
   if (!result.ok) {
@@ -595,6 +610,7 @@ const CLAIM_TTL_MS = 15 * 60 * 1000;
 async function claimShipmentForInvoicing(
   supabase: SupabaseServerClient,
   shipmentId: string,
+  userId: string,
 ): Promise<ActionResult> {
   const staleBefore = new Date(Date.now() - CLAIM_TTL_MS).toISOString();
   const { data, error } = await supabase
@@ -605,6 +621,13 @@ async function claimShipmentForInvoicing(
     .or(`invoicing_claimed_at.is.null,invoicing_claimed_at.lt.${staleBefore}`)
     .select("id");
   if (error) {
+    // A carga in a live liquidación is billed from the liquidación.
+    const guardError = mapDbGuardError(error, {
+      slug: "shipments.freight_invoice.claim_rejected",
+      userId,
+      id: shipmentId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("shipments.freight_invoice.claim_failed", {
       shipmentId,
       error,

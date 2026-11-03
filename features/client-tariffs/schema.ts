@@ -7,6 +7,7 @@ export const CLIENT_TARIFF_CONCEPTS = [
   "storage",
   "handling_in",
   "handling_out",
+  "freight",
 ] as const;
 export type ClientTariffConcept = (typeof CLIENT_TARIFF_CONCEPTS)[number];
 
@@ -15,13 +16,23 @@ export const CLIENT_TARIFF_CONCEPT_LABELS: Record<ClientTariffConcept, string> =
     storage: "Almacenaje",
     handling_in: "Carga (ingreso)",
     handling_out: "Descarga (egreso)",
+    freight: "Flete",
   };
+
+/** The concepts storage billing prices; flete prices cargas in a
+ *  liquidación (features/freight-settlements). */
+export const STORAGE_TARIFF_CONCEPTS = [
+  "storage",
+  "handling_in",
+  "handling_out",
+] as const satisfies readonly ClientTariffConcept[];
 
 /** Mirrors client_tariffs.unit. */
 export const CLIENT_TARIFF_UNITS = [
   "pallet_day",
   "pallet_month",
   "pallet",
+  "shipment",
 ] as const;
 export type ClientTariffUnit = (typeof CLIENT_TARIFF_UNITS)[number];
 
@@ -29,6 +40,7 @@ export const CLIENT_TARIFF_UNIT_LABELS: Record<ClientTariffUnit, string> = {
   pallet_day: "Por pallet por día",
   pallet_month: "Por pallet por mes",
   pallet: "Por pallet",
+  shipment: "Por carga",
 };
 
 /** The units each concept takes (client_tariffs_concept_unit). */
@@ -39,6 +51,7 @@ export const UNITS_BY_CONCEPT: Record<
   storage: ["pallet_month", "pallet_day"],
   handling_in: ["pallet"],
   handling_out: ["pallet"],
+  freight: ["shipment"],
 };
 
 export const CLIENT_TARIFF_CURRENCIES = ["ARS", "USD"] as const;
@@ -115,6 +128,14 @@ function checkTariff(
       code: "custom",
       message: "La unidad no corresponde al concepto.",
       path: ["unit"],
+    });
+  }
+  // The liquidación and its invoice are in pesos (client_tariffs_concept_unit).
+  if (d.concept === "freight" && d.currency !== "ARS") {
+    ctx.addIssue({
+      code: "custom",
+      message: "El flete se tarifa en pesos.",
+      path: ["currency"],
     });
   }
   if (d.valid_to && d.valid_to < d.valid_from) {

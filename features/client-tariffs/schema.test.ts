@@ -7,6 +7,7 @@ import {
   CLIENT_TARIFF_UNIT_LABELS,
   ClientTariffCreateSchema,
   ClientTariffUpdateSchema,
+  STORAGE_TARIFF_CONCEPTS,
   UNITS_BY_CONCEPT,
   dailyPrice,
   isClientTariffConcept,
@@ -104,7 +105,28 @@ describe("catalog", () => {
     for (const u of CLIENT_TARIFF_UNITS) {
       expect(CLIENT_TARIFF_UNIT_LABELS[u]).toBeTruthy();
     }
-    expect(isClientTariffConcept("freight")).toBe(false);
+    expect(isClientTariffConcept("freight")).toBe(true);
+    expect(isClientTariffConcept("toll")).toBe(false);
+  });
+
+  it("prices flete per carga and only in pesos", () => {
+    const freight = {
+      client_id,
+      concept: "freight",
+      unit: "shipment",
+      price: 150000,
+      valid_from: "2026-01-01",
+    } as const;
+    expect(ClientTariffCreateSchema.safeParse(freight).success).toBe(true);
+    expect(
+      ClientTariffCreateSchema.safeParse({ ...freight, currency: "USD" })
+        .success,
+    ).toBe(false);
+    expect(
+      ClientTariffCreateSchema.safeParse({ ...freight, unit: "pallet" })
+        .success,
+    ).toBe(false);
+    expect(STORAGE_TARIFF_CONCEPTS).not.toContain("freight");
   });
 
   it("prorates a monthly price /30 into a daily one", () => {

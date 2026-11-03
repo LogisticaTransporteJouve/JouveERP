@@ -46,7 +46,8 @@ function vigencia(t: ClientTariff): string {
     : `Desde ${from}`;
 }
 
-/** The client's own prices (almacenaje, carga, descarga) with vigencia. */
+/** The client's own prices (almacenaje, carga, descarga, flete) with
+ *  vigencia. */
 export function ClientTariffsTab({
   clientId,
   canWrite,
@@ -66,7 +67,9 @@ export function ClientTariffsTab({
       const ok = await confirm({
         title: `Borrar tarifa de ${CLIENT_TARIFF_CONCEPT_LABELS[t.concept].toLowerCase()}`,
         description:
-          "En los días que cubría se vuelve a usar la tarifa de almacenaje. Las facturas ya emitidas no cambian.",
+          t.concept === "freight"
+            ? "Las cargas sin flete de esos días quedan sin precio para liquidar. Las liquidaciones ya confirmadas no cambian."
+            : "En los días que cubría se vuelve a usar la tarifa de almacenaje. Las facturas ya emitidas no cambian.",
         confirmLabel: "Borrar",
         tone: "destructive",
       });
@@ -179,7 +182,9 @@ export function ClientTariffsTab({
             días que cubren pisan a las tarifas de almacenaje; en el resto se
             usa la tarifa de almacenaje del cliente o, si no tiene, la general.
             Las tarifas en dólares se convierten con la cotización oficial del
-            último día del período facturado (o la anterior más cercana).
+            último día del período facturado (o la anterior más cercana). El
+            flete, por carga y en pesos, precia en las liquidaciones las cargas
+            que no tienen flete propio.
           </p>
         </div>
         {canWrite && (
