@@ -466,24 +466,6 @@ export async function getSupplierAccountAction(
   };
 }
 
-export type SupplierAgingDocument = {
-  purchase_invoice_id: string;
-  supplier_id: string;
-  fecha: string;
-  kind: string;
-  letter: string | null;
-  punto_venta: number;
-  numero: number;
-  imp_total: number;
-  amount_applied: number;
-  open_amount: number;
-  days_overdue: number;
-  bucket: "0_30" | "30_60" | "60_90" | "90_plus";
-  channel_id: string;
-  channel_name: string | null;
-  channel_is_fiscal: boolean;
-};
-
 const SUPPLIER_AGING_SELECT = `supplier_id, ${AGING_VIEW_AMOUNT_COLUMNS}, suppliers!inner(legal_name, cuit)`;
 
 // `isFiscal` null reads every channel (v_supplier_aging); a boolean reads that
