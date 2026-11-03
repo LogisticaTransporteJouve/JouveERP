@@ -54,15 +54,15 @@ test.describe("Chat — self channel happy path", () => {
     await expect(page.getByPlaceholder(/escribí un mensaje/i)).toBeVisible();
 
     await page.keyboard.press("Meta+k");
-    await expect(
-      page.getByPlaceholder(/buscá una palabra/i),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/buscá una palabra/i)).toBeVisible();
 
     // Cerrar el dialog con Escape para no contaminar el siguiente test.
     await page.keyboard.press("Escape");
   });
 
-  test("el bell del header está visible y abre el popover", async ({ page }) => {
+  test("el bell del header está visible y abre el popover", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
     const bell = page.getByRole("button", { name: /notificaciones/i });
     await expect(bell).toBeVisible();
@@ -89,8 +89,6 @@ test.describe("Chat — nuevo DM dialog", () => {
 
     // Cambiar a la tab de grupo y verificar que aparece el input nombre.
     await page.getByRole("tab", { name: /grupo/i }).click();
-    await expect(
-      page.getByPlaceholder(/nombre del grupo/i),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/nombre del grupo/i)).toBeVisible();
   });
 });
