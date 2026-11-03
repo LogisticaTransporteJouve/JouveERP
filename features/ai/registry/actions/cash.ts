@@ -137,7 +137,7 @@ export const getChecks = defineAiAction({
   description:
     "Third-party checks received: number, bank, drawer, due date, amount, " +
     "currency and status (in portfolio / deposited / credited / endorsed / " +
-    "bounced). Optional scope (fiscal/internal/all; checks with no channel " +
+    "bounced / sold to a bank or financiera). Optional scope (fiscal/internal/all; checks with no channel " +
     "only under 'all'). For the check portfolio or collections by check.",
   input: z.object({ scope: ScopeInputSchema }),
   run: (_ctx, input) => runChecks(input),

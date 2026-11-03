@@ -21,6 +21,7 @@ import {
   depositCheckAction,
   listChecksAction,
   rejectCheckAction,
+  sellChecksAction,
 } from "../actions/checks-actions";
 import { checksKeys } from "../lib/checks-keys";
 
@@ -64,3 +65,4 @@ export const useCreateCheque = makeChequeMutation(createCheckAction);
 export const useDepositCheque = makeChequeMutation(depositCheckAction);
 export const useCreditCheque = makeChequeMutation(creditCheckAction);
 export const useRejectCheque = makeChequeMutation(rejectCheckAction);
+export const useSellCheques = makeChequeMutation(sellChecksAction);

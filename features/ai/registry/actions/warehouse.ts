@@ -102,7 +102,7 @@ export const getStorageBilling = defineAiAction({
   sideEffect: "read",
   sources: ["pallets", "storage_tariffs", "client_tariffs", "clients"],
   description:
-    "Facturación de almacenaje calculada para un rango de fechas (con el tarifario propio de cada cliente donde lo tiene y la tarifa de almacenaje en el resto): por cliente pallets y cargo, total de almacenaje y movimientos, pallets sin tarifa y pallets con tarifa en USD sin cotización. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
+    "Facturación de almacenaje calculada para un rango de fechas (con el tarifario propio de cada cliente donde lo tiene, por área del depósito si la tarifa la tiene, y la tarifa de almacenaje en el resto): por cliente pallets y cargo, total de almacenaje y movimientos, pallets sin tarifa y pallets con tarifa en USD sin cotización. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
   input: z
     .object({
       periodStart: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),

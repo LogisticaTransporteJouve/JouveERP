@@ -1,10 +1,13 @@
 "use client";
 
+import { HandCoins } from "lucide-react";
+import { useMemo, useState } from "react";
+
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
-import { useMemo } from "react";
-
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
@@ -26,6 +29,7 @@ import {
   type CheckChannelOption,
 } from "./check-action-dialogs";
 import { NewChequeDialog } from "./new-check-dialog";
+import { SellChequesDialog } from "./sell-checks-dialog";
 
 const STATUS_TONE: Record<ChequeStatus, string> = {
   en_cartera: "bg-muted text-muted-foreground dark:text-muted-foreground",
@@ -33,6 +37,7 @@ const STATUS_TONE: Record<ChequeStatus, string> = {
   acreditado: "bg-muted text-muted-foreground dark:text-muted-foreground",
   endosado: "bg-muted text-muted-foreground dark:text-muted-foreground",
   rechazado: "bg-muted text-foreground dark:text-foreground",
+  vendido: "bg-muted text-muted-foreground dark:text-muted-foreground",
 };
 
 // Money formatter centralizado en lib/format (formatMoney).
@@ -47,6 +52,13 @@ export function ChequesTable({
   const { data } = useChecksList();
   const items = data.items;
   const canWrite = userCan(actorAccess, "cheques:write");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sellOpen, setSellOpen] = useState(false);
+  // Only checks still in the cartera can be sold; drop any that left it.
+  const selectedChecks = useMemo(
+    () => items.filter((c) => selected.has(c.id) && c.status === "en_cartera"),
+    [items, selected],
+  );
 
   // Realtime: any check change (status flips: depositado, acreditado,
   // endosado, rechazado) refreshes the list for everyone watching.
@@ -70,6 +82,7 @@ export function ChequesTable({
           acreditado: 0,
           endosado: 0,
           rechazado: 0,
+          vendido: 0,
         },
       ),
     [items],
@@ -77,6 +90,34 @@ export function ChequesTable({
 
   const columns = useMemo<ColumnDef<CheckListItem>[]>(
     () => [
+      ...(canWrite
+        ? [
+            {
+              id: "select",
+              header: "",
+              enableSorting: false,
+              meta: { headerClassName: "w-10", mobile: "primary" as const },
+              cell: ({ row }: { row: { original: CheckListItem } }) =>
+                row.original.status === "en_cartera" ? (
+                  <Checkbox
+                    checked={selected.has(row.original.id)}
+                    onCheckedChange={() =>
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(row.original.id)) {
+                          next.delete(row.original.id);
+                        } else {
+                          next.add(row.original.id);
+                        }
+                        return next;
+                      })
+                    }
+                    aria-label={`Seleccionar cheque ${row.original.check_number}`}
+                  />
+                ) : null,
+            } satisfies ColumnDef<CheckListItem>,
+          ]
+        : []),
       {
         accessorKey: "kind",
         header: "Tipo",
@@ -171,7 +212,8 @@ export function ChequesTable({
               {canWrite &&
                 (c.status === "en_cartera" ||
                   c.status === "depositado" ||
-                  c.status === "endosado") && (
+                  c.status === "endosado" ||
+                  c.status === "vendido") && (
                   <RejectChequeDialog check={c} channels={channels} />
                 )}
             </div>
@@ -179,13 +221,13 @@ export function ChequesTable({
         },
       },
     ],
-    [canWrite, channels],
+    [canWrite, channels, selected],
   );
 
   return (
     <>
       {/* Summary cards by status */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {(Object.keys(STATUS_TONE) as ChequeStatus[]).map((status) => (
           <div key={status} className="rounded-md border bg-card p-3 text-sm">
             <div className="text-xs text-muted-foreground">
@@ -202,6 +244,12 @@ export function ChequesTable({
         <ListToolbar
           actions={
             <>
+              {canWrite && selectedChecks.length > 0 && (
+                <Button variant="outline" onClick={() => setSellOpen(true)}>
+                  <HandCoins />
+                  Vender ({selectedChecks.length})
+                </Button>
+              )}
               <ExportButton resource="checks" />
               {canWrite && <NewChequeDialog channels={channels} />}
             </>
@@ -216,6 +264,16 @@ export function ChequesTable({
         emptyMessage="Todavía no hay cheques."
         wrapperClassName="mt-4"
       />
+
+      {canWrite && (
+        <SellChequesDialog
+          checks={selectedChecks}
+          channels={channels}
+          open={sellOpen}
+          onOpenChange={setSellOpen}
+          onSold={() => setSelected(new Set())}
+        />
+      )}
     </>
   );
 }

@@ -4,10 +4,12 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   CreditChequeSchema,
@@ -17,7 +19,9 @@ import {
   isChequeStatus,
   ManualChequeCreateSchema,
   RejectChequeSchema,
+  SellChequesSchema,
   type Cheque,
+  type SellChequesInput,
   type CheckMovement,
 } from "../schema";
 
@@ -389,19 +393,35 @@ export async function rejectCheckAction(
     });
     return { ok: false, error: "No se pudo cargar el cheque." };
   }
-  const deposit = check.check_movements
-    .filter((m) => m.event === "deposited" && m.destination_account_id)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  if (check.status === "depositado" && !deposit) {
+  const latestTo = (event: "deposited" | "sold") =>
+    check.check_movements
+      .filter((m) => m.event === event && m.destination_account_id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+      ?.destination_account_id ?? null;
+  // A sold check comes back from the account the buyer is repaid from (by
+  // default the sale's); a deposited one from the deposit's account.
+  const fromAccount =
+    check.status === "vendido"
+      ? (data.account_id ?? latestTo("sold"))
+      : check.status === "depositado"
+        ? latestTo("deposited")
+        : check.cartera_account_id;
+  if (check.status === "depositado" && !fromAccount) {
     return {
       ok: false,
       error: "No se encontró la cuenta donde se depositó el cheque.",
     };
   }
+  if (check.status === "vendido" && !fromAccount) {
+    return {
+      ok: false,
+      error: "Elegí la cuenta de la que sale la devolución al comprador.",
+    };
+  }
 
   const { data: id, error } = await supabase.rpc("reject_check", {
     p_check_id: data.check_id,
-    p_account_id: deposit?.destination_account_id ?? check.cartera_account_id,
+    p_account_id: fromAccount ?? check.cartera_account_id,
     p_event_date: data.event_date,
     p_channel_id: data.channel_id,
     p_notes: data.notes ?? "",
@@ -420,4 +440,66 @@ export async function rejectCheckAction(
 
   await logAudit("check.rejected", ctx.userId, {}, data.check_id);
   return { ok: true, data: { movement_id: id as string } };
+}
+
+/**
+ * Venta (descuento) of cartera checks to a bank or financiera (sell_checks):
+ * the checks leave the cartera as vendido, their face value goes to the
+ * destination account, and the interest and commission leave it as expenses
+ * imputed to Intereses pagados, so the account keeps the net. Idempotent on
+ * the dialog's key. Gated on cheques:write.
+ */
+export async function sellChecksAction(
+  input: SellChequesInput,
+): Promise<ActionResult<{ sale_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "cheques:write")) {
+    return { ok: false, error: "No tenés permiso para vender cheques." };
+  }
+  const parsed = SellChequesSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const d = parsed.data;
+
+  // Service role: sell_checks is granted to it alone, behind this gate.
+  const { data: saleId, error } = await getServiceClient().rpc("sell_checks", {
+    p_check_ids: d.check_ids,
+    p_account_id: d.account_id,
+    p_sale_date: d.sale_date,
+    p_channel_id: d.channel_id,
+    p_buyer_name: d.buyer_name,
+    p_buyer_cuit: d.buyer_cuit ?? "",
+    p_interest: d.interest,
+    p_commission: d.commission,
+    p_notes: d.notes ?? "",
+    p_idempotency_key: d.idempotency_key,
+    p_user_id: ctx.userId,
+  });
+  if (error || !saleId) {
+    const guard = mapDbGuardError(error, {
+      slug: "cheques.sell.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("cheques.sell.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo registrar la venta de cheques." };
+  }
+
+  await logAudit(
+    "check_sale.created",
+    ctx.userId,
+    {
+      check_ids: d.check_ids,
+      account_id: d.account_id,
+      buyer_name: d.buyer_name,
+      interest: d.interest,
+      commission: d.commission,
+    },
+    saleId,
+  );
+  return { ok: true, data: { sale_id: saleId } };
 }
