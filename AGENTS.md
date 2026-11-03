@@ -35,6 +35,7 @@ table lists only names and paths, so it does not go stale.
 | enforce-ui-state | `.agents/skills/enforce-ui-state/SKILL.md` |
 | improve-text-md | `.agents/skills/improve-text-md/SKILL.md` |
 | long-loop | `.agents/skills/long-loop/SKILL.md` |
+| mock-ui | `.agents/skills/mock-ui/SKILL.md` |
 | nav-github | `.agents/skills/nav-github/SKILL.md` |
 | nav-linear (optional) | `.agents/skills/nav-linear/SKILL.md` |
 | new-feature | `.agents/skills/new-feature/SKILL.md` |
@@ -42,6 +43,11 @@ table lists only names and paths, so it does not go stale.
 | new-migration | `.agents/skills/new-migration/SKILL.md` |
 | restamp-migrations | `.agents/skills/restamp-migrations/SKILL.md` |
 | supabase-postgres-best-practices | `.agents/skills/supabase-postgres-best-practices/SKILL.md` |
+| td-build | `.agents/skills/td-build/SKILL.md` |
+| td-explain | `.agents/skills/td-explain/SKILL.md` |
+| td-implement | `.agents/skills/td-implement/SKILL.md` |
+| td-plan | `.agents/skills/td-plan/SKILL.md` |
+| td-review | `.agents/skills/td-review/SKILL.md` |
 | tighten | `.agents/skills/tighten/SKILL.md` |
 | verify | `.agents/skills/verify/SKILL.md` |
 

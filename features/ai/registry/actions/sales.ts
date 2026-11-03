@@ -178,7 +178,7 @@ export const getClientSalesSummary = defineAiAction({
     "v_aging_documents",
   ],
   description:
-    "Ranking de clientes en un rango de fechas: facturado en ARS (facturas y ND menos NC, a la cotización de cada comprobante), cobrado por moneda, días promedio de cobro, deuda abierta y vencida actual, con totales de todos los clientes. Opcional un cliente. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
+    "Ranking de ventas por cliente en un rango de fechas: cuánto se le facturó a cada uno en ARS (facturas y ND menos NC, a la cotización de cada comprobante) y cuánto se cobró por moneda, con totales de todos los clientes. Para '¿cuánto le facturamos/vendimos a…?' o el ranking de clientes por facturación. Para días de pago, cuánto tardan en pagar, atrasos o quién paga peor usá getClientPaymentBehavior. Opcional un cliente. Alcance opcional (fiscal/internal/all); para facturación o IVA usá 'fiscal'.",
   input: ClientSalesSummaryInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);

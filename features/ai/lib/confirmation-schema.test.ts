@@ -19,6 +19,7 @@ const base: AiConfirmation = {
   summary: [],
   status: "superseded",
   result_id: null,
+  result_note: null,
   error: null,
   created_at: "2026-10-16T12:00:00Z",
   decided_at: null,

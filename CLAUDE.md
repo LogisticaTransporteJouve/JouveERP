@@ -80,6 +80,8 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
   `/enforce-reach`, `/enforce-outcomes`, `/enforce-effects`, `/enforce-claims`,
   `/enforce-data-integrity`, `/enforce-deploy-safety`, `/enforce-ui-state`;
   perf/telemetry en `.agents/skills/_shared/`.
+- **Con el usuario y una página por etapa:** `/td-plan`, `/td-implement`, `/td-review`, `/td-build`
+  (la cadena); `/td-explain` (explicar un flujo, PR o issues) y `/mock-ui` (maqueta con la UI real).
 - **Otros:** `/verify`, `/restamp-migrations`, `/nav-github`, `/nav-linear` (opcional),
   `supabase-postgres-best-practices`, `/tighten`.
 

@@ -27,7 +27,14 @@ const eslintConfig = defineConfig([
   },
   ...fenceBlocks,
   ...moneyBlocks,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  // .agents/ holds skill tooling (the mock-ui kit) that is never part of the app.
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    ".agents/**",
+  ]),
 ]);
 
 export default eslintConfig;

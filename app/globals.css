@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Skill docs and the mock-ui kit are not app UI: their class names stay out of the app CSS. */
+@source not "../.agents";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
