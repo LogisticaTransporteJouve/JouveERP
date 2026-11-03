@@ -25,6 +25,8 @@ import {
 import {
   purchaseKindLabel,
   PURCHASE_IVA_RATE_LABEL,
+  PURCHASE_TRIBUTE_FIELDS,
+  PURCHASE_TRIBUTE_LABEL,
   formatInvoiceNumber,
 } from "@/features/purchase-invoices/schema";
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
@@ -117,11 +119,11 @@ export default async function PurchaseInvoiceDetailPage({
     [
       ["No gravado", breakdown?.imp_no_gravado],
       ["Exento", breakdown?.imp_op_exentas],
-      ["· Percepción IVA", breakdown?.imp_perc_iva],
-      ["· Percepción IIBB", breakdown?.imp_perc_iibb],
-      ["· Municipales", breakdown?.imp_perc_municipales],
-      ["· Impuestos internos", breakdown?.imp_impuestos_internos],
-    ] as const
+      ...PURCHASE_TRIBUTE_FIELDS.map(
+        (field) =>
+          [`· ${PURCHASE_TRIBUTE_LABEL[field]}`, breakdown?.[field]] as const,
+      ),
+    ] satisfies (readonly [string, number | undefined])[]
   ).map(([label, value]) =>
     value ? (
       <Row key={label} label={label} value={money(value, invoice.moneda)} />

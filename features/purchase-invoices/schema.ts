@@ -141,12 +141,12 @@ export type PurchaseInvoiceItemInput = z.infer<
 
 const itemsArray = z.array(PurchaseInvoiceItemSchema).default([]);
 
-const EXEMPT_ITEMS_MESSAGE =
+export const EXEMPT_ITEMS_MESSAGE =
   "Con exento o no gravado en el encabezado, los ítems deben tener alícuota.";
 
 /** An item without a rate next to header exento/no gravado counts them twice
  *  (replace_purchase_invoice_items refuses it too, after the header insert). */
-function itemsDoubleCountExempt(d: {
+export function itemsDoubleCountExempt(d: {
   imp_no_gravado?: number;
   imp_op_exentas?: number;
   items?: { iva_rate_id: number | null }[];

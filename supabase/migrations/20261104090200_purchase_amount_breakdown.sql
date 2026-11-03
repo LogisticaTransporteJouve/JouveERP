@@ -4,8 +4,8 @@ SET LOCAL statement_timeout = '15min';
 -- Exempt, non-taxed and each tribute on every purchase.
 --
 --   imp_neto keeps meaning neto gravado. imp_trib stays as the sum of the four
---   tribute columns (CHECK), so every reader of imp_trib keeps working, and
---   imp_total = imp_neto + imp_no_gravado + imp_op_exentas + imp_iva + imp_trib.
+--   tribute columns (CHECK), so every reader of imp_trib keeps working. The
+--   journal and the libro IVA use the sum of the parts, not imp_total.
 --
 --   Journal: neto, no gravado, exento, municipales and internos post to the
 --   expense account; percepciones IVA to percepciones_iva_pagadas (iva_credito
@@ -15,8 +15,9 @@ SET LOCAL statement_timeout = '15min';
 --
 --   Order matters: columns, then the legacy fill, then the backfill (it does
 --   not queue a repost: imp_perc_iibb is not in the repost trigger's column
---   list until step 7), then the CHECK, then the functions, then the repost
---   trigger with the new columns.
+--   list until step 8, and the closed-period guard only lists it from step 7),
+--   then the CHECK, then the functions, then the repost trigger with the new
+--   columns.
 
 -- 1. Columns -------------------------------------------------------------------------
 

@@ -176,15 +176,16 @@ insert into public.purchase_invoices
    imp_neto, imp_iva, imp_perc_iva, imp_perc_iibb, imp_trib, imp_total, moneda, cotizacion)
 values
   ('00000000-0000-0000-0000-00000000ab15', 'jouve_fiscal', '00000000-0000-0000-0000-00000000ab01',
-   'factura', 'A', 4, 505, '2026-09-15', 100.33, 21.07, 0.01, 0.01, 0.02, 121.43, 'DOL', 1234.567);
+   'factura', 'A', 4, 505, '2026-09-15', 100.33, 21.07, 0.01, 0.01, 0.02, 121.42, 'DOL', 1234.567);
 
 -- 100.33, 21.07 and each 0.01 rounded on its own at 1234.567: 123864.11 + 26012.33 + 12.35 + 12.35.
-select is(
-  (select max(imp_total) from public.libro_iva_compras('2026-09')
-    where purchase_invoice_id = '00000000-0000-0000-0000-00000000ab15'),
-  (select credit from pab_lines
-    where id = '00000000-0000-0000-0000-00000000ab15' and target = 'proveedores'),
-  'a USD purchase with split tributes: the libro total equals the supplier line'
+select results_eq(
+  $$ select (select max(imp_total) from public.libro_iva_compras('2026-09')
+              where purchase_invoice_id = '00000000-0000-0000-0000-00000000ab15'),
+            (select credit from pab_lines
+              where id = '00000000-0000-0000-0000-00000000ab15' and target = 'proveedores') $$,
+  $$ values (149901.14, 149901.14) $$,
+  'a USD purchase with split tributes: the libro total and the supplier line round each part'
 );
 
 select results_eq(

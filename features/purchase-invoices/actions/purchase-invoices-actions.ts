@@ -18,11 +18,13 @@ import { getServiceClient } from "@/lib/supabase/service";
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
 import {
+  EXEMPT_ITEMS_MESSAGE,
   PURCHASE_INVOICE_KINDS,
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceUpdateSchema,
   isPurchaseInvoiceKind,
+  itemsDoubleCountExempt,
   isPurchaseInvoiceLetter,
   isPurchaseInvoiceStatus,
   isPurchaseIvaRateId,
@@ -54,7 +56,7 @@ type LetterAmounts = {
 async function carriesNonComputableAmounts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   v: LetterAmounts,
-): Promise<boolean | "failed"> {
+): Promise<boolean | { failed: unknown }> {
   if (v.letter === null || ivaIsComputable(v.letter)) return false;
   if (v.imp_iva + v.imp_no_gravado + v.imp_op_exentas === 0) return false;
   const { data, error } = await supabase
@@ -62,7 +64,7 @@ async function carriesNonComputableAmounts(
     .select("is_fiscal")
     .eq("id", v.channel_id)
     .maybeSingle();
-  if (error) return "failed";
+  if (error) return { failed: error };
   return data?.is_fiscal === true;
 }
 
@@ -414,9 +416,10 @@ export async function createPurchaseInvoiceAction(
     imp_no_gravado: parsed.data.imp_no_gravado,
     imp_op_exentas: parsed.data.imp_op_exentas,
   });
-  if (nonComputable === "failed") {
+  if (typeof nonComputable === "object") {
     logger.error("purchase_invoices.create.channel_failed", {
       userId: ctx.userId,
+      error: nonComputable.failed,
     });
     return { ok: false, error: "No se pudo cargar la factura." };
   }
@@ -576,12 +579,15 @@ export async function updatePurchaseInvoiceAction(
   const supabase = await createClient();
 
   // The letter rule applies to what this edit changes, so an old B purchase
-  // with IVA stays editable.
+  // with IVA stays editable. Items are checked against the stored exento too:
+  // replace_purchase_invoice_items refuses them only after the header is saved.
   if (
+    rest.channel_id !== undefined ||
     rest.letter !== undefined ||
     rest.imp_iva !== undefined ||
     rest.imp_no_gravado !== undefined ||
-    rest.imp_op_exentas !== undefined
+    rest.imp_op_exentas !== undefined ||
+    rest.items?.some((item) => item.iva_rate_id === null)
   ) {
     const { data: stored, error: storedError } = await supabase
       .from("purchase_invoices")
@@ -604,6 +610,9 @@ export async function updatePurchaseInvoiceAction(
       imp_no_gravado: rest.imp_no_gravado ?? stored.imp_no_gravado,
       imp_op_exentas: rest.imp_op_exentas ?? stored.imp_op_exentas,
     };
+    if (itemsDoubleCountExempt({ ...next, items: rest.items })) {
+      return { ok: false, error: EXEMPT_ITEMS_MESSAGE };
+    }
     const changed =
       next.letter !== stored.letter ||
       next.imp_iva !== stored.imp_iva ||
@@ -612,10 +621,11 @@ export async function updatePurchaseInvoiceAction(
       next.channel_id !== stored.channel_id;
     if (changed) {
       const nonComputable = await carriesNonComputableAmounts(supabase, next);
-      if (nonComputable === "failed") {
+      if (typeof nonComputable === "object") {
         logger.error("purchase_invoices.update.channel_failed", {
           userId: ctx.userId,
           id,
+          error: nonComputable.failed,
         });
         return { ok: false, error: "No se pudo actualizar la factura." };
       }

@@ -534,6 +534,15 @@ export function PurchaseInvoiceForm({
   const watchedChannelIsFiscal =
     channelIsFiscal(watchedChannelId, channels) ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
+  const showsExempt = watchedChannelIsFiscal && watchedLetter === "A";
+
+  // Hidden exento / no gravado would still count in the total but be sent as 0.
+  useEffect(() => {
+    if (showsExempt) return;
+    for (const name of ["imp_no_gravado", "imp_op_exentas"] as const) {
+      if (Number(form.getValues(name) || 0) !== 0) form.setValue(name, "0");
+    }
+  }, [showsExempt, form]);
 
   // An NC/ND only references an invoice of its own channel: switching the
   // channel drops the picked origin (the edit form's first load is not a switch).
@@ -688,24 +697,23 @@ export function PurchaseInvoiceForm({
       return;
     }
 
-    // Exento and no gravado only exist on a fiscal letter A purchase; the
-    // tributes are split on a fiscal one and are IIBB on an internal one.
-    const showsExempt = !isInternal && letter === "A";
+    // The tributes are split on a fiscal purchase and are IIBB on an internal one.
     const trib = Number(values.imp_trib || 0);
-    const parts = isInternal
-      ? {
-          imp_perc_iva: 0,
-          imp_perc_iibb: trib,
-          imp_perc_municipales: 0,
-          imp_impuestos_internos: 0,
-        }
-      : {
-          imp_perc_iva: Number(values.imp_perc_iva || 0),
-          imp_perc_iibb: Number(values.imp_perc_iibb || 0),
-          imp_perc_municipales: Number(values.imp_perc_municipales || 0),
-          imp_impuestos_internos: Number(values.imp_impuestos_internos || 0),
-        };
-    if (!isInternal && breakdownKnown) {
+    const parts =
+      isInternal || trib === 0
+        ? {
+            imp_perc_iva: 0,
+            imp_perc_iibb: trib,
+            imp_perc_municipales: 0,
+            imp_impuestos_internos: 0,
+          }
+        : {
+            imp_perc_iva: Number(values.imp_perc_iva || 0),
+            imp_perc_iibb: Number(values.imp_perc_iibb || 0),
+            imp_perc_municipales: Number(values.imp_perc_municipales || 0),
+            imp_impuestos_internos: Number(values.imp_impuestos_internos || 0),
+          };
+    if (!isInternal && trib !== 0 && breakdownKnown) {
       const message = tributesRemainingMessage(
         tributesRemaining(
           trib,
@@ -1161,7 +1169,7 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
-        {watchedChannelIsFiscal && watchedLetter === "A" && (
+        {showsExempt && (
           <div className="grid gap-4 sm:grid-cols-4">
             <FormField
               control={form.control}

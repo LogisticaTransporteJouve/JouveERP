@@ -133,6 +133,8 @@ function parseFile(path) {
     const supplier_name = (cols[8] ?? "").trim();
     const moneda_raw = (cols[12] ?? "").trim();
     const imp_neto = parseNumber(cols[24]);
+    const imp_no_gravado = parseNumber(cols[25]);
+    const imp_op_exentas = parseNumber(cols[26]);
     const otros_trib = parseNumber(cols[27]);
     const total_iva = parseNumber(cols[28]);
     const imp_total = parseNumber(cols[29]);
@@ -148,6 +150,8 @@ function parseFile(path) {
       supplier_name,
       moneda: moneda_raw === "$" ? "PES" : "DOL",
       imp_neto,
+      imp_no_gravado,
+      imp_op_exentas,
       imp_iva: total_iva,
       imp_trib: otros_trib,
       imp_total,
@@ -198,7 +202,9 @@ async function main() {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
-    console.error("Falta NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.");
+    console.error(
+      "Falta NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.",
+    );
     process.exit(1);
   }
 
@@ -295,23 +301,34 @@ async function main() {
       continue;
     }
 
-    const { error: insErr } = await supabase
-      .from("purchase_invoices")
-      .insert({
-        channel_id: args.channel,
-        supplier_id: supplierId,
-        kind: mapping.kind,
-        letter: mapping.letter,
-        punto_venta: row.punto_venta,
-        numero: row.numero,
-        fecha: row.fecha,
-        imp_neto: row.imp_neto,
-        imp_iva: row.imp_iva,
-        imp_trib: row.imp_trib,
-        imp_total: row.imp_total,
-        moneda: row.moneda,
-        cae_proveedor: row.cae,
-      });
+    const { error: insErr } = await supabase.from("purchase_invoices").insert({
+      channel_id: args.channel,
+      supplier_id: supplierId,
+      kind: mapping.kind,
+      letter: mapping.letter,
+      punto_venta: row.punto_venta,
+      numero: row.numero,
+      fecha: row.fecha,
+      // Exento and no gravado have their own columns only on letter A; on
+      // B and C they go inside the net, like the purchase form does.
+      ...(mapping.letter === "A"
+        ? {
+            imp_neto: row.imp_neto,
+            imp_no_gravado: row.imp_no_gravado,
+            imp_op_exentas: row.imp_op_exentas,
+          }
+        : {
+            imp_neto:
+              Math.round(
+                (row.imp_neto + row.imp_no_gravado + row.imp_op_exentas) * 100,
+              ) / 100,
+          }),
+      imp_iva: row.imp_iva,
+      imp_trib: row.imp_trib,
+      imp_total: row.imp_total,
+      moneda: row.moneda,
+      cae_proveedor: row.cae,
+    });
 
     if (insErr) {
       // 23505 = unique violation (duplicate)
