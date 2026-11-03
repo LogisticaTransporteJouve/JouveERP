@@ -24,6 +24,13 @@ const EMP_3 = "00000000-0000-4000-8000-000000000003";
 const VEH_1 = "00000000-0000-4000-8000-0000000000a1";
 const DRV_1 = "00000000-0000-4000-8000-0000000000d1";
 const CLI_1 = "00000000-0000-4000-8000-0000000000c1";
+const CAT_1 = "00000000-0000-4000-8000-0000000001a1";
+const CAT_2 = "00000000-0000-4000-8000-0000000001a2";
+const ACC_1 = "00000000-0000-4000-8000-0000000001b1";
+const ACC_2 = "00000000-0000-4000-8000-0000000001b2";
+const ACC_3 = "00000000-0000-4000-8000-0000000001b3";
+const CC_1 = "00000000-0000-4000-8000-0000000001c1";
+const CC_2 = "00000000-0000-4000-8000-0000000001c2";
 
 const LOOKUPS: ImportLookups = {
   today: "2026-11-03",
@@ -54,6 +61,20 @@ const LOOKUPS: ImportLookups = {
   account: null,
   channelId: null,
   tariffs: [],
+  supplierCategories: [
+    { id: CAT_1, name: "Combustible", slug: "combustible", is_active: true },
+    { id: CAT_2, name: "Viejos", slug: "viejos", is_active: false },
+  ],
+  expenseAccounts: [
+    { id: ACC_1, code: "5.1.2", name: "Combustibles" },
+    { id: ACC_2, code: "5.1.3", name: "Peajes" },
+    { id: ACC_3, code: "5.2.3", name: "Peajes" },
+  ],
+  costCenters: [
+    { id: CC_1, code: "FLOTA", name: "Flota", is_active: true },
+    { id: CC_2, code: "DEP", name: "Depósito", is_active: false },
+  ],
+  areas: [],
 };
 
 /** Builds a file whose header is `columns` (mapped in order). */
@@ -139,6 +160,56 @@ describe("clients and suppliers", () => {
   });
 });
 
+describe("supplier defaults", () => {
+  const columns = ["legal_name", "category", "expense_account", "cost_center"];
+
+  it("finds the category by name, the account and cost center by code or name", () => {
+    const [byCode, byName] = build("suppliers", columns, [
+      ["YPF Ruta 3", "combustible", "5.1.2", "flota"],
+      ["Otro Proveedor", "", "Combustibles", "Flota"],
+    ]);
+    expect(byCode?.status).toBe("ready");
+    expect(byCode?.payload).toMatchObject({
+      category_id: CAT_1,
+      default_expense_account_id: ACC_1,
+      default_cost_center_id: CC_1,
+    });
+    expect(byCode?.detail).toContain("Gasto 5.1.2 Combustibles");
+    expect(byName?.payload).toMatchObject({
+      category_id: null,
+      default_expense_account_id: ACC_1,
+      default_cost_center_id: CC_1,
+    });
+  });
+
+  it("refuses an unknown or ambiguous reference and warns on an inactive one", () => {
+    const [unknown, ambiguous, inactive] = build("suppliers", columns, [
+      ["A SRL", "Inexistente", "", ""],
+      ["B SRL", "", "Peajes", ""],
+      ["C SRL", "Viejos", "5.2.3", "DEP"],
+    ]);
+    expect(unknown?.errors).toEqual([
+      'No hay una categoría de proveedor "Inexistente".',
+    ]);
+    expect(ambiguous?.errors).toEqual([
+      'Hay más de una cuenta de gasto imputable "Peajes": usá el código.',
+    ]);
+    expect(inactive?.status).toBe("ready");
+    expect(inactive?.payload).toMatchObject({
+      default_expense_account_id: ACC_3,
+    });
+    expect(inactive?.warnings).toEqual([
+      "La categoría Viejos está inactiva.",
+      "El centro de costo Depósito está inactivo.",
+    ]);
+  });
+
+  it("a client file has no supplier defaults", () => {
+    const [row] = build("clients", ["legal_name"], [["Cliente X"]]);
+    expect(row?.payload).not.toHaveProperty("category_id");
+  });
+});
+
 describe("employees", () => {
   const columns = [
     "legal_name",
@@ -193,6 +264,52 @@ describe("employees", () => {
       "La fecha de egreso es anterior a la de ingreso.",
     ]);
     expect(mono?.errors).toEqual(["Monotributista: poné Sí o No."]);
+  });
+
+  it("keeps a driver's license and warns when it expired", () => {
+    const licenseColumns = [
+      "legal_name",
+      "hire_date",
+      "position",
+      "license_number",
+      "license_category",
+      "license_expires_at",
+    ];
+    const [driver, expired, soon, notDriver, badDate] = build(
+      "employees",
+      licenseColumns,
+      [
+        ["Chofer Uno", "2020-01-01", "Chofer", "123456", "E1", "31/12/2027"],
+        ["Chofer Dos", "2020-01-01", "Chofer", "", "", "01/10/2026"],
+        ["Chofer Tres", "2020-01-01", "Chofer", "", "", "20/11/2026"],
+        ["Admin Uno", "2020-01-01", "Administrativo", "99", "B1", ""],
+        ["Chofer Cuatro", "2020-01-01", "Chofer", "", "", "mañana"],
+      ],
+    );
+    expect(driver?.payload).toMatchObject({
+      license_number: "123456",
+      license_category: "E1",
+      license_expires_at: "2027-12-31",
+    });
+    expect(driver?.detail).toContain("Licencia 123456 (E1)");
+    expect(expired?.status).toBe("ready");
+    expect(expired?.warnings).toContain(
+      "La licencia ya venció: renovala en Flota › Vencimientos.",
+    );
+    expect(soon?.warnings).toContain(
+      "La licencia vence en los próximos 30 días.",
+    );
+    expect(notDriver?.payload).toMatchObject({
+      license_number: null,
+      license_category: null,
+      license_expires_at: null,
+    });
+    expect(notDriver?.warnings).toContain(
+      "La licencia es solo para el puesto Chofer / Acompañante: no se guarda.",
+    );
+    expect(badDate?.errors).toEqual([
+      'Vencimiento de licencia: fecha ilegible ("mañana").',
+    ]);
   });
 
   it("a row without CUIL is a duplicate of anyone with its name", () => {

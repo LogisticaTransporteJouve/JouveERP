@@ -23,7 +23,11 @@ import {
   addMonthsClamped,
   generateInstallments,
 } from "@/lib/loans/amortization";
-import { parseSheetDate, type ColumnMapping } from "@/lib/tables/columns";
+import {
+  normalizeHeader,
+  parseSheetDate,
+  type ColumnMapping,
+} from "@/lib/tables/columns";
 
 import {
   BankStatementImportRowSchema,
@@ -119,8 +123,33 @@ export type ImportLookups = {
   account: ImportAccount | null;
   /** The channel the user picked (loans, checks), or null. */
   channelId: string | null;
-  /** The general-area tariffs already loaded, for the overlap check. */
+  /** The tariffs already loaded (every area), for the overlap check. */
   tariffs: readonly ExistingTariff[];
+  /** Supplier categories, for a supplier's default category. */
+  supplierCategories: readonly {
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+  }[];
+  /** Postable expense accounts (expense_leaf_accounts). */
+  expenseAccounts: readonly { id: string; code: string; name: string }[];
+  costCenters: readonly {
+    id: string;
+    code: string;
+    name: string;
+    is_active: boolean;
+  }[];
+  /** Warehouse areas, for a per-area client tariff. */
+  areas: readonly ImportArea[];
+};
+
+export type ImportArea = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  warehouse_id: string;
+  warehouse_name: string;
 };
 
 export type ImportAccount = {
@@ -133,6 +162,7 @@ export type ImportAccount = {
 export type ExistingTariff = {
   client_id: string;
   concept: string;
+  area_id: string | null;
   valid_from: string;
   valid_to: string | null;
 };
@@ -143,7 +173,7 @@ type Cells = Record<string, string>;
 type FileState = {
   fuelCards: Map<string, string>;
   tripOccurrences: Map<string, number>;
-  /** client|concept → the ranges earlier rows of the file take. */
+  /** client|concept|area → the ranges earlier rows of the file take. */
   tariffRanges: Map<string, { from: string; to: string | null }[]>;
   lineOccurrences: Map<string, number>;
 };
@@ -231,11 +261,132 @@ function cuitDigits(value: string): string {
 
 // ─── Clients and suppliers ───────────────────────────────────────────────────
 
-function buildCounterparty(kind: "clients" | "suppliers", cells: Cells): Built {
+/** The record `raw` names: by its code first, else by its name, both
+ *  compared without case or accents. `what` reads "una cuenta de gasto". */
+function matchCodeOrName<T extends { name: string }>(
+  raw: string,
+  items: readonly T[],
+  code: (item: T) => string,
+  what: string,
+): Match<T> {
+  const key = normalizeHeader(raw);
+  const byCode = items.filter((i) => normalizeHeader(code(i)) === key);
+  const hits =
+    byCode.length > 0
+      ? byCode
+      : items.filter((i) => normalizeHeader(i.name) === key);
+  const only = hits.length === 1 ? hits[0] : undefined;
+  if (only) return { found: only, error: null };
+  return {
+    found: null,
+    error:
+      hits.length === 0
+        ? `No hay ${what} "${raw}".`
+        : `Hay más de ${what} "${raw}": usá el código.`,
+  };
+}
+
+type SupplierDefaults = {
+  category_id: string | null;
+  default_expense_account_id: string | null;
+  default_cost_center_id: string | null;
+  /** What the preview shows of them. */
+  labels: string[];
+};
+
+/** A supplier's category, expense account and cost center, as the file
+ *  names them. An unknown or ambiguous one is an error (nothing is dropped
+ *  silently); an inactive category or cost center a warning. */
+function supplierDefaults(
+  cells: Cells,
+  lookups: ImportLookups,
+  errors: string[],
+  warnings: string[],
+  reported: Set<string>,
+): SupplierDefaults {
+  const out: SupplierDefaults = {
+    category_id: null,
+    default_expense_account_id: null,
+    default_cost_center_id: null,
+    labels: [],
+  };
+  const categoryRaw = text(cells, "category");
+  if (categoryRaw) {
+    const m = matchCodeOrName(
+      categoryRaw,
+      lookups.supplierCategories,
+      (c) => c.slug,
+      "una categoría de proveedor",
+    );
+    if (m.found) {
+      out.category_id = m.found.id;
+      out.labels.push(m.found.name);
+      if (!m.found.is_active) {
+        warnings.push(`La categoría ${m.found.name} está inactiva.`);
+      }
+    } else if (m.error) {
+      errors.push(m.error);
+      reported.add("category_id");
+    }
+  }
+  const accountRaw = text(cells, "expense_account");
+  if (accountRaw) {
+    const m = matchCodeOrName(
+      accountRaw,
+      lookups.expenseAccounts,
+      (a) => a.code,
+      "una cuenta de gasto imputable",
+    );
+    if (m.found) {
+      out.default_expense_account_id = m.found.id;
+      out.labels.push(`Gasto ${m.found.code} ${m.found.name}`);
+    } else if (m.error) {
+      errors.push(m.error);
+      reported.add("default_expense_account_id");
+    }
+  }
+  const centerRaw = text(cells, "cost_center");
+  if (centerRaw) {
+    const m = matchCodeOrName(
+      centerRaw,
+      lookups.costCenters,
+      (c) => c.code,
+      "un centro de costo",
+    );
+    if (m.found) {
+      out.default_cost_center_id = m.found.id;
+      out.labels.push(`CC ${m.found.code}`);
+      if (!m.found.is_active) {
+        warnings.push(`El centro de costo ${m.found.name} está inactivo.`);
+      }
+    } else if (m.error) {
+      errors.push(m.error);
+      reported.add("default_cost_center_id");
+    }
+  }
+  return out;
+}
+
+function buildCounterparty(
+  kind: "clients" | "suppliers",
+  cells: Cells,
+  lookups: ImportLookups,
+): Built {
   const errors: string[] = [];
   const warnings: string[] = [];
   const reported = new Set<string>();
   const legalName = text(cells, "legal_name");
+  const defaults =
+    kind === "suppliers"
+      ? supplierDefaults(cells, lookups, errors, warnings, reported)
+      : null;
+  const defaultIds = defaults
+    ? {
+        category_id: defaults.category_id,
+        default_expense_account_id: defaults.default_expense_account_id,
+        default_cost_center_id: defaults.default_cost_center_id,
+      }
+    : {};
   const cuitRaw = text(cells, "cuit");
   const ivaRaw = text(cells, "iva_condition");
   const fiscal = cuitDigits(cuitRaw) !== "";
@@ -261,6 +412,7 @@ function buildCounterparty(kind: "clients" | "suppliers", cells: Cells): Built {
       address: text(cells, "address"),
       real_address: text(cells, "real_address"),
       notes: text(cells, "notes"),
+      ...defaultIds,
     };
   } else {
     if (ivaRaw || text(cells, "address")) {
@@ -276,6 +428,7 @@ function buildCounterparty(kind: "clients" | "suppliers", cells: Cells): Built {
       phone: text(cells, "phone"),
       real_address: text(cells, "real_address"),
       notes: text(cells, "notes"),
+      ...defaultIds,
     };
   }
 
@@ -300,10 +453,18 @@ function buildCounterparty(kind: "clients" | "suppliers", cells: Cells): Built {
     real_address: d.real_address ?? null,
     notes: d.notes ?? null,
     is_fiscal: d.is_fiscal,
+    ...(defaults && {
+      category_id: defaults.category_id,
+      default_expense_account_id: defaults.default_expense_account_id,
+      default_cost_center_id: defaults.default_cost_center_id,
+    }),
   };
   return {
     label: d.legal_name,
-    detail: d.is_fiscal ? `CUIT ${d.cuit}` : "Sin CUIT · interno",
+    detail: [
+      d.is_fiscal ? `CUIT ${d.cuit}` : "Sin CUIT · interno",
+      ...(defaults?.labels ?? []),
+    ].join(" · "),
     errors,
     warnings,
     key: counterpartyKey({
@@ -316,7 +477,7 @@ function buildCounterparty(kind: "clients" | "suppliers", cells: Cells): Built {
 
 // ─── Employees ───────────────────────────────────────────────────────────────
 
-function buildEmployee(cells: Cells): Built {
+function buildEmployee(cells: Cells, lookups: ImportLookups): Built {
   const kind = "employees";
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -350,6 +511,14 @@ function buildEmployee(cells: Cells): Built {
   const baseSalary = numberCell(kind, cells, "base_salary", errors, reported);
   const viatico = numberCell(kind, cells, "viatico_monthly", errors, reported);
   const position = parsePosition(text(cells, "position"));
+  const licenseExpires = dateCell(
+    kind,
+    cells,
+    "license_expires_at",
+    errors,
+    reported,
+    false,
+  );
 
   const parsed = EmployeeCreateSchema.safeParse({
     legal_name: legalName,
@@ -366,6 +535,8 @@ function buildEmployee(cells: Cells): Built {
     categoria: text(cells, "categoria"),
     obra_social: text(cells, "obra_social"),
     art: text(cells, "art"),
+    license_number: text(cells, "license_number"),
+    license_category: text(cells, "license_category"),
   });
   if (!parsed.success) {
     errors.push(...issueErrors(kind, parsed.error.issues, reported));
@@ -375,14 +546,41 @@ function buildEmployee(cells: Cells): Built {
     return invalid(label, errors, warnings);
   }
   const d = parsed.data;
+  const isDriver = isDriverPosition(d.position);
+  const license = isDriver
+    ? {
+        number: d.license_number ?? null,
+        category: d.license_category ?? null,
+        expires: licenseExpires,
+      }
+    : { number: null, category: null, expires: null };
   if (!d.cuil) warnings.push("Sin CUIL: se compara por nombre.");
-  if (isDriverPosition(d.position)) {
+  if (isDriver) {
     warnings.push("Es chofer: se crea también su ficha de chofer.");
+    if (license.expires && license.expires < lookups.today) {
+      warnings.push("La licencia ya venció: renovala en Flota › Vencimientos.");
+    } else if (
+      license.expires &&
+      license.expires <= addDaysIso(lookups.today, 30)
+    ) {
+      warnings.push("La licencia vence en los próximos 30 días.");
+    }
+  } else if (d.license_number || d.license_category || licenseExpires) {
+    warnings.push(
+      "La licencia es solo para el puesto Chofer / Acompañante: no se guarda.",
+    );
   }
   if (termination) warnings.push("Tiene fecha de egreso: entra inactivo.");
   return {
     label: d.legal_name,
-    detail: [d.cuil ? `CUIL ${d.cuil}` : "Sin CUIL", d.position]
+    detail: [
+      d.cuil ? `CUIL ${d.cuil}` : "Sin CUIL",
+      d.position,
+      license.number
+        ? `Licencia ${license.number}${license.category ? ` (${license.category})` : ""}`
+        : null,
+      license.expires ? `vence ${formatArgentineDate(license.expires)}` : null,
+    ]
       .filter(Boolean)
       .join(" · "),
     errors,
@@ -404,6 +602,9 @@ function buildEmployee(cells: Cells): Built {
       categoria: d.categoria ?? null,
       obra_social: d.obra_social ?? null,
       art: d.art ?? null,
+      license_number: license.number,
+      license_category: license.category,
+      license_expires_at: license.expires,
     },
   };
 }
@@ -801,6 +1002,44 @@ function rangesOverlap(
   return (a.to === null || a.to >= b.from) && (b.to === null || b.to >= a.from);
 }
 
+/** The area a tariff row names: by name within the warehouse the row names,
+ *  or among every warehouse's areas when it names none. */
+function matchArea(
+  areaRaw: string,
+  warehouseRaw: string,
+  lookups: ImportLookups,
+): Match<ImportArea> {
+  const pool = warehouseRaw
+    ? lookups.areas.filter(
+        (a) =>
+          normalizeHeader(a.warehouse_name) === normalizeHeader(warehouseRaw),
+      )
+    : lookups.areas;
+  if (warehouseRaw && pool.length === 0) {
+    return {
+      found: null,
+      error: `No hay un depósito "${warehouseRaw}" con áreas.`,
+    };
+  }
+  const hits = pool.filter(
+    (a) => normalizeHeader(a.name) === normalizeHeader(areaRaw),
+  );
+  const only = hits.length === 1 ? hits[0] : undefined;
+  if (only) return { found: only, error: null };
+  if (hits.length === 0) {
+    return {
+      found: null,
+      error: warehouseRaw
+        ? `No hay un área "${areaRaw}" en el depósito ${warehouseRaw}.`
+        : `No hay un área "${areaRaw}".`,
+    };
+  }
+  return {
+    found: null,
+    error: `Hay un área "${areaRaw}" en más de un depósito: agregá la columna Depósito.`,
+  };
+}
+
 function buildClientTariff(
   cells: Cells,
   lookups: ImportLookups,
@@ -822,6 +1061,25 @@ function buildClientTariff(
         : "Falta el concepto.",
     );
     reported.add("concept");
+  }
+  const areaRaw = text(cells, "area");
+  const warehouseRaw = text(cells, "warehouse");
+  let area: ImportArea | null = null;
+  if (areaRaw && concept === "freight") {
+    // client_tariffs_area_concept: flete prices cargas, not stored pallets.
+    errors.push("El flete no lleva área.");
+    reported.add("area_id");
+  } else if (areaRaw) {
+    const m = matchArea(areaRaw, warehouseRaw, lookups);
+    if (m.error) {
+      errors.push(m.error);
+      reported.add("area_id");
+    }
+    area = m.found;
+  } else if (warehouseRaw) {
+    warnings.push(
+      "Tiene depósito pero no área: la tarifa es para todas las áreas.",
+    );
   }
   const unit = concept ? parseTariffUnit(text(cells, "unit"), concept) : null;
   if (concept && !unit) {
@@ -854,6 +1112,7 @@ function buildClientTariff(
     valid_from: from,
     valid_to: to ?? "",
     notes: text(cells, "notes"),
+    area_id: area?.id ?? "",
   });
   if (!parsed.success) {
     return invalid(
@@ -863,14 +1122,17 @@ function buildClientTariff(
     );
   }
   const d = parsed.data;
+  const areaId = d.area_id ?? null;
   const range = { from: d.valid_from, to: d.valid_to ?? null };
-  const key = clientTariffKey(d);
+  const key = clientTariffKey({ ...d, area_id: areaId });
   // The same start is the same tariff (a re-import skips it); any other
-  // overlap would be refused by guard_client_tariff_overlap.
+  // overlap in the same area (or among the every-area ones) would be refused
+  // by guard_client_tariff_overlap.
   const clash = lookups.tariffs.find(
     (t) =>
       t.client_id === d.client_id &&
       t.concept === d.concept &&
+      t.area_id === areaId &&
       t.valid_from !== d.valid_from &&
       rangesOverlap(range, { from: t.valid_from, to: t.valid_to }),
   );
@@ -883,28 +1145,39 @@ function buildClientTariff(
       warnings,
     );
   }
-  const lineKey = `${d.client_id}|${d.concept}`;
+  const lineKey = `${d.client_id}|${d.concept}|${areaId ?? ""}`;
   const taken = state.tariffRanges.get(lineKey) ?? [];
   if (taken.some((r) => r.from !== range.from && rangesOverlap(r, range))) {
     return invalid(
       label,
       [
-        "Se superpone con otra tarifa del archivo del mismo cliente y concepto.",
+        area
+          ? "Se superpone con otra tarifa del archivo del mismo cliente, concepto y área."
+          : "Se superpone con otra tarifa del archivo del mismo cliente y concepto.",
       ],
       warnings,
     );
   }
   state.tariffRanges.set(lineKey, [...taken, range]);
+  if (area) {
+    warnings.push(
+      `Tarifa del área ${area.name}: pisa a la general del cliente para los pallets de esa área.`,
+    );
+    if (!area.is_active) warnings.push(`El área ${area.name} está inactiva.`);
+  }
   return {
     label,
     detail: [
       CLIENT_TARIFF_CONCEPT_LABELS[d.concept],
+      area ? `Área ${area.name} (${area.warehouse_name})` : null,
       CLIENT_TARIFF_UNIT_LABELS[d.unit],
       formatMoney(d.price, d.currency),
       d.valid_to
         ? `${formatArgentineDate(d.valid_from)} al ${formatArgentineDate(d.valid_to)}`
         : `desde ${formatArgentineDate(d.valid_from)}`,
-    ].join(" · "),
+    ]
+      .filter(Boolean)
+      .join(" · "),
     errors,
     warnings,
     key,
@@ -917,6 +1190,7 @@ function buildClientTariff(
       valid_from: d.valid_from,
       valid_to: d.valid_to ?? null,
       notes: d.notes ?? null,
+      area_id: areaId,
     },
   };
 }
@@ -1312,9 +1586,9 @@ function buildOne(
   switch (kind) {
     case "clients":
     case "suppliers":
-      return buildCounterparty(kind, cells);
+      return buildCounterparty(kind, cells, lookups);
     case "employees":
-      return buildEmployee(cells);
+      return buildEmployee(cells, lookups);
     case "vehicles":
       return buildVehicle(cells, lookups, state);
     case "historic_payroll":

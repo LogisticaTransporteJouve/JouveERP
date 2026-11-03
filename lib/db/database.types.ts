@@ -2976,6 +2976,7 @@ export type Database = {
           driver_id: string | null
           expires_at: string
           id: string
+          import_run_id: string | null
           issued_at: string | null
           kind: string
           notes: string | null
@@ -2991,6 +2992,7 @@ export type Database = {
           driver_id?: string | null
           expires_at: string
           id?: string
+          import_run_id?: string | null
           issued_at?: string | null
           kind: string
           notes?: string | null
@@ -3006,6 +3008,7 @@ export type Database = {
           driver_id?: string | null
           expires_at?: string
           id?: string
+          import_run_id?: string | null
           issued_at?: string | null
           kind?: string
           notes?: string | null
@@ -3027,6 +3030,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_documents_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
           {

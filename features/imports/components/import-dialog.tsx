@@ -60,16 +60,16 @@ const KIND_NOTES: Record<ImportKind, string> = {
   clients:
     "Crea los clientes que no existen. Se compara por CUIT (o por nombre si no tiene).",
   suppliers:
-    "Crea los proveedores que no existen. Se compara por CUIT (o por nombre si no tiene).",
+    "Crea los proveedores que no existen. Se compara por CUIT (o por nombre si no tiene). Categoría, cuenta de gasto y centro de costo se buscan por nombre o código; un proveedor que ya existe no se actualiza.",
   employees:
-    "Crea los empleados que no existen. Se compara por CUIL (o por nombre si no tiene).",
+    "Crea los empleados que no existen. Se compara por CUIL (o por nombre si no tiene). Un chofer guarda su licencia (número, categoría y vencimiento) en su ficha de chofer.",
   vehicles: "Crea los vehículos que no existen. Se compara por patente.",
   historic_payroll:
     "Sueldos de meses anteriores al sistema, solo de referencia: no generan asientos, pagos ni cuenta corriente del empleado. Los empleados tienen que estar cargados.",
   historic_trips:
     "Viajes anteriores al sistema, solo de referencia: no generan facturas, extras de chofer ni rentabilidad. Vehículo, chofer y cliente se buscan por patente, nombre o CUIT; si no se encuentran se guarda el texto.",
   client_tariffs:
-    "Crea las tarifas por cliente con su vigencia, como el tarifario del cliente (para todas las áreas). Una tarifa que se superpone con otra del mismo concepto queda con error; la misma tarifa con el mismo inicio se saltea. Los clientes tienen que estar cargados.",
+    "Crea las tarifas por cliente con su vigencia, como el tarifario del cliente: para todas las áreas, o para un área si la fila la nombra (se busca por nombre dentro del depósito). Una tarifa que se superpone con otra del mismo concepto y área queda con error; la misma tarifa con el mismo inicio se saltea. Los clientes tienen que estar cargados.",
   loans:
     "Crea los préstamos vigentes al arranque con sus cuotas pendientes, como el alta de préstamo. No registra el desembolso: la deuda entra con el ajuste inicial. Cada cuota se edita o desglosa después.",
   checks:
