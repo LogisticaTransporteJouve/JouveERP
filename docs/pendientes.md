@@ -152,6 +152,63 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
       `payroll_audit_fixes`, `driver_settlement_differences`,
       `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
+## Saldos de apertura, aging y diferencia de cambio (2026-11-04, auditoría w1)
+
+- [x] **Saldo de apertura de proveedor** (`20261104094100`): salda el saldo
+      real al corte (facturas y ND − NC − OP emitidas, en pesos) menos el
+      objetivo; el FIFO va sobre lo que dejan OP y NC. Antes ignoraba OP y NC.
+- [x] **Saldo de apertura de cliente** (mismo archivo): el FIFO salta lo que ya
+      acreditó una NC y los comprobantes USD no entran en un saldo en pesos.
+- [ ] Los saldos de apertura ya cargados no se recalculan: el owner los vuelve
+      a aplicar para corregirlos.
+- [x] **NC sin origen en el aging** (`20261104094200`): su crédito se reparte
+      sobre los comprobantes abiertos del cliente (mismo canal y moneda, del más
+      vencido al más nuevo), así aging, saldo por ámbito, fotos del aging, mora,
+      tareas y herramientas de IA coinciden con la cuenta corriente. El tope de
+      una NC con origen lee `invoice_open_amount` (lo que debe ese comprobante).
+- [ ] Mora: el crédito de una NC sin origen baja la base de todo el período
+      (no desde su fecha). Cobra de menos, nunca de más.
+- [ ] El crédito de NC sin origen que supera lo abierto no se muestra en el
+      aging (la cuenta corriente sí lo muestra).
+- [x] **Diferencia de cambio** (`20261104094000` + `094300`): recibo USD contra
+      factura/ND USD, NC USD contra su origen y OP USD contra compra USD a otra
+      cotización van a la cuenta con rol `diferencia_cambio` (4.2.x
+      "Diferencias de cambio"); clientes y proveedores quedan en 0 en pesos.
+      Sin cuenta activa con ese rol se asienta como antes.
+- [ ] Diferencia de cambio pendiente: NC de compra USD a otra cotización que
+      su factura, NC de venta sin origen, y documentos USD cuya cotización no se
+      conoce (asentados 1:1). Los asientos en períodos cerrados conservan el
+      asiento viejo (el backfill los cuenta en un NOTICE).
+- [ ] Cambiar `invoice_origin_id` de una NC emitida no re-asienta su diferencia
+      de cambio (hoy ningún flujo lo cambia).
+- [ ] Resultado de gestión: la cuenta "Diferencias de cambio" no tiene caja
+      asignada, así que aparece en "Sin clasificar" hasta que el owner la
+      clasifique.
+## Auditoría: liquidaciones y flete (2026-11-04)
+
+- [x] **Contador externo (`fiscal_reader`):** en `/liquidaciones` ve solo las
+      del lado fiscal (canal confirmado, o el del cliente en un borrador o
+      una legacy): listado, detalle, PDF del R, datos para el email y la
+      herramienta IA. No lee candidatas (cargas). Los datos del email de un
+      comprobante (`getInvoiceEmailDefaultsAction`) validan el id y ocultan
+      los internos.
+- [x] **Una sola factura por liquidación o carga:** la factura se emite con
+      una clave derivada de la liquidación o la carga
+      (`lib/source-invoice-key.ts`); un "Facturar" después de que venció la
+      reserva vincula la factura ya emitida en vez de emitir otra (en una
+      carga, solo si sigue con el mismo cliente y flete). Cancelar una
+      liquidación con una factura emitida y sin vincular se rechaza.
+- [x] **Carga nueva:** el flete tomado de la tarifa sigue al cliente y a la
+      fecha (se vacía si el nuevo no tiene tarifa); un flete tipeado queda.
+      Editar una tarifa refresca la sugerencia y las candidatas.
+- [ ] Las facturas emitidas antes de este cambio llevan una clave al azar: una
+      liquidación o carga facturada así y nunca vinculada no se detecta.
+- [ ] La clave se busca en las primeras 20 tentativas: con 20 facturas
+      fallidas o anuladas, facturar de nuevo se rechaza (revisar a mano).
+- [ ] La clave es por fuente: una carga facturada sola cuya factura no se
+      vinculó vuelve a ser candidata cuando vence la reserva, y una
+      liquidación la factura otra vez. Borrar esa carga deja la factura sin
+      carga. Hace falta una marca en la base (la carga no lo sabe).
 
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 
@@ -190,6 +247,34 @@ mitigación en el schema: el límite se respeta operando.
       firme) y cobra la mora sobre el saldo de hoy. No edita las tarifas
       migradas ni cierra bien con "Aumentar %": ver "Límites de rollback".
 
+## Tesorería: auditoría de cheques, OP y préstamos (2026-11-04)
+
+- [x] Anular o editar una OP no devuelve a cartera un cheque endosado
+      rechazado; se rechaza con mensaje.
+- [x] Cuotas sin desglose bajan `prestamos` (capital primero) si el pasivo
+      está asentado; anular un préstamo con plata se rechaza.
+- [x] Cheque propio sin OP: el cobro asienta gasto, no reversa de pasivo; no
+      cambia importe, moneda ni cuenta después de emitido; no se le liga OP.
+- [x] Mora: el prorrateo cuenta solo NC emitidas.
+- [x] Cheques y cheques propios: completos los abiertos, 500 recientes del
+      resto con aviso; la guarda de cuentas de cheques falla cerrada.
+- [x] UI: "Pagar" deuda de cheque vendido sin estado viejo; ND por mora
+      refresca aunque falle el vínculo; resultados de varias ND con su
+      comprobante.
+- [ ] Aprobar las migraciones `20261104093000`–`20261104093400` con el deploy.
+- [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
+      propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
+      re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`). Lo
+      mismo para una cuota sin desglose pagada antes de registrar el
+      desembolso: queda en gasto y `prestamos` no llega a cero. Re-asentarlas
+      cambia períodos pasados: lo decide el owner.
+- [ ] `journal_missing_entries` no lista los asientos de cheques propios: un
+      cheque propio en USD cobrado sin cotización ese día queda sin asiento
+      y sin aviso en el paquete mensual.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`payment_order_rejected_endorsed_checks`, `loan_liability`,
+      `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
+
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
 - [x] **Propuestas fuera del chat** (`ai_proposals`): preparar con los permisos de quien hace
@@ -217,8 +302,12 @@ mitigación en el schema: el límite se respeta operando.
       `20261104060100_aging_snapshots` y `20261104060200_ai_chat_confirmation_note` con el
       deploy. No verificadas contra una base real: correr `supabase test db`
       (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
-- [ ] Recategorizar una factura de compra no cambia sus NC/ND ya cargadas (heredan la cuenta solo
-      al cargarse); recategorizarlas una por una.
+- [x] Recategorizar una factura de compra lleva el cambio a sus NC/ND vigentes que tenían el valor
+      anterior (`20261104092300`); una NC/ND con cuenta o centro propios lo conserva, y una a
+      cargo de un empleado conserva la cuenta. El audit lista las NC/ND que cambiaron.
+- [ ] Las compras recategorizadas antes de `20261104092300` dejaron sus NC/ND en el rubro o
+      centro anterior; no hay backfill (cambia datos de producción, lo decide el owner):
+      recategorizar esas NC/ND una por una (el audit `expense.recategorized` dice cuáles compras).
 - [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
       `result` (igual que en el chat).
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
@@ -292,8 +381,11 @@ mitigación en el schema: el límite se respeta operando.
       ("Manual: Contabilidad › Impuestos"), sin link.
 - [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
       impuesto pagado; `taxes:write` + `transactions:write`):
-      `undo_tax_document_payment` deja el impuesto liquidado (o pendiente si
-      el importe era estimado) y una línea en las notas. Si lo pagó "Pagar",
+      `undo_tax_document_payment` devuelve el impuesto al importe y estado
+      que tenía antes del pago (`payment_previous_amount`,
+      `payment_previous_status`, `20261104092200`; un pago anterior a esa
+      migración vuelve liquidado, o pendiente si el importe era estimado) y
+      deja una línea en las notas. Si lo pagó "Pagar",
       borra el egreso con su asiento; si fue "Vincular", el movimiento queda
       en Caja suelto, con la cuenta de gasto que tenía
       (`tax_documents.payment_previous_expense_account_id`) y el asiento
@@ -303,6 +395,15 @@ mitigación en el schema: el límite se respeta operando.
       al rubro de la cuenta del impuesto si está mapeada en
       `management_buckets`, si no a Costos operativos › Impuestos
       operativos. Devengado no cambia.
+- [x] **Estimado de IVA**: las retenciones de IVA salen de los recibos
+      emitidos (`issued`; antes filtraba un estado inexistente y daban 0),
+      en pesos a la cotización del recibo; un recibo en dólares sin
+      cotización frena el estimado. Una respuesta de "Estimar" que llega
+      después de cambiar el documento, el período o cerrar el diálogo se
+      descarta.
+- [x] **IA, libros IVA**: `getLibroIvaVentas`/`getLibroIvaCompras` devuelven
+      `totals` con signo (NC restadas, cada comprobante una vez) además de
+      las filas.
 - [x] **Estimado de IVA**: descuenta el saldo a favor técnico del IVA del
       mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
@@ -604,6 +705,22 @@ mitigación en el schema: el límite se respeta operando.
       año anterior.
 - [x] **Exportar CSV / Excel** de la tabla mes a mes (uso interno, auditado).
 - [x] IA: `getManagementPnL` con indicadores y `getManagementPnLDocuments`.
+- [x] **Cheques en percibido** (`20261104092000`): un cheque de terceros
+      importado al arranque (`checks.import_run_id`) es una partida de
+      apertura (su ingreso a cartera y su rechazo no cuentan); el egreso de
+      un cheque rechazado (débito del banco, devolución al comprador) resta
+      de Servicios lo que el cheque había sumado.
+- [ ] **Cheque endosado rechazado, en percibido:** el rechazo no mueve caja, así que el cobro
+      original sigue en Servicios y el pago con ese cheque en proveedores; cuando el cliente
+      vuelve a pagar y se le vuelve a pagar al proveedor, los dos cuentan dos veces.
+- [x] **Pendiente en USD, devengado:** un movimiento fiscal en dólares queda
+      pendiente mientras no tiene asiento, aunque después se cargue una
+      cotización con fecha anterior (antes no estaba ni en pesos ni en
+      pendiente hasta re-asentarlo).
+- [ ] Re-asentar solo los movimientos `sin_cotizacion` al cargar una
+      cotización: hoy esperan al re-asiento del paquete mensual
+      (`journal_missing_entries`), y mientras tanto Gestión los muestra
+      pendientes.
 - [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
       pagos a proveedores aunque después se impute a un bien de uso o a una
       compra a cargo de un empleado.
@@ -620,6 +737,8 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Una carga de combustible que apunta solo al pago (OP) y no a la compra
       cuenta dos veces si la compra lleva el centro del camión; un
       `trips.cost` cargado también como compra con ese centro, igual.
+- [x] Lo "Sin clasificar" cargado con el centro del camión entra en su costo
+      de centro (`20261104092100`); antes no estaba en ninguna fila.
 - [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
       el ajuste por inflación de la pantalla).
 - [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
@@ -746,3 +865,41 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
       por el acceso de quien subió el documento.
+
+---
+
+## Emisión AFIP — auditoría (2026-11-04)
+
+- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
+      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
+      que solo lo intentaron, el que coincide con el comprobante de AFIP.
+- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
+      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
+      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
+      Inngest se vuelve a mandar con su clave.
+- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
+      run; si `inngest.send` falla el borrador no se borra.
+- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
+      5 s el piso CAEA).
+- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
+      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
+      número en la importación de ARCA.
+- [x] La importación de ARCA guarda un comprobante de un período cerrado con
+      su asiento en `pending_journal_entries`.
+- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
+      "sin movimiento".
+- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
+      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
+      hasta que alguien decida de cuál es el de AFIP.
+- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
+      (cada una cerca de 20 s) el paso puede pasar los 300 s.
+- [ ] Antes de promover `issue-invoice-reconcile`: su primera corrida vuelve
+      a mandar a AFIP los borradores de los últimos 3 días y resuelve las
+      emisiones trabadas que ya existen. El owner revisa esas filas antes
+      (`select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting'`):
+      un borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces.
+- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
+      leer la fila, o el run se canceló) no la resuelve el cron: frena la
+      importación de ARCA de su par hasta que alguien la marque fallida.

@@ -9,6 +9,11 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import {
+  mergeOpenAndRecent,
+  SETTLED_LIST_CAP,
+} from "@/lib/supabase/open-and-recent";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { todayInAR } from "@/lib/format";
 
@@ -16,6 +21,7 @@ import type { AccountsListNameJoin } from "@/features/accounts/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
 
 import {
+  ISSUED_CHECK_STATUSES,
   IssuedCheckCreateSchema,
   IssuedCheckTransitionSchema,
   IssuedCheckUpdateSchema,
@@ -32,38 +38,65 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
   return row as IssuedCheck;
 }
 
+const PAYMENT_ORDER_LINK_ERROR =
+  "Un cheque propio se liga a una orden de pago solo cargándolo desde la orden de pago.";
+
 const COLUMNS =
   "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
 
+const SETTLED_ISSUED_STATUSES = ISSUED_CHECK_STATUSES.filter(
+  (s) => s !== "emitted",
+);
+
 /** `isFiscal` (`isFiscalFor`): null/undefined = every check, those with no
- *  channel included; a boolean drops the checks without a channel. */
+ *  channel included; a boolean drops the checks without a channel. Every
+ *  check still emitted, plus the latest SETTLED_LIST_CAP others by due date;
+ *  `truncated` = older settled checks were left out. */
 export async function listIssuedChecksAction(input?: {
   isFiscal?: boolean | null;
-}): Promise<ActionResult<IssuedCheck[]>> {
+}): Promise<ActionResult<{ items: IssuedCheck[]; truncated: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "issued_checks:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques propios." };
   }
 
   const supabase = await createClient();
-  const { data, error } = await applyFiscalFilter(
-    supabase
-      .from("issued_checks")
-      .select(
-        `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( is_fiscal )`,
-      ),
-    input?.isFiscal,
-    "channel",
-  )
-    .order("due_date", { ascending: true })
-    .limit(500);
+  const base = () =>
+    applyFiscalFilter(
+      supabase
+        .from("issued_checks")
+        .select(
+          `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( is_fiscal )`,
+        ),
+      input?.isFiscal,
+      "channel",
+    );
+  const [open, settled] = await Promise.all([
+    paginateRange((from, to) =>
+      base()
+        .eq("status", "emitted")
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    base()
+      .in("status", SETTLED_ISSUED_STATUSES)
+      .order("due_date", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(SETTLED_LIST_CAP + 1),
+  ]);
 
+  const error = open.error ?? settled.error;
   if (error) {
     logger.error("issued_checks.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los cheques propios." };
   }
+  const { rows, truncated } = mergeOpenAndRecent(
+    open.data ?? [],
+    settled.data ?? [],
+  );
 
-  const items: IssuedCheck[] = (data ?? [])
+  const items: IssuedCheck[] = rows
     .map((row) => {
       const sup = (row as unknown as SupplierListLegalJoin).suppliers;
       const acc = (row as AccountsListNameJoin).accounts;
@@ -79,7 +112,7 @@ export async function listIssuedChecksAction(input?: {
     })
     .filter((r): r is IssuedCheck => r !== null);
 
-  return { ok: true, data: items };
+  return { ok: true, data: { items, truncated } };
 }
 
 export async function createIssuedCheckAction(
@@ -101,6 +134,12 @@ export async function createIssuedCheckAction(
     };
   }
 
+  // A payment order's check is inserted by the order itself, as one of its
+  // lines; a check linked afterwards would never move the bank when cashed.
+  if (parsed.data.payment_order_id) {
+    return { ok: false, error: PAYMENT_ORDER_LINK_ERROR };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("issued_checks")
@@ -115,7 +154,6 @@ export async function createIssuedCheckAction(
       amount: parsed.data.amount,
       currency: parsed.data.currency,
       bank_account_id: parsed.data.bank_account_id,
-      payment_order_id: parsed.data.payment_order_id ?? null,
       channel_id: parsed.data.channel_id,
       supplier_id: parsed.data.supplier_id ?? null,
       notes: parsed.data.notes ?? null,
@@ -167,10 +205,12 @@ export async function updateIssuedCheckAction(
   const supabase = await createClient();
 
   // A check an OP issued carries that OP's money: its amount, bank account,
-  // currency and OP change only by editing the OP.
+  // currency and OP change only by editing the OP. Once a check leaves
+  // 'emitted' its movement is booked with them, and an OP is never attached
+  // afterwards (guard_issued_check_edit enforces both in the database).
   const { data: current, error: readErr } = await supabase
     .from("issued_checks")
-    .select("payment_order_id, amount, currency, bank_account_id")
+    .select("payment_order_id, amount, currency, bank_account_id, status")
     .eq("id", id)
     .maybeSingle();
   if (readErr) {
@@ -181,19 +221,29 @@ export async function updateIssuedCheckAction(
     return { ok: false, error: "No se pudo leer el cheque." };
   }
   if (!current) return { ok: false, error: "Cheque no encontrado." };
-  if (
-    current.payment_order_id !== null &&
-    ((rest.amount !== undefined && rest.amount !== Number(current.amount)) ||
-      (rest.currency !== undefined && rest.currency !== current.currency) ||
-      (rest.bank_account_id !== undefined &&
-        rest.bank_account_id !== current.bank_account_id) ||
-      (rest.payment_order_id !== undefined &&
-        (rest.payment_order_id ?? null) !== current.payment_order_id))
-  ) {
+  const changesMoney =
+    (rest.amount !== undefined && rest.amount !== Number(current.amount)) ||
+    (rest.currency !== undefined && rest.currency !== current.currency) ||
+    (rest.bank_account_id !== undefined &&
+      rest.bank_account_id !== current.bank_account_id);
+  const changesOrder =
+    rest.payment_order_id !== undefined &&
+    (rest.payment_order_id ?? null) !== current.payment_order_id;
+  if (current.payment_order_id !== null && (changesMoney || changesOrder)) {
     return {
       ok: false,
       error:
         "El cheque está ligado a una orden de pago: el monto, la moneda, la cuenta y la OP se cambian editando la orden de pago.",
+    };
+  }
+  if (changesOrder) {
+    return { ok: false, error: PAYMENT_ORDER_LINK_ERROR };
+  }
+  if (current.status !== "emitted" && changesMoney) {
+    return {
+      ok: false,
+      error:
+        "El cheque ya no está emitido: su monto, moneda y cuenta quedaron registrados en Caja y no se pueden cambiar.",
     };
   }
 
@@ -218,9 +268,6 @@ export async function updateIssuedCheckAction(
       ...(rest.bank_account_id !== undefined && {
         bank_account_id: rest.bank_account_id,
       }),
-      ...(rest.payment_order_id !== undefined && {
-        payment_order_id: rest.payment_order_id ?? null,
-      }),
       ...(rest.supplier_id !== undefined && {
         supplier_id: rest.supplier_id ?? null,
       }),
@@ -236,6 +283,12 @@ export async function updateIssuedCheckAction(
         error: "Otro cheque del mismo banco ya usa ese número.",
       };
     }
+    const guardError = mapDbGuardError(error, {
+      slug: "issued_checks.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("issued_checks.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar el cheque." };
   }

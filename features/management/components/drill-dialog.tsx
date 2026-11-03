@@ -186,7 +186,7 @@ function DrillBody({
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono whitespace-nowrap">
                   {d.pendingUsd !== 0 && d.amount === 0
-                    ? `US$${formatNumber2(d.pendingUsd)} sin cotización`
+                    ? `US$${formatNumber2(d.pendingUsd)} sin pasar a pesos`
                     : money(d.amount)}
                 </td>
               </tr>

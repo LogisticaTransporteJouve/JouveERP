@@ -132,6 +132,7 @@ const GUARDS = [
   "commit_import_run",
   "undo_import_run",
   "apply_client_opening_balance_core",
+  "apply_supplier_opening_balance",
   "guard_bank_statement_line",
   "guard_transaction_reconciled",
   "match_bank_statement_line",
@@ -150,6 +151,10 @@ const GUARDS = [
   "get_vehicle_margin",
   "guard_driver_settlement_difference_receipt",
   "remove_driver_settlement_difference",
+  "guard_payment_order_cancel_cashed_check",
+  "update_payment_order",
+  "guard_loan",
+  "guard_issued_check_edit",
 ];
 
 describe("guard hints in migrations", () => {

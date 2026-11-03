@@ -23,8 +23,14 @@ import { NonRetriableError } from "inngest";
 // so the number this invoice sent to AFIP is recorded durably BEFORE the call
 // (`AttemptStore.record`). A retry first asks AFIP about that number and adopts
 // the CAE only if the registered voucher is this invoice's (same total, date
-// and receptor, and no other live invoice attempted or holds that number);
-// otherwise it starts over from the last authorized number.
+// and receptor, and no other live invoice holds that number); otherwise it
+// starts over from the last authorized number. Another live invoice that only
+// ATTEMPTED the number does not block the adoption: an attempt is not proof of
+// a CAE, and an invoice whose outcome stayed unknown keeps its attempt for
+// good (honoring it would request a second CAE for an invoice AFIP already
+// authorized). Only when the voucher also matches that other invoice is the
+// owner undecidable; then the step throws (retriable) rather than request
+// another number.
 
 export type AfipCaePort = {
   getLastAuthorizedNumber: (
@@ -39,14 +45,21 @@ export type AfipCaePort = {
   ) => Promise<VoucherInfo | null>;
 };
 
+/** The other non-failed invoices of the same (pv, tipo) at one number. */
+export type OthersAtNumber = {
+  /** Another invoice holds the number (it was authorized there). */
+  held: boolean;
+  /** Identities of the other invoices that only attempted the number. */
+  attemptedBy: VoucherIdentity[];
+};
+
 export type AttemptStore = {
   /** Number this invoice last sent to AFIP, or null if none. */
   read: () => Promise<number | null>;
-  /** Durably records `cbteNro` as sent by this invoice, before the AFIP call. */
+  /** Durably records `cbteNro` as sent by this invoice, before the AFIP call.
+   *  Throws (non-retriable) when the invoice is no longer pending emission. */
   record: (cbteNro: number) => Promise<void>;
-  /** Whether another non-failed invoice on the same (pv, tipo) attempted or
-   *  holds `cbteNro` — then a voucher at that number is not this invoice's. */
-  takenByOther: (cbteNro: number) => Promise<boolean>;
+  othersAt: (cbteNro: number) => Promise<OthersAtNumber>;
 };
 
 /** The fields of the draft a registered voucher must match to be adopted. */
@@ -94,7 +107,8 @@ function adopt(info: VoucherInfo): InvoiceCAEResult | null {
 /**
  * The CAE AFIP holds for the number this invoice last sent, when the voucher
  * registered there is this invoice's (same total, date and receptor) and no
- * other live invoice attempted or holds that number. Null otherwise.
+ * other live invoice holds that number. Null otherwise. Throws when another
+ * live invoice attempted the same number and the voucher matches it too.
  */
 export async function recoverAttempt(params: {
   invoiceId: string;
@@ -102,15 +116,27 @@ export async function recoverAttempt(params: {
   cbteTipo: number;
   expected: VoucherIdentity;
   afip: Pick<AfipCaePort, "getVoucherInfo">;
-  attempts: Pick<AttemptStore, "read" | "takenByOther">;
+  attempts: Pick<AttemptStore, "read" | "othersAt">;
 }): Promise<InvoiceCAEResult | null> {
   const { invoiceId, ptoVta, cbteTipo, expected, afip, attempts } = params;
   const previous = await attempts.read();
-  if (previous === null || (await attempts.takenByOther(previous))) {
-    return null;
-  }
+  if (previous === null) return null;
   const info = await afip.getVoucherInfo(ptoVta, cbteTipo, previous);
-  const recovered = info && voucherMatches(info, expected) ? adopt(info) : null;
+  if (!info || !voucherMatches(info, expected)) return null;
+  const others = await attempts.othersAt(previous);
+  if (others.held) return null;
+  if (others.attemptedBy.some((other) => voucherMatches(info, other))) {
+    logger.warn("issue_invoice.recovery_ambiguous", {
+      invoice_id: invoiceId,
+      ptoVta,
+      cbteTipo,
+      cbteNro: previous,
+    });
+    throw new Error(
+      `El comprobante ${ptoVta}-${previous} registrado en AFIP coincide con más de un comprobante en emisión; no se pide otro CAE hasta resolverlo.`,
+    );
+  }
+  const recovered = adopt(info);
   if (recovered) {
     logger.info("issue_invoice.recovered_previous_attempt", {
       invoice_id: invoiceId,

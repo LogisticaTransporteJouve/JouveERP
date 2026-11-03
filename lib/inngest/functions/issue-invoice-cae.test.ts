@@ -107,21 +107,33 @@ function fakeAfip(opts: { last?: number } = {}) {
   };
 }
 
-/** invoices.afip_attempted_numero for several invoices sharing a (pv, tipo). */
+/** invoices.afip_attempted_numero / numero for several invoices sharing a
+ *  (pv, tipo). Each invoice's identity defaults to draft(id). */
 function fakeAttempts() {
   const attempted = new Map<string, number>();
+  const held = new Map<string, number>();
+  const identities = new Map<string, VoucherIdentity>();
   const failed = new Set<string>();
-  const storeFor = (invoiceId: string): AttemptStore => ({
-    read: async () => attempted.get(invoiceId) ?? null,
-    record: async (n) => {
-      attempted.set(invoiceId, n);
-    },
-    takenByOther: async (n) =>
-      [...attempted].some(
-        ([id, value]) => id !== invoiceId && value === n && !failed.has(id),
-      ),
-  });
-  return { attempted, failed, storeFor };
+  const live = (id: string, me: string) => id !== me && !failed.has(id);
+  const storeFor = (
+    invoiceId: string,
+    identity: VoucherIdentity = draft(invoiceId).expected,
+  ): AttemptStore => {
+    identities.set(invoiceId, identity);
+    return {
+      read: async () => attempted.get(invoiceId) ?? null,
+      record: async (n) => {
+        attempted.set(invoiceId, n);
+      },
+      othersAt: async (n) => ({
+        held: [...held].some(([id, v]) => live(id, invoiceId) && v === n),
+        attemptedBy: [...attempted]
+          .filter(([id, v]) => live(id, invoiceId) && v === n && !held.has(id))
+          .map(([id]) => identities.get(id) ?? draft(id).expected),
+      }),
+    };
+  };
+  return { attempted, held, failed, storeFor };
 }
 
 /** Inngest concurrency limit 1 on a key: one STEP at a time across runs. */
@@ -283,20 +295,52 @@ describe("reserveNumberAndRequestCae", () => {
     expect(afip.vouchers.size).toBe(2);
   });
 
-  it("on retry, ignores its old number when another live invoice took it", async () => {
+  it("on retry, ignores its old number when another live invoice holds it", async () => {
     const afip = fakeAfip({ last: 41 });
-    const { storeFor } = fakeAttempts();
+    const { held, storeFor } = fakeAttempts();
     const mine = storeFor("a");
     const theirs = storeFor("b");
     // Our first attempt at 42 never reached AFIP; b then took 42 with
-    // identical content.
+    // identical content and stored it.
     await mine.record(42);
     await theirs.record(42);
     afip.seed(inputFor(draft("b").expected, 42));
+    held.set("b", 42);
 
     const res = await emit(afip.port, mine, draft("a"));
     expect(res.cbteNro).toBe(43);
-    expect(afip.port.getVoucherInfo).not.toHaveBeenCalled();
+  });
+
+  it("on retry, adopts its CAE although a stuck invoice only attempted the same number", async () => {
+    const afip = fakeAfip({ last: 41 });
+    const { storeFor } = fakeAttempts();
+    // z attempted 42 during an outage (never reached AFIP) and stayed
+    // emitting; a then took 42, AFIP authorized it and the response was lost.
+    const z = draft("z", { impTotal: 999 });
+    await storeFor("z", z.expected).record(42);
+    const mine = storeFor("a");
+    await mine.record(42);
+    afip.seed(inputFor(draft("a").expected, 42));
+
+    const res = await emit(afip.port, mine, draft("a"));
+    expect(res).toMatchObject({ cbteNro: 42, cae: "CAE42" });
+    expect(afip.port.requestCAE).not.toHaveBeenCalled();
+    expect(afip.vouchers.size).toBe(1);
+  });
+
+  it("requests no other CAE when the voucher matches another invoice's attempt too", async () => {
+    const afip = fakeAfip({ last: 41 });
+    const { storeFor } = fakeAttempts();
+    // b has the same total, date and receptor and also attempted 42.
+    await storeFor("b").record(42);
+    const mine = storeFor("a");
+    await mine.record(42);
+    afip.seed(inputFor(draft("a").expected, 42));
+
+    await expect(emit(afip.port, mine, draft("a"))).rejects.toThrow(
+      "más de un comprobante",
+    );
+    expect(afip.port.requestCAE).not.toHaveBeenCalled();
   });
 
   it("on retry, emits normally when its old number was never registered", async () => {

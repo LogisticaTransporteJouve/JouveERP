@@ -50,13 +50,14 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
   return qc.invalidateQueries({ queryKey: lateInterestKeys.all });
 }
 
-/** An ND adds a comprobante (and a debt to the aging). */
+/** An ND adds a comprobante (and a debt to the aging). Refreshes on failure
+ *  too: the ND can be issued and then fail to link to its comprobante. */
 export function useIssueLateInterestNd() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: IssueLateInterestInput) =>
       runAction(() => issueLateInterestNdAction(input)),
-    onSuccess: () =>
+    onSettled: () =>
       Promise.all([
         invalidate(qc),
         qc.invalidateQueries({ queryKey: invoicesKeys.all }),

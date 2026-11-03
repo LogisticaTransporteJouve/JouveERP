@@ -57,7 +57,8 @@ export const getFreightSettlements = defineAiAction({
     const rows = res.data.filter(
       (s) =>
         (input.status === undefined || s.status === input.status) &&
-        (isFiscal === null || s.client_is_fiscal === isFiscal) &&
+        (isFiscal === null ||
+          settlementSide(s) === (isFiscal ? "fiscal" : "internal")) &&
         (needle === null || s.client_name.toLowerCase().includes(needle)),
     );
     const limit = input.limit ?? DEFAULT_LIMIT;

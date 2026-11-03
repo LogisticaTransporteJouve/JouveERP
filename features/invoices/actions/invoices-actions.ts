@@ -135,6 +135,30 @@ async function loadEnabledPos(
   return { numero: data.numero, channel_id: data.channel_id };
 }
 
+/** Queues the emission of a draft. issue-invoice dedupes on the key for 24 h,
+ *  so sending again for a draft whose run already started is a no-op. A failed
+ *  send is only logged: its outcome is unknown (Inngest may have accepted
+ *  it), the draft is kept, and issue-invoice-reconcile sends it again. */
+async function enqueueIssue(
+  userId: string,
+  draft: {
+    invoice_id: string;
+    idempotency_key: string;
+    channel_id: string;
+    punto_venta: number;
+  },
+): Promise<void> {
+  try {
+    await inngest.send({ name: INVOICE_ISSUE_REQUESTED, data: draft });
+  } catch (err) {
+    logger.error("issue_invoice.enqueue_failed", {
+      userId,
+      invoice_id: draft.invoice_id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 async function findIssuedByKey(
   supabase: ReturnType<typeof getServiceClient>,
   idempotencyKey: string,
@@ -142,7 +166,7 @@ async function findIssuedByKey(
 ): Promise<IssueInvoiceResult | null | "error"> {
   const { data, error } = await supabase
     .from("invoices")
-    .select("id, status")
+    .select("id, status, channel_id, punto_venta")
     .eq("idempotency_key", idempotencyKey)
     .eq("created_by", userId)
     .maybeSingle();
@@ -154,6 +178,16 @@ async function findIssuedByKey(
     return "error";
   }
   if (!data || !isInvoiceStatus(data.status)) return null;
+  // A draft may never have reached Inngest (the first submit died before or
+  // during the send): send it again instead of returning a draft no run emits.
+  if (data.status === "draft") {
+    await enqueueIssue(userId, {
+      invoice_id: data.id,
+      idempotency_key: idempotencyKey,
+      channel_id: data.channel_id,
+      punto_venta: data.punto_venta,
+    });
+  }
   return { id: data.id, idempotency_key: idempotencyKey, status: data.status };
 }
 
@@ -399,14 +433,14 @@ export async function issueFiscalInvoiceAction(
   // (it would post phantom revenue and charge IVA on a non-fiscal document).
   const totals = computeTotals(data.items, channel.is_fiscal);
 
-  // An NC can't credit more than its origin still owes (the deferred guard
-  // invoices_nc_open_after_change has the last word, counting NCs in flight).
+  // An NC can't credit more than its origin still owes: the figure of the
+  // deferred guard invoices_nc_open_after_change (NCs in flight included).
+  // Not v_aging_documents, which also spreads the client's NCs with no origin.
   if (data.kind === "nc" && data.invoice_origin_id) {
-    const { data: open, error: openErr } = await supabase
-      .from("v_aging_documents")
-      .select("open_amount")
-      .eq("invoice_id", data.invoice_origin_id)
-      .maybeSingle();
+    const { data: open, error: openErr } = await supabase.rpc(
+      "invoice_open_amount",
+      { p_invoice_id: data.invoice_origin_id },
+    );
     if (openErr) {
       logger.error("issue_invoice.load_origin_open_failed", {
         userId: ctx.userId,
@@ -418,7 +452,7 @@ export async function issueFiscalInvoiceAction(
         error: "No se pudo leer el saldo del comprobante de origen.",
       };
     }
-    const originOpen = Number(open?.open_amount ?? 0);
+    const originOpen = Number(open ?? 0);
     if (totals.imp_total > originOpen + 0.01) {
       return {
         ok: false,
@@ -520,30 +554,16 @@ export async function issueFiscalInvoiceAction(
     };
   }
 
-  try {
-    await inngest.send({
-      name: INVOICE_ISSUE_REQUESTED,
-      data: {
-        invoice_id,
-        idempotency_key,
-        channel_id: data.channel_id,
-        punto_venta: data.punto_venta,
-      },
-    });
-  } catch (err) {
-    // Roll back the draft so the user can retry cleanly.
-    await supabase.from("invoices").delete().eq("id", invoice_id);
-    logger.error("issue_invoice.enqueue_failed", {
-      userId: ctx.userId,
-      invoice_id,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return {
-      ok: false,
-      error:
-        "No se pudo poner el comprobante en cola de emisión. Probá de nuevo en unos minutos.",
-    };
-  }
+  // A failed send is not rolled back: Inngest may have accepted the event, and
+  // deleting the draft would leave its CAE without a row. The draft stays and
+  // is still returned, so the caller links it instead of billing again; a
+  // resubmit with the same key, or issue-invoice-reconcile, sends it again.
+  await enqueueIssue(ctx.userId, {
+    invoice_id,
+    idempotency_key,
+    channel_id: data.channel_id,
+    punto_venta: data.punto_venta,
+  });
 
   await logAudit(
     "invoice.issue_requested",
