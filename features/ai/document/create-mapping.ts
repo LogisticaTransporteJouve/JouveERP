@@ -13,7 +13,11 @@ import {
   type PurchaseIvaRateId,
 } from "@/features/purchase-invoices/schema";
 
-import { InvoiceExtractionSchema, type InvoiceExtraction } from "./schemas";
+import {
+  InvoiceExtractionSchema,
+  type DuplicateCheck,
+  type InvoiceExtraction,
+} from "./schemas";
 
 /** Normalized AR alícuota (percent) → AFIP purchase iva_rate_id. */
 const PERCENT_TO_RATE_ID: Record<number, PurchaseIvaRateId> = {
@@ -142,7 +146,7 @@ export function buildPurchaseInvoiceDraft(
     /** Exchange rate for a USD invoice's date, when one is loaded. */
     usdRate: number | null;
     confidence: number | null;
-    duplicate: boolean;
+    duplicate: DuplicateCheck;
   },
 ): PurchaseInvoiceDraftData | null {
   const parsed = InvoiceExtractionSchema.safeParse(payload);
@@ -156,8 +160,13 @@ export function buildPurchaseInvoiceDraft(
       "La lectura tiene confianza baja: revisá todos los campos contra el archivo.",
     );
   }
-  if (opts.duplicate) {
+  if (opts.duplicate === "found") {
     warnings.push("Este comprobante parece estar ya cargado.");
+  }
+  if (opts.duplicate === "unknown") {
+    warnings.push(
+      "No se pudo verificar si este comprobante ya está cargado: revisalo antes de guardar.",
+    );
   }
 
   const mapped =

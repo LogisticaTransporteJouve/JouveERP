@@ -23,7 +23,7 @@ const OPTS = {
   costCenterId: null,
   usdRate: null,
   confidence: 1,
-  duplicate: false,
+  duplicate: "none" as const,
 };
 
 const COMPLETE = {
@@ -211,11 +211,21 @@ describe("buildPurchaseInvoiceDraft", () => {
     const draft = buildPurchaseInvoiceDraft(COMPLETE, {
       ...OPTS,
       confidence: 0.55,
-      duplicate: true,
+      duplicate: "found",
     });
     expect(draft?.warnings).toEqual([
       "La lectura tiene confianza baja: revisá todos los campos contra el archivo.",
       "Este comprobante parece estar ya cargado.",
+    ]);
+  });
+
+  it("warns when the duplicate lookup failed", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, {
+      ...OPTS,
+      duplicate: "unknown",
+    });
+    expect(draft?.warnings).toEqual([
+      "No se pudo verificar si este comprobante ya está cargado: revisalo antes de guardar.",
     ]);
   });
 

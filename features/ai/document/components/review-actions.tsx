@@ -11,7 +11,7 @@ import {
   usePurchaseInvoiceDraft,
   useSubmitPurchaseInvoiceDraft,
 } from "../hooks/use-documents";
-import { ChequeBatchExtractionSchema } from "../schemas";
+import { ChequeBatchExtractionSchema, duplicateCheckOf } from "../schemas";
 
 import { CreateChequesDialog } from "./create-cheques-dialog";
 import { CreatePaymentDocDialog } from "./create-payment-doc-dialog";
@@ -162,7 +162,7 @@ function ReviewActionsInner({
   const clientName = matchString(extraction.matches, "client_name");
   const supplierId = matchString(extraction.matches, "supplier_id");
   const supplierName = matchString(extraction.matches, "supplier_name");
-  const duplicate = matchString(extraction.matches, "duplicate_of") !== null;
+  const duplicate = duplicateCheckOf(extraction.matches);
 
   if (kind === "check") {
     const count = chequeCount(extraction.payload);
