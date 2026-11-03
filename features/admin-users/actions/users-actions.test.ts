@@ -8,16 +8,12 @@ const h = await vi.hoisted(async () => {
     access: Access;
     rpcCalls: Array<[string, Record<string, unknown>]>;
     rpcError: { code: string; message: string } | null;
-    existingRoles: { role_id: string }[];
-    upserts: unknown[];
     audits: unknown[][];
     resolveAccess: typeof resolveAccess;
   } = {
     access: resolveAccess(["owner"]),
     rpcCalls: [],
     rpcError: null,
-    existingRoles: [],
-    upserts: [],
     audits: [],
     resolveAccess,
   };
@@ -39,21 +35,11 @@ vi.mock("@/lib/observability", () => ({
 }));
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => {
-    const b = {
-      select: () => b,
-      eq: () => b,
-      limit: async () => ({ data: h.existingRoles, error: null }),
-      upsert: async (rows: unknown) => {
-        h.upserts.push(rows);
-        return { error: null };
-      },
-    };
     return {
       rpc: async (fn: string, args: Record<string, unknown>) => {
         h.rpcCalls.push([fn, args]);
         return { error: h.rpcError };
       },
-      from: () => b,
       auth: {
         admin: {
           inviteUserByEmail: async () => ({
@@ -75,8 +61,6 @@ beforeEach(() => {
   h.access = h.resolveAccess(["owner"]);
   h.rpcCalls = [];
   h.rpcError = null;
-  h.existingRoles = [];
-  h.upserts = [];
   h.audits = [];
 });
 
@@ -159,12 +143,21 @@ describe("setUserAccessAction", () => {
 });
 
 describe("inviteUserAction", () => {
-  it("assigns the requested roles to a new account and audits it", async () => {
+  it("assigns the requested roles through set_user_access and audits it", async () => {
     const res = await inviteUserAction({ email: "a@b.co", roles: ["finance"] });
     expect(res).toEqual({ ok: true, data: { userId: "invited" } });
-    expect(h.upserts).toEqual([
-      [{ user_id: "invited", role_id: "finance", granted_by: "actor" }],
-    ]);
+    expect(h.rpcCalls).toHaveLength(1);
+    const [fn, args] = h.rpcCalls[0] ?? [];
+    expect(fn).toBe("set_user_access");
+    expect(args).toMatchObject({
+      p_actor: "actor",
+      p_user_id: "invited",
+      p_roles: ["finance"],
+      p_removable_roles: [],
+      p_expected_roles: [],
+    });
+    expect(args).not.toHaveProperty("p_denied");
+    expect(args?.p_addable_roles).toContain("owner");
     expect(h.audits[0]?.[0]).toBe("user.invited");
   });
 
@@ -172,16 +165,24 @@ describe("inviteUserAction", () => {
     h.access = h.resolveAccess(["admin"]);
     const res = await inviteUserAction({ email: "a@b.co", roles: ["owner"] });
     expect(res.ok).toBe(false);
-    expect(h.upserts).toEqual([]);
+    expect(h.rpcCalls).toEqual([]);
   });
 
-  it("leaves an already-invited account's roles alone", async () => {
-    h.existingRoles = [{ role_id: "operations" }];
-    const res = await inviteUserAction({ email: "a@b.co", roles: ["finance"] });
-    expect(res).toEqual({
-      ok: false,
-      error: "Ya estaba invitado; editá sus accesos.",
-    });
-    expect(h.upserts).toEqual([]);
-  });
+  it.each([
+    ["UA001", "No podés invitarte a vos mismo."],
+    ["UA002", "Ya estaba invitado; editá sus accesos."],
+    ["UA003", "No podés asignar alguno de esos roles."],
+    ["XX000", "Usuario invitado pero no se asignaron roles."],
+  ])(
+    "maps the RPC's %s to its message, without auditing",
+    async (code, error) => {
+      h.rpcError = { code, message: "x" };
+      const res = await inviteUserAction({
+        email: "a@b.co",
+        roles: ["finance"],
+      });
+      expect(res).toEqual({ ok: false, error });
+      expect(h.audits).toEqual([]);
+    },
+  );
 });

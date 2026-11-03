@@ -140,6 +140,15 @@ export async function setUserAccessAction(raw: unknown): Promise<ActionResult> {
   return { ok: true, data: undefined };
 }
 
+// set_user_access's errcodes as the invite meets them: the address is the
+// inviter's own account (UA001), or an account that already has roles
+// (UA002).
+const INVITE_REJECTIONS: Record<string, string> = {
+  UA001: "No podés invitarte a vos mismo.",
+  UA002: "Ya estaba invitado; editá sus accesos.",
+  UA003: "No podés asignar alguno de esos roles.",
+};
+
 export async function inviteUserAction(
   raw: unknown,
 ): Promise<ActionResult<{ userId: string }>> {
@@ -169,36 +178,29 @@ export async function inviteUserAction(
   }
   const invitedId = data.user.id;
 
+  // Through the one role writer, so its rules apply to an invite too.
   // Re-inviting a pending user returns the existing account, which may
-  // already have roles: those are edited in the access dialog, not here.
-  const { data: existing, error: existingError } = await service
-    .from("user_roles")
-    .select("role_id")
-    .eq("user_id", invitedId)
-    .limit(1);
-  if (existingError) {
-    captureException(existingError, {
-      op: "user.invite.roles_failed",
-      userId: ctx.userId,
-      targetUserId: invitedId,
-    });
-    return { ok: false, error: "Usuario invitado pero no se asignaron roles." };
-  }
-  if ((existing ?? []).length > 0) {
-    return { ok: false, error: "Ya estaba invitado; editá sus accesos." };
-  }
-
-  // A brand-new account: one insert and no RPC, so inviting works even before
-  // the set_user_access migration is applied.
-  const { error: rolesError } = await service.from("user_roles").upsert(
-    parsed.data.roles.map((role) => ({
-      user_id: invitedId,
-      role_id: role,
-      granted_by: ctx.userId,
-    })),
-    { onConflict: "user_id,role_id", ignoreDuplicates: true },
-  );
+  // already have roles: expecting none makes the RPC refuse it (UA002), and
+  // those roles are edited in the access dialog, not here. Denies are left
+  // as they are.
+  const { error: rolesError } = await service.rpc("set_user_access", {
+    p_actor: ctx.userId,
+    p_user_id: invitedId,
+    p_roles: parsed.data.roles,
+    p_addable_roles: grantable,
+    p_removable_roles: [],
+    p_expected_roles: [],
+  });
   if (rolesError) {
+    const rejection = INVITE_REJECTIONS[rolesError.code];
+    if (rejection) {
+      logger.warn("user.invite.roles_rejected", {
+        userId: ctx.userId,
+        targetUserId: invitedId,
+        code: rolesError.code,
+      });
+      return { ok: false, error: rejection };
+    }
     captureException(rolesError, {
       op: "user.invite.roles_failed",
       userId: ctx.userId,
