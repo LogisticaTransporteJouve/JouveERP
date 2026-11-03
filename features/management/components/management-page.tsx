@@ -1,10 +1,12 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { Download, Info } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,58 +17,64 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCsv, toCsv } from "@/lib/export/csv";
+import { downloadBlob } from "@/lib/export/download";
 import { fiscalYearLabel } from "@/lib/fiscal-year";
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, todayInAR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { useManagementReport } from "../hooks/use-management";
+import {
+  useLogManagementExport,
+  useManagementReport,
+} from "../hooks/use-management";
+import { money, monthLabel } from "../lib/format";
 import {
   ALL_COST_CENTERS,
+  INTERNAL_USE_NOTICE,
   MANAGEMENT_BASES,
   MANAGEMENT_BASIS_LABEL,
   NO_COST_CENTER,
+  SIDE_VIEWS,
   TABLE_LINES,
   buildMonthTable,
+  computeKpis,
   computeWaterfall,
   costCenterBreakdown,
   filterByCostCenter,
   isManagementBasis,
+  isSideView,
+  monthTableExport,
   unclassifiedAccounts,
+  type Kpi,
   type ManagementReportInput,
-  type SideAmounts,
+  type SideView,
 } from "../schema";
 import { BucketDialog } from "./bucket-dialog";
+import { DrillDialog, type DrillCell } from "./drill-dialog";
 import { WaterfallChart } from "./waterfall-chart";
 
-const money = (n: number) =>
-  n < 0 ? `-$${formatNumber2(-n)}` : `$${formatNumber2(n)}`;
-
-const MONTH_LABEL = [
-  "Ene",
-  "Feb",
-  "Mar",
-  "Abr",
-  "May",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dic",
-];
-const monthLabel = (period: string) =>
-  `${MONTH_LABEL[Number(period.slice(5, 7)) - 1]} ${period.slice(2, 4)}`;
-
-type SideView = keyof SideAmounts;
-const SIDE_VIEWS: readonly SideView[] = ["total", "fiscal", "internal"];
 const SIDE_LABEL: Record<SideView, string> = {
   total: "Total",
   fiscal: "Fiscal",
   internal: "Interno",
 };
-const isSideView = (v: string): v is SideView =>
-  (SIDE_VIEWS as readonly string[]).includes(v);
+
+function kpiValue(kpi: Kpi, value: number | null): string {
+  if (value === null) return "—";
+  return kpi.unit === "pct" ? `${formatNumber2(value)} %` : money(value);
+}
+
+function kpiVariance(kpi: Kpi): string {
+  if (kpi.variance === null) return "sin datos del año anterior";
+  const sign = kpi.variance > 0 ? "+" : "";
+  if (kpi.unit === "pct") return `${sign}${formatNumber2(kpi.variance)} pp`;
+  const base = kpi.previous ? Math.abs(kpi.previous) : 0;
+  const rel =
+    base === 0
+      ? ""
+      : ` (${sign}${formatNumber2((kpi.variance / base) * 100)} %)`;
+  return `${sign}${money(kpi.variance)}${rel}`;
+}
 
 export function ManagementPage({
   initialInput,
@@ -154,11 +162,9 @@ export function ManagementPage({
           </p>
           <ul className="list-disc space-y-0.5 pl-4">
             <li>
-              Las compras a cuenta de empleados todavía cuentan como costo.
-            </li>
-            <li>
-              Las cuotas de préstamo van enteras a capital: todavía no se
-              separan capital e intereses.
+              Una cuota de préstamo sin desglose va entera a capital; con
+              desglose se separan capital e intereses (en Percibido, el IVA y la
+              percepción de la cuota van con los intereses).
             </li>
             <li>
               Por centro de costo cuenta solo lo cargado con centro (compras,
@@ -167,12 +173,14 @@ export function ManagementPage({
               compra.
             </li>
             <li>
-              En Percibido, los cobros cuentan como servicios y los pagos a
-              proveedores como costo operativo, aunque sean de un bien de uso.
+              En Percibido, un cobro o un pago cuenta como venta de bien de uso,
+              inversión en flota o anticipo al personal según lo que imputó; lo
+              cobrado o pagado a cuenta (sin imputar) va a servicios o a pagos a
+              proveedores.
             </li>
             <li>
-              El detalle de cada número llega hasta la cuenta; el detalle por
-              comprobante está en el Libro mayor (lo fiscal).
+              Todavía no hay margen por camión: los centros de costo no están
+              vinculados a los camiones.
             </li>
           </ul>
         </div>
@@ -195,6 +203,8 @@ function ManagementReportView({
   const { data } = useManagementReport(input);
   const [sideView, setSideView] = useState<SideView>("total");
   const [costCenter, setCostCenter] = useState<string>(ALL_COST_CENTERS);
+  const [drill, setDrill] = useState<DrillCell | null>(null);
+  const logExport = useLogManagementExport();
 
   const rows = useMemo(
     () => filterByCostCenter(data.rows, costCenter),
@@ -227,6 +237,63 @@ function ManagementReportView({
     () => new Map(data.accounts.map((a) => [a.id, a])),
     [data.accounts],
   );
+
+  const kpis = useMemo(
+    () =>
+      computeKpis(
+        rows,
+        filterByCostCenter(data.previousRows, costCenter),
+        data.months,
+        todayInAR().slice(0, 7),
+      ),
+    [rows, data.previousRows, data.months, costCenter],
+  );
+
+  async function exportTable(format: "csv" | "xlsx") {
+    const { header, rows: lines } = monthTableExport(
+      table,
+      data.months,
+      sideView,
+    );
+    const scope =
+      costCenter === ALL_COST_CENTERS
+        ? "Todos los centros"
+        : centerLabel(costCenter === NO_COST_CENTER ? null : costCenter);
+    const title = `Resultado de gestión ${fiscalYearLabel(input.fiscalYear)}`;
+    const subtitle = `${MANAGEMENT_BASIS_LABEL[input.basis]}${
+      input.inflation ? " ajustado por inflación" : ""
+    } · ${scope} · meses en ${SIDE_LABEL[sideView]}`;
+    const fileBase = `gestion-uso-interno-${input.fiscalYear}-${input.basis}`;
+    try {
+      if (format === "csv") {
+        downloadCsv(
+          fileBase,
+          toCsv(header, [[INTERNAL_USE_NOTICE], [title, subtitle], ...lines]),
+        );
+      } else {
+        const { buildXlsx } = await import("@/lib/export/xlsx");
+        const file = await buildXlsx({
+          name: "Gestión (uso interno)",
+          preamble: [title, subtitle, INTERNAL_USE_NOTICE],
+          columns: header.map((h, i) => ({
+            header: h,
+            type: i === 0 ? "text" : "money",
+          })),
+          rows: lines,
+        });
+        downloadBlob(`${fileBase}.xlsx`, file);
+      }
+    } catch {
+      toast.error("No se pudo generar el archivo.");
+      return;
+    }
+    logExport.mutate({
+      ...input,
+      format,
+      side: sideView,
+      costCenter,
+    });
+  }
 
   const summary: { label: string; current: number; previous: number }[] = [
     {
@@ -284,6 +351,30 @@ function ManagementReportView({
         </div>
       )}
 
+      <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {kpis.kpis.map((k) => (
+            <div key={k.key} className="rounded-lg border bg-card px-4 py-3">
+              <p className="text-xs text-muted-foreground">{k.label}</p>
+              <p className="font-mono text-lg font-semibold">
+                {kpiValue(k, k.current)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Mismo período anterior: {kpiValue(k, k.previous)} ·{" "}
+                <span className="font-mono">{kpiVariance(k)}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+        {kpis.months.length > 0 && kpis.months.length < data.months.length && (
+          <p className="text-xs text-muted-foreground">
+            Indicadores de {monthLabel(kpis.months[0]!)} a{" "}
+            {monthLabel(kpis.months.at(-1)!)} contra los mismos meses del año
+            anterior.
+          </p>
+        )}
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-lg border bg-card p-4">
           <h2 className="mb-2 text-sm font-medium">
@@ -326,7 +417,23 @@ function ManagementReportView({
       <div className="rounded-lg border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <h2 className="text-sm font-medium">Mes a mes</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportTable("csv")}
+            >
+              <Download className="size-4" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportTable("xlsx")}
+            >
+              <Download className="size-4" />
+              Excel
+            </Button>
             <Label className="text-xs text-muted-foreground">Meses en</Label>
             <Select
               value={sideView}
@@ -386,19 +493,38 @@ function ManagementReportView({
                       {line.label}
                     </td>
                     {data.months.map((m) => (
-                      <td key={m} className="px-2 py-1.5 text-right font-mono">
-                        {money(table.byMonth[line.key]![m]![sideView])}
-                      </td>
+                      <AmountCell
+                        key={m}
+                        amount={table.byMonth[line.key]![m]![sideView]}
+                        onOpen={(amount) =>
+                          setDrill({
+                            lineKey: line.key,
+                            lineLabel: line.label,
+                            fromPeriod: m,
+                            toPeriod: m,
+                            side: sideView,
+                            amount,
+                          })
+                        }
+                      />
                     ))}
-                    <td className="border-l px-2 py-1.5 text-right font-mono">
-                      {money(totals.fiscal)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-mono">
-                      {money(totals.internal)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-mono">
-                      {money(totals.total)}
-                    </td>
+                    {(["fiscal", "internal", "total"] as const).map((side) => (
+                      <AmountCell
+                        key={side}
+                        className={side === "fiscal" ? "border-l" : undefined}
+                        amount={totals[side]}
+                        onOpen={(amount) =>
+                          setDrill({
+                            lineKey: line.key,
+                            lineLabel: line.label,
+                            fromPeriod: data.months[0]!,
+                            toPeriod: data.months.at(-1)!,
+                            side,
+                            amount,
+                          })
+                        }
+                      />
+                    ))}
                   </tr>
                 );
               })}
@@ -406,6 +532,14 @@ function ManagementReportView({
           </table>
         </div>
       </div>
+
+      <DrillDialog
+        cell={drill}
+        basis={input.basis}
+        inflation={input.inflation}
+        costCenter={costCenter}
+        onClose={() => setDrill(null)}
+      />
 
       <div className="rounded-lg border bg-card">
         <div className="border-b px-4 py-3">
@@ -575,5 +709,33 @@ function ManagementReportView({
         </div>
       </div>
     </div>
+  );
+}
+
+/** A figure of the month table; a non-zero one opens its documents. */
+function AmountCell({
+  amount,
+  onOpen,
+  className,
+}: {
+  amount: number;
+  onOpen: (amount: number) => void;
+  className?: string;
+}) {
+  return (
+    <td className={cn("px-2 py-1.5 text-right font-mono", className)}>
+      {amount === 0 ? (
+        money(amount)
+      ) : (
+        <button
+          type="button"
+          className="underline-offset-2 hover:underline focus-visible:underline"
+          onClick={() => onOpen(amount)}
+          aria-label={`Ver documentos de ${money(amount)}`}
+        >
+          {money(amount)}
+        </button>
+      )}
+    </td>
   );
 }
