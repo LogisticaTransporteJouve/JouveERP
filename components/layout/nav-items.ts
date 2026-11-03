@@ -14,6 +14,7 @@ import {
   DollarSign,
   FileSearch,
   FileText,
+  FileUp,
   FolderOpen,
   Fuel,
   Gauge,
@@ -490,6 +491,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Preview PDF",
         icon: FileText,
         permission: "afip:admin",
+      },
+      {
+        href: "/admin/imports",
+        label: "Importador",
+        icon: FileUp,
+        permission: "imports:read",
       },
       {
         href: "/admin/audit",

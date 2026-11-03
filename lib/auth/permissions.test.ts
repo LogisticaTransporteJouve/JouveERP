@@ -136,6 +136,25 @@ describe("userCan", () => {
     expect(userCan(denied, "fleet_km:write")).toBe(false);
   });
 
+  it("the importer is for owner and admin only", () => {
+    for (const role of ["owner", "admin"] as const) {
+      expect(userCan(resolveAccess([role]), "imports:read")).toBe(true);
+      expect(userCan(resolveAccess([role]), "imports:write")).toBe(true);
+    }
+    for (const role of [
+      "finance",
+      "operations",
+      "warehouse",
+      "driver",
+      "fiscal_reader",
+    ] as const) {
+      expect(userCan(resolveAccess([role]), "imports:read")).toBe(false);
+      expect(userCan(resolveAccess([role]), "imports:write")).toBe(false);
+    }
+    const denied = resolveAccess(["admin"], ["imports:read"]);
+    expect(userCan(denied, "imports:write")).toBe(false);
+  });
+
   it("recurring_payments is managed by owner/admin/finance only", () => {
     for (const role of ["owner", "admin", "finance"] as const) {
       expect(userCan(resolveAccess([role]), "recurring_payments:read")).toBe(

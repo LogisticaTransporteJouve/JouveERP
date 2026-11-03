@@ -1,4 +1,10 @@
 import { parseStatementNumber, round2 } from "@/lib/format";
+import {
+  findHeaderRowIndex,
+  parseSheetDate,
+  suggestColumnMapping,
+  type ColumnMapping,
+} from "@/lib/tables/columns";
 import type { TableLimits } from "@/lib/tables/csv";
 
 // Fuel statement import (roadmap 1.7): a YPF en Ruta or Axion Card statement
@@ -59,7 +65,7 @@ export const FUEL_IMPORT_FIELD_LABELS: Record<FuelImportField, string> = {
 };
 
 /** Column index per field; a field left out is not in the file. */
-export type FuelImportMapping = Partial<Record<FuelImportField, number>>;
+export type FuelImportMapping = ColumnMapping<FuelImportField>;
 
 const COMMON_ALIASES: Record<FuelImportField, readonly string[]> = {
   date: ["fecha", "fecha de carga", "fecha carga", "fecha y hora", "dia"],
@@ -98,15 +104,6 @@ const PROVIDER_ALIASES: Record<
   other: {},
 };
 
-export function normalizeHeader(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function aliasesOf(
   provider: FuelImportProvider,
 ): Record<FuelImportField, readonly string[]> {
@@ -118,53 +115,20 @@ function aliasesOf(
   return out;
 }
 
-/** The mapping the header row suggests: an exact alias first, then a header
- *  that starts with one ("litros despachados (lts)"). Each column is used
- *  once. */
+/** The mapping the header row suggests for the provider's aliases. */
 export function suggestMapping(
   header: readonly string[],
   provider: FuelImportProvider,
 ): FuelImportMapping {
-  const aliases = aliasesOf(provider);
-  const normalized = header.map(normalizeHeader);
-  const used = new Set<number>();
-  const mapping: FuelImportMapping = {};
-  for (const pass of ["exact", "prefix"] as const) {
-    for (const field of FUEL_IMPORT_FIELDS) {
-      if (mapping[field] !== undefined) continue;
-      const index = normalized.findIndex(
-        (h, i) =>
-          !used.has(i) &&
-          h !== "" &&
-          aliases[field].some((a) =>
-            pass === "exact" ? h === a : h.startsWith(`${a} `),
-          ),
-      );
-      if (index >= 0) {
-        mapping[field] = index;
-        used.add(index);
-      }
-    }
-  }
-  return mapping;
+  return suggestColumnMapping(header, FUEL_IMPORT_FIELDS, aliasesOf(provider));
 }
 
-/** The header row: among the first 15, the one that maps the most fields
- *  (at least 2). -1 when none does. */
+/** The header row of a statement, or -1 (lib/tables/columns.ts). */
 export function findHeaderRow(
   rows: readonly (readonly string[])[],
   provider: FuelImportProvider,
 ): number {
-  let best = -1;
-  let bestCount = 1;
-  rows.slice(0, 15).forEach((row, i) => {
-    const count = Object.keys(suggestMapping(row, provider)).length;
-    if (count > bestCount) {
-      best = i;
-      bestCount = count;
-    }
-  });
-  return best;
+  return findHeaderRowIndex(rows, FUEL_IMPORT_FIELDS, aliasesOf(provider));
 }
 
 /** The fields an import cannot do without. */
@@ -176,35 +140,6 @@ export function missingFields(mapping: FuelImportMapping): FuelImportField[] {
     missing.push("patente");
   }
   return missing;
-}
-
-function isRealDate(y: number, m: number, d: number): boolean {
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return (
-    date.getUTCFullYear() === y &&
-    date.getUTCMonth() === m - 1 &&
-    date.getUTCDate() === d
-  );
-}
-
-/** "31/10/2026", "31-10-26 14:05", "2026-10-31T14:05" → "2026-10-31". */
-export function parseStatementDate(raw: string): string | null {
-  const value = raw.trim();
-  let y: number;
-  let m: number;
-  let d: number;
-  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/.exec(value);
-  const ar = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})(?:$|\s)/.exec(value);
-  if (iso) {
-    [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
-  } else if (ar) {
-    const year = Number(ar[3]);
-    [y, m, d] = [year < 100 ? 2000 + year : year, Number(ar[2]), Number(ar[1])];
-  } else {
-    return null;
-  }
-  if (!isRealDate(y, m, d)) return null;
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 /** Patente or card as compared: uppercase letters and digits only. */
@@ -318,7 +253,7 @@ export function buildImportRows(input: {
     const rawDate = cell(row, input.mapping, "date");
     const rawPlate = cell(row, input.mapping, "patente");
     const rawCard = cell(row, input.mapping, "card");
-    const loadDate = parseStatementDate(rawDate);
+    const loadDate = parseSheetDate(rawDate);
     if (!loadDate && !rawPlate && !rawCard) return;
 
     const liters = parseStatementNumber(cell(row, input.mapping, "liters"));

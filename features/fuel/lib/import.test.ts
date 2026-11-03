@@ -6,8 +6,6 @@ import {
   fuelLoadKey,
   matchVehicle,
   missingFields,
-  normalizeHeader,
-  parseStatementDate,
   suggestMapping,
   type ImportVehicle,
 } from "./import";
@@ -17,15 +15,6 @@ const VEHICLES: ImportVehicle[] = [
   { id: "v2", patente: "AAA111", fuel_card: "7069009999994321" },
   { id: "v3", patente: "AAA222", fuel_card: null },
 ];
-
-describe("normalizeHeader", () => {
-  it("drops accents, case and punctuation", () => {
-    expect(normalizeHeader("  Estación de Servicio ")).toBe(
-      "estacion de servicio",
-    );
-    expect(normalizeHeader("Nro. Tarjeta")).toBe("nro tarjeta");
-  });
-});
 
 describe("suggestMapping / findHeaderRow", () => {
   it("finds the header under title lines and maps provider aliases", () => {
@@ -83,21 +72,6 @@ describe("suggestMapping / findHeaderRow", () => {
       [],
     );
     expect(missingFields({ liters: 1 })).toEqual(["date", "amount", "patente"]);
-  });
-});
-
-describe("parseStatementDate", () => {
-  it("reads Argentine and ISO dates, with or without a time", () => {
-    expect(parseStatementDate("31/10/2026")).toBe("2026-10-31");
-    expect(parseStatementDate("1-2-26 14:05")).toBe("2026-02-01");
-    expect(parseStatementDate("2026-10-31T08:00:00")).toBe("2026-10-31");
-    expect(parseStatementDate("2026-10-31")).toBe("2026-10-31");
-  });
-
-  it("rejects impossible or unknown dates", () => {
-    expect(parseStatementDate("31/02/2026")).toBeNull();
-    expect(parseStatementDate("Total")).toBeNull();
-    expect(parseStatementDate("")).toBeNull();
   });
 });
 

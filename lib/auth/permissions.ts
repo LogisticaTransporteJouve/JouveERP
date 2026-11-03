@@ -143,6 +143,11 @@ export const PERMISSIONS = [
   // Tasks (roadmap 1.4/1.5): shared to-dos, recurring and from documents
   "tasks:read",
   "tasks:write",
+
+  // Importador (roadmap 5.1/5.2): spreadsheet imports, their runs and the
+  // historic payroll and trips. Owner and admin only; write = import and undo.
+  "imports:read",
+  "imports:write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
