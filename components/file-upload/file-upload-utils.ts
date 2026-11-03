@@ -3,6 +3,7 @@
 // 20260516160200_files_storage_bucket.sql) — keep them in sync.
 
 import { formatFileSize } from "@/lib/files/format-file-size";
+import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 export const ALLOWED_DOCUMENT_TYPES: Record<string, string> = {
   "application/pdf": "PDF",
@@ -58,11 +59,10 @@ export const FILE_TYPE_PRESETS: Record<FileTypePreset, FileTypeConfig> = {
     maxSize: MAX_FILE_SIZE,
     cameraAccept: "image/*",
   },
-  // Server actions cap the request body at 4 MB (lib/tables/read-upload.ts).
   tables: {
     allowedTypes: ALLOWED_TABLE_TYPES,
     acceptString: ".csv,.txt,.xlsx",
-    maxSize: 4 * 1024 * 1024,
+    maxSize: MAX_UPLOAD_TABLE_BYTES,
     cameraAccept: null,
   },
 };

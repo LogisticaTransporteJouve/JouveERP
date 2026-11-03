@@ -12,7 +12,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
-import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/read-upload";
+import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import {
   receivedVoucherAmounts,

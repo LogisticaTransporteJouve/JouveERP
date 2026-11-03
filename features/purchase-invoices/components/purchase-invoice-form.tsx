@@ -1413,6 +1413,9 @@ export function PurchaseInvoiceForm({
                       {...field}
                       autoComplete="off"
                       placeholder="14 dígitos"
+                      disabled={
+                        arcaLocked && createDraft?.data.cae_proveedor != null
+                      }
                     />
                   </FormControl>
                   <FormMessage />

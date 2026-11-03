@@ -3,9 +3,6 @@ import "server-only";
 import { parseCsv, type ParsedTable, type TableLimits } from "./csv";
 import { XlsxReadError, readXlsxFirstSheet } from "./xlsx";
 
-/** Server actions take the request body whole; Vercel caps it at 4.5 MB. */
-export const MAX_UPLOAD_TABLE_BYTES = 4 * 1024 * 1024;
-
 /** UTF-8 when the bytes are valid UTF-8, else windows-1252 (what ARCA and a
  *  Spanish-locale Excel write a CSV in). */
 export function decodeText(bytes: Uint8Array): string {
