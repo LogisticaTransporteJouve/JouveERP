@@ -101,9 +101,13 @@ export const getDriverSettlements = defineAiAction({
     "Rendiciones de cobranza contra entrega: per driver, the delivered " +
     "cash-on-delivery cargas still to hand in (pending) and the rendiciones " +
     "(newest first) with what was expected, handed in, the difference " +
-    "(negative = faltante), who bears it (driver = his account, the " +
-    "client settled; client = left open in the client's account; null = " +
-    "not resolved) " +
+    "(negative = faltante), who bears it (difference_charged_to: driver " +
+    "= his account; client = left open in the client's account; null = " +
+    "not resolved) and the driver's movement (difference_kind: advance = " +
+    "the client was settled with a receipt; charge or payment = posted " +
+    "before 2026-11-04, the client side was NOT settled — a faltante left " +
+    "the client's invoice open, a sobrante stayed on the client's account " +
+    "too; fix it in Rendiciones › Quitar diferencia) " +
     "and receipts cancelled or edited since. For 'qué choferes deben " +
     "rendir' or 'faltantes de rendición'.",
   input: z.object({
@@ -164,6 +168,7 @@ export const getDriverSettlements = defineAiAction({
           difference_ars: s.difference,
           difference_posted_to_driver: s.difference_posted !== null,
           difference_charged_to: s.difference_charged_to,
+          difference_kind: s.difference_posted?.kind ?? null,
           receipts: s.receipts.map((r) => r.label),
           receipts_out_of_sync: s.receipts_out_of_sync,
         })),
