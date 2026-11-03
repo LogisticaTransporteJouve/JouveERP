@@ -312,7 +312,7 @@ export async function consultarPadron(cuit: string): Promise<ContributorInfo> {
     body: envelope,
   });
 
-  const text = await res.text();
+  const text = res.text;
   // AFIP answers business faults ("No existe persona con ese Id") as HTTP 500
   // with a SOAP Fault body, so the fault is read before the status.
   const parsed = xmlParser.parse(text) as ParsedPadronResponse;

@@ -15,6 +15,10 @@ const h = vi.hoisted(() => {
   const caeaDates: string[] = [];
   const informed: Array<Record<string, unknown>> = [];
   const caea: { active: boolean } = { active: true };
+  const failReads = new Set<string>();
+  const sent: Array<{ id: string; events: unknown }> = [];
+  const beforeUpdate = null as
+    ((table: string, patch: Record<string, unknown>) => void) | null;
   return {
     handlers,
     onFailures,
@@ -24,16 +28,23 @@ const h = vi.hoisted(() => {
     caeaDates,
     informed,
     caea,
+    failReads,
+    sent,
+    beforeUpdate,
   };
 });
 
 function from(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
   let patch: Row | null = null;
+  let head = false;
   const rows = () =>
     (h.db[table] ?? []).filter((r) => filters.every((f) => f(r)));
   const builder = {
-    select: () => builder,
+    select: (_cols?: string, opts?: { head?: boolean }) => {
+      head = opts?.head ?? false;
+      return builder;
+    },
     update: (values: Row) => {
       patch = values;
       return builder;
@@ -60,19 +71,35 @@ function from(table: string) {
     },
     or: () => builder,
     lt: () => builder,
+    gt: () => builder,
     gte: () => builder,
     order: () => builder,
     limit: () => builder,
     maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
-    then: (resolve: (v: { data: Row[] | null; error: null }) => unknown) => {
+    then: (
+      resolve: (v: {
+        data: Row[] | null;
+        count?: number;
+        error: { message: string } | null;
+      }) => unknown,
+    ) => {
+      if (h.failReads.has(table) && !patch) {
+        return Promise.resolve(
+          resolve({ data: null, error: { message: `${table} down` } }),
+        );
+      }
+      if (patch) h.beforeUpdate?.(table, patch);
       const hit = rows();
       if (patch) {
         h.updates.push({ table, patch });
         for (const r of hit) Object.assign(r, patch);
       }
-      return Promise.resolve(
-        resolve({ data: patch ? null : hit, error: null }),
-      );
+      if (head) {
+        return Promise.resolve(
+          resolve({ data: null, count: hit.length, error: null }),
+        );
+      }
+      return Promise.resolve(resolve({ data: hit, error: null }));
     },
   };
   return builder;
@@ -126,11 +153,16 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/observability", () => ({ captureException: vi.fn() }));
 
 await import("./issue-invoice");
-const { getVoucherInfo } = await import("@/lib/afip/wsfev1");
+const { getVoucherInfo, requestCAE, informCaeaNoMovement } =
+  await import("@/lib/afip/wsfev1");
 await import("./caea-inform");
+await import("./issue-invoice-reconcile");
 
 const step = {
   run: async (_id: string, fn: () => Promise<unknown>) => fn(),
+  sendEvent: async (id: string, events: unknown) => {
+    h.sent.push({ id, events });
+  },
 };
 
 const INVOICE_ID = "11111111-1111-4111-8111-111111111111";
@@ -178,6 +210,130 @@ beforeEach(() => {
   h.caeaDates.length = 0;
   h.caea.active = true;
   h.informed.length = 0;
+  h.failReads.clear();
+  h.sent.length = 0;
+  h.beforeUpdate = null;
+  vi.mocked(requestCAE).mockReset();
+  vi.mocked(getVoucherInfo).mockReset();
+  vi.mocked(informCaeaNoMovement).mockReset();
+});
+
+const issue = (data: Row = {}) =>
+  h.handlers.get("issue-invoice")?.({
+    event: {
+      data: {
+        invoice_id: INVOICE_ID,
+        idempotency_key: "k1",
+        punto_venta: 9,
+        ...data,
+      },
+    },
+    step,
+  });
+
+function seedDraft(overrides: Row = {}, emissionType = "CAE") {
+  h.db.invoices = [draft(overrides)];
+  h.db.invoice_items = [
+    { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+  ];
+  h.db.sales_points = [{ numero: 9, last_known_emission_type: emissionType }];
+}
+
+const CAE_6 = {
+  ptoVta: 9,
+  cbteTipo: 1,
+  cbteNro: 6,
+  cae: "75000000000006",
+  caeFchVto: "20261024",
+  observaciones: [],
+  fchProceso: null,
+};
+
+describe("issue-invoice load-draft", () => {
+  it("does nothing for an invoice another run already emitted", async () => {
+    seedDraft({ status: "emitted", numero: 6 });
+    await expect(issue()).resolves.toEqual({ skipped: "already_emitted" });
+    expect(h.updates).toEqual([]);
+  });
+
+  it("never moves an invoice emitted between its read and the flip back to emitting", async () => {
+    seedDraft();
+    h.beforeUpdate = (table, patch) => {
+      // Another run emits it after this run read `draft`.
+      if (table === "invoices" && patch.status === "emitting") {
+        Object.assign(h.db.invoices![0]!, { status: "emitted", numero: 6 });
+      }
+    };
+    await expect(issue()).resolves.toEqual({ skipped: "already_emitted" });
+    expect(h.db.invoices?.[0]?.status).toBe("emitted");
+    expect(requestCAE).not.toHaveBeenCalled();
+  });
+
+  it("waits for the items of a draft a resubmit sent while the first submit was still saving them", async () => {
+    seedDraft();
+    h.db.invoice_items = [];
+    const run = issue();
+    await expect(run).rejects.toThrow("no tiene ítems");
+    await expect(run).rejects.not.toBeInstanceOf(NonRetriableError);
+    expect(h.db.invoices?.[0]?.status).toBe("draft");
+    expect(requestCAE).not.toHaveBeenCalled();
+  });
+});
+
+describe("issue-invoice CAE branch", () => {
+  it("requests no CAE once the invoice is no longer emitting", async () => {
+    seedDraft();
+    h.beforeUpdate = (table, patch) => {
+      // issue-invoice-reconcile failed it while this run waited for a retry.
+      if (table === "invoices" && "afip_attempted_numero" in patch) {
+        h.db.invoices![0]!.status = "failed";
+      }
+    };
+    await expect(issue()).rejects.toBeInstanceOf(NonRetriableError);
+    expect(requestCAE).not.toHaveBeenCalled();
+  });
+
+  it("does not report success for a CAE no row can hold", async () => {
+    seedDraft();
+    vi.mocked(requestCAE).mockResolvedValueOnce(CAE_6);
+    h.beforeUpdate = (table, patch) => {
+      // The draft was deleted while FECAESolicitar was in flight.
+      if (table === "invoices" && "cae" in patch) h.db.invoices = [];
+    };
+    await expect(issue()).rejects.toBeInstanceOf(NonRetriableError);
+  });
+
+  it("stores the CAE AFIP authorized", async () => {
+    seedDraft();
+    vi.mocked(requestCAE).mockResolvedValueOnce(CAE_6);
+    await expect(issue()).resolves.toMatchObject({ cbteNro: 6 });
+    expect(h.db.invoices?.[0]).toMatchObject({
+      status: "emitted",
+      numero: 6,
+      cae: "75000000000006",
+      afip_attempted_numero: 6,
+    });
+  });
+});
+
+describe("issue-invoice internal branch", () => {
+  it("does not re-emit an internal voucher another run emitted", async () => {
+    seedDraft({
+      channel_id: "jouve_internal",
+      cbte_tipo_afip: null,
+      channel: { id: "jouve_internal", is_fiscal: false, name: "Interno" },
+    });
+    h.beforeUpdate = (table, patch) => {
+      if (table === "invoices" && patch.status === "emitted") {
+        Object.assign(h.db.invoices![0]!, {
+          status: "emitted",
+          emitted_at: "earlier",
+        });
+      }
+    };
+    await issue();
+    expect(h.db.invoices?.[0]?.emitted_at).toBe("earlier");
+  });
 });
 
 describe("issue-invoice CAEA branch", () => {
@@ -351,5 +507,161 @@ describe("issue-invoice onFailure", () => {
     vi.mocked(getVoucherInfo).mockRejectedValueOnce(new Error("timeout"));
     await failureWithAttempt();
     expect(h.db.invoices?.[0]?.status).toBe("emitting");
+  });
+});
+
+describe("caea-inform sin movimiento", () => {
+  const expiredCaea = {
+    id: "code-1",
+    caea: "12345678901234",
+    no_movement_pvs: [],
+  };
+
+  it("declares only the CAEA points of sale that issued nothing under it", async () => {
+    h.db.invoices = [
+      draft({
+        numero: 4,
+        status: "emitted",
+        cae: "12345678901234",
+        emission_type: "caea",
+        caea_informed_at: "2026-10-15T00:00:00Z",
+      }),
+    ];
+    h.db.caea_codes = [expiredCaea];
+    h.db.sales_points = [
+      { numero: 9, last_known_emission_type: "CAEA", is_enabled: true },
+      { numero: 10, last_known_emission_type: "CAEA", is_enabled: true },
+    ];
+    await h.handlers.get("caea-inform")?.({ step });
+    expect(vi.mocked(informCaeaNoMovement).mock.calls).toEqual([
+      [10, "12345678901234"],
+    ]);
+  });
+
+  it("files nothing with AFIP when the usage read fails", async () => {
+    h.db.invoices = [];
+    h.db.caea_codes = [expiredCaea];
+    h.db.sales_points = [
+      { numero: 9, last_known_emission_type: "CAEA", is_enabled: true },
+    ];
+    // load-pending reads invoices first; fail the invoices reads after it.
+    const failingStep = {
+      ...step,
+      run: async (id: string, fn: () => Promise<unknown>) => {
+        if (id === "inform-no-movement") h.failReads.add("invoices");
+        return fn();
+      },
+    };
+    await expect(
+      h.handlers.get("caea-inform")?.({ step: failingStep }),
+    ).rejects.toThrow("load-caea-usage");
+    expect(informCaeaNoMovement).not.toHaveBeenCalled();
+  });
+});
+
+describe("issue-invoice-reconcile", () => {
+  const reconcile = () => h.handlers.get("issue-invoice-reconcile")?.({ step });
+
+  const voucher6 = {
+    ptoVta: 9,
+    cbteTipo: 1,
+    cbteNro: 6,
+    cae: "75000000000006",
+    caeFchVto: "20261024",
+    impTotal: 121,
+    cbteFch: "20261014",
+    docTipo: 80,
+    docNro: "30712345678",
+  };
+
+  const stuck = (overrides: Row = {}) => {
+    h.db.invoices = [
+      draft({
+        status: "emitting",
+        afip_attempted_numero: 6,
+        updated_at: "2026-11-03T10:00:00Z",
+        ...overrides,
+      }),
+    ];
+    h.db.invoice_items = [];
+  };
+
+  it("emits a stuck invoice with the CAE AFIP holds for it", async () => {
+    stuck();
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(voucher6 as never);
+    await reconcile();
+    expect(h.db.invoices?.[0]).toMatchObject({ status: "emitted", numero: 6 });
+  });
+
+  it("fails a stuck invoice AFIP has no voucher of, which frees its claims", async () => {
+    stuck();
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
+    await reconcile();
+    expect(h.db.invoices?.[0]?.status).toBe("failed");
+  });
+
+  it("adopts its CAE although another stuck invoice attempted the same number", async () => {
+    stuck();
+    h.db.invoices?.push(
+      draft({
+        id: "33333333-3333-4333-8333-333333333333",
+        status: "emitting",
+        afip_attempted_numero: 6,
+        imp_total: 999,
+        updated_at: "2026-11-03T10:00:00Z",
+      }),
+    );
+    vi.mocked(getVoucherInfo).mockResolvedValue(voucher6 as never);
+    await reconcile();
+    expect(h.db.invoices?.[0]).toMatchObject({ status: "emitted", numero: 6 });
+    // The voucher at 6 is not the other one's: it is resolved as failed.
+    expect(h.db.invoices?.[1]?.status).toBe("failed");
+  });
+
+  it("leaves it emitting while AFIP does not answer", async () => {
+    stuck();
+    vi.mocked(getVoucherInfo).mockRejectedValueOnce(new Error("timeout"));
+    await reconcile();
+    expect(h.db.invoices?.[0]?.status).toBe("emitting");
+  });
+
+  it("keeps a row a run touched after the read", async () => {
+    stuck();
+    vi.mocked(getVoucherInfo).mockResolvedValueOnce(null);
+    h.beforeUpdate = (table, patch) => {
+      const row = h.db.invoices?.[0];
+      if (table === "invoices" && patch.status === "failed" && row) {
+        row.updated_at = "2026-11-03T10:40:00Z";
+      }
+    };
+    await reconcile();
+    expect(h.db.invoices?.[0]?.status).toBe("emitting");
+  });
+
+  it("sends a draft with items that never reached Inngest again, with its own key", async () => {
+    h.db.invoices = [
+      draft({ idempotency_key: "k-draft" }),
+      draft({ id: "no-items", idempotency_key: "k-empty" }),
+    ];
+    h.db.invoice_items = [
+      { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+    ];
+    await reconcile();
+    expect(h.sent).toEqual([
+      {
+        id: "resend-unsent",
+        events: [
+          {
+            name: "invoice/issue.requested",
+            data: {
+              invoice_id: INVOICE_ID,
+              idempotency_key: "k-draft",
+              channel_id: "jouve_fiscal",
+              punto_venta: 9,
+            },
+          },
+        ],
+      },
+    ]);
   });
 });

@@ -21,6 +21,7 @@ import { documentExtraction } from "@/lib/inngest/functions/document-extraction"
 import { fleetDocumentExpiryAlerts } from "@/lib/inngest/functions/fleet-document-expiry-alerts";
 import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
+import { issueInvoiceReconcile } from "@/lib/inngest/functions/issue-invoice-reconcile";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
 import { searchIndexRefresh } from "@/lib/inngest/functions/search-index-refresh";
 import { tasksDaily } from "@/lib/inngest/functions/tasks-daily";
@@ -42,6 +43,7 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     issueInvoice,
+    issueInvoiceReconcile,
     creditBilledRemito,
     agingWeeklySummary,
     agingSnapshot,

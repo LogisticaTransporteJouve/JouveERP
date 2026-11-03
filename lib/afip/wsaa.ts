@@ -29,6 +29,12 @@ import type { AccessTicket } from "./types";
 
 const SAFETY_MARGIN_MS = 5 * 60 * 1000;
 
+/** A TA WSAA issued after the client gave up is lost, and every later login
+ *  gets `coe.alreadyAuthenticated` until it expires (12 h with no CAE), so the
+ *  login waits longer than the other AFIP calls. One login per step: 60 s plus
+ *  four 20 s WSFE calls stays under the 300 s step budget. */
+export const WSAA_TIMEOUT_MS = 60_000;
+
 // In-memory hot path cache. The DB cache is the source of truth.
 const memCache = new Map<string, AccessTicket>();
 const inFlight = new Map<string, Promise<AccessTicket>>();
@@ -150,9 +156,10 @@ async function callWsaa(cms: string): Promise<AccessTicket> {
       SOAPAction: WSAA_SERVICE_NS,
     },
     body: envelope,
+    timeoutMs: WSAA_TIMEOUT_MS,
   });
 
-  const text = await res.text();
+  const text = res.text;
   logger.debug("wsaa.response", { status: res.status });
 
   if (!res.ok) {
