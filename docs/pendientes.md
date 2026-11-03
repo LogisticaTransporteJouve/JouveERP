@@ -185,14 +185,6 @@
 - [ ] Aprobar la migración `20261103150000_ai_cross_queries` junto con el
       deploy: sin ella fallan `getClientMargin`, `getVehicleEconomics` y
       `getDriverActivity`.
-- [ ] **Costos de camión sin vínculo:** seguros, patentes, cubiertas y
-      compras cargadas solo con centro de costo no llegan a
-      `getVehicleEconomics` (mismo faltante que "Margen por camión" de
-      gestión v2).
-- [ ] `ai_fleet_margin` cuenta viajes cancelados (su costo y su ingreso
-      manual); las RPC nuevas de actividad los excluyen. Alinear.
-- [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
-      `getDriverActivity`.
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron:
       `getClientSalesSummary` y `getClientPaymentBehavior` se pisan en "días
       de cobro".
@@ -403,14 +395,28 @@
       año anterior.
 - [x] **Exportar CSV / Excel** de la tabla mes a mes (uso interno, auditado).
 - [x] IA: `getManagementPnL` con indicadores y `getManagementPnLDocuments`.
-- [ ] **Margen por camión:** falta vincular camión ↔ centro de costo (o la
-      carga de combustible / el service con el camión en la compra). Los
-      ingresos ya podrían atribuirse por `shipments.trip_id → trips.vehicle_id`.
 - [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
       pagos a proveedores aunque después se impute a un bien de uso o a una
       compra a cargo de un empleado.
-- [ ] `getManagementReportAction` lee `get_management_pnl` sin paginar: con
-      más de 1000 filas (mes × caja × cuenta × centro) PostgREST la cortaría.
+
+## Margen por camión (2026-11-03)
+
+- [ ] Aprobar la migración `20261104050000_vehicle_margin` junto con el
+      deploy: sin ella fallan la sección "Margen por camión", el vínculo en
+      Centros de costo y `getVehicleEconomics` con permiso de gestión. Rollback:
+      el código anterior no lee `cost_centers.vehicle_id` ni llama a
+      `get_vehicle_margin`.
+- [ ] Vincular cada camión con su centro en Contabilidad › Centros de costo
+      (dato, no código).
+- [ ] Una carga de combustible que apunta solo al pago (OP) y no a la compra
+      cuenta dos veces si la compra lleva el centro del camión; un
+      `trips.cost` cargado también como compra con ese centro, igual.
+- [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
+      el ajuste por inflación de la pantalla).
+- [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
+      en "USD sin cotización" (`management_pnl_lines`, rama `pending_usd`, no
+      excluye `loans.disbursement_transaction_id`), aunque con cotización no
+      es resultado. Solo afecta el aviso, no suma a ninguna cifra.
 
 ---
 
@@ -496,10 +502,10 @@
       antes. Los movimientos de documentos no la llevan.
 - [x] **Resultado de gestión por centro de costo:** filtro y tabla "Por
       centro de costo"; la herramienta de IA `getManagementPnL` también.
-- [ ] **Centro de costo del camión en combustible y mantenimiento.** `vehicles`
-      no tiene centro y la carga de combustible / el service solo referencian
-      la compra (`purchase_invoice_id`): falta `vehicles.cost_center_id` y que
-      vincular una carga a una compra sin centro le ponga el del camión.
+- [ ] **Centro de costo del camión en combustible y mantenimiento.** El
+      camión ya tiene centro (`cost_centers.vehicle_id`, margen por camión);
+      falta que vincular una carga o un service a una compra sin centro le
+      ponga el del camión.
 - [ ] **Percibido por centro para pagos con OP:** el movimiento de la OP no
       lleva el centro de las compras que paga (podría repartirse por
       imputación).
