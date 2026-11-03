@@ -268,6 +268,8 @@ export function PurchaseInvoiceForm({
   const defaultChannelId = invoice?.channel_id ?? scopeDefaultChannel ?? "";
 
   const createDraft = mode === "create" ? (draft ?? null) : null;
+  // An ARCA voucher: identity and amounts come from ARCA and stay as they are.
+  const arcaLocked = createDraft?.origin === "arca";
   const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);
   const updateMut = useUpdatePurchaseInvoice();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -280,6 +282,7 @@ export function PurchaseInvoiceForm({
   // A field read from the document keeps its mark until the user edits it.
   const dirtyFields = form.formState.dirtyFields;
   function aiMark(field: DraftField) {
+    if (arcaLocked) return null;
     if (!initial.filled.has(field) || dirtyFields[field]) return null;
     // With items, these are recomputed from the lines, not the document's.
     if (watchedWithItems && ITEM_DERIVED_FIELDS.includes(field)) return null;
@@ -778,9 +781,13 @@ export function PurchaseInvoiceForm({
       createMut.mutate(payload, {
         onSuccess: (data) => {
           toast.success(
-            createDraft
-              ? "Factura cargada con el archivo adjunto."
-              : "Factura cargada.",
+            arcaLocked
+              ? data.linkedExisting
+                ? "Ya estaba cargado: quedó vinculado."
+                : "Comprobante de ARCA cargado."
+              : createDraft?.source
+                ? "Factura cargada con el archivo adjunto."
+                : "Factura cargada.",
           );
           if (onSuccess) onSuccess(data.id);
           else router.push("/purchases");
@@ -807,7 +814,12 @@ export function PurchaseInvoiceForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        {createDraft && <DraftNotice warnings={createDraft.data.warnings} />}
+        {createDraft && (
+          <DraftNotice
+            warnings={createDraft.data.warnings}
+            fromArca={arcaLocked}
+          />
+        )}
         <FormField
           control={form.control}
           name="supplier"
@@ -827,97 +839,24 @@ export function PurchaseInvoiceForm({
           )}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="channel_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Canal</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegí canal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {channelOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          {c.is_fiscal ? " · fiscal" : " · interno"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="kind"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo{aiMark("kind")}</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PURCHASE_INVOICE_KINDS.map((k) => (
-                        <SelectItem key={k} value={k}>
-                          {PURCHASE_INVOICE_KIND_LABEL[k]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {isInternalChannel && (
-          <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <strong className="font-medium text-foreground">
-              Gasto interno.
-            </strong>{" "}
-            Sin letra fiscal ni CAE. Número auto-asignado por proveedor. Pagable
-            con OP interna; no va al libro IVA Compras.
-          </div>
-        )}
-
-        <div
-          className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
-        >
-          {!isInternalChannel && (
+        <fieldset disabled={arcaLocked} className="min-w-0 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="letter"
+              name="channel_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Letra{aiMark("letter")}</FormLabel>
+                  <FormLabel>Canal</FormLabel>
                   <FormControl>
-                    <Select
-                      value={field.value || "__none"}
-                      onValueChange={(v) =>
-                        field.onChange(v === "__none" ? "" : v)
-                      }
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="—" />
+                        <SelectValue placeholder="Elegí canal" />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Fiscal purchases need a letter; only an old one
-                            saved without it can stay that way. */}
-                        {mode === "edit" && !invoice?.letter && (
-                          <SelectItem value="__none">— Sin letra</SelectItem>
-                        )}
-                        {PURCHASE_INVOICE_LETTERS.map((l) => (
-                          <SelectItem key={l} value={l}>
-                            {l}
+                        {channelOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            {c.is_fiscal ? " · fiscal" : " · interno"}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -927,274 +866,93 @@ export function PurchaseInvoiceForm({
                 </FormItem>
               )}
             />
-          )}
-          <FormField
-            control={form.control}
-            name="punto_venta"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Punto de venta{aiMark("punto_venta")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="3"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="numero"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Número{aiMark("numero")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="12345"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {duplicate && (
-          <p className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
-            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              Ya cargaste{" "}
-              <Link
-                href={`${PURCHASE_INVOICES_PATH}/${duplicate.id}`}
-                className="font-mono underline underline-offset-2"
-              >
-                {formatInvoiceNumber(duplicate)}
-              </Link>{" "}
-              de este proveedor
-              {duplicate.status === "cancelled" ? " (anulada)" : ""}. Revisá que
-              no sea la misma factura.
-            </span>
-          </p>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="fecha"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="fch_vto_pago"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Vencimiento de pago{aiMark("fch_vto_pago")}
-                </FormLabel>
-                <FormControl>
-                  <DatePicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    clearable
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="space-y-3 rounded-md border bg-muted/10 p-4">
-          <FormField
-            control={form.control}
-            name="with_items"
-            render={({ field }) => (
-              <FormItem className="flex items-start gap-3 space-y-0">
-                <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={(e) => {
-                      field.onChange(e.target.checked);
-                      if (
-                        e.target.checked &&
-                        form.getValues("items").length === 0
-                      ) {
-                        form.setValue("items", [emptyItem()]);
-                      }
-                    }}
-                    className="mt-1 size-4 accent-foreground"
-                  />
-                </FormControl>
-                <div className="space-y-1">
-                  <FormLabel className="cursor-pointer">
-                    Cargar con detalle por ítem{aiMark("items")}
-                  </FormLabel>
-                  <p className="text-xs text-muted-foreground">
-                    Discrimina IVA por alícuota (necesario para libro IVA
-                    Compras). Si lo dejás apagado, cargás solo los totales del
-                    header.
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-          {watchedWithItems && (
             <FormField
               control={form.control}
-              name="items"
+              name="kind"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>Tipo{aiMark("kind")}</FormLabel>
                   <FormControl>
-                    <PurchaseInvoiceItemsEditor
-                      items={field.value}
-                      onChange={field.onChange}
-                    />
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PURCHASE_INVOICE_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {PURCHASE_INVOICE_KIND_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          </div>
+
+          {isInternalChannel && (
+            <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              <strong className="font-medium text-foreground">
+                Gasto interno.
+              </strong>{" "}
+              Sin letra fiscal ni CAE. Número auto-asignado por proveedor.
+              Pagable con OP interna; no va al libro IVA Compras.
+            </div>
           )}
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-4">
-          <FormField
-            control={form.control}
-            name="imp_neto"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Neto{aiMark("imp_neto")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    readOnly={watchedWithItems}
-                    className={watchedWithItems ? "bg-muted/40" : undefined}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+          <div
+            className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+          >
+            {!isInternalChannel && (
+              <FormField
+                control={form.control}
+                name="letter"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Letra{aiMark("letter")}</FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value || "__none"}
+                        onValueChange={(v) =>
+                          field.onChange(v === "__none" ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {/* Fiscal purchases need a letter; only an old one
+                            saved without it can stay that way. */}
+                          {mode === "edit" && !invoice?.letter && (
+                            <SelectItem value="__none">— Sin letra</SelectItem>
+                          )}
+                          {PURCHASE_INVOICE_LETTERS.map((l) => (
+                            <SelectItem key={l} value={l}>
+                              {l}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_iva"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  IVA{aiMark("imp_iva")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    readOnly={watchedWithItems}
-                    className={watchedWithItems ? "bg-muted/40" : undefined}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_trib"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    disabled={!breakdownKnown}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_total"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Total{aiMark("imp_total")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    readOnly={watchedWithItems}
-                    className={
-                      watchedWithItems
-                        ? "bg-muted/40 font-semibold"
-                        : "font-semibold"
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {showsExempt && (
-          <div className="grid gap-4 sm:grid-cols-4">
             <FormField
               control={form.control}
-              name="imp_no_gravado"
+              name="punto_venta"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>No gravado</FormLabel>
+                  <FormLabel>Punto de venta{aiMark("punto_venta")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      disabled={!breakdownKnown}
+                      inputMode="numeric"
+                      placeholder="3"
                     />
                   </FormControl>
                   <FormMessage />
@@ -1203,17 +961,16 @@ export function PurchaseInvoiceForm({
             />
             <FormField
               control={form.control}
-              name="imp_op_exentas"
+              name="numero"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Exento</FormLabel>
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Número{aiMark("numero")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      disabled={!breakdownKnown}
+                      inputMode="numeric"
+                      placeholder="12345"
                     />
                   </FormControl>
                   <FormMessage />
@@ -1221,7 +978,264 @@ export function PurchaseInvoiceForm({
               )}
             />
           </div>
-        )}
+
+          {duplicate && (
+            <p className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                Ya cargaste{" "}
+                <Link
+                  href={`${PURCHASE_INVOICES_PATH}/${duplicate.id}`}
+                  className="font-mono underline underline-offset-2"
+                >
+                  {formatInvoiceNumber(duplicate)}
+                </Link>{" "}
+                de este proveedor
+                {duplicate.status === "cancelled" ? " (anulada)" : ""}. Revisá
+                que no sea la misma factura.
+              </span>
+            </p>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="fecha"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
+                  <FormControl>
+                    <DatePicker value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fch_vto_pago"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Vencimiento de pago{aiMark("fch_vto_pago")}
+                  </FormLabel>
+                  <FormControl>
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      clearable
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="space-y-3 rounded-md border bg-muted/10 p-4">
+            <FormField
+              control={form.control}
+              name="with_items"
+              render={({ field }) => (
+                <FormItem className="flex items-start gap-3 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={(e) => {
+                        field.onChange(e.target.checked);
+                        if (
+                          e.target.checked &&
+                          form.getValues("items").length === 0
+                        ) {
+                          form.setValue("items", [emptyItem()]);
+                        }
+                      }}
+                      className="mt-1 size-4 accent-foreground"
+                    />
+                  </FormControl>
+                  <div className="space-y-1">
+                    <FormLabel className="cursor-pointer">
+                      Cargar con detalle por ítem{aiMark("items")}
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Discrimina IVA por alícuota (necesario para libro IVA
+                      Compras). Si lo dejás apagado, cargás solo los totales del
+                      header.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+            {watchedWithItems && (
+              <FormField
+                control={form.control}
+                name="items"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <PurchaseInvoiceItemsEditor
+                        items={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-4">
+            <FormField
+              control={form.control}
+              name="imp_neto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Neto{aiMark("imp_neto")}
+                    {watchedWithItems && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        (auto)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      readOnly={watchedWithItems}
+                      className={watchedWithItems ? "bg-muted/40" : undefined}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imp_iva"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    IVA{aiMark("imp_iva")}
+                    {watchedWithItems && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        (auto)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      readOnly={watchedWithItems}
+                      className={watchedWithItems ? "bg-muted/40" : undefined}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imp_trib"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      disabled={!breakdownKnown}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imp_total"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Total{aiMark("imp_total")}
+                    {watchedWithItems && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        (auto)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      readOnly={watchedWithItems}
+                      className={
+                        watchedWithItems
+                          ? "bg-muted/40 font-semibold"
+                          : "font-semibold"
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {showsExempt && (
+            <div className="grid gap-4 sm:grid-cols-4">
+              <FormField
+                control={form.control}
+                name="imp_no_gravado"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>No gravado</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        disabled={!breakdownKnown}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="imp_op_exentas"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Exento</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        disabled={!breakdownKnown}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+        </fieldset>
 
         {watchedChannelIsFiscal && Number(watchedTrib || 0) > 0 && (
           <TributesSplitFields
@@ -1330,7 +1344,11 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={arcaLocked}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1481,14 +1499,23 @@ export function PurchaseInvoiceForm({
   );
 }
 
-function DraftNotice({ warnings }: { warnings: string[] }) {
+function DraftNotice({
+  warnings,
+  fromArca,
+}: {
+  warnings: string[];
+  fromArca: boolean;
+}) {
+  if (fromArca && warnings.length === 0) return null;
   return (
     <div className="space-y-1 rounded-md border bg-muted/20 px-3 py-2 text-xs">
-      <p className="flex items-center gap-2">
-        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
-        Revisá los datos leídos del archivo antes de guardar. Los marcados con
-        el ícono los completó la IA.
-      </p>
+      {!fromArca && (
+        <p className="flex items-center gap-2">
+          <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+          Revisá los datos leídos del archivo antes de guardar. Los marcados con
+          el ícono los completó la IA.
+        </p>
+      )}
       {warnings.map((w) => (
         <p key={w} className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
