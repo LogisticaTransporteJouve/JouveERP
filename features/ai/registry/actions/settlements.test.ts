@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveAccess } from "@/lib/auth/permissions";
 
 const listFreightSettlementsAction = vi.fn();
-const listDriverSettlementsAction = vi.fn();
+const listAllDriverSettlementsAction = vi.fn();
 const listCodPendingAction = vi.fn();
 
 vi.mock(
@@ -12,7 +12,7 @@ vi.mock(
 );
 vi.mock(
   "@/features/driver-settlements/actions/driver-settlements-actions",
-  () => ({ listDriverSettlementsAction, listCodPendingAction }),
+  () => ({ listAllDriverSettlementsAction, listCodPendingAction }),
 );
 
 const { getDriverSettlements, getFreightSettlements } =
@@ -96,7 +96,7 @@ describe("getFreightSettlements", () => {
 });
 
 describe("getDriverSettlements", () => {
-  it("reads every page and the pending cargas per driver", async () => {
+  it("reads the rendiciones and the pending cargas per driver", async () => {
     listCodPendingAction.mockResolvedValue({
       ok: true,
       data: {
@@ -112,24 +112,20 @@ describe("getDriverSettlements", () => {
         ],
       },
     });
-    listDriverSettlementsAction
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { settlements: [settlement({})], nextOffset: 100 },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: {
-          settlements: [settlement({ id: "s2", difference: 0 })],
-          nextOffset: null,
-        },
-      });
+    listAllDriverSettlementsAction.mockResolvedValue({
+      ok: true,
+      data: {
+        settlements: [settlement({}), settlement({ id: "s2", difference: 0 })],
+        complete: false,
+      },
+    });
     const res = await getDriverSettlements.execute(ctx, {
       only_with_difference: true,
     });
-    expect(listDriverSettlementsAction).toHaveBeenCalledTimes(2);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
+    // Stopped at the read cap: the result says it is partial.
+    expect(res.meta?.partial).toBe(true);
     const data = res.data as { settlements: { id: string }[] };
     expect(data.settlements.map((s) => s.id)).toEqual(["s1"]);
     expect(res.summary).toContain("2 cargas por rendir");

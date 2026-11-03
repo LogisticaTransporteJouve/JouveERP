@@ -7,7 +7,7 @@ import {
 } from "@/features/clients/actions/sales-report-actions";
 import {
   listCodPendingAction,
-  listDriverSettlementsAction,
+  listAllDriverSettlementsAction,
 } from "@/features/driver-settlements/actions/driver-settlements-actions";
 import type {
   CodPending,
@@ -773,7 +773,7 @@ export const getDriverActivity = defineAiAction({
             })
           : null,
         withCod ? listCodPendingAction() : null,
-        withCod ? listDriverSettlementsAction() : null,
+        withCod ? listAllDriverSettlementsAction() : null,
       ]);
     if (!activityRes.ok) return errResult(activityRes.error);
     if (marginRes && !marginRes.ok) return errResult(marginRes.error);
@@ -782,7 +782,7 @@ export const getDriverActivity = defineAiAction({
       return errResult(settlementsRes.error);
     const cod =
       pendingRes && settlementsRes
-        ? codByDriver(pendingRes.data, settlementsRes.data, range)
+        ? codByDriver(pendingRes.data, settlementsRes.data.settlements, range)
         : null;
     const margin = new Map(
       (marginRes?.data ?? []).map((m) => [m.group_key, m]),

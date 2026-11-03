@@ -241,6 +241,27 @@ export async function listDriverSettlementsAction(
   };
 }
 
+/** Most rendiciones listAllDriverSettlementsAction reads (pages of 100). */
+const ALL_CAP = 2000;
+
+/**
+ * Every rendición, newest first, page by page (for readers that aggregate,
+ * like the assistant). `complete` is false when it stopped at ALL_CAP.
+ */
+export async function listAllDriverSettlementsAction(): Promise<
+  ActionResult<{ settlements: DriverSettlement[]; complete: boolean }>
+> {
+  const settlements: DriverSettlement[] = [];
+  let offset: number | null = 0;
+  while (offset !== null && settlements.length < ALL_CAP) {
+    const res = await listDriverSettlementsAction({ offset, limit: 100 });
+    if (!res.ok) return res;
+    settlements.push(...res.data.settlements);
+    offset = res.data.nextOffset;
+  }
+  return { ok: true, data: { settlements, complete: offset === null } };
+}
+
 export async function getDriverSettlementAction(
   id: string,
 ): Promise<ActionResult<DriverSettlementDetail>> {

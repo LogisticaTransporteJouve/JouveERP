@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import {
+  listAllDriverSettlementsAction,
   listCodPendingAction,
-  listDriverSettlementsAction,
 } from "@/features/driver-settlements/actions/driver-settlements-actions";
 import { formatDriverSettlementNumber } from "@/features/driver-settlements/schema";
 import { listFreightSettlementsAction } from "@/features/freight-settlements/actions/freight-settlements-actions";
@@ -85,10 +85,6 @@ export const getFreightSettlements = defineAiAction({
   },
 });
 
-/** Rendiciones read in pages of this size, up to MAX_PAGES. */
-const PAGE = 100;
-const MAX_PAGES = 5;
-
 export const getDriverSettlements = defineAiAction({
   name: "getDriverSettlements",
   domain: "tesoreria",
@@ -125,16 +121,9 @@ export const getDriverSettlements = defineAiAction({
     const pending = await listCodPendingAction();
     if (!pending.ok) return errResult(pending.error);
 
-    const settlements = [];
-    let offset: number | null = 0;
-    let pages = 0;
-    while (offset !== null && pages < MAX_PAGES) {
-      const res = await listDriverSettlementsAction({ offset, limit: PAGE });
-      if (!res.ok) return errResult(res.error);
-      settlements.push(...res.data.settlements);
-      offset = res.data.nextOffset;
-      pages += 1;
-    }
+    const all = await listAllDriverSettlementsAction();
+    if (!all.ok) return errResult(all.error);
+    const { settlements, complete } = all.data;
 
     const needle = input.driver_name?.toLowerCase() ?? null;
     const byName = (name: string) =>
@@ -175,7 +164,7 @@ export const getDriverSettlements = defineAiAction({
           receipts_out_of_sync: s.receipts_out_of_sync,
         })),
       },
-      { partial: rows.length > limit || offset !== null },
+      { partial: rows.length > limit || !complete },
     );
   },
 });

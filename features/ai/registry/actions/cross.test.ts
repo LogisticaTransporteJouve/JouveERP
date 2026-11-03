@@ -24,14 +24,14 @@ vi.mock(
   "@/features/driver-settlements/actions/driver-settlements-actions",
   () => ({
     listCodPendingAction: vi.fn(),
-    listDriverSettlementsAction: vi.fn(),
+    listAllDriverSettlementsAction: vi.fn(),
   }),
 );
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
 import {
   listCodPendingAction,
-  listDriverSettlementsAction,
+  listAllDriverSettlementsAction,
 } from "@/features/driver-settlements/actions/driver-settlements-actions";
 import type { DriverSettlement } from "@/features/driver-settlements/schema";
 import {
@@ -119,9 +119,9 @@ beforeEach(() => {
     ok: true,
     data: { shipments: [], byDriver: [] },
   });
-  vi.mocked(listDriverSettlementsAction).mockResolvedValue({
+  vi.mocked(listAllDriverSettlementsAction).mockResolvedValue({
     ok: true,
-    data: [],
+    data: { settlements: [], complete: true },
   });
   vi.mocked(getVehicleMarginAction).mockResolvedValue({
     ok: true,
@@ -168,6 +168,9 @@ function settlement(v: Partial<DriverSettlement>): DriverSettlement {
     difference: -50,
     cargas: 2,
     receipts: [],
+    receipts_out_of_sync: false,
+    difference_posted: null,
+    driver_employee_id: null,
     created_at: "2026-10-10T12:00:00Z",
     ...v,
   };
@@ -658,14 +661,17 @@ describe("getDriverActivity", () => {
         ],
       },
     });
-    vi.mocked(listDriverSettlementsAction).mockResolvedValue({
+    vi.mocked(listAllDriverSettlementsAction).mockResolvedValue({
       ok: true,
-      data: [
-        settlement({}),
-        settlement({ id: "s2", status: "draft", numero: null }),
-        settlement({ id: "s3", settlement_date: "2026-09-30" }),
-        settlement({ id: "s4", status: "cancelled" }),
-      ],
+      data: {
+        settlements: [
+          settlement({}),
+          settlement({ id: "s2", status: "draft", numero: null }),
+          settlement({ id: "s3", settlement_date: "2026-09-30" }),
+          settlement({ id: "s4", status: "cancelled" }),
+        ],
+        complete: true,
+      },
     });
     const { data, meta } = okData(
       await getDriverActivity.execute(ctx(["admin"]), RANGE),
