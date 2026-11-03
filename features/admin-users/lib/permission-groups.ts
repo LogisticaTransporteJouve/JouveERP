@@ -41,6 +41,7 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   hr: "Recursos humanos",
   files: "Archivos",
   tasks: "Tareas",
+  imports: "Importador",
   ai: "Inteligencia artificial",
   email: "Envío de emails",
   padron: "Padrón AFIP",

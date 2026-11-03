@@ -7,8 +7,10 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
-import { parseCsv, type ParsedTable } from "@/lib/tables/csv";
-import { XlsxReadError, readXlsxFirstSheet } from "@/lib/tables/xlsx";
+import {
+  MAX_UPLOAD_TABLE_BYTES,
+  readUploadedTable,
+} from "@/lib/tables/read-upload";
 
 import {
   FUEL_IMPORT_LIMITS,
@@ -24,9 +26,6 @@ import {
 } from "../lib/import";
 import { FuelImportConfirmSchema, FuelImportPreviewSchema } from "../schema";
 
-/** Server actions take the request body whole; Vercel caps it at 4.5 MB. */
-const MAX_FILE_BYTES = 4 * 1024 * 1024;
-
 export type FuelImportPreview = {
   headers: string[];
   mapping: FuelImportMapping;
@@ -35,28 +34,6 @@ export type FuelImportPreview = {
   /** The file had more rows than an import reads. */
   truncated: boolean;
 };
-
-function readTable(file: File, bytes: Uint8Array): ParsedTable | string {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".xls")) {
-    return "El formato .xls no se puede leer: guardalo como .xlsx o .csv.";
-  }
-  try {
-    if (name.endsWith(".xlsx")) {
-      return readXlsxFirstSheet(bytes, FUEL_IMPORT_LIMITS);
-    }
-    if (name.endsWith(".csv") || name.endsWith(".txt")) {
-      return parseCsv(
-        new TextDecoder("utf-8").decode(bytes),
-        FUEL_IMPORT_LIMITS,
-      );
-    }
-  } catch (err) {
-    if (err instanceof XlsxReadError) return "No se pudo leer el Excel.";
-    throw err;
-  }
-  return "Subí el resumen en .xlsx o .csv.";
-}
 
 /** fuelLoadKey of the loads already in the system between the two dates. */
 async function existingKeys(
@@ -122,10 +99,14 @@ export async function previewFuelImportAction(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Elegí el archivo del resumen." };
   }
-  if (file.size > MAX_FILE_BYTES) {
+  if (file.size > MAX_UPLOAD_TABLE_BYTES) {
     return { ok: false, error: "El archivo supera los 4 MB." };
   }
-  const table = readTable(file, new Uint8Array(await file.arrayBuffer()));
+  const table = readUploadedTable(
+    file.name,
+    new Uint8Array(await file.arrayBuffer()),
+    FUEL_IMPORT_LIMITS,
+  );
   if (typeof table === "string") return { ok: false, error: table };
 
   const headerIndex = findHeaderRow(table.rows, parsed.data.provider);
