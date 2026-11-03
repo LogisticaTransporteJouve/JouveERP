@@ -81,6 +81,7 @@ const FormSchema = z.object({
   description: z.string().trim().max(500),
   scheduled_date: z.string(),
   freight_amount: z.string(),
+  cod_amount: z.string(),
   notes: z.string().trim().max(2000),
 });
 
@@ -110,6 +111,7 @@ function toDefaults(shipment?: Shipment): FormValues {
     scheduled_date: shipment?.scheduled_date ?? "",
     freight_amount:
       shipment?.freight_amount != null ? String(shipment.freight_amount) : "",
+    cod_amount: shipment?.cod_amount != null ? String(shipment.cod_amount) : "",
     notes: shipment?.notes ?? "",
   };
 }
@@ -179,6 +181,7 @@ export function ShipmentDialog({
       description: values.description,
       scheduled_date: values.scheduled_date,
       freight_amount: values.freight_amount,
+      cod_amount: values.cod_amount,
       notes: values.notes,
     };
     if (mode === "create") {
@@ -389,6 +392,29 @@ export function ShipmentDialog({
                   )}
                 />
               </div>
+              <FormField
+                control={form.control}
+                name="cod_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cobranza contra entrega</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        placeholder="Vacío si no cobra al entregar"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Lo que el chofer cobra al cliente al entregar. Lo rinde
+                      después en Rendiciones.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="notes"

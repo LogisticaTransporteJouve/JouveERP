@@ -15,6 +15,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   isClientTariffConcept,
+  STORAGE_TARIFF_CONCEPTS,
   isClientTariffCurrency,
   isClientTariffUnit,
 } from "@/features/client-tariffs/schema";
@@ -55,6 +56,7 @@ async function loadClientTariffs(
       .select(
         "id, client_id, concept, unit, price, currency, valid_from, valid_to",
       )
+      .in("concept", [...STORAGE_TARIFF_CONCEPTS])
       .lte("valid_from", range.periodEnd)
       .or(`valid_to.is.null,valid_to.gte.${range.periodStart}`);
     if (clientId) q = q.eq("client_id", clientId);
