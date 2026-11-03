@@ -29,9 +29,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
 
-const { findShipmentsByRemitoAction } = await import(
-  "./shipments-remito-search"
-);
+const { findShipmentsByRemitoAction } =
+  await import("./shipments-remito-search");
 
 describe("findShipmentsByRemitoAction", () => {
   it("filters the remito number exactly in SQL, so newer near-matches cannot crowd it out of the cap", async () => {

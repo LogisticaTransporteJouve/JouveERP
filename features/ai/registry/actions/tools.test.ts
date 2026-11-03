@@ -509,14 +509,14 @@ describe("runJournalEntries", () => {
       data: { items: [], nextOffset: 200 },
     });
     const r = await runJournalEntries({ limit: 5000 });
-    expect(vi.mocked(listJournalEntriesAction).mock.calls[0]?.[0]).toMatchObject(
-      { limit: 200 },
-    );
+    expect(
+      vi.mocked(listJournalEntriesAction).mock.calls[0]?.[0],
+    ).toMatchObject({ limit: 200 });
     expect(r.ok && r.partial).toBe(true);
     await runJournalEntries({ limit: 0 });
-    expect(vi.mocked(listJournalEntriesAction).mock.calls[1]?.[0]).toMatchObject(
-      { limit: 1 },
-    );
+    expect(
+      vi.mocked(listJournalEntriesAction).mock.calls[1]?.[0],
+    ).toMatchObject({ limit: 1 });
   });
 });
 

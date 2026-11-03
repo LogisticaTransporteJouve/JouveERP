@@ -70,8 +70,6 @@ describe("gatherTripMargins", () => {
 describe("gatherFleetDocExpiry", () => {
   it("throws on a failed read instead of reporting nothing to expire", async () => {
     pages.fleet_documents = [{ data: null, error: { message: "timeout" } }];
-    await expect(gatherFleetDocExpiry("2026-11-03")).rejects.toThrow(
-      "timeout",
-    );
+    await expect(gatherFleetDocExpiry("2026-11-03")).rejects.toThrow("timeout");
   });
 });

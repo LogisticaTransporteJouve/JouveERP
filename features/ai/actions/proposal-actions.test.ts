@@ -43,7 +43,7 @@ vi.mock("../lib/ai-proposals", () => ({
   insertProposal,
   latestProposalByKey,
   failStaleAcceptedProposal,
-  proposalDedupeKey:(action: string) => `${action}:key`,
+  proposalDedupeKey: (action: string) => `${action}:key`,
 }));
 
 const {

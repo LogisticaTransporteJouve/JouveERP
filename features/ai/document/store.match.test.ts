@@ -28,7 +28,10 @@ beforeEach(() => {
   fake.calls.length = 0;
   answer = (call) =>
     call.table === "suppliers"
-      ? { data: [{ id: SUPPLIER, legal_name: "Prov SA", cuit: "1" }], error: null }
+      ? {
+          data: [{ id: SUPPLIER, legal_name: "Prov SA", cuit: "1" }],
+          error: null,
+        }
       : { data: [], error: null };
 });
 

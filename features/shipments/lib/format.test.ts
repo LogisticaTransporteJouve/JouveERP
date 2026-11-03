@@ -62,9 +62,7 @@ describe("remitoMatches", () => {
       "0001-37-2",
       "sin número",
     ]) {
-      expect(pattern.test(remito), remito).toBe(
-        remitoMatches(remito, scanned),
-      );
+      expect(pattern.test(remito), remito).toBe(remitoMatches(remito, scanned));
     }
     expect(() => remitoNumberPattern(1.5)).toThrow();
   });
