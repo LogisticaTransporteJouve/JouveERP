@@ -33,7 +33,10 @@ import {
 } from "../hooks/use-freight-settlements";
 import {
   FREIGHT_SETTLEMENT_STATUS_LABELS,
-  formatSettlementNumber,
+  hasRDocument,
+  settlementNextStep,
+  settlementNumberLabel,
+  settlementSide,
   type FreightSettlement,
 } from "../schema";
 
@@ -49,7 +52,11 @@ const INVOICE_STATUS_NOTE: Record<string, string> = {
 
 function statusLabel(s: FreightSettlement): string {
   const base = FREIGHT_SETTLEMENT_STATUS_LABELS[s.status];
-  if (s.invoicing) return `${base} · facturando…`;
+  const internal = settlementSide(s) === "internal";
+  if (s.invoicing) {
+    return `${base} · ${internal ? "emitiendo remito interno…" : "facturando…"}`;
+  }
+  if (s.status === "invoiced" && internal) return `${base} · remito interno`;
   if (s.status === "invoiced" && s.invoice_status) {
     const note = INVOICE_STATUS_NOTE[s.invoice_status];
     return note ? `${base} · ${note}` : base;
@@ -93,14 +100,16 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
       const ok = await confirm({
         title: "Confirmar liquidación",
         description:
-          "Se recalculan los precios con el flete o la tarifa vigente, se le asigna su número R y ya no se puede editar.",
+          "Se recalculan los precios con el flete o la tarifa vigente, se emite el Remito R con su número y ya no se puede editar. Después se factura.",
         confirmLabel: "Confirmar",
       });
       if (!ok) return;
       confirmMut.mutate(s.id, {
         onSuccess: (data) =>
           toast.success(
-            `Liquidación ${formatSettlementNumber(data.numero)} confirmada.`,
+            data.number
+              ? `Liquidación confirmada: Remito ${data.number}.`
+              : "Liquidación confirmada.",
           ),
         onError: (err) => toast.error(err.message),
       });
@@ -111,7 +120,9 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
         title: "Cancelar liquidación",
         description:
           s.status === "invoiced"
-            ? "Solo se puede si la factura está anulada o acreditada por nota de crédito por el total. Sus cargas quedan libres."
+            ? settlementSide(s) === "internal"
+              ? "Solo se puede si el remito interno está anulado o acreditado por nota de crédito interna por el total. Sus cargas quedan libres."
+              : "Solo se puede si la factura está anulada o acreditada por nota de crédito por el total. Sus cargas quedan libres. El Remito R queda cancelado con su número."
             : "Sus cargas quedan libres para otra liquidación.",
         confirmLabel: "Cancelar liquidación",
         tone: "destructive",
@@ -129,7 +140,7 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
         header: "Número",
         cell: ({ row }) => (
           <span className="font-mono text-sm">
-            {formatSettlementNumber(row.original.numero)}
+            {settlementNumberLabel(row.original)}
           </span>
         ),
         meta: { headerClassName: "w-36", mobile: "secondary" },
@@ -180,9 +191,10 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
         cell: ({ row }) => {
           const s = row.original;
           const canEdit = canWrite && s.status === "draft";
-          const canInvoice =
-            canWrite && s.status === "confirmed" && !s.invoicing;
+          const step = canWrite && !s.invoicing ? settlementNextStep(s) : null;
           const canCancel = canWrite && s.status !== "cancelled";
+          const internalPdf =
+            !hasRDocument(s) && s.invoice_number !== null && s.invoice_id;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -195,7 +207,7 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
                   <Eye className="size-4" />
                   Ver
                 </DropdownMenuItem>
-                {s.numero !== null && (
+                {hasRDocument(s) && (
                   <DropdownMenuItem asChild>
                     <a
                       href={`/api/freight-settlements/${s.id}/pdf`}
@@ -203,7 +215,21 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
                       rel="noopener noreferrer"
                     >
                       <FileText className="size-4" />
-                      Ver R (PDF)
+                      {s.remito_number !== null
+                        ? "Ver remito R (PDF)"
+                        : "Ver R (PDF)"}
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {internalPdf && (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={`/api/invoices/${s.invoice_id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FileText className="size-4" />
+                      Ver remito interno (PDF)
                     </a>
                   </DropdownMenuItem>
                 )}
@@ -214,18 +240,22 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
                       <Pencil className="size-4" />
                       Editar
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleConfirm(s)}>
-                      <CheckCircle2 className="size-4" />
-                      Confirmar
-                    </DropdownMenuItem>
                   </>
                 )}
-                {canInvoice && (
+                {step === "confirm" && (
+                  <DropdownMenuItem onClick={() => handleConfirm(s)}>
+                    <CheckCircle2 className="size-4" />
+                    Confirmar y emitir remito R
+                  </DropdownMenuItem>
+                )}
+                {(step === "invoice" || step === "issue_internal") && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setInvoicing(s)}>
                       <Receipt className="size-4" />
-                      Facturar
+                      {step === "invoice"
+                        ? "Facturar"
+                        : "Emitir remito interno"}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -257,8 +287,8 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
             Liquidaciones
           </h1>
           <p className="text-sm text-muted-foreground">
-            Cargas entregadas de un cliente en un período, en un documento R y
-            una sola factura.
+            Cargas entregadas de un cliente en un período: en Ventas, un Remito
+            R y una sola factura; en Otras ventas, un remito interno.
           </p>
         </div>
         {canWrite && (
