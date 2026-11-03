@@ -28,17 +28,21 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // ⌘K (Ctrl+K on Windows) opens search. Only when we're in
-  // /chat — the listener lives in the component, which mounts with the shell.
+  // ⌘K (Ctrl+K on Windows) opens chat search while /chat is mounted.
+  // Capture phase + stopImmediatePropagation so the global search's
+  // ⌘K listener doesn't also open its dialog, whose focus would dismiss
+  // this one.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        e.stopImmediatePropagation();
         setSearchOpen(true);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, []);
 
   const selfChannels = channels.filter((c) => c.kind === "self");

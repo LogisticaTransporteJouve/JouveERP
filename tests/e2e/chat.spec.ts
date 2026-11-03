@@ -50,6 +50,8 @@ test.describe("Chat — self channel happy path", () => {
   test("⌘K abre el dialog de búsqueda", async ({ page }) => {
     await page.goto("/chat");
     await page.waitForURL(/\/chat\/[0-9a-f-]{36}/);
+    // Wait for the shell to hydrate so the ⌘K listener is attached.
+    await expect(page.getByPlaceholder(/escribí un mensaje/i)).toBeVisible();
 
     await page.keyboard.press("Meta+k");
     await expect(
