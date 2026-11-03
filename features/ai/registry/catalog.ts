@@ -104,6 +104,7 @@ import {
   proposeTask,
 } from "./actions/operations-proposals";
 import { getTasks } from "./actions/tasks";
+import { getTaxDocuments } from "./actions/taxes";
 import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
 import {
@@ -168,6 +169,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLoanDetail,
   getExchangeRates,
   getMonthlyPackageStatus,
+  getTaxDocuments,
   proposeJournalEntry,
   proposeExchangeRate,
   // RRHH / sueldos

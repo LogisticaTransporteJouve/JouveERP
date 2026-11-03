@@ -134,3 +134,32 @@ describe("getSignedFileUrlAction — entity read denies", () => {
     expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
   });
 });
+
+describe("getSignedFileUrlAction — tax document attachments", () => {
+  it("lets the accountant (taxes:read, no files:read) open a tax document's file", async () => {
+    ctx.access = resolveAccess(["fiscal_reader"]);
+    links = [{ tax_document_id: "td1" }];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
+  });
+
+  it("refuses the accountant any other file", async () => {
+    ctx.access = resolveAccess(["fiscal_reader"]);
+    links = [{ invoice_id: "i1" }];
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual({
+      ok: false,
+      error: "Archivo no encontrado.",
+    });
+    links = [];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(false);
+    expect(createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("refuses it when taxes:read is denied to the user", async () => {
+    ctx.access = resolveAccess(["fiscal_reader"], ["taxes:read"]);
+    links = [{ tax_document_id: "td1" }];
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual({
+      ok: false,
+      error: "No tenés permiso para ver archivos.",
+    });
+  });
+});

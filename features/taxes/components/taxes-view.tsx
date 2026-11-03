@@ -8,8 +8,10 @@ import {
   Link2,
   List,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Plus,
+  RotateCcw,
   Undo2,
   Wallet,
   CheckCheck,
@@ -48,6 +50,7 @@ import {
   useCopyTaxDocuments,
   useSetTaxDocumentStatus,
   useTaxDocuments,
+  useUndoTaxDocumentPayment,
 } from "../hooks/use-tax-documents";
 import {
   isOpenTaxStatus,
@@ -60,6 +63,7 @@ import {
 
 import { LinkTaxPaymentDialog } from "./link-tax-payment-dialog";
 import { PayTaxDocumentDialog } from "./pay-tax-document-dialog";
+import { TaxAttachmentsDialog } from "./tax-attachments-dialog";
 import { TaxCalendar } from "./tax-calendar";
 import { TaxDocumentDialog } from "./tax-document-dialog";
 
@@ -68,6 +72,7 @@ export function TaxesView({
   canWrite,
   canAttach,
   canLinkPayment,
+  canUndoPayment,
   payAccountOptions,
 }: {
   initialYear: number;
@@ -76,6 +81,9 @@ export function TaxesView({
   /** taxes:write plus transactions:read and transactions:write: adopt a
    *  movement already in Caja as the payment. */
   canLinkPayment: boolean;
+  /** taxes:write plus transactions:write: undo a payment (its movement is
+   *  deleted or released). */
+  canUndoPayment: boolean;
   payAccountOptions: { id: string; name: string }[];
 }) {
   const today = todayInAR();
@@ -85,6 +93,7 @@ export function TaxesView({
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<TaxDocument | null>(null);
   const [linking, setLinking] = useState<TaxDocument | null>(null);
+  const [viewingFiles, setViewingFiles] = useState<TaxDocument | null>(null);
   const copyMut = useCopyTaxDocuments();
   const confirm = useConfirm();
 
@@ -181,6 +190,7 @@ export function TaxesView({
             today={today}
             canWrite={canWrite}
             canLinkPayment={canLinkPayment}
+            canUndoPayment={canUndoPayment}
             onMonthChange={(m) => {
               setMonth(m);
               setYear(Number(m.slice(0, 4)));
@@ -188,9 +198,17 @@ export function TaxesView({
             onEdit={setEditing}
             onPay={setPaying}
             onLink={setLinking}
+            onViewFiles={setViewingFiles}
           />
         </Suspense>
       </Tabs>
+
+      {!canWrite && (
+        <TaxAttachmentsDialog
+          doc={viewingFiles}
+          onClose={() => setViewingFiles(null)}
+        />
+      )}
 
       {canWrite && (
         <>
@@ -228,23 +246,29 @@ function TaxesContent({
   today,
   canWrite,
   canLinkPayment,
+  canUndoPayment,
   onMonthChange,
   onEdit,
   onPay,
   onLink,
+  onViewFiles,
 }: {
   year: number;
   month: string;
   today: string;
   canWrite: boolean;
   canLinkPayment: boolean;
+  canUndoPayment: boolean;
   onMonthChange: (month: string) => void;
   onEdit: (doc: TaxDocument) => void;
   onPay: (doc: TaxDocument) => void;
   onLink: (doc: TaxDocument) => void;
+  /** Readers: the document's attachments, read only. */
+  onViewFiles: (doc: TaxDocument) => void;
 }) {
   const { data: docs } = useTaxDocuments(year);
   const statusMut = useSetTaxDocumentStatus();
+  const undoMut = useUndoTaxDocumentPayment();
   const confirm = useConfirm();
 
   const columns = useMemo<ColumnDef<TaxDocument>[]>(() => {
@@ -270,6 +294,31 @@ function TaxesContent({
         tone: "destructive",
       });
       if (ok) changeStatus(doc, "anulado", "Impuesto anulado.");
+    }
+    async function undoPayment(doc: TaxDocument) {
+      const ok = await confirm({
+        title: `Deshacer el pago de ${taxDocumentLabel(doc)} de ${formatPeriod(doc.period)}`,
+        description:
+          doc.payment_origin === "pay"
+            ? "Se borra el egreso de caja que registró el pago, con su asiento, y el impuesto vuelve a quedar por pagar. Si el egreso está conciliado con el extracto, primero desconciliá la línea."
+            : "El movimiento vinculado queda en Caja como un egreso suelto, con la cuenta de gasto que tenía, y su asiento se rehace. El impuesto vuelve a quedar por pagar.",
+        confirmLabel: "Deshacer pago",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      undoMut.mutate(doc.id, {
+        onSuccess: (r) =>
+          toast.success(
+            r === null
+              ? "El impuesto ya no estaba pagado."
+              : r.movementDeleted
+                ? "Pago deshecho: se borró el egreso."
+                : r.expenseAccountRestored
+                  ? "Pago deshecho: el movimiento volvió a su cuenta de gasto."
+                  : "Pago deshecho: el movimiento quedó en Caja sin cuenta de gasto.",
+          ),
+        onError: (err) => toast.error(err.message),
+      });
     }
 
     return [
@@ -377,7 +426,20 @@ function TaxesContent({
         meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => {
           const doc = row.original;
-          if (!canWrite || doc.status === "anulado") return null;
+          if (!canWrite) {
+            return (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Ver adjuntos"
+                title="Ver adjuntos"
+                onClick={() => onViewFiles(doc)}
+              >
+                <Paperclip className="size-4" />
+              </Button>
+            );
+          }
+          if (doc.status === "anulado") return null;
           const open = isOpenTaxStatus(doc.status);
           return (
             <DropdownMenu>
@@ -423,6 +485,12 @@ function TaxesContent({
                     Volver a pendiente
                   </DropdownMenuItem>
                 )}
+                {doc.status === "pagado" && canUndoPayment && (
+                  <DropdownMenuItem onClick={() => undoPayment(doc)}>
+                    <RotateCcw className="size-4" />
+                    Deshacer pago
+                  </DropdownMenuItem>
+                )}
                 {open && (
                   <DropdownMenuItem
                     className="text-destructive"
@@ -440,13 +508,16 @@ function TaxesContent({
     ];
   }, [
     canLinkPayment,
+    canUndoPayment,
     canWrite,
     confirm,
     onEdit,
     onLink,
     onPay,
+    onViewFiles,
     statusMut,
     today,
+    undoMut,
   ]);
 
   const visible = docs.filter((d) => d.status !== "anulado");
@@ -478,7 +549,8 @@ function TaxesContent({
           today={today}
           onMonthChange={onMonthChange}
           onSelect={(doc) => {
-            if (canWrite && doc.status !== "anulado") onEdit(doc);
+            if (!canWrite) onViewFiles(doc);
+            else if (doc.status !== "anulado") onEdit(doc);
           }}
         />
       </TabsContent>

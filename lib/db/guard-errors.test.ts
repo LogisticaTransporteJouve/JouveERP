@@ -135,6 +135,7 @@ const GUARDS = [
   "create_bank_statement_line_tax_payment",
   "guard_bank_statement_match",
   "match_bank_statement_lines",
+  "undo_tax_document_payment",
   "get_vehicle_margin",
 ];
 

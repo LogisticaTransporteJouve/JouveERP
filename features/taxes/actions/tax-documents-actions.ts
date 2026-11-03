@@ -27,8 +27,10 @@ import {
   computeIvaPosition,
   CopyTaxPeriodSchema,
   isTaxKind,
+  isTaxPaymentOrigin,
   isTaxStatus,
   PayTaxDocumentSchema,
+  previousIvaCreditBalance,
   previousPeriod,
   sumIva,
   TaxDocumentCreateSchema,
@@ -40,7 +42,7 @@ import {
 } from "../schema";
 
 const SELECT_COLUMNS =
-  "id, kind, title, jurisdiction, period, due_date, amount, amount_is_estimate, status, account_id, payment_transaction_id, paid_date, paid_amount, notes, account:chart_of_accounts!tax_documents_account_id_fkey ( code, name ), payment:transactions!tax_documents_payment_transaction_id_fkey ( account:accounts ( name ) )";
+  "id, kind, title, jurisdiction, period, due_date, amount, amount_is_estimate, status, account_id, payment_transaction_id, payment_origin, paid_date, paid_amount, credit_balance, notes, account:chart_of_accounts!tax_documents_account_id_fkey ( code, name ), payment:transactions!tax_documents_payment_transaction_id_fkey ( account:accounts ( name ) )";
 
 type TaxRow = {
   id: string;
@@ -54,17 +56,28 @@ type TaxRow = {
   status: string;
   account_id: string | null;
   payment_transaction_id: string | null;
+  payment_origin: string | null;
   paid_date: string | null;
   paid_amount: number | null;
+  credit_balance: number | null;
   notes: string | null;
   account: { code: string; name: string } | null;
   payment: { account: { name: string } | null } | null;
 };
 
 function narrowTaxDocument(row: TaxRow): TaxDocument | null {
-  const { kind, status } = row;
-  if (!isTaxKind(kind) || !isTaxStatus(status)) {
-    logger.error("tax_documents.unknown_value", { id: row.id, kind, status });
+  const { kind, status, payment_origin: origin } = row;
+  if (
+    !isTaxKind(kind) ||
+    !isTaxStatus(status) ||
+    (origin !== null && !isTaxPaymentOrigin(origin))
+  ) {
+    logger.error("tax_documents.unknown_value", {
+      id: row.id,
+      kind,
+      status,
+      origin,
+    });
     return null;
   }
   return {
@@ -82,9 +95,12 @@ function narrowTaxDocument(row: TaxRow): TaxDocument | null {
       ? `${row.account.code} ${row.account.name}`
       : null,
     payment_transaction_id: row.payment_transaction_id,
+    payment_origin: origin,
     paid_date: row.paid_date,
     paid_amount: row.paid_amount === null ? null : Number(row.paid_amount),
     paid_from: row.payment?.account?.name ?? null,
+    credit_balance:
+      row.credit_balance === null ? null : Number(row.credit_balance),
     notes: row.notes,
   };
 }
@@ -195,9 +211,10 @@ export async function listTaxAccountOptionsAction(): Promise<
 /**
  * IVA position of a period estimated from the libro IVA (fiscal channels):
  * débito of the sales book − crédito of the purchases book − IVA retentions
- * and perceptions suffered on the period's receipts. The purchase books carry
- * other taxes (imp_trib) without telling IVA perceptions from IIBB, so those
- * are left out and the screen says so.
+ * and perceptions suffered on the period's receipts − the saldo a favor
+ * técnico the previous period's IVA document carries. The purchase books
+ * carry other taxes (imp_trib) without telling IVA perceptions from IIBB:
+ * that total is returned apart, not subtracted, and the screen says so.
  */
 export async function getIvaPositionEstimateAction(input: {
   period: string;
@@ -257,16 +274,44 @@ export async function getIvaPositionEstimateAction(input: {
     };
   }
 
+  const { data: previousDocs, error: prevError } = await supabase
+    .from("tax_documents")
+    .select("id, status, credit_balance, updated_at")
+    .eq("kind", "iva")
+    .eq("period", previousPeriod(period))
+    .order("updated_at", { ascending: false });
+  if (prevError) {
+    logger.error("tax_documents.iva_estimate.previous_failed", {
+      userId: ctx.userId,
+      period,
+      error: prevError,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer el IVA del mes anterior.",
+    };
+  }
+
   const ventasGrouped = groupByInvoice(ventas.data);
   const comprasGrouped = groupComprasByInvoice(compras.data);
+  const comprasTotals = computeComprasTotals(comprasGrouped);
   const estimate = computeIvaPosition({
     period,
     debito: sumIva(computeTotals(ventasGrouped).per_rate),
-    credito: sumIva(computeComprasTotals(comprasGrouped).per_rate),
+    credito: sumIva(comprasTotals.per_rate),
     retenciones: (retentions ?? []).reduce(
       (acc, r) => acc + Number(r.amount),
       0,
     ),
+    saldoAnterior: previousIvaCreditBalance(
+      (previousDocs ?? []).map((d) => ({
+        status: d.status,
+        credit_balance:
+          d.credit_balance === null ? null : Number(d.credit_balance),
+        updated_at: d.updated_at,
+      })),
+    ),
+    tributosCompras: comprasTotals.imp_trib,
     ventas: ventasGrouped.length,
     compras: comprasGrouped.length,
   });
@@ -300,6 +345,7 @@ export async function createTaxDocumentAction(
       amount: d.amount,
       amount_is_estimate: d.amount_is_estimate,
       account_id: d.account_id,
+      credit_balance: d.credit_balance,
       notes: d.notes,
       created_by: ctx.userId,
     })
@@ -349,6 +395,7 @@ export async function updateTaxDocumentAction(
       amount: d.amount,
       amount_is_estimate: d.amount_is_estimate,
       account_id: d.account_id,
+      credit_balance: d.credit_balance,
       notes: d.notes,
     })
     .eq("id", id)
