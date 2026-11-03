@@ -15,7 +15,6 @@ import {
   errResult,
   money,
   okResult,
-  reachedCap,
   totalsByCurrency,
 } from "../result";
 import { readScope } from "../scope";
@@ -98,9 +97,8 @@ export const getTransactions = defineAiAction({
   run: (_ctx, input) => runTransactions(input),
 });
 
-const CHECKS_LIST_CAP = 500;
 const CAPPED_NOTE =
-  " (list capped at 500 by due date: count and total cover only these).";
+  " (every open check is listed, but only the latest 500 settled ones: count and total cover only these).";
 
 export async function runChecks(
   input: { scope?: FiscalFilter | null } = {},
@@ -118,8 +116,7 @@ export async function runChecks(
   const enCartera = res.data.items.filter(
     (c) => c.status === "en_cartera",
   ).length;
-  // The list action returns at most CHECKS_LIST_CAP checks (soonest due).
-  const capped = reachedCap(res.data.items.length, CHECKS_LIST_CAP);
+  const capped = res.data.truncated;
   return okResult(
     `${label}: ${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
       `total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
@@ -150,18 +147,18 @@ export async function runIssuedChecks(
   const res = await listIssuedChecksAction({ isFiscal });
   if (!res.ok) return errResult(res.error);
   const total = totalsByCurrency(
-    res.data.map((c) => ({
+    res.data.items.map((c) => ({
       amount: c.amount,
       currency: c.currency,
       counts: true,
     })),
   );
-  const capped = reachedCap(res.data.length, CHECKS_LIST_CAP);
+  const capped = res.data.truncated;
   return okResult(
-    `${label}: ${res.data.length} own checks issued · total ${total} (per currency)${
+    `${label}: ${res.data.items.length} own checks issued · total ${total} (per currency)${
       capped ? CAPPED_NOTE : "."
     }`,
-    res.data,
+    res.data.items,
     { partial: capped },
   );
 }

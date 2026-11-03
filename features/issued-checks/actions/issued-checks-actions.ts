@@ -9,6 +9,11 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import {
+  mergeOpenAndRecent,
+  SETTLED_LIST_CAP,
+} from "@/lib/supabase/open-and-recent";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { todayInAR } from "@/lib/format";
 
@@ -16,6 +21,7 @@ import type { AccountsListNameJoin } from "@/features/accounts/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
 
 import {
+  ISSUED_CHECK_STATUSES,
   IssuedCheckCreateSchema,
   IssuedCheckTransitionSchema,
   IssuedCheckUpdateSchema,
@@ -38,35 +44,59 @@ const PAYMENT_ORDER_LINK_ERROR =
 const COLUMNS =
   "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
 
+const SETTLED_ISSUED_STATUSES = ISSUED_CHECK_STATUSES.filter(
+  (s) => s !== "emitted",
+);
+
 /** `isFiscal` (`isFiscalFor`): null/undefined = every check, those with no
- *  channel included; a boolean drops the checks without a channel. */
+ *  channel included; a boolean drops the checks without a channel. Every
+ *  check still emitted, plus the latest SETTLED_LIST_CAP others by due date;
+ *  `truncated` = older settled checks were left out. */
 export async function listIssuedChecksAction(input?: {
   isFiscal?: boolean | null;
-}): Promise<ActionResult<IssuedCheck[]>> {
+}): Promise<ActionResult<{ items: IssuedCheck[]; truncated: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "issued_checks:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques propios." };
   }
 
   const supabase = await createClient();
-  const { data, error } = await applyFiscalFilter(
-    supabase
-      .from("issued_checks")
-      .select(
-        `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( is_fiscal )`,
-      ),
-    input?.isFiscal,
-    "channel",
-  )
-    .order("due_date", { ascending: true })
-    .limit(500);
+  const base = () =>
+    applyFiscalFilter(
+      supabase
+        .from("issued_checks")
+        .select(
+          `${COLUMNS}, suppliers ( legal_name ), accounts!issued_checks_bank_account_id_fkey ( name ), channel:invoicing_channels ( is_fiscal )`,
+        ),
+      input?.isFiscal,
+      "channel",
+    );
+  const [open, settled] = await Promise.all([
+    paginateRange((from, to) =>
+      base()
+        .eq("status", "emitted")
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    base()
+      .in("status", SETTLED_ISSUED_STATUSES)
+      .order("due_date", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(SETTLED_LIST_CAP + 1),
+  ]);
 
+  const error = open.error ?? settled.error;
   if (error) {
     logger.error("issued_checks.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los cheques propios." };
   }
+  const { rows, truncated } = mergeOpenAndRecent(
+    open.data ?? [],
+    settled.data ?? [],
+  );
 
-  const items: IssuedCheck[] = (data ?? [])
+  const items: IssuedCheck[] = rows
     .map((row) => {
       const sup = (row as unknown as SupplierListLegalJoin).suppliers;
       const acc = (row as AccountsListNameJoin).accounts;
@@ -82,7 +112,7 @@ export async function listIssuedChecksAction(input?: {
     })
     .filter((r): r is IssuedCheck => r !== null);
 
-  return { ok: true, data: items };
+  return { ok: true, data: { items, truncated } };
 }
 
 export async function createIssuedCheckAction(
