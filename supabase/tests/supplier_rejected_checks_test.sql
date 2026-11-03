@@ -12,9 +12,10 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select plan(14);
 
-insert into public.suppliers (id, cuit, legal_name, iva_condition) values
-  ('00000000-0000-0000-0000-00000000b141', '30999999990', 'Proveedor Rechazos', 'responsable_inscripto'),
-  ('00000000-0000-0000-0000-00000000b142', '30999999991', 'Proveedor NC sin origen', 'responsable_inscripto');
+-- Otras compras suppliers: the documents below are in the internal channel.
+insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
+  ('00000000-0000-0000-0000-00000000b141', false, null, 'Proveedor Rechazos', null),
+  ('00000000-0000-0000-0000-00000000b142', false, null, 'Proveedor NC sin origen', null);
 
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-00000000a141', 'Cartera rechazos proveedor', 'checks', 'ARS'),

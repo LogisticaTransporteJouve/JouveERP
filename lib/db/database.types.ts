@@ -8289,6 +8289,29 @@ export type Database = {
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
           usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
         Relationships: []
       }
@@ -8308,6 +8331,29 @@ export type Database = {
           usd_bucket_60_90: number | null
           usd_bucket_90_plus: number | null
           usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
         }
         Relationships: []
       }
