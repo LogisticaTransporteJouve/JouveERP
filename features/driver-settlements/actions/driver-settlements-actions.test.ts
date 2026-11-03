@@ -318,15 +318,18 @@ describe("postDriverSettlementDifferenceAction", () => {
     expect(call?.payload).toMatchObject({ p_charged_to: "client" });
   });
 
-  it("charging the driver needs hr:write besides receipts:write", async () => {
-    denies = ["hr:write"];
-    const res = await postDriverSettlementDifferenceAction({
-      id: SETTLEMENT,
-      charged_to: "driver",
-    });
-    expect(res.ok).toBe(false);
-    expect(fake.calls).toHaveLength(0);
-  });
+  it.each([["hr:write"], ["transactions:write"]])(
+    "charging the driver needs %s besides receipts:write",
+    async (denied) => {
+      denies = [denied];
+      const res = await postDriverSettlementDifferenceAction({
+        id: SETTLEMENT,
+        charged_to: "driver",
+      });
+      expect(res.ok).toBe(false);
+      expect(fake.calls).toHaveLength(0);
+    },
+  );
 
   it("refuses an unknown side", async () => {
     const res = await postDriverSettlementDifferenceAction({
@@ -339,7 +342,8 @@ describe("postDriverSettlementDifferenceAction", () => {
   });
 });
 
-// Cancel and unpost take the difference back; without hr:write the RPC
+// Cancel and unpost take the difference back; without hr:write and
+// transactions:write the RPC
 // refuses when the driver's account holds it (p_allow_driver false).
 describe.each([
   ["cancelDriverSettlementAction", "cancel_driver_settlement"],
@@ -363,12 +367,15 @@ describe.each([
     });
   });
 
-  it("asks the RPC to keep the driver's movement without hr:write", async () => {
-    denies = ["hr:write"];
-    expect((await action({ id: SETTLEMENT })).ok).toBe(true);
-    const call = fake.calls.find((c) => c.table === rpc);
-    expect(call?.payload).toMatchObject({ p_allow_driver: false });
-  });
+  it.each([["hr:write"], ["transactions:write"]])(
+    "asks the RPC to keep the driver's movement without %s",
+    async (denied) => {
+      denies = [denied];
+      expect((await action({ id: SETTLEMENT })).ok).toBe(true);
+      const call = fake.calls.find((c) => c.table === rpc);
+      expect(call?.payload).toMatchObject({ p_allow_driver: false });
+    },
+  );
 
   it("shows the RPC's refusal", async () => {
     denies = ["hr:write"];
