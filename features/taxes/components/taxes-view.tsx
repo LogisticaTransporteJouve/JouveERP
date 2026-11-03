@@ -72,7 +72,7 @@ export function TaxesView({
   canWrite,
   canAttach,
   canLinkPayment,
-  canUndoPayment,
+  canMovePayment,
   payAccountOptions,
 }: {
   initialYear: number;
@@ -81,9 +81,9 @@ export function TaxesView({
   /** taxes:write plus transactions:read and transactions:write: adopt a
    *  movement already in Caja as the payment. */
   canLinkPayment: boolean;
-  /** taxes:write plus transactions:write: undo a payment (its movement is
-   *  deleted or released). */
-  canUndoPayment: boolean;
+  /** taxes:write plus transactions:write: pay (books the outflow in Caja) or
+   *  undo a payment (its movement is deleted or released). */
+  canMovePayment: boolean;
   payAccountOptions: { id: string; name: string }[];
 }) {
   const today = todayInAR();
@@ -190,7 +190,7 @@ export function TaxesView({
             today={today}
             canWrite={canWrite}
             canLinkPayment={canLinkPayment}
-            canUndoPayment={canUndoPayment}
+            canMovePayment={canMovePayment}
             onMonthChange={(m) => {
               setMonth(m);
               setYear(Number(m.slice(0, 4)));
@@ -223,11 +223,13 @@ export function TaxesView({
             doc={editing}
             canAttach={canAttach}
           />
-          <PayTaxDocumentDialog
-            doc={paying}
-            accountOptions={payAccountOptions}
-            onClose={() => setPaying(null)}
-          />
+          {canMovePayment && (
+            <PayTaxDocumentDialog
+              doc={paying}
+              accountOptions={payAccountOptions}
+              onClose={() => setPaying(null)}
+            />
+          )}
           {canLinkPayment && (
             <LinkTaxPaymentDialog
               doc={linking}
@@ -246,7 +248,7 @@ function TaxesContent({
   today,
   canWrite,
   canLinkPayment,
-  canUndoPayment,
+  canMovePayment,
   onMonthChange,
   onEdit,
   onPay,
@@ -258,7 +260,7 @@ function TaxesContent({
   today: string;
   canWrite: boolean;
   canLinkPayment: boolean;
-  canUndoPayment: boolean;
+  canMovePayment: boolean;
   onMonthChange: (month: string) => void;
   onEdit: (doc: TaxDocument) => void;
   onPay: (doc: TaxDocument) => void;
@@ -453,7 +455,7 @@ function TaxesContent({
                   <Pencil className="size-4" />
                   {open ? "Editar y adjuntar" : "Notas y adjuntos"}
                 </DropdownMenuItem>
-                {open && (
+                {open && canMovePayment && (
                   <DropdownMenuItem onClick={() => onPay(doc)}>
                     <Wallet className="size-4" />
                     Pagar
@@ -485,7 +487,7 @@ function TaxesContent({
                     Volver a pendiente
                   </DropdownMenuItem>
                 )}
-                {doc.status === "pagado" && canUndoPayment && (
+                {doc.status === "pagado" && canMovePayment && (
                   <DropdownMenuItem onClick={() => undoPayment(doc)}>
                     <RotateCcw className="size-4" />
                     Deshacer pago
@@ -508,7 +510,7 @@ function TaxesContent({
     ];
   }, [
     canLinkPayment,
-    canUndoPayment,
+    canMovePayment,
     canWrite,
     confirm,
     onEdit,

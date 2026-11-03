@@ -58,7 +58,7 @@ export default async function TaxesPage() {
           userCan(ctx.access, "transactions:read") &&
           userCan(ctx.access, "transactions:write")
         }
-        canUndoPayment={canWrite && userCan(ctx.access, "transactions:write")}
+        canMovePayment={canWrite && userCan(ctx.access, "transactions:write")}
         payAccountOptions={payAccountOptions}
       />
     </Hydrate>
