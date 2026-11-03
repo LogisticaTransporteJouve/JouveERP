@@ -4,14 +4,16 @@ SET LOCAL statement_timeout = '15min';
 -- Checks paid to a supplier post in pesos at the payment order's rate, on
 -- the day of the event (audit w2-s2 F1, w1-s2 F11, w1-s4 F5).
 --
+--   0. payment_order_rate(order): the rate a payment order books at (its
+--      cotización, else the BCRA rate of its payment date, else 1; 1 for
+--      ARS), the fallback build_payment_order_journal_lines uses inline.
 --   1. emit_journal_for_issued_check_transition (20261104093300, every case
 --      kept): an own check from a USD payment order was cashed, rejected or
 --      annulled at its dollar amount as pesos, while the order credited
 --      cheques_diferidos_emitidos at round(amount × rate, 2). The three
---      transitions now post at that same rate (the order's cotización, else
---      the BCRA rate of its payment date, else 1: the builder's own
---      fallback), so the liability reverses exactly. A rejection posts on
---      rejected_at and an annulment on its day (they posted on today).
+--      transitions now post at the order's rate (0), so the liability
+--      reverses exactly. A rejection posts on rejected_at and an annulment
+--      on its day (they posted on today).
 --   2. emit_journal_for_endorsed_check_rejected (20261031192133, every case
 --      kept): an endorsed USD check that bounces gives back proveedores at
 --      the order's rate, and posts on the date of the rejection movement,
@@ -26,6 +28,31 @@ SET LOCAL statement_timeout = '15min';
 --
 -- Rollback: older code issues the same updates and calls reject_check with
 -- the same arguments.
+
+------------------------------------------------------------------------------
+-- 0. The rate a payment order books at
+------------------------------------------------------------------------------
+
+create function public.payment_order_rate(p_payment_order public.payment_orders)
+returns numeric
+language sql
+stable
+set search_path = ''
+as $$
+  select case
+    when p_payment_order.currency = 'USD' then coalesce(
+      nullif(p_payment_order.cotizacion, 0),
+      public.get_exchange_rate('USD', p_payment_order.payment_date),
+      1
+    )
+    else 1
+  end
+$$;
+
+comment on function public.payment_order_rate(public.payment_orders) is
+  'Cotización con la que se asienta una orden de pago: la suya, la del BCRA de su fecha o 1 (1 en pesos). Interna (asientos de cheques entregados).';
+
+revoke all on function public.payment_order_rate(public.payment_orders) from public, anon, authenticated;
 
 ------------------------------------------------------------------------------
 -- 1. Own checks
@@ -116,13 +143,7 @@ begin
     -- cheques_diferidos_emitidos: the same pesos, at the order's rate
     -- (build_payment_order_journal_lines).
     select * into v_po from public.payment_orders where id = new.payment_order_id;
-    if v_po.currency = 'USD' then
-      v_amount := round(new.amount * coalesce(
-        nullif(v_po.cotizacion, 0),
-        public.get_exchange_rate('USD', v_po.payment_date),
-        1
-      ), 2);
-    end if;
+    v_amount := round(new.amount * public.payment_order_rate(v_po), 2);
 
     if new.status = 'cashed' then
       v_desc := 'Cobro cheque propio #' || new.check_number || ' ' || new.bank_name;
@@ -208,13 +229,7 @@ begin
    limit 1;
   -- The order credited cheques_cartera at its own rate: the same pesos go
   -- back to proveedores.
-  if v_po.currency = 'USD' then
-    v_amount := round(v_amount * coalesce(
-      nullif(v_po.cotizacion, 0),
-      public.get_exchange_rate('USD', v_po.payment_date),
-      1
-    ), 2);
-  end if;
+  v_amount := round(v_amount * public.payment_order_rate(v_po), 2);
 
   -- reject_check writes the movement before the status.
   select m.event_date into v_date

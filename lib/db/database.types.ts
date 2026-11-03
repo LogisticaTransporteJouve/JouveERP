@@ -9837,6 +9837,12 @@ export type Database = {
         }
         Returns: string
       }
+      payment_order_rate: {
+        Args: {
+          p_payment_order: Database["public"]["Tables"]["payment_orders"]["Row"]
+        }
+        Returns: number
+      }
       payroll_garnishment_amount: {
         Args: { p_base: number; p_employee_id: string; p_period_id: string }
         Returns: number
