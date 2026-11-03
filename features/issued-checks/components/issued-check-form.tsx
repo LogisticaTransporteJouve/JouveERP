@@ -110,6 +110,8 @@ export function IssuedCheckForm({
 
   const bankAccounts = accounts.filter((a) => a.is_active && a.type === "bank");
   const defaultAccountId = check?.bank_account_id ?? bankAccounts[0]?.id ?? "";
+  // A payment order's own check: its money fields follow the order.
+  const orderLocked = Boolean(check?.payment_order_id);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -228,7 +230,11 @@ export function IssuedCheckForm({
               <FormLabel className="text-xs">
                 Cuenta bancaria (chequera)
               </FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                value={field.value}
+                disabled={orderLocked}
+                onValueChange={field.onChange}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Elegir cuenta" />
@@ -329,6 +335,7 @@ export function IssuedCheckForm({
                     inputMode="decimal"
                     step="0.01"
                     placeholder="0,00"
+                    disabled={orderLocked}
                   />
                 </FormControl>
                 <FormMessage />
@@ -343,6 +350,7 @@ export function IssuedCheckForm({
                 <FormLabel className="text-xs">Moneda</FormLabel>
                 <Select
                   value={field.value}
+                  disabled={orderLocked}
                   onValueChange={(v) =>
                     field.onChange(v as IssuedCheckCurrency)
                   }
@@ -365,6 +373,12 @@ export function IssuedCheckForm({
             )}
           />
         </div>
+        {orderLocked && (
+          <p className="text-muted-foreground text-xs">
+            El cheque está ligado a una orden de pago: el monto, la moneda y la
+            cuenta se cambian editando la orden de pago.
+          </p>
+        )}
 
         <FormField
           control={form.control}

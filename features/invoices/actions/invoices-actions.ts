@@ -32,6 +32,7 @@ import { paymentCurrencyOf } from "@/lib/fx";
 import { inngest } from "@/lib/inngest/client";
 import { INVOICE_ISSUE_REQUESTED } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
+import { containsPattern } from "@/lib/supabase/like-pattern";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -741,7 +742,7 @@ export async function listInvoicesAction(
   const term = parseSearchTerm(filters.query);
   if (term.numero !== null) query = query.eq("numero", term.numero);
   if (term.name !== null) {
-    query = query.ilike("clients.legal_name", `%${term.name}%`);
+    query = query.ilike("clients.legal_name", containsPattern(term.name));
   }
 
   const { data, error } = await query;

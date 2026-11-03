@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { nextFreightPrefill } from "./freight-prefill";
 
 describe("nextFreightPrefill", () => {
+  it("leaves a prefilled flete alone when the tariff read failed", () => {
+    expect(
+      nextFreightPrefill({
+        current: "1000",
+        dirty: false,
+        lastAuto: "1000",
+        suggested: "unknown",
+      }),
+    ).toBeNull();
+  });
+
   it("fills an empty field with the tariff", () => {
     expect(
       nextFreightPrefill({

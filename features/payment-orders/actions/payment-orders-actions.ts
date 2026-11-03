@@ -20,6 +20,7 @@ import {
 } from "@/lib/fx";
 import { parseSearchTerm } from "@/lib/list-search";
 import { logger } from "@/lib/logger";
+import { containsPattern } from "@/lib/supabase/like-pattern";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -139,7 +140,7 @@ export async function listPaymentOrdersAction(input?: {
   const term = parseSearchTerm(input?.query);
   if (term.numero !== null) query = query.eq("numero", term.numero);
   if (term.name !== null) {
-    query = query.ilike("suppliers.legal_name", `%${term.name}%`);
+    query = query.ilike("suppliers.legal_name", containsPattern(term.name));
   }
 
   const { data, error } = await query;

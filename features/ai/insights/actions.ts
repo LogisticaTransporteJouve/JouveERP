@@ -6,6 +6,7 @@ import { userCan, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { todayInAR } from "@/lib/format";
 
@@ -55,22 +56,35 @@ function offeredProposal(
   return { action: action.name, label: parsed.data.label };
 }
 
-/** Open + acknowledged insights for the dashboard (ai:read), severity first. */
-export async function listInsightsAction(): Promise<
-  ActionResult<InsightCard[]>
-> {
+/** How many cards the panel shows; the rest are counted in `total`. */
+const INSIGHTS_SHOWN = 50;
+
+export type InsightList = {
+  /** The first `INSIGHTS_SHOWN` visible cards, severity first. */
+  items: InsightCard[];
+  /** Every visible live card, so the panel can say "mostrando N de M". */
+  total: number;
+};
+
+/** Open + acknowledged insights for the dashboard (ai:read), severity first.
+ *  The live set is bounded by the analyst's last run, so it is drained and
+ *  filtered before the cap: a cut in SQL would drop critical cards or every
+ *  card of the user's domains (one run shares one `generated_at`). */
+export async function listInsightsAction(): Promise<ActionResult<InsightList>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "ai:read")) {
     return { ok: false, error: "No tenés permiso para ver insights." };
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("ai_insights")
-    .select(SELECT_COLUMNS)
-    .neq("status", "dismissed")
-    .order("generated_at", { ascending: false })
-    .limit(50);
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("ai_insights")
+      .select(SELECT_COLUMNS)
+      .neq("status", "dismissed")
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("ai.insights.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar los insights." };
@@ -78,7 +92,7 @@ export async function listInsightsAction(): Promise<
 
   // Defense in depth on top of RLS: drop cards from domains this user can't
   // read (e.g. operations must not see treasury / AR / AP cards).
-  const visible = (data ?? [])
+  const visible = data
     .filter((card) => canSeeInsight(ctx.access, card.kind))
     .map(({ proposal, ...card }) => ({
       ...card,
@@ -87,9 +101,14 @@ export async function listInsightsAction(): Promise<
   const cards = visible.sort((a, b) => {
     const sev =
       (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
-    return sev !== 0 ? sev : b.generated_at.localeCompare(a.generated_at);
+    if (sev !== 0) return sev;
+    const age = b.generated_at.localeCompare(a.generated_at);
+    return age !== 0 ? age : a.id.localeCompare(b.id);
   });
-  return { ok: true, data: cards };
+  return {
+    ok: true,
+    data: { items: cards.slice(0, INSIGHTS_SHOWN), total: cards.length },
+  };
 }
 
 /** On-demand recompute of the analyst's insights (ai:admin). */
@@ -126,10 +145,11 @@ export async function setInsightStatusAction(input: {
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ai_insights")
     .update({ status: input.status })
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     logger.error("ai.insights.set_status.failed", {
       userId: ctx.userId,
@@ -137,6 +157,13 @@ export async function setInsightStatusAction(input: {
       error,
     });
     return { ok: false, error: "No se pudo actualizar el insight." };
+  }
+  // A recalculation replaces the cards with new ids: the one on screen is gone.
+  if (!data?.[0]) {
+    return {
+      ok: false,
+      error: "Esta tarjeta se recalculó. Recargá los insights.",
+    };
   }
   await logAudit(`ai.insight.${input.status}`, ctx.userId, {}, input.id);
   return { ok: true, data: undefined };

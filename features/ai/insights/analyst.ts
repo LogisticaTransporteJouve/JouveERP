@@ -130,11 +130,12 @@ function receivablesInsight(risk: ReceivablesRisk): InsightRow {
       risk.total90Plus,
     )} a más de 90 días${
       top ? `; el mayor: ${top.name} (${money(top.amount)})` : ""
-    }.`,
+    }${risk.usdOmitted ? " (sin dólares: falta la cotización)" : ""}.`,
     metrics: toJson({
       total_90_plus: risk.total90Plus,
       client_count: risk.clientCount,
       top: risk.top,
+      usd_omitted: risk.usdOmitted,
       scope: "all",
     }),
     source_refs: toJson([]),

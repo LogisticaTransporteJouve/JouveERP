@@ -106,8 +106,12 @@ async function fleetCostBy(
     p_limit: RPC_PAGE,
   });
   const rows = must({ data, error }, `fleet_margin_${groupBy}`);
+  // The RPC has no offset: past the cap a missing group would read as no
+  // cost (a margin too high), so the indicator fails and keeps its cards.
   if ((rows[0]?.total_groups ?? 0) > rows.length) {
-    logger.warn("ai.insights.fleet_margin_capped", { groupBy });
+    throw new Error(
+      `insights.gather.fleet_margin_${groupBy}: more than ${RPC_PAGE} groups`,
+    );
   }
   const out = new Map<string, number>();
   for (const r of rows) {

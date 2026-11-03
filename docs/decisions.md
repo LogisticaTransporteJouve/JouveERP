@@ -36,6 +36,38 @@ se rechaza en la base (solo al insertar o al cambiar moneda o cotización: las
 filas existentes no se tocan). El total del listado de Comprobantes suma solo
 los emitidos; la cantidad sigue contando todas las filas, porque rotula el
 grupo de filas listadas.
+## 2026-11-04 — Insights y propuestas: cortar después de ordenar, avisar antes de reofrecer
+
+**Decisión.** `listInsightsAction` lee todas las tarjetas vivas (el set lo
+acota la última corrida del analista), filtra las del dominio del usuario,
+ordena por gravedad y recién ahí corta en 50, devolviendo el total para que
+el panel diga "Mostrando 50 de N". Una propuesta aceptada cuyo pedido murió
+se cierra como fallida y esa misma fila se devuelve, con "No se sabe si la
+acción se completó"; la propuesta nueva se arma en la apertura siguiente.
+
+**Por qué.** Una corrida comparte `generated_at`: el `limit(50)` en SQL
+devolvía 50 cualesquiera, así que una crítica podía quedar afuera y un
+usuario de operaciones podía no ver ninguna de las suyas. Reofrecer
+"Aceptar" sin mostrar el aviso permitía repetir una escritura que quizás ya
+se hizo (una tarea).
+
+**Descartado.** Ordenar por gravedad en SQL (`severity` es texto: el orden
+alfabético no es el de gravedad) y mostrar el aviso junto a la propuesta
+nueva (dos tarjetas en el mismo diálogo).
+
+## 2026-11-04 — Lecturas que fallan en indicadores y clasificador de gastos
+
+**Decisión.** El margen por cliente o camión pasado el tope del RPC
+(`ai_fleet_margin`, 500 grupos, sin offset) falla el indicador, que conserva
+sus tarjetas, en vez de leer costo 0. El catálogo de cuentas de gasto y
+centros de costo que lee el clasificador tira el error y el paso de Inngest
+reintenta. Si se agotan los reintentos, la extracción queda fallida (antes
+se guardaba con "sin sugerencia" como si no hubiera catálogo).
+
+**Descartado.** Paginar `ai_fleet_margin`: pide una migración, y pasar de
+500 clientes o camiones con viajes en 90 días no es el caso de una sola
+empresa de logística; si pasa, el log `ai.insights.indicator_failed` lo
+muestra.
 
 ## 2026-11-04 — Exento, no gravado y reparto de otros tributos en compras
 

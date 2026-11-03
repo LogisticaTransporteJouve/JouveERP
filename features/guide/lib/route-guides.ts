@@ -127,6 +127,17 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     },
   },
   {
+    prefix: "/aging/mora",
+    title: "Intereses por mora",
+    summary:
+      "Comprobantes vencidos con el interés por mora calculado a una fecha, para cobrarlo con una nota de débito.",
+    steps: [
+      "Definí la tasa general mensual, o la de un cliente si tiene otra.",
+      "Elegí hasta qué fecha calcular el interés.",
+      "Generar ND emite la nota de débito de un comprobante; Generar varias ND, la de varios a la vez.",
+    ],
+  },
+  {
     prefix: "/suppliers",
     title: "Proveedores",
     summary:
