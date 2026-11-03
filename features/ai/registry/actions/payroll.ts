@@ -29,6 +29,7 @@ import {
   PeriodRangeInputSchema,
   VacationOverviewInputSchema,
 } from "@/features/hr/reports-schema";
+import { round2 } from "@/lib/format";
 
 import { defineAiAction } from "../define";
 import { errResult, money, okResult, reachedCap } from "../result";
@@ -51,27 +52,39 @@ export const getPayrollSummary = defineAiAction({
   sideEffect: "read",
   sources: ["ai_payroll_summary", "v_payroll_entries_with_payments"],
   description:
-    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono, embargo), total a pagar, pagado y saldo. El SAC (aguinaldo) cuenta en junio y diciembre. Montos netos (no hay bruto ni cargas sociales). Las liquidaciones no tienen canal: el alcance opcional (fiscal/internal/all) solo filtra lo pagado, por el canal de cada pago; el saldo es siempre el real.",
+    "Totales de sueldos por mes o por empleado en un rango de períodos: sueldo neto, extras, vacaciones, viáticos, descuentos (deudas, teléfono, embargo), total a pagar, pagado y saldo. El SAC (aguinaldo) cuenta en junio y diciembre. Montos netos (no hay bruto ni cargas sociales). Las liquidaciones no tienen canal: el alcance opcional (fiscal/internal/all) solo filtra lo pagado, por el canal de cada pago; el saldo es siempre el real, de todos los canales (con alcance, totals.paid_other_channels es lo pagado por los otros canales: paid + paid_other_channels + saldo = total_a_pagar).",
   input: PayrollSummaryInputSchema,
   run: async (_ctx, input) => {
-    const { label } = readScope(input.scope);
+    const { isFiscal, label } = readScope(input.scope);
     const res = await getPayrollSummaryAction(input);
     if (!res.ok) return errResult(res.error);
     const rows = res.data;
     // Rows partition the range (by month or by employee), so adding the
-    // per-group SQL totals gives the range total. `saldo` comes from SQL:
-    // with a scope, `paid` is that scope's payments only, so total − paid
-    // would not be the balance.
+    // per-group SQL totals gives the range total. `saldo` comes from SQL and
+    // covers every channel: with a scope, `paid` is that scope's payments
+    // only, so what the other channels paid is shown apart and
+    // paid + paid_other_channels + saldo = total_a_pagar.
     const total = sumBy(rows, (r) => r.total_a_pagar);
     const paid = sumBy(rows, (r) => r.paid);
     const saldo = sumBy(rows, (r) => r.saldo);
+    const paidOther = isFiscal === null ? null : round2(total - paid - saldo);
     return okResult(
       `Sueldos ${input.fromPeriod}→${input.toPeriod}: ${rows.length} ${
         input.groupBy === "employee" ? "empleados" : "meses"
-      } · total a pagar ${money(total)} · pagado (${label}) ${money(
-        paid,
-      )} · saldo ${money(saldo)}.`,
-      { rows, totals: { total_a_pagar: total, paid, saldo } },
+      } · total a pagar ${money(total)} · pagado (${label}) ${money(paid)}${
+        paidOther === null
+          ? ""
+          : ` · pagado por los otros canales ${money(paidOther)}`
+      } · saldo (todos los canales) ${money(saldo)}.`,
+      {
+        rows,
+        totals: {
+          total_a_pagar: total,
+          paid,
+          ...(paidOther === null ? {} : { paid_other_channels: paidOther }),
+          saldo,
+        },
+      },
       { currency: "ARS", note: PAYROLL_NOTE },
     );
   },
