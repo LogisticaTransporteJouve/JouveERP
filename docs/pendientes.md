@@ -160,8 +160,6 @@
 - [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
       (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
       saldo a favor del mes anterior; lo dice en pantalla.
-- [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
-      ("Manual: Contabilidad › Impuestos"), sin link.
 - [ ] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
       (no tiene `files:read`).
 - [ ] Herramienta del asistente IA para impuestos (vencimientos y estado).
@@ -197,6 +195,50 @@
       `getClientSalesSummary` y `getClientPaymentBehavior` se pisan en "días
       de cobro".
 
+## Importador, conciliación y manual: follow-ups (2026-11-04)
+
+- [x] **Importador, más datos:** proveedores con categoría, cuenta de gasto
+      y centro de costo por defecto (por nombre o código); choferes con
+      número, categoría y vencimiento de licencia (el vencimiento es un
+      documento `licencia` en Flota › Vencimientos); tarifas por área (columna
+      Área, buscada por nombre dentro del Depósito). Una referencia que no
+      existe o es ambigua deja la fila con error.
+- [x] **Conciliación:** varias líneas contra un movimiento (el banco lo
+      partió), con la suma exacta y nunca varias de cada lado; desconciliar
+      una libera toda la conciliación. Caja marca los conciliados, filtra
+      por conciliados o no, no ofrece borrarlos y bloquea monto y fechas en
+      la edición con link a Conciliación; el mensaje de la base nombra
+      Tesorería › Conciliación.
+- [x] **IA:** el resumen de conciliación de un extracto escaneado lee las
+      líneas ya importadas (`bank_statement_lines`) y su estado; solo el
+      resto se compara contra Caja.
+- [x] **Manual:** formato de cada planilla del importador y sección de
+      Conciliación; servido en `/manual` con sesión iniciada; la guía del
+      sidebar enlaza la sección de cada pantalla.
+- [ ] Aprobar las migraciones `20261104070000_import_more_fields` y
+      `20261104070100_bank_reconciliation_many_lines` con el deploy (después
+      de las de 5.3/5.4; `promote-to-production.yml` las aplica antes del
+      código). Sin la primera, la RPC vieja ignora las claves nuevas:
+      proveedores y choferes entran sin sus datos nuevos y **una tarifa de
+      área entraría como general**, así que no importar tarifas por área
+      hasta aplicarla. Sin la segunda falla "Conciliar con varias líneas".
+      Rollback del código: llama a las mismas RPC con su firma; una
+      conciliación partida sigue bloqueando su movimiento y el código viejo
+      la muestra contra una de sus líneas.
+- [ ] No verificado contra una base real: las dos migraciones y sus pgTAP
+      (`supabase/tests/import_more_fields_test.sql`,
+      `bank_reconciliation_many_lines_test.sql`) sin stack local; correr
+      `supabase test db`. Tampoco se probaron en el navegador `/manual`
+      (CSP con nonce), el filtro de Caja (filtro de nulos sobre el embed de
+      `bank_statement_matches` en `v_transactions_tagged`) ni el diálogo de
+      varias líneas.
+- [ ] El importador no actualiza un proveedor o empleado que ya existe: los
+      datos nuevos de la planilla solo entran con el alta.
+- [ ] Las sugerencias de Conciliación siguen siendo uno a uno; las líneas
+      partidas se eligen a mano.
+- [ ] El manual servido usa la fuente del sistema (la CSP bloquea Google
+      Fonts) y Mermaid por CDN con el nonce.
+
 ## Importador y sueldos y viajes históricos (2026-11-03, roadmap 5.1 + 5.2)
 
 - [x] **Importador** (Admin › Importador, `/admin/imports`, owner y admin):
@@ -219,13 +261,9 @@
       local; correr `supabase test db` antes de aprobar.
 - [x] Importar tarifas, préstamos, cheques en cartera, saldos iniciales de
       clientes y extractos (5.3, 5.4): ver la sección siguiente.
-- [ ] Categoría y cuenta de gasto por defecto de un proveedor y datos del
-      chofer (licencia) desde la planilla.
 - [ ] Mostrar los históricos donde ayuden (ficha del empleado, del vehículo
       o del cliente) y sumarlos a Gestión como serie separada si hace falta;
       hoy solo se ven en el importador.
-- [ ] Manual de usuario: sección del importador con el formato de cada
-      planilla.
 
 ## Importes de arranque y conciliación bancaria (2026-11-03, roadmap 5.3 + 5.4)
 
@@ -258,13 +296,6 @@
 - [ ] Cheques importados: el ingreso a cartera se fecha hoy y acredita
       ajustes de caja (sin cliente). No cargar además el saldo inicial de la
       cuenta de cartera por esos cheques.
-- [ ] Caja no marca qué movimientos están conciliados (la base rechaza
-      editarlos con su mensaje); mostrarlo en la tabla.
-- [ ] Varias líneas contra un movimiento (el banco parte un depósito) no se
-      soporta: una línea, uno o varios movimientos.
-- [ ] Tarifas por área desde la planilla (hoy solo "todas las áreas").
-- [ ] La conciliación del asistente IA (`features/ai/reconciliation`) podría
-      leer las líneas importadas en vez del archivo suelto.
 
 ## Depósito por área, lote y bloqueo; mora y venta de cheques (2026-11-03, roadmap 4.4 + 4.6)
 
