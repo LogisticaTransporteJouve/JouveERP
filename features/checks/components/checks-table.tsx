@@ -267,10 +267,11 @@ export function ChequesTable({
       />
       {data.truncated && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Se muestran todos los cheques en cartera y depositados, y solo los{" "}
-          {SETTLED_LIST_CAP} ya cerrados de vencimiento más reciente: los
-          totales de esos estados no incluyen los más viejos. Exportá para ver
-          el historial completo.
+          Se muestran todos los cheques en cartera y depositados, y de los
+          acreditados, endosados, rechazados y vendidos solo los{" "}
+          {SETTLED_LIST_CAP} de vencimiento más reciente: los totales de esos
+          estados no incluyen los más viejos. Exportá para ver el historial
+          completo.
         </p>
       )}
 
