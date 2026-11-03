@@ -4,6 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
+import { ivaIsComputable } from "@/lib/afip/codes";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
@@ -35,6 +36,35 @@ import {
 
 const EMPLOYEE_CHARGE_DENIED =
   "No tenés permiso para cargar una compra a un empleado.";
+
+const NON_COMPUTABLE_DENIED =
+  "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto.";
+
+type LetterAmounts = {
+  channel_id: string;
+  letter: string | null;
+  imp_iva: number;
+  imp_no_gravado: number;
+  imp_op_exentas: number;
+};
+
+/** A fiscal B or C purchase books IVA, exento and no gravado inside the net
+ *  (citi.ts declares IVA only for A). An old fiscal purchase without letter
+ *  is left as it is. */
+async function carriesNonComputableAmounts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  v: LetterAmounts,
+): Promise<boolean | "failed"> {
+  if (v.letter === null || ivaIsComputable(v.letter)) return false;
+  if (v.imp_iva + v.imp_no_gravado + v.imp_op_exentas === 0) return false;
+  const { data, error } = await supabase
+    .from("invoicing_channels")
+    .select("is_fiscal")
+    .eq("id", v.channel_id)
+    .maybeSingle();
+  if (error) return "failed";
+  return data?.is_fiscal === true;
+}
 
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
   if (!isPurchaseInvoiceKind(row.kind)) return null;
@@ -116,7 +146,7 @@ export async function searchPurchaseInvoicesAction(
 }
 
 const DETAIL_COLS =
-  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
+  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, imp_no_gravado, imp_op_exentas, imp_perc_iva, imp_perc_iibb, imp_perc_municipales, imp_impuestos_internos, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
 
 export async function getPurchaseInvoiceByIdAction(
   id: string,
@@ -147,10 +177,27 @@ export async function getPurchaseInvoiceByIdAction(
   if (!data) return { ok: true, data: null };
 
   const supplier = (data as unknown as SupplierIdentityJoin).suppliers;
+  const {
+    imp_no_gravado,
+    imp_op_exentas,
+    imp_perc_iva,
+    imp_perc_iibb,
+    imp_perc_municipales,
+    imp_impuestos_internos,
+    ...header
+  } = data;
   const flat = {
-    ...data,
+    ...header,
     supplier_legal_name: supplier.legal_name,
     supplier_cuit: supplier.cuit,
+    amount_breakdown: {
+      imp_no_gravado,
+      imp_op_exentas,
+      imp_perc_iva,
+      imp_perc_iibb,
+      imp_perc_municipales,
+      imp_impuestos_internos,
+    },
   } as Record<string, unknown>;
   delete flat.suppliers;
 
@@ -360,6 +407,21 @@ export async function createPurchaseInvoiceAction(
 
   const supabase = await createClient();
 
+  const nonComputable = await carriesNonComputableAmounts(supabase, {
+    channel_id: parsed.data.channel_id,
+    letter: parsed.data.letter ?? null,
+    imp_iva: parsed.data.imp_iva,
+    imp_no_gravado: parsed.data.imp_no_gravado,
+    imp_op_exentas: parsed.data.imp_op_exentas,
+  });
+  if (nonComputable === "failed") {
+    logger.error("purchase_invoices.create.channel_failed", {
+      userId: ctx.userId,
+    });
+    return { ok: false, error: "No se pudo cargar la factura." };
+  }
+  if (nonComputable) return { ok: false, error: NON_COMPUTABLE_DENIED };
+
   // An expense account (picked, a supplier default or AI-suggested) must be a
   // postable leaf: guard_expense_account rejects any other with a message.
   const { data, error } = await supabase
@@ -379,6 +441,12 @@ export async function createPurchaseInvoiceAction(
       imp_neto: parsed.data.imp_neto,
       imp_iva: parsed.data.imp_iva,
       imp_trib: parsed.data.imp_trib,
+      imp_no_gravado: parsed.data.imp_no_gravado,
+      imp_op_exentas: parsed.data.imp_op_exentas,
+      imp_perc_iva: parsed.data.imp_perc_iva,
+      imp_perc_iibb: parsed.data.imp_perc_iibb,
+      imp_perc_municipales: parsed.data.imp_perc_municipales,
+      imp_impuestos_internos: parsed.data.imp_impuestos_internos,
       imp_total: parsed.data.imp_total,
       moneda: parsed.data.moneda,
       cotizacion: parsed.data.cotizacion,
@@ -506,6 +574,55 @@ export async function updatePurchaseInvoiceAction(
     return { ok: false, error: EMPLOYEE_CHARGE_DENIED };
   }
   const supabase = await createClient();
+
+  // The letter rule applies to what this edit changes, so an old B purchase
+  // with IVA stays editable.
+  if (
+    rest.letter !== undefined ||
+    rest.imp_iva !== undefined ||
+    rest.imp_no_gravado !== undefined ||
+    rest.imp_op_exentas !== undefined
+  ) {
+    const { data: stored, error: storedError } = await supabase
+      .from("purchase_invoices")
+      .select("channel_id, letter, imp_iva, imp_no_gravado, imp_op_exentas")
+      .eq("id", id)
+      .maybeSingle();
+    if (storedError) {
+      logger.error("purchase_invoices.update.read_failed", {
+        userId: ctx.userId,
+        id,
+        error: storedError,
+      });
+      return { ok: false, error: "No se pudo actualizar la factura." };
+    }
+    if (!stored) return { ok: false, error: "La factura no existe." };
+    const next: LetterAmounts = {
+      channel_id: rest.channel_id ?? stored.channel_id,
+      letter: rest.letter !== undefined ? (rest.letter ?? null) : stored.letter,
+      imp_iva: rest.imp_iva ?? stored.imp_iva,
+      imp_no_gravado: rest.imp_no_gravado ?? stored.imp_no_gravado,
+      imp_op_exentas: rest.imp_op_exentas ?? stored.imp_op_exentas,
+    };
+    const changed =
+      next.letter !== stored.letter ||
+      next.imp_iva !== stored.imp_iva ||
+      next.imp_no_gravado !== stored.imp_no_gravado ||
+      next.imp_op_exentas !== stored.imp_op_exentas ||
+      next.channel_id !== stored.channel_id;
+    if (changed) {
+      const nonComputable = await carriesNonComputableAmounts(supabase, next);
+      if (nonComputable === "failed") {
+        logger.error("purchase_invoices.update.channel_failed", {
+          userId: ctx.userId,
+          id,
+        });
+        return { ok: false, error: "No se pudo actualizar la factura." };
+      }
+      if (nonComputable) return { ok: false, error: NON_COMPUTABLE_DENIED };
+    }
+  }
+
   const { error } = await supabase
     .from("purchase_invoices")
     .update({
@@ -531,6 +648,24 @@ export async function updatePurchaseInvoiceAction(
       ...(rest.imp_neto !== undefined && { imp_neto: rest.imp_neto }),
       ...(rest.imp_iva !== undefined && { imp_iva: rest.imp_iva }),
       ...(rest.imp_trib !== undefined && { imp_trib: rest.imp_trib }),
+      ...(rest.imp_no_gravado !== undefined && {
+        imp_no_gravado: rest.imp_no_gravado,
+      }),
+      ...(rest.imp_op_exentas !== undefined && {
+        imp_op_exentas: rest.imp_op_exentas,
+      }),
+      ...(rest.imp_perc_iva !== undefined && {
+        imp_perc_iva: rest.imp_perc_iva,
+      }),
+      ...(rest.imp_perc_iibb !== undefined && {
+        imp_perc_iibb: rest.imp_perc_iibb,
+      }),
+      ...(rest.imp_perc_municipales !== undefined && {
+        imp_perc_municipales: rest.imp_perc_municipales,
+      }),
+      ...(rest.imp_impuestos_internos !== undefined && {
+        imp_impuestos_internos: rest.imp_impuestos_internos,
+      }),
       ...(rest.imp_total !== undefined && { imp_total: rest.imp_total }),
       ...(rest.moneda !== undefined && { moneda: rest.moneda }),
       ...(rest.cotizacion !== undefined && { cotizacion: rest.cotizacion }),

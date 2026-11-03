@@ -1,6 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import {
+  COMPRAS_AMOUNT_COLUMNS,
   computeComprasTotals,
   groupComprasByInvoice,
   IVA_RATES,
@@ -67,12 +68,12 @@ const COL_W = {
   fecha: 36,
   tipo: 28,
   numero: 48,
-  proveedor: 90,
-  cuit: 50,
+  proveedor: 64,
+  cuit: 46,
   rate: 28,
-  perc: 32,
+  perc: 26,
   total: 40,
-  cae: 48,
+  cae: 40,
 };
 
 export interface LibroIvaComprasTemplateData {
@@ -122,9 +123,14 @@ export function LibroIvaComprasDocument({
                 {r.label}
               </Text>
             ))}
-            <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>
-              Perc.
-            </Text>
+            {COMPRAS_AMOUNT_COLUMNS.map((c) => (
+              <Text
+                key={c.header}
+                style={[styles.th, styles.right, { width: COL_W.perc }]}
+              >
+                {c.header}
+              </Text>
+            ))}
             <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
               Total
             </Text>
@@ -163,7 +169,12 @@ export function LibroIvaComprasDocument({
             <Text
               style={[
                 styles.th,
-                { width: COL_W.perc + COL_W.total + COL_W.cae },
+                {
+                  width:
+                    COL_W.perc * COMPRAS_AMOUNT_COLUMNS.length +
+                    COL_W.total +
+                    COL_W.cae,
+                },
               ]}
             />
           </View>
@@ -220,16 +231,22 @@ export function LibroIvaComprasDocument({
                     </>
                   );
                 })}
-                <Text
-                  style={[
-                    styles.td,
-                    styles.right,
-                    styles.mono,
-                    { width: COL_W.perc },
-                  ]}
-                >
-                  {row.imp_trib > 0 ? money(row.imp_trib) : ""}
-                </Text>
+                {COMPRAS_AMOUNT_COLUMNS.map((c) => {
+                  const v = c.value(row.breakdown);
+                  return (
+                    <Text
+                      key={c.header}
+                      style={[
+                        styles.td,
+                        styles.right,
+                        styles.mono,
+                        { width: COL_W.perc },
+                      ]}
+                    >
+                      {v > 0 ? money(v) : ""}
+                    </Text>
+                  );
+                })}
                 <Text
                   style={[
                     styles.td,
@@ -293,16 +310,22 @@ export function LibroIvaComprasDocument({
                 </>
               );
             })}
-            <Text
-              style={[
-                styles.td,
-                styles.right,
-                styles.mono,
-                { width: COL_W.perc },
-              ]}
-            >
-              {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
-            </Text>
+            {COMPRAS_AMOUNT_COLUMNS.map((c) => {
+              const v = c.value(totals.breakdown);
+              return (
+                <Text
+                  key={c.header}
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.perc },
+                  ]}
+                >
+                  {v !== 0 ? money(v) : ""}
+                </Text>
+              );
+            })}
             <Text
               style={[
                 styles.td,

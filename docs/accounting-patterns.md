@@ -211,9 +211,14 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   cuentas de su moneda; el alta manual toma la moneda de la cuenta elegida.
 - **Asiento de venta (fiscal):** Debe `clientes` total; Haber `ventas`/`iva_debito`/
   `percepciones_iibb_cobradas`. NC invierte (`v_kind_factor=-1`). Compra: Debe
-  `compras`/`iva_credito`/`percepciones_iibb_pagadas`; Haber `proveedores`. El neto
-  va a la cuenta de gasto de la compra (`account_id`) si tiene una, si no a
-  `compras`. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
+  `compras`/`iva_credito`/`percepciones_iva_pagadas`/`percepciones_iibb_pagadas`;
+  Haber `proveedores`. El neto, el no gravado, el exento, los municipales y los
+  impuestos internos van a la cuenta de gasto de la compra (`account_id`) si tiene
+  una, si no a `compras`; la percepción de IVA va a `percepciones_iva_pagadas`
+  (a `iva_credito` mientras ninguna cuenta activa tenga el rol) y la de IIBB a
+  `percepciones_iibb_pagadas` (`20261104090200`). `imp_trib` es la suma de las
+  cuatro partes (CHECK); una compra que solo trae `imp_trib` (código anterior)
+  lo toma como IIBB. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
   origen** (y su centro de costo si no tiene), así revierte la misma cuenta que
   la factura (trigger `purchase_invoices_nc_nd_inherit_account`,
   `20261102230100`); una cuenta elegida en la NC/ND se respeta.

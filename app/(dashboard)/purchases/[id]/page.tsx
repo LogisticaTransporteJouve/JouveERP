@@ -111,6 +111,23 @@ export default async function PurchaseInvoiceDetailPage({
     invoice.imp_total - paidByActive - creditedByImputation,
   );
 
+  // The parts a purchase states beyond neto and IVA; zeros are left out.
+  const breakdown = invoice.amount_breakdown;
+  const breakdownRows = (
+    [
+      ["No gravado", breakdown?.imp_no_gravado],
+      ["Exento", breakdown?.imp_op_exentas],
+      ["· Percepción IVA", breakdown?.imp_perc_iva],
+      ["· Percepción IIBB", breakdown?.imp_perc_iibb],
+      ["· Municipales", breakdown?.imp_perc_municipales],
+      ["· Impuestos internos", breakdown?.imp_impuestos_internos],
+    ] as const
+  ).map(([label, value]) =>
+    value ? (
+      <Row key={label} label={label} value={money(value, invoice.moneda)} />
+    ) : null,
+  );
+
   return (
     <div className="space-y-6">
       <Breadcrumb>
@@ -244,11 +261,13 @@ export default async function PurchaseInvoiceDetailPage({
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm">
             <Row label="Neto" value={money(invoice.imp_neto, invoice.moneda)} />
+            {breakdownRows.slice(0, 2)}
             <Row label="IVA" value={money(invoice.imp_iva, invoice.moneda)} />
             <Row
               label="Otros tributos"
               value={money(invoice.imp_trib, invoice.moneda)}
             />
+            {breakdownRows.slice(2)}
             <Row
               label="Total"
               value={money(invoice.imp_total, invoice.moneda)}
