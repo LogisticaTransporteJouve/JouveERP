@@ -40,6 +40,8 @@ import {
 import {
   getAttendanceSummary,
   getDriverExtras,
+  getEmployeeAccount,
+  getEmployeeAccountBalances,
   getLeavesSummary,
   getFinalSettlement,
   getGarnishments,
@@ -47,6 +49,8 @@ import {
   getPayrollPeriodDetail,
   getPayrollPeriods,
   getPayrollSummary,
+  getSalaryHistory,
+  getTripExtrasSuggestion,
   getVacationOverview,
 } from "./actions/payroll";
 import {
@@ -153,7 +157,11 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getPayrollConcepts,
   getGarnishments,
   getFinalSettlement,
+  getEmployeeAccountBalances,
+  getEmployeeAccount,
+  getSalaryHistory,
   getDriverExtras,
+  getTripExtrasSuggestion,
   getVacationOverview,
   getLeavesSummary,
   getAttendanceSummary,
