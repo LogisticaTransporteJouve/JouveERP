@@ -167,6 +167,9 @@ mitigación en el schema: el límite se respeta operando.
       mismo para una cuota sin desglose pagada antes de registrar el
       desembolso: queda en gasto y `prestamos` no llega a cero. Re-asentarlas
       cambia períodos pasados: lo decide el owner.
+- [ ] `journal_missing_entries` no lista los asientos de cheques propios: un
+      cheque propio en USD cobrado sin cotización ese día queda sin asiento
+      y sin aviso en el paquete mensual.
 - [ ] No verificado contra una base real: migraciones y pgTAP
       (`payment_order_rejected_endorsed_checks`, `loan_liability`,
       `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
