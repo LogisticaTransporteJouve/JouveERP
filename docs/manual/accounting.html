@@ -37,6 +37,7 @@
             <li><a href="#balance-eerr">Balance y EERR</a></li>
             <li><a href="#centros-de-costo">Centros de costo</a></li>
             <li><a href="#ajuste-por-inflacion">Ajuste por inflación</a></li>
+            <li><a href="#impuestos">Impuestos</a></li>
           </ul>
         </div>
 
@@ -255,6 +256,50 @@
           <div class="field-req">opcional</div>
           <div class="field-desc">Hasta 500 caracteres.</div>
         </div>
+
+        <!-- ──────── IMPUESTOS ──────── -->
+        <h2 id="impuestos">Impuestos</h2>
+        <p>
+          Cada obligación impositiva es un documento: IVA (posición mensual),
+          Ingresos Brutos, anticipos de Ganancias, SICORE, cargas sociales
+          (F931), monotributo u otro con su nombre. Tiene período,
+          vencimiento, importe y estado:
+          <strong>pendiente → liquidado → pagado</strong>, o
+          <strong>anulado</strong>.
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Impuestos</em>
+          (lista y calendario de vencimientos).</p>
+
+        <div class="callout">
+          <strong>Permisos.</strong>
+          <span class="badge">taxes:read</span> ver (incluido el contador),
+          <span class="badge">taxes:write</span> cargar, liquidar, anular y pagar
+          (owner, admin y finanzas).
+        </div>
+
+        <ol class="steps">
+          <li><strong>Preparar el mes</strong> copia los impuestos del mes
+            anterior, sin importe y con el vencimiento un mes después. Lo que
+            ya está cargado no se duplica.</li>
+          <li>En IVA, <strong>Estimar</strong> calcula el importe desde el
+            libro IVA: débito − crédito − retenciones y percepciones de IVA
+            sufridas en las cobranzas. Queda marcado como estimado. No descuenta
+            las percepciones de IVA de las compras ni el saldo a favor
+            anterior.</li>
+          <li>Adjuntá el VEP o la DDJJ desde <em>Editar y adjuntar</em> y
+            marcalo <strong>liquidado</strong>.</li>
+          <li><strong>Pagar</strong>: fecha, importe y cuenta de caja o banco
+            en pesos. Registra el egreso en Caja y el asiento contra la
+            <em>cuenta contable del impuesto</em> (la deuda fiscal o el
+            gasto). Un pago con fecha en un período cerrado se rechaza.</li>
+        </ol>
+
+        <p>
+          Un impuesto pagado ya no se edita (solo sus notas) y su egreso no se
+          borra desde Caja. Los que vencen en los próximos 7 días aparecen en
+          <em>Tareas</em> y se cierran solos al pagarlos o
+          anularlos.
+        </p>
 
         <div class="footer-note">
           ¿Seguimos? <a href="hr.html">Personal →</a>

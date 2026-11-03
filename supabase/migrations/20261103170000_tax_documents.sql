@@ -131,6 +131,8 @@ as $$
 $$;
 
 revoke all on function public.tax_document_label(text, text, text) from public, anon, authenticated;
+-- sync_automatic_tasks (security invoker) runs as the service role.
+grant execute on function public.tax_document_label(text, text, text) to service_role;
 
 -- Insert: pendiente or liquidado, never paid. Update: an annulled document
 -- is final; a paid one only takes notes; the paid state and its payment

@@ -369,6 +369,11 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Adjuntá el VEP o la DDJJ y marcalo liquidado.",
       "“Pagar” registra el egreso en caja y su asiento.",
     ],
+    manual: {
+      page: "accounting.html",
+      anchor: "impuestos",
+      label: "Contabilidad › Impuestos",
+    },
   },
   {
     prefix: "/drivers",
