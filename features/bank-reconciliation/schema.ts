@@ -61,6 +61,19 @@ export const MatchLineSchema = z.object({
 });
 export type MatchLineInput = z.infer<typeof MatchLineSchema>;
 
+/** Several lines against one movement (the bank split it): their amounts add
+ *  up to the movement's signed amount. */
+export const MatchLinesToMovementSchema = z.object({
+  line_ids: z
+    .array(lineId)
+    .min(1, "Elegí al menos una línea.")
+    .max(100, "Hasta 100 líneas por movimiento."),
+  transaction_id: z.string().uuid(),
+});
+export type MatchLinesToMovementInput = z.infer<
+  typeof MatchLinesToMovementSchema
+>;
+
 export const AcceptSuggestionsSchema = z.object({
   matches: z.array(MatchLineSchema).min(1).max(200),
 });
@@ -137,8 +150,9 @@ export type BookMovement = {
   description: string | null;
   /** The document that owns it (v_transactions_tagged.source_document). */
   source_document: string | null;
-  /** The statement line it is reconciled with, or null. */
-  line_id: string | null;
+  /** The statement lines it is reconciled with: none, one, or several when
+   *  the bank split it (each of them matched with this movement alone). */
+  line_ids: string[];
 };
 
 export type ReconciliationSummary = {

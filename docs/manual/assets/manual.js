@@ -24,9 +24,21 @@ const NAV = [
     items: [
       { href: "purchases.html#proveedores", label: "Proveedores", icon: "🚚" },
       { href: "purchases.html#categorias", label: "Categorías", icon: "🏷" },
-      { href: "purchases.html#facturas-de-compra", label: "Facturas de compra", icon: "🛒" },
-      { href: "purchases.html#ordenes-de-pago", label: "Órdenes de pago", icon: "💳" },
-      { href: "purchases.html#aging-proveedores", label: "Aging proveedores", icon: "⚠" },
+      {
+        href: "purchases.html#facturas-de-compra",
+        label: "Facturas de compra",
+        icon: "🛒",
+      },
+      {
+        href: "purchases.html#ordenes-de-pago",
+        label: "Órdenes de pago",
+        icon: "💳",
+      },
+      {
+        href: "purchases.html#aging-proveedores",
+        label: "Aging proveedores",
+        icon: "⚠",
+      },
     ],
   },
   {
@@ -34,21 +46,58 @@ const NAV = [
     items: [
       { href: "treasury.html#cuentas", label: "Cuentas", icon: "👛" },
       { href: "treasury.html#caja", label: "Caja", icon: "↔" },
-      { href: "treasury.html#cheques-recibidos", label: "Cheques recibidos", icon: "📥" },
-      { href: "treasury.html#cheques-propios", label: "Cheques propios", icon: "📤" },
+      { href: "treasury.html#conciliacion", label: "Conciliación", icon: "🔗" },
+      {
+        href: "treasury.html#cheques-recibidos",
+        label: "Cheques recibidos",
+        icon: "📥",
+      },
+      {
+        href: "treasury.html#cheques-propios",
+        label: "Cheques propios",
+        icon: "📤",
+      },
     ],
   },
   {
     label: "Contabilidad",
     items: [
-      { href: "accounting.html#plan-de-cuentas", label: "Plan de cuentas", icon: "🌲" },
-      { href: "accounting.html#libro-diario", label: "Libro diario", icon: "📖" },
+      {
+        href: "accounting.html#plan-de-cuentas",
+        label: "Plan de cuentas",
+        icon: "🌲",
+      },
+      {
+        href: "accounting.html#libro-diario",
+        label: "Libro diario",
+        icon: "📖",
+      },
       { href: "accounting.html#libro-mayor", label: "Libro mayor", icon: "📈" },
-      { href: "accounting.html#libro-iva-ventas", label: "Libro IVA Ventas", icon: "🧾" },
-      { href: "accounting.html#libro-iva-compras", label: "Libro IVA Compras", icon: "🛒" },
-      { href: "accounting.html#balance-eerr", label: "Balance / EERR", icon: "⚖" },
-      { href: "accounting.html#centros-de-costo", label: "Centros de costo", icon: "🎯" },
-      { href: "accounting.html#ajuste-por-inflacion", label: "Ajuste inflación", icon: "📊" },
+      {
+        href: "accounting.html#libro-iva-ventas",
+        label: "Libro IVA Ventas",
+        icon: "🧾",
+      },
+      {
+        href: "accounting.html#libro-iva-compras",
+        label: "Libro IVA Compras",
+        icon: "🛒",
+      },
+      {
+        href: "accounting.html#balance-eerr",
+        label: "Balance / EERR",
+        icon: "⚖",
+      },
+      {
+        href: "accounting.html#centros-de-costo",
+        label: "Centros de costo",
+        icon: "🎯",
+      },
+      {
+        href: "accounting.html#ajuste-por-inflacion",
+        label: "Ajuste inflación",
+        icon: "📊",
+      },
     ],
   },
   {
@@ -65,7 +114,12 @@ const NAV = [
     items: [
       { href: "admin.html#usuarios", label: "Usuarios", icon: "🛡" },
       { href: "admin.html#padron-afip", label: "Padrón AFIP", icon: "🔎" },
-      { href: "admin.html#puntos-de-venta", label: "Puntos de venta", icon: "🏪" },
+      {
+        href: "admin.html#puntos-de-venta",
+        label: "Puntos de venta",
+        icon: "🏪",
+      },
+      { href: "admin.html#importador", label: "Importador", icon: "📥" },
       { href: "admin.html#preview-pdf", label: "Preview PDF", icon: "📄" },
       { href: "admin.html#backups", label: "Backups", icon: "💾" },
     ],
@@ -74,9 +128,21 @@ const NAV = [
     label: "Colaboración",
     items: [
       { href: "collaboration.html#chat", label: "Chat", icon: "💬" },
-      { href: "collaboration.html#busqueda-global", label: "Búsqueda global", icon: "🔍" },
-      { href: "collaboration.html#notificaciones", label: "Notificaciones", icon: "🔔" },
-      { href: "collaboration.html#archivos-adjuntos", label: "Adjuntos", icon: "📎" },
+      {
+        href: "collaboration.html#busqueda-global",
+        label: "Búsqueda global",
+        icon: "🔍",
+      },
+      {
+        href: "collaboration.html#notificaciones",
+        label: "Notificaciones",
+        icon: "🔔",
+      },
+      {
+        href: "collaboration.html#archivos-adjuntos",
+        label: "Adjuntos",
+        icon: "📎",
+      },
       { href: "collaboration.html#perfil", label: "Mi perfil", icon: "👤" },
     ],
   },
@@ -125,8 +191,9 @@ function initMermaid() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const current = (location.pathname.split("/").pop() || "index.html")
-    .toLowerCase();
+  const current = (
+    location.pathname.split("/").pop() || "index.html"
+  ).toLowerCase();
   renderSidebar(current);
   initMermaid();
 });

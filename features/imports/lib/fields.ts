@@ -101,6 +101,78 @@ const currencyField = (hint: string): ImportField => ({
   hint,
 });
 
+/** A supplier's purchase defaults: the purchase form starts a factura with
+ *  them. Each names a record by its name (or code). */
+const supplierDefaultFields: readonly ImportField[] = [
+  {
+    key: "category",
+    label: "Categoría",
+    required: false,
+    aliases: ["categoria", "rubro", "categoria de proveedor"],
+    hint: "Nombre de la categoría como está en Proveedores › Categorías.",
+  },
+  {
+    key: "expense_account",
+    label: "Cuenta de gasto",
+    required: false,
+    aliases: [
+      "cuenta de gasto",
+      "cuenta gasto",
+      "cuenta contable",
+      "imputacion",
+    ],
+    hint: "Código (5.1.2) o nombre de una cuenta de gasto imputable del plan.",
+  },
+  {
+    key: "cost_center",
+    label: "Centro de costo",
+    required: false,
+    aliases: ["centro de costo", "centro de costos", "centro costo", "cc"],
+    hint: "Código o nombre del centro de costo.",
+  },
+];
+
+/** A driver's license, kept on the driver record an employee with the
+ *  driver position gets. */
+const driverLicenseFields: readonly ImportField[] = [
+  {
+    key: "license_number",
+    label: "N.º de licencia",
+    required: false,
+    aliases: [
+      "numero de licencia",
+      "nro de licencia",
+      "nro licencia",
+      "licencia",
+      "licencia de conducir",
+    ],
+    hint: "Solo para choferes.",
+  },
+  {
+    key: "license_category",
+    label: "Categoría de licencia",
+    required: false,
+    aliases: [
+      "categoria de licencia",
+      "categoria licencia",
+      "clase de licencia",
+    ],
+    hint: "La clase de la licencia (E1, C2…).",
+  },
+  {
+    key: "license_expires_at",
+    label: "Vencimiento de licencia",
+    required: false,
+    aliases: [
+      "vencimiento de licencia",
+      "vencimiento licencia",
+      "vto licencia",
+      "licencia vence",
+    ],
+    hint: "Se carga como licencia del chofer en Flota › Vencimientos, que avisa antes de que venza.",
+  },
+];
+
 const GO_LIVE_FIELDS = {
   client_tariffs: [
     clientField,
@@ -110,6 +182,20 @@ const GO_LIVE_FIELDS = {
       required: true,
       aliases: ["concepto", "servicio", "tipo"],
       hint: "Almacenaje, carga, descarga o flete.",
+    },
+    {
+      key: "warehouse",
+      label: "Depósito",
+      required: false,
+      aliases: ["deposito", "almacen"],
+      hint: "El depósito del área. Hace falta solo si dos depósitos tienen un área con el mismo nombre.",
+    },
+    {
+      key: "area",
+      label: "Área",
+      required: false,
+      aliases: ["area", "zona", "sector"],
+      hint: "Vacío: todas las áreas. Con área, pisa a la tarifa general para los pallets de esa área (el flete no lleva área).",
     },
     {
       key: "unit",
@@ -342,12 +428,15 @@ export const IMPORT_FIELDS: Record<ImportKind, readonly ImportField[]> = {
     "nombre",
     "denominacion",
   ]),
-  suppliers: counterpartyFields("Razón social", [
-    "razon social",
-    "proveedor",
-    "nombre",
-    "denominacion",
-  ]),
+  suppliers: [
+    ...counterpartyFields("Razón social", [
+      "razon social",
+      "proveedor",
+      "nombre",
+      "denominacion",
+    ]),
+    ...supplierDefaultFields,
+  ],
   employees: [
     name("Apellido y nombre", [
       "apellido y nombre",
@@ -432,6 +521,7 @@ export const IMPORT_FIELDS: Record<ImportKind, readonly ImportField[]> = {
       aliases: ["obra social", "os"],
     },
     { key: "art", label: "ART", required: false, aliases: ["art"] },
+    ...driverLicenseFields,
     {
       key: "notes",
       label: "Notas",

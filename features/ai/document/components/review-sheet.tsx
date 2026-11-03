@@ -42,15 +42,22 @@ function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
   return { name, duplicate: typeof matches.duplicate_of === "string" };
 }
 
-function reconInfo(
-  matches: unknown,
-): { matched: number; total: number } | null {
+function reconInfo(matches: unknown): {
+  matched: number;
+  total: number;
+  imported: number;
+  importedOpen: number;
+} | null {
   if (!isRecord(matches) || !isRecord(matches.reconciliation)) return null;
   const r = matches.reconciliation;
   const matched = typeof r.matched === "number" ? r.matched : 0;
   const total = typeof r.statement_total === "number" ? r.statement_total : 0;
   if (total === 0) return null;
-  return { matched, total };
+  // A summary saved before imported lines were read has neither field.
+  const imported = typeof r.imported === "number" ? r.imported : 0;
+  const importedOpen =
+    typeof r.imported_open === "number" ? r.imported_open : 0;
+  return { matched, total, imported, importedOpen };
 }
 
 function expenseInfo(
@@ -235,6 +242,8 @@ export function ReviewSheet({
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
                 <CheckCircle2 className="size-3" />
                 Conciliación: {recon.matched}/{recon.total} conciliados
+                {recon.imported > 0 &&
+                  ` · ${recon.imported} ya importados (${recon.importedOpen} pendientes en Conciliación)`}
               </span>
             )}
           </div>

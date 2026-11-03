@@ -19,6 +19,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The /manual route handler reads the HTML manual from disk at runtime.
+  outputFileTracingIncludes: {
+    "/manual/[[...path]]": ["./docs/manual/**/*"],
+  },
   experimental: {
     // Barrel packages imported across many files: only the used modules get
     // bundled. (date-fns / recharts are in Next's default list.)

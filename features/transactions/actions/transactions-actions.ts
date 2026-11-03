@@ -52,6 +52,10 @@ export interface TransactionListItem extends Transaction {
   /** The document that owns the movement (v_transactions_tagged); null for a
    *  manual one. The database refuses editing or deleting an owned movement. */
   source_document: string | null;
+  /** Matched with a bank statement line (Tesorería › Conciliación): the
+   *  database refuses deleting it or changing its amount, dates, account or
+   *  kind until the line is unmatched. */
+  reconciled: boolean;
 }
 
 export interface TransactionListPage {
@@ -88,7 +92,7 @@ export async function listTransactionsAction(
       // No `count`: the page uses the limit + 1 trick for "has more" and never
       // exposes a total, and count=exact re-ran the whole filtered scan on
       // every page.
-      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, source_document, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name )`,
+      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, source_document, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name ), bank_statement_matches ( line_id )`,
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -107,6 +111,12 @@ export async function listTransactionsAction(
   if (filters.date_to) query = query.lte("transaction_date", filters.date_to);
   if (filters.client_id)
     query = query.eq("counterparty_client_id", filters.client_id);
+  // A null filter on the embedded matches: an inner join for the reconciled
+  // ones, an anti-join for the rest.
+  if (filters.reconciled === "yes")
+    query = query.not("bank_statement_matches", "is", null);
+  if (filters.reconciled === "no")
+    query = query.is("bank_statement_matches", null);
 
   query = query.range(offset, offset + limit);
 
@@ -125,6 +135,7 @@ export async function listTransactionsAction(
     account_type: string;
     counterparty_client: { legal_name: string } | null;
     source_document: string | null;
+    bank_statement_matches: { line_id: string }[] | null;
   };
 
   const rows = data ?? [];
@@ -143,6 +154,7 @@ export async function listTransactionsAction(
         account_type: tagged.account_type,
         counterparty_legal_name: tagged.counterparty_client?.legal_name ?? null,
         source_document: tagged.source_document,
+        reconciled: (tagged.bank_statement_matches?.length ?? 0) > 0,
       };
     })
     .filter((item): item is TransactionListItem => item !== null);
@@ -387,10 +399,7 @@ export async function updateTransactionAction(
       id: data.id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo actualizar el movimiento.",
-    };
+    return { ok: false, error: "No se pudo actualizar el movimiento." };
   }
 
   await logAudit(

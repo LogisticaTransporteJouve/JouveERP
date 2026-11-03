@@ -1,7 +1,7 @@
 // Short help per screen for the sidebar guide (roadmap 6.5): what the page is
 // for and the usual steps. `manual` names the section of the HTML user manual
-// (docs/manual/<page>#<anchor>) that covers it in depth; the manual is a
-// static site outside the app, so the guide cites it by name.
+// (docs/manual/<page>#<anchor>) that covers it in depth; the app serves the
+// manual at /manual (app/manual/[[...path]]/route.ts), so the guide links it.
 
 export type ManualRef = {
   page: string;
@@ -202,6 +202,11 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Aceptá las sugerencias o elegí los movimientos a mano.",
       "Creá el movimiento que falta (comisiones, intereses) desde la línea.",
     ],
+    manual: {
+      page: "treasury.html",
+      anchor: "conciliacion",
+      label: "Tesorería › Conciliación bancaria",
+    },
   },
   {
     prefix: "/accounts",
@@ -551,6 +556,11 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Revisá la vista previa: errores y avisos por fila.",
       "Importá: entra todo en una sola transacción.",
     ],
+    manual: {
+      page: "admin.html",
+      anchor: "importador",
+      label: "Admin › Importador (formato de cada planilla)",
+    },
   },
   {
     prefix: "/admin/audit",
@@ -580,6 +590,11 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
 ];
 
 /** The deepest guide whose prefix is the path or one of its ancestors. */
+/** Where the app serves a manual section. */
+export function manualHref(ref: ManualRef): string {
+  return `/manual/${ref.page}#${ref.anchor}`;
+}
+
 export function guideForPath(pathname: string): RouteGuide | undefined {
   let best: RouteGuide | undefined;
   for (const guide of ROUTE_GUIDES) {

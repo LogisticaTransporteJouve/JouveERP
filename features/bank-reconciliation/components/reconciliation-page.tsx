@@ -60,6 +60,7 @@ import {
   CreateLineTransactionDialog,
   IgnoreLineDialog,
   MatchLineDialog,
+  MatchMovementLinesDialog,
 } from "./line-dialogs";
 
 function monthRange(month: string): { from: string; to: string } {
@@ -209,11 +210,12 @@ function ReconciliationBody({
     kind: LineDialog;
     line: StatementLine;
   } | null>(null);
+  const [splitMovement, setSplitMovement] = useState<BookMovement | null>(null);
   const currency = data.account.currency;
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
-  const free = data.movements.filter((m) => m.line_id === null);
+  const free = data.movements.filter((m) => m.line_ids.length === 0);
   const unmatchedInPeriod = free.filter(
     (m) => m.transaction_date >= from && m.transaction_date <= to,
   );
@@ -472,13 +474,21 @@ function ReconciliationBody({
                           {line.status === "matched" && (
                             <DropdownMenuItem
                               disabled={unmatch.isPending}
-                              onSelect={() =>
+                              onSelect={() => {
+                                const together = splitSiblings(
+                                  line,
+                                  movementById,
+                                );
                                 unmatch.mutate(line.id, {
                                   onSuccess: () =>
-                                    toast.success("Línea desconciliada."),
+                                    toast.success(
+                                      together > 1
+                                        ? `Se desconciliaron las ${together} líneas del movimiento.`
+                                        : "Línea desconciliada.",
+                                    ),
                                   onError: (err) => toast.error(err.message),
-                                })
-                              }
+                                });
+                              }}
                             >
                               <Unlink className="size-4" />
                               Desconciliar
@@ -527,13 +537,14 @@ function ReconciliationBody({
                 <TableHead className="w-28">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
                 <TableHead className="text-right">Importe</TableHead>
+                {canWrite && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {unmatchedInPeriod.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={canWrite ? 4 : 3}
                     className="text-muted-foreground text-center text-sm"
                   >
                     Todos los movimientos del mes están conciliados.
@@ -551,6 +562,19 @@ function ReconciliationBody({
                   <TableCell className="text-right tabular-nums">
                     {money(m.signed_amount)}
                   </TableCell>
+                  {canWrite && (
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Conciliar con varias líneas"
+                        title="Conciliar con varias líneas"
+                        onClick={() => setSplitMovement(m)}
+                      >
+                        <Link2 className="size-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -563,6 +587,12 @@ function ReconciliationBody({
         movements={free}
         currency={currency}
         onOpenChange={(o) => (o ? null : close())}
+      />
+      <MatchMovementLinesDialog
+        movement={splitMovement}
+        lines={data.lines}
+        currency={currency}
+        onOpenChange={(o) => (o ? null : setSplitMovement(null))}
       />
       <IgnoreLineDialog
         line={dialog?.kind === "ignore" ? dialog.line : null}
@@ -577,6 +607,16 @@ function ReconciliationBody({
       />
     </div>
   );
+}
+
+/** How many lines unmatching `line` sends back to pending: every line of its
+ *  split movement, or just itself. */
+function splitSiblings(
+  line: StatementLine,
+  movementById: ReadonlyMap<string, BookMovement>,
+): number {
+  const only = line.transaction_ids.length === 1 ? line.transaction_ids[0] : "";
+  return movementById.get(only ?? "")?.line_ids.length ?? 1;
 }
 
 function MatchedMovement({
@@ -598,6 +638,9 @@ function MatchedMovement({
       ↳ {formatArgentineDate(movement.transaction_date)} ·{" "}
       {movement.description || "(sin descripción)"} ·{" "}
       {formatMoneySigned(movement.signed_amount, currency)}
+      {movement.line_ids.length > 1
+        ? ` · partido en ${movement.line_ids.length} líneas`
+        : ""}
     </span>
   );
 }

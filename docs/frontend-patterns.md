@@ -2038,7 +2038,7 @@ process.stdout.write(input.replace(PARTITION_TABLE_RE, ""));
 La app de referencia usa Jest aún. Para JouveERP **Vitest** (más rápido en Next 16). Config equivalente:
 
 ```ts
-// vitest.config.ts
+// vitest.config.mts (ESM: import.meta.dirname, sin el aviso CJS de vite)
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -2051,7 +2051,7 @@ export default defineConfig({
     setupFiles: "./tests/setup.ts",
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
 });
 ```

@@ -325,9 +325,9 @@ async function bankMatchHint(
                   : -Number(t.amount),
               description: t.description,
               source_document: null,
-              // Any non-null value marks it taken; suggestMatches only
-              // offers free movements.
-              line_id: matched.has(t.id) ? "matched" : null,
+              // Any entry marks it taken; suggestMatches only offers free
+              // movements.
+              line_ids: matched.has(t.id) ? ["matched"] : [],
             },
           ]
         : [],

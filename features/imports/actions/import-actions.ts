@@ -169,18 +169,70 @@ async function loadLookups(
     account: targets.account,
     channelId: targets.channelId,
     tariffs: [],
+    supplierCategories: [],
+    expenseAccounts: [],
+    costCenters: [],
+    areas: [],
   };
   if (kind === "client_tariffs") {
-    const tariffs = await paginateRange((from, to) =>
-      service
-        .from("client_tariffs")
-        .select("client_id, concept, valid_from, valid_to")
-        .is("area_id", null)
-        .order("id")
-        .range(from, to),
-    );
-    if (tariffs.error) return null;
+    const [tariffs, areas] = await Promise.all([
+      paginateRange((from, to) =>
+        service
+          .from("client_tariffs")
+          .select("client_id, concept, area_id, valid_from, valid_to")
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        service
+          .from("storage_areas")
+          .select("id, name, is_active, warehouse_id, warehouses ( name )")
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
+    if (tariffs.error || areas.error) return null;
     lookups.tariffs = tariffs.data;
+    lookups.areas = areas.data.map((a) => ({
+      id: a.id,
+      name: a.name,
+      is_active: a.is_active,
+      warehouse_id: a.warehouse_id,
+      warehouse_name: a.warehouses?.name ?? "",
+    }));
+  }
+  if (kind === "suppliers") {
+    const [categories, accounts, centers] = await Promise.all([
+      paginateRange((from, to) =>
+        service
+          .from("supplier_categories")
+          .select("id, name, slug, is_active")
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        service
+          .from("expense_leaf_accounts")
+          .select("id, code, name")
+          .order("id")
+          .range(from, to),
+      ),
+      paginateRange((from, to) =>
+        service
+          .from("cost_centers")
+          .select("id, code, name, is_active")
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
+    if (categories.error || accounts.error || centers.error) return null;
+    lookups.supplierCategories = categories.data;
+    lookups.expenseAccounts = accounts.data.flatMap((a) =>
+      a.id && a.code && a.name
+        ? [{ id: a.id, code: a.code, name: a.name }]
+        : [],
+    );
+    lookups.costCenters = centers.data;
   }
   if (kind === "vehicles" || kind === "historic_trips") {
     const vehicles = await paginateRange((from, to) =>
