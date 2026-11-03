@@ -32,6 +32,9 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
   return row as IssuedCheck;
 }
 
+const PAYMENT_ORDER_LINK_ERROR =
+  "Un cheque propio se liga a una orden de pago solo cargándolo desde la orden de pago.";
+
 const COLUMNS =
   "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
 
@@ -101,6 +104,12 @@ export async function createIssuedCheckAction(
     };
   }
 
+  // A payment order's check is inserted by the order itself, as one of its
+  // lines; a check linked afterwards would never move the bank when cashed.
+  if (parsed.data.payment_order_id) {
+    return { ok: false, error: PAYMENT_ORDER_LINK_ERROR };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("issued_checks")
@@ -115,7 +124,6 @@ export async function createIssuedCheckAction(
       amount: parsed.data.amount,
       currency: parsed.data.currency,
       bank_account_id: parsed.data.bank_account_id,
-      payment_order_id: parsed.data.payment_order_id ?? null,
       channel_id: parsed.data.channel_id,
       supplier_id: parsed.data.supplier_id ?? null,
       notes: parsed.data.notes ?? null,
@@ -167,10 +175,12 @@ export async function updateIssuedCheckAction(
   const supabase = await createClient();
 
   // A check an OP issued carries that OP's money: its amount, bank account,
-  // currency and OP change only by editing the OP.
+  // currency and OP change only by editing the OP. Once a check leaves
+  // 'emitted' its movement is booked with them, and an OP is never attached
+  // afterwards (guard_issued_check_edit enforces both in the database).
   const { data: current, error: readErr } = await supabase
     .from("issued_checks")
-    .select("payment_order_id, amount, currency, bank_account_id")
+    .select("payment_order_id, amount, currency, bank_account_id, status")
     .eq("id", id)
     .maybeSingle();
   if (readErr) {
@@ -181,19 +191,29 @@ export async function updateIssuedCheckAction(
     return { ok: false, error: "No se pudo leer el cheque." };
   }
   if (!current) return { ok: false, error: "Cheque no encontrado." };
-  if (
-    current.payment_order_id !== null &&
-    ((rest.amount !== undefined && rest.amount !== Number(current.amount)) ||
-      (rest.currency !== undefined && rest.currency !== current.currency) ||
-      (rest.bank_account_id !== undefined &&
-        rest.bank_account_id !== current.bank_account_id) ||
-      (rest.payment_order_id !== undefined &&
-        (rest.payment_order_id ?? null) !== current.payment_order_id))
-  ) {
+  const changesMoney =
+    (rest.amount !== undefined && rest.amount !== Number(current.amount)) ||
+    (rest.currency !== undefined && rest.currency !== current.currency) ||
+    (rest.bank_account_id !== undefined &&
+      rest.bank_account_id !== current.bank_account_id);
+  const changesOrder =
+    rest.payment_order_id !== undefined &&
+    (rest.payment_order_id ?? null) !== current.payment_order_id;
+  if (current.payment_order_id !== null && (changesMoney || changesOrder)) {
     return {
       ok: false,
       error:
         "El cheque está ligado a una orden de pago: el monto, la moneda, la cuenta y la OP se cambian editando la orden de pago.",
+    };
+  }
+  if (changesOrder) {
+    return { ok: false, error: PAYMENT_ORDER_LINK_ERROR };
+  }
+  if (current.status !== "emitted" && changesMoney) {
+    return {
+      ok: false,
+      error:
+        "El cheque ya no está emitido: su monto, moneda y cuenta quedaron registrados en Caja y no se pueden cambiar.",
     };
   }
 
@@ -218,9 +238,6 @@ export async function updateIssuedCheckAction(
       ...(rest.bank_account_id !== undefined && {
         bank_account_id: rest.bank_account_id,
       }),
-      ...(rest.payment_order_id !== undefined && {
-        payment_order_id: rest.payment_order_id ?? null,
-      }),
       ...(rest.supplier_id !== undefined && {
         supplier_id: rest.supplier_id ?? null,
       }),
@@ -236,6 +253,12 @@ export async function updateIssuedCheckAction(
         error: "Otro cheque del mismo banco ya usa ese número.",
       };
     }
+    const guardError = mapDbGuardError(error, {
+      slug: "issued_checks.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("issued_checks.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar el cheque." };
   }
