@@ -130,9 +130,29 @@
       (`supabase/tests/tax_documents_test.sql`) sin stack local; correr
       `supabase test db`. La UI (guía, impuestos, calendario) no se probó en
       el navegador.
+- [x] **Vincular movimiento existente** (`20261103190000`): un impuesto
+      se paga con un egreso suelto ya cargado (pesos, canal fiscal, caja o
+      banco activa, ±15 días del vencimiento, el importe más cercano
+      primero) vía `link_tax_document_payment`, que le saca la cuenta de
+      gasto y re-asienta contra la cuenta del impuesto; sirve también con un
+      movimiento ya conciliado. En Conciliación › Crear movimiento, un
+      débito en pesos puede ser "Pago de impuesto"
+      (`create_bank_statement_line_tax_payment`: `pay_tax_document` con la
+      fecha, cuenta e importe de la línea, y la concilia). Un importe
+      distinto al del impuesto pide confirmación y queda en las notas.
+- [ ] Aprobar la migración `20261103190000_tax_documents_link_movement` con
+      el deploy. Rollback: el código anterior no llama a los RPC nuevos; un
+      impuesto pagado así se ve como cualquier pagado.
+- [ ] No verificado contra una base real:
+      `supabase/tests/tax_documents_link_test.sql` sin stack local; los
+      diálogos (vincular, "Pago de impuesto") no se probaron en el navegador.
 - [ ] Deshacer un pago de impuesto (hoy el egreso no se borra ni el
-      documento vuelve a pendiente) y "Vincular egreso" para tomar un débito
-      automático ya cargado en Caja, como en préstamos.
+      documento vuelve a pendiente). Para un pago vinculado, deshacer debería
+      soltar el movimiento y devolverle su cuenta de gasto (hoy no se guarda
+      cuál tenía: queda en el asiento revertido).
+- [ ] Vincular un egreso de un canal no fiscal se rechaza: cambiarle el
+      canal rompería su conciliación. Si hace falta, cargarlo en el canal
+      fiscal o pagar con "Pagar".
 - [ ] Resultado de gestión percibido: el pago de un impuesto cae en el
       rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta

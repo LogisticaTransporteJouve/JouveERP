@@ -5,6 +5,7 @@ import {
   Ban,
   CalendarDays,
   Copy,
+  Link2,
   List,
   MoreHorizontal,
   Pencil,
@@ -57,6 +58,7 @@ import {
   type TaxDocument,
 } from "../schema";
 
+import { LinkTaxPaymentDialog } from "./link-tax-payment-dialog";
 import { PayTaxDocumentDialog } from "./pay-tax-document-dialog";
 import { TaxCalendar } from "./tax-calendar";
 import { TaxDocumentDialog } from "./tax-document-dialog";
@@ -65,11 +67,15 @@ export function TaxesView({
   initialYear,
   canWrite,
   canAttach,
+  canLinkPayment,
   payAccountOptions,
 }: {
   initialYear: number;
   canWrite: boolean;
   canAttach: boolean;
+  /** taxes:write plus transactions:read and transactions:write: adopt a
+   *  movement already in Caja as the payment. */
+  canLinkPayment: boolean;
   payAccountOptions: { id: string; name: string }[];
 }) {
   const today = todayInAR();
@@ -78,6 +84,7 @@ export function TaxesView({
   const [editing, setEditing] = useState<TaxDocument | null>(null);
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<TaxDocument | null>(null);
+  const [linking, setLinking] = useState<TaxDocument | null>(null);
   const copyMut = useCopyTaxDocuments();
   const confirm = useConfirm();
 
@@ -173,12 +180,14 @@ export function TaxesView({
             month={month}
             today={today}
             canWrite={canWrite}
+            canLinkPayment={canLinkPayment}
             onMonthChange={(m) => {
               setMonth(m);
               setYear(Number(m.slice(0, 4)));
             }}
             onEdit={setEditing}
             onPay={setPaying}
+            onLink={setLinking}
           />
         </Suspense>
       </Tabs>
@@ -201,6 +210,12 @@ export function TaxesView({
             accountOptions={payAccountOptions}
             onClose={() => setPaying(null)}
           />
+          {canLinkPayment && (
+            <LinkTaxPaymentDialog
+              doc={linking}
+              onClose={() => setLinking(null)}
+            />
+          )}
         </>
       )}
     </div>
@@ -212,17 +227,21 @@ function TaxesContent({
   month,
   today,
   canWrite,
+  canLinkPayment,
   onMonthChange,
   onEdit,
   onPay,
+  onLink,
 }: {
   year: number;
   month: string;
   today: string;
   canWrite: boolean;
+  canLinkPayment: boolean;
   onMonthChange: (month: string) => void;
   onEdit: (doc: TaxDocument) => void;
   onPay: (doc: TaxDocument) => void;
+  onLink: (doc: TaxDocument) => void;
 }) {
   const { data: docs } = useTaxDocuments(year);
   const statusMut = useSetTaxDocumentStatus();
@@ -378,6 +397,12 @@ function TaxesContent({
                     Pagar
                   </DropdownMenuItem>
                 )}
+                {open && canLinkPayment && (
+                  <DropdownMenuItem onClick={() => onLink(doc)}>
+                    <Link2 className="size-4" />
+                    Vincular movimiento existente
+                  </DropdownMenuItem>
+                )}
                 {doc.status === "pendiente" && (
                   <DropdownMenuItem
                     onClick={() =>
@@ -413,7 +438,16 @@ function TaxesContent({
         },
       },
     ];
-  }, [canWrite, confirm, onEdit, onPay, statusMut, today]);
+  }, [
+    canLinkPayment,
+    canWrite,
+    confirm,
+    onEdit,
+    onLink,
+    onPay,
+    statusMut,
+    today,
+  ]);
 
   const visible = docs.filter((d) => d.status !== "anulado");
   const annulled = docs.length - visible.length;

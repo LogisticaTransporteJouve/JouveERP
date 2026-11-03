@@ -5,4 +5,7 @@ export const taxesKeys = {
   accountOptions: () => [...taxesKeys.all, "account-options"] as const,
   ivaEstimate: (period: string) =>
     [...taxesKeys.all, "iva-estimate", period] as const,
+  paymentCandidates: (id: string, page: number) =>
+    [...taxesKeys.all, "payment-candidates", id, page] as const,
+  payable: () => [...taxesKeys.all, "payable"] as const,
 };

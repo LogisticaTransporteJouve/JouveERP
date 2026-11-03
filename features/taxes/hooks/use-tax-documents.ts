@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -23,7 +24,12 @@ import {
   setTaxDocumentStatusAction,
   updateTaxDocumentAction,
 } from "../actions/tax-documents-actions";
+import {
+  linkTaxDocumentPaymentAction,
+  listTaxPaymentCandidatesAction,
+} from "../actions/tax-payment-link-actions";
 import { taxesKeys } from "../lib/taxes-keys";
+import type { LinkTaxPaymentInput } from "../schema";
 
 export function useTaxDocuments(year: number) {
   return useSuspenseQuery({
@@ -86,6 +92,23 @@ export function useSetTaxDocumentStatus() {
 export function usePayTaxDocument() {
   return useTaxMutation((input: unknown) =>
     runAction(() => payTaxDocumentAction(input)),
+  );
+}
+
+/** Not suspense: the dialog opens over the list and pages in place. */
+export function useTaxPaymentCandidates(id: string | null, page: number) {
+  return useQuery({
+    queryKey: taxesKeys.paymentCandidates(id ?? "", page),
+    queryFn: () =>
+      runAction(() => listTaxPaymentCandidatesAction({ id, page })),
+    enabled: id !== null,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useLinkTaxDocumentPayment() {
+  return useTaxMutation((input: LinkTaxPaymentInput) =>
+    runAction(() => linkTaxDocumentPaymentAction(input)),
   );
 }
 

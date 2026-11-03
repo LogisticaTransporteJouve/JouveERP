@@ -8859,6 +8859,15 @@ export type Database = {
           remito_pos: number
         }[]
       }
+      create_bank_statement_line_tax_payment: {
+        Args: {
+          p_allow_difference?: boolean
+          p_line_id: string
+          p_tax_document_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       create_bank_statement_line_transaction: {
         Args: {
           p_channel_id: string
@@ -9333,6 +9342,15 @@ export type Database = {
       link_freight_settlement_invoice: {
         Args: { p_invoice_id: string; p_settlement_id: string }
         Returns: undefined
+      }
+      link_tax_document_payment: {
+        Args: {
+          p_allow_difference?: boolean
+          p_tax_document_id: string
+          p_transaction_id: string
+          p_user_id: string
+        }
+        Returns: string
       }
       list_chat_assignable_users: {
         Args: never
@@ -9844,6 +9862,14 @@ export type Database = {
           kind: string
           task_id: string
         }[]
+      }
+      tax_document_difference_note: {
+        Args: {
+          p_document_amount: number
+          p_notes: string
+          p_paid_amount: number
+        }
+        Returns: string
       }
       tax_document_label: {
         Args: { p_jurisdiction: string; p_kind: string; p_title: string }

@@ -29,6 +29,10 @@ export default async function ReconciliationRoute() {
       <ReconciliationPage
         today={todayInAR()}
         canWrite={userCan(ctx.access, "transactions:write")}
+        canPayTaxes={
+          userCan(ctx.access, "transactions:write") &&
+          userCan(ctx.access, "taxes:write")
+        }
         canImport={
           userCan(ctx.access, "imports:write") &&
           userCan(ctx.access, IMPORT_KIND_PERMISSION.bank_statement)
