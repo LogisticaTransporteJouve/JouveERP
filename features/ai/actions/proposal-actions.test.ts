@@ -245,7 +245,7 @@ describe("prepareInsightProposalAction", () => {
     expect(insertProposal).not.toHaveBeenCalled();
   });
 
-  it("closes an accepted proposal left without outcome and prepares it again", async () => {
+  it("closes an accepted proposal left without outcome and shows its warning first", async () => {
     latestProposalByKey.mockResolvedValue({
       ...taskRow,
       status: "accepted",
@@ -265,8 +265,42 @@ describe("prepareInsightProposalAction", () => {
       expect.objectContaining({ result_id: null }),
       ID,
     );
+    // The unknown outcome is shown before a new proposal is offered.
+    expect(insertProposal).not.toHaveBeenCalled();
+    expect(res.ok && res.data).toMatchObject({
+      id: ID,
+      status: "failed",
+      error: expect.stringContaining("No se sabe si la acción se completó"),
+    });
+  });
+
+  it("prepares a new proposal on the next open after the warning", async () => {
+    latestProposalByKey.mockResolvedValue({
+      ...taskRow,
+      status: "failed",
+      error: "No se sabe si la acción se completó.",
+      decided_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    });
+    const res = await prepareInsightProposalAction(INSIGHT);
     expect(insertProposal).toHaveBeenCalledTimes(1);
     expect(res.ok && res.data.status).toBe("pending");
+  });
+
+  it("shows the row as another request left it when the close loses the race", async () => {
+    latestProposalByKey.mockResolvedValue({
+      ...taskRow,
+      status: "accepted",
+      decided_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    });
+    failStaleAcceptedProposal.mockResolvedValue(false);
+    getProposal.mockResolvedValue({
+      ...taskRow,
+      status: "accepted",
+      result: { id: "task-1" },
+    });
+    const res = await prepareInsightProposalAction(INSIGHT);
+    expect(insertProposal).not.toHaveBeenCalled();
+    expect(res.ok && res.data.status).toBe("accepted");
   });
 
   it("keeps showing an accepted proposal that recorded its result", async () => {
