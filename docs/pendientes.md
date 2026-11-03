@@ -391,7 +391,7 @@
 
 ## Margen por camión (2026-11-03)
 
-- [ ] Aprobar la migración `20261103230000_vehicle_margin` junto con el
+- [ ] Aprobar la migración `20261104050000_vehicle_margin` junto con el
       deploy: sin ella fallan la sección "Margen por camión", el vínculo en
       Centros de costo y `getVehicleEconomics` con permiso de gestión. Rollback:
       el código anterior no lee `cost_centers.vehicle_id` ni llama a

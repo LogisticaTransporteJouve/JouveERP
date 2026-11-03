@@ -1,4 +1,4 @@
--- Margen por camión (20261103230000): a cost center links to at most one
+-- Margen por camión (20261104050000): a cost center links to at most one
 -- truck; get_vehicle_margin adds to each truck what was loaded with its
 -- center, without counting twice a purchase a fuel load already carries, and
 -- keeps apart what no truck owns (trips without a vehicle, centers without a
