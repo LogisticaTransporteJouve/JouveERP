@@ -36,6 +36,7 @@ describe("hubScope", () => {
       "ai_document",
       "ai_chat_message",
       "employee_document",
+      "tax_document",
     ]);
     expect(scope.ownOnly).toBe(true);
   });

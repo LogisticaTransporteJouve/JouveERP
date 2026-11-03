@@ -8,7 +8,8 @@ import {
 } from "./lib/hub";
 
 // Attachable entity types. K.10 shipped with purchase_invoice; M.4
-// extended it to 8 more; 1.7 adds the fuel load ticket.
+// extended it to 8 more; 1.7 adds the fuel load ticket; 6.6 the tax
+// document's VEP or DDJJ.
 export const ATTACHMENT_TARGET_TYPES = [
   "purchase_invoice",
   "invoice",
@@ -20,6 +21,7 @@ export const ATTACHMENT_TARGET_TYPES = [
   "supplier",
   "transaction",
   "fuel_load",
+  "tax_document",
 ] as const;
 export type AttachmentTargetType = (typeof ATTACHMENT_TARGET_TYPES)[number];
 
@@ -39,6 +41,7 @@ export const ATTACHMENT_KIND_BY_TARGET: Record<
   supplier: ["constancia_inscripcion", "contrato", "otro"],
   transaction: ["comprobante", "otro"],
   fuel_load: ["remito", "comprobante", "otro"],
+  tax_document: ["vep", "ddjj", "comprobante_pago", "otro"],
 } as const;
 
 export const ATTACHMENT_KIND_LABELS: Record<string, string> = {
@@ -50,6 +53,8 @@ export const ATTACHMENT_KIND_LABELS: Record<string, string> = {
   comprobante_depósito: "Comprobante de depósito",
   constancia_inscripcion: "Constancia de inscripción",
   contrato: "Contrato",
+  vep: "VEP",
+  ddjj: "DDJJ",
   otro: "Otro",
 };
 

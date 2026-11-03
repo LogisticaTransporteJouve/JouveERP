@@ -2721,6 +2721,7 @@ export type Database = {
           purchase_invoice_id: string | null
           receipt_id: string | null
           supplier_id: string | null
+          tax_document_id: string | null
           transaction_id: string | null
         }
         Insert: {
@@ -2739,6 +2740,7 @@ export type Database = {
           purchase_invoice_id?: string | null
           receipt_id?: string | null
           supplier_id?: string | null
+          tax_document_id?: string | null
           transaction_id?: string | null
         }
         Update: {
@@ -2757,6 +2759,7 @@ export type Database = {
           purchase_invoice_id?: string | null
           receipt_id?: string | null
           supplier_id?: string | null
+          tax_document_id?: string | null
           transaction_id?: string | null
         }
         Relationships: [
@@ -2877,6 +2880,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_tax_document_id_fkey"
+            columns: ["tax_document_id"]
+            isOneToOne: false
+            referencedRelation: "tax_documents"
             referencedColumns: ["id"]
           },
           {
@@ -6693,6 +6703,95 @@ export type Database = {
           },
         ]
       }
+      tax_documents: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          amount_is_estimate: boolean
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          jurisdiction: string | null
+          kind: string
+          notes: string | null
+          paid_amount: number | null
+          paid_date: string | null
+          payment_transaction_id: string | null
+          period: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number | null
+          amount_is_estimate?: boolean
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          jurisdiction?: string | null
+          kind: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_transaction_id?: string | null
+          period: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number | null
+          amount_is_estimate?: boolean
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          jurisdiction?: string | null
+          kind?: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_transaction_id?: string | null
+          period?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_documents_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string
@@ -7003,6 +7102,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_guide_states: {
+        Row: {
+          collapsed: boolean
+          dismissed_items: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collapsed?: boolean
+          dismissed_items?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collapsed?: boolean
+          dismissed_items?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_permission_denies: {
         Row: {
@@ -9298,6 +9418,15 @@ export type Database = {
         }
         Returns: string
       }
+      pay_tax_document: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_paid_date: string
+          p_tax_document_id: string
+        }
+        Returns: string
+      }
       payroll_garnishment_amount: {
         Args: { p_base: number; p_employee_id: string; p_period_id: string }
         Returns: number
@@ -9684,6 +9813,10 @@ export type Database = {
           kind: string
           task_id: string
         }[]
+      }
+      tax_document_label: {
+        Args: { p_jurisdiction: string; p_kind: string; p_title: string }
+        Returns: string
       }
       transaction_is_loose: {
         Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] }

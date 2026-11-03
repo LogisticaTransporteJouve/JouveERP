@@ -23,6 +23,7 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   opening_balances: "Saldos iniciales",
   recurring_payments: "Pagos recurrentes",
   accounting: "Contabilidad",
+  taxes: "Impuestos",
   management: "Resultado de gestión",
   channels: "Canales de facturación",
   storage_billing: "Facturación de depósito",

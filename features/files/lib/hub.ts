@@ -28,6 +28,7 @@ export const HUB_ENTITY_LABEL: Record<HubEntityType, string> = {
   employee_document: "Documento de empleado",
   fleet_document: "Documento de flota",
   fuel_load: "Carga de combustible",
+  tax_document: "Impuesto",
 };
 
 /** Entities that belong to one user (owner_id): only ai:admin sees others'. */
@@ -142,6 +143,8 @@ export function hubEntityHref(row: {
       return "/fleet-documents";
     case "fuel_load":
       return "/fuel";
+    case "tax_document":
+      return "/taxes";
   }
 }
 

@@ -19,6 +19,7 @@ export const ENTITY_TYPES = [
   "employee_document",
   "fleet_document",
   "fuel_load",
+  "tax_document",
 ] as const;
 
 export type EntityType = (typeof ENTITY_TYPES)[number];
@@ -38,4 +39,5 @@ export const ENTITY_READ_PERMISSION: Record<EntityType, Permission> = {
   employee_document: "hr:read",
   fleet_document: "fleet_documents:read",
   fuel_load: "fuel:read",
+  tax_document: "taxes:read",
 };
