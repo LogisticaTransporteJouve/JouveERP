@@ -53,14 +53,14 @@ insert into public.invoices
    doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, status, idempotency_key)
 values
   ('00000000-0000-0000-0000-00000016e0a1', 'jouve_internal', '00000000-0000-0000-0000-00000016c0a1',
-   'factura', null, 9002, 98161, current_date, 2, 99, '0', 1000, 0, 1000, 'emitted', 'gestion-v2-camion');
+   'factura', null, 9001, 98161, current_date, 2, 99, '0', 1000, 0, 1000, 'emitted', 'gestion-v2-camion');
 insert into public.invoice_items
   (invoice_id, description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, revenue_kind)
 values
   ('00000000-0000-0000-0000-00000016e0a1', 'Venta camión', 1, 1000, 3, 1000, 0, 1000, 'asset_sale');
 
 create temp table t_receipt as
-select public.create_receipt('jouve_internal', 9002, 98161, '00000000-0000-0000-0000-00000016c0a1',
+select public.create_receipt('jouve_internal', 9001, 98161, '00000000-0000-0000-0000-00000016c0a1',
   current_date, 1000, 'ARS', 'cobro camión',
   '[{"account_id":"00000000-0000-0000-0000-00000016ac01","amount":1000}]'::jsonb,
   '[{"invoice_id":"00000000-0000-0000-0000-00000016e0a1","amount_applied":1000}]'::jsonb,
@@ -77,9 +77,9 @@ values
 
 create temp table t_op as
 select public.create_payment_order(
-  'jouve_internal', 9002,
+  'jouve_internal', 9001,
   (select coalesce(max(numero), 0) + 1 from public.payment_orders
-    where channel_id = 'jouve_internal' and punto_venta = 9002),
+    where channel_id = 'jouve_internal' and punto_venta = 9001),
   '00000000-0000-0000-0000-00000016b0a1', current_date, 400, 'ARS', null,
   '[{"account_id":"00000000-0000-0000-0000-00000016ac01","amount":400}]'::jsonb,
   '[{"purchase_invoice_id":"00000000-0000-0000-0000-00000016f0a1","amount_applied":400}]'::jsonb,
@@ -151,7 +151,7 @@ select is(
   (select doc_type || ':' || doc_label
      from public.get_management_pnl_documents(current_date, current_date, 'cash', array['asset_sale'])
     where doc_id = (select id from t_receipt)),
-  'receipt:Recibo 9002-00098161',
+  'receipt:Recibo 9001-00098161',
   'the asset-sale collection names its receipt'
 );
 select is(

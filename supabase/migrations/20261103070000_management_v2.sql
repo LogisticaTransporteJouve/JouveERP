@@ -252,8 +252,9 @@ begin
       ) li on true
       left join public.issued_checks ic on ic.id = t.issued_check_id
       cross join lateral (
-        select coalesce(least(1, a.employee), 0) as f_employee,
-               coalesce(least(1 - least(1, a.employee), a.fleet), 0) as f_fleet
+        -- least() skips nulls: coalesce first, or no OP would read as 1.
+        select least(1, coalesce(a.employee, 0)) as f_employee,
+               least(1 - least(1, coalesce(a.employee, 0)), coalesce(a.fleet, 0)) as f_fleet
           from (
             select sum(poa.amount_applied) filter (where pi.charged_employee_id is not null)
                      / nullif(max(po.total_amount), 0) as employee,
