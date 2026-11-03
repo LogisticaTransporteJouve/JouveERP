@@ -2,7 +2,7 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15min';
 
 -- A purchase's net for the AI supplier figures includes exento and no gravado,
--- now that they have their own columns (20261104090200); the sales twin
+-- now that they have their own columns (20261104090800); the sales twin
 -- (ai_cross_queries) already adds imp_op_ex and imp_tot_conc. Same signatures
 -- and return types as 20261031184339, so the grants carry over.
 

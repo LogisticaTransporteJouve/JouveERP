@@ -216,7 +216,7 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   impuestos internos van a la cuenta de gasto de la compra (`account_id`) si tiene
   una, si no a `compras`; la percepción de IVA va a `percepciones_iva_pagadas`
   (a `iva_credito` mientras ninguna cuenta activa tenga el rol) y la de IIBB a
-  `percepciones_iibb_pagadas` (`20261104090200`). `imp_trib` es la suma de las
+  `percepciones_iibb_pagadas` (`20261104090800`). `imp_trib` es la suma de las
   cuatro partes (CHECK); una compra que solo trae `imp_trib` (código anterior)
   lo toma como IIBB. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
   origen** (y su centro de costo si no tiene), así revierte la misma cuenta que

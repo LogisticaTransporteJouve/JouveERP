@@ -1,5 +1,5 @@
--- Exempt, non-taxed and the four tributes on a purchase (20261104090200,
--- 20261104090300): what each posts to, the legacy fill for writers that only
+-- Exempt, non-taxed and the four tributes on a purchase (20261104090800,
+-- 20261104090900): what each posts to, the legacy fill for writers that only
 -- send imp_trib, the split CHECK, the closed-period guard, the items guard and
 -- the libro IVA tying to the entry. One transaction, rolled back.
 
