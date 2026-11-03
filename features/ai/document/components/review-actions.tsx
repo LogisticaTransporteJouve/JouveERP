@@ -16,6 +16,7 @@ import { ChequeBatchExtractionSchema } from "../schemas";
 import { CreateChequesDialog } from "./create-cheques-dialog";
 import { CreatePaymentDocDialog } from "./create-payment-doc-dialog";
 import { CreateSalesInvoiceDialog } from "./create-sales-invoice-dialog";
+import { RemitoShipments } from "./remito-shipments";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -119,8 +120,8 @@ function PurchaseDraftAction({
  * Create-from-extraction footer for the review dialog. Every extractable kind
  * with a create target is wired: purchase invoice and NC/ND de compra (through
  * the editable purchase form), cheques, recibo, orden de pago and factura de
- * venta. Remitos and extractos stay read-only (no entity to create /
- * reconciliation handles them).
+ * venta. A remito shows the cargas that carry its number; extractos stay
+ * read-only (reconciliation handles them).
  */
 export function ReviewActions(props: ReviewActionsProps) {
   // A scanned voucher is a fiscal document with a CUIT: its forms offer only
@@ -230,6 +231,10 @@ function ReviewActionsInner({
         />
       </DialogTrigger>
     );
+  }
+
+  if (kind === "delivery_note") {
+    return <RemitoShipments payload={extraction.payload} />;
   }
 
   if (kind === "purchase_invoice" || kind === "credit_debit_note") {
