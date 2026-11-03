@@ -5,7 +5,7 @@ import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
  * from those domains (cash-flow → treasury balances, receivables risk → AR,
  * duplicate/unusual invoices → AP, fleet cards → fleet), so only users who can
  * read every one of them in the app see it. Mirrors the `ai_insights select`
- * RLS policy (latest in supabase/migrations/20261103160000_ai_proposals.sql)
+ * RLS policy (latest in supabase/migrations/20261103180000_ai_proposals.sql)
  * — keep both in sync when adding a kind.
  */
 export const INSIGHT_KIND_PERMISSION: Readonly<

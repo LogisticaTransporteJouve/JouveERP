@@ -242,7 +242,7 @@ una propuesta pendiente:
 - **En el chat**, `ai_chat_confirmations` (fase 2): revisiones por sesión y tool call, con
   Confirmar / Modificar / Descartar en la tarjeta.
 - **Fuera del chat** (hoy, desde una tarjeta de insight), `ai_proposals` (migración
-  `20261103160000_ai_proposals.sql`): `action`, `input`, `draft`, `labels`, `summary`, `title`,
+  `20261103180000_ai_proposals.sql`): `action`, `input`, `draft`, `labels`, `summary`, `title`,
   `status` `pending | accepted | dismissed | failed | expired`, `result` (`{ id, note? }`),
   `error`, `expires_at` (24 h), quién (`user_id`) y cuándo (`created_at`, `decided_at`), más el
   insight de origen. RLS: `authenticated` solo lee sus filas y solo con un rol que tenga

@@ -84,7 +84,7 @@
 - [x] **Ocho indicadores** en el analyst (margen por cliente, costo por km, L/100 km, mora sin
       cobrar, extracto sin conciliar, rendiciones, cuotas de préstamos, caja contra
       financiamiento), con propuesta donde corresponde.
-- [ ] Aprobar la migración `20261103160000_ai_proposals` junto con el deploy: sin ella falla el
+- [ ] Aprobar la migración `20261103180000_ai_proposals` junto con el deploy: sin ella falla el
       analyst (columna `ai_insights.proposal`) y las tarjetas nuevas no se ven para finance ni
       operations. No verificada contra una base real: correr `supabase test db`
       (`supabase/tests/ai_proposals_test.sql`) antes de aprobar.

@@ -1,4 +1,4 @@
--- AI CFO 6.3 + 6.4 (20261103160000): ai_proposals moves only pending →
+-- AI CFO 6.3 + 6.4 (20261103180000): ai_proposals moves only pending →
 -- accepted | dismissed | expired and accepted → failed; an expired proposal
 -- cannot be accepted; what the user saw never changes; one pending proposal
 -- per user and key; each user reads only their own rows. ai_insights shows
