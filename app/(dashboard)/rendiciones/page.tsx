@@ -45,10 +45,7 @@ export default async function RendicionesRoute() {
       <div className="space-y-6">
         <DriverSettlementsPage
           canWrite={userCan(ctx.access, "receipts:write")}
-          canPostDifference={
-            userCan(ctx.access, "receipts:write") &&
-            userCan(ctx.access, "hr:write")
-          }
+          canChargeDriver={userCan(ctx.access, "hr:write")}
         />
       </div>
     </Hydrate>

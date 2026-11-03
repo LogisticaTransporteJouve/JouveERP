@@ -14,10 +14,12 @@ import { formatReceiptNumber } from "@/features/receipts/schema";
 
 import {
   DRIVER_SETTLEMENTS_PAGE_SIZE,
+  DriverSettlementDifferenceSchema,
   DriverSettlementIdSchema,
   DriverSettlementSaveSchema,
   DriverSettlementsPageSchema,
   groupPendingByDriver,
+  isDifferenceChargedTo,
   isDriverSettlementStatus,
   receiptsOutOfSync,
   settlementDifference,
@@ -25,6 +27,7 @@ import {
   type CodPendingShipment,
   type DriverSettlement,
   type DriverSettlementDetail,
+  type DriverSettlementDifferenceInput,
   type DriverSettlementItem,
   type DriverSettlementSaveInput,
   type DriverSettlementsPage,
@@ -39,7 +42,7 @@ const WRITE_DENIED = "No tenés permiso para registrar rendiciones.";
 // client after the gate, as storage billing reads pallets.
 
 const SETTLEMENT_COLUMNS =
-  "id, numero, driver_id, settlement_date, status, notes, created_at, driver:drivers(full_name, employee_id), difference:employee_account_movements(id, kind, amount)";
+  "id, numero, driver_id, settlement_date, status, notes, difference_charged_to, created_at, driver:drivers(full_name, employee_id), difference:employee_account_movements(id, kind, amount)";
 
 const ITEM_COLUMNS =
   "id, settlement_id, shipment_id, expected_amount, note, released, lines:driver_settlement_lines(id, account_id, amount, reference, check_number, bank_name, drawer_name, check_due_date, receipt_id, account:accounts(name, type), receipt:receipts(punto_venta, numero, status, total_amount))";
@@ -51,6 +54,7 @@ type SettlementRow = {
   settlement_date: string;
   status: string;
   notes: string | null;
+  difference_charged_to: string | null;
   created_at: string;
   driver: { full_name: string; employee_id: string | null } | null;
   difference: { id: string; kind: string; amount: number }[];
@@ -87,12 +91,25 @@ function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? "Datos inválidos.";
 }
 
+function chargedTo(
+  row: SettlementRow,
+): DriverSettlement["difference_charged_to"] {
+  const v = row.difference_charged_to;
+  if (v === null) return null;
+  if (isDifferenceChargedTo(v)) return v;
+  logger.error("driver_settlements.unknown_charged_to", {
+    id: row.id,
+    charged_to: v,
+  });
+  return null;
+}
+
 function postedDifference(
   row: SettlementRow,
 ): DriverSettlement["difference_posted"] {
   const m = row.difference[0];
   if (!m) return null;
-  if (m.kind !== "charge" && m.kind !== "payment") {
+  if (m.kind !== "advance" && m.kind !== "charge" && m.kind !== "payment") {
     logger.error("driver_settlements.unknown_difference_kind", {
       id: row.id,
       kind: m.kind,
@@ -169,6 +186,7 @@ function summarize(
     cargas: items.length,
     receipts: receiptList,
     receipts_out_of_sync: receiptsOutOfSync(row.status, receiptList),
+    difference_charged_to: chargedTo(row),
     difference_posted: postedDifference(row),
     created_at: row.created_at,
   };
@@ -538,7 +556,9 @@ export async function confirmDriverSettlementAction(input: {
 }
 
 /** Cancels the rendición and puts its cargas back as pending. A confirmed
- *  one needs its receipts cancelled first. */
+ *  one needs its receipts cancelled first. It also takes its difference
+ *  back (the receipts that settled the client and the driver's movement);
+ *  without hr:write the RPC refuses when the driver's account holds it. */
 export async function cancelDriverSettlementAction(input: {
   id: string;
 }): Promise<ActionResult> {
@@ -553,6 +573,7 @@ export async function cancelDriverSettlementAction(input: {
   const { error } = await supabase.rpc("cancel_driver_settlement", {
     p_settlement_id: parsed.data.id,
     p_user_id: ctx.userId,
+    p_allow_driver: userCan(ctx.access, "hr:write"),
   });
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -576,36 +597,39 @@ export async function cancelDriverSettlementAction(input: {
 const DIFFERENCE_DENIED =
   "No tenés permiso para asentar en la cuenta corriente del chofer.";
 
-/** "Asentar diferencia": the rendición's difference to the driver's employee
- *  account (short = charge, over = payment). Posting twice returns the same
- *  movement. Writes receipts' and HR's data: needs both write permissions. */
-export async function postDriverSettlementDifferenceAction(input: {
-  id: string;
-}): Promise<ActionResult<{ movementId: string }>> {
+/** "Resolver diferencia": who bears the rendición's difference.
+ *  - `driver`: a shortfall settles the client with a receipt and goes to
+ *    the driver's employee account as an advance (needs hr:write too).
+ *  - `client`: only records the choice; the client's invoice stays open.
+ *  Resolving twice the same way returns the same result. */
+export async function postDriverSettlementDifferenceAction(
+  input: DriverSettlementDifferenceInput,
+): Promise<ActionResult<{ movementId: string | null }>> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "receipts:write") ||
-    !userCan(ctx.access, "hr:write")
-  ) {
+  if (!userCan(ctx.access, "receipts:write")) {
+    return { ok: false, error: WRITE_DENIED };
+  }
+  const parsed = DriverSettlementDifferenceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Rendición inválida." };
+  const { id, charged_to } = parsed.data;
+  if (charged_to === "driver" && !userCan(ctx.access, "hr:write")) {
     return { ok: false, error: DIFFERENCE_DENIED };
   }
-  const parsed = DriverSettlementIdSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Rendición inválida." };
 
   const { data, error } = await getServiceClient().rpc(
     "post_driver_settlement_difference",
-    { p_settlement_id: parsed.data.id, p_user_id: ctx.userId },
+    { p_settlement_id: id, p_user_id: ctx.userId, p_charged_to: charged_to },
   );
-  if (error || !data) {
+  if (error || (charged_to === "driver" && !data)) {
     const guardError = mapDbGuardError(error, {
       slug: "driver_settlements.difference.rejected",
       userId: ctx.userId,
-      id: parsed.data.id,
+      id,
     });
     if (guardError) return { ok: false, error: guardError };
     logger.error("driver_settlements.difference.failed", {
       userId: ctx.userId,
-      id: parsed.data.id,
+      id,
       error,
     });
     return { ok: false, error: "No se pudo asentar la diferencia." };
@@ -614,29 +638,32 @@ export async function postDriverSettlementDifferenceAction(input: {
   await logAudit(
     "driver_settlement.difference_posted",
     ctx.userId,
-    { movement_id: data },
-    parsed.data.id,
+    { charged_to, movement_id: data ?? null },
+    id,
   );
-  return { ok: true, data: { movementId: data } };
+  return { ok: true, data: { movementId: data ?? null } };
 }
 
-/** Takes the posted difference back out of the driver's account. */
+/** Takes the resolved difference back: cancels the receipts that settled
+ *  the client and deletes the driver's movement. Without hr:write the RPC
+ *  refuses when the driver's account holds it. */
 export async function unpostDriverSettlementDifferenceAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "receipts:write") ||
-    !userCan(ctx.access, "hr:write")
-  ) {
-    return { ok: false, error: DIFFERENCE_DENIED };
+  if (!userCan(ctx.access, "receipts:write")) {
+    return { ok: false, error: WRITE_DENIED };
   }
   const parsed = DriverSettlementIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Rendición inválida." };
 
   const { error } = await getServiceClient().rpc(
     "unpost_driver_settlement_difference",
-    { p_settlement_id: parsed.data.id },
+    {
+      p_settlement_id: parsed.data.id,
+      p_user_id: ctx.userId,
+      p_allow_driver: userCan(ctx.access, "hr:write"),
+    },
   );
   if (error) {
     const guardError = mapDbGuardError(error, {

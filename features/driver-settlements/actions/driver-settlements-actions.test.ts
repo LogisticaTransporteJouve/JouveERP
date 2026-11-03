@@ -28,7 +28,9 @@ function respond(call: RecordedCall) {
     return { data: rpcError ? null : SETTLEMENT, error: rpcError };
   }
   if (call.table === "post_driver_settlement_difference") {
-    return { data: rpcError ? null : "m1", error: rpcError };
+    const payload = call.payload as { p_charged_to?: string } | undefined;
+    const data = payload?.p_charged_to === "client" ? null : "m1";
+    return { data: rpcError ? null : data, error: rpcError };
   }
   if (call.table === "driver_settlements" && listingItems) {
     return {
@@ -40,6 +42,7 @@ function respond(call: RecordedCall) {
           settlement_date: "2026-11-02",
           status: "confirmed",
           notes: null,
+          difference_charged_to: "client",
           created_at: "2026-11-02T10:00:00Z",
           driver: { full_name: "Juan", employee_id: "e1" },
           difference: [],
@@ -101,6 +104,12 @@ function respond(call: RecordedCall) {
       error: null,
     };
   }
+  if (
+    call.table === "cancel_driver_settlement" ||
+    call.table === "unpost_driver_settlement_difference"
+  ) {
+    return { data: null, error: rpcError };
+  }
   if (call.table === "confirm_driver_settlement") {
     return { data: rpcError ? null : ["r1", "r2"], error: rpcError };
   }
@@ -149,11 +158,13 @@ vi.mock("@/lib/supabase/service", () => ({
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
 const {
+  cancelDriverSettlementAction,
   confirmDriverSettlementAction,
   listCodPendingAction,
   listDriverSettlementsAction,
   postDriverSettlementDifferenceAction,
   saveDriverSettlementAction,
+  unpostDriverSettlementDifferenceAction,
 } = await import("./driver-settlements-actions");
 
 let listingItems = false;
@@ -272,13 +283,17 @@ describe("listDriverSettlementsAction", () => {
     ]);
     expect(s?.receipts_out_of_sync).toBe(true);
     expect(s?.driver_employee_id).toBe("e1");
+    expect(s?.difference_charged_to).toBe("client");
     expect(res.data.nextOffset).toBeNull();
   });
 });
 
 describe("postDriverSettlementDifferenceAction", () => {
-  it("posts the difference with the acting user", async () => {
-    const res = await postDriverSettlementDifferenceAction({ id: SETTLEMENT });
+  it("charges the driver with the acting user", async () => {
+    const res = await postDriverSettlementDifferenceAction({
+      id: SETTLEMENT,
+      charged_to: "driver",
+    });
     expect(res).toEqual({ ok: true, data: { movementId: "m1" } });
     const call = fake.calls.find(
       (c) => c.table === "post_driver_settlement_difference",
@@ -286,13 +301,94 @@ describe("postDriverSettlementDifferenceAction", () => {
     expect(call?.payload).toEqual({
       p_settlement_id: SETTLEMENT,
       p_user_id: "u1",
+      p_charged_to: "driver",
     });
   });
 
-  it("needs hr:write besides receipts:write", async () => {
+  it("leaves it to the client without a movement and without hr:write", async () => {
     denies = ["hr:write"];
-    const res = await postDriverSettlementDifferenceAction({ id: SETTLEMENT });
+    const res = await postDriverSettlementDifferenceAction({
+      id: SETTLEMENT,
+      charged_to: "client",
+    });
+    expect(res).toEqual({ ok: true, data: { movementId: null } });
+    const call = fake.calls.find(
+      (c) => c.table === "post_driver_settlement_difference",
+    );
+    expect(call?.payload).toMatchObject({ p_charged_to: "client" });
+  });
+
+  it("charging the driver needs hr:write besides receipts:write", async () => {
+    denies = ["hr:write"];
+    const res = await postDriverSettlementDifferenceAction({
+      id: SETTLEMENT,
+      charged_to: "driver",
+    });
     expect(res.ok).toBe(false);
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it("refuses an unknown side", async () => {
+    const res = await postDriverSettlementDifferenceAction({
+      id: SETTLEMENT,
+      // @ts-expect-error: only driver | client
+      charged_to: "both",
+    });
+    expect(res.ok).toBe(false);
+    expect(fake.calls).toHaveLength(0);
+  });
+});
+
+// Cancel and unpost take the difference back; without hr:write the RPC
+// refuses when the driver's account holds it (p_allow_driver false).
+describe.each([
+  ["cancelDriverSettlementAction", "cancel_driver_settlement"],
+  [
+    "unpostDriverSettlementDifferenceAction",
+    "unpost_driver_settlement_difference",
+  ],
+] as const)("%s", (name, rpc) => {
+  const action =
+    name === "cancelDriverSettlementAction"
+      ? cancelDriverSettlementAction
+      : unpostDriverSettlementDifferenceAction;
+
+  it("lets the driver's movement go with hr:write", async () => {
+    expect((await action({ id: SETTLEMENT })).ok).toBe(true);
+    const call = fake.calls.find((c) => c.table === rpc);
+    expect(call?.payload).toMatchObject({
+      p_settlement_id: SETTLEMENT,
+      p_user_id: "u1",
+      p_allow_driver: true,
+    });
+  });
+
+  it("asks the RPC to keep the driver's movement without hr:write", async () => {
+    denies = ["hr:write"];
+    expect((await action({ id: SETTLEMENT })).ok).toBe(true);
+    const call = fake.calls.find((c) => c.table === rpc);
+    expect(call?.payload).toMatchObject({ p_allow_driver: false });
+  });
+
+  it("shows the RPC's refusal", async () => {
+    denies = ["hr:write"];
+    rpcError = {
+      message:
+        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.",
+      hint: "jouve_guard",
+      code: "55006",
+    };
+    const res = await action({ id: SETTLEMENT });
+    expect(res).toEqual({
+      ok: false,
+      error:
+        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.",
+    });
+  });
+
+  it("needs receipts:write", async () => {
+    roles = ["operations"];
+    expect((await action({ id: SETTLEMENT })).ok).toBe(false);
     expect(fake.calls).toHaveLength(0);
   });
 });

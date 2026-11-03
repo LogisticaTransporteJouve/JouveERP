@@ -173,14 +173,23 @@ export function DriverSettlementDetailDialog({
                 revisalo.
               </p>
             )}
-            {s.difference_posted && (
+            {s.difference_posted ? (
               <p className="text-sm text-muted-foreground">
-                {s.difference_posted.kind === "charge"
-                  ? "Faltante cargado"
-                  : "Sobrante acreditado"}{" "}
+                {s.difference_posted.kind === "payment"
+                  ? "Sobrante acreditado"
+                  : "Faltante cargado"}{" "}
                 en la cuenta corriente del chofer:{" "}
-                {formatMoney(s.difference_posted.amount)}.
+                {formatMoney(s.difference_posted.amount)}
+                {s.difference_posted.kind === "advance"
+                  ? ", con un recibo que saldó al cliente."
+                  : "."}
               </p>
+            ) : (
+              s.difference_charged_to === "client" && (
+                <p className="text-sm text-muted-foreground">
+                  Diferencia a cargo del cliente: queda en su cuenta corriente.
+                </p>
+              )
             )}
             {s.notes && (
               <p className="text-sm text-muted-foreground">{s.notes}</p>

@@ -69,10 +69,15 @@ export interface DriverSettlement {
   /** A confirmed rendición whose receipts were cancelled or edited in
    *  Recibos: what it shows no longer matches the books. */
   receipts_out_of_sync: boolean;
-  /** The difference posted to the driver's employee account, if any. */
+  /** Who bears the difference: the driver (his employee account) or the
+   *  client (it stays open in the client's account). Null = not resolved. */
+  difference_charged_to: DifferenceChargedTo | null;
+  /** The difference posted to the driver's employee account, if any:
+   *  `advance` = a shortfall that also settled the client (current),
+   *  `charge`/`payment` = posted before the client side existed. */
   difference_posted: {
     id: string;
-    kind: "charge" | "payment";
+    kind: "advance" | "charge" | "payment";
     amount: number;
   } | null;
   /** The driver's employee (the account the difference posts to). */
@@ -278,3 +283,22 @@ export type DriverSettlementSaveInput = z.input<
 >;
 
 export const DriverSettlementIdSchema = z.object({ id: z.string().uuid() });
+
+/** Mirrors driver_settlements.difference_charged_to. */
+export const DIFFERENCE_CHARGED_TO = ["driver", "client"] as const;
+export type DifferenceChargedTo = (typeof DIFFERENCE_CHARGED_TO)[number];
+
+export function isDifferenceChargedTo(v: unknown): v is DifferenceChargedTo {
+  return (
+    typeof v === "string" &&
+    (DIFFERENCE_CHARGED_TO as readonly string[]).includes(v)
+  );
+}
+
+export const DriverSettlementDifferenceSchema = z.object({
+  id: z.string().uuid(),
+  charged_to: z.enum(DIFFERENCE_CHARGED_TO),
+});
+export type DriverSettlementDifferenceInput = z.infer<
+  typeof DriverSettlementDifferenceSchema
+>;

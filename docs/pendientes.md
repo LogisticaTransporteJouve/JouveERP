@@ -74,12 +74,36 @@
 
 ---
 
+## Auditoría RRHH y rendiciones (2026-11-04)
+
+- [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
+- [x] Embargo tipeado a mano en un borrador sobrevive a los cambios de
+      embargos judiciales (`embargo_override`, `20261104095100`).
+- [x] Compra a cargo de empleado: en canal fiscal se le carga el neto, igual
+      que el asiento a anticipos al personal (`20261104095200`).
+- [x] Extras de viajes: lecturas paginadas y marca de parcial real.
+- [x] Rendiciones: "Resolver diferencia" a cargo del chofer (salda al
+      cliente con un recibo y le carga un adelanto) o del cliente (queda
+      abierta en su cuenta); quitar y cancelar lo deshacen; sin `hr:write` no
+      se saca lo que está en la cuenta del chofer (`20261104095300`).
+- [ ] Descuento de planilla sin plan ni cargo: queda saldo a favor del
+      empleado (decisión en `docs/decisions.md`); si molesta, agregar un
+      aviso al cerrar el período.
+- [ ] Aprobar `20261104095000`–`20261104095300` con el deploy. Rollback: el
+      código anterior llama a las RPC de la rendición con sus argumentos
+      viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
+      faltante asentado como adelanto como "sin asentar" (volver a asentar
+      devuelve el mismo) y no ve `embargo_override` (el trigger lo respeta
+      igual).
+- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
+      `payroll_audit_fixes`, `driver_settlement_differences`,
+      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
+
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 
 - [x] **Rendiciones:** varios medios de pago por carga; PDF interno de la
-      rendición; listado paginado; "Asentar diferencia al chofer" (faltante =
-      cargo, sobrante = pago en su cuenta corriente, una vez, se va al
-      cancelar la rendición); marca de recibos anulados o editados en Recibos.
+      rendición; listado paginado; "Asentar diferencia al chofer" (desde
+      2026-11-04: "Resolver diferencia", ver arriba); marca de recibos anulados o editados en Recibos.
 - [x] **Liquidaciones:** "Liquidar período" (una por cliente, en borrador o
       confirmadas por `confirm_freight_settlement_document`); envío del
       remito R por email (el X de Otras ventas va como su comprobante);
@@ -161,7 +185,7 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -249,7 +273,7 @@
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
 - [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+  payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
 - [ ] No verificado contra una base real:

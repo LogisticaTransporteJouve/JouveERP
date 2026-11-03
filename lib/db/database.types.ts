@@ -1987,6 +1987,53 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_settlement_difference_receipts: {
+        Row: {
+          created_at: string
+          receipt_id: string
+          settlement_id: string
+        }
+        Insert: {
+          created_at?: string
+          receipt_id: string
+          settlement_id: string
+        }
+        Update: {
+          created_at?: string
+          receipt_id?: string
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: true
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: true
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: true
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_settlement_items: {
         Row: {
           created_at: string
@@ -2124,6 +2171,7 @@ export type Database = {
           confirmed_by: string | null
           created_at: string
           created_by: string | null
+          difference_charged_to: string | null
           driver_id: string
           id: string
           notes: string | null
@@ -2139,6 +2187,7 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          difference_charged_to?: string | null
           driver_id: string
           id?: string
           notes?: string | null
@@ -2154,6 +2203,7 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          difference_charged_to?: string | null
           driver_id?: string
           id?: string
           notes?: string | null
@@ -8954,7 +9004,11 @@ export type Database = {
         Returns: undefined
       }
       cancel_driver_settlement: {
-        Args: { p_settlement_id: string; p_user_id: string }
+        Args: {
+          p_allow_driver?: boolean
+          p_settlement_id: string
+          p_user_id: string
+        }
         Returns: undefined
       }
       cancel_freight_settlement: {
@@ -9791,7 +9845,11 @@ export type Database = {
         Returns: string
       }
       post_driver_settlement_difference: {
-        Args: { p_settlement_id: string; p_user_id: string }
+        Args: {
+          p_charged_to?: string
+          p_settlement_id: string
+          p_user_id: string
+        }
         Returns: string
       }
       post_pending_journals: {
@@ -9897,6 +9955,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      remove_driver_settlement_difference: {
+        Args: {
+          p_allow_driver: boolean
+          p_settlement_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
@@ -10237,7 +10303,11 @@ export type Database = {
         Returns: undefined
       }
       unpost_driver_settlement_difference: {
-        Args: { p_settlement_id: string }
+        Args: {
+          p_allow_driver?: boolean
+          p_settlement_id: string
+          p_user_id?: string
+        }
         Returns: undefined
       }
       update_chat_channel: {
