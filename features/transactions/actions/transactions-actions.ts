@@ -192,12 +192,20 @@ export async function createTransactionAction(
   // /checks (manual entry, deposit, endorsement, crediting). We block
   // manual ins/outs against those accounts to avoid drift
   // between the check portfolio and the cash register.
-  const { data: acc } = await supabase
+  const { data: acc, error: accErr } = await supabase
     .from("accounts")
     .select("type")
     .eq("id", data.account_id)
     .maybeSingle();
-  if (acc?.type === "checks" || acc?.type === "echeq") {
+  if (accErr) {
+    logger.error("transactions.create.account_read_failed", {
+      userId: ctx.userId,
+      error: accErr,
+    });
+    return { ok: false, error: "No se pudo leer la cuenta." };
+  }
+  if (!acc) return { ok: false, error: "Cuenta no encontrada." };
+  if (acc.type === "checks" || acc.type === "echeq") {
     return {
       ok: false,
       error:
