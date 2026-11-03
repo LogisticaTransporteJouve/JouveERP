@@ -74,6 +74,43 @@
 
 ---
 
+## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
+
+- [x] **Rendiciones:** varios medios de pago por carga; PDF interno de la
+      rendición; listado paginado; "Asentar diferencia al chofer" (faltante =
+      cargo, sobrante = pago en su cuenta corriente, una vez, se va al
+      cancelar la rendición); marca de recibos anulados o editados en Recibos.
+- [x] **Liquidaciones:** "Liquidar período" (una por cliente, en borrador o
+      confirmadas por `confirm_freight_settlement_document`); envío del
+      remito R por email (el X de Otras ventas va como su comprobante);
+      la reserva para facturar se libera en el acto si la factura ya falló.
+- [x] **Cheques vendidos:** anular una venta cargada por error (sin cheques
+      movidos y con el período abierto); rechazo sin débito como deuda con el
+      comprador que se paga después; pasivo contingente y deuda en Tesorería.
+- [x] **Mora:** prorrateo de pagos y NC en el período (saldo diario); varias
+      ND de una vez (cada una idempotente).
+- [x] **Depósito:** tarifa general por área (precedencia en
+      `20261104080400`); lote y área en el export y la trazabilidad;
+      historial de bloqueos y desbloqueos con motivo.
+- [x] **Cargas y tarifas:** búsqueda por remito; el escaneo de un remito
+      muestra su carga; el flete de una carga nueva sale de la tarifa de flete
+      del cliente; las tarifas de cliente de `storage_tariffs` que facturan
+      igual pasan al tarifario.
+- [x] **IA:** `getFreightSettlements` y `getDriverSettlements` (lectura).
+- [ ] Aprobar las migraciones `20261104080000`–`20261104080500` junto con el
+      deploy (después de `20261104030000`): sin ellas fallan el listado de
+      rendiciones (columna `driver_settlement_id`), `/aging/mora`
+      (`balance_days`), las ventas de cheques (`status`), las tarifas de
+      almacenaje (`area_id`, `migrated_to_client_tariffs_at`), el historial de
+      bloqueos y el envío de liquidaciones por email.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`driver_settlement_differences`, `check_sale_followups`,
+      `late_interest_proration`, `deposit_followups`,
+      `storage_tariffs_to_client_tariffs`) y las pantallas.
+- [ ] Rollback: el código anterior factura una tarifa general por área como
+      general de todas las áreas (no cargarlas hasta que el deploy quede
+      firme) y cobra la mora sobre el saldo de hoy.
+
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
 - [x] **Propuestas fuera del chat** (`ai_proposals`): preparar con los permisos de quien hace
@@ -294,19 +331,14 @@
       lista los cheques vendidos (los descarta con un log) y no puede
       rechazar uno vendido. No cargar tarifas por área hasta que el deploy
       quede firme.
-- [ ] Deuda con una financiera que no debita la cuenta al rechazar un cheque
-      vendido: hoy la devolución sale de una cuenta en el momento del rechazo;
-      falta registrarla como pasivo a pagar después.
-- [ ] Anular una venta de cheques cargada por error (hoy no hay reverso) y
-      ver los cheques vendidos no vencidos como pasivo contingente (endoso con
-      recurso) en Tesorería.
-- [ ] Mora: el interés usa el saldo abierto al generar la ND para todo el
-      período (un pago parcial en el medio no se prorratea); tasa por
-      comprobante o por condición de venta; generar varias ND de una vez;
-      herramienta de IA.
-- [ ] Tarifa por área general (sin cliente) en `storage_tariffs`; lote y área
-      en el export de pallets y en la trazabilidad; historial de bloqueos
-      (hoy queda el último motivo en el pallet y cada cambio en Auditoría).
+- [ ] Mora: tasa por comprobante o por condición de venta. Un comprobante
+      que ya se pagó entero no aparece (sin saldo abierto): la mora de los
+      días hasta ese pago no se puede cobrar desde `/aging/mora`.
+- [ ] Deuda con el comprador de un cheque vendido rechazado: el libro mayor
+      la asienta al pagarla (como el rechazo con débito inmediato); hasta
+      entonces es pasivo operativo en Tesorería y Cheques, no una cuenta del
+      plan. Una cuenta "Deudas por cheques vendidos" en el mayor necesita
+      tocar `build_transaction_journal_lines`.
 - [ ] "Percibido" del resultado de gestión: los intereses de la venta de
       cheques entran por su cuenta de gasto; el nominal transferido es neutro
       (como un depósito).
@@ -334,17 +366,16 @@
 - [ ] Un rollback a código anterior con tarifas de flete cargadas hace fallar
       la facturación de almacenaje de ese cliente (el código viejo rechaza un
       concepto que no conoce).
-- [ ] Diferencia de la rendición contra la cuenta corriente del chofer
-      (faltante como deuda del empleado): hoy se registra y se muestra, no se
-      asienta.
-- [ ] Varios medios de pago por carga en el diálogo de la rendición (la base
-      ya los admite; la pantalla carga uno por carga).
-- [ ] PDF de la rendición (los recibos ya tienen el suyo) y herramientas de
-      IA para liquidaciones y rendiciones.
-- [ ] Editar o anular desde Recibos un recibo de una rendición no actualiza
-      la rendición: sigue confirmada hasta cancelarla.
-- [ ] Liquidaciones por lotes (todos los clientes de un período) y envío del
-      R por email.
+- [ ] Editar desde Recibos un recibo de una rendición no la actualiza: la
+      rendición lo marca ("recibos cambiados en Recibos") y no deja asentar
+      la diferencia; no se recalcula sola. Se detecta por el total del
+      recibo: un cambio de cuenta con el mismo total no se marca.
+- [ ] El faltante asentado al chofer y la factura del cliente: si el cliente
+      pagó entero y el chofer se quedó con la plata, la factura sigue con
+      saldo por el faltante. Hay que cancelarlo a mano (no hay un recibo
+      "cobrado por el chofer").
+- [ ] Liquidar período con "confirmar" deja las de Otras ventas confirmadas:
+      el remito interno X se emite una por una (cada una es un comprobante).
 - [x] **Remito R / remito interno X** (`20261104030000_freight_settlements_remito_r`):
       la liquidación sigue el lado del cliente. Ventas: confirmar emite el
       **Remito R** (`R9002-…`, correlativo propio) y después se factura la
@@ -379,13 +410,12 @@
       `20261103080100_client_tariffs` junto con el deploy: sin ellas fallan
       el listado de cargas (columna `remito_number`), la pestaña Tarifario y la
       facturación de almacenaje (lee `client_tariffs`).
-- [ ] Unificar tarifas: las filas de `storage_tariffs` con cliente conviven
-      con el tarifario; pasarlas a `client_tariffs` y dejar `storage_tariffs`
-      solo para la general.
-- [ ] Concepto **flete** en el tarifario (sugerir `freight_amount` al crear la
-      carga): quedó fuera, el flete se sigue cargando a mano.
-- [ ] Remito en el escaneo (Document Intelligence → carga) y búsqueda de
-      cargas por remito.
+- [ ] Tarifas de cliente en `storage_tariffs` que no pasaron al tarifario
+      (más de una fila activa, con fin de vigencia o un cliente que ya tenía
+      tarifario): pasarlas a mano revisando cada una
+      (`20261104080500`). Las que pasaron quedan como respaldo congelado.
+- [ ] Crear la carga desde un remito escaneado (hoy el escaneo muestra las
+      cargas con ese remito y lleva a Cargas).
 
 ## Resultado de gestión v2 (2026-11-03, roadmap 3.7)
 
