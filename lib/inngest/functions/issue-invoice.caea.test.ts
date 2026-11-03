@@ -268,6 +268,16 @@ describe("issue-invoice load-draft", () => {
     expect(h.db.invoices?.[0]?.status).toBe("emitted");
     expect(requestCAE).not.toHaveBeenCalled();
   });
+
+  it("waits for the items of a draft a resubmit sent while the first submit was still saving them", async () => {
+    seedDraft();
+    h.db.invoice_items = [];
+    const run = issue();
+    await expect(run).rejects.toThrow("no tiene ítems");
+    await expect(run).rejects.not.toBeInstanceOf(NonRetriableError);
+    expect(h.db.invoices?.[0]?.status).toBe("draft");
+    expect(requestCAE).not.toHaveBeenCalled();
+  });
 });
 
 describe("issue-invoice CAE branch", () => {

@@ -469,6 +469,13 @@ export const issueInvoice = inngest.createFunction(
             .maybeSingle(),
         ]);
       if (itemsErr) throw new Error(`load-items: ${itemsErr.message}`);
+      // Every comprobante has items, inserted right after its header: a resend
+      // (same key, or the reconcile cron) can arrive in between. Retry.
+      if ((items ?? []).length === 0) {
+        throw new Error(
+          `load-items: el comprobante ${invoice_id} no tiene ítems.`,
+        );
+      }
 
       // Flip status to emitting so duplicate clicks that bypass Inngest's
       // dedupe still get rejected by the load-draft guard above. Only a
