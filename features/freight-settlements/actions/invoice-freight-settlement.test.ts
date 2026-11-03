@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess, type Role } from "@/lib/auth/permissions";
+import { sourceInvoiceKey } from "@/lib/source-invoice-key";
 import {
   filterValue,
   recordingSupabase,
@@ -21,7 +22,14 @@ let channel: string | null = null;
 let remito: { pos: number; number: number } | null = null;
 let isFiscal = true;
 let confirmResult: unknown = null;
+// Invoices already issued under the liquidación's keys.
+let priorInvoices: { id: string; status: string; idempotency_key: string }[] =
+  [];
+let probeFails = false;
+let linkedInvoiceId: string | null = null;
 let fake = recordingSupabase(respond);
+const key = (attempt: number) =>
+  sourceInvoiceKey("freight_settlement", ID, attempt);
 
 function respond(call: RecordedCall) {
   if (call.table === "confirm_freight_settlement_document") {
@@ -52,7 +60,7 @@ function respond(call: RecordedCall) {
         period_end: "2026-10-31",
         status,
         total: 3000,
-        invoice_id: null,
+        invoice_id: linkedInvoiceId,
         invoicing_claimed_at: null,
         notes: null,
         created_at: "2026-11-01T12:00:00Z",
@@ -106,6 +114,14 @@ function respond(call: RecordedCall) {
   if (call.table === "link_freight_settlement_invoice") {
     return { data: null, error: linkError };
   }
+  if (call.table === "invoices") {
+    return probeFails
+      ? { data: null, error: { message: "boom" } }
+      : { data: priorInvoices, error: null };
+  }
+  if (call.table === "cancel_freight_settlement") {
+    return { data: null, error: null };
+  }
   return { data: null, error: null };
 }
 
@@ -123,8 +139,11 @@ vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: (input: unknown) => issue(input),
 }));
 
-const { confirmFreightSettlementAction, invoiceFreightSettlementAction } =
-  await import("./freight-settlements-actions");
+const {
+  cancelFreightSettlementAction,
+  confirmFreightSettlementAction,
+  invoiceFreightSettlementAction,
+} = await import("./freight-settlements-actions");
 
 const input = { id: ID, channel_id: "jouve_fiscal", punto_venta: 3 };
 const settlementUpdates = () =>
@@ -145,6 +164,9 @@ beforeEach(() => {
   confirmResult = null;
   claimed = true;
   linkError = null;
+  priorInvoices = [];
+  probeFails = false;
+  linkedInvoiceId = null;
   fake = recordingSupabase(respond);
 });
 
@@ -214,6 +236,42 @@ describe("invoiceFreightSettlementAction", () => {
     expect(settlementUpdates()).toHaveLength(1);
   });
 
+  it("issues under the liquidación's own key", async () => {
+    await invoiceFreightSettlementAction(input);
+    const sent = issue.mock.calls[0]![0] as { idempotency_key: string };
+    expect(sent.idempotency_key).toBe(key(0));
+  });
+
+  it("links the invoice an earlier click issued instead of issuing a second one", async () => {
+    priorInvoices = [
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+    ];
+    const res = await invoiceFreightSettlementAction(input);
+    expect(res).toEqual({ ok: true, data: { invoiceId: "inv0" } });
+    expect(issue).not.toHaveBeenCalled();
+    expect(
+      fake.calls.find((c) => c.table === "link_freight_settlement_invoice")
+        ?.payload,
+    ).toEqual({ p_settlement_id: ID, p_invoice_id: "inv0" });
+  });
+
+  it("moves to the next key once the earlier invoice failed", async () => {
+    priorInvoices = [{ id: "inv0", status: "failed", idempotency_key: key(0) }];
+    await invoiceFreightSettlementAction(input);
+    const sent = issue.mock.calls[0]![0] as { idempotency_key: string };
+    expect(sent.idempotency_key).toBe(key(1));
+  });
+
+  it("issues nothing and releases the claim when the key probe fails", async () => {
+    probeFails = true;
+    const res = await invoiceFreightSettlementAction(input);
+    expect(res.ok).toBe(false);
+    expect(issue).not.toHaveBeenCalled();
+    expect(settlementUpdates().at(-1)?.payload).toEqual({
+      invoicing_claimed_at: null,
+    });
+  });
+
   it("needs invoices:issue", async () => {
     roles = ["operations"];
     const res = await invoiceFreightSettlementAction(input);
@@ -259,6 +317,43 @@ describe("invoiceFreightSettlementAction", () => {
     };
     expect(sent.channel_id).toBe("jouve_internal");
     expect(sent.doc_tipo).toBe(99);
+  });
+});
+
+describe("cancelFreightSettlementAction", () => {
+  const cancelled = () =>
+    fake.calls.some((c) => c.table === "cancel_freight_settlement");
+
+  it("refuses while an invoice issued for it was never linked", async () => {
+    priorInvoices = [
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+    ];
+    const res = await cancelFreightSettlementAction({ id: ID });
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).toMatch(/sin vincular/);
+    expect(cancelled()).toBe(false);
+  });
+
+  it("leaves its linked invoice to the cancel guard", async () => {
+    priorInvoices = [
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+    ];
+    linkedInvoiceId = "inv0";
+    expect((await cancelFreightSettlementAction({ id: ID })).ok).toBe(true);
+    expect(cancelled()).toBe(true);
+  });
+
+  it("cancels when every invoice issued for it is void", async () => {
+    priorInvoices = [
+      { id: "inv0", status: "cancelled", idempotency_key: key(0) },
+    ];
+    expect((await cancelFreightSettlementAction({ id: ID })).ok).toBe(true);
+  });
+
+  it("refuses when the probe fails", async () => {
+    probeFails = true;
+    expect((await cancelFreightSettlementAction({ id: ID })).ok).toBe(false);
+    expect(cancelled()).toBe(false);
   });
 });
 

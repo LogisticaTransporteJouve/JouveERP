@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -51,6 +51,7 @@ import {
   useUpdateShipment,
 } from "../hooks/use-shipments";
 import { formatRoute } from "../lib/format";
+import { nextFreightPrefill } from "../lib/freight-prefill";
 import {
   REMITO_NUMBER_MAX,
   SHIPMENT_STATUS_LABELS,
@@ -143,10 +144,14 @@ export function ShipmentDialog({
     pickedFrom(shipment),
   );
 
+  // The flete the field last took from a tariff (see nextFreightPrefill).
+  const autoFreight = useRef<string | null>(null);
+
   useEffect(() => {
     if (!open) return;
     form.reset(toDefaults(shipment));
     setClient(pickedFrom(shipment));
+    autoFreight.current = null;
   }, [open, shipment, form]);
 
   // Duplicate remito: checked against the client's live cargas as the user
@@ -173,7 +178,8 @@ export function ShipmentDialog({
       : null;
 
   // A new carga takes its client's flete tariff (in force on its date, or
-  // today) as its flete while the user has not typed one.
+  // today) as its flete while the user has not typed one, and follows it
+  // when the client or date changes.
   const scheduledDate = useWatch({
     control: form.control,
     name: "scheduled_date",
@@ -186,11 +192,19 @@ export function ShipmentDialog({
     enabled: open && !isEdit,
   });
   const suggestedFreight = freightTariff.data?.price ?? null;
+  const tariffFetching = freightTariff.isFetching;
   useEffect(() => {
-    if (isEdit || suggestedFreight === null) return;
-    if (form.getFieldState("freight_amount").isDirty) return;
-    form.setValue("freight_amount", String(suggestedFreight));
-  }, [isEdit, suggestedFreight, form]);
+    if (!open || isEdit || tariffFetching) return;
+    const next = nextFreightPrefill({
+      current: form.getValues("freight_amount"),
+      dirty: form.getFieldState("freight_amount").isDirty,
+      lastAuto: autoFreight.current,
+      suggested: suggestedFreight,
+    });
+    if (next === null) return;
+    autoFreight.current = next === "" ? null : next;
+    form.setValue("freight_amount", next);
+  }, [open, isEdit, tariffFetching, suggestedFreight, form]);
 
   function onSubmit(values: FormValues) {
     const payload = {

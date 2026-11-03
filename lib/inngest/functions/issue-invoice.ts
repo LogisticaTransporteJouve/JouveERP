@@ -27,6 +27,8 @@ import {
 import {
   recoverAttempt,
   reserveNumberAndRequestCae,
+  type OthersAtNumber,
+  type VoucherIdentity,
 } from "./issue-invoice-cae";
 
 // `issueInvoice` orchestrates the durable emission flow for comprobantes.
@@ -60,6 +62,12 @@ import {
 // on `idempotency_key` so duplicate drafts can't be created.
 
 const RETRYABLE_LIMIT = 5;
+
+/** The CAEA floor read is best effort (AFIP is usually down when the CAEA
+ *  branch runs): a short deadline keeps the local numbering moving. */
+const CAEA_FLOOR_TIMEOUT_MS = 5_000;
+
+type Supabase = ReturnType<typeof getServiceClient>;
 
 export type DraftRow = {
   id: string;
@@ -202,7 +210,7 @@ async function persistAuthorizedCae(
 ): Promise<void> {
   const supabase = getServiceClient();
   const caeFchVtoIso = `${cae.caeFchVto.slice(0, 4)}-${cae.caeFchVto.slice(4, 6)}-${cae.caeFchVto.slice(6, 8)}`;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("invoices")
     .update({
       numero: cae.cbteNro,
@@ -216,8 +224,67 @@ async function persistAuthorizedCae(
           : null,
     })
     .eq("id", invoiceId)
-    .in("status", ["draft", "emitting"]);
+    .in("status", ["draft", "emitting"])
+    .select("id");
   if (error) throw new Error(`persist-cae: ${error.message}`);
+  if ((data ?? []).length > 0) return;
+
+  const { data: current, error: readErr } = await supabase
+    .from("invoices")
+    .select("status, cae")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (readErr) throw new Error(`persist-cae: ${readErr.message}`);
+  // Another run on the same invoice already stored this CAE.
+  if (current?.status === "emitted" && current.cae === cae.cae) return;
+  // AFIP holds a CAE no row carries (the draft was deleted or failed while the
+  // request was in flight): never report success for it.
+  const orphan = new NonRetriableError(
+    `AFIP autorizó el ${cae.ptoVta}-${cae.cbteNro} (CAE ${cae.cae}) pero el comprobante ${invoiceId} ya no está en emisión (${current?.status ?? "borrado"}).`,
+  );
+  captureException(orphan, {
+    op: "issue_invoice.cae_without_invoice",
+    invoice_id: invoiceId,
+  });
+  throw orphan;
+}
+
+function identityOf(row: {
+  imp_total: string | number;
+  fecha: string;
+  doc_tipo: number;
+  doc_nro: string;
+}): VoucherIdentity {
+  return {
+    impTotal: toNumber(row.imp_total),
+    fecha: row.fecha,
+    docTipo: row.doc_tipo,
+    docNro: row.doc_nro,
+  };
+}
+
+/** The other non-failed invoices of the same (pv, tipo) that hold or only
+ *  attempted `cbteNro`. */
+async function othersAtNumber(
+  supabase: Supabase,
+  scope: { invoiceId: string; ptoVta: number; cbteTipo: number },
+  cbteNro: number,
+): Promise<OthersAtNumber> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("numero, imp_total, fecha, doc_tipo, doc_nro")
+    .eq("punto_venta", scope.ptoVta)
+    .eq("cbte_tipo_afip", scope.cbteTipo)
+    .neq("id", scope.invoiceId)
+    .neq("status", "failed")
+    .or(`numero.eq.${cbteNro},afip_attempted_numero.eq.${cbteNro}`);
+  if (error) throw new Error(`check-attempt: ${error.message}`);
+  const rows = data ?? [];
+  return {
+    held: rows.some((r) => r.numero === cbteNro),
+    // A row numbered elsewhere got its CAE there: its old attempt is moot.
+    attemptedBy: rows.filter((r) => r.numero === null).map(identityOf),
+  };
 }
 
 type FailureRow = {
@@ -237,8 +304,10 @@ type FailureRow = {
  * ask AFIP whether that voucher is this invoice's. A CAE AFIP holds is never
  * thrown away (a failed invoice frees its billing links for re-billing).
  * Returns "recovered", "not_authorized" or "unknown" (AFIP did not answer).
+ * Also run by issue-invoice-reconcile on emissions whose outcome stayed
+ * unknown.
  */
-async function recoverOnFailure(
+export async function recoverOnFailure(
   invoiceId: string,
 ): Promise<"recovered" | "not_authorized" | "unknown"> {
   const supabase = getServiceClient();
@@ -268,28 +337,16 @@ async function recoverOnFailure(
       invoiceId,
       ptoVta: row.punto_venta,
       cbteTipo,
-      expected: {
-        impTotal: toNumber(row.imp_total),
-        fecha: row.fecha,
-        docTipo: row.doc_tipo,
-        docNro: row.doc_nro,
-      },
+      expected: identityOf(row),
       afip: { getVoucherInfo },
       attempts: {
         read: async () => attempted,
-        takenByOther: async (cbteNro) => {
-          const { data: other, error: otherErr } = await supabase
-            .from("invoices")
-            .select("id")
-            .eq("punto_venta", row.punto_venta)
-            .eq("cbte_tipo_afip", cbteTipo)
-            .neq("id", invoiceId)
-            .neq("status", "failed")
-            .or(`numero.eq.${cbteNro},afip_attempted_numero.eq.${cbteNro}`)
-            .limit(1);
-          if (otherErr) throw new Error(`check-attempt: ${otherErr.message}`);
-          return (other ?? []).length > 0;
-        },
+        othersAt: (cbteNro) =>
+          othersAtNumber(
+            supabase,
+            { invoiceId, ptoVta: row.punto_venta, cbteTipo },
+            cbteNro,
+          ),
       },
     });
   } catch (err) {
@@ -376,7 +433,8 @@ export const issueInvoice = inngest.createFunction(
     const parsed = InvoiceIssueRequestedSchema.parse(event.data);
     const { invoice_id } = parsed;
 
-    const load: DraftLoad = await step.run("load-draft", async () => {
+    // Null: another run on the same invoice already emitted it.
+    const loaded: DraftLoad | null = await step.run("load-draft", async () => {
       const supabase = getServiceClient();
       const { data: draft, error } = await supabase
         .from("invoices")
@@ -385,6 +443,7 @@ export const issueInvoice = inngest.createFunction(
         .maybeSingle();
       if (error) throw new Error(`load-draft: ${error.message}`);
       if (!draft) throw new Error(`Invoice ${invoice_id} does not exist.`);
+      if (draft.status === "emitted") return null;
       if (draft.status !== "draft" && draft.status !== "emitting") {
         throw new Error(
           `Comprobante ${invoice_id} en estado ${draft.status} — no se puede emitir.`,
@@ -410,13 +469,24 @@ export const issueInvoice = inngest.createFunction(
             .maybeSingle(),
         ]);
       if (itemsErr) throw new Error(`load-items: ${itemsErr.message}`);
+      // Every comprobante has items, inserted right after its header: a resend
+      // (same key, or the reconcile cron) can arrive in between. Retry.
+      if ((items ?? []).length === 0) {
+        throw new Error(
+          `load-items: el comprobante ${invoice_id} no tiene ítems.`,
+        );
+      }
 
       // Flip status to emitting so duplicate clicks that bypass Inngest's
-      // dedupe still get rejected by the load-draft guard above.
-      const { error: updErr } = await supabase
+      // dedupe still get rejected by the load-draft guard above. Only a
+      // pending row flips: a second run that read `draft` before the first
+      // one emitted must not move an emitted voucher back to emitting.
+      const { data: flipped, error: updErr } = await supabase
         .from("invoices")
         .update({ status: "emitting" })
-        .eq("id", invoice_id);
+        .eq("id", invoice_id)
+        .in("status", ["draft", "emitting"])
+        .select("id");
       if (updErr?.hint === JOUVE_GUARD_HINT) {
         // A guard's refusal (e.g. the period closed after the draft was
         // created) is deterministic: fail now, before any AFIP call.
@@ -427,6 +497,18 @@ export const issueInvoice = inngest.createFunction(
         throw new NonRetriableError(updErr.message);
       }
       if (updErr) throw new Error(`mark-emitting: ${updErr.message}`);
+      if ((flipped ?? []).length === 0) {
+        const { data: current, error: currentErr } = await supabase
+          .from("invoices")
+          .select("status")
+          .eq("id", invoice_id)
+          .maybeSingle();
+        if (currentErr) throw new Error(`mark-emitting: ${currentErr.message}`);
+        if (current?.status === "emitted") return null;
+        throw new Error(
+          `Comprobante ${invoice_id} en estado ${current?.status ?? "borrado"} — no se puede emitir.`,
+        );
+      }
 
       return {
         draft: draft as unknown as DraftRow,
@@ -437,7 +519,11 @@ export const issueInvoice = inngest.createFunction(
         posEmissionType: posRes.data?.last_known_emission_type ?? null,
       };
     });
-
+    if (!loaded) {
+      logger.info("issue_invoice.already_emitted", { invoice_id });
+      return { skipped: "already_emitted" };
+    }
+    const load = loaded;
     const draft = load.draft;
 
     // Branch INTERNAL: no AFIP, local numbering. The internal flow is
@@ -471,7 +557,9 @@ export const issueInvoice = inngest.createFunction(
             status: "emitted",
             emitted_at: new Date().toISOString(),
           })
-          .eq("id", invoice_id);
+          .eq("id", invoice_id)
+          // Another run may have emitted it already: keep its emitted_at.
+          .in("status", ["draft", "emitting"]);
         if (updErr) throw new Error(`mark-emitted-internal: ${updErr.message}`);
       });
 
@@ -523,7 +611,11 @@ export const issueInvoice = inngest.createFunction(
         // the voucher and marks it emitted in one locked transaction.
         let afipLast = 0;
         try {
-          afipLast = await getLastAuthorizedNumber(draft.punto_venta, cbteTipo);
+          afipLast = await getLastAuthorizedNumber(
+            draft.punto_venta,
+            cbteTipo,
+            { timeoutMs: CAEA_FLOOR_TIMEOUT_MS },
+          );
         } catch {
           // AFIP caído — exactamente el escenario CAEA. Seguimos con lo local.
         }
@@ -570,12 +662,7 @@ export const issueInvoice = inngest.createFunction(
           invoiceId: invoice_id,
           ptoVta: draft.punto_venta,
           cbteTipo,
-          expected: {
-            impTotal: toNumber(draft.imp_total),
-            fecha: draft.fecha,
-            docTipo: draft.doc_tipo,
-            docNro: draft.doc_nro,
-          },
+          expected: identityOf(draft),
           buildInput: (cbteNro) => buildAfipInput(load, cbteNro),
           afip: { getLastAuthorizedNumber, requestCAE, getVoucherInfo },
           attempts: {
@@ -589,25 +676,27 @@ export const issueInvoice = inngest.createFunction(
               return data?.afip_attempted_numero ?? null;
             },
             record: async (cbteNro) => {
-              const { error } = await supabase
-                .from("invoices")
-                .update({ afip_attempted_numero: cbteNro })
-                .eq("id", invoice_id);
-              if (error) throw new Error(`record-attempt: ${error.message}`);
-            },
-            takenByOther: async (cbteNro) => {
               const { data, error } = await supabase
                 .from("invoices")
-                .select("id")
-                .eq("punto_venta", draft.punto_venta)
-                .eq("cbte_tipo_afip", cbteTipo)
-                .neq("id", invoice_id)
-                .neq("status", "failed")
-                .or(`numero.eq.${cbteNro},afip_attempted_numero.eq.${cbteNro}`)
-                .limit(1);
-              if (error) throw new Error(`check-attempt: ${error.message}`);
-              return (data ?? []).length > 0;
+                .update({ afip_attempted_numero: cbteNro })
+                .eq("id", invoice_id)
+                .eq("status", "emitting")
+                .select("id");
+              if (error) throw new Error(`record-attempt: ${error.message}`);
+              // Deleted, or resolved as failed by issue-invoice-reconcile: a
+              // CAE requested now would belong to no row.
+              if ((data ?? []).length === 0) {
+                throw new NonRetriableError(
+                  `Comprobante ${invoice_id} ya no está en emisión — no se pide el CAE.`,
+                );
+              }
             },
+            othersAt: (cbteNro) =>
+              othersAtNumber(
+                supabase,
+                { invoiceId: invoice_id, ptoVta: draft.punto_venta, cbteTipo },
+                cbteNro,
+              ),
           },
         });
       },

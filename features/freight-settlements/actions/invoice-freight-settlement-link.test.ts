@@ -106,6 +106,11 @@ function respond(call: RecordedCall) {
     if (isClaim) return { data: claimed ? [{ id: ID }] : [], error: null };
     return { data: null, error: null };
   }
+  // The key probe (no invoice under the liquidación's keys yet), then the
+  // status read after a refused link.
+  if (call.table === "invoices" && call.filters.some(([k]) => k === "in")) {
+    return { data: [], error: null };
+  }
   if (call.table === "invoices") {
     return { data: { status: invoiceStatus }, error: null };
   }
