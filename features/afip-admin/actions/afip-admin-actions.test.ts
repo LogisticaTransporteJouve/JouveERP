@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   upserts: [] as Row[][],
   updates: [] as Row[],
   warn: vi.fn(),
+  failCounts: false,
   afipPoints: [] as Array<{
     number: number;
     emissionType: string;
@@ -26,8 +27,16 @@ function from(table: string) {
       (h.tables.invoicing_channels ?? []).find((c) => c.id === r.channel_id) ??
       null,
   });
+  let head = false;
   const builder = {
-    select: () => builder,
+    select: (_cols?: string, opts?: { head?: boolean }) => {
+      head = opts?.head ?? false;
+      return builder;
+    },
+    is: (col: string, value: unknown) => {
+      filters.push((r) => (r[col] ?? null) === value);
+      return builder;
+    },
     eq: (col: string, value: unknown) => {
       filters.push((r) => r[col] === value);
       return builder;
@@ -54,8 +63,20 @@ function from(table: string) {
       }
       return { data: found, error: null };
     },
-    then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
-      resolve({ data: rows().map(withChannel), error: null }),
+    then: (
+      resolve: (v: {
+        data: Row[] | null;
+        count?: number | null;
+        error: { message: string } | null;
+      }) => unknown,
+    ) => {
+      if (head && h.failCounts) {
+        return resolve({ data: null, count: null, error: { message: "down" } });
+      }
+      if (head)
+        return resolve({ data: null, count: rows().length, error: null });
+      return resolve({ data: rows().map(withChannel), error: null });
+    },
   };
   return builder;
 }
@@ -79,10 +100,11 @@ vi.mock("@/lib/afip/wsfev1", () => ({
 vi.mock("@/lib/afip/diagnostics", () => ({ runAfipDiagnostics: vi.fn() }));
 vi.mock("@/lib/afip/env", () => ({ getAfipCuit: () => "30000000000" }));
 
-const { configurePosAction, syncAfipPosAction } =
+const { configurePosAction, syncAfipPosAction, getCaeaStatusAction } =
   await import("./afip-admin-actions");
 
 beforeEach(() => {
+  h.failCounts = false;
   h.upserts.length = 0;
   h.updates.length = 0;
   h.warn.mockClear();
@@ -169,5 +191,27 @@ describe("syncAfipPosAction", () => {
       expect(res.data.inserted).toBe(1);
       expect(res.data.updated).toBe(1);
     }
+  });
+});
+
+describe("getCaeaStatusAction", () => {
+  it("counts the CAEA vouchers not yet informed", async () => {
+    h.tables.caea_codes = [];
+    h.tables.invoices = [
+      { emission_type: "caea", status: "emitted", caea_informed_at: null },
+      { emission_type: "caea", status: "emitted", caea_informed_at: "x" },
+    ];
+    const res = await getCaeaStatusAction();
+    expect(res).toEqual({ ok: true, data: { codes: [], pendingToInform: 1 } });
+  });
+
+  it("reports an error, not zero pending, when the count fails", async () => {
+    h.tables.caea_codes = [];
+    h.failCounts = true;
+    const res = await getCaeaStatusAction();
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo leer el estado CAEA.",
+    });
   });
 });
