@@ -66,7 +66,12 @@ describe("internal and CAEA numbering", () => {
     expect(definition).toMatch(
       /set numero\s+= v_next,[\s\S]*status\s+= 'emitted'/,
     );
-    expect(definition).toMatch(/set search_path = public/);
+    expect(definition).toMatch(/set search_path = ''/);
+    // A CAEA declared sin movimiento for the punto de venta is refused before
+    // the number is taken.
+    const noMovement = definition.indexOf("no_movement_pvs @> to_jsonb(v_pv)");
+    expect(noMovement).toBeGreaterThan(reuse);
+    expect(nextMax).toBeGreaterThan(noMovement);
     expect(
       lastStatement(
         /revoke all on function public\.emit_caea_invoice\([^;]*;/gi,
