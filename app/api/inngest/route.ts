@@ -1,6 +1,7 @@
 import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
+import { agingSnapshot } from "@/lib/inngest/functions/aging-snapshot";
 import { agingWeeklySummary } from "@/lib/inngest/functions/aging-weekly-summary";
 import { aiAnalyst } from "@/lib/inngest/functions/ai-analyst";
 import {
@@ -43,6 +44,7 @@ export const { GET, POST, PUT } = serve({
     issueInvoice,
     creditBilledRemito,
     agingWeeklySummary,
+    agingSnapshot,
     notificationsDispatch,
     filesSweepOrphans,
     searchIndexRefresh,

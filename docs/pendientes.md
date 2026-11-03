@@ -125,13 +125,26 @@
       analyst (columna `ai_insights.proposal`) y las tarjetas nuevas no se ven para finance ni
       operations. No verificada contra una base real: correr `supabase test db`
       (`supabase/tests/ai_proposals_test.sql`) antes de aprobar.
-- [ ] Recategorizar un gasto o asignar centro de costo como propuesta (no hay un server action
-      puntual para eso; hoy se edita el movimiento entero).
-- [ ] Crecimiento de la mora: hace falta guardar fotos del aging para comparar contra hace 30 días.
-- [ ] Propuesta de conciliación desde el insight de extracto (hoy ofrece una tarea).
+- [x] **Recategorizar un gasto** (cuenta de gasto y/o centro de costo de un egreso manual o de
+      una compra): `recategorize_expense` + `lib/commands/recategorize-expense.ts`, Dialog
+      "Recategorizar" en Caja y Compras, y la propuesta `proposeRecategorizeExpense`.
+- [x] **Crecimiento de la mora:** foto diaria del aging (`aging_snapshots`, cron
+      `aging-snapshot`) y la tarjeta `receivables_overdue_growth` ("la mora creció X % vs hace
+      30 días"). La tarjeta aparece recién cuando hay 30 días de fotos.
+- [x] **Conciliación desde el insight de extracto:** si la cuenta con más líneas atrasadas tiene
+      sugerencias, la tarjeta propone `proposeBankMatches`; si no, la tarea de siempre.
+- [x] **"N conciliadas" en la tarjeta del chat** (`ai_chat_confirmations.result_note`).
+- [ ] Aprobar las migraciones `20261104060000_recategorize_expense`,
+      `20261104060100_aging_snapshots` y `20261104060200_ai_chat_confirmation_note` con el
+      deploy. No verificadas contra una base real: correr `supabase test db`
+      (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
+- [ ] Recategorizar una factura de compra no cambia sus NC/ND ya cargadas (heredan la cuenta solo
+      al cargarse); recategorizarlas una por una.
 - [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
       `result` (igual que en el chat).
-- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron.
+- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
+      `ANTHROPIC_API_KEY` en el entorno del agente; los offline pasan).
+
 ## Guía del sidebar e impuestos como documento (2026-11-03, roadmap 6.5 + 6.6)
 
 - [x] **Guía en el sidebar** (`features/guide`): ayuda corta de la pantalla
@@ -148,7 +161,7 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-      tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -183,25 +196,56 @@
 - [ ] No verificado contra una base real:
       `supabase/tests/tax_documents_link_test.sql` sin stack local; los
       diálogos (vincular, "Pago de impuesto") no se probaron en el navegador.
-- [ ] Deshacer un pago de impuesto (hoy el egreso no se borra ni el
-      documento vuelve a pendiente). Para un pago vinculado, deshacer debería
-      soltar el movimiento y devolverle su cuenta de gasto (hoy no se guarda
-      cuál tenía: queda en el asiento revertido).
 - [ ] Vincular un egreso de un canal no fiscal se rechaza: cambiarle el
       canal rompería su conciliación. Si hace falta, cargarlo en el canal
       fiscal o pagar con "Pagar".
-- [ ] Resultado de gestión percibido: el pago de un impuesto cae en el
-      rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
-      gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
-      de pasivo (IVA) no es resultado y no suma.
-- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
-      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
-      saldo a favor del mes anterior; lo dice en pantalla.
 - [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
       ("Manual: Contabilidad › Impuestos"), sin link.
-- [ ] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
-      (no tiene `files:read`).
-- [ ] Herramienta del asistente IA para impuestos (vencimientos y estado).
+- [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
+      impuesto pagado; `taxes:write` + `transactions:write`):
+      `undo_tax_document_payment` deja el impuesto liquidado (o pendiente si
+      el importe era estimado) y una línea en las notas. Si lo pagó "Pagar",
+      borra el egreso con su asiento; si fue "Vincular", el movimiento queda
+      en Caja suelto, con la cuenta de gasto que tenía
+      (`tax_documents.payment_previous_expense_account_id`) y el asiento
+      rehecho. Rechaza un período cerrado y un egreso de "Pagar" conciliado
+      con el extracto (primero se desconcilia). Sin pago no hace nada.
+- [x] **Gestión percibido** (`20261104050200`): el pago de un impuesto va
+      al rubro de la cuenta del impuesto si está mapeada en
+      `management_buckets`, si no a Costos operativos › Impuestos
+      operativos. Devengado no cambia.
+- [x] **Estimado de IVA**: descuenta el saldo a favor técnico del IVA del
+      mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
+      carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
+      tributos de las compras.
+- [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
+      descuentan. `purchase_invoices` tiene un solo `imp_trib` (IVA e IIBB
+      juntas, y el asiento lo manda entero a percepciones IIBB); separarlas
+      pide una columna nueva en compras (carga manual, importador AFIP y
+      escaneo) y un asiento que las separe. Hoy el estimado muestra el total
+      de `imp_trib` para restarlo a mano.
+- [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
+      log de auditoría (vinculado si está `tax_document.payment_linked`; si
+      no, "Pagar"); la cuenta de gasto previa sale del último
+      `transaction.created`/`transaction.updated` antes del vínculo, porque
+      `repost_journal` borra el asiento reemplazado (no lo revierte). Sin
+      rastro, deshacer deja el movimiento sin cuenta de gasto (va a
+      `gastos`).
+- [x] **Adjuntos para el contador** (`20261104050400`): quien tiene
+      `taxes:read` ve los adjuntos de un impuesto (RLS de `file_attachments`
+      y `files`, y las acciones de adjuntos) sin `files:read`; nada más del
+      hub de archivos. En `/taxes`, el lector abre "Ver adjuntos".
+- [x] **Herramienta IA** `getTaxDocuments` (`taxes:read`): vencidos, por
+      vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
+- [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
+      deploy. Rollback: el código anterior no llama a `undo_tax_document_
+      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+      que conoce; las policies nuevas solo agregan filas a un rol al que el
+      código viejo no le pide adjuntos.
+- [ ] No verificado contra una base real:
+      `supabase/tests/tax_documents_undo_test.sql` sin stack local; "Deshacer
+      pago", el saldo a favor y "Ver adjuntos" no se probaron en el
+      navegador; los casos de ruteo nuevos no se corrieron en vivo.
 
 ## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
 
@@ -230,6 +274,11 @@
       manual); las RPC nuevas de actividad los excluyen. Alinear.
 - [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
       `getDriverActivity`.
+- [x] "Días de pago" va a `getClientPaymentBehavior`: `getClientSalesSummary` ya no
+      ofrece días promedio de cobro en su descripción y deriva esas preguntas; casos de
+      routing nuevos (días de pago, quién tarda más, facturado por cliente).
+- [ ] Los evals en vivo (`pnpm eval:ai`) de esos casos no se corrieron (sin
+      `ANTHROPIC_API_KEY` en el entorno del agente).
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron:
       `getClientSalesSummary` y `getClientPaymentBehavior` se pisan en "días
       de cobro".
@@ -433,14 +482,28 @@
       año anterior.
 - [x] **Exportar CSV / Excel** de la tabla mes a mes (uso interno, auditado).
 - [x] IA: `getManagementPnL` con indicadores y `getManagementPnLDocuments`.
-- [ ] **Margen por camión:** falta vincular camión ↔ centro de costo (o la
-      carga de combustible / el service con el camión en la compra). Los
-      ingresos ya podrían atribuirse por `shipments.trip_id → trips.vehicle_id`.
 - [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
       pagos a proveedores aunque después se impute a un bien de uso o a una
       compra a cargo de un empleado.
-- [ ] `getManagementReportAction` lee `get_management_pnl` sin paginar: con
-      más de 1000 filas (mes × caja × cuenta × centro) PostgREST la cortaría.
+
+## Margen por camión (2026-11-03)
+
+- [ ] Aprobar la migración `20261104050000_vehicle_margin` junto con el
+      deploy: sin ella fallan la sección "Margen por camión", el vínculo en
+      Centros de costo y `getVehicleEconomics` con permiso de gestión. Rollback:
+      el código anterior no lee `cost_centers.vehicle_id` ni llama a
+      `get_vehicle_margin`.
+- [ ] Vincular cada camión con su centro en Contabilidad › Centros de costo
+      (dato, no código).
+- [ ] Una carga de combustible que apunta solo al pago (OP) y no a la compra
+      cuenta dos veces si la compra lleva el centro del camión; un
+      `trips.cost` cargado también como compra con ese centro, igual.
+- [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
+      el ajuste por inflación de la pantalla).
+- [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
+      en "USD sin cotización" (`management_pnl_lines`, rama `pending_usd`, no
+      excluye `loans.disbursement_transaction_id`), aunque con cotización no
+      es resultado. Solo afecta el aviso, no suma a ninguna cifra.
 
 ---
 
@@ -526,10 +589,10 @@
       antes. Los movimientos de documentos no la llevan.
 - [x] **Resultado de gestión por centro de costo:** filtro y tabla "Por
       centro de costo"; la herramienta de IA `getManagementPnL` también.
-- [ ] **Centro de costo del camión en combustible y mantenimiento.** `vehicles`
-      no tiene centro y la carga de combustible / el service solo referencian
-      la compra (`purchase_invoice_id`): falta `vehicles.cost_center_id` y que
-      vincular una carga a una compra sin centro le ponga el del camión.
+- [ ] **Centro de costo del camión en combustible y mantenimiento.** El
+      camión ya tiene centro (`cost_centers.vehicle_id`, margen por camión);
+      falta que vincular una carga o un service a una compra sin centro le
+      ponga el del camión.
 - [ ] **Percibido por centro para pagos con OP:** el movimiento de la OP no
       lleva el centro de las compras que paga (podría repartirse por
       imputación).

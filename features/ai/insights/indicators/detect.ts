@@ -16,6 +16,7 @@ export const INDICATOR_KINDS = [
   "pending_driver_settlements",
   "loan_installments_due",
   "cash_vs_financing",
+  "receivables_overdue_growth",
 ] as const;
 
 export type IndicatorKind = (typeof INDICATOR_KINDS)[number];
@@ -353,31 +354,78 @@ export function detectLateInterestUncharged(
 
 export type OpenBankLine = {
   id: string;
+  account_id: string;
   account_name: string;
   line_date: string;
   amount: number;
 };
 
+/** The suggested matches the reconciliation page would offer for the main
+ *  account's late lines (gather.ts runs its suggestMatches). */
+export type BankMatchHint = {
+  account_id: string;
+  /** The late lines' first and last day (the proposal's period). */
+  from: string;
+  to: string;
+  suggestions: number;
+};
+
 /** Open statement lines older than BANK_LINE_MAX_AGE_DAYS. */
+export function lateBankLines<L extends OpenBankLine>(
+  lines: readonly L[],
+  today: string,
+): L[] {
+  const limit = addDays(today, -BANK_LINE_MAX_AGE_DAYS);
+  return lines.filter((l) => l.line_date < limit);
+}
+
+/** The account with the most late lines (by name on a tie), and its lines. */
+export function mainBankAccount<L extends OpenBankLine>(
+  late: readonly L[],
+): { account_id: string; account_name: string; lines: L[] } | null {
+  const byAccount = new Map<string, L[]>();
+  for (const l of late) {
+    byAccount.set(l.account_id, [...(byAccount.get(l.account_id) ?? []), l]);
+  }
+  const [main] = [...byAccount.values()].sort(
+    (a, b) =>
+      b.length - a.length ||
+      ((a[0]?.account_name ?? "") < (b[0]?.account_name ?? "") ? -1 : 1),
+  );
+  const first = main?.[0];
+  if (!main || !first) return null;
+  return {
+    account_id: first.account_id,
+    account_name: first.account_name,
+    lines: main,
+  };
+}
+
+function oldestDate(lines: readonly OpenBankLine[], fallback: string): string {
+  return lines.reduce(
+    (min, l) => (l.line_date < min ? l.line_date : min),
+    lines[0]?.line_date ?? fallback,
+  );
+}
+
+/** Open statement lines older than BANK_LINE_MAX_AGE_DAYS. The card proposes
+ *  reconciling the main account with the page's suggestions when there are
+ *  some (`hint`), else a task to reconcile it by hand. */
 export function detectUnreconciledLines(
   lines: readonly OpenBankLine[],
   today: string,
+  hint?: BankMatchHint | null,
 ): IndicatorFinding[] {
-  const limit = addDays(today, -BANK_LINE_MAX_AGE_DAYS);
-  const late = lines.filter((l) => l.line_date < limit);
+  const late = lateBankLines(lines, today);
   if (late.length === 0) return [];
-  const byAccount = new Map<string, number>();
-  for (const l of late) {
-    byAccount.set(l.account_name, (byAccount.get(l.account_name) ?? 0) + 1);
-  }
-  const [mainAccount] = [...byAccount.entries()].sort(
-    (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
-  );
-  const oldest = late.reduce(
-    (min, l) => (l.line_date < min ? l.line_date : min),
-    late[0]?.line_date ?? today,
-  );
+  const accounts = new Set(late.map((l) => l.account_id)).size;
+  const main = mainBankAccount(late);
+  const oldest = oldestDate(late, today);
   const amount = round2(late.reduce((s, l) => s + Math.abs(l.amount), 0));
+  const matchable =
+    main && hint && hint.account_id === main.account_id && hint.suggestions > 0
+      ? hint
+      : null;
   return [
     {
       kind: "unreconciled_bank_lines",
@@ -385,25 +433,39 @@ export function detectUnreconciledLines(
       title: "Extracto bancario sin conciliar",
       finding:
         `${late.length} línea(s) de extracto llevan más de ${BANK_LINE_MAX_AGE_DAYS} días pendientes ` +
-        `en ${byAccount.size} cuenta(s), por ${money(amount)} en total; la más vieja es del ${formatArgentineDate(oldest)}.`,
+        `en ${accounts} cuenta(s), por ${money(amount)} en total; la más vieja es del ${formatArgentineDate(oldest)}.` +
+        (matchable && main
+          ? ` En ${main.account_name} hay ${matchable.suggestions} sugerencia(s) de conciliación (mismo importe, fecha cercana).`
+          : ""),
       metrics: {
         line_count: late.length,
         total_amount: amount,
-        account_count: byAccount.size,
+        account_count: accounts,
         oldest_date: oldest,
+        ...(matchable ? { suggested_matches: matchable.suggestions } : {}),
       },
       source_refs: refs(late.map((l) => l.id)),
-      ...(mainAccount
+      ...(main
         ? {
-            proposal: {
-              action: "proposeTask",
-              label: "Crear tarea para conciliar",
-              input: {
-                title: `Conciliar el extracto de ${mainAccount[0]}`,
-                description: `${mainAccount[1]} línea(s) pendientes desde el ${formatArgentineDate(oldest)} (Tesorería › Conciliación).`,
-                due_date: addDays(today, 3),
-              },
-            },
+            proposal: matchable
+              ? {
+                  action: "proposeBankMatches",
+                  label: "Conciliar con las sugerencias",
+                  input: {
+                    account: main.account_name,
+                    from: matchable.from,
+                    to: matchable.to,
+                  },
+                }
+              : {
+                  action: "proposeTask",
+                  label: "Crear tarea para conciliar",
+                  input: {
+                    title: `Conciliar el extracto de ${main.account_name}`,
+                    description: `${main.lines.length} línea(s) pendientes desde el ${formatArgentineDate(oldestDate(main.lines, today))} (Tesorería › Conciliación).`,
+                    due_date: addDays(today, 3),
+                  },
+                },
           }
         : {}),
     },
@@ -609,6 +671,128 @@ export function detectCashVsFinancing(
         window_days: CASH_WINDOW_DAYS,
       },
       source_refs: [],
+    },
+  ];
+}
+
+// ─── Overdue receivables growth ──────────────────────────────────────────────
+
+/** Days between the two aging snapshots compared. */
+export const OVERDUE_GROWTH_DAYS = 30;
+/** Extra days the older snapshot may be missing (a cron that did not run). */
+export const OVERDUE_GROWTH_TOLERANCE_DAYS = 7;
+/** Days the latest snapshot may lag behind today before it counts as stale. */
+export const AGING_SNAPSHOT_MAX_AGE_DAYS = 3;
+/** Growth of the overdue total that raises the card. */
+export const OVERDUE_GROWTH_PCT = 15;
+/** Growth that makes it critical. */
+export const OVERDUE_GROWTH_CRITICAL_PCT = 50;
+/** Smallest rise worth a card, per currency. */
+export const MIN_OVERDUE_RISE = { ARS: 500_000, USD: 1_000 } as const;
+
+/** The overdue totals of one aging snapshot (aging_snapshots). */
+export type OverdueSnapshot = {
+  snapshot_date: string;
+  ars_overdue: number;
+  usd_overdue: number;
+};
+
+type OverdueRise = {
+  currency: "ARS" | "USD";
+  before: number;
+  now: number;
+  pct: number;
+};
+
+function overdueRise(
+  currency: "ARS" | "USD",
+  before: number,
+  now: number,
+): OverdueRise | null {
+  if (before <= 0) return null;
+  const growth = ((now - before) / before) * 100;
+  if (
+    growth < OVERDUE_GROWTH_PCT ||
+    now - before < MIN_OVERDUE_RISE[currency]
+  ) {
+    return null;
+  }
+  return { currency, before: round2(before), now: round2(now), pct: growth };
+}
+
+/**
+ * "La mora creció X % vs hace 30 días": the overdue receivables of the
+ * latest snapshot against the one OVERDUE_GROWTH_DAYS before it, pesos and
+ * dollars apart (never converted). Nothing when either snapshot is missing,
+ * the latest is stale, or the older one had no overdue debt (no percentage).
+ */
+export function detectOverdueGrowth(
+  latest: OverdueSnapshot | null,
+  earlier: OverdueSnapshot | null,
+  today: string,
+): IndicatorFinding[] {
+  if (!latest || !earlier) return [];
+  if (daysBetween(latest.snapshot_date, today) > AGING_SNAPSHOT_MAX_AGE_DAYS) {
+    return [];
+  }
+  const gap = daysBetween(earlier.snapshot_date, latest.snapshot_date);
+  if (
+    gap < OVERDUE_GROWTH_DAYS ||
+    gap > OVERDUE_GROWTH_DAYS + OVERDUE_GROWTH_TOLERANCE_DAYS
+  ) {
+    return [];
+  }
+  const rises = [
+    overdueRise("ARS", earlier.ars_overdue, latest.ars_overdue),
+    overdueRise("USD", earlier.usd_overdue, latest.usd_overdue),
+  ].filter((r): r is OverdueRise => r !== null);
+  const [top] = rises;
+  if (!top) return [];
+  const since = formatArgentineDate(earlier.snapshot_date);
+  const parts = rises.map(
+    (r) =>
+      `${r.currency === "ARS" ? "en pesos" : "en dólares"} pasó de ${money(r.before, r.currency)} a ${money(r.now, r.currency)} (+${pct(r.pct)})`,
+  );
+  const ars = rises.find((r) => r.currency === "ARS");
+  const usd = rises.find((r) => r.currency === "USD");
+  return [
+    {
+      kind: "receivables_overdue_growth",
+      severity: rises.some((r) => r.pct >= OVERDUE_GROWTH_CRITICAL_PCT)
+        ? "critical"
+        : "warning",
+      title: `La mora creció ${pct(top.pct)} vs hace ${OVERDUE_GROWTH_DAYS} días`,
+      finding:
+        `La deuda vencida de clientes ${parts.join("; ")} desde el ${since}. ` +
+        "Mirá en Aging quiénes se atrasaron.",
+      metrics: {
+        ...(ars
+          ? {
+              ars_overdue_before: ars.before,
+              ars_overdue_now: ars.now,
+              ars_growth_pct: round2(ars.pct),
+            }
+          : {}),
+        ...(usd
+          ? {
+              usd_overdue_before: usd.before,
+              usd_overdue_now: usd.now,
+              usd_growth_pct: round2(usd.pct),
+            }
+          : {}),
+        snapshot_from: earlier.snapshot_date,
+        snapshot_to: latest.snapshot_date,
+      },
+      source_refs: [],
+      proposal: {
+        action: "proposeTask",
+        label: "Crear tarea de cobranza",
+        input: {
+          title: "Revisar la mora de clientes",
+          description: `La deuda vencida creció desde el ${since} (Aging): llamar a los clientes atrasados.`,
+          due_date: addDays(today, 3),
+        },
+      },
     },
   ];
 }

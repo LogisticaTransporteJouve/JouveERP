@@ -46,6 +46,7 @@ const {
   linkTaxDocumentPaymentAction,
   listPayableTaxDocumentsAction,
   listTaxPaymentCandidatesAction,
+  undoTaxDocumentPaymentAction,
 } = await import("./tax-payment-link-actions");
 
 const DOC_ID = "00000000-0000-4000-8000-000000000001";
@@ -192,6 +193,78 @@ describe("linkTaxDocumentPaymentAction", () => {
       transaction_id: TX_ID,
     });
     expect(res).toEqual({ ok: false, error: message });
+    expect(audit).not.toHaveBeenCalled();
+  });
+});
+
+describe("undoTaxDocumentPaymentAction", () => {
+  it("undoes through undo_tax_document_payment and audits what it did", async () => {
+    rpc.mockResolvedValue({
+      data: [
+        {
+          transaction_id: TX_ID,
+          origin: "link",
+          movement_deleted: false,
+          expense_account_restored: true,
+        },
+      ],
+      error: null,
+    });
+    const res = await undoTaxDocumentPaymentAction({ id: DOC_ID });
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        transactionId: TX_ID,
+        movementDeleted: false,
+        expenseAccountRestored: true,
+      },
+    });
+    expect(rpc).toHaveBeenCalledWith("undo_tax_document_payment", {
+      p_tax_document_id: DOC_ID,
+      p_user_id: "u1",
+    });
+    expect(audit).toHaveBeenCalledWith(
+      "tax_document.payment_undone",
+      "u1",
+      {
+        transaction_id: TX_ID,
+        origin: "link",
+        movement_deleted: false,
+        expense_account_restored: true,
+      },
+      DOC_ID,
+    );
+  });
+
+  it("a document no longer paid is a no-op, not audited", async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    expect(await undoTaxDocumentPaymentAction({ id: DOC_ID })).toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("needs taxes:write and transactions:write", async () => {
+    roles = ["fiscal_reader"];
+    expect((await undoTaxDocumentPaymentAction({ id: DOC_ID })).ok).toBe(false);
+    roles = ["finance"];
+    denied = ["transactions:write"];
+    expect((await undoTaxDocumentPaymentAction({ id: DOC_ID })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("shows a guard's own message (closed period, reconciled)", async () => {
+    const message =
+      "El pago está conciliado con el extracto bancario: desconciliá la línea antes de deshacerlo";
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message, code: "55006", hint: "jouve_guard" },
+    });
+    expect(await undoTaxDocumentPaymentAction({ id: DOC_ID })).toEqual({
+      ok: false,
+      error: message,
+    });
     expect(audit).not.toHaveBeenCalled();
   });
 });

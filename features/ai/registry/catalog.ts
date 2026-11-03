@@ -25,6 +25,7 @@ import {
   getTransactions,
 } from "./actions/cash";
 import { proposeDocumentScan } from "./actions/documents";
+import { proposeRecategorizeExpense } from "./actions/expense-proposals";
 import {
   getDrivers,
   getFleetDocuments,
@@ -108,6 +109,7 @@ import {
   getFreightSettlements,
 } from "./actions/settlements";
 import { getTasks } from "./actions/tasks";
+import { getTaxDocuments } from "./actions/taxes";
 import { getTodayOverview } from "./actions/today";
 import { getTreasurySummary } from "./actions/treasury";
 import {
@@ -174,8 +176,10 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLoanDetail,
   getExchangeRates,
   getMonthlyPackageStatus,
+  getTaxDocuments,
   proposeJournalEntry,
   proposeExchangeRate,
+  proposeRecategorizeExpense,
   // RRHH / sueldos
   getEmployees,
   searchEmployees,

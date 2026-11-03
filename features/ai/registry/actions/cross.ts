@@ -6,6 +6,14 @@ import {
   getClientSalesSummaryAction,
 } from "@/features/clients/actions/sales-report-actions";
 import {
+  listCodPendingAction,
+  listDriverSettlementsAction,
+} from "@/features/driver-settlements/actions/driver-settlements-actions";
+import type {
+  CodPending,
+  DriverSettlement,
+} from "@/features/driver-settlements/schema";
+import {
   getDriverActivityAction,
   getVehicleActivityAction,
 } from "@/features/fleet-reports/actions/activity-actions";
@@ -16,6 +24,7 @@ import type {
 } from "@/features/fleet-reports/schema";
 import {
   getManagementPnlAction,
+  getVehicleMarginAction,
   listManagementCostCentersAction,
 } from "@/features/management/actions/management-actions";
 import {
@@ -28,6 +37,7 @@ import {
   userCan,
   type Access,
 } from "@/lib/auth/permissions";
+import { periodEnd } from "@/lib/fiscal-year";
 import { round2 } from "@/lib/format";
 import {
   IsoDateSchema,
@@ -36,13 +46,7 @@ import {
 } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import {
-  errResult,
-  money,
-  okResult,
-  reachedCap,
-  type AiRunResult,
-} from "../result";
+import { errResult, money, okResult, type AiRunResult } from "../result";
 import { readScope } from "../scope";
 
 import { INTERNAL_NOTE, PNL_CAP_NOTE, monthsBetween } from "./management";
@@ -347,7 +351,7 @@ export const getClientPaymentBehavior = defineAiAction({
     "v_receipt_unapplied",
   ],
   description:
-    "Cómo paga cada cliente: días promedio de cobro de lo cobrado en el rango (ponderado por lo imputado de cada recibo), cobrado por moneda, y su deuda actual: abierta en pesos y dólares (con el equivalente en pesos al último oficial), vencida en pesos, más de 90 días, días del comprobante más viejo, cheques rechazados y lo cobrado a cuenta sin imputar. Ordenado por deuda vencida. Un cliente sin cobros imputados en el rango no tiene promedio (null). Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
+    "Cómo paga cada cliente — la tool para días de pago, cuánto tardan en pagarnos, atrasos y quién paga peor (no getClientSalesSummary, que es facturación): días promedio de cobro de lo cobrado en el rango (ponderado por lo imputado de cada recibo), cobrado por moneda, y su deuda actual: abierta en pesos y dólares (con el equivalente en pesos al último oficial), vencida en pesos, más de 90 días, días del comprobante más viejo, cheques rechazados y lo cobrado a cuenta sin imputar. Ordenado por deuda vencida. Un cliente sin cobros imputados en el rango no tiene promedio (null). Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
   input: PaymentBehaviorInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const { isFiscal, label } = readScope(input.scope);
@@ -448,8 +452,26 @@ const FleetRangeInputSchema = z
   .object({ ...rangeShape, ...pageShape })
   .refine(rangeOrder, RANGE_ORDER_MESSAGE);
 
-const UNTAGGED_VEHICLE_COSTS =
-  "Los costos por vehículo son los de sus viajes, sus cargas de combustible y sus registros de mantenimiento; seguros, patentes, cubiertas, sueldos y compras cargadas solo con centro de costo no están vinculadas a un camión y no entran.";
+const VEHICLE_COSTS_NOTE =
+  "Los costos por vehículo son los de sus viajes, sus cargas de combustible y sus registros de mantenimiento, más (con permiso de gestión) el costo operativo cargado con el centro de costo vinculado al camión (seguros, patentes, cubiertas, compras), sin contar dos veces lo que ya imputa una carga o un service.";
+
+const UNLINKED_VEHICLE_COSTS =
+  "Seguros, patentes, cubiertas y compras cargadas solo con centro de costo no entran: hace falta el permiso de gestión.";
+
+/** Whole months a date range touches, for the cost-center part. */
+function periodsOf(range: { from: string; to: string }): {
+  fromPeriod: string;
+  toPeriod: string;
+  aligned: boolean;
+} {
+  const fromPeriod = range.from.slice(0, 7);
+  const toPeriod = range.to.slice(0, 7);
+  return {
+    fromPeriod,
+    toPeriod,
+    aligned: range.from.endsWith("-01") && range.to === periodEnd(toPeriod),
+  };
+}
 
 /** The km a per-km figure divides by: the odometer when both readings are
  *  loaded, else the trips' km (incomplete when some trip has no km). */
@@ -487,14 +509,18 @@ export const getVehicleEconomics = defineAiAction({
     "fuel_loads",
     "maintenance_records",
     "vehicle_km_readings",
+    "get_vehicle_margin",
+    "cost_centers",
   ],
   description:
-    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y de odómetro (lectura mensual del último mes menos la del mes anterior al primero), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, neto, margen % e ingreso y costo por km. Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para el odómetro): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo. Seguros, patentes, sueldos y compras solo con centro de costo no están vinculados a un camión. Paginado (limit/offset).",
+    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y de odómetro (lectura mensual del último mes menos la del mes anterior al primero), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, costo del centro de costo del camión (seguros, patentes, cubiertas y compras cargadas con ese centro, por meses completos), neto, margen % e ingreso y costo por km. Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para el odómetro, gestión para el centro de costo): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo y el costo operativo que no es de ningún camión (no se reparte). Paginado (limit/offset).",
   input: FleetRangeInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const range = { from: input.from, to: input.to };
     const withMoney = canReadFleetMoney(ctx.access);
-    const [activityRes, marginRes] = await Promise.all([
+    const withCenters = withMoney && userCan(ctx.access, "management:read");
+    const periods = periodsOf(range);
+    const [activityRes, marginRes, centerRes] = await Promise.all([
       getVehicleActivityAction(range),
       withMoney
         ? getFleetMarginAction({
@@ -503,11 +529,21 @@ export const getVehicleEconomics = defineAiAction({
             limit: READ_CAP,
           })
         : null,
+      withCenters
+        ? getVehicleMarginAction({
+            fromPeriod: periods.fromPeriod,
+            toPeriod: periods.toPeriod,
+          })
+        : null,
     ]);
     if (!activityRes.ok) return errResult(activityRes.error);
     if (marginRes && !marginRes.ok) return errResult(marginRes.error);
+    if (centerRes && !centerRes.ok) return errResult(centerRes.error);
     const margin = new Map(
       (marginRes?.data ?? []).map((m) => [m.group_key, m]),
+    );
+    const centers = new Map(
+      (centerRes?.data.vehicles ?? []).map((v) => [v.vehicleId, v]),
     );
     const activity = activityRes.data.filter((a) => a.vehicle_id !== null);
     const unassigned = activityRes.data.find((a) => a.vehicle_id === null);
@@ -532,7 +568,20 @@ export const getVehicleEconomics = defineAiAction({
     // A vehicle with only maintenance in the range (inactive, no trips).
     for (const m of marginRes?.data ?? []) {
       if (!seen.has(m.group_key)) {
+        seen.add(m.group_key);
         merged.push({ id: m.group_key, label: m.label, a: undefined, m });
+      }
+    }
+    // A truck with only costs of its cost center (insurance, patente).
+    for (const c of centers.values()) {
+      if (c.vehicleId && !seen.has(c.vehicleId) && c.centerCost !== 0) {
+        seen.add(c.vehicleId);
+        merged.push({
+          id: c.vehicleId,
+          label: c.patente ?? c.vehicleId,
+          a: undefined,
+          m: undefined,
+        });
       }
     }
 
@@ -553,13 +602,18 @@ export const getVehicleEconomics = defineAiAction({
           a?.fuel_liters === null || a?.fuel_liters === undefined
             ? null
             : Number(a.fuel_liters);
+        const center = centers.get(id);
+        const centerCost = withCenters ? (center?.centerCost ?? 0) : null;
         const revenue = withMoney ? Number(m?.revenue ?? 0) : null;
         const cost = withMoney
           ? Number(m?.trip_cost ?? 0) +
             Number(m?.fuel_cost ?? 0) +
-            Number(m?.maintenance_cost ?? 0)
+            Number(m?.maintenance_cost ?? 0) +
+            (centerCost ?? 0)
           : null;
-        const net = withMoney ? Number(m?.net ?? 0) : null;
+        const net = withMoney
+          ? round2(Number(m?.net ?? 0) - (centerCost ?? 0))
+          : null;
         return {
           vehicle_id: id,
           vehicle: label,
@@ -581,6 +635,10 @@ export const getVehicleEconomics = defineAiAction({
           maintenance_cost_ars: withMoney
             ? Number(m?.maintenance_cost ?? 0)
             : null,
+          cost_center_linked: withCenters
+            ? (center?.costCenterId ?? null) !== null
+            : null,
+          cost_center_cost_ars: centerCost,
           net_ars: net,
           margin_pct:
             revenue === null || net === null ? null : pct(net, revenue),
@@ -597,16 +655,40 @@ export const getVehicleEconomics = defineAiAction({
 
     const activityCapped = activityRes.data.length > READ_CAP;
     const complete =
-      !activityCapped && (marginRes === null || marginComplete(marginRes.data));
+      !activityCapped &&
+      (marginRes === null || marginComplete(marginRes.data)) &&
+      !(centerRes?.data.partial ?? false);
     const page = pageOf(rows.slice(0, READ_CAP), input);
     const omitted = [
       withMoney ? null : "ingresos y costos (permiso de cargas)",
       withFuel ? null : "litros (permiso de combustible)",
       withKm ? null : "km de odómetro (permiso de km de flota)",
     ].filter((x): x is string => x !== null);
-    const notes = [UNTAGGED_VEHICLE_COSTS];
+    const notes = [VEHICLE_COSTS_NOTE];
+    if (withMoney && !withCenters) notes.push(UNLINKED_VEHICLE_COSTS);
     if (omitted.length)
       notes.push(`Omitido por permisos: ${omitted.join(", ")}.`);
+    const unattributedCost = centerRes
+      ? round2(
+          centerRes.data.unattributed.reduce((s, u) => s + u.centerCost, 0),
+        )
+      : null;
+    if (centerRes) {
+      const unlinked = rows.filter((r) => r.cost_center_linked === false);
+      if (unlinked.length > 0) {
+        notes.push(
+          `${unlinked.length} vehículos sin centro de costo vinculado: solo llevan viajes, combustible y mantenimiento.`,
+        );
+      }
+      if (!periods.aligned) {
+        notes.push(
+          `El costo del centro de cada camión es de los meses completos ${periods.fromPeriod}→${periods.toPeriod}; el resto, del rango exacto.`,
+        );
+      }
+      notes.push(
+        `Costo operativo sin camión (otros centros y sin centro, no repartido): ${money(unattributedCost ?? 0)}.`,
+      );
+    }
     const noOdometer = rows.filter((r) => r.odometer_km === null).length;
     if (withKm && noOdometer > 0) {
       notes.push(
@@ -642,6 +724,7 @@ export const getVehicleEconomics = defineAiAction({
                   : Number(unassigned.unassigned_revenue),
             }
           : null,
+        unattributed_cost_ars: unattributedCost,
         page: page.page,
       },
       { currency: "ARS", partial: !complete, note: notes.join(" ") },
@@ -666,22 +749,41 @@ export const getDriverActivity = defineAiAction({
     "v_payroll_entries_resolved",
     "employee_account_movements",
     "v_employee_account_balances",
+    "driver_settlements",
+    "driver_settlement_items",
+    "driver_settlement_lines",
+    "shipments",
   ],
   description:
-    "Actividad por chofer en un rango de fechas: viajes (no cancelados), km y viajes sin km, ingreso por flete, costo de viajes y combustible imputado, neto; y del empleado vinculado: extras de planilla de los meses del rango, adelantos del rango (pesos y dólares) y saldo actual de su cuenta corriente en pesos. Ingresos y costos necesitan permiso de cargas y lo del empleado permiso de RRHH: lo que falta se omite y se avisa; un chofer sin empleado vinculado no tiene extras ni adelantos (null). Trae aparte los viajes sin chofer. Paginado (limit/offset).",
+    "Actividad por chofer en un rango de fechas: viajes (no cancelados), km y viajes sin km, ingreso por flete, costo de viajes y combustible imputado, neto; del empleado vinculado: extras de planilla de los meses del rango, adelantos del rango (pesos y dólares) y saldo actual de su cuenta corriente en pesos; y sus rendiciones de cobranza contra entrega: lo pendiente hoy (cargas entregadas sin rendir y rendiciones en borrador) y las confirmadas del rango con lo esperado, lo entregado y la diferencia (entregado − esperado; negativo = faltante). Ingresos y costos necesitan permiso de cargas, lo del empleado permiso de RRHH y las rendiciones permiso de recibos: lo que falta se omite y se avisa; un chofer sin empleado vinculado no tiene extras ni adelantos (null). Trae aparte los viajes sin chofer. Paginado (limit/offset).",
   input: FleetRangeInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const range = { from: input.from, to: input.to };
     const withMoney = canReadFleetMoney(ctx.access);
     const withHr = userCan(ctx.access, "hr:read");
-    const [activityRes, marginRes] = await Promise.all([
-      getDriverActivityAction(range),
-      withMoney
-        ? getFleetMarginAction({ ...range, groupBy: "driver", limit: READ_CAP })
-        : null,
-    ]);
+    const withCod = userCan(ctx.access, "receipts:read");
+    const [activityRes, marginRes, pendingRes, settlementsRes] =
+      await Promise.all([
+        getDriverActivityAction(range),
+        withMoney
+          ? getFleetMarginAction({
+              ...range,
+              groupBy: "driver",
+              limit: READ_CAP,
+            })
+          : null,
+        withCod ? listCodPendingAction() : null,
+        withCod ? listDriverSettlementsAction() : null,
+      ]);
     if (!activityRes.ok) return errResult(activityRes.error);
     if (marginRes && !marginRes.ok) return errResult(marginRes.error);
+    if (pendingRes && !pendingRes.ok) return errResult(pendingRes.error);
+    if (settlementsRes && !settlementsRes.ok)
+      return errResult(settlementsRes.error);
+    const cod =
+      pendingRes && settlementsRes
+        ? codByDriver(pendingRes.data, settlementsRes.data, range)
+        : null;
     const margin = new Map(
       (marginRes?.data ?? []).map((m) => [m.group_key, m]),
     );
@@ -708,6 +810,7 @@ export const getDriverActivity = defineAiAction({
           advances_ars: num(a.advances_ars),
           advances_usd: num(a.advances_usd),
           account_balance_ars: num(a.account_balance_ars),
+          ...codFields(cod?.get(a.driver_id), cod !== null),
         };
       })
       .sort(
@@ -741,6 +844,25 @@ export const getDriverActivity = defineAiAction({
         "Extras por mes de planilla (los meses que toca el rango); adelantos por fecha del movimiento; el saldo es el de hoy (positivo = el empleado debe).",
       );
     }
+    if (!withCod) {
+      notes.push(
+        "Rendiciones de cobranza contra entrega omitidas: hace falta el permiso de recibos.",
+      );
+    } else if (cod) {
+      notes.push(
+        "Rendiciones: lo pendiente es de hoy (cargas entregadas contra entrega sin rendir y borradores); las confirmadas, por fecha de rendición en el rango; diferencia = entregado − esperado.",
+      );
+      const listed = new Set(rows.map((r) => r.driver_id));
+      const others = [...cod.entries()].filter(([id]) => !listed.has(id));
+      const othersPending = round2(
+        others.reduce((s, [, c]) => s + c.pendingArs + c.draftArs, 0),
+      );
+      if (othersPending !== 0) {
+        notes.push(
+          `Cobranza pendiente de choferes fuera de la lista o sin chofer: ${money(othersPending)}.`,
+        );
+      }
+    }
     const noneMoney = margin.get("none");
     if (unassigned || noneMoney) {
       notes.push(
@@ -773,6 +895,99 @@ export const getDriverActivity = defineAiAction({
     );
   },
 });
+
+type DriverCod = {
+  pendingCargas: number;
+  pendingArs: number;
+  drafts: number;
+  draftArs: number;
+  settled: number;
+  settledExpectedArs: number;
+  settledReceivedArs: number;
+  settledDifferenceArs: number;
+};
+
+const NO_DRIVER = "none";
+
+/** Cash on delivery per driver ("none" = cargas of a trip without one):
+ *  what is pending today and the rendiciones confirmed in the range. */
+export function codByDriver(
+  pending: CodPending,
+  settlements: readonly DriverSettlement[],
+  range: { from: string; to: string },
+): Map<string, DriverCod> {
+  const out = new Map<string, DriverCod>();
+  const get = (id: string | null) => {
+    const key = id ?? NO_DRIVER;
+    const row = out.get(key) ?? {
+      pendingCargas: 0,
+      pendingArs: 0,
+      drafts: 0,
+      draftArs: 0,
+      settled: 0,
+      settledExpectedArs: 0,
+      settledReceivedArs: 0,
+      settledDifferenceArs: 0,
+    };
+    out.set(key, row);
+    return row;
+  };
+  for (const p of pending.byDriver) {
+    const row = get(p.driver_id);
+    row.pendingCargas += p.cargas;
+    row.pendingArs = round2(row.pendingArs + p.amount);
+  }
+  for (const s of settlements) {
+    if (s.status === "draft") {
+      const row = get(s.driver_id);
+      row.drafts += 1;
+      row.draftArs = round2(row.draftArs + s.expected_total);
+    } else if (
+      s.status === "confirmed" &&
+      s.settlement_date >= range.from &&
+      s.settlement_date <= range.to
+    ) {
+      const row = get(s.driver_id);
+      row.settled += 1;
+      row.settledExpectedArs = round2(
+        row.settledExpectedArs + s.expected_total,
+      );
+      row.settledReceivedArs = round2(
+        row.settledReceivedArs + s.received_total,
+      );
+      row.settledDifferenceArs = round2(
+        row.settledDifferenceArs + s.difference,
+      );
+    }
+  }
+  return out;
+}
+
+/** A driver's cash-on-delivery fields; all null without receipts:read. */
+function codFields(c: DriverCod | undefined, readable: boolean) {
+  if (!readable) {
+    return {
+      cod_pending_cargas: null,
+      cod_pending_ars: null,
+      cod_draft_settlements: null,
+      cod_draft_ars: null,
+      cod_settlements: null,
+      cod_settled_expected_ars: null,
+      cod_settled_received_ars: null,
+      cod_settled_difference_ars: null,
+    };
+  }
+  return {
+    cod_pending_cargas: c?.pendingCargas ?? 0,
+    cod_pending_ars: c?.pendingArs ?? 0,
+    cod_draft_settlements: c?.drafts ?? 0,
+    cod_draft_ars: c?.draftArs ?? 0,
+    cod_settlements: c?.settled ?? 0,
+    cod_settled_expected_ars: c?.settledExpectedArs ?? 0,
+    cod_settled_received_ars: c?.settledReceivedArs ?? 0,
+    cod_settled_difference_ars: c?.settledDifferenceArs ?? 0,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Top costs by category or cost center
@@ -900,7 +1115,7 @@ export const getTopCosts = defineAiAction({
     const centerName = (id: string | null) =>
       id === null ? "Sin centro" : (names.get(id) ?? "Centro eliminado");
     const months = monthsBetween(input.fromPeriod, input.toPeriod);
-    const inRange = res.data.filter((r) => months.includes(r.month));
+    const inRange = res.data.rows.filter((r) => months.includes(r.month));
     const groups = groupCosts(
       inRange,
       input.groupBy,
@@ -958,7 +1173,7 @@ export const getTopCosts = defineAiAction({
         .reduce((s, r) => s + r.amount, 0),
     );
     const pendingUsd = round2(inRange.reduce((s, r) => s + r.pendingUsd, 0));
-    const capped = reachedCap(res.data.length);
+    const capped = res.data.partial;
     const notes = [INTERNAL_NOTE];
     if (unclassified !== 0) {
       notes.push(

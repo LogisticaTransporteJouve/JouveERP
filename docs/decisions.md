@@ -42,6 +42,152 @@ aumento masivo la saltea. Las demás quedan como están.
 **Descartado.** Asentar la diferencia al confirmar; desactivar las filas
 migradas (cambia el respaldo en períodos que cruzan la vigencia); crear la
 carga desde el escaneo del remito (queda la búsqueda).
+## 2026-11-04 — IA: recategorizar gastos, fotos del aging y conciliación desde el insight
+
+**Decisión (recategorizar).** Cambiar la cuenta de gasto y/o el centro de
+costo de un gasto ya cargado es una escritura propia, no "editar el
+movimiento entero": `recategorize_expense` (SECURITY DEFINER, solo
+service_role) toma un egreso suelto (`transaction_is_loose`) o una compra
+recibida, bloquea la fila, cambia solo esas dos columnas y deja que los
+triggers de re-asiento rehagan el asiento al commit. Rechaza (hint
+`jouve_guard`) un movimiento con dueño, un ingreso, una compra anulada, una
+cuenta nueva en una compra a cargo de un empleado, una cuenta que no es hoja
+imputable, un centro inactivo y cualquier registro con fecha, devengamiento o
+asiento en un período cerrado, en los dos canales. La misma imputación otra
+vez no cambia nada. `lib/commands/recategorize-expense.ts` es el único
+camino (lo usan el Dialog "Recategorizar" de Caja y Compras y la propuesta
+`proposeRecategorizeExpense`) y audita `expense.recategorized` con antes y
+después. El gate es el permiso de escritura de cada origen
+(`transactions:write` o `purchase_invoices:write`); la propuesta del
+asistente pide los dos.
+
+**Por qué.** El bloqueo de un movimiento conciliado cubre monto, fechas,
+cuenta, tipo, moneda, canal y par, no la cuenta de gasto ni el centro de
+costo: recategorizar uno conciliado no rompe la conciliación. Una sola
+función con su guard deja el período cerrado y el dueño del movimiento en la
+base, igual para la UI y para el asistente.
+
+**Descartado.** Reusar `updateTransactionAction` y `updatePurchaseInvoiceAction`
+(reenvían monto y fechas, y en compras cualquier campo: una propuesta no
+debería poder tocarlos); propagar la cuenta a las NC/ND de una factura
+(heredan la cuenta solo al cargarse; queda pendiente); permitir el período
+cerrado en el canal interno (no hay asiento, pero gestión lee ese mes:
+cerrado es cerrado).
+
+**Decisión (mora).** `aging_snapshots` guarda una foto diaria del aging de
+clientes de todos los canales (tramos, total abierto y total vencido, pesos y
+dólares aparte), escrita por `capture_aging_snapshot` desde el cron
+`aging-snapshot` (05:37 AR). La tarjeta `receivables_overdue_growth` compara
+la última foto con la de 30 días antes (hasta 7 días de tolerancia) y sale
+con +15 % y al menos $500.000 o US$1.000 más; crítica desde +50 %. Sin deuda
+vencida hace 30 días no hay porcentaje y no hay tarjeta. Se ve con los
+permisos del Aging (`clients:read` + `invoices:read` + `receipts:read`); no
+existe un `aging:read`.
+
+**Decisión (conciliación).** La tarjeta de extracto sin conciliar corre
+`suggestMatches` (la función de la página de Conciliación) sobre las líneas
+atrasadas de la cuenta con más líneas y los movimientos de esa cuenta a ±5
+días; si hay sugerencias propone `proposeBankMatches` para el período de esas
+líneas en lugar de la tarea. Una falla de esa lectura solo le quita la
+propuesta a la tarjeta.
+
+**Decisión (chat).** Lo que informa una escritura confirmada ("12
+conciliadas; 1 salteada…") se guarda en `ai_chat_confirmations.result_note`
+y se muestra en la tarjeta del chat y en el toast, como ya hacía el Dialog de
+propuestas de insights.
+
+**Decisión (routing).** "Días de pago", "cuánto tardan en pagar" y "quién
+paga peor" van a `getClientPaymentBehavior`; la descripción de
+`getClientSalesSummary` ya no ofrece días promedio de cobro y deriva esas
+preguntas. Los evals en vivo no se corrieron (sin `ANTHROPIC_API_KEY` en el
+entorno donde se hizo el cambio).
+## 2026-11-03 — Impuestos: deshacer un pago, gestión, IVA y contador
+
+**Decisión.** (1) Un pago se deshace con `undo_tax_document_payment` según
+cómo llegó (`tax_documents.payment_origin`, que ahora escriben
+`pay_tax_document` y `link_tax_document_payment`): el egreso que creó
+"Pagar" se borra (deja de tener dueño y el guard de movimientos lo suelta);
+el vinculado vuelve a ser un egreso suelto con la cuenta de gasto que tenía
+(guardada al vincular en `payment_previous_expense_account_id`) y
+`repost_journal`. El impuesto vuelve a liquidado si su importe no es
+estimado, si no a pendiente (no se guarda el estado previo al pago). Se
+rechaza con `jouve_guard` un período cerrado (fecha o devengamiento) y un
+egreso de "Pagar" conciliado; uno vinculado y conciliado se suelta porque
+`expense_account_id` no es un campo bloqueado. Idempotente (sin pago,
+ninguna fila) y auditado (`tax_document.payment_undone`). (2) En gestión
+percibido el pago de un impuesto va al rubro de la cuenta del impuesto si
+está mapeada, si no a `operating_cost` / `impuestos`, que el código viejo ya
+conoce. (3) El estimado de IVA resta el saldo a favor técnico que el IVA del
+mes anterior trae en `credit_balance` (cargado desde la DDJJ); si el mes no
+tuvo nada que pagar, el impuesto se anula con su saldo y se lee igual. (4)
+Quien tiene `taxes:read` lee los adjuntos de un impuesto por dos policies
+SELECT nuevas (y `is_tax_document_file`), sin `files:read`. (5)
+`getTaxDocuments` es la herramienta de lectura de impuestos del CFO IA.
+
+**Por qué.** Sin deshacer, un pago mal cargado no tenía arreglo. Guardar el
+origen evita adivinar si el movimiento era del usuario: borrar uno que el
+usuario cargó perdería datos, así que ante la duda el backfill lo trata como
+vinculado (se suelta, no se borra). El saldo a favor viene de la DDJJ, no de
+encadenar estimados.
+
+**Descartado.** Rearmar la cuenta de gasto desde el asiento revertido:
+`repost_journal` borra el asiento reemplazado, no lo revierte; el backfill usa
+el log de auditoría. Separar las percepciones de IVA de las de IIBB en
+compras: `purchase_invoices` tiene un solo `imp_trib` y el asiento lo manda a
+percepciones IIBB; queda como pendiente. Dar `files:read` al contador: abriría
+todo el hub de archivos. Un estado nuevo para un IVA sin nada que pagar.
+## 2026-11-03 — Margen por camión: el centro de costo apunta al camión
+
+**Decisión.** `cost_centers.vehicle_id` (opcional, único: un centro por
+camión) vincula un centro con un camión; se edita en Contabilidad › Centros
+de costo (`accounting:write`). Todo lo cargado con ese centro (compras,
+egresos manuales, asientos: el etiquetado de 20261103010000) es costo de ese
+camión. `get_vehicle_margin` (SECURITY DEFINER, service role; la acción
+`getVehicleMarginAction` exige `management:read`) da por camión, en meses
+completos y devengado nominal: ingreso, costo de viajes, combustible y
+mantenimiento de `ai_fleet_margin` más el costo operativo del centro, sacado
+de `management_pnl_lines` (no lo reemplaza). Una compra o movimiento al que
+apunta una carga de combustible o un service (y la NC/ND de esa compra) no
+entra en la parte del centro: ya la cuenta la flota. Lo que no es de un
+camión va aparte y nunca se reparte: viajes sin vehículo, cada centro sin
+camión y lo cargado sin centro. Más de 500 vehículos con movimientos se
+rechaza (`jouve_guard`) en vez de cortar filas. Gestión lo muestra en
+"Margen por camión"; `getVehicleEconomics` suma el costo del centro con
+`management:read` (si el rango no son meses completos, el centro va por
+meses completos y se avisa) y trae el costo sin camión. `ai_fleet_margin`
+deja de contar viajes cancelados (su ingreso y costo); el combustible y el
+mantenimiento siguen contando por vehículo por su fecha.
+
+**Por qué.** La tabla de vínculo en el centro no toca los formularios de
+compra ni de caja: con vincular el centro del camión una vez, lo ya
+cargado con ese centro pasa al camión. Un centro por camión evita repartir
+en silencio.
+
+**Descartado.** `vehicle_id` por línea de costo (compra, movimiento): cambia
+todos los formularios y no sirve para lo ya cargado. `vehicles.cost_center_id`:
+el mismo vínculo, pero lo edita flota (`vehicles:write`, operaciones), que no
+debería decidir qué entra en gestión. Repartir lo cargado sin centro entre
+los camiones por km o viajes.
+
+**Límites conocidos.** Si la carga de combustible apunta solo al pago (OP)
+y no a la compra, la compra con el centro del camión cuenta además de la
+carga. Un costo de viaje (`trips.cost`) cargado también como compra con el
+centro del camión cuenta dos veces. Ingresos cargados con el centro del
+camión no se suman (el ingreso es el de los viajes).
+
+## 2026-11-03 — Gestión: el resultado se lee paginado
+
+**Decisión.** `getManagementReportAction` y `getManagementPnlAction` leen
+`get_management_pnl` de a 1000 filas, ordenado por toda la clave de
+agrupación (mes, caja, subcaja, lado, cuenta, centro), hasta 50.000 filas; si
+llega al tope la respuesta trae `partial` y la pantalla y la IA lo avisan.
+`getManagementPnlAction` devuelve `{ rows, partial }`.
+
+**Por qué.** PostgREST corta en 1000 filas sin error; mes × caja × cuenta ×
+centro × lado puede pasarlas en un año con muchos centros.
+
+**Descartado.** Agregar en el servidor (menos filas): la pantalla necesita la
+apertura por cuenta y centro.
 
 ## 2026-11-03 — Liquidación: Remito R en Ventas, remito interno X en Otras ventas
 

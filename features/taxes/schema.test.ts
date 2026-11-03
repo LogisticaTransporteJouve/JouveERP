@@ -9,6 +9,7 @@ import {
   LinkTaxPaymentSchema,
   monthGrid,
   PayTaxDocumentSchema,
+  previousIvaCreditBalance,
   previousPeriod,
   rankTaxPaymentCandidates,
   shiftMonth,
@@ -199,6 +200,8 @@ describe("computeIvaPosition", () => {
         debito: 2100.004,
         credito: 1050,
         retenciones: 50.5,
+        saldoAnterior: 100,
+        tributosCompras: 12.345,
         ventas: 3,
         compras: 2,
       }),
@@ -207,7 +210,10 @@ describe("computeIvaPosition", () => {
       debito: 2100,
       credito: 1050,
       retenciones: 50.5,
-      saldo: 999.5,
+      saldo_anterior: 100,
+      saldo_anterior_known: true,
+      saldo: 899.5,
+      tributos_compras: 12.35,
       ventas: 3,
       compras: 2,
     });
@@ -220,10 +226,54 @@ describe("computeIvaPosition", () => {
         debito: 100,
         credito: 300,
         retenciones: 0,
+        saldoAnterior: null,
+        tributosCompras: 0,
         ventas: 1,
         compras: 1,
       }).saldo,
     ).toBe(-200);
+  });
+
+  it("last month's saldo a favor: live documents add up, else the latest annulled one", () => {
+    const at = (h: number) => `2026-10-01T${String(h).padStart(2, "0")}:00:00Z`;
+    expect(previousIvaCreditBalance([])).toBeNull();
+    expect(
+      previousIvaCreditBalance([
+        { status: "liquidado", credit_balance: 100, updated_at: at(1) },
+        { status: "pendiente", credit_balance: null, updated_at: at(2) },
+        { status: "anulado", credit_balance: 999, updated_at: at(3) },
+      ]),
+    ).toBe(100);
+    expect(
+      previousIvaCreditBalance([
+        { status: "anulado", credit_balance: 50, updated_at: at(1) },
+        { status: "anulado", credit_balance: 70, updated_at: at(4) },
+        { status: "anulado", credit_balance: null, updated_at: at(5) },
+      ]),
+    ).toBe(70);
+    expect(
+      previousIvaCreditBalance([
+        { status: "anulado", credit_balance: null, updated_at: at(1) },
+      ]),
+    ).toBe(0);
+  });
+
+  it("only an IVA document carries a saldo a favor", () => {
+    const base = { period: "2026-10", due_date: "2026-11-18" };
+    expect(
+      TaxDocumentCreateSchema.safeParse({
+        ...base,
+        kind: "iva",
+        credit_balance: 10,
+      }).success,
+    ).toBe(true);
+    expect(
+      TaxDocumentCreateSchema.safeParse({
+        ...base,
+        kind: "iibb",
+        credit_balance: 10,
+      }).success,
+    ).toBe(false);
   });
 
   it("sums the IVA of every rate", () => {

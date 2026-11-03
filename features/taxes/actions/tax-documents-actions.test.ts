@@ -43,9 +43,12 @@ const doc = {
   status: "liquidado",
   account_id: "a1",
   payment_transaction_id: null,
+  payment_origin: null,
   paid_date: null,
   paid_amount: null,
+  credit_balance: null,
   notes: null,
+  updated_at: "2026-11-01T10:00:00Z",
   account: { code: "2.1.2.1", name: "IVA Débito Fiscal" },
   payment: null,
 };
@@ -204,11 +207,79 @@ describe("getIvaPositionEstimateAction", () => {
         debito: 1890,
         credito: 1050,
         retenciones: 40,
+        saldo_anterior: 0,
+        saldo_anterior_known: true,
         saldo: 800,
+        tributos_compras: 0,
         ventas: 2,
         compras: 1,
       },
     });
+  });
+
+  it("subtracts last month's saldo a favor and reports the purchases' tributos apart", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          purchase_invoice_id: "c1",
+          kind: "factura",
+          iva_rate_id: 5,
+          neto: 5000,
+          iva: 1050,
+          imp_trib: 75,
+          imp_total: 6125,
+          neto_orig: 5000,
+          iva_orig: 1050,
+          imp_trib_orig: 75,
+          imp_total_orig: 6125,
+          cotizacion: 1,
+        },
+      ],
+    });
+    fake = pagedSupabase({
+      tax_documents: [
+        {
+          ...doc,
+          period: "2026-09",
+          status: "anulado",
+          credit_balance: "150.00",
+        },
+      ],
+    });
+    const res = await getIvaPositionEstimateAction({ period: "2026-10" });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toMatchObject({
+      credito: 1050,
+      saldo_anterior: 150,
+      saldo_anterior_known: true,
+      saldo: -1200,
+      tributos_compras: 75,
+    });
+  });
+
+  it("without last month's IVA document, the saldo a favor is unknown", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase({ tax_documents: [] });
+    const res = await getIvaPositionEstimateAction({ period: "2026-10" });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toMatchObject({
+      saldo_anterior: 0,
+      saldo_anterior_known: false,
+    });
+  });
+
+  it("a failed read of last month's IVA fails the estimate", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase({}, { failOn: "tax_documents" });
+    expect((await getIvaPositionEstimateAction({ period: "2026-10" })).ok).toBe(
+      false,
+    );
   });
 
   it("a book that cannot be read fails the estimate", async () => {

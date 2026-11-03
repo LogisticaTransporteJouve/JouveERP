@@ -148,6 +148,63 @@ export type Database = {
         }
         Relationships: []
       }
+      aging_snapshots: {
+        Row: {
+          ars_bucket_0_30: number
+          ars_bucket_30_60: number
+          ars_bucket_60_90: number
+          ars_bucket_90_plus: number
+          ars_overdue: number
+          ars_total_open: number
+          captured_at: string
+          client_count: number
+          document_count: number
+          snapshot_date: string
+          usd_bucket_0_30: number
+          usd_bucket_30_60: number
+          usd_bucket_60_90: number
+          usd_bucket_90_plus: number
+          usd_overdue: number
+          usd_total_open: number
+        }
+        Insert: {
+          ars_bucket_0_30?: number
+          ars_bucket_30_60?: number
+          ars_bucket_60_90?: number
+          ars_bucket_90_plus?: number
+          ars_overdue?: number
+          ars_total_open?: number
+          captured_at?: string
+          client_count?: number
+          document_count?: number
+          snapshot_date: string
+          usd_bucket_0_30?: number
+          usd_bucket_30_60?: number
+          usd_bucket_60_90?: number
+          usd_bucket_90_plus?: number
+          usd_overdue?: number
+          usd_total_open?: number
+        }
+        Update: {
+          ars_bucket_0_30?: number
+          ars_bucket_30_60?: number
+          ars_bucket_60_90?: number
+          ars_bucket_90_plus?: number
+          ars_overdue?: number
+          ars_total_open?: number
+          captured_at?: string
+          client_count?: number
+          document_count?: number
+          snapshot_date?: string
+          usd_bucket_0_30?: number
+          usd_bucket_30_60?: number
+          usd_bucket_60_90?: number
+          usd_bucket_90_plus?: number
+          usd_overdue?: number
+          usd_total_open?: number
+        }
+        Relationships: []
+      }
       ai_chat_confirmations: {
         Row: {
           action: string
@@ -159,6 +216,7 @@ export type Database = {
           labels: Json
           origin: string
           result_id: string | null
+          result_note: string | null
           revision: number
           revision_key: string
           session_id: string
@@ -177,6 +235,7 @@ export type Database = {
           labels?: Json
           origin?: string
           result_id?: string | null
+          result_note?: string | null
           revision?: number
           revision_key: string
           session_id: string
@@ -195,6 +254,7 @@ export type Database = {
           labels?: Json
           origin?: string
           result_id?: string | null
+          result_note?: string | null
           revision?: number
           revision_key?: string
           session_id?: string
@@ -1877,6 +1937,7 @@ export type Database = {
           is_active: boolean
           name: string
           updated_at: string
+          vehicle_id: string | null
         }
         Insert: {
           code: string
@@ -1886,6 +1947,7 @@ export type Database = {
           is_active?: boolean
           name: string
           updated_at?: string
+          vehicle_id?: string | null
         }
         Update: {
           code?: string
@@ -1895,8 +1957,17 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+          vehicle_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_centers_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dashboard_layouts: {
         Row: {
@@ -6867,6 +6938,7 @@ export type Database = {
           amount_is_estimate: boolean
           created_at: string
           created_by: string | null
+          credit_balance: number | null
           due_date: string
           id: string
           jurisdiction: string | null
@@ -6874,6 +6946,8 @@ export type Database = {
           notes: string | null
           paid_amount: number | null
           paid_date: string | null
+          payment_origin: string | null
+          payment_previous_expense_account_id: string | null
           payment_transaction_id: string | null
           period: string
           status: string
@@ -6886,6 +6960,7 @@ export type Database = {
           amount_is_estimate?: boolean
           created_at?: string
           created_by?: string | null
+          credit_balance?: number | null
           due_date: string
           id?: string
           jurisdiction?: string | null
@@ -6893,6 +6968,8 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_origin?: string | null
+          payment_previous_expense_account_id?: string | null
           payment_transaction_id?: string | null
           period: string
           status?: string
@@ -6905,6 +6982,7 @@ export type Database = {
           amount_is_estimate?: boolean
           created_at?: string
           created_by?: string | null
+          credit_balance?: number | null
           due_date?: string
           id?: string
           jurisdiction?: string | null
@@ -6912,6 +6990,8 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_origin?: string | null
+          payment_previous_expense_account_id?: string | null
           payment_transaction_id?: string | null
           period?: string
           status?: string
@@ -6929,6 +7009,20 @@ export type Database = {
           {
             foreignKeyName: "tax_documents_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_previous_expense_account_id_fkey"
+            columns: ["payment_previous_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_documents_payment_previous_expense_account_id_fkey"
+            columns: ["payment_previous_expense_account_id"]
             isOneToOne: false
             referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
@@ -8854,6 +8948,7 @@ export type Database = {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: undefined
       }
+      capture_aging_snapshot: { Args: never; Returns: string }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -9313,6 +9408,24 @@ export type Database = {
       }
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
+      get_vehicle_margin: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          center_cost: number
+          cost_center_id: string
+          fuel_cost: number
+          is_active: boolean
+          maintenance_cost: number
+          net: number
+          patente: string
+          pending_usd: number
+          revenue: number
+          row_kind: string
+          trip_cost: number
+          trips: number
+          vehicle_id: string
+        }[]
+      }
       grant_vacation_balances: {
         Args: { p_carryover?: boolean; p_target_year?: number }
         Returns: {
@@ -9366,6 +9479,7 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: boolean
       }
+      is_tax_document_file: { Args: { p_file_id: string }; Returns: boolean }
       journal_document_entry: {
         Args: { p_fiscal_only?: boolean; p_id: string; p_source: string }
         Returns: Json
@@ -9690,6 +9804,17 @@ export type Database = {
         Returns: string
       }
       purge_audit_events: { Args: never; Returns: number }
+      recategorize_expense: {
+        Args: {
+          p_cost_center_id?: string
+          p_expense_account_id?: string
+          p_id: string
+          p_set_account: boolean
+          p_set_cost_center: boolean
+          p_source: string
+        }
+        Returns: Json
+      }
       receipt_list_totals: {
         Args: {
           p_client_id?: string
@@ -10076,6 +10201,15 @@ export type Database = {
       undo_import_run: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: undefined
+      }
+      undo_tax_document_payment: {
+        Args: { p_tax_document_id: string; p_user_id: string }
+        Returns: {
+          expense_account_restored: boolean
+          movement_deleted: boolean
+          origin: string
+          transaction_id: string
+        }[]
       }
       unmatch_bank_statement_line: {
         Args: { p_line_id: string; p_user_id: string }

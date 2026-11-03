@@ -664,10 +664,15 @@ USD pendiente)`; importe > 0 suma al resultado.
 - **Limitaciones:** por centro cuenta solo lo cargado con centro (en
   percibido, un pago con OP no lleva el centro de la compra); en percibido lo
   cobrado o pagado a cuenta (sin imputar) va a servicios / pagos a
-  proveedores; el desembolso de un préstamo es neutro en las dos bases; no
-  hay margen por camión (los centros de costo no están vinculados a
-  `vehicles`: los ingresos podrían atribuirse por `shipments.trip_id →
-  trips.vehicle_id`, pero los costos no tienen camión).
+  proveedores; el desembolso de un préstamo es neutro en las dos bases.
+- **Margen por camión** (`get_vehicle_margin`, sección de Gestión): un centro
+  de costo apunta a su camión (`cost_centers.vehicle_id`, uno por camión). Por
+  camión, devengado y nominal en meses completos: ingreso, viajes (sin
+  cancelados), combustible y mantenimiento (`ai_fleet_margin`) más el costo
+  operativo cargado con su centro (`management_pnl_lines`), sin volver a
+  contar la compra o el movimiento al que apunta una carga o un service. Lo
+  que no es de un camión (viajes sin vehículo, centros sin camión, sin
+  centro) va aparte y no se reparte.
 
 **Balance general (fix del mismo PR):** el balance es acumulado al corte
 aunque se elija "Desde"; el PN muestra "Resultados de períodos anteriores" y

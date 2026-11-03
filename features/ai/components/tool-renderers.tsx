@@ -90,6 +90,7 @@ const TOOL_LABELS: Record<string, string> = {
   getAttachments: "Adjuntos",
   getTasks: "Tareas",
   getMonthlyPackageStatus: "Paquete del mes",
+  getTaxDocuments: "Impuestos",
   getAuditEvents: "Auditoría",
   openAttachment: "Adjunto del chat",
   proposeDocumentScan: "Propuesta de escaneo",
@@ -100,6 +101,7 @@ const TOOL_LABELS: Record<string, string> = {
   proposeClientTariff: "Propuesta de tarifa",
   proposeBankMatches: "Propuesta de conciliación",
   proposeLateInterestNd: "Propuesta de ND por mora",
+  proposeRecategorizeExpense: "Propuesta de recategorización",
   getLateInterestCandidates: "Interés por mora",
   getFreightSettlements: "Liquidaciones de fletes",
   getDriverSettlements: "Rendiciones",
@@ -119,6 +121,13 @@ type Col = { key: string; label: string };
 
 /** Curated columns per tool; falls back to a generic derivation when absent. */
 const COLUMN_HINTS: Record<string, Col[]> = {
+  getTaxDocuments: [
+    { key: "label", label: "Impuesto" },
+    { key: "period", label: "Período" },
+    { key: "due_date", label: "Vence" },
+    { key: "amount", label: "Importe" },
+    { key: "status", label: "Estado" },
+  ],
   getClientAging: [
     { key: "legal_name", label: "Cliente" },
     { key: "total_ars", label: "Total $" },

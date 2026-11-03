@@ -161,6 +161,47 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
+    // "Días de pago" is payment behaviour, not the sales ranking, even
+    // though both read ai_client_sales_summary.
+    id: "client-days-to-pay",
+    question: "¿Cuántos días de pago tiene cada cliente en octubre 2026?",
+    roles: ["finance"],
+    expect: {
+      tool: "getClientPaymentBehavior",
+      input: { from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "getClientSalesSummaryAction",
+      args: { from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "client-slowest-payer",
+    question: "¿Qué cliente tarda más en pagarnos este año (2026)?",
+    roles: ["owner"],
+    expect: {
+      tool: "getClientPaymentBehavior",
+      input: { from: "2026-01-01", to: "2026-12-31" },
+    },
+    dispatch: {
+      fn: "getClientSalesSummaryAction",
+      args: { from: "2026-01-01", to: "2026-12-31" },
+    },
+  },
+  {
+    id: "client-sales-ranking",
+    question: "¿Cuánto le facturamos a cada cliente en 2026?",
+    roles: ["finance"],
+    expect: {
+      tool: "getClientSalesSummary",
+      input: { from: "2026-01-01", to: "2026-12-31" },
+    },
+    dispatch: {
+      fn: "getClientSalesSummaryAction",
+      args: { from: "2026-01-01", to: "2026-12-31" },
+    },
+  },
+  {
     id: "vehicle-economics",
     question:
       "¿Cuánto nos cuesta por km cada camión en septiembre 2026, con el combustible?",
@@ -251,6 +292,50 @@ export const ROUTING_CASES: RoutingCase[] = [
       due_date: "2026-11-15",
     },
   },
+  {
+    id: "propose-recategorize-expense",
+    question:
+      "El gasto 00000000-0000-4000-8000-0000000000a1 de Caja pasalo al centro de costo FLOTA.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeRecategorizeExpense",
+      input: {
+        source: "transactions",
+        id: "00000000-0000-4000-8000-0000000000a1",
+        cost_center: "FLOTA",
+      },
+    },
+  },
+  // The list read stops at the first refusal (the offline stub refuses),
+  // so it reaches listTaxDocumentsAction once; its year is today's.
+  {
+    id: "taxes-due-this-week",
+    question: "¿Qué impuestos vencen esta semana?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { dueWithinDays: 7 } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-overdue-accountant",
+    question: "¿Hay impuestos vencidos sin pagar?",
+    roles: ["fiscal_reader"],
+    expect: { tool: "getTaxDocuments", input: {} },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-paid-month",
+    question: "¿Cuánto pagamos de impuestos en octubre 2026?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { period: "2026-10" } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
+  {
+    id: "taxes-iva-estimate",
+    question: "¿Cuánto IVA vamos a pagar por octubre 2026?",
+    roles: ["finance"],
+    expect: { tool: "getTaxDocuments", input: { ivaPeriod: "2026-10" } },
+    dispatch: { fn: "listTaxDocumentsAction", args: {} },
+  },
 ];
 
 export const DENIED_CASES: DeniedCase[] = [
@@ -294,6 +379,18 @@ export const DENIED_CASES: DeniedCase[] = [
     question: "Emití la ND por intereses de mora de Cliente Uno.",
     roles: ["fiscal_reader"],
     forbiddenTools: ["proposeLateInterestNd", "proposeTask"],
+  },
+  {
+    id: "recategorize-operations",
+    question: "Pasá el gasto de combustible de ayer al centro de costo FLOTA.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeRecategorizeExpense", "getTransactions"],
+  },
+  {
+    id: "taxes-operations",
+    question: "¿Qué impuestos vencen esta semana?",
+    roles: ["operations"],
+    forbiddenTools: ["getTaxDocuments"],
   },
   {
     id: "cash-operations",

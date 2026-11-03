@@ -63,6 +63,7 @@ const leaveRow: AiConfirmation = {
   summary: [],
   status: "pending",
   result_id: null,
+  result_note: null,
   error: null,
   created_at: "2026-10-16T12:00:00Z",
   decided_at: null,
@@ -79,7 +80,10 @@ beforeEach(() => {
 describe("confirmAiProposalAction", () => {
   it("runs the write once for a role that holds the proposal's permissions", async () => {
     const res = await confirmAiProposalAction(ID);
-    expect(res).toEqual({ ok: true, data: { resultId: "leave-1" } });
+    expect(res).toEqual({
+      ok: true,
+      data: { resultId: "leave-1", note: null },
+    });
     expect(claimConfirmation).toHaveBeenCalledWith("u1", ID, "confirmed");
     expect(createLeave).toHaveBeenCalledTimes(1);
     expect(recordConfirmationOutcome).toHaveBeenCalledWith("u1", ID, {
@@ -91,6 +95,22 @@ describe("confirmAiProposalAction", () => {
       expect.objectContaining({ action: "proposeLeave", result_id: "leave-1" }),
       ID,
     );
+  });
+
+  it("keeps the note the write reported for the card", async () => {
+    createLeave.mockResolvedValue({
+      ok: true,
+      data: { id: "leave-1", note: "3 conciliadas." },
+    });
+    const res = await confirmAiProposalAction(ID);
+    expect(res).toEqual({
+      ok: true,
+      data: { resultId: "leave-1", note: "3 conciliadas." },
+    });
+    expect(recordConfirmationOutcome).toHaveBeenCalledWith("u1", ID, {
+      resultId: "leave-1",
+      note: "3 conciliadas.",
+    });
   });
 
   it("refuses a role without the write permission before claiming", async () => {

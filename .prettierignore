@@ -9,3 +9,6 @@ playwright-report/
 test-results/
 supabase/.temp/
 supabase/.branches/
+# Skill tooling: page fragments concatenated into one HTML (td-explain) and the mock-ui kit.
+.agents/skills/td-explain/reference/
+.agents/skills/mock-ui/

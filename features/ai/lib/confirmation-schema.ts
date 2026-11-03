@@ -14,7 +14,7 @@ export const CONFIRMATION_STATUSES = [
 export type AiConfirmationStatus = (typeof CONFIRMATION_STATUSES)[number];
 
 export const CONFIRMATION_COLUMNS =
-  "id, session_id, tool_call_id, action, revision_key, revision, origin, draft, labels, summary, status, result_id, error, created_at, decided_at";
+  "id, session_id, tool_call_id, action, revision_key, revision, origin, draft, labels, summary, status, result_id, result_note, error, created_at, decided_at";
 
 const summaryRowsSchema = z.array(
   z.object({ label: z.string(), value: z.string() }),
@@ -34,6 +34,8 @@ export const confirmationRowSchema = z.object({
   summary: summaryRowsSchema,
   status: z.enum(CONFIRMATION_STATUSES),
   result_id: z.string().nullable(),
+  /** What the confirmed write reported ("12 conciliadas"), if anything. */
+  result_note: z.string().nullable().default(null),
   error: z.string().nullable(),
   created_at: z.string(),
   decided_at: z.string().nullable(),

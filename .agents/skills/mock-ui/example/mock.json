@@ -1,0 +1,16 @@
+{
+  "title": "Cobro en Liquidaciones",
+  "slug": "liquidaciones-cobro",
+  "user": { "firstName": "Marta", "lastName": "Giménez", "email": "marta@jouve.test", "avatarColor": "blue" },
+  "roles": ["finance"],
+  "denied": [],
+  "scope": "fiscal",
+  "activePath": "/liquidaciones",
+  "intro": "Cada liquidación facturada muestra si su factura ya se cobró, y arriba cuánto queda por cobrar. Lo marcado con línea punteada es nuevo.",
+  "steps": [
+    "Mirá la columna Cobro y el total pendiente de arriba",
+    "Abrí el menú de R-00000012 y elegí Facturar",
+    "Buscá una liquidación por cliente"
+  ],
+  "client": false
+}
