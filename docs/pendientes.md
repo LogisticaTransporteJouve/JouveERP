@@ -325,6 +325,16 @@
       la rendición: sigue confirmada hasta cancelarla.
 - [ ] Liquidaciones por lotes (todos los clientes de un período) y envío del
       R por email.
+- [x] **Remito R / remito interno X** (`20261104030000_freight_settlements_remito_r`):
+      la liquidación sigue el lado del cliente. Ventas: confirmar emite el
+      **Remito R** (`R9002-…`, correlativo propio) y después se factura la
+      A/B. Otras ventas: "Emitir remito interno" confirma y emite el remito
+      interno X (`X9001-…`), sin R. Las confirmadas antes conservan su `R-…`.
+- [ ] El Remito R no imprime CAI ni su vencimiento (RG 1415, comprobante
+      impreso): cargar el CAI del punto de venta 9002 cuando se tramite, y
+      confirmar con el contador que 9002 es el punto de venta habilitado.
+- [ ] Borrar `confirm_freight_settlement(uuid, uuid)` (numeración `R-…`) una
+      vez que no quede código desplegable que la llame.
 
 ## Remitos únicos y tarifarios por cliente (2026-11-03, roadmap 4.1 + 4.2)
 
