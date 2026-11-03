@@ -453,7 +453,7 @@ const FleetRangeInputSchema = z
   .refine(rangeOrder, RANGE_ORDER_MESSAGE);
 
 const VEHICLE_COSTS_NOTE =
-  "Los costos por vehículo son los de sus viajes, sus cargas de combustible y sus registros de mantenimiento, más (con permiso de gestión) el costo operativo cargado con el centro de costo vinculado al camión (seguros, patentes, cubiertas, compras), sin contar dos veces lo que ya imputa una carga o un service.";
+  "Los costos por vehículo son los de sus viajes, sus cargas de combustible y sus registros de mantenimiento, más (con permiso de gestión) el costo operativo y lo sin clasificar cargados con el centro de costo vinculado al camión (seguros, patentes, cubiertas, compras), sin contar dos veces lo que ya imputa una carga o un service.";
 
 const UNLINKED_VEHICLE_COSTS =
   "Seguros, patentes, cubiertas y compras cargadas solo con centro de costo no entran: hace falta el permiso de gestión.";
