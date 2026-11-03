@@ -1,6 +1,9 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import { formatReceiptNumber } from "@/features/receipts/schema";
+import {
+  formatReceiptNumber,
+  RECEIPT_LETTER,
+} from "@/features/receipts/schema";
 
 import {
   formatVoucherAmount,
@@ -79,6 +82,7 @@ export function ReceiptDocument({ data }: { data: ReceiptTemplateData }) {
   return (
     <VoucherDocument
       title={data.title ?? "RECIBO"}
+      letter={RECEIPT_LETTER}
       number={formatReceiptNumber(data.punto_venta, data.numero)}
       canceledLabel="ANULADO"
       partyTitle="Recibimos de"
