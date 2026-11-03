@@ -62,7 +62,11 @@ export type SeedPayrollPeriodInput = z.infer<typeof SeedPayrollPeriodSchema>;
 export type ClosePayrollPeriodInput = z.infer<typeof ClosePayrollPeriodSchema>;
 
 type PayrollPeriodRow = Database["public"]["Tables"]["payroll_periods"]["Row"];
-export type PayrollPeriod = Omit<PayrollPeriodRow, "status" | "kind"> & {
+// posts_employee_accounts is the database's alone (closing writes the account).
+export type PayrollPeriod = Omit<
+  PayrollPeriodRow,
+  "status" | "kind" | "posts_employee_accounts"
+> & {
   status: PayrollStatus;
   kind: PayrollPeriodKind;
 };

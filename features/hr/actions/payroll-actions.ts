@@ -27,7 +27,10 @@ import {
   type PayrollPeriodKind,
 } from "../payroll-schema";
 
-type PeriodRow = Database["public"]["Tables"]["payroll_periods"]["Row"];
+type PeriodRow = Omit<
+  Database["public"]["Tables"]["payroll_periods"]["Row"],
+  "posts_employee_accounts"
+>;
 
 function narrowPeriod(row: PeriodRow): PayrollPeriod | null {
   const { status, kind } = row;
@@ -430,12 +433,7 @@ export async function resetPayrollDeudasAction(
   if (!data || data.length === 0) {
     return { ok: false, error: "La fila ya no existe." };
   }
-  await logAudit(
-    "payroll.entry_deudas_reset",
-    ctx.userId,
-    {},
-    parsed.data.id,
-  );
+  await logAudit("payroll.entry_deudas_reset", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
 

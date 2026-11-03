@@ -90,6 +90,12 @@ const GUARDS = [
   "guard_transaction_owned_by_document",
   "fill_payroll_period",
   "seed_sac_period",
+  "guard_employee_account_movement",
+  "guard_employee_debt_plan",
+  "guard_purchase_employee_charge",
+  "record_employee_account_cash",
+  "delete_employee_account_movement",
+  "apply_salary_raise",
 ];
 
 describe("guard hints in migrations", () => {

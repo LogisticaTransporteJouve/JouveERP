@@ -104,10 +104,7 @@ export function EmployeeCashDialog({
                 onDone={() => setOpen(false)}
               />
             ) : (
-              <PickEmployeeThenForm
-                kind={kind}
-                onDone={() => setOpen(false)}
-              />
+              <PickEmployeeThenForm kind={kind} onDone={() => setOpen(false)} />
             )}
           </Suspense>
         )}

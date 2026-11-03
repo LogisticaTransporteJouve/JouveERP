@@ -58,7 +58,8 @@ export const CREDITOR_LABEL: Record<Creditor, string> = {
 
 export function isCreditor(value: unknown): value is Creditor {
   return (
-    typeof value === "string" && (CREDITORS as readonly string[]).includes(value)
+    typeof value === "string" &&
+    (CREDITORS as readonly string[]).includes(value)
   );
 }
 
@@ -112,6 +113,14 @@ export const RecordAccountCashSchema = z
     installment_amount: positiveMoney.nullable().optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.plan_id && v.kind !== "payment") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["plan_id"],
+        message:
+          "Un adelanto abre su propio plan; solo un pago se imputa a un plan.",
+      });
+    }
     if (v.installment_amount != null && v.kind !== "advance") {
       ctx.addIssue({
         code: "custom",

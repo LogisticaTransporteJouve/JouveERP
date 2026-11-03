@@ -4035,6 +4035,7 @@ export type Database = {
           kind: string
           month: number
           notes: string | null
+          posts_employee_accounts: boolean
           status: string
           updated_at: string
           year: number
@@ -4048,6 +4049,7 @@ export type Database = {
           kind?: string
           month: number
           notes?: string | null
+          posts_employee_accounts?: boolean
           status?: string
           updated_at?: string
           year: number
@@ -4061,6 +4063,7 @@ export type Database = {
           kind?: string
           month?: number
           notes?: string | null
+          posts_employee_accounts?: boolean
           status?: string
           updated_at?: string
           year?: number
@@ -7313,15 +7316,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      apply_salary_raise: {
-        Args: {
-          p_effective_month: string
-          p_employee_ids: string[]
-          p_percentage: number
-          p_reason?: string
-        }
-        Returns: number
-      }
       apply_client_opening_balance: {
         Args: {
           p_client_id: string
@@ -7330,6 +7324,15 @@ export type Database = {
           p_target_balance: number
         }
         Returns: undefined
+      }
+      apply_salary_raise: {
+        Args: {
+          p_effective_month: string
+          p_employee_ids: string[]
+          p_percentage: number
+          p_reason?: string
+        }
+        Returns: number
       }
       apply_supplier_opening_balance: {
         Args: {

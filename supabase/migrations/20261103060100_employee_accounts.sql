@@ -26,7 +26,8 @@ SET LOCAL statement_timeout = '15min';
 --      writes its deudas to the account as payroll_discount movements (to
 --      each active ARS plan up to its installment, or up to what remains
 --      when overridden; any rest without a plan) and reopening deletes them.
---      Periods closed before this migration write nothing.
+--      Periods closed before this migration write nothing, even when
+--      reopened and closed again (payroll_periods.posts_employee_accounts).
 --   5. Purchases: purchase_invoices.charged_employee_id ("a cargo de
 --      empleado"). A received factura or ND charged to an employee keeps its
 --      Libro IVA and IVA lines; its neto posts to anticipos_personal instead
@@ -360,6 +361,18 @@ update public.payroll_entries pe
    and pp.status = 'draft'
    and pe.deudas > 0;
 
+alter table public.payroll_periods
+  add column posts_employee_accounts boolean not null default true;
+
+comment on column public.payroll_periods.posts_employee_accounts is
+  'false = cerrado antes de la cuenta corriente del empleado: cerrarlo de nuevo no escribe sus deudas como descuentos de planilla.';
+
+-- Their deudas were settled outside the account: closing one again after a
+-- reopen must not credit the employees.
+update public.payroll_periods
+   set posts_employee_accounts = false
+ where status = 'closed';
+
 create function public.payroll_entry_apply_plans()
 returns trigger
 language plpgsql
@@ -480,6 +493,15 @@ begin
     raise exception 'El plan ya tiene movimientos: no se cambia de empleado ni de moneda'
       using errcode = '55006', hint = 'jouve_guard';
   end if;
+  if new.total < old.total and new.total < (
+    select coalesce(sum(m.amount), 0)
+      from public.employee_account_movements m
+     where m.plan_id = old.id
+       and m.kind in ('payroll_discount', 'payment', 'forgiveness')
+  ) then
+    raise exception 'El total del plan no puede ser menor a lo que ya se pagó'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
   return new;
 end;
 $$;
@@ -536,7 +558,7 @@ begin
        and pe.period_id = new.id;
     return null;
   end if;
-  if not (old.status = 'draft' and new.status = 'closed') then
+  if not (old.status = 'draft' and new.status = 'closed') or not new.posts_employee_accounts then
     return null;
   end if;
 
@@ -765,8 +787,8 @@ create constraint trigger purchase_invoices_repost_journal
 
 -- An advance (cash out to the employee) or a payment by the employee (cash
 -- in), with the treasury movement that carries it. p_installment_amount on an
--- advance without p_plan_id opens a plan for it (total = the advance) from
--- the advance's month.
+-- advance opens a plan for it (total = the advance) from the advance's month;
+-- p_plan_id on a payment credits that plan.
 create function public.record_employee_account_cash(
   p_employee_id        uuid,
   p_kind               text,
@@ -811,6 +833,14 @@ begin
     raise exception 'Indicá la fecha'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
+  if p_kind = 'advance' and p_plan_id is not null then
+    raise exception 'Un adelanto abre su propio plan en cuotas; un pago es el que se imputa a un plan'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
+  if p_kind = 'payment' and p_installment_amount is not null then
+    raise exception 'Solo un adelanto abre un plan en cuotas'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
 
   select legal_name into v_name from public.employees where id = p_employee_id;
   if v_name is null then
@@ -844,7 +874,7 @@ begin
          else 'Pago de ' || v_name || ' (cuenta corriente)' end
   );
 
-  if p_kind = 'advance' and v_plan_id is null and p_installment_amount is not null then
+  if p_kind = 'advance' and p_installment_amount is not null then
     if p_installment_amount <= 0 or p_installment_amount > p_amount then
       raise exception 'La cuota del plan tiene que ser mayor a cero y no superar el adelanto'
         using errcode = '23514', hint = 'jouve_guard';
@@ -889,9 +919,9 @@ comment on function public.record_employee_account_cash(uuid, text, uuid, text, 
 revoke all on function public.record_employee_account_cash(uuid, text, uuid, text, date, numeric, text, uuid, numeric) from public, anon, authenticated;
 grant execute on function public.record_employee_account_cash(uuid, text, uuid, text, date, numeric, text, uuid, numeric) to authenticated, service_role;
 
--- Deletes a manual movement, or an advance or cash payment with its treasury
--- movement. The planilla, purchase and forgiveness movements are deleted by
--- their owners.
+-- Deletes a manual movement, or an advance (with the plan it opened) or cash
+-- payment with its treasury movement. The planilla, purchase and forgiveness
+-- movements are deleted by their owners.
 create function public.delete_employee_account_movement(p_movement_id uuid)
 returns void
 language plpgsql
@@ -926,9 +956,22 @@ begin
       using errcode = '55006', hint = 'jouve_guard';
   end if;
 
+  -- An advance's plan is the one it opened: it goes with the advance unless
+  -- something already paid it back.
+  if v_movement.kind = 'advance' and v_movement.plan_id is not null and exists (
+    select 1 from public.employee_account_movements
+     where plan_id = v_movement.plan_id and id <> v_movement.id
+  ) then
+    raise exception 'El plan de este adelanto ya tiene descuentos o pagos: cancelá el plan en vez de borrar el adelanto'
+      using errcode = '55006', hint = 'jouve_guard';
+  end if;
+
   delete from public.employee_account_movements where id = v_movement.id;
   if v_movement.transaction_id is not null then
     delete from public.transactions where id = v_movement.transaction_id;
+  end if;
+  if v_movement.kind = 'advance' and v_movement.plan_id is not null then
+    delete from public.employee_debt_plans where id = v_movement.plan_id;
   end if;
 end;
 $$;
