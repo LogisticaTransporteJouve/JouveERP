@@ -81,6 +81,8 @@ const GUARDS = [
   "guard_task_identity",
   "guard_expense_account",
   "guard_transaction_expense_account",
+  "fill_payroll_period",
+  "seed_sac_period",
 ];
 
 describe("guard hints in migrations", () => {

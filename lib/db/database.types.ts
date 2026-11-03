@@ -1615,6 +1615,59 @@ export type Database = {
           },
         ]
       }
+      employee_garnishments: {
+        Row: {
+          active_from: string
+          active_to: string | null
+          amount: number | null
+          beneficiary: string | null
+          court_note: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          mode: string
+          percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          active_from: string
+          active_to?: string | null
+          amount?: number | null
+          beneficiary?: string | null
+          court_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          mode: string
+          percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active_from?: string
+          active_to?: string | null
+          amount?: number | null
+          beneficiary?: string | null
+          court_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          mode?: string
+          percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_garnishments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_leaves: {
         Row: {
           created_at: string
@@ -1723,8 +1776,11 @@ export type Database = {
       }
       employees: {
         Row: {
+          art: string | null
           base_salary: number | null
+          categoria: string | null
           cbu: string | null
+          convenio: string | null
           created_at: string
           created_by: string | null
           cuil: string | null
@@ -1734,15 +1790,20 @@ export type Database = {
           is_monotributo: boolean
           legal_name: string
           notes: string | null
+          obra_social: string | null
           pay_frequency: string
           position: string | null
+          retribucion_formal: number | null
           termination_date: string | null
           updated_at: string
           viatico_monthly: number
         }
         Insert: {
+          art?: string | null
           base_salary?: number | null
+          categoria?: string | null
           cbu?: string | null
+          convenio?: string | null
           created_at?: string
           created_by?: string | null
           cuil?: string | null
@@ -1752,15 +1813,20 @@ export type Database = {
           is_monotributo?: boolean
           legal_name: string
           notes?: string | null
+          obra_social?: string | null
           pay_frequency: string
           position?: string | null
+          retribucion_formal?: number | null
           termination_date?: string | null
           updated_at?: string
           viatico_monthly?: number
         }
         Update: {
+          art?: string | null
           base_salary?: number | null
+          categoria?: string | null
           cbu?: string | null
+          convenio?: string | null
           created_at?: string
           created_by?: string | null
           cuil?: string | null
@@ -1770,8 +1836,10 @@ export type Database = {
           is_monotributo?: boolean
           legal_name?: string
           notes?: string | null
+          obra_social?: string | null
           pay_frequency?: string
           position?: string | null
+          retribucion_formal?: number | null
           termination_date?: string | null
           updated_at?: string
           viatico_monthly?: number
@@ -3428,10 +3496,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           deudas: number
+          embargo: number
           employee_id: string
           id: string
           notes: string | null
           period_id: string
+          recibo_neto: number | null
           sueldo_neto: number
           telefono: number
           updated_at: string
@@ -3442,10 +3512,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deudas?: number
+          embargo?: number
           employee_id: string
           id?: string
           notes?: string | null
           period_id: string
+          recibo_neto?: number | null
           sueldo_neto?: number
           telefono?: number
           updated_at?: string
@@ -3456,10 +3528,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deudas?: number
+          embargo?: number
           employee_id?: string
           id?: string
           notes?: string | null
           period_id?: string
+          recibo_neto?: number | null
           sueldo_neto?: number
           telefono?: number
           updated_at?: string
@@ -3637,6 +3711,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          kind: string
           month: number
           notes: string | null
           status: string
@@ -3649,6 +3724,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
           month: number
           notes?: string | null
           status?: string
@@ -3661,6 +3737,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
           month?: number
           notes?: string | null
           status?: string
@@ -5990,11 +6067,13 @@ export type Database = {
         Row: {
           created_at: string | null
           deudas: number | null
+          embargo: number | null
           employee_id: string | null
           extras_total: number | null
           id: string | null
           notes: string | null
           period_id: string | null
+          recibo_neto: number | null
           sueldo_neto: number | null
           telefono: number | null
           total_a_pagar: number | null
@@ -6023,13 +6102,17 @@ export type Database = {
         Row: {
           created_at: string | null
           deudas: number | null
+          embargo: number | null
           employee_id: string | null
           extras_total: number | null
           id: string | null
           notes: string | null
+          paid_efectivo: number | null
           paid_total: number | null
+          paid_transferencia: number | null
           payments_count: number | null
           period_id: string | null
+          recibo_neto: number | null
           saldo: number | null
           sueldo_neto: number | null
           telefono: number | null
@@ -6603,6 +6686,7 @@ export type Database = {
         }
         Returns: {
           deudas: number
+          embargo: number
           employees: number
           extras: number
           group_key: string
@@ -7341,6 +7425,14 @@ export type Database = {
         }
         Returns: string
       }
+      payroll_garnishment_amount: {
+        Args: { p_base: number; p_employee_id: string; p_period_id: string }
+        Returns: number
+      }
+      payroll_sac_suggestion: {
+        Args: { p_employee_id: string; p_half: number; p_year: number }
+        Returns: number
+      }
       pick_default_avatar_color: {
         Args: { p_user_id: string }
         Returns: string
@@ -7472,8 +7564,11 @@ export type Database = {
           p_query: string
         }
         Returns: {
+          art: string | null
           base_salary: number | null
+          categoria: string | null
           cbu: string | null
+          convenio: string | null
           created_at: string
           created_by: string | null
           cuil: string | null
@@ -7483,8 +7578,10 @@ export type Database = {
           is_monotributo: boolean
           legal_name: string
           notes: string | null
+          obra_social: string | null
           pay_frequency: string
           position: string | null
+          retribucion_formal: number | null
           termination_date: string | null
           updated_at: string
           viatico_monthly: number
@@ -7594,6 +7691,10 @@ export type Database = {
       }
       seed_payroll_period: {
         Args: { p_month: number; p_year: number }
+        Returns: string
+      }
+      seed_sac_period: {
+        Args: { p_half: number; p_year: number }
         Returns: string
       }
       set_user_access: {
