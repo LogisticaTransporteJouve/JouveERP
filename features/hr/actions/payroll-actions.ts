@@ -17,7 +17,7 @@ import {
   isPayrollStatus,
   RemovePayrollEntryExtraSchema,
   ReopenPayrollPeriodSchema,
-  ResetPayrollDeudasSchema,
+  ResetPayrollOverrideSchema,
   SeedPayrollPeriodSchema,
   SeedSacPeriodSchema,
   UpdatePayrollEntrySchema,
@@ -133,17 +133,15 @@ export async function getPayrollPeriodAction(
     .map((e) => e.employee_id)
     .filter((id): id is string => id !== null);
 
-  // The views predate deudas_override; read it from the table.
+  // The views predate the override flags; read them from the table.
   const { data: overrides, error: overridesErr } = await supabase
     .from("payroll_entries")
-    .select("id, deudas_override")
+    .select("id, deudas_override, embargo_override")
     .eq("period_id", period.id);
   if (overridesErr) {
     return { ok: false, error: overridesErr.message };
   }
-  const overrideById = new Map(
-    (overrides ?? []).map((o) => [o.id, o.deudas_override]),
-  );
+  const overrideById = new Map((overrides ?? []).map((o) => [o.id, o]));
 
   const { data: employees, error: empErr } = await supabase
     .from("employees")
@@ -188,9 +186,12 @@ export async function getPayrollPeriodAction(
         vacaciones_monto: Number(row.vacaciones_monto ?? 0),
         viaticos: Number(row.viaticos ?? 0),
         deudas: Number(row.deudas ?? 0),
-        deudas_override: overrideById.get(row.id ?? "") ?? false,
+        deudas_override:
+          overrideById.get(row.id ?? "")?.deudas_override ?? false,
         telefono: Number(row.telefono ?? 0),
         embargo: Number(row.embargo ?? 0),
+        embargo_override:
+          overrideById.get(row.id ?? "")?.embargo_override ?? false,
         recibo_neto: row.recibo_neto === null ? null : Number(row.recibo_neto),
         total_a_pagar: Number(row.total_a_pagar ?? 0),
         paid_total: Number(row.paid_total ?? 0),
@@ -412,28 +413,41 @@ export async function updatePayrollEntryAction(
   return { ok: true, data: undefined };
 }
 
-/** Back to the plans' installments after a hand edit of Deudas. */
-export async function resetPayrollDeudasAction(
+/** Back to the computed figure after a hand edit: Deudas from the plans'
+ *  installments, Embargo from the employee's garnishments. */
+export async function resetPayrollOverrideAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para editar la planilla." };
   }
-  const parsed = ResetPayrollDeudasSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "ID inválido." };
+  const parsed = ResetPayrollOverrideSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const { id, field } = parsed.data;
 
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("payroll_entries")
-    .update({ deudas_override: false })
-    .eq("id", parsed.data.id)
+    .update(
+      field === "deudas"
+        ? { deudas_override: false }
+        : { embargo_override: false },
+    )
+    .eq("id", id)
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) {
     return { ok: false, error: "La fila ya no existe." };
   }
-  await logAudit("payroll.entry_deudas_reset", ctx.userId, {}, parsed.data.id);
+  await logAudit(
+    field === "deudas"
+      ? "payroll.entry_deudas_reset"
+      : "payroll.entry_embargo_reset",
+    ctx.userId,
+    {},
+    id,
+  );
   return { ok: true, data: undefined };
 }
 

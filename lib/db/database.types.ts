@@ -5069,6 +5069,7 @@ export type Database = {
           deudas: number
           deudas_override: boolean
           embargo: number
+          embargo_override: boolean
           employee_id: string
           id: string
           notes: string | null
@@ -5086,6 +5087,7 @@ export type Database = {
           deudas?: number
           deudas_override?: boolean
           embargo?: number
+          embargo_override?: boolean
           employee_id: string
           id?: string
           notes?: string | null
@@ -5103,6 +5105,7 @@ export type Database = {
           deudas?: number
           deudas_override?: boolean
           embargo?: number
+          embargo_override?: boolean
           employee_id?: string
           id?: string
           notes?: string | null
