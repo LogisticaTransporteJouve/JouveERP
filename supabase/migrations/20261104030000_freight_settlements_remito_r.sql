@@ -49,11 +49,14 @@ alter table public.freight_settlements
     check (remito_number is null or channel = 'fiscal') not valid,
   add constraint freight_settlements_legacy_numero
     check (numero is null or channel is null) not valid,
+  -- coalesce: a NULL channel must fail the check, not pass it as unknown.
   add constraint freight_settlements_documented check (
     status not in ('confirmed', 'invoiced')
-    or numero is not null
-    or (channel = 'fiscal' and remito_number is not null)
-    or channel = 'internal'
+    or coalesce(
+         numero is not null
+         or (channel = 'fiscal' and remito_number is not null)
+         or channel = 'internal',
+         false)
   ) not valid;
 
 -- squawk-ignore constraint-missing-not-valid
@@ -113,6 +116,9 @@ $$;
 
 revoke all on function public.freight_settlement_label(bigint, integer, bigint)
   from public, anon, authenticated;
+-- Pure formatting, called from shipment guards that run as the editing user.
+grant execute on function public.freight_settlement_label(bigint, integer, bigint)
+  to authenticated, service_role;
 
 -- Reprices a draft's live cargas from their current flete or tariff and
 -- returns the total. Both confirm RPCs call it under the liquidación's lock.

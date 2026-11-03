@@ -55,8 +55,10 @@ select ok(
 select ok(
   not has_function_privilege('authenticated', 'public.reprice_freight_settlement(uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.freight_remito_pos()', 'execute')
-  and not has_function_privilege('authenticated', 'public.freight_settlement_label(bigint, integer, bigint)', 'execute'),
-  'nobody calls the helpers directly'
+  and not has_function_privilege('anon', 'public.freight_settlement_label(bigint, integer, bigint)', 'execute')
+  -- The label is pure formatting used by shipment guards that run as the user.
+  and has_function_privilege('authenticated', 'public.freight_settlement_label(bigint, integer, bigint)', 'execute'),
+  'the helpers stay internal; only the pure label is callable by users'
 );
 
 -- 2. Old liquidaciones keep their number ---------------------------------------
