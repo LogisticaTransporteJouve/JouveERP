@@ -26,11 +26,12 @@ select is(
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-0000001020a1', 'Banco gestión préstamos', 'bank', 'ARS');
 
--- Principal 1.000 in 3 unsplit cuotas of 400: the third carries 250 of
--- capital and 150 of interest. The second loan has no disbursement recorded.
+-- Principal 1.050 in 3 unsplit cuotas of 400: the builder pays capital first
+-- (1.050 − 800 of the earlier cuotas), so the third carries 250 of capital and
+-- 150 of interest. The second loan has no disbursement recorded.
 insert into public.loans (id, channel_id, currency, description, first_due_date, installments_count, kind, principal)
 values
-  ('00000000-0000-0000-0000-0000001020b1', 'jouve_fiscal', 'ARS', 'Préstamo gestión', current_date, 3, 'prestamo', 1000),
+  ('00000000-0000-0000-0000-0000001020b1', 'jouve_fiscal', 'ARS', 'Préstamo gestión', current_date, 3, 'prestamo', 1050),
   ('00000000-0000-0000-0000-0000001020b2', 'jouve_fiscal', 'ARS', 'Préstamo sin desembolso', current_date, 1, 'prestamo', 500);
 
 insert into public.loan_installments (id, loan_id, number, due_date, amount) values
