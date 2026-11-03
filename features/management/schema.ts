@@ -4,6 +4,12 @@
 
 import { z } from "zod";
 
+import {
+  isPayrollPeriodKind,
+  payrollPeriodHref,
+} from "@/features/hr/payroll-schema";
+import type { Permission } from "@/lib/auth/permissions";
+import type { CsvCell } from "@/lib/export/csv";
 import { round2 } from "@/lib/format";
 import { PeriodSchema } from "@/lib/validation/common";
 
@@ -36,11 +42,13 @@ export const MANAGEMENT_BUCKETS = [
 export type ManagementBucket = (typeof MANAGEMENT_BUCKETS)[number];
 
 /** Buckets a P&L row can carry: the mapped ones (minus neutral, which the
- *  RPC drops), a result account without mapping, and USD without a rate. */
+ *  RPC drops), a result account without mapping, USD without a rate, and
+ *  (cash basis only) advances to staff, net of what the planilla took back. */
 export const ROW_BUCKETS = [
   ...MANAGEMENT_BUCKETS.filter((b) => b !== "neutral"),
   "unclassified",
   "pending_usd",
+  "employee_advances",
 ] as const;
 export type RowBucket = (typeof ROW_BUCKETS)[number];
 
@@ -100,6 +108,7 @@ export const BUCKET_LABEL: Record<ManagementBucket | RowBucket, string> = {
   excluded_noncash: "Excluido (no es caja: amortización, RECPAM)",
   unclassified: "Sin clasificar",
   pending_usd: "USD sin cotización",
+  employee_advances: "Anticipos al personal",
 };
 
 export const CHANNEL_SIDES = ["fiscal", "internal"] as const;
@@ -237,6 +246,9 @@ export type Waterfall = {
   loanPrincipal: number;
   fleetInvestment: number;
   assetSale: number;
+  /** Cash only: advances and purchases charged to staff, net of what the
+   *  planilla discounted (that part is in salaries). */
+  employeeAdvances: number;
   cashGeneration: number;
   /** Shown apart, never in a total. */
   excludedNoncash: number;
@@ -260,6 +272,7 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
   const loanPrincipal = sum("loan_principal");
   const fleetInvestment = sum("fleet_investment");
   const assetSale = sum("asset_sale");
+  const employeeAdvances = sum("employee_advances");
   return {
     serviceRevenue,
     operatingCost,
@@ -270,8 +283,13 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
     loanPrincipal,
     fleetInvestment,
     assetSale,
+    employeeAdvances,
     cashGeneration: round2(
-      afterFinancing + loanPrincipal + fleetInvestment + assetSale,
+      afterFinancing +
+        loanPrincipal +
+        fleetInvestment +
+        assetSale +
+        employeeAdvances,
     ),
     excludedNoncash: sum("excluded_noncash"),
     pendingUsd: round2(rows.reduce((a, r) => a + r.pendingUsd, 0)),
@@ -284,23 +302,33 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
 
 export type LineKind = "line" | "subtotal" | "total";
 
-export type TableLine = {
+/** What a line adds up: the buckets it reads (the drill-down asks the RPC
+ *  for those) and the rows it keeps of them. */
+type LineScope = {
+  buckets: readonly RowBucket[];
+  match: (r: ManagementRow) => boolean;
+};
+
+export type TableLine = LineScope & {
   key: string;
   label: string;
   kind: LineKind;
   /** Nesting under a heading (0 = top). */
   depth: number;
-  match: (r: ManagementRow) => boolean;
 };
 
-const byBucket = (bucket: RowBucket) => (r: ManagementRow) =>
-  r.bucket === bucket;
-const bySub = (bucket: RowBucket, sub: Subbucket) => (r: ManagementRow) =>
-  r.bucket === bucket && r.subbucket === sub;
-const anyOf =
-  (...buckets: RowBucket[]) =>
-  (r: ManagementRow) =>
-    buckets.includes(r.bucket);
+const byBucket = (bucket: RowBucket): LineScope => ({
+  buckets: [bucket],
+  match: (r) => r.bucket === bucket,
+});
+const bySub = (bucket: RowBucket, sub: Subbucket): LineScope => ({
+  buckets: [bucket],
+  match: (r) => r.bucket === bucket && r.subbucket === sub,
+});
+const anyOf = (...buckets: RowBucket[]): LineScope => ({
+  buckets,
+  match: (r) => buckets.includes(r.bucket),
+});
 
 const OPERATING_DETAIL = OPERATING_SUBBUCKETS.filter(
   (s) => s !== "sueldos" && s !== "sueldos_internos",
@@ -313,27 +341,28 @@ export const TABLE_LINES: readonly TableLine[] = [
     label: BUCKET_LABEL.service_revenue,
     kind: "line",
     depth: 0,
-    match: byBucket("service_revenue"),
+    ...byBucket("service_revenue"),
   },
   {
     key: "op:sueldos",
     label: SUBBUCKET_LABEL.sueldos,
     kind: "line",
     depth: 2,
-    match: bySub("operating_cost", "sueldos"),
+    ...bySub("operating_cost", "sueldos"),
   },
   {
     key: "op:sueldos_internos",
     label: SUBBUCKET_LABEL.sueldos_internos,
     kind: "line",
     depth: 2,
-    match: bySub("operating_cost", "sueldos_internos"),
+    ...bySub("operating_cost", "sueldos_internos"),
   },
   {
     key: "op:personal",
     label: "Total personal",
     kind: "subtotal",
     depth: 1,
+    buckets: ["operating_cost"],
     match: (r) =>
       r.bucket === "operating_cost" &&
       (r.subbucket === "sueldos" || r.subbucket === "sueldos_internos"),
@@ -343,47 +372,49 @@ export const TABLE_LINES: readonly TableLine[] = [
     label: SUBBUCKET_LABEL[sub],
     kind: "line",
     depth: 1,
-    match:
-      sub === "otros"
-        ? (r) =>
+    ...(sub === "otros"
+      ? {
+          buckets: ["operating_cost"],
+          match: (r: ManagementRow) =>
             r.bucket === "operating_cost" &&
-            (r.subbucket === "otros" || r.subbucket === null)
-        : bySub("operating_cost", sub),
+            (r.subbucket === "otros" || r.subbucket === null),
+        }
+      : bySub("operating_cost", sub)),
   })),
   {
     key: "operating_cost",
     label: BUCKET_LABEL.operating_cost,
     kind: "subtotal",
     depth: 0,
-    match: byBucket("operating_cost"),
+    ...byBucket("operating_cost"),
   },
   {
     key: "unclassified",
     label: BUCKET_LABEL.unclassified,
     kind: "line",
     depth: 0,
-    match: byBucket("unclassified"),
+    ...byBucket("unclassified"),
   },
   {
     key: "operating_margin",
     label: "Margen operativo",
     kind: "total",
     depth: 0,
-    match: anyOf("service_revenue", "operating_cost", "unclassified"),
+    ...anyOf("service_revenue", "operating_cost", "unclassified"),
   },
   {
     key: "financing_cost",
     label: BUCKET_LABEL.financing_cost,
     kind: "line",
     depth: 0,
-    match: byBucket("financing_cost"),
+    ...byBucket("financing_cost"),
   },
   {
     key: "after_financing",
     label: "Resultado después de financiación",
     kind: "total",
     depth: 0,
-    match: anyOf(
+    ...anyOf(
       "service_revenue",
       "operating_cost",
       "unclassified",
@@ -395,28 +426,35 @@ export const TABLE_LINES: readonly TableLine[] = [
     label: BUCKET_LABEL.loan_principal,
     kind: "line",
     depth: 0,
-    match: byBucket("loan_principal"),
+    ...byBucket("loan_principal"),
   },
   {
     key: "fleet_investment",
     label: BUCKET_LABEL.fleet_investment,
     kind: "line",
     depth: 0,
-    match: byBucket("fleet_investment"),
+    ...byBucket("fleet_investment"),
   },
   {
     key: "asset_sale",
     label: BUCKET_LABEL.asset_sale,
     kind: "line",
     depth: 0,
-    match: byBucket("asset_sale"),
+    ...byBucket("asset_sale"),
+  },
+  {
+    key: "employee_advances",
+    label: BUCKET_LABEL.employee_advances,
+    kind: "line",
+    depth: 0,
+    ...byBucket("employee_advances"),
   },
   {
     key: "cash_generation",
     label: "Generación de caja",
     kind: "total",
     depth: 0,
-    match: anyOf(
+    ...anyOf(
       "service_revenue",
       "operating_cost",
       "unclassified",
@@ -424,6 +462,7 @@ export const TABLE_LINES: readonly TableLine[] = [
       "loan_principal",
       "fleet_investment",
       "asset_sale",
+      "employee_advances",
     ),
   },
 ];
@@ -490,10 +529,10 @@ export const NO_COST_CENTER = "none";
 
 /** The rows of one cost center ("none": the rows without one; "all": every
  *  row). */
-export function filterByCostCenter(
-  rows: readonly ManagementRow[],
+export function filterByCostCenter<T extends { costCenterId: string | null }>(
+  rows: readonly T[],
   filter: string,
-): ManagementRow[] {
+): T[] {
   if (filter === ALL_COST_CENTERS) return [...rows];
   const target = filter === NO_COST_CENTER ? null : filter;
   return rows.filter((r) => r.costCenterId === target);
@@ -610,4 +649,370 @@ export function bucketChoiceValue(
   subbucket: Subbucket | null,
 ): string {
   return subbucket ? `${bucket}:${subbucket}` : bucket;
+}
+
+// ---------------------------------------------------------------------------
+// KPIs
+// ---------------------------------------------------------------------------
+
+/** `period` (YYYY-MM) moved `years` years. */
+export function shiftPeriod(period: string, years: number): string {
+  return `${Number(period.slice(0, 4)) + years}${period.slice(4)}`;
+}
+
+export type Kpi = {
+  key: "operating_margin_pct" | "operating_result" | "cash_generation";
+  label: string;
+  /** Percent of services for the margin, pesos for the rest. */
+  unit: "pct" | "ars";
+  current: number | null;
+  /** Same months of the year before; null without data then. */
+  previous: number | null;
+  /** current − previous (percentage points for the margin). */
+  variance: number | null;
+};
+
+const percentOf = (part: number, whole: number) =>
+  whole === 0 ? null : round2((part / whole) * 100);
+
+/**
+ * The KPI row: operating margin over services, the operating result (EBITDA
+ * aprox.: the cascade already leaves amortizations and RECPAM out) and cash
+ * generation, against the same months of the year before. Only the months
+ * up to `currentPeriod` count, so a year in progress compares with the same
+ * stretch of the previous one.
+ */
+export function computeKpis(
+  rows: readonly ManagementRow[],
+  previousRows: readonly ManagementRow[],
+  months: readonly string[],
+  currentPeriod: string,
+): { months: string[]; kpis: Kpi[] } {
+  const elapsed = months.filter((m) => m <= currentPeriod);
+  const elapsedSet = new Set(elapsed);
+  const previousSet = new Set(elapsed.map((m) => shiftPeriod(m, -1)));
+  const cur = computeWaterfall(rows.filter((r) => elapsedSet.has(r.month)));
+  const previousInRange = previousRows.filter((r) => previousSet.has(r.month));
+  const prev =
+    previousInRange.length > 0 ? computeWaterfall(previousInRange) : null;
+  const kpi = (
+    key: Kpi["key"],
+    label: string,
+    unit: Kpi["unit"],
+    pick: (w: Waterfall) => number | null,
+  ): Kpi => {
+    const current = pick(cur);
+    const previous = prev ? pick(prev) : null;
+    return {
+      key,
+      label,
+      unit,
+      current,
+      previous,
+      variance:
+        current !== null && previous !== null
+          ? round2(current - previous)
+          : null,
+    };
+  };
+  return {
+    months: elapsed,
+    kpis: [
+      kpi("operating_margin_pct", "Margen operativo %", "pct", (w) =>
+        percentOf(w.operatingMargin, w.serviceRevenue),
+      ),
+      kpi(
+        "operating_result",
+        "Resultado operativo (EBITDA aprox.)",
+        "ars",
+        (w) => w.operatingMargin,
+      ),
+      kpi(
+        "cash_generation",
+        "Generación de caja",
+        "ars",
+        (w) => w.cashGeneration,
+      ),
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Drill-down: the documents behind a figure
+// ---------------------------------------------------------------------------
+
+export const DOC_TYPES = [
+  "invoice",
+  "purchase_invoice",
+  "receipt",
+  "payment_order",
+  "payroll",
+  "loan",
+  "employee",
+  "check",
+  "issued_check",
+  "transaction",
+  "journal_entry",
+] as const;
+export type DocType = (typeof DOC_TYPES)[number];
+export const isDocType = (v: unknown): v is DocType => isOneOf(DOC_TYPES, v);
+
+export const DOC_TYPE_LABEL: Record<DocType, string> = {
+  invoice: "Venta",
+  purchase_invoice: "Compra",
+  receipt: "Recibo",
+  payment_order: "Orden de pago",
+  payroll: "Sueldos",
+  loan: "Préstamo",
+  employee: "Cuenta del empleado",
+  check: "Cheque de tercero",
+  issued_check: "Cheque propio",
+  transaction: "Movimiento de tesorería",
+  journal_entry: "Asiento manual",
+};
+
+/** What a user needs (all of it) to open each kind of document: the gate of
+ *  the page the link goes to. */
+export const DOC_TYPE_PERMISSIONS: Record<DocType, readonly Permission[]> = {
+  invoice: ["invoices:read"],
+  purchase_invoice: ["purchase_invoices:read"],
+  receipt: ["receipts:read"],
+  payment_order: ["payment_orders:read"],
+  payroll: ["hr:read"],
+  loan: ["accounting:read", "accounts:read"],
+  employee: ["hr:read"],
+  check: ["cheques:read"],
+  issued_check: ["issued_checks:read"],
+  transaction: ["transactions:read"],
+  journal_entry: ["accounting:read"],
+};
+
+export type ManagementDocument = ManagementRow & {
+  docType: DocType;
+  docId: string;
+  /** YYYY-MM-DD; a payroll period's first day; null for an employee. */
+  docDate: string | null;
+  label: string;
+  counterparty: string | null;
+  /** Where the document opens; null when the user cannot open it. */
+  href: string | null;
+};
+
+export type RawManagementDocument = RawManagementRow & {
+  doc_type: string;
+  doc_id: string;
+  doc_parent_id: string | null;
+  doc_subtype: string | null;
+  doc_date: string | null;
+  doc_label: string | null;
+  counterparty: string | null;
+};
+
+/** The page a document opens in (before checking the user can open it). */
+export function documentHref(
+  type: DocType,
+  raw: Pick<
+    RawManagementDocument,
+    "doc_id" | "doc_parent_id" | "doc_subtype" | "doc_date"
+  >,
+): string | null {
+  const id = raw.doc_id;
+  switch (type) {
+    case "invoice":
+      return `/invoices/${id}`;
+    case "purchase_invoice":
+      return `/purchases/${id}`;
+    case "receipt":
+      return `/receipts/${id}`;
+    case "payment_order":
+      return `/payment-orders/${id}`;
+    case "payroll":
+      return raw.doc_date
+        ? payrollPeriodHref(
+            Number(raw.doc_date.slice(0, 4)),
+            Number(raw.doc_date.slice(5, 7)),
+            isPayrollPeriodKind(raw.doc_subtype) ? raw.doc_subtype : "monthly",
+          )
+        : null;
+    case "loan":
+      return `/loans/${id}`;
+    case "employee":
+      return `/employees/${id}`;
+    case "check":
+      return "/checks";
+    case "issued_check":
+      return "/issued-checks";
+    case "transaction": {
+      if (!raw.doc_parent_id) return "/transactions";
+      const params = new URLSearchParams({ account: raw.doc_parent_id });
+      if (raw.doc_date) {
+        params.set("period", "custom");
+        params.set("from", raw.doc_date);
+        params.set("to", raw.doc_date);
+      }
+      return `/transactions?${params.toString()}`;
+    }
+    case "journal_entry":
+      return "/accounting/journal";
+  }
+}
+
+/** Narrows the drill-down rows; `canOpen` decides whether each gets a link.
+ *  A row of an unknown kind comes back apart (logged, never dropped). */
+export function narrowManagementDocuments(
+  raw: readonly RawManagementDocument[],
+  canOpen: (type: DocType) => boolean,
+): { docs: ManagementDocument[]; unknown: RawManagementDocument[] } {
+  const docs: ManagementDocument[] = [];
+  const unknown: RawManagementDocument[] = [];
+  for (const r of raw) {
+    const [row] = narrowManagementRows([r]).rows;
+    if (!row || !isDocType(r.doc_type)) {
+      unknown.push(r);
+      continue;
+    }
+    const type = r.doc_type;
+    docs.push({
+      ...row,
+      docType: type,
+      docId: r.doc_id,
+      docDate: r.doc_date,
+      label: r.doc_label ?? DOC_TYPE_LABEL[type],
+      counterparty: r.counterparty,
+      href: canOpen(type) ? documentHref(type, r) : null,
+    });
+  }
+  return { docs, unknown };
+}
+
+/** The most documents a drill-down returns (the largest first). */
+export const DRILL_LIMIT = 500;
+
+export const SIDE_VIEWS = ["total", "fiscal", "internal"] as const;
+export type SideView = (typeof SIDE_VIEWS)[number];
+export const isSideView = (v: unknown): v is SideView => isOneOf(SIDE_VIEWS, v);
+
+export const ManagementDrillInputSchema = z
+  .object({
+    fromPeriod: PeriodSchema,
+    toPeriod: PeriodSchema,
+    basis: z.enum(MANAGEMENT_BASES),
+    lineKey: z
+      .string()
+      .refine(
+        (k) => TABLE_LINES.some((l) => l.key === k),
+        "Línea desconocida.",
+      ),
+    side: z.enum(SIDE_VIEWS).default("total"),
+    costCenter: z
+      .union([
+        z.string().uuid(),
+        z.literal(ALL_COST_CENTERS),
+        z.literal(NO_COST_CENTER),
+      ])
+      .default(ALL_COST_CENTERS),
+  })
+  .refine((v) => v.fromPeriod <= v.toPeriod, {
+    message: "El período desde no puede ser posterior al hasta.",
+  });
+export type ManagementDrillInput = z.input<typeof ManagementDrillInputSchema>;
+
+/** The buckets a table line reads (what the drill-down asks the RPC for). */
+export function lineBuckets(lineKey: string): readonly RowBucket[] {
+  return TABLE_LINES.find((l) => l.key === lineKey)?.buckets ?? [];
+}
+
+export type ManagementDrill = {
+  /** Up to DRILL_LIMIT documents, the largest first. */
+  documents: ManagementDocument[];
+  /** How many documents the figure has, and what they add up to. */
+  count: number;
+  total: number;
+  pendingUsd: number;
+  /** The read stopped at its cap: there are more documents than counted. */
+  partial: boolean;
+};
+
+/** The documents of one table line, side and cost center, the largest
+ *  first, capped at `limit`; `total` adds up all of them (the figure). */
+export function drillDocuments(
+  docs: readonly ManagementDocument[],
+  input: { lineKey: string; side: SideView; costCenter: string },
+  limit = DRILL_LIMIT,
+): ManagementDrill {
+  const line = TABLE_LINES.find((l) => l.key === input.lineKey);
+  const matched = filterByCostCenter(
+    line ? docs.filter(line.match) : [],
+    input.costCenter,
+  ).filter((d) => input.side === "total" || d.side === input.side);
+  // One row per document, month and side (a document can touch several
+  // accounts or centers of the same line).
+  const byDoc = new Map<string, ManagementDocument>();
+  for (const d of matched) {
+    const key = `${d.docType}:${d.docId}:${d.month}:${d.side}`;
+    const seen = byDoc.get(key);
+    byDoc.set(
+      key,
+      seen
+        ? {
+            ...seen,
+            amount: round2(seen.amount + d.amount),
+            pendingUsd: round2(seen.pendingUsd + d.pendingUsd),
+          }
+        : d,
+    );
+  }
+  const kept = [...byDoc.values()];
+  const sorted = [...kept].sort(
+    (a, b) =>
+      Math.abs(b.amount) - Math.abs(a.amount) ||
+      a.month.localeCompare(b.month) ||
+      a.docId.localeCompare(b.docId),
+  );
+  return {
+    documents: sorted.slice(0, limit),
+    count: kept.length,
+    total: round2(kept.reduce((a, d) => a + d.amount, 0)),
+    pendingUsd: round2(kept.reduce((a, d) => a + d.pendingUsd, 0)),
+    partial: false,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Export (internal use)
+// ---------------------------------------------------------------------------
+
+export const INTERNAL_USE_NOTICE =
+  "Uso interno (fiscal + interno). No es el EERR fiscal: no presentar a bancos, ARCA ni terceros.";
+
+export const MANAGEMENT_EXPORT_FORMATS = ["csv", "xlsx"] as const;
+
+/** What the audit records of a download. */
+export const ManagementExportInputSchema = ManagementReportInputSchema.extend({
+  format: z.enum(MANAGEMENT_EXPORT_FORMATS),
+  side: z.enum(SIDE_VIEWS),
+  costCenter: z.string().min(1).max(64),
+});
+export type ManagementExportInput = z.infer<typeof ManagementExportInputSchema>;
+
+/** The month table as rows: concept, each month on `side`, and the period
+ *  totals by side. The same figures as the screen. */
+export function monthTableExport(
+  table: ReturnType<typeof buildMonthTable>,
+  months: readonly string[],
+  side: SideView,
+): { header: string[]; rows: CsvCell[][] } {
+  return {
+    header: ["Concepto", ...months, "Fiscal", "Interno", "Total"],
+    rows: TABLE_LINES.map((line) => {
+      const totals = table.totals[line.key]!;
+      return [
+        `${"  ".repeat(line.depth)}${line.label}`,
+        ...months.map((m) => table.byMonth[line.key]![m]![side]),
+        totals.fiscal,
+        totals.internal,
+        totals.total,
+      ];
+    }),
+  };
 }

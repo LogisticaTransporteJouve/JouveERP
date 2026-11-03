@@ -84,7 +84,10 @@ import {
   getLoanDetail,
   getLoans,
 } from "./actions/statements";
-import { getManagementPnL } from "./actions/management";
+import {
+  getManagementPnL,
+  getManagementPnLDocuments,
+} from "./actions/management";
 import { getMonthlyPackageStatus } from "./actions/monthly-package";
 import { getTasks } from "./actions/tasks";
 import { getTodayOverview } from "./actions/today";
@@ -138,6 +141,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getIncomeStatement,
   getBalanceSheet,
   getManagementPnL,
+  getManagementPnLDocuments,
   getCostCenterBreakdown,
   getExpenseByCategory,
   getLoans,

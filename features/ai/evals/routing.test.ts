@@ -107,7 +107,7 @@ describe("AI CFO tool routing (offline)", () => {
 
     if (c.dispatch) {
       const fn = dispatched[c.dispatch.fn];
-      expect(fn).toHaveBeenCalledOnce();
+      expect(fn).toHaveBeenCalledTimes(c.dispatch.calls ?? 1);
       if (Object.keys(c.dispatch.args).length > 0) {
         expect(fn).toHaveBeenCalledWith(
           expect.objectContaining(c.dispatch.args),

@@ -2,15 +2,21 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { fiscalYearMonths } from "@/lib/fiscal-year";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
+  DOC_TYPE_PERMISSIONS,
+  drillDocuments,
   isManagementBucket,
   isSubbucket,
+  lineBuckets,
+  ManagementDrillInputSchema,
+  ManagementExportInputSchema,
+  narrowManagementDocuments,
   ManagementPnlInputSchema,
   ManagementReportInputSchema,
   narrowManagementRows,
@@ -18,7 +24,9 @@ import {
   toPayrollControlRow,
   type ManagementBucket,
   type ManagementCostCenter,
+  type ManagementDrill,
   type ManagementRow,
+  type RawManagementDocument,
   type PayrollControlRow,
   type Subbucket,
 } from "../schema";
@@ -27,6 +35,9 @@ import {
 // service role runs them): the gate is management:read here, per user.
 
 const DENIED = "No tenés permiso para ver el resultado de gestión.";
+
+const DRILL_PAGE = 1000;
+const DRILL_READ_LIMIT = 20_000;
 
 function endOfMonth(period: string): string {
   const [y, m] = period.split("-").map(Number);
@@ -298,4 +309,73 @@ export async function setManagementBucketAction(
     accountId,
   );
   return { ok: true, data: { accountId } };
+}
+
+/** The documents behind one figure of the month table (a line, a month
+ *  range, a side and a cost center), nominal. A document opens only for who
+ *  can read its module. */
+export async function getManagementDrillAction(
+  input: unknown,
+): Promise<ActionResult<ManagementDrill>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "management:read")) {
+    return { ok: false, error: DENIED };
+  }
+  const parsed = ManagementDrillInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const v = parsed.data;
+  // PostgREST answers at most max_rows (1000) per request: page by range,
+  // up to DRILL_READ_LIMIT rows (then the figure is flagged partial).
+  const raw: RawManagementDocument[] = [];
+  let partial = false;
+  for (let from = 0; ; from += DRILL_PAGE) {
+    const { data, error } = await getServiceClient()
+      .rpc("get_management_pnl_documents", {
+        p_from: `${v.fromPeriod}-01`,
+        p_to: endOfMonth(v.toPeriod),
+        p_basis: v.basis,
+        p_buckets: [...lineBuckets(v.lineKey)],
+      })
+      .range(from, from + DRILL_PAGE - 1);
+    if (error) {
+      logger.error("management.drill.failed", { userId: ctx.userId, error });
+      return { ok: false, error: "No se pudo leer el detalle." };
+    }
+    raw.push(...(data ?? []));
+    if ((data ?? []).length < DRILL_PAGE) break;
+    if (raw.length >= DRILL_READ_LIMIT) {
+      partial = true;
+      break;
+    }
+  }
+  const { docs, unknown } = narrowManagementDocuments(raw, (type) =>
+    userCanAll(ctx.access, DOC_TYPE_PERMISSIONS[type]),
+  );
+  if (unknown.length > 0) {
+    logger.error("management.drill.unknown_rows", {
+      userId: ctx.userId,
+      count: unknown.length,
+    });
+  }
+  return { ok: true, data: { ...drillDocuments(docs, v), partial } };
+}
+
+/** Records that someone downloaded the month table (internal use: who took
+ *  the figures out). The file is built in the browser from the screen. */
+export async function logManagementExportAction(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "management:read")) {
+    return { ok: false, error: DENIED };
+  }
+  const parsed = ManagementExportInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  await logAudit("management.exported", ctx.userId, { ...parsed.data });
+  return { ok: true, data: null };
 }

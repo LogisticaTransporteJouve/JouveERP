@@ -51,6 +51,7 @@ const TOOL_LABELS: Record<string, string> = {
   getIncomeStatement: "Estado de resultados",
   getBalanceSheet: "Balance general",
   getManagementPnL: "Resultado de gestión",
+  getManagementPnLDocuments: "Detalle del resultado de gestión",
   getCostCenterBreakdown: "Resultados por centro de costo",
   getExpenseByCategory: "Gastos por categoría",
   getLoans: "Préstamos",

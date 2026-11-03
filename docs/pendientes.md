@@ -74,6 +74,35 @@
 
 ---
 
+## Resultado de gestión v2 (2026-11-03, roadmap 3.7)
+
+- [x] **Detalle de cada cifra:** cada número de la tabla mes a mes abre los
+      documentos que lo forman (`get_management_pnl_documents`), con link a
+      cada uno si el usuario lee su módulo; suma lo mismo que la cifra.
+- [x] **Percibido:** cobros de bienes de uso, pagos de compras de flota,
+      pagos de compras a cargo de empleados y adelantos fuera del margen
+      operativo, según lo que imputó cada recibo / OP; cuotas con desglose
+      en capital e intereses.
+- [x] **Compras a cargo de empleados y adelantos** fuera del costo operativo
+      en las dos bases (el costo entra con el descuento de planilla).
+- [x] **Indicadores:** margen operativo %, resultado operativo (EBITDA
+      aprox.), generación de caja y variación contra el mismo período del
+      año anterior.
+- [x] **Exportar CSV / Excel** de la tabla mes a mes (uso interno, auditado).
+- [x] IA: `getManagementPnL` con indicadores y `getManagementPnLDocuments`.
+- [ ] **Margen por camión:** falta vincular camión ↔ centro de costo (o la
+      carga de combustible / el service con el camión en la compra). Los
+      ingresos ya podrían atribuirse por `shipments.trip_id → trips.vehicle_id`.
+- [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
+      pagos a proveedores aunque después se impute a un bien de uso o a una
+      compra a cargo de un empleado.
+- [ ] **Desembolso de préstamos:** es neutro en las dos bases; decidir si
+      suma en "Capital de préstamos" en percibido.
+- [ ] `getManagementReportAction` lee `get_management_pnl` sin paginar: con
+      más de 1000 filas (mes × caja × cuenta × centro) PostgREST la cortaría.
+
+---
+
 ## Contador, "Hoy y esta semana" y auditoría (2026-11-02, roadmap 1.9–1.11)
 
 - [x] **Paquete del mes** (`/accounting/package`, `accounting:read`, también

@@ -15,9 +15,10 @@ export type RoutingCase = {
   /** The full call the offline script makes, when the matched fields alone
    *  would not pass the tool's schema. */
   scriptedInput?: Record<string, unknown>;
-  /** The gated server action the tool must reach, with these arguments.
-   *  Absent for a proposal (it parks a draft instead). */
-  dispatch?: { fn: string; args: Record<string, unknown> };
+  /** The gated server action the tool must reach, with these arguments
+   *  (`calls` times, once by default). Absent for a proposal (it parks a
+   *  draft instead). */
+  dispatch?: { fn: string; args: Record<string, unknown>; calls?: number };
 };
 
 /** A question whose tool the asking role must not even be offered. */
@@ -118,6 +119,8 @@ export const ROUTING_CASES: RoutingCase[] = [
         basis: "accrual",
         inflation: false,
       },
+      // The range, and the same months a year before for the KPIs.
+      calls: 2,
     },
   },
   {
