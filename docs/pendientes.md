@@ -136,10 +136,12 @@ mitigación en el schema: el límite se respeta operando.
       `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m
       join purchase_invoices pi on pi.id = m.purchase_invoice_id
       where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
-- [ ] Faltantes asentados al chofer antes de `20261104095300` (movimiento
-      `charge` con `driver_settlement_id`): la factura del cliente sigue
-      abierta, la deuda está dos veces. No se reparan solos; en Rendiciones,
-      "Quitar diferencia" y volver a resolverla los deja con un solo deudor.
+- [ ] Diferencias asentadas al chofer antes de `20261104095300`
+      (movimiento `charge` o `payment` con `driver_settlement_id`): un
+      faltante deja también la factura del cliente abierta y un sobrante queda
+      a cuenta del cliente y acreditado al chofer, dos veces. No se reparan
+      solos; en Rendiciones, "Quitar diferencia" y volver a resolverla los
+      deja en una sola cuenta.
 - [ ] Gestión percibido: el pago (OP) de una compra a cargo de empleado va
       entero a "Anticipos al personal" (`f_employee` en
       `management_pnl_lines`), pero al empleado ahora se le carga el neto: en

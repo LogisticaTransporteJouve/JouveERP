@@ -213,8 +213,10 @@ begin
 end;
 $$;
 
+-- Only the RPCs below call it (they run as its owner): no API role, the
+-- service role included, can skip their row lock or the p_allow_driver check.
 revoke all on function public.remove_driver_settlement_difference(uuid, uuid, boolean)
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 -- Rollback-safe: the new signature keeps the old arguments (defaults).
 -- squawk-ignore ban-drop-function
