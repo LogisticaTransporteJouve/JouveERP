@@ -121,6 +121,24 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
               : ""}
             . Volver a cargarla reemplaza los montos anteriores.
           </p>
+          {data.sac_in_sac_planilla > 0 ? (
+            <p className="text-muted-foreground">
+              La planilla del{" "}
+              <Link
+                href={payrollPeriodHref(
+                  data.year,
+                  sacMonth(data.sac_half),
+                  "sac",
+                )}
+                className="text-primary hover:underline"
+              >
+                {formatPayrollPeriod(data.year, sacMonth(data.sac_half), "sac")}
+              </Link>{" "}
+              ya le paga {formatMoney(data.sac_in_sac_planilla)} de SAC: el SAC
+              proporcional sugerido es solo lo que falta. Si ahí cobra de más,
+              ajustalo en esa planilla.
+            </p>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               id="fs-salary"
