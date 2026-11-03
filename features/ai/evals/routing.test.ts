@@ -80,6 +80,16 @@ vi.mock("@/features/balance/actions/statements-actions", async (orig) => ({
   getAccountTypeTotalsAction: stub("getAccountTypeTotalsAction"),
 }));
 
+vi.mock(
+  "@/features/late-interest/actions/late-interest-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/late-interest/actions/late-interest-actions")
+    >()),
+    listLateInterestCandidatesAction: stub("listLateInterestCandidatesAction"),
+  }),
+);
+
 const { buildAiTools, buildCapabilitiesSummary } = await import("../registry");
 
 const proposals = {
@@ -94,7 +104,8 @@ beforeEach(() => {
 describe("AI CFO tool routing (offline)", () => {
   it.each(ROUTING_CASES)("$id: $question", async (c) => {
     const tools = buildAiTools({
-      userId: "u1",
+      // A real auth uid: a task proposal assigns the draft to it.
+      userId: "00000000-0000-4000-8000-0000000000e1",
       access: resolveAccess(c.roles),
       proposals,
     });

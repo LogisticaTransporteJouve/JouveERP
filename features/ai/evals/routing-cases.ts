@@ -223,6 +223,34 @@ export const ROUTING_CASES: RoutingCase[] = [
       runTime: "08:00",
     },
   },
+  {
+    id: "late-interest-uncharged",
+    question:
+      "¿Cuánto interés por mora no les cobramos a los clientes al 31/10/2026?",
+    roles: ["finance"],
+    expect: {
+      tool: "getLateInterestCandidates",
+      input: { as_of: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "listLateInterestCandidatesAction",
+      args: { as_of: "2026-10-31" },
+    },
+  },
+  {
+    id: "propose-task",
+    question:
+      "Creame una tarea para renovar la VTV del AB123CD para el 15 de noviembre de 2026.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeTask",
+      input: { due_date: "2026-11-15" },
+    },
+    scriptedInput: {
+      title: "Renovar la VTV del AB123CD",
+      due_date: "2026-11-15",
+    },
+  },
 ];
 
 export const DENIED_CASES: DeniedCase[] = [
@@ -249,6 +277,23 @@ export const DENIED_CASES: DeniedCase[] = [
     question: "¿En qué se nos fue la plata en 2026?",
     roles: ["fiscal_reader"],
     forbiddenTools: ["getTopCosts", "getVehicleEconomics", "getDriverActivity"],
+  },
+  {
+    id: "late-interest-operations",
+    question: "Generá la nota de débito por mora de la factura más vieja.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "getLateInterestCandidates",
+      "proposeLateInterestNd",
+      "proposeBankMatches",
+      "proposeClientTariff",
+    ],
+  },
+  {
+    id: "late-interest-fiscal-reader",
+    question: "Emití la ND por intereses de mora de Cliente Uno.",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["proposeLateInterestNd", "proposeTask"],
   },
   {
     id: "cash-operations",

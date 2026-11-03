@@ -15,13 +15,13 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
   solo genera los tools que el usuario puede usar —el modelo ni siquiera ve, por ejemplo, los tools de
   sueldos si el rol no tiene `hr:read`— y cada ejecución vuelve a chequear el permiso. Debajo, cada
   acción llama a un server action con `requireUserContext()` + `userCan()` y las RPC son `SECURITY
-  INVOKER`, así que RLS aplica igual que en la app.
+INVOKER`, así que RLS aplica igual que en la app.
 - **Cada módulo tiene su tool de lectura.** Toda feature nueva suma al registry al menos un tool
   `read` con el mismo permiso que su página (ej. `getTasks` con `tasks:read` sobre `/tasks`), que
   envuelve el server action de lectura de la feature y hereda su gate.
 - **Cifras del servidor, nunca del modelo.** Los totales salen de SQL (RPC/vistas); el JS solo combina
   agregados ya calculados. Cada resultado trae `meta: { sources, asOf, partial, currency?,
-  exchangeRate?, note? }` y el prompt obliga a citarlo y a avisar si es parcial.
+exchangeRate?, note? }` y el prompt obliga a citarlo y a avisar si es parcial.
 - **No es asesoramiento.** El asistente explica datos y trade-offs; no decide. Si le piden una
   recomendación, presenta opciones y cierra con un aviso fijo.
 
@@ -29,12 +29,12 @@ infraestructura de chat, insights y Document Intelligence sigue en [`ai-overview
 
 **Registry** (`features/ai/registry/`):
 
-| Archivo | Qué tiene |
-|---|---|
-| `define.ts` | `defineAiAction({ name, domain, description, input, output?, permission, sideEffect, sources, run })` → gate de permisos → Zod → `run` → `meta`. Nunca lanza. |
-| `catalog.ts` | `AI_ACTIONS`: todas las acciones, una vez. |
-| `build.ts` | `buildAiTools(ctx)` (tools AI SDK filtrados por rol) y `buildCapabilitiesSummary(roles)` (una línea por acción, agrupado por área). |
-| `actions/*.ts` | Las acciones por dominio. Las 31 tools anteriores migradas sin cambio de comportamiento. |
+| Archivo        | Qué tiene                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `define.ts`    | `defineAiAction({ name, domain, description, input, output?, permission, sideEffect, sources, run })` → gate de permisos → Zod → `run` → `meta`. Nunca lanza. |
+| `catalog.ts`   | `AI_ACTIONS`: todas las acciones, una vez.                                                                                                                    |
+| `build.ts`     | `buildAiTools(ctx)` (tools AI SDK filtrados por rol) y `buildCapabilitiesSummary(roles)` (una línea por acción, agrupado por área).                           |
+| `actions/*.ts` | Las acciones por dominio. Las 31 tools anteriores migradas sin cambio de comportamiento.                                                                      |
 
 `sideEffect` es `read | propose | execute`; en fase 1 todas eran `read` (fase 2 suma `propose`).
 
@@ -88,11 +88,11 @@ preguntar con `askQuestions` en vez de elegir). Las specs de cada propuesta (sch
 editables, resumen, textos) están en `features/ai/lib/proposal-specs.ts`, compartidas por servidor y
 tarjeta.
 
-| Acción | Permisos | Escritura al confirmar |
-|---|---|---|
-| `proposeLeave` | `hr:write` + `hr:read` | `lib/commands/create-leave.ts` |
+| Acción                | Permisos                               | Escritura al confirmar                        |
+| --------------------- | -------------------------------------- | --------------------------------------------- |
+| `proposeLeave`        | `hr:write` + `hr:read`                 | `lib/commands/create-leave.ts`                |
 | `proposeJournalEntry` | `accounting:write` + `accounting:read` | `lib/commands/create-manual-journal-entry.ts` |
-| `proposeExchangeRate` | `accounting:write` | `lib/commands/upsert-exchange-rate.ts` |
+| `proposeExchangeRate` | `accounting:write`                     | `lib/commands/upsert-exchange-rate.ts`        |
 
 Las escrituras viven en `lib/commands/` (sin gate propio, `server-only`, cliente con la sesión del
 usuario, así RLS aplica, y `logAudit` adentro); el server action del formulario manual y el
@@ -139,14 +139,14 @@ el claim y la escritura, la fila queda `confirmed` sin `result_id`.
 **Artefactos** (`features/ai/artifacts/`): gráficos y tablas que el servidor arma con los datos de
 una consulta del registry. El modelo elige la consulta, su input y la forma; nunca los números.
 
-| Archivo     | Qué tiene                                                                                                                                                                                                                                                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `stacked`, `hbar`, `line`; `dataset`, `x`, hasta 3 series —6 en `stacked`—, orden, límite, formato) y de tabla (título, `dataset`, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                          |
+| Archivo     | Qué tiene                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `stacked`, `hbar`, `line`; `dataset`, `x`, hasta 3 series —6 en `stacked`—, orden, límite, formato) y de tabla (título, `dataset`, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `build.ts`  | Arma el artefacto desde las filas: copia los valores (los `numeric` de Postgres pasan a número), rechaza una `x` repetida en vez de sumar, corta en 60 puntos (30 en `hbar`) o 300 filas × 12 columnas (y ~100 KB por artefacto) y lo marca como cortado. Cada columna toma su formato del nombre, con reglas en orden (`rows.ts`): códigos e identificadores (`*_code`, `*_number`, `numero`, CUIT, CBU) quedan como texto; `*_pct` es porcentaje; `*_count`, `qty`, `cantidad`, días y `total_<sustantivo>s` son cantidades; `*_usd`/`foreign` van en US$; el resto de montos en la moneda del resultado. Un campo inexistente devuelve un error con los campos que sí sirven, para que el modelo corrija. |
-| `run.ts`    | `runArtifact(ctx, pedido)`: busca la acción entre las de lectura que el rol puede usar, valida el input con su schema y la ejecuta con el mismo gate que el tool (`requireUserContext` + `userCan` + RLS adentro).                                                                                                          |
-| `tools.ts`  | Tools `renderChart` y `renderTable`. Mandan el artefacto como data part `data-artifact` (id = toolCallId) y al modelo le devuelven un resumen con `meta` de la consulta.                                                                                                                                                    |
-| `sink.ts`   | El puerto por el que los tools escriben al stream; el route lo conecta al writer. Sin sink (p. ej. una corrida en background) estos tools no se ofrecen.                                                                                                                                                                    |
-| `export.ts` | CSV del artefacto desde las filas que ya están en pantalla (`lib/export/csv.ts`).                                                                                                                                                                                                                                           |
+| `run.ts`    | `runArtifact(ctx, pedido)`: busca la acción entre las de lectura que el rol puede usar, valida el input con su schema y la ejecuta con el mismo gate que el tool (`requireUserContext` + `userCan` + RLS adentro).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tools.ts`  | Tools `renderChart` y `renderTable`. Mandan el artefacto como data part `data-artifact` (id = toolCallId) y al modelo le devuelven un resumen con `meta` de la consulta.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `sink.ts`   | El puerto por el que los tools escriben al stream; el route lo conecta al writer. Sin sink (p. ej. una corrida en background) estos tools no se ofrecen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `export.ts` | CSV del artefacto desde las filas que ya están en pantalla (`lib/export/csv.ts`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 **Stream.** El route envuelve `toUIMessageStream` en `createUIMessageStream` y conecta el sink al
 writer; el mensaje persistido guarda la data part, así que el gráfico vuelve al recargar.
@@ -207,13 +207,13 @@ permiso falta. Las cifras salen de SQL; el JS solo une y pagina. Todas paginan (
 `offset`), leen como máximo 500 filas por fuente y marcan `partial` cuando una fuente llegó al
 tope.
 
-| Tool | Permiso para verla | Responde | Partes con permiso propio |
-|---|---|---|---|
-| `getClientMargin` | `clients:read` + `invoices:read` | Margen de contribución por cliente: ingreso neto facturado (sin IVA ni tributos, facturas y ND − NC, USD a la cotización del comprobante o la oficial de su fecha; sin cotización, aparte) − costo de viajes y combustible imputado (repartido por flete). Separa el costo directo sin cliente y la flota no asignada (combustible sin viaje + mantenimiento). | Costos: `trips:read` + `shipments:read` |
-| `getClientPaymentBehavior` | `clients` + `invoices` + `receipts:read` | Días promedio de cobro del rango, cobrado por moneda, deuda de hoy (pesos, dólares y equivalente al último oficial), vencida, +90 días, comprobante más viejo, cheques rechazados y a cuenta. Ordenado por vencido. | — |
-| `getVehicleEconomics` | `trips:read` | Por vehículo: viajes (no cancelados), km de viajes y de odómetro, litros y L/100 km, ingreso, costos de viaje, combustible y mantenimiento, neto, margen % e ingreso/costo por km (odómetro si están las dos lecturas; si no, km de viajes, marcado). Viajes sin vehículo aparte. | Ingresos y costos: `shipments:read`; litros: `fuel:read`; odómetro: `fleet_km:read` |
-| `getDriverActivity` | `trips:read` | Por chofer: viajes, km, ingreso, costo y neto; del empleado vinculado, extras de planilla de los meses del rango, adelantos del rango y saldo de su cuenta. Viajes sin chofer aparte. | Ingresos y costos: `shipments:read`; empleado: `hr:read` |
-| `getTopCosts` | `management:read` | Ranking de costos (uso interno) por rubro o centro de costo, devengado o percibido, con % y el resto en una fila, más `byMonth` y `seriesFields` para un gráfico apilado. Sin clasificar y USD sin cotización aparte. | — |
+| Tool                       | Permiso para verla                       | Responde                                                                                                                                                                                                                                                                                                                                                       | Partes con permiso propio                                                           |
+| -------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `getClientMargin`          | `clients:read` + `invoices:read`         | Margen de contribución por cliente: ingreso neto facturado (sin IVA ni tributos, facturas y ND − NC, USD a la cotización del comprobante o la oficial de su fecha; sin cotización, aparte) − costo de viajes y combustible imputado (repartido por flete). Separa el costo directo sin cliente y la flota no asignada (combustible sin viaje + mantenimiento). | Costos: `trips:read` + `shipments:read`                                             |
+| `getClientPaymentBehavior` | `clients` + `invoices` + `receipts:read` | Días promedio de cobro del rango, cobrado por moneda, deuda de hoy (pesos, dólares y equivalente al último oficial), vencida, +90 días, comprobante más viejo, cheques rechazados y a cuenta. Ordenado por vencido.                                                                                                                                            | —                                                                                   |
+| `getVehicleEconomics`      | `trips:read`                             | Por vehículo: viajes (no cancelados), km de viajes y de odómetro, litros y L/100 km, ingreso, costos de viaje, combustible y mantenimiento, neto, margen % e ingreso/costo por km (odómetro si están las dos lecturas; si no, km de viajes, marcado). Viajes sin vehículo aparte.                                                                              | Ingresos y costos: `shipments:read`; litros: `fuel:read`; odómetro: `fleet_km:read` |
+| `getDriverActivity`        | `trips:read`                             | Por chofer: viajes, km, ingreso, costo y neto; del empleado vinculado, extras de planilla de los meses del rango, adelantos del rango y saldo de su cuenta. Viajes sin chofer aparte.                                                                                                                                                                          | Ingresos y costos: `shipments:read`; empleado: `hr:read`                            |
+| `getTopCosts`              | `management:read`                        | Ranking de costos (uso interno) por rubro o centro de costo, devengado o percibido, con % y el resto en una fila, más `byMonth` y `seriesFields` para un gráfico apilado. Sin clasificar y USD sin cotización aparte.                                                                                                                                          | —                                                                                   |
 
 RPC nuevas (migración `20261103150000_ai_cross_queries.sql`, `SECURITY INVOKER`, `search_path =
 ''`, solo `authenticated` y `service_role`): `ai_client_net_revenue`, `ai_vehicle_activity` y
@@ -226,6 +226,99 @@ financiero y generación de caja por mes) y marca `partial` si la lectura llegó
 no reparte sueldos, mantenimiento ni gastos generales. Por vehículo: seguros, patentes, cubiertas
 y compras cargadas solo con centro de costo no están vinculados a un camión. `ai_fleet_margin`
 sigue contando viajes cancelados.
+
+## Propuestas para todo, siempre con aceptación (roadmap 6.3, hecha)
+
+El AI CFO propone escrituras y **nunca** las ejecuta sin que el usuario acepte. Es el mismo
+`defineAiProposal` de la fase 2, ahora también fuera del chat.
+
+**Mecanismo.** Cada propuesta es una acción `propose` del registry con su spec
+(`features/ai/lib/proposal-specs.ts`: el Zod del formulario manual, el título, el resumen y los
+campos editables). `defineAiProposal` expone `proposal.prepareDraft(ctx, input)` (resuelve
+nombres con las lecturas de cada feature y valida el borrador, sin guardar nada) y
+`proposal.executeDraft(ctx, draft)` (vuelve a parsear y escribe). Hay dos lugares donde se guarda
+una propuesta pendiente:
+
+- **En el chat**, `ai_chat_confirmations` (fase 2): revisiones por sesión y tool call, con
+  Confirmar / Modificar / Descartar en la tarjeta.
+- **Fuera del chat** (hoy, desde una tarjeta de insight), `ai_proposals` (migración
+  `20261103180000_ai_proposals.sql`): `action`, `input`, `draft`, `labels`, `summary`, `title`,
+  `status` `pending | accepted | dismissed | failed | expired`, `result` (`{ id, note? }`),
+  `error`, `expires_at` (24 h), quién (`user_id`) y cuándo (`created_at`, `decided_at`), más el
+  insight de origen. RLS: `authenticated` solo lee sus filas y solo con un rol que tenga
+  `ai:read`; toda escritura va por el service client después del gate.
+
+**Aceptar** (`acceptAiProposalAction`, `features/ai/actions/proposal-actions.ts`): `ai:read` + los
+permisos de la acción (los mismos del formulario manual) → vencida, se cierra como `expired` →
+re-valida el borrador con el schema del formulario → compare-and-set `pending → accepted` con
+`expires_at > now()` (el UPDATE toma el lock de la fila y re-chequea el predicado) → ejecuta →
+guarda `result` o pasa a `failed` → `logAudit` (`ai.proposal.accepted | failed`). El trigger
+`guard_ai_proposal` (hint `jouve_guard`) rechaza cualquier otra transición, aceptar una vencida,
+cambiar lo que el usuario vio o guardar un resultado antes del claim: un doble click ejecuta una
+sola vez. **Descartar** es el compare-and-set `pending → dismissed` + `ai.proposal.dismissed`.
+
+**Desde un insight.** El analyst guarda en `ai_insights.proposal` `{ action, label, input }`. La
+tarjeta muestra el botón solo si el usuario puede correr esa acción; al hacer click,
+`prepareInsightProposalAction` relee el insight con su sesión (RLS + permiso de la tarjeta),
+prepara el borrador **con los permisos de quien hace click** y lo guarda. El mismo insight
+clickeado otra vez devuelve la propuesta pendiente (o la ya aceptada), no una segunda. Un Dialog
+centrado muestra el resumen con **Aceptar / Descartar**. Nada se prepara en segundo plano.
+
+**Acciones proponibles** (todas sobre escrituras que ya existían):
+
+| Acción                          | Permisos                                                          | Escritura al aceptar                                                                                                           |
+| ------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `proposeLeave`                  | `hr:write` + `hr:read`                                            | `lib/commands/create-leave.ts`                                                                                                 |
+| `proposeJournalEntry`           | `accounting:write` + `accounting:read`                            | `lib/commands/create-manual-journal-entry.ts`                                                                                  |
+| `proposeExchangeRate`           | `accounting:write`                                                | `lib/commands/upsert-exchange-rate.ts`                                                                                         |
+| `proposeAiWorkflow`             | `ai:chat`                                                         | tarea IA recurrente                                                                                                            |
+| `proposeDocumentScan`           | `ai:chat` + `ai:read` + `files:write`                             | pipeline de Document Intelligence                                                                                              |
+| `proposeTask` (nueva)           | `tasks:write` + `tasks:read`                                      | `lib/commands/create-task.ts` (asignada a quien acepta)                                                                        |
+| `proposeClientTariff` (nueva)   | `storage_billing:issue` + `storage_billing:read` + `clients:read` | `lib/commands/create-client-tariff.ts` (guard de superposición)                                                                |
+| `proposeBankMatches` (nueva)    | `transactions:write` + `transactions:read`                        | `lib/commands/match-bank-line.ts`: las sugerencias de Conciliación de una cuenta y período (hasta 30), cada línea por separado |
+| `proposeLateInterestNd` (nueva) | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`   | `lib/commands/issue-late-interest-nd.ts` con `issueFiscalInvoiceAction` inyectado                                              |
+
+La ND por mora se **emite** al aceptar (con CAE en el canal fiscal), igual que "Generar ND" en
+Intereses por mora; la propuesta guarda el interés que mostró y, si el saldo cambió, no emite. Las
+dos últimas no tienen campos editables: un cambio invalidaría lo que el servidor vuelve a chequear.
+Nueva lectura: `getLateInterestCandidates` (`invoices:read`).
+
+**Cómo sumar una.** (1) Mover la escritura del server action de la feature a
+`lib/commands/<x>.ts` (sin gate propio; la action queda gate + parse + comando). (2) Spec en
+`proposal-specs.ts` con el Zod del formulario y sumarla a `PROPOSAL_SPECS`. (3)
+`defineAiProposal` en `features/ai/registry/actions/` con los permisos del formulario más las
+lecturas de `prepare`, y agregarla a `AI_ACTIONS`. (4) Etiqueta en `tool-renderers.tsx`. (5) Para
+ofrecerla desde un insight, el detector devuelve `proposal: { action, label, input }`.
+
+## Indicadores e insights (roadmap 6.4, hecha)
+
+Ocho indicadores deterministas nuevos en el analyst (`features/ai/insights/indicators/`:
+`detect.ts` puro, `gather.ts` con el service client). Las cifras salen de SQL (RPC `ai_*`,
+`late_interest_candidates`, `account_movement_totals`); el JS compara y aplica umbrales. Cada
+uno tiene fingerprint (los registros a los que apunta; las tarjetas agregadas no tienen) y se ve
+según su permiso (`INSIGHT_KIND_PERMISSION`, ahora con varios permisos por tipo, y la política
+`ai_insights select` de la misma migración). Si las lecturas de un indicador fallan, se loguea y
+el analyst **conserva su tarjeta anterior** en vez de borrarla; los demás siguen.
+
+| Tipo                         | Se ve con                                       | Qué mide                                                                                                                                                              | Propuesta                               |
+| ---------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `client_margin_drop`         | `management:read` + `invoices:read`             | Margen de contribución por cliente (como `getClientMargin`) que cayó 10 puntos o más, últimos 90 días contra los 90 anteriores, con ≥ $100.000 de ingreso en cada uno | —                                       |
+| `vehicle_cost_per_km`        | `trips:read` + `fuel:read` + `maintenance:read` | Costo por km (viajes + combustible + mantenimiento / km de odómetro o de viajes) que subió 20 % o más, con ≥ 1.000 km por período                                     | —                                       |
+| `fuel_consumption_outlier`   | `fuel:read` + `trips:read`                      | L/100 km por encima de Q3 + 1,5 IQR de la flota (≥ 4 vehículos con ≥ 500 km), últimos 90 días                                                                         | —                                       |
+| `late_interest_uncharged`    | `invoices:read`                                 | Interés por mora sin facturar (pesos y dólares aparte); sin tasa cargada, una tarjeta informativa                                                                     | Generar ND por mora (la mayor en pesos) |
+| `unreconciled_bank_lines`    | `transactions:read`                             | Líneas de extracto pendientes hace más de 15 días                                                                                                                     | Tarea para conciliar                    |
+| `pending_driver_settlements` | `receipts:read`                                 | Cargas contra entrega entregadas hace más de 3 días sin rendir y rendiciones en borrador de más de 7                                                                  | Tarea de rendición                      |
+| `loan_installments_due`      | `accounting:read` + `accounts:read`             | Cuotas pendientes vencidas o que vencen en 14 días (préstamos activos)                                                                                                | Tarea de pago                           |
+| `cash_vs_financing`          | `accounts:read` + `accounting:read`             | Variación de la caja en pesos de 30 días contra desembolsos de préstamos y cuotas pagadas en esas cuentas; solo si entraron préstamos                                 | —                                       |
+
+Se mantienen las decisiones de UI: **Fijados** sigue igual y el dashboard no tiene Recalcular
+(solo el panel de insights del asistente).
+
+**Límites.** El crecimiento de la mora no se mide: no hay fotos históricas del aging (solo el
+interés no cobrado de hoy). Margen y costo por km usan `ai_fleet_margin`, que cuenta viajes
+cancelados y lee hasta 500 grupos. `cash_vs_financing` mira solo cuentas en pesos. Las propuestas
+de conciliación desde un insight quedan como tarea (armar las sugerencias en el cron requiere leer
+todos los movimientos); desde el chat sí se propone conciliar.
 
 ## Fase 4 — trabaja solo (hecha)
 
@@ -249,7 +342,7 @@ asimétricas, deshabilita estos jobs hasta configurar el secreto vigente.
 - `ai_workflows`: pedido en lenguaje natural + horario (`daily | weekly | monthly`, hora en grilla de
   15 min, día ISO o día 1–28) en hora de Buenos Aires (UTC-3 fijo, sin horario de verano) y
   `next_run_at`. Máximo 10 activas por usuario, controlado por un trigger con lock por usuario al crear
-o reanudar (dos pedidos simultáneos no pueden pasar el tope). Se crean desde la tarjeta `proposeAiWorkflow`
+  o reanudar (dos pedidos simultáneos no pueden pasar el tope). Se crean desde la tarjeta `proposeAiWorkflow`
   (`defineAiProposal`, permiso `ai:chat`: "todos los lunes resumime cobranzas vencidas") o desde el
   Dialog de **Tareas IA** (`/ai/tasks`); el mismo Zod (`AiWorkflowDraftSchema`) valida ambos.
 - `ai_workflow_runs`: una fila por ocurrencia, única por `(workflow_id, scheduled_for)`, con
@@ -263,17 +356,17 @@ o reanudar (dos pedidos simultáneos no pueden pasar el tope). Se crean desde la
   juntan en una sola corrida) y manda un evento por corrida en cola con `id` = la corrida; cierra como
   `expired` las que llevan más de 23 h en cola (contadas desde que se encolaron, así la corrida de
   recuperación después de una caída larga sí corre). `ai-workflow-run` (idempotente por `run_id`,
-  concurrencia 3 y 1 por usuario): *claim* (tarea pausada, usuario sin acceso o tope de fondo →
-  `skipped` con motivo; si no, `queued → running`), *execute* (relee al usuario, corre el agente con
+  concurrencia 3 y 1 por usuario): _claim_ (tarea pausada, usuario sin acceso o tope de fondo →
+  `skipped` con motivo; si no, `queued → running`), _execute_ (relee al usuario, corre el agente con
   `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas, artefactos ni
-  `askQuestions`, auditando cada tool como `ai-agent`) y *notify* (notificación in-app
+  `askQuestions`, auditando cada tool como `ai-agent`) y _notify_ (notificación in-app
   `ai_workflow_run`). Si todas las consultas de la corrida fallaron, queda `failed` ("Ninguna
   consulta devolvió datos.") y no se notifica. Un error transitorio de Auth al releer al usuario
   reintenta en vez de marcarlo deshabilitado. El dueño sale de la fila, nunca del evento. El uso va
   a `ai_usage` como `workflow_run` una sola vez, después del compare-and-set que guardó el resultado.
 - **Tope para jobs de fondo:** las tareas y el resumen semanal frenan al
   `AI_BACKGROUND_CAP_FRACTION` (70%) del tope diario de tokens (`checkAiDailyCap({ background:
-  true })`), así el chat siempre conserva margen.
+true })`), así el chat siempre conserva margen.
 - **Memoria:** la corrida guarda un `RESUMEN:` corto (última línea de la respuesta). La siguiente
   recibe `previous_run_id`, el resumen y el comienzo de la respuesta anterior, más un índice de hasta
   8 corridas previas (todo como dato, con `wrapUntrusted`); `openEarlierRun` abre una de esas, del

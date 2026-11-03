@@ -126,6 +126,7 @@ const GUARDS = [
   "unmatch_bank_statement_line",
   "set_bank_statement_line_ignored",
   "create_bank_statement_line_transaction",
+  "guard_ai_proposal",
   "guard_tax_document",
   "pay_tax_document",
 ];

@@ -51,6 +51,15 @@ vi.mock("./anomalies/gather", () => ({
     })),
 }));
 vi.mock("./fleet/gather", () => ({ gatherFleetInsights: async () => [] }));
+const indicators = {
+  failed: [] as string[],
+};
+vi.mock("./indicators/gather", () => ({
+  gatherIndicators: async () => ({
+    findings: [],
+    failed: indicators.failed,
+  }),
+}));
 
 const { buildInsights, regenerateInsights, withoutIgnored } =
   await import("./analyst");
@@ -123,6 +132,20 @@ describe("regenerateInsights", () => {
       ["cashflow", "open"],
       ["dup_invoice", "acknowledged"],
     ]);
+  });
+});
+
+describe("indicator isolation", () => {
+  it("keeps the previous cards of an indicator whose reads failed", async () => {
+    fake.calls.length = 0;
+    indicators.failed = ["late_interest_uncharged"];
+    await regenerateInsights("2026-10-19");
+    indicators.failed = [];
+    const del = fake.calls.find((c) => c.op === "delete");
+    const kinds = del ? filterValue(del, "in", "kind") : null;
+    expect(kinds).toContain("cash_vs_financing");
+    expect(kinds).toContain("cashflow");
+    expect(kinds).not.toContain("late_interest_uncharged");
   });
 });
 

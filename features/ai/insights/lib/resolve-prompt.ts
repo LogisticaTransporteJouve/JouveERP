@@ -9,6 +9,14 @@ const KIND_LABEL: Record<string, string> = {
   unusual_amount: "monto inusual de proveedor",
   fleet_doc_expiry: "documentos de flota por vencer",
   trip_margin: "viajes con pérdida",
+  client_margin_drop: "margen en baja por cliente",
+  vehicle_cost_per_km: "costo por km en suba",
+  fuel_consumption_outlier: "consumo de combustible fuera de rango",
+  late_interest_uncharged: "interés por mora sin cobrar",
+  unreconciled_bank_lines: "extracto bancario sin conciliar",
+  pending_driver_settlements: "rendiciones de choferes pendientes",
+  loan_installments_due: "cuotas de préstamos por vencer",
+  cash_vs_financing: "caja contra financiamiento",
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {

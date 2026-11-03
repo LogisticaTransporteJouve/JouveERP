@@ -96,7 +96,14 @@ describe("proposal specs", () => {
   });
 
   it("only offers editable fields the draft schema knows", () => {
-    for (const spec of Object.values(PROPOSAL_SPECS)) {
+    // Accepted as shown: an edit would change the figures the server checks
+    // again at accept time (the matches, the ND's interest).
+    const asShown = new Set(["proposeBankMatches", "proposeLateInterestNd"]);
+    for (const [action, spec] of Object.entries(PROPOSAL_SPECS)) {
+      if (asShown.has(action)) {
+        expect(spec.fields).toEqual([]);
+        continue;
+      }
       expect(spec.fields.length).toBeGreaterThan(0);
       for (const f of spec.fields) {
         if (f.kind === "select") expect(f.options?.length).toBeGreaterThan(1);

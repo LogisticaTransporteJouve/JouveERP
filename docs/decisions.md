@@ -3,6 +3,40 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-03 — IA: propuestas para todo e indicadores (6.3 + 6.4)
+
+**Decisión (6.3).** Las propuestas siguen siendo `defineAiProposal`, ahora con
+`prepareDraft` separado de la tarjeta del chat. Las de fuera del chat (desde un
+insight) se guardan en una tabla nueva, `ai_proposals` (`pending | accepted |
+dismissed | failed | expired`, vence a las 24 h), y no en
+`ai_chat_confirmations`, que está atada a sesión, tool call y revisiones y ya
+está mergeada. Aceptar re-chequea `userCan`, re-valida con el Zod del
+formulario y hace un compare-and-set; el trigger `guard_ai_proposal` refuerza
+las transiciones en la base. El insight no prepara nada en segundo plano:
+guarda `{ action, label, input }` y cada usuario lo prepara con sus permisos
+al hacer click. Las escrituras nuevas (tarea, tarifa, conciliación, ND por
+mora) pasaron a `lib/commands/` y el server action de cada feature llama a la
+misma función; la ND recibe `issueFiscalInvoiceAction` inyectado, así `lib/`
+no importa una action. La ND por mora se emite al aceptar (como "Generar ND")
+y se rechaza si el interés cambió desde que se mostró.
+
+**Decisión (6.4).** Ocho indicadores deterministas en el analyst, cada uno con
+su permiso y su copy; los que apuntan a registros tienen fingerprint. Un
+indicador cuyas lecturas fallan conserva su tarjeta anterior en vez de tumbar
+la corrida o borrar la tarjeta. La visibilidad por tipo admite varios
+permisos (se requieren todos), en sync con la política RLS.
+
+**Por qué.** "Propuestas para todo" sin duplicar lógica de negocio ni cruzar
+actions entre features; una tarjeta de insight necesita una propuesta sin
+sesión de chat, y un doble click o una tarjeta vieja nunca deben ejecutar dos
+veces.
+
+**Descartado.** Generalizar `ai_chat_confirmations` (editar una tabla con
+datos y semántica de revisiones). Preparar los borradores en el cron (correría
+sin los permisos ni las denegaciones de quien acepta). Dejar la ND como
+borrador sin emitir: no existe un borrador de ND en el ERP. Medir el
+crecimiento de la mora sin fotos históricas del aging. Una propuesta de
+"recategorizar gasto": no hay un server action puntual que envolver.
 ## 2026-11-03 — Guía del sidebar e impuestos como documento (6.5 + 6.6)
 
 **Decisión (6.5).** Una sección "Guía" plegable al pie del sidebar
@@ -92,6 +126,7 @@ obligan a replicar el techo de rol en la app; se usó `SECURITY INVOKER` con
 "comportamiento de pago" desde cero (se compone `ai_client_sales_summary` +
 aging). Una librería de charts (sigue el SVG propio). Repartir mantenimiento
 o gastos generales entre clientes (sería una regla de prorrateo inventada).
+
 ## 2026-11-03 — Importes de arranque y conciliación bancaria (5.3 + 5.4)
 
 **Decisión (5.3).** Cada ítem de arranque entra por el mismo camino que su
@@ -164,6 +199,7 @@ no explicaba el saldo del banco.
 **Descartado.** Sumarlo en "Capital de préstamos" (mezclaría el repago con el
 financiamiento y movería la generación de caja: un préstamo la haría ver
 buena); incluirlo dentro de la generación de caja; mostrarlo en devengado.
+
 ## 2026-11-03 — Importador y sueldos y viajes históricos (5.1 + 5.2)
 
 **Decisión (5.1).** Un importador genérico en Admin → Importador
@@ -317,16 +353,17 @@ service role.
 
 **Decisión (4.5).** `shipments.cod_amount` marca la carga contra entrega con
 lo que el chofer cobra. La rendición (`driver_settlements` + items por carga
-+ líneas de lo entregado: cuenta, importe y cheque) es de un chofer (el del
-viaje de la carga) y guarda esperado, entregado y diferencia por carga.
-Confirmar (`confirm_driver_settlement`, bajo lock, idempotente) emite **un
-recibo por cliente y canal** con `create_receipt`: el recibo es dueño de sus
-movimientos de caja y de los cheques que entran a cartera (patrón de
-movimientos con dueño), y se imputa a la factura de cada carga hasta su
-saldo; el resto queda a cuenta. Un segundo confirm devuelve los mismos
-recibos. Confirmada queda congelada; se cancela solo con sus recibos ya
-anulados (en Recibos, con sus guardas). La diferencia se registra, no se
-asienta. Permisos: `receipts:read` / `receipts:write`.
+
+- líneas de lo entregado: cuenta, importe y cheque) es de un chofer (el del
+  viaje de la carga) y guarda esperado, entregado y diferencia por carga.
+  Confirmar (`confirm_driver_settlement`, bajo lock, idempotente) emite **un
+  recibo por cliente y canal** con `create_receipt`: el recibo es dueño de sus
+  movimientos de caja y de los cheques que entran a cartera (patrón de
+  movimientos con dueño), y se imputa a la factura de cada carga hasta su
+  saldo; el resto queda a cuenta. Un segundo confirm devuelve los mismos
+  recibos. Confirmada queda congelada; se cancela solo con sus recibos ya
+  anulados (en Recibos, con sus guardas). La diferencia se registra, no se
+  asienta. Permisos: `receipts:read` / `receipts:write`.
 
 **Descartado.** Liquidación con precio manual por carga (se corrige el flete
 o la tarifa); tarifa de flete en USD; asentar la diferencia de la rendición
@@ -360,6 +397,7 @@ el anterior; sin cotización no se factura. Permisos: los de almacenaje
 tarifario en esta tanda (cambia lo que se factura sin que nadie lo cargue);
 concepto flete (el flete de la carga sigue a mano); cobrar con la general
 los días de una tarifa en USD sin cotización.
+
 ## 2026-11-03 — Gestión v2: detalle, percibido por imputación, indicadores (3.7)
 
 **Decisión.** El resultado de gestión se arma por documento en una sola

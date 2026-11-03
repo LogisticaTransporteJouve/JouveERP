@@ -2,13 +2,16 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { todayInAR } from "@/lib/format";
 
+import { InsightProposalSchema } from "../lib/ai-proposal-schema";
+import { AI_ACTIONS } from "../registry/catalog";
+import { canRunAiAction } from "../registry/define";
 import { regenerateInsights } from "./analyst";
 import { IgnoreInsightSchema } from "./lib/ignore-schema";
 import { canSeeInsight } from "./lib/visibility";
@@ -24,6 +27,8 @@ export type InsightCard = {
   period: string | null;
   status: string;
   generated_at: string;
+  /** The proposal the card offers, only when the user may run its action. */
+  proposal: { action: string; label: string } | null;
 };
 
 const SEVERITY_RANK: Record<string, number> = {
@@ -33,7 +38,22 @@ const SEVERITY_RANK: Record<string, number> = {
 };
 
 const SELECT_COLUMNS =
-  "id, kind, severity, title, finding, metrics, source_refs, period, status, generated_at";
+  "id, kind, severity, title, finding, metrics, source_refs, period, status, generated_at, proposal";
+
+/** The card's proposal button, when the analyst attached one and `access`
+ *  may run its registry action (the accept re-checks the same). */
+function offeredProposal(
+  access: Access,
+  raw: unknown,
+): InsightCard["proposal"] {
+  const parsed = InsightProposalSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const action = AI_ACTIONS.find(
+    (a) => a.name === parsed.data.action && a.proposal,
+  );
+  if (!action || !canRunAiAction(access, action)) return null;
+  return { action: action.name, label: parsed.data.label };
+}
 
 /** Open + acknowledged insights for the dashboard (ai:read), severity first. */
 export async function listInsightsAction(): Promise<
@@ -58,9 +78,12 @@ export async function listInsightsAction(): Promise<
 
   // Defense in depth on top of RLS: drop cards from domains this user can't
   // read (e.g. operations must not see treasury / AR / AP cards).
-  const visible = (data ?? []).filter((card) =>
-    canSeeInsight(ctx.access, card.kind),
-  );
+  const visible = (data ?? [])
+    .filter((card) => canSeeInsight(ctx.access, card.kind))
+    .map(({ proposal, ...card }) => ({
+      ...card,
+      proposal: offeredProposal(ctx.access, proposal),
+    }));
   const cards = visible.sort((a, b) => {
     const sev =
       (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);

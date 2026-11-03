@@ -9,15 +9,30 @@ import {
   resolveAccess,
 } from "@/lib/auth/permissions";
 
-import { INSIGHT_KIND_PERMISSION, canSeeInsight } from "./visibility";
+import {
+  INSIGHT_KIND_PERMISSION,
+  canSeeInsight,
+  insightKindPermissions,
+} from "./visibility";
 
 const FINANCE_KINDS = [
   "cashflow",
   "receivables_risk",
   "dup_invoice",
   "unusual_amount",
+  "client_margin_drop",
+  "late_interest_uncharged",
+  "unreconciled_bank_lines",
+  "pending_driver_settlements",
+  "loan_installments_due",
+  "cash_vs_financing",
 ];
-const FLEET_KINDS = ["fleet_doc_expiry", "trip_margin"];
+const FLEET_KINDS = [
+  "fleet_doc_expiry",
+  "trip_margin",
+  "vehicle_cost_per_km",
+  "fuel_consumption_outlier",
+];
 
 describe("canSeeInsight", () => {
   it("hides treasury / AR / AP cards from operations", () => {
@@ -66,14 +81,11 @@ describe("ai_insights RLS policy stays in sync with the visibility map", () => {
   const sql = readFileSync(
     path.resolve(
       __dirname,
-      "../../../../supabase/migrations/20260705110000_ai_hardening.sql",
+      "../../../../supabase/migrations/20261103180000_ai_proposals.sql",
     ),
     "utf8",
   );
-  const policy = sql.slice(
-    sql.indexOf('create policy "ai_insights select"'),
-    sql.lastIndexOf("-- 2. ai_usage.kind"),
-  );
+  const policy = sql.slice(sql.indexOf('create policy "ai_insights select"'));
 
   it("grants each non-admin role exactly the kinds its permissions allow", () => {
     // Each `kind in (...) and (select public.user_has_role(array['<role>']))`.
@@ -85,13 +97,13 @@ describe("ai_insights RLS policy stays in sync with the visibility map", () => {
       granted.set(m[2] ?? "", kinds ?? []);
     }
     for (const role of ["finance", "operations"] satisfies Role[]) {
-      const expected = Object.entries(INSIGHT_KIND_PERMISSION)
+      const expected = Object.keys(INSIGHT_KIND_PERMISSION)
         .filter(
-          ([, perm]) =>
-            ROLE_PERMISSIONS[role].includes(perm) &&
-            ROLE_PERMISSIONS[role].includes("ai:read"),
+          (kind) =>
+            (insightKindPermissions(kind) ?? []).every((perm) =>
+              ROLE_PERMISSIONS[role].includes(perm),
+            ) && ROLE_PERMISSIONS[role].includes("ai:read"),
         )
-        .map(([kind]) => kind)
         .sort();
       expect((granted.get(role) ?? []).slice().sort()).toEqual(expected);
     }

@@ -10,6 +10,8 @@ import { getServiceClient } from "@/lib/supabase/service";
 import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
 import { gatherFleetInsights } from "./fleet/gather";
+import { INDICATOR_KINDS, type IndicatorKind } from "./indicators/detect";
+import { gatherIndicators } from "./indicators/gather";
 import { insightFingerprint } from "./lib/fingerprint";
 import {
   gatherCashFlow,
@@ -27,6 +29,7 @@ export const ANALYST_KINDS = [
   "unusual_amount",
   "fleet_doc_expiry",
   "trip_margin",
+  ...INDICATOR_KINDS,
 ] as const;
 
 export type InsightRow = {
@@ -36,6 +39,8 @@ export type InsightRow = {
   finding: string;
   metrics: Json;
   source_refs: Json;
+  /** The proposal the card offers (ai_insights.proposal), if any. */
+  proposal?: Json;
 };
 
 function money(n: number): string {
@@ -137,8 +142,11 @@ function receivablesInsight(risk: ReceivablesRisk): InsightRow {
   };
 }
 
-/** Computes the current insight set (cash-flow + receivables risk). */
-export async function buildInsights(today: string): Promise<InsightRow[]> {
+/** The current insight set, and the indicator kinds whose reads failed (their
+ *  previous cards stay). */
+async function computeInsights(
+  today: string,
+): Promise<{ rows: InsightRow[]; failed: IndicatorKind[] }> {
   const rows: InsightRow[] = [];
 
   const inputs = await gatherCashFlow(today, HORIZON_WEEKS);
@@ -177,7 +185,26 @@ export async function buildInsights(today: string): Promise<InsightRow[]> {
     });
   }
 
-  return rows;
+  const indicators = await gatherIndicators(today);
+  for (const f of indicators.findings) {
+    rows.push({
+      kind: f.kind,
+      severity: f.severity,
+      title: f.title,
+      finding: f.finding,
+      metrics: toJson(f.metrics),
+      source_refs: toJson(f.source_refs),
+      ...(f.proposal ? { proposal: toJson(f.proposal) } : {}),
+    });
+  }
+
+  return { rows, failed: indicators.failed };
+}
+
+/** Computes the current insight set (cash flow, receivables, anomalies,
+ *  fleet and the 6.4 indicators). */
+export async function buildInsights(today: string): Promise<InsightRow[]> {
+  return (await computeInsights(today)).rows;
 }
 
 /** Drops findings the user already ignored (same fingerprint) and tags the
@@ -202,7 +229,7 @@ export function withoutIgnored(
  * receivables) have no fingerprint and come back open with today's figures.
  */
 export async function regenerateInsights(today: string): Promise<number> {
-  const computed = await buildInsights(today);
+  const { rows: computed, failed } = await computeInsights(today);
   const service = getServiceClient();
 
   // Only the fingerprints this run produced, in URL-safe chunks: a growing
@@ -242,7 +269,10 @@ export async function regenerateInsights(today: string): Promise<number> {
   const { error: delError } = await service
     .from("ai_insights")
     .delete()
-    .in("kind", [...ANALYST_KINDS])
+    .in(
+      "kind",
+      ANALYST_KINDS.filter((k) => !(failed as readonly string[]).includes(k)),
+    )
     .in("status", ["open", "acknowledged"]);
   if (delError) {
     logger.error("ai.insights.delete.failed", { error: delError });

@@ -18,6 +18,8 @@ import {
   type AiAction,
   type AiActionContext,
   type AiDomain,
+  type AiPreparedProposal,
+  type AiProposalOutcome,
   type AiToolCall,
 } from "./define";
 import { errResult, type AiToolResult } from "./result";
@@ -80,7 +82,7 @@ type AiProposalDefinition<I extends z.ZodObject, D extends z.ZodType> = {
   execute: (
     ctx: AiActionContext,
     draft: z.output<D>,
-  ) => Promise<ActionResult<{ id: string }>>;
+  ) => Promise<ActionResult<AiProposalOutcome>>;
 };
 
 const revisionKeySchema = z.object({
@@ -140,6 +142,41 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
     );
   }
 
+  /** The model's (or an insight's) input → a validated draft; no store. */
+  async function prepareDraft(
+    ctx: AiActionContext,
+    raw: unknown,
+  ): Promise<AiPreparedProposal> {
+    const parsed = def.input.safeParse(raw);
+    if (!parsed.success) {
+      return {
+        kind: "error",
+        error: parsed.error.issues[0]?.message ?? "Parámetros inválidos.",
+      };
+    }
+    let prepared: AiPrepareResult;
+    try {
+      prepared = await def.prepare(ctx, parsed.data);
+    } catch (error) {
+      logger.error("ai.proposal.prepare_failed", {
+        action: def.name,
+        userId: ctx.userId,
+        error,
+      });
+      return { kind: "error", error: "No se pudo armar la propuesta." };
+    }
+    if (prepared.kind !== "draft") return prepared;
+    const labels = prepared.labels ?? {};
+    const validated = spec.validate(prepared.draft, labels);
+    if (!validated.ok) return { kind: "issues", issues: validated.issues };
+    return {
+      kind: "draft",
+      draft: validated.draft,
+      labels,
+      summary: validated.summary,
+    };
+  }
+
   async function execute(
     ctx: AiActionContext,
     raw: unknown,
@@ -151,32 +188,17 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
     if (!ctx.proposals || !call) {
       return errResult("Las propuestas solo se pueden hacer desde el chat.");
     }
-    const parsed = def.input.safeParse(raw);
     const key = revisionKeySchema.safeParse(raw);
-    if (!parsed.success || !key.success) {
-      const issue = (parsed.error ?? key.error)?.issues[0];
-      return errResult(issue?.message ?? "Parámetros inválidos.");
+    if (!key.success) {
+      return errResult(key.error.issues[0]?.message ?? "Parámetros inválidos.");
     }
-
-    let prepared: AiPrepareResult;
-    try {
-      prepared = await def.prepare(ctx, parsed.data);
-    } catch (error) {
-      logger.error("ai.proposal.prepare_failed", {
-        action: def.name,
-        userId: ctx.userId,
-        error,
-      });
-      return errResult("No se pudo armar la propuesta.");
-    }
+    const prepared = await prepareDraft(ctx, raw);
     if (prepared.kind === "error") return errResult(prepared.error);
     if (prepared.kind === "issues") {
       return issuesResult(prepared.issues, prepared.candidates);
     }
-
-    const labels = prepared.labels ?? {};
-    const validated = spec.validate(prepared.draft, labels);
-    if (!validated.ok) return issuesResult(validated.issues);
+    const { labels } = prepared;
+    const validated = { draft: prepared.draft, summary: prepared.summary };
 
     const revisionKey = key.data.revisionKey ?? crypto.randomUUID();
     let stored: { id: string; revision: number };
@@ -237,6 +259,7 @@ export function defineAiProposal<I extends z.ZodObject, D extends z.ZodType>(
       }),
     proposal: {
       spec,
+      prepareDraft,
       executeDraft: async (ctx, draft) => {
         const parsed = spec.draft.safeParse(draft);
         if (!parsed.success) {
