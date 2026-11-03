@@ -312,7 +312,7 @@ revoke all on table public.historic_trips from public, anon;
 
 -- p_rows is a JSON array of the rows the action validated (Zod), shaped like
 -- the target's columns. A row whose natural key already exists, in the table
--- or earlier in p_rows, is skipped and counted with p_skipped_rows (the
+-- or earlier in p_rows (the first one is kept), is skipped and counted with p_skipped_rows (the
 -- duplicates the preview already left out). Names compare trimmed, with runs
 -- of spaces collapsed and lowercased (features/imports/lib/keys.ts does the
 -- same); patentes compare as their letters and digits.
@@ -367,12 +367,13 @@ begin
     with src as (
       select distinct on (coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))))
              r.*
-        from jsonb_to_recordset(p_rows) as r(
+        from jsonb_array_elements(p_rows) with ordinality as e(value, ord)
+       cross join lateral jsonb_to_record(e.value) as r(
                legal_name text, display_name text, cuit text, iva_condition text,
                email text, phone text, address text, real_address text, notes text,
                is_fiscal boolean
              )
-       order by coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g')))
+       order by coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))), e.ord
     ),
     ins as (
       insert into public.clients (
@@ -398,12 +399,13 @@ begin
     with src as (
       select distinct on (coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))))
              r.*
-        from jsonb_to_recordset(p_rows) as r(
+        from jsonb_array_elements(p_rows) with ordinality as e(value, ord)
+       cross join lateral jsonb_to_record(e.value) as r(
                legal_name text, display_name text, cuit text, iva_condition text,
                email text, phone text, address text, real_address text, notes text,
                is_fiscal boolean
              )
-       order by coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g')))
+       order by coalesce(r.cuit, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))), e.ord
     ),
     ins as (
       insert into public.suppliers (
@@ -429,13 +431,14 @@ begin
     with src as (
       select distinct on (coalesce(r.cuil, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))))
              r.*
-        from jsonb_to_recordset(p_rows) as r(
+        from jsonb_array_elements(p_rows) with ordinality as e(value, ord)
+       cross join lateral jsonb_to_record(e.value) as r(
                legal_name text, position text, cuil text, cbu text, pay_frequency text,
                base_salary numeric, viatico_monthly numeric, is_monotributo boolean,
                hire_date date, termination_date date, notes text, convenio text,
                categoria text, obra_social text, art text
              )
-       order by coalesce(r.cuil, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g')))
+       order by coalesce(r.cuil, lower(regexp_replace(trim(r.legal_name), '\s+', ' ', 'g'))), e.ord
     ),
     ins as (
       insert into public.employees (
@@ -473,11 +476,12 @@ begin
     with src as (
       select distinct on (upper(regexp_replace(r.patente, '[^0-9A-Za-z]', '', 'g')))
              r.*
-        from jsonb_to_recordset(p_rows) as r(
+        from jsonb_array_elements(p_rows) with ordinality as e(value, ord)
+       cross join lateral jsonb_to_record(e.value) as r(
                patente text, vehicle_type text, alias text, brand text, model text,
                year integer, fleet text, fuel_card text, capacity_kg numeric, notes text
              )
-       order by upper(regexp_replace(r.patente, '[^0-9A-Za-z]', '', 'g'))
+       order by upper(regexp_replace(r.patente, '[^0-9A-Za-z]', '', 'g')), e.ord
     ),
     ins as (
       insert into public.vehicles (
