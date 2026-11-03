@@ -39,9 +39,9 @@ create table public.finance_settings (
 
   constraint finance_settings_late_interest_rate check (
     key <> 'late_interest_monthly_rate'
-    or (jsonb_typeof(value) = 'number'
-        and (value #>> '{}')::numeric >= 0
-        and (value #>> '{}')::numeric <= 100)
+    or case when jsonb_typeof(value) = 'number'
+            then (value #>> '{}')::numeric between 0 and 100
+            else false end
   )
 );
 

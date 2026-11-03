@@ -97,7 +97,8 @@ alter table public.pallets
     check (lot_number is null or length(trim(lot_number)) between 1 and 60) not valid,
   add constraint pallets_block_consistent check (
     (blocked_at is null and blocked_by is null and block_reason is null)
-    or (blocked_at is not null and length(trim(block_reason)) between 1 and 500)
+    or (blocked_at is not null and block_reason is not null
+        and length(trim(block_reason)) between 1 and 500)
   ) not valid;
 -- squawk-ignore constraint-missing-not-valid
 alter table public.pallets validate constraint pallets_lot_number_length;
