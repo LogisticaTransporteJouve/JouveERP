@@ -26,7 +26,57 @@ export type LibroIvaComprasRow = {
   iva_orig: string | number;
   imp_trib_orig: string | number;
   imp_total_orig: string | number;
-};
+} & Record<
+  ComprasBreakdownKey | `${ComprasBreakdownKey}_orig`,
+  string | number
+>;
+
+/** What a purchase states besides neto, IVA and the otros tributos total. */
+export const COMPRAS_BREAKDOWN_KEYS = [
+  "no_gravado",
+  "exentas",
+  "perc_iva",
+  "perc_iibb",
+  "perc_municipales",
+  "impuestos_internos",
+] as const;
+export type ComprasBreakdownKey = (typeof COMPRAS_BREAKDOWN_KEYS)[number];
+export type ComprasBreakdown = Record<ComprasBreakdownKey, number>;
+
+function emptyBreakdown(): ComprasBreakdown {
+  return {
+    no_gravado: 0,
+    exentas: 0,
+    perc_iva: 0,
+    perc_iibb: 0,
+    perc_municipales: 0,
+    impuestos_internos: 0,
+  };
+}
+
+function readBreakdown(
+  r: LibroIvaComprasRow,
+  suffix: "" | "_orig",
+): ComprasBreakdown {
+  const out = emptyBreakdown();
+  for (const k of COMPRAS_BREAKDOWN_KEYS) out[k] = Number(r[`${k}${suffix}`]);
+  return out;
+}
+
+/** Columns the book prints after the alícuotas (screen, Excel and PDF). */
+export const COMPRAS_AMOUNT_COLUMNS: readonly {
+  header: string;
+  value: (b: ComprasBreakdown) => number;
+}[] = [
+  { header: "No gravado", value: (b) => b.no_gravado },
+  { header: "Exento", value: (b) => b.exentas },
+  { header: "Perc. IVA", value: (b) => b.perc_iva },
+  { header: "Perc. IIBB", value: (b) => b.perc_iibb },
+  {
+    header: "Otros trib.",
+    value: (b) => b.perc_municipales + b.impuestos_internos,
+  },
+];
 
 export type LibroIvaComprasGroupedRow = {
   purchase_invoice_id: string;
@@ -46,10 +96,16 @@ export type LibroIvaComprasGroupedRow = {
   has_items: boolean;
   /** Pesos: the document's amounts × its cotizacion (the book's figures). */
   per_rate: PerRate;
+  breakdown: ComprasBreakdown;
   moneda: string;
   cotizacion: number;
   /** The same figures in the document's own currency (Libro IVA Digital TXT). */
-  orig: { per_rate: PerRate; imp_trib: number; imp_total: number };
+  orig: {
+    per_rate: PerRate;
+    breakdown: ComprasBreakdown;
+    imp_trib: number;
+    imp_total: number;
+  };
 };
 
 export function groupComprasByInvoice(
@@ -76,10 +132,13 @@ export function groupComprasByInvoice(
         channel_id: r.channel_id,
         has_items: r.has_items,
         per_rate: {},
+        // Repeated on every alícuota row, like imp_trib.
+        breakdown: readBreakdown(r, ""),
         moneda: r.moneda,
         cotizacion: Number(r.cotizacion),
         orig: {
           per_rate: {},
+          breakdown: readBreakdown(r, "_orig"),
           imp_trib: Number(r.imp_trib_orig),
           imp_total: Number(r.imp_total_orig),
         },
@@ -96,6 +155,7 @@ export function groupComprasByInvoice(
 export type LibroIvaComprasTotals = {
   count: number;
   per_rate: Record<number, { neto: number; iva: number }>;
+  breakdown: ComprasBreakdown;
   imp_trib: number;
   imp_total: number;
 };
@@ -106,6 +166,7 @@ export function computeComprasTotals(
   const totals: LibroIvaComprasTotals = {
     count: grouped.length,
     per_rate: {},
+    breakdown: emptyBreakdown(),
     imp_trib: 0,
     imp_total: 0,
   };
@@ -119,6 +180,9 @@ export function computeComprasTotals(
         neto: existing.neto + sign * v.neto,
         iva: existing.iva + sign * v.iva,
       };
+    }
+    for (const k of COMPRAS_BREAKDOWN_KEYS) {
+      totals.breakdown[k] += sign * row.breakdown[k];
     }
     totals.imp_trib += sign * row.imp_trib;
     totals.imp_total += sign * row.imp_total;

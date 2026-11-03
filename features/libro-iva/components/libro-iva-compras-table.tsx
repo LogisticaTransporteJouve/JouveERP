@@ -11,6 +11,7 @@ import { useLibroIvaCompras } from "../hooks/use-libro-iva";
 import {
   computeComprasTotals,
   groupComprasByInvoice,
+  COMPRAS_AMOUNT_COLUMNS,
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
@@ -103,9 +104,14 @@ export function LibroIvaComprasTable({
                   {r.label}
                 </th>
               ))}
-              <th className="border-l px-2 py-2 text-right font-medium">
-                Perc.
-              </th>
+              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => (
+                <th
+                  key={c.header}
+                  className={`${i === 0 ? "border-l " : ""}px-2 py-2 text-right font-medium`}
+                >
+                  {c.header}
+                </th>
+              ))}
               <th className="px-2 py-2 text-right font-medium">Total $</th>
               <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
               <th className="px-2 py-2 font-medium">CAE prov.</th>
@@ -124,7 +130,12 @@ export function LibroIvaComprasTable({
                   <th className="px-2 py-1 text-right font-normal">IVA</th>
                 </Fragment>
               ))}
-              <th className="border-l" />
+              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => (
+                <th
+                  key={c.header}
+                  className={i === 0 ? "border-l" : undefined}
+                />
+              ))}
               <th />
               <th />
               <th />
@@ -176,9 +187,17 @@ export function LibroIvaComprasTable({
                       </Fragment>
                     );
                   })}
-                  <td className="border-l px-2 py-1 text-right font-mono text-xs">
-                    {row.imp_trib > 0 ? money(row.imp_trib) : ""}
-                  </td>
+                  {COMPRAS_AMOUNT_COLUMNS.map((c, i) => {
+                    const v = c.value(row.breakdown);
+                    return (
+                      <td
+                        key={c.header}
+                        className={`${i === 0 ? "border-l " : ""}px-2 py-1 text-right font-mono text-xs`}
+                      >
+                        {v > 0 ? money(v) : ""}
+                      </td>
+                    );
+                  })}
                   <td className="px-2 py-1 text-right font-mono text-xs font-medium">
                     {money(row.imp_total)}
                   </td>
@@ -229,9 +248,17 @@ export function LibroIvaComprasTable({
                   </Fragment>
                 );
               })}
-              <td className="border-l px-2 py-2 text-right font-mono">
-                {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
-              </td>
+              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => {
+                const v = c.value(totals.breakdown);
+                return (
+                  <td
+                    key={c.header}
+                    className={`${i === 0 ? "border-l " : ""}px-2 py-2 text-right font-mono`}
+                  >
+                    {v !== 0 ? money(v) : ""}
+                  </td>
+                );
+              })}
               <td className="px-2 py-2 text-right font-mono">
                 {money(totals.imp_total)}
               </td>

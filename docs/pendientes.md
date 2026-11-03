@@ -435,9 +435,10 @@ mitigación en el schema: el límite se respeta operando.
       rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
       de pasivo (IVA) no es resultado y no suma.
-- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
-      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
-      saldo a favor del mes anterior; lo dice en pantalla.
+- [x] Estimado de IVA: descuenta las percepciones de IVA de las compras
+      que las tienen repartidas (`imp_perc_iva`, `20261104096400`; las
+      compras anteriores quedan como IIBB) y el saldo a favor del mes
+      anterior.
 - [x] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
       (no tiene `files:read`).
 - [x] Herramienta del asistente IA para impuestos (vencimientos y estado).
@@ -472,12 +473,10 @@ mitigación en el schema: el límite se respeta operando.
       mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
       tributos de las compras.
-- [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
-      descuentan. `purchase_invoices` tiene un solo `imp_trib` (IVA e IIBB
-      juntas, y el asiento lo manda entero a percepciones IIBB); separarlas
-      pide una columna nueva en compras (carga manual, importador AFIP y
-      escaneo) y un asiento que las separe. Hoy el estimado muestra el total
-      de `imp_trib` para restarlo a mano.
+- [x] Estimado de IVA: las percepciones de IVA sufridas en compras se
+      descuentan cuando la compra las reparte. `imp_trib` se reparte en percepción IVA, percepción IIBB,
+      municipales e impuestos internos (`20261104096400`); cada parte va a
+      su cuenta en el asiento y a su campo en el libro IVA y el TXT.
 - [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
       log de auditoría (vinculado si está `tax_document.payment_linked`; si
       no, "Pagar"); la cuenta de gasto previa sale del último

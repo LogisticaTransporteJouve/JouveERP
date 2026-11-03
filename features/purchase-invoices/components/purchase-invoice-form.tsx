@@ -61,17 +61,25 @@ import {
   type PurchaseInvoiceCreateRawInput,
   type PurchaseInvoiceDraft,
 } from "../lib/purchase-invoice-draft";
+import { followHeaderTotal } from "../lib/header-total";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
   PURCHASE_INVOICE_LETTERS,
   PURCHASE_INVOICES_PATH,
+  PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
+  type PurchaseAmountBreakdown,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
   type PurchaseInvoiceLetter,
 } from "../schema";
 import { AiFilledMark } from "./ai-filled-mark";
+import {
+  TributesSplitFields,
+  tributesRemaining,
+  tributesRemainingMessage,
+} from "./tributes-split-fields";
 import {
   PurchaseInvoicePicker,
   type PickedPurchaseInvoice,
@@ -85,6 +93,8 @@ import {
 } from "./purchase-invoice-items-editor";
 
 type Mode = "create" | "edit";
+
+export type PurchaseInvoiceFormValues = FormValues;
 
 type FormValues = {
   supplier: PickedSupplier | null;
@@ -103,6 +113,12 @@ type FormValues = {
   imp_neto: string;
   imp_iva: string;
   imp_trib: string;
+  imp_no_gravado: string;
+  imp_op_exentas: string;
+  imp_perc_iva: string;
+  imp_perc_iibb: string;
+  imp_perc_municipales: string;
+  imp_impuestos_internos: string;
   imp_total: string;
   moneda: string;
   cotizacion: string;
@@ -114,6 +130,41 @@ type FormValues = {
   with_items: boolean;
   items: PurchaseInvoiceItemDraft[];
 };
+
+type BreakdownValues = Pick<
+  FormValues,
+  | "imp_no_gravado"
+  | "imp_op_exentas"
+  | "imp_perc_iva"
+  | "imp_perc_iibb"
+  | "imp_perc_municipales"
+  | "imp_impuestos_internos"
+>;
+
+function breakdownValues(b: PurchaseAmountBreakdown): BreakdownValues {
+  return {
+    imp_no_gravado: String(b.imp_no_gravado),
+    imp_op_exentas: String(b.imp_op_exentas),
+    imp_perc_iva: String(b.imp_perc_iva),
+    imp_perc_iibb: String(b.imp_perc_iibb),
+    imp_perc_municipales: String(b.imp_perc_municipales),
+    imp_impuestos_internos: String(b.imp_impuestos_internos),
+  };
+}
+
+/** A listed row has no breakdown: until the detail loads, its tributes show as
+ *  IIBB (what a purchase without a split means) and are not sent. */
+function breakdownToValues(inv: PurchaseInvoice | undefined): BreakdownValues {
+  if (inv?.amount_breakdown) return breakdownValues(inv.amount_breakdown);
+  return {
+    imp_no_gravado: "0",
+    imp_op_exentas: "0",
+    imp_perc_iva: "0",
+    imp_perc_iibb: inv ? String(inv.imp_trib) : "0",
+    imp_perc_municipales: "0",
+    imp_impuestos_internos: "0",
+  };
+}
 
 function invoiceToValues(
   inv: PurchaseInvoice | undefined,
@@ -146,6 +197,7 @@ function invoiceToValues(
     imp_neto: inv ? String(inv.imp_neto) : "0",
     imp_iva: inv ? String(inv.imp_iva) : "0",
     imp_trib: inv ? String(inv.imp_trib) : "0",
+    ...breakdownToValues(inv),
     imp_total: inv ? String(inv.imp_total) : "",
     moneda: inv?.moneda ?? "PES",
     cotizacion: inv ? String(inv.cotizacion) : "1",
@@ -241,6 +293,15 @@ export function PurchaseInvoiceForm({
   const watchedNeto = useWatch({ control: form.control, name: "imp_neto" });
   const watchedIva = useWatch({ control: form.control, name: "imp_iva" });
   const watchedTrib = useWatch({ control: form.control, name: "imp_trib" });
+  const watchedNoGravado = useWatch({
+    control: form.control,
+    name: "imp_no_gravado",
+  });
+  const watchedExentas = useWatch({
+    control: form.control,
+    name: "imp_op_exentas",
+  });
+  const watchedLetter = useWatch({ control: form.control, name: "letter" });
   const watchedSupplierId =
     useWatch({ control: form.control, name: "supplier" })?.id ?? null;
   const watchedOriginId =
@@ -277,14 +338,18 @@ export function PurchaseInvoiceForm({
   // otherwise, sum neto + iva + trib into imp_total. Centralized in a useMemo
   // to avoid re-fires on every keystroke across each separate effect.
   const derivedTotals = useMemo(() => {
-    const trib = Number(watchedTrib || 0);
+    // Exento and no gravado sit in the header next to otros tributos.
+    const outside =
+      Number(watchedTrib || 0) +
+      Number(watchedNoGravado || 0) +
+      Number(watchedExentas || 0);
     if (watchedWithItems) {
       const t = computeTotals(watchedItems);
       return {
         mode: "items" as const,
         imp_neto: t.imp_neto,
         imp_iva: t.imp_iva,
-        imp_total: +(t.imp_total_lines + trib).toFixed(2),
+        imp_total: +(t.imp_total_lines + outside).toFixed(2),
       };
     }
     const neto = Number(watchedNeto || 0);
@@ -292,16 +357,25 @@ export function PurchaseInvoiceForm({
     if (
       !Number.isFinite(neto) ||
       !Number.isFinite(iva) ||
-      !Number.isFinite(trib)
+      !Number.isFinite(outside)
     ) {
       return null;
     }
     return {
       mode: "header" as const,
-      imp_total: +(neto + iva + trib).toFixed(2),
+      imp_total: +(neto + iva + outside).toFixed(2),
     };
-  }, [watchedWithItems, watchedItems, watchedNeto, watchedIva, watchedTrib]);
+  }, [
+    watchedWithItems,
+    watchedItems,
+    watchedNeto,
+    watchedIva,
+    watchedTrib,
+    watchedNoGravado,
+    watchedExentas,
+  ]);
 
+  const prevHeaderTotalRef = useRef<number | null>(null);
   useEffect(() => {
     if (!derivedTotals) return;
     if (derivedTotals.mode === "items") {
@@ -316,24 +390,27 @@ export function PurchaseInvoiceForm({
       });
       return;
     }
-    // Header mode: only overwrite if the total wasn't touched manually, or
-    // it matches the previous calculation (±0.01 heuristic).
-    const currentTotal = Number(form.getValues("imp_total") || 0);
-    if (
-      currentTotal === 0 ||
-      Math.abs(currentTotal - derivedTotals.imp_total) < 0.01
-    ) {
-      form.setValue("imp_total", String(derivedTotals.imp_total), {
-        shouldDirty: false,
-      });
+    const previous = prevHeaderTotalRef.current;
+    prevHeaderTotalRef.current = derivedTotals.imp_total;
+    const next = followHeaderTotal(
+      Number(form.getValues("imp_total") || 0),
+      previous,
+      derivedTotals.imp_total,
+    );
+    if (next !== null) {
+      form.setValue("imp_total", String(next), { shouldDirty: false });
     }
   }, [derivedTotals, form]);
 
   // A listed row does not carry "a cargo de empleado": read it from the
   // detail, and send it only once known and changed.
   const chargeFromRow = invoice?.charged_employee_id !== undefined;
+  // Same for the amount breakdown: only the detail carries it.
+  const breakdownFromRow = invoice?.amount_breakdown !== undefined;
   const detailQuery = usePurchaseInvoiceByIdOptional(
-    mode === "edit" && invoice && !chargeFromRow ? invoice.id : null,
+    mode === "edit" && invoice && !(chargeFromRow && breakdownFromRow)
+      ? invoice.id
+      : null,
   );
   const detailCharge = detailQuery.data?.charged_employee_id;
   const chargeKnown =
@@ -344,6 +421,17 @@ export function PurchaseInvoiceForm({
       defaultValue: detailCharge ?? "",
     });
   }, [detailCharge, form]);
+  const detailBreakdown = detailQuery.data?.amount_breakdown;
+  const breakdownKnown =
+    mode === "create" || breakdownFromRow || detailBreakdown !== undefined;
+  useEffect(() => {
+    if (detailBreakdown === undefined) return;
+    for (const [name, value] of Object.entries(
+      breakdownValues(detailBreakdown),
+    ) as [keyof BreakdownValues, string][]) {
+      form.resetField(name, { defaultValue: value });
+    }
+  }, [detailBreakdown, form]);
 
   const originInvoiceQuery = usePurchaseInvoiceByIdOptional(
     invoice?.invoice_origin_id ?? null,
@@ -447,6 +535,25 @@ export function PurchaseInvoiceForm({
   const watchedChannelIsFiscal =
     channelIsFiscal(watchedChannelId, channels) ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
+  const showsExempt = watchedChannelIsFiscal && watchedLetter === "A";
+
+  // Off a fiscal A, exento and no gravado move into the net, also when the
+  // detail loads them after the switch, so the total keeps matching the parts
+  // sent. IVA stays for the user to clear (NON_COMPUTABLE_DENIED). With items
+  // the net comes from the lines and the total is recomputed without them.
+  useEffect(() => {
+    if (showsExempt) return;
+    const hidden =
+      Number(form.getValues("imp_no_gravado") || 0) +
+      Number(form.getValues("imp_op_exentas") || 0);
+    if (hidden === 0) return;
+    form.setValue("imp_no_gravado", "0");
+    form.setValue("imp_op_exentas", "0");
+    if (!form.getValues("with_items")) {
+      const neto = Number(form.getValues("imp_neto") || 0);
+      form.setValue("imp_neto", String(+(neto + hidden).toFixed(2)));
+    }
+  }, [showsExempt, watchedNoGravado, watchedExentas, form]);
 
   // An NC/ND only references an invoice of its own channel: switching the
   // channel drops the picked origin (the edit form's first load is not a switch).
@@ -527,6 +634,8 @@ export function PurchaseInvoiceForm({
           imp_neto: watchedNeto,
           imp_iva: watchedIva,
           imp_trib: watchedTrib,
+          imp_no_gravado: watchedNoGravado,
+          imp_op_exentas: watchedExentas,
           imp_total: watchedTotal,
         });
 
@@ -599,6 +708,42 @@ export function PurchaseInvoiceForm({
       return;
     }
 
+    // The tributes are split on a fiscal purchase and are IIBB on an internal one.
+    const trib = Number(values.imp_trib || 0);
+    const parts =
+      isInternal || trib === 0
+        ? {
+            imp_perc_iva: 0,
+            imp_perc_iibb: trib,
+            imp_perc_municipales: 0,
+            imp_impuestos_internos: 0,
+          }
+        : {
+            imp_perc_iva: Number(values.imp_perc_iva || 0),
+            imp_perc_iibb: Number(values.imp_perc_iibb || 0),
+            imp_perc_municipales: Number(values.imp_perc_municipales || 0),
+            imp_impuestos_internos: Number(values.imp_impuestos_internos || 0),
+          };
+    if (!isInternal && trib !== 0 && breakdownKnown) {
+      const message = tributesRemainingMessage(
+        tributesRemaining(
+          trib,
+          PURCHASE_TRIBUTE_FIELDS.map((name) => values[name]),
+        ),
+      );
+      if (message) {
+        form.setError("imp_perc_iibb", { message });
+        return;
+      }
+    }
+    const breakdown = breakdownKnown
+      ? {
+          imp_no_gravado: showsExempt ? Number(values.imp_no_gravado || 0) : 0,
+          imp_op_exentas: showsExempt ? Number(values.imp_op_exentas || 0) : 0,
+          ...parts,
+        }
+      : {};
+
     const payload: PurchaseInvoiceCreateRawInput = {
       supplier_id: values.supplier.id,
       channel_id: values.channel_id,
@@ -615,7 +760,8 @@ export function PurchaseInvoiceForm({
       fch_vto_pago: values.fch_vto_pago || null,
       imp_neto: Number(values.imp_neto || 0),
       imp_iva: Number(values.imp_iva || 0),
-      imp_trib: Number(values.imp_trib || 0),
+      imp_trib: trib,
+      ...breakdown,
       imp_total: Number(values.imp_total),
       moneda: values.moneda,
       cotizacion: Number(values.cotizacion || 1),
@@ -994,6 +1140,7 @@ export function PurchaseInvoiceForm({
                     type="number"
                     inputMode="decimal"
                     step="0.01"
+                    disabled={!breakdownKnown}
                   />
                 </FormControl>
                 <FormMessage />
@@ -1032,6 +1179,57 @@ export function PurchaseInvoiceForm({
             )}
           />
         </div>
+
+        {showsExempt && (
+          <div className="grid gap-4 sm:grid-cols-4">
+            <FormField
+              control={form.control}
+              name="imp_no_gravado"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>No gravado</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      disabled={!breakdownKnown}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imp_op_exentas"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Exento</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      disabled={!breakdownKnown}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        {watchedChannelIsFiscal && Number(watchedTrib || 0) > 0 && (
+          <TributesSplitFields
+            control={form.control}
+            total={Number(watchedTrib || 0)}
+            disabled={!breakdownKnown}
+          />
+        )}
 
         {gap !== null && (
           <div className="space-y-2 rounded-md border border-dashed px-3 py-2 text-xs">
