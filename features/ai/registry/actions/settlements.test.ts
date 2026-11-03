@@ -77,8 +77,13 @@ describe("getFreightSettlements", () => {
       data: [
         freight({}),
         freight({ id: "f2", status: "invoiced" }),
-        freight({ id: "f3", client_is_fiscal: false }),
+        freight({ id: "f3", channel: "internal", client_is_fiscal: false }),
         freight({ id: "f4", client_name: "Otro" }),
+        // The side is the confirmed channel, not the client's current flag.
+        freight({ id: "f5", channel: "internal", client_is_fiscal: true }),
+        freight({ id: "f6", channel: "fiscal", client_is_fiscal: false }),
+        // A draft follows its client.
+        freight({ id: "f7", channel: null, client_is_fiscal: false }),
       ],
     });
     const res = await getFreightSettlements.execute(ctx, {
@@ -89,9 +94,19 @@ describe("getFreightSettlements", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const data = res.data as { rows: { id: string; document: string }[] };
-    expect(data.rows.map((r) => r.id)).toEqual(["f1"]);
+    expect(data.rows.map((r) => r.id)).toEqual(["f1", "f6"]);
     expect(data.rows[0]?.document).toBe("Remito R0001-00000003");
-    expect(res.summary).toContain("1 confirmadas sin facturar");
+    expect(res.summary).toContain("2 confirmadas sin facturar");
+
+    const internal = await getFreightSettlements.execute(ctx, {
+      status: "confirmed",
+      scope: "internal",
+      client_name: "uno",
+    });
+    expect(internal.ok).toBe(true);
+    if (!internal.ok) return;
+    const rows = (internal.data as { rows: { id: string }[] }).rows;
+    expect(rows.map((r) => r.id)).toEqual(["f3", "f5", "f7"]);
   });
 });
 

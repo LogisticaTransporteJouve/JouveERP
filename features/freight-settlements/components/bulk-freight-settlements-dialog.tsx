@@ -46,6 +46,9 @@ export function BulkFreightSettlementsDialog({
   const mut = useCreateFreightSettlementsBulk();
 
   function close(next: boolean) {
+    // Its result belongs to this run: closing mid-run would show it on the
+    // next one.
+    if (!next && mut.isPending) return;
     if (!next) setResult(null);
     onOpenChange(next);
   }

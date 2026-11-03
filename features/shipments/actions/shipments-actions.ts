@@ -11,6 +11,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { findSourceInvoiceSlot } from "@/lib/source-invoice-key";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
@@ -531,8 +532,10 @@ export async function setShipmentsTripAction(
  * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
  * A single "Flete" service line at 21% IVA, billed to the shipment's client.
  * Claims the shipment first (UPDATE ... WHERE invoice_id IS NULL), so two
- * concurrent clicks cannot both issue; links invoice_id on success and
- * releases the claim on failure.
+ * concurrent clicks cannot both issue, and issues under a key derived from
+ * the carga (lib/source-invoice-key), so a click after an expired claim links
+ * the invoice already issued; links invoice_id on success and releases the
+ * claim on failure.
  */
 export async function invoiceFreightAction(
   input: unknown,
@@ -560,7 +563,25 @@ export async function invoiceFreightAction(
     ctx.userId,
   );
   if (!claim.ok) return claim;
-  const result = await issueFreightInvoice(supabase, parsed.data);
+  // One live invoice per carga: one issued before a lost link is linked now
+  // instead of issuing a second.
+  const slot = await findSourceInvoiceSlot(
+    supabase,
+    "shipment_freight",
+    shipmentId,
+  );
+  const result: ActionResult<{ id: string }> =
+    slot.kind === "live"
+      ? { ok: true, data: { id: slot.invoiceId } }
+      : slot.kind === "free"
+        ? await issueFreightInvoice(supabase, parsed.data, slot.key)
+        : {
+            ok: false,
+            error:
+              slot.kind === "error"
+                ? "No se pudo verificar si la carga ya tiene factura."
+                : "El flete se facturó demasiadas veces sin éxito: revisá sus comprobantes.",
+          };
   if (!result.ok) {
     const { error: releaseErr } = await supabase
       .from("shipments")
@@ -588,16 +609,18 @@ export async function invoiceFreightAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
+    // The claim is kept; once it expires, "Facturar flete" links this same
+    // invoice (its key is the carga's).
     return {
       ok: false,
       error:
-        "La factura se emitió pero no se vinculó a la carga. Anotá el comprobante antes de volver a facturar.",
+        "La factura se emitió pero no se vinculó a la carga. En unos minutos volvé a facturar: se vincula la misma factura, sin emitir otra.",
     };
   }
   await logAudit(
     "shipment.freight_invoiced",
     ctx.userId,
-    { invoice_id: result.data.id },
+    { invoice_id: result.data.id, reused: slot.kind === "live" },
     shipmentId,
   );
   return { ok: true, data: { invoiceId: result.data.id } };
@@ -646,6 +669,7 @@ async function claimShipmentForInvoicing(
 async function issueFreightInvoice(
   supabase: SupabaseServerClient,
   input: FreightInvoiceInput,
+  idempotencyKey: string,
 ): Promise<ActionResult<{ id: string }>> {
   const { data: shipment, error: readErr } = await supabase
     .from("shipments")
@@ -710,5 +734,6 @@ async function issueFreightInvoice(
         iva_rate_id: IVA_RATE.TWENTY_ONE,
       },
     ],
+    idempotency_key: idempotencyKey,
   });
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isFiscalOnly, type Access } from "@/lib/auth/permissions";
 import { IsoDateSchema } from "@/lib/validation/common";
 
 /** Mirrors freight_settlements.status. */
@@ -85,10 +86,21 @@ type SettlementDocumentFields = Pick<
 
 /** The side its document follows: the one it was confirmed on, else (a
  *  draft or a legacy liquidación) its client's. */
-export function settlementSide(
-  s: Pick<FreightSettlement, "channel" | "client_is_fiscal">,
-): FreightSettlementChannel {
+export function settlementSide<C extends string = FreightSettlementChannel>(s: {
+  channel: C | null;
+  client_is_fiscal: boolean;
+}): C | FreightSettlementChannel {
   return s.channel ?? (s.client_is_fiscal ? "fiscal" : "internal");
+}
+
+/** Whether `access` may read the liquidación: a fiscal-only user sees the
+ *  fiscal side alone (an unknown channel is not it). The reads go through
+ *  the service client, around the table's RLS. */
+export function settlementInScope(
+  access: Access,
+  s: { channel: string | null; client_is_fiscal: boolean },
+): boolean {
+  return !isFiscalOnly(access) || settlementSide(s) === "fiscal";
 }
 
 /** The liquidación's document: "Remito R9002-00000001" (fiscal), "Remito

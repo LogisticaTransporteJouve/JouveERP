@@ -3,15 +3,16 @@
 import { logAudit } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { findSourceInvoiceSlot } from "@/lib/source-invoice-key";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { isIvaCondition } from "@/features/clients/schema";
+import { isIvaCondition, type IvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 
@@ -28,6 +29,7 @@ import {
   isFreightSettlementChannel,
   isFreightSettlementStatus,
   settlementDocumentLabel,
+  settlementInScope,
   type FreightCandidatesInput,
   type FreightSettlement,
   type FreightSettlementChannel,
@@ -135,7 +137,8 @@ function narrowSettlement(row: SettlementRow): FreightSettlement | null {
   };
 }
 
-/** Every liquidación, newest first. Gated on invoices:read (billing data). */
+/** Every liquidación in the user's scope, newest first. Gated on
+ *  invoices:read (billing data). */
 export async function listFreightSettlementsAction(): Promise<
   ActionResult<FreightSettlement[]>
 > {
@@ -163,7 +166,10 @@ export async function listFreightSettlementsAction(): Promise<
     ok: true,
     data: res.data
       .map(narrowSettlement)
-      .filter((s): s is FreightSettlement => s !== null),
+      .filter(
+        (s): s is FreightSettlement =>
+          s !== null && settlementInScope(ctx.access, s),
+      ),
   };
 }
 
@@ -203,7 +209,7 @@ export async function getFreightSettlementAction(
     return { ok: false, error: "No se pudo cargar la liquidación." };
   }
   const settlement = head.data ? narrowSettlement(head.data) : null;
-  if (!settlement)
+  if (!settlement || !settlementInScope(ctx.access, settlement))
     return { ok: false, error: "No se encontró la liquidación." };
 
   const rows: FreightSettlementItem[] = [];
@@ -230,12 +236,13 @@ export async function getFreightSettlementAction(
 }
 
 /** The client's delivered cargas in the period a liquidación can take, each
- *  with its price (null = neither flete nor tariff). */
+ *  with its price (null = neither flete nor tariff). They feed the draft
+ *  editor; a fiscal-only user, who reads no cargas, gets none. */
 export async function listFreightSettlementCandidatesAction(
   input: FreightCandidatesInput,
 ): Promise<ActionResult<FreightSettlementCandidate[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "invoices:read")) {
+  if (!userCan(ctx.access, "invoices:read") || isFiscalOnly(ctx.access)) {
     return { ok: false, error: READ_DENIED };
   }
   const parsed = FreightCandidatesSchema.safeParse(input);
@@ -392,8 +399,30 @@ export async function confirmFreightSettlementAction(input: {
   return confirmSettlement(getServiceClient(), parsed.data.id, ctx.userId);
 }
 
+/** A live invoice issued for the liquidación that is not its linked one (the
+ *  link was lost): cancelling would leave it billed with no liquidación. */
+async function unlinkedLiveInvoice(
+  supabase: ReturnType<typeof getServiceClient>,
+  id: string,
+): Promise<boolean | "error"> {
+  const slot = await findSourceInvoiceSlot(supabase, "freight_settlement", id);
+  if (slot.kind === "error") return "error";
+  if (slot.kind !== "live") return false;
+  const { data, error } = await supabase
+    .from("freight_settlements")
+    .select("invoice_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logger.error("freight_settlements.cancel.read_failed", { id, error });
+    return "error";
+  }
+  return data?.invoice_id !== slot.invoiceId;
+}
+
 /** Cancels the liquidación and frees its cargas. An invoiced one needs its
- *  invoice void first (cancelled, or fully credited by an NC). */
+ *  invoice void first (cancelled, or fully credited by an NC), and so does
+ *  one whose invoice was issued but never linked. */
 export async function cancelFreightSettlementAction(input: {
   id: string;
 }): Promise<ActionResult> {
@@ -405,6 +434,17 @@ export async function cancelFreightSettlementAction(input: {
   if (!parsed.success) return { ok: false, error: "Liquidación inválida." };
 
   const supabase = getServiceClient();
+  const unlinked = await unlinkedLiveInvoice(supabase, parsed.data.id);
+  if (unlinked === "error") {
+    return { ok: false, error: "No se pudo cancelar la liquidación." };
+  }
+  if (unlinked) {
+    return {
+      ok: false,
+      error:
+        "La liquidación tiene una factura emitida sin vincular: volvé a facturarla para vincularla, o anulá esa factura antes de cancelar.",
+    };
+  }
   const { error } = await supabase.rpc("cancel_freight_settlement", {
     p_settlement_id: parsed.data.id,
     p_user_id: ctx.userId,
@@ -439,11 +479,13 @@ export async function cancelFreightSettlementAction(input: {
  * interno X, confirming a draft first; the final step). ONE invoice for every
  * carga, one line per carga at 21% IVA, through issueFiscalInvoiceAction
  * (AFIP on a fiscal channel, remito interno on an internal one). The
- * liquidación is
- * claimed first, so two clicks cannot both issue; the invoice is linked on
- * success (link_freight_settlement_invoice) and the claim released on
- * failure. A failed or cancelled invoice puts the liquidación back to
- * confirmed (invoices_release_freight_settlement).
+ * liquidación is claimed first, so two clicks cannot both issue, and the
+ * invoice carries a key derived from the liquidación (lib/source-invoice-key),
+ * so a click after an expired claim links the invoice already issued instead
+ * of issuing another. The invoice is linked on success
+ * (link_freight_settlement_invoice) and the claim released on failure. A
+ * failed or cancelled invoice puts the liquidación back to confirmed
+ * (invoices_release_freight_settlement).
  */
 export async function invoiceFreightSettlementAction(
   input: FreightSettlementInvoiceInput,
@@ -544,48 +586,53 @@ export async function invoiceFreightSettlementAction(
     };
   }
 
-  const today = todayInAR();
-  const result = await issueFiscalInvoiceAction({
-    channel_id,
-    client_id: settlement.client_id,
-    kind: "factura",
-    letter: null,
-    punto_venta,
-    fecha: today,
-    fch_serv_desde: settlement.period_start,
-    fch_serv_hasta: settlement.period_end,
-    fch_vto_pago: settlement.period_end > today ? settlement.period_end : today,
-    concepto: CONCEPTO.SERVICIOS,
-    ...voucherReceptor({ cuit: client.cuit, iva_condition: ivaCondition }),
-    moneda: MONEDA.PESOS,
-    cotizacion: 1,
-    items: settlement.items.map((item) => ({
-      description: freightItemDescription(item),
-      quantity: 1,
-      unit_price: item.amount,
-      iva_rate_id: IVA_RATE.TWENTY_ONE,
-    })),
-  });
-  if (!result.ok) {
+  // One live invoice per liquidación: one issued before a lost link is
+  // linked now instead of issuing a second.
+  const slot = await findSourceInvoiceSlot(supabase, "freight_settlement", id);
+  if (slot.kind === "error" || slot.kind === "exhausted") {
     await releaseInvoicingClaim(supabase, id, ctx.userId);
-    return result;
+    return {
+      ok: false,
+      error:
+        slot.kind === "error"
+          ? "No se pudo verificar si la liquidación ya tiene factura."
+          : "La liquidación se facturó demasiadas veces sin éxito: revisá sus comprobantes.",
+    };
+  }
+  let invoiceId: string;
+  if (slot.kind === "live") {
+    invoiceId = slot.invoiceId;
+  } else {
+    const issued = await issueSettlementInvoice(settlement, {
+      channel_id,
+      punto_venta,
+      client,
+      ivaCondition,
+      idempotencyKey: slot.key,
+    });
+    if (!issued.ok) {
+      await releaseInvoicingClaim(supabase, id, ctx.userId);
+      return issued;
+    }
+    invoiceId = issued.data.id;
   }
 
   const { error: linkErr } = await supabase.rpc(
     "link_freight_settlement_invoice",
-    { p_settlement_id: id, p_invoice_id: result.data.id },
+    { p_settlement_id: id, p_invoice_id: invoiceId },
   );
   if (linkErr) {
     logger.error("freight_settlements.invoice.link_failed", {
       userId: ctx.userId,
       id,
-      invoiceId: result.data.id,
+      invoiceId,
       error: linkErr,
     });
     // The invoice already failed or was cancelled (the link guard refuses
     // it): nothing holds the liquidación, so free it now instead of after
-    // the claim's TTL. Any other error keeps it claimed.
-    if (await invoiceIsVoid(supabase, result.data.id)) {
+    // the claim's TTL. Any other error keeps it claimed; once the claim
+    // expires, "Facturar" links this same invoice.
+    if (await invoiceIsVoid(supabase, invoiceId)) {
       await releaseInvoicingClaim(supabase, id, ctx.userId);
     }
     return {
@@ -596,7 +643,7 @@ export async function invoiceFreightSettlementAction(
           userId: ctx.userId,
           id,
         }) ??
-        "La factura se emitió pero no se vinculó a la liquidación. Anotá el comprobante antes de volver a facturar.",
+        "La factura se emitió pero no se vinculó a la liquidación. En unos minutos volvé a facturar: se vincula la misma factura, sin emitir otra.",
     };
   }
 
@@ -604,11 +651,50 @@ export async function invoiceFreightSettlementAction(
     "freight_settlement.invoiced",
     ctx.userId,
     {
-      invoice_id: result.data.id,
+      invoice_id: invoiceId,
       document: settlementDocumentLabel(settlement),
       total: settlement.total,
+      reused: slot.kind === "live",
     },
     id,
   );
-  return { ok: true, data: { invoiceId: result.data.id } };
+  return { ok: true, data: { invoiceId } };
+}
+
+function issueSettlementInvoice(
+  settlement: FreightSettlementDetail,
+  opts: {
+    channel_id: string;
+    punto_venta: number;
+    client: { cuit: string | null };
+    ivaCondition: IvaCondition | null;
+    idempotencyKey: string;
+  },
+) {
+  const today = todayInAR();
+  return issueFiscalInvoiceAction({
+    channel_id: opts.channel_id,
+    client_id: settlement.client_id,
+    kind: "factura",
+    letter: null,
+    punto_venta: opts.punto_venta,
+    fecha: today,
+    fch_serv_desde: settlement.period_start,
+    fch_serv_hasta: settlement.period_end,
+    fch_vto_pago: settlement.period_end > today ? settlement.period_end : today,
+    concepto: CONCEPTO.SERVICIOS,
+    ...voucherReceptor({
+      cuit: opts.client.cuit,
+      iva_condition: opts.ivaCondition,
+    }),
+    moneda: MONEDA.PESOS,
+    cotizacion: 1,
+    items: settlement.items.map((item) => ({
+      description: freightItemDescription(item),
+      quantity: 1,
+      unit_price: item.amount,
+      iva_rate_id: IVA_RATE.TWENTY_ONE,
+    })),
+    idempotency_key: opts.idempotencyKey,
+  });
 }
