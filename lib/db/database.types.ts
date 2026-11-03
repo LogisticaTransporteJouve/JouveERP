@@ -6433,6 +6433,7 @@ export type Database = {
           handling_out: number
           id: string
           is_active: boolean
+          migrated_to_client_tariffs_at: string | null
           notes: string | null
           period: string
           rate_per_pallet: number
@@ -6449,6 +6450,7 @@ export type Database = {
           handling_out?: number
           id?: string
           is_active?: boolean
+          migrated_to_client_tariffs_at?: string | null
           notes?: string | null
           period?: string
           rate_per_pallet: number
@@ -6465,6 +6467,7 @@ export type Database = {
           handling_out?: number
           id?: string
           is_active?: boolean
+          migrated_to_client_tariffs_at?: string | null
           notes?: string | null
           period?: string
           rate_per_pallet?: number
@@ -9590,6 +9593,7 @@ export type Database = {
         Args: { p_today: string }
         Returns: number
       }
+      migrate_client_storage_tariffs: { Args: never; Returns: number }
       next_internal_invoice_numero_atomic: {
         Args: {
           p_channel_id: string

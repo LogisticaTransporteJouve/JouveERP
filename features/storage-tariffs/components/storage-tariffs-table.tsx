@@ -90,6 +90,11 @@ export function StorageTariffsTable({
                 {row.original.area_label}
               </span>
             )}
+            {row.original.migrated_to_client_tariffs_at && (
+              <span className="block text-xs font-normal text-muted-foreground">
+                En el tarifario del cliente (se edita ahí)
+              </span>
+            )}
           </span>
         ),
       },

@@ -21,6 +21,8 @@ export interface StorageTariff {
   area_id: string | null;
   /** "Depósito · Área", or null. */
   area_label: string | null;
+  /** Moved to the client's tarifario: kept as fallback, edited there. */
+  migrated_to_client_tariffs_at: string | null;
   rate_per_pallet: number;
   handling_in: number;
   handling_out: number;

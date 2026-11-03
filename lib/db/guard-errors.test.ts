@@ -126,6 +126,7 @@ const GUARDS = [
   "reject_sold_check_as_debt",
   "pay_check_sale_debt",
   "unblock_pallet",
+  "guard_storage_tariff_migrated",
   "guard_import_run",
   "guard_historic_row",
   "commit_import_run",

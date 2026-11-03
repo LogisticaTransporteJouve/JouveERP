@@ -31,6 +31,7 @@ type StorageTariffSelectRow = Pick<
   | "valid_from"
   | "valid_to"
   | "is_active"
+  | "migrated_to_client_tariffs_at"
   | "notes"
   | "created_at"
 > & {
@@ -55,7 +56,7 @@ function narrow(row: StorageTariffSelectRow): StorageTariff | null {
 }
 
 const SELECT_COLUMNS =
-  "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, notes, created_at, client:clients(legal_name), area:storage_areas(name, warehouse:warehouses(name))";
+  "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, migrated_to_client_tariffs_at, notes, created_at, client:clients(legal_name), area:storage_areas(name, warehouse:warehouses(name))";
 
 export async function listStorageTariffsAction(): Promise<
   ActionResult<StorageTariff[]>
@@ -270,6 +271,8 @@ export async function increaseStorageTariffsAction(
       "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to",
     )
     .eq("is_active", true)
+    // A row moved to the client's tarifario is raised there.
+    .is("migrated_to_client_tariffs_at", null)
     .or(`valid_to.is.null,valid_to.gte.${valid_from}`);
   if (error) {
     logger.error("storage_tariffs.increase.read_failed", {
