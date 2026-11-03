@@ -403,6 +403,10 @@
       `trips.cost` cargado también como compra con ese centro, igual.
 - [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
       el ajuste por inflación de la pantalla).
+- [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
+      en "USD sin cotización" (`management_pnl_lines`, rama `pending_usd`, no
+      excluye `loans.disbursement_transaction_id`), aunque con cotización no
+      es resultado. Solo afecta el aviso, no suma a ninguna cifra.
 
 ---
 

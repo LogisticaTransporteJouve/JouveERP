@@ -49,9 +49,9 @@ select is(
 select is(
   (select count(*)::int
      from public.get_management_pnl('1990-06-01', '1990-06-30', 'accrual', false)
-    where bucket = 'loan_disbursements' or pending_usd <> 0),
+    where bucket = 'loan_disbursements'),
   0,
-  'accrual: still not P&L, not even pending'
+  'accrual: there is no financing-received line'
 );
 
 create temp table docs as
