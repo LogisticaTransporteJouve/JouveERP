@@ -172,6 +172,34 @@ mitigación en el schema: el límite se respeta operando.
       firme) y cobra la mora sobre el saldo de hoy. No edita las tarifas
       migradas ni cierra bien con "Aumentar %": ver "Límites de rollback".
 
+## Tesorería: auditoría de cheques, OP y préstamos (2026-11-04)
+
+- [x] Anular o editar una OP no devuelve a cartera un cheque endosado
+      rechazado; se rechaza con mensaje.
+- [x] Cuotas sin desglose bajan `prestamos` (capital primero) si el pasivo
+      está asentado; anular un préstamo con plata se rechaza.
+- [x] Cheque propio sin OP: el cobro asienta gasto, no reversa de pasivo; no
+      cambia importe, moneda ni cuenta después de emitido; no se le liga OP.
+- [x] Mora: el prorrateo cuenta solo NC emitidas.
+- [x] Cheques y cheques propios: completos los abiertos, 500 recientes del
+      resto con aviso; la guarda de cuentas de cheques falla cerrada.
+- [x] UI: "Pagar" deuda de cheque vendido sin estado viejo; ND por mora
+      refresca aunque falle el vínculo; resultados de varias ND con su
+      comprobante.
+- [ ] Aprobar las migraciones `20261104093000`–`20261104093400` con el deploy.
+- [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
+      propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
+      re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`). Lo
+      mismo para una cuota sin desglose pagada antes de registrar el
+      desembolso: queda en gasto y `prestamos` no llega a cero. Re-asentarlas
+      cambia períodos pasados: lo decide el owner.
+- [ ] `journal_missing_entries` no lista los asientos de cheques propios: un
+      cheque propio en USD cobrado sin cotización ese día queda sin asiento
+      y sin aviso en el paquete mensual.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`payment_order_rejected_endorsed_checks`, `loan_liability`,
+      `issued_checks_manual_cashing`, `late_interest_emitted_nc`).
+
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
 - [x] **Propuestas fuera del chat** (`ai_proposals`): preparar con los permisos de quien hace

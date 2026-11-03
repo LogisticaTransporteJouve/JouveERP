@@ -602,7 +602,7 @@ describe("runChecks", () => {
   it("returns a summary over an empty portfolio without throwing", async () => {
     vi.mocked(listChecksAction).mockResolvedValue({
       ok: true,
-      data: { items: [] },
+      data: { items: [], truncated: false },
     });
     const r = await runChecks();
     expect(r.ok).toBe(true);
@@ -610,7 +610,7 @@ describe("runChecks", () => {
     expect(r.ok && r.partial).toBe(false);
   });
 
-  it("flags the 500-check list cap as partial in the result and summary", async () => {
+  it("flags a truncated list as partial in the result and summary", async () => {
     const check: CheckListItem = {
       id: "c1",
       amount: 100,
@@ -638,11 +638,11 @@ describe("runChecks", () => {
     };
     vi.mocked(listChecksAction).mockResolvedValue({
       ok: true,
-      data: { items: Array.from({ length: 500 }, () => check) },
+      data: { items: [check], truncated: true },
     });
     const r = await runChecks();
     expect(r.ok && r.partial).toBe(true);
-    expect(r.summary).toContain("capped at 500");
+    expect(r.summary).toContain("latest 500 settled");
   });
 });
 

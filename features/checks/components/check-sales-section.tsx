@@ -309,8 +309,18 @@ export function CheckSalesSection({ canWrite }: { canWrite: boolean }) {
         )
       )}
 
-      <CancelSaleDialog sale={cancelling} onClose={() => setCancelling(null)} />
-      <PayDebtDialog debt={paying} onClose={() => setPaying(null)} />
+      {/* Keyed by the row: each one opens with fresh state, not the account,
+          date or reason left by the previous one. */}
+      <CancelSaleDialog
+        key={cancelling?.id ?? "none"}
+        sale={cancelling}
+        onClose={() => setCancelling(null)}
+      />
+      <PayDebtDialog
+        key={paying?.id ?? "none"}
+        debt={paying}
+        onClose={() => setPaying(null)}
+      />
     </section>
   );
 }

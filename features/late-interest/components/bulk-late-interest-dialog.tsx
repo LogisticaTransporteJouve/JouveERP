@@ -48,6 +48,11 @@ export function BulkLateInterestDialog({
   const mut = useIssueLateInterestNdsBulk();
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<LateInterestBulkResult[] | null>(null);
+  // What was sent, kept for the results: the refetch after the run drops
+  // every comprobante just charged from `candidates`.
+  const [submitted, setSubmitted] = useState<readonly LateInterestCandidate[]>(
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +64,7 @@ export function BulkLateInterestDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const byId = new Map(candidates.map((c) => [c.invoice_id, c]));
+  const byId = new Map(submitted.map((c) => [c.invoice_id, c]));
   const selected = candidates.filter((c) => chosen.has(c.invoice_id));
   const totals = new Map<ReturnType<typeof paymentCurrencyOf>, number>();
   for (const c of selected) {
@@ -77,6 +82,7 @@ export function BulkLateInterestDialog({
   }
 
   function onSubmit() {
+    setSubmitted(selected);
     mut.mutate(
       {
         as_of: asOf,
