@@ -43,7 +43,12 @@ create unique index bank_statement_matches_line_transaction_key
 create index bank_statement_matches_transaction_idx
   on public.bank_statement_matches (transaction_id);
 
+-- On purpose: a movement now takes several lines. The guarantee older code
+-- relied on (a movement is matched once) is kept per movement by
+-- guard_bank_statement_match and the RPCs, which refuse a second
+-- reconciliation of a matched movement.
 alter table public.bank_statement_matches
+  -- squawk-ignore ban-drop-constraint
   drop constraint bank_statement_matches_transaction_key;
 
 comment on table public.bank_statement_matches is
