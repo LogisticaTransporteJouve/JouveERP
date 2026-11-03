@@ -13,7 +13,7 @@ begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(17);
+select plan(20);
 
 -- Live (not reversed) amount of a role over the entries of some documents.
 create function pg_temp.role_net(p_ids uuid[], p_role text) returns numeric
@@ -134,6 +134,8 @@ select is(
 );
 
 -- A cuenta at 900, applied later to the second factura (booked at 1.000).
+-- Back to deferred: the header posts once its lines exist.
+set constraints all deferred;
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096d2', 'jouve_fiscal', 3, 96002,
         '00000000-0000-0000-0000-0000000096c1', current_date, 100, 'USD', 900);
@@ -154,6 +156,7 @@ select results_eq(
 
 -- A cuenta in a period that is then closed: applying it would change a
 -- closed entry, so the database refuses.
+set constraints all deferred;
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096d3', 'jouve_fiscal', 3, 96003,
         '00000000-0000-0000-0000-0000000096c1', '1999-01-15', 50, 'USD', 900);
@@ -172,14 +175,14 @@ insert into public.accounting_closed_periods (period) values ('1999-01');
 
 select throws_ok(
   $$insert into public.receipt_allocations (receipt_id, invoice_id, amount_applied)
-      values ('00000000-0000-0000-0000-0000000096d3', '00000000-0000-0000-0000-0000000096e3', 50);
-    set constraints all immediate$$,
+      values ('00000000-0000-0000-0000-0000000096d3', '00000000-0000-0000-0000-0000000096e3', 50)$$,
   '55006',
   'El período contable 1999-01 está cerrado y no admite movimientos',
   'a later allocation that changes an entry of a closed period is refused'
 );
 
 -- Payment order USD 1.000 at 1.100 paying a purchase booked at 1.000.
+set constraints all deferred;
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva,
    imp_total, moneda, cotizacion, status)
@@ -217,6 +220,48 @@ select is(
   public.journal_entry_status('payment_orders', '00000000-0000-0000-0000-0000000096f9'),
   'match',
   'the payment order entry is the one the builder expects'
+);
+
+-- NC USD 121 (100 + IVA 21) at 1.200 against a factura USD 121 booked at
+-- 1.000: ventas and IVA are reversed at the NC's rate, clientes at the
+-- factura's, and the 24.200 between them is a gain.
+insert into public.invoices
+  (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+   doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, moneda, cotizacion, cbte_tipo_afip,
+   iva_condition_receptor, status, idempotency_key)
+values
+  ('00000000-0000-0000-0000-0000000096e4', 'jouve_fiscal', '00000000-0000-0000-0000-0000000096c1',
+   'factura', 'A', 3, 96004, current_date, 2, 80, '20966666662', 100, 21, 121, 'DOL', 1000, 1, 1,
+   'emitted', 'fx-difference-4');
+insert into public.invoices
+  (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
+   doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, moneda, cotizacion, cbte_tipo_afip,
+   iva_condition_receptor, status, idempotency_key, invoice_origin_id)
+values
+  ('00000000-0000-0000-0000-0000000096ec', 'jouve_fiscal', '00000000-0000-0000-0000-0000000096c1',
+   'nc', 'A', 3, 96005, current_date, 2, 80, '20966666662', 100, 21, 121, 'DOL', 1200, 3, 1,
+   'emitted', 'fx-difference-nc', '00000000-0000-0000-0000-0000000096e4');
+set constraints all immediate;
+
+select results_eq(
+  $$select pg_temp.live_side('invoices', '00000000-0000-0000-0000-0000000096ec', 'ventas', 'debit'),
+           pg_temp.live_side('invoices', '00000000-0000-0000-0000-0000000096ec', 'iva_debito', 'debit'),
+           pg_temp.live_side('invoices', '00000000-0000-0000-0000-0000000096ec', 'clientes', 'credit'),
+           pg_temp.live_side('invoices', '00000000-0000-0000-0000-0000000096ec', 'diferencia_cambio', 'credit')$$,
+  $$values (120000::numeric, 25200::numeric, 121000::numeric, 24200::numeric)$$,
+  'an NC reverses ventas and IVA at its rate and clientes at the origin''s'
+);
+
+select is(
+  pg_temp.role_net(array['00000000-0000-0000-0000-0000000096e4', '00000000-0000-0000-0000-0000000096ec']::uuid[], 'clientes'),
+  0::numeric,
+  'clientes ends at 0 in pesos for the credited factura'
+);
+
+select is(
+  public.journal_entry_status('invoices', '00000000-0000-0000-0000-0000000096ec'),
+  'match',
+  'the NC entry is the one the builder expects'
 );
 
 select * from finish();

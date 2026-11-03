@@ -243,5 +243,5 @@ $$;
 comment on function public.apply_supplier_opening_balance(uuid, date, numeric, text) is
   'Fija/sobrescribe el saldo de apertura del proveedor (en pesos). Imputa FIFO a facturas y ND en pesos hasta el corte lo que exceda al saldo real (facturas − NC − órdenes de pago). Solo owner.';
 
-revoke all on function public.apply_supplier_opening_balance(uuid, date, numeric, text) from public, anon;
+revoke all on function public.apply_supplier_opening_balance(uuid, date, numeric, text) from public, anon, authenticated;
 grant execute on function public.apply_supplier_opening_balance(uuid, date, numeric, text) to authenticated;

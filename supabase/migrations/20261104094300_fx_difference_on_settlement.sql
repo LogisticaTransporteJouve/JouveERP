@@ -11,7 +11,8 @@ SET LOCAL statement_timeout = '15min';
 --   1. COA: an active result account takes the role diferencia_cambio: the
 --      first active account named "diferencia(s) de cambio" with no role, or
 --      a new 4.2.x "Diferencias de cambio" (ingresos financieros; a loss
---      posts on its debit side).
+--      posts on its debit side). With no active account holding the role,
+--      every builder below posts exactly as before.
 --   2. usd_booking_rate(cotizacion, date): the rate a USD document is booked
 --      at when it has one (its cotización, else the BCRA rate of its date),
 --      NULL when unknown. The fallback of the builders without the final 1.
@@ -24,6 +25,9 @@ SET LOCAL statement_timeout = '15min';
 --      lines are exactly the old ones.
 --   4. build_payment_order_journal_lines (20261031203102, every case kept):
 --      the mirror for proveedores (paying more pesos than booked = loss).
+--   4b. build_invoice_journal_lines (20261031180534, every case kept): an NC
+--      against a USD factura/ND credits clientes at the origin's rate; the
+--      difference against the NC's own rate goes to diferencia_cambio.
 --   5. The entry is the document's own, so it follows the document: posted
 --      at insert, re-posted on edit (only when the lines change), reversed on
 --      cancel, refused in a closed period. Applying or un-applying a USD
@@ -32,12 +36,14 @@ SET LOCAL statement_timeout = '15min';
 --      changing the rate, currency or date of a USD purchase re-posts the
 --      USD payment orders applied to it. ARS documents never fire them.
 --   6. Backfill: issued USD receipts and payment orders applied at another
---      rate are re-posted; one in a closed period (or with a line that can't
---      be posted) keeps its entry and is counted in a NOTICE.
+--      rate, and emitted USD NCs against an origin at another rate, are
+--      re-posted; one in a closed period (or with a line that can't be
+--      posted) keeps its entry and is counted in a NOTICE.
 --
--- build_transaction_journal_lines and the invoice builders are not changed.
--- An NC against a USD factura at another rate still leaves its difference in
--- clientes (docs/pendientes.md).
+-- build_transaction_journal_lines is not changed (receipt and payment order
+-- movements post nothing of their own). Not covered: purchase NCs (their
+-- proveedores line stays at their own rate) and NCs with no origin, whose
+-- origin rate is unknown (docs/pendientes.md).
 --
 -- Rollback: the builders and triggers stay with the schema; older code never
 -- reads the role, the account or the helper.
@@ -72,9 +78,12 @@ begin
     return;
   end if;
 
+  -- With no 4.2 the role stays unassigned and the builders post as before
+  -- (they only split the difference out when an active account holds it).
   select id into v_parent from public.chart_of_accounts where code = '4.2';
   if v_parent is null then
-    raise exception 'Falta la cuenta 4.2 (Ingresos financieros) del plan de cuentas para agregar "Diferencias de cambio"';
+    raise notice 'diferencia de cambio: falta la cuenta 4.2 (Ingresos financieros); asigná el rol diferencia_cambio a mano';
+    return;
   end if;
   select '4.2.' || (coalesce(max(substring(code from '^4\.2\.([0-9]+)$')::int), 0) + 1)
     into v_code
@@ -186,9 +195,12 @@ begin
   end if;
 
   -- What each applied USD comprobante takes off clientes at its own rate,
-  -- against the receipt's rate. Only when both rates are known.
+  -- against the receipt's rate. Only when both rates are known and an
+  -- active account holds the role.
   if p_receipt.currency = 'USD'
-     and public.usd_booking_rate(p_receipt.cotizacion, p_receipt.receipt_date) is not null then
+     and public.usd_booking_rate(p_receipt.cotizacion, p_receipt.receipt_date) is not null
+     and exists (select 1 from public.chart_of_accounts
+                  where system_role = 'diferencia_cambio' and is_active) then
     select coalesce(sum(
              round(ra.amount_applied * v_rate, 2)
              - round(ra.amount_applied * public.usd_booking_rate(i.cotizacion, i.fecha), 2)
@@ -289,9 +301,11 @@ begin
 
   -- What each paid USD purchase takes off proveedores at its own rate,
   -- against the payment order's rate (paying more pesos = loss). Only when
-  -- both rates are known.
+  -- both rates are known and an active account holds the role.
   if p_payment_order.currency = 'USD'
-     and public.usd_booking_rate(p_payment_order.cotizacion, p_payment_order.payment_date) is not null then
+     and public.usd_booking_rate(p_payment_order.cotizacion, p_payment_order.payment_date) is not null
+     and exists (select 1 from public.chart_of_accounts
+                  where system_role = 'diferencia_cambio' and is_active) then
     select coalesce(sum(
              round(poa.amount_applied * v_rate, 2)
              - round(poa.amount_applied * public.usd_booking_rate(pi.cotizacion, pi.fecha), 2)
@@ -328,6 +342,112 @@ end;
 $$;
 
 revoke all on function public.build_payment_order_journal_lines(public.payment_orders, text) from public, anon, authenticated;
+
+------------------------------------------------------------------------------
+-- 4b. Credit notes against a USD comprobante
+------------------------------------------------------------------------------
+
+-- 20261031180534, every case kept. An NC against a USD factura/ND takes
+-- clientes off at the origin's rate (what the aging, in dollars, says it
+-- credits) and the difference against its own rate goes to
+-- diferencia_cambio; ventas, IVA and percepciones stay at the NC's own rate.
+-- An NC with no origin, or with an unknown rate on either side, posts as
+-- before. The origin is emitted, so its rate and date are frozen
+-- (check_invoice_immutability) and the entry does not need a re-post trigger.
+create or replace function public.build_invoice_journal_lines(
+  p_invoice     public.invoices,
+  p_description text
+)
+returns jsonb
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_lines   jsonb := '[]'::jsonb;
+  v_debit_client boolean := p_invoice.kind <> 'nc';
+  v_rate    numeric := case
+    when p_invoice.moneda is null or p_invoice.moneda = 'PES' then 1
+    else coalesce(
+      nullif(p_invoice.cotizacion, 0),
+      public.get_exchange_rate('USD', p_invoice.fecha),
+      1
+    )
+  end;
+  v_revenue numeric := round(
+    (p_invoice.imp_neto + p_invoice.imp_op_ex + p_invoice.imp_tot_conc) * v_rate, 2);
+  v_iva     numeric := round(p_invoice.imp_iva * v_rate, 2);
+  v_trib    numeric := round(p_invoice.imp_trib * v_rate, 2);
+  v_client  numeric;
+  v_origin_rate numeric;
+  v_fx      numeric := 0;
+begin
+  -- Counterparty = sum of the posted detail lines → exact balance.
+  v_client := (case when v_revenue > 0 then v_revenue else 0 end)
+    + (case when p_invoice.imp_iva > 0 then v_iva else 0 end)
+    + (case when p_invoice.imp_trib > 0 then v_trib else 0 end);
+
+  if p_invoice.kind = 'nc'
+     and p_invoice.invoice_origin_id is not null
+     and coalesce(p_invoice.moneda, 'PES') <> 'PES'
+     and public.usd_booking_rate(p_invoice.cotizacion, p_invoice.fecha) is not null
+     and exists (select 1 from public.chart_of_accounts
+                  where system_role = 'diferencia_cambio' and is_active) then
+    select public.usd_booking_rate(o.cotizacion, o.fecha) into v_origin_rate
+      from public.invoices o
+     where o.id = p_invoice.invoice_origin_id
+       and coalesce(o.moneda, 'PES') <> 'PES';
+    if v_origin_rate is not null then
+      -- The same lines priced at the origin's rate, rounded the same way.
+      v_fx := v_client
+        - (case when v_revenue > 0 then round(
+             (p_invoice.imp_neto + p_invoice.imp_op_ex + p_invoice.imp_tot_conc) * v_origin_rate, 2)
+           else 0 end)
+        - (case when p_invoice.imp_iva > 0 then round(p_invoice.imp_iva * v_origin_rate, 2) else 0 end)
+        - (case when p_invoice.imp_trib > 0 then round(p_invoice.imp_trib * v_origin_rate, 2) else 0 end);
+    end if;
+  end if;
+
+  v_lines := v_lines || jsonb_build_object(
+    'system_role', 'clientes',
+    case when v_debit_client then 'debit' else 'credit' end, v_client - v_fx,
+    'description', p_description || ' — cliente'
+  );
+  if v_fx <> 0 then
+    -- Only an NC gets here: crediting clientes less pesos than the revenue it
+    -- reverses is a gain; more is a loss.
+    v_lines := v_lines || jsonb_build_object(
+      'system_role', 'diferencia_cambio',
+      case when v_fx > 0 then 'credit' else 'debit' end, abs(v_fx),
+      'description', p_description || ' — diferencia de cambio'
+    );
+  end if;
+  if v_revenue > 0 then
+    v_lines := v_lines || jsonb_build_object(
+      'system_role', 'ventas',
+      case when v_debit_client then 'credit' else 'debit' end, v_revenue,
+      'description', p_description || ' — neto'
+    );
+  end if;
+  if p_invoice.imp_iva > 0 then
+    v_lines := v_lines || jsonb_build_object(
+      'system_role', 'iva_debito',
+      case when v_debit_client then 'credit' else 'debit' end, v_iva,
+      'description', p_description || ' — IVA débito'
+    );
+  end if;
+  if p_invoice.imp_trib > 0 then
+    v_lines := v_lines || jsonb_build_object(
+      'system_role', 'percepciones_iibb_cobradas',
+      case when v_debit_client then 'credit' else 'debit' end, v_trib,
+      'description', p_description || ' — percepciones'
+    );
+  end if;
+  return v_lines;
+end;
+$$;
+
+revoke all on function public.build_invoice_journal_lines(public.invoices, text) from public, anon, authenticated;
 
 ------------------------------------------------------------------------------
 -- 5. Re-post when what the difference reads changes
@@ -430,6 +550,16 @@ begin
        and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
        and public.usd_booking_rate(pi.cotizacion, pi.fecha)
            is distinct from public.usd_booking_rate(po.cotizacion, po.payment_date)
+    union
+    select distinct 'invoices', n.id
+      from public.invoices n
+      join public.invoices o on o.id = n.invoice_origin_id
+     where n.kind = 'nc'
+       and n.status = 'emitted'
+       and coalesce(n.moneda, 'PES') <> 'PES'
+       and coalesce(o.moneda, 'PES') <> 'PES'
+       and public.usd_booking_rate(o.cotizacion, o.fecha)
+           is distinct from public.usd_booking_rate(n.cotizacion, n.fecha)
   loop
     begin
       perform public.repost_journal(v_doc.src, v_doc.id);

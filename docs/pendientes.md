@@ -74,6 +74,36 @@
 
 ---
 
+## Saldos de apertura, aging y diferencia de cambio (2026-11-04, auditoría w1)
+
+- [x] **Saldo de apertura de proveedor** (`20261104094100`): salda el saldo
+      real al corte (facturas y ND − NC − OP emitidas, en pesos) menos el
+      objetivo; el FIFO va sobre lo que dejan OP y NC. Antes ignoraba OP y NC.
+- [x] **Saldo de apertura de cliente** (mismo archivo): el FIFO salta lo que ya
+      acreditó una NC y los comprobantes USD no entran en un saldo en pesos.
+- [ ] Los saldos de apertura ya cargados no se recalculan: el owner los vuelve
+      a aplicar para corregirlos.
+- [x] **NC sin origen en el aging** (`20261104094200`): su crédito se reparte
+      sobre los comprobantes abiertos del cliente (mismo canal y moneda, del más
+      vencido al más nuevo), así aging, saldo por ámbito, fotos del aging, mora,
+      tareas y herramientas de IA coinciden con la cuenta corriente. El tope de
+      una NC con origen lee `invoice_open_amount` (lo que debe ese comprobante).
+- [ ] Mora: el crédito de una NC sin origen baja la base de todo el período
+      (no desde su fecha). Cobra de menos, nunca de más.
+- [ ] El crédito de NC sin origen que supera lo abierto no se muestra en el
+      aging (la cuenta corriente sí lo muestra).
+- [x] **Diferencia de cambio** (`20261104094000` + `094300`): recibo USD contra
+      factura/ND USD, NC USD contra su origen y OP USD contra compra USD a otra
+      cotización van a la cuenta con rol `diferencia_cambio` (4.2.x
+      "Diferencias de cambio"); clientes y proveedores quedan en 0 en pesos.
+      Sin cuenta activa con ese rol se asienta como antes.
+- [ ] Diferencia de cambio pendiente: NC de compra USD a otra cotización que
+      su factura, NC de venta sin origen, y documentos USD cuya cotización no se
+      conoce (asentados 1:1). Los asientos en períodos cerrados conservan el
+      asiento viejo (el backfill los cuenta en un NOTICE).
+- [ ] Cambiar `invoice_origin_id` de una NC emitida no re-asienta su diferencia
+      de cambio (hoy ningún flujo lo cambia).
+
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 
 - [x] **Rendiciones:** varios medios de pago por carga; PDF interno de la
@@ -161,7 +191,7 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+  tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -249,7 +279,7 @@
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
 - [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+    payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
 - [ ] No verificado contra una base real:
