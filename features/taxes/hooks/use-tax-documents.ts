@@ -27,6 +27,7 @@ import {
 import {
   linkTaxDocumentPaymentAction,
   listTaxPaymentCandidatesAction,
+  undoTaxDocumentPaymentAction,
 } from "../actions/tax-payment-link-actions";
 import { taxesKeys } from "../lib/taxes-keys";
 import type { LinkTaxPaymentInput } from "../schema";
@@ -109,6 +110,12 @@ export function useTaxPaymentCandidates(id: string | null, page: number) {
 export function useLinkTaxDocumentPayment() {
   return useTaxMutation((input: LinkTaxPaymentInput) =>
     runAction(() => linkTaxDocumentPaymentAction(input)),
+  );
+}
+
+export function useUndoTaxDocumentPayment() {
+  return useTaxMutation((id: string) =>
+    runAction(() => undoTaxDocumentPaymentAction({ id })),
   );
 }
 

@@ -27,6 +27,7 @@ import {
   computeIvaPosition,
   CopyTaxPeriodSchema,
   isTaxKind,
+  isTaxPaymentOrigin,
   isTaxStatus,
   PayTaxDocumentSchema,
   previousPeriod,
@@ -40,7 +41,7 @@ import {
 } from "../schema";
 
 const SELECT_COLUMNS =
-  "id, kind, title, jurisdiction, period, due_date, amount, amount_is_estimate, status, account_id, payment_transaction_id, paid_date, paid_amount, notes, account:chart_of_accounts!tax_documents_account_id_fkey ( code, name ), payment:transactions!tax_documents_payment_transaction_id_fkey ( account:accounts ( name ) )";
+  "id, kind, title, jurisdiction, period, due_date, amount, amount_is_estimate, status, account_id, payment_transaction_id, payment_origin, paid_date, paid_amount, notes, account:chart_of_accounts!tax_documents_account_id_fkey ( code, name ), payment:transactions!tax_documents_payment_transaction_id_fkey ( account:accounts ( name ) )";
 
 type TaxRow = {
   id: string;
@@ -54,6 +55,7 @@ type TaxRow = {
   status: string;
   account_id: string | null;
   payment_transaction_id: string | null;
+  payment_origin: string | null;
   paid_date: string | null;
   paid_amount: number | null;
   notes: string | null;
@@ -62,9 +64,18 @@ type TaxRow = {
 };
 
 function narrowTaxDocument(row: TaxRow): TaxDocument | null {
-  const { kind, status } = row;
-  if (!isTaxKind(kind) || !isTaxStatus(status)) {
-    logger.error("tax_documents.unknown_value", { id: row.id, kind, status });
+  const { kind, status, payment_origin: origin } = row;
+  if (
+    !isTaxKind(kind) ||
+    !isTaxStatus(status) ||
+    (origin !== null && !isTaxPaymentOrigin(origin))
+  ) {
+    logger.error("tax_documents.unknown_value", {
+      id: row.id,
+      kind,
+      status,
+      origin,
+    });
     return null;
   }
   return {
@@ -82,6 +93,7 @@ function narrowTaxDocument(row: TaxRow): TaxDocument | null {
       ? `${row.account.code} ${row.account.name}`
       : null,
     payment_transaction_id: row.payment_transaction_id,
+    payment_origin: origin,
     paid_date: row.paid_date,
     paid_amount: row.paid_amount === null ? null : Number(row.paid_amount),
     paid_from: row.payment?.account?.name ?? null,

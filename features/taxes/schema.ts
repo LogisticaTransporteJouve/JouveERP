@@ -73,6 +73,13 @@ export function isTaxStatus(value: string): value is TaxStatus {
   return (TAX_STATUSES as readonly string[]).includes(value);
 }
 
+export const TAX_PAYMENT_ORIGINS = ["pay", "link"] as const;
+export type TaxPaymentOrigin = (typeof TAX_PAYMENT_ORIGINS)[number];
+
+export function isTaxPaymentOrigin(value: string): value is TaxPaymentOrigin {
+  return (TAX_PAYMENT_ORIGINS as readonly string[]).includes(value);
+}
+
 export type TaxDocument = {
   id: string;
   kind: TaxKind;
@@ -86,6 +93,8 @@ export type TaxDocument = {
   account_id: string | null;
   account_name: string | null;
   payment_transaction_id: string | null;
+  /** pay: "Pagar" booked the movement; link: an existing one was adopted. */
+  payment_origin: TaxPaymentOrigin | null;
   paid_date: string | null;
   paid_amount: number | null;
   /** The cash or bank account it was paid from; null when the viewer cannot
@@ -237,6 +246,18 @@ export const LinkTaxPaymentSchema = z.object({
   allow_difference: z.boolean().optional().default(false),
 });
 export type LinkTaxPaymentInput = z.input<typeof LinkTaxPaymentSchema>;
+
+/** undo_tax_document_payment: back to liquidado / pendiente. */
+export const UndoTaxPaymentSchema = z.object({ id: UuidSchema });
+
+/** What an undo did: the movement "Pagar" booked is deleted; a linked one
+ *  stays in Caja, with its previous expense account when it still applies.
+ *  `null`: the document was not paid (nothing to undo). */
+export type UndoTaxPaymentResult = {
+  transactionId: string;
+  movementDeleted: boolean;
+  expenseAccountRestored: boolean;
+} | null;
 
 /** A loose expense of a cash or bank account in pesos, fiscal channel. */
 export type TaxPaymentCandidate = {

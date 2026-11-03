@@ -147,6 +147,21 @@ function canReadSomeLink(
   });
 }
 
+/** files:read opens every attachment the module gates allow. Without it,
+ *  a taxes:read holder (the accountant) opens only a tax document's: the
+ *  scoped read the RLS on files and file_attachments also grants
+ *  (20261103220300). */
+function canReadFilesOf(
+  access: Parameters<typeof userCan>[0],
+  target: AttachmentTargetType | "any",
+): boolean {
+  if (userCan(access, "files:read")) return true;
+  return (
+    (target === "tax_document" || target === "any") &&
+    userCan(access, "taxes:read")
+  );
+}
+
 // ─── getSignedFileUrlAction ──────────────────────────────────────────────────
 // One-hour signed URL with Content-Disposition: attachment so the original
 // filename surfaces on download. The RLS on `files` gates who can read.
@@ -157,7 +172,7 @@ export async function getSignedFileUrlAction(
   ActionResult<{ url: string; filename: string; mimeType: string | null }>
 > {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "files:read")) {
+  if (!canReadFilesOf(ctx.access, "any")) {
     return { ok: false, error: "No tenés permiso para ver archivos." };
   }
   const parsed = z.string().uuid().safeParse(fileId);
@@ -224,6 +239,13 @@ export async function getSignedFileUrlAction(
     return { ok: false, error: "Archivo no encontrado." };
   }
   if (!canReadSomeLink(ctx.access, links ?? [])) {
+    return { ok: false, error: "Archivo no encontrado." };
+  }
+  // Without files:read, only a file a tax document has attached.
+  if (
+    !userCan(ctx.access, "files:read") &&
+    !(links ?? []).some((l) => l.tax_document_id != null)
+  ) {
     return { ok: false, error: "Archivo no encontrado." };
   }
 
@@ -346,15 +368,15 @@ export async function listAttachmentsAction(
   input: unknown,
 ): Promise<ActionResult<FileAttachmentRow[]>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "files:read")) {
-    return { ok: false, error: "No tenés permiso para ver archivos." };
-  }
   const parsed = ListSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Parámetros inválidos." };
   }
   const { targetType, targetId } = parsed.data;
-  if (!userCan(ctx.access, ENTITY_READ_PERMISSION[targetType])) {
+  if (
+    !canReadFilesOf(ctx.access, targetType) ||
+    !userCan(ctx.access, ENTITY_READ_PERMISSION[targetType])
+  ) {
     return { ok: false, error: "No tenés permiso para ver archivos." };
   }
   const supabase = await createClient();
