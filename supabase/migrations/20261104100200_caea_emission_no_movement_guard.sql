@@ -9,8 +9,8 @@ SET LOCAL statement_timeout = '15min';
 -- after it ended. caea-inform declares an ended CAEA "sin movimiento" for each
 -- contingency punto de venta that issued nothing under it; a voucher emitted
 -- there afterwards is rejected by AFIP on every inform and never informed.
--- Now emit_caea_invoice refuses it (the voucher fails with the message and can
--- be redated). caea-inform also skips the declaration while a pending draft of
+-- Now emit_caea_invoice refuses it (the voucher fails with the message and is
+-- issued again with a current date). caea-inform also skips the declaration while a pending draft of
 -- that punto de venta is dated inside the vigencia, which closes the window
 -- between its AFIP filing and its no_movement_pvs write.
 --
@@ -64,7 +64,7 @@ begin
      where c.caea = p_caea
        and c.no_movement_pvs @> to_jsonb(v_pv)
   ) then
-    raise exception 'El CAEA % ya se informó a AFIP sin movimiento para el punto de venta %: cambiá la fecha del comprobante para emitirlo con el CAEA vigente.',
+    raise exception 'El CAEA % ya se informó a AFIP sin movimiento para el punto de venta %: emití el comprobante de nuevo con una fecha de la quincena vigente.',
       p_caea, v_pv
       using errcode = '23514', hint = 'jouve_guard';
   end if;
