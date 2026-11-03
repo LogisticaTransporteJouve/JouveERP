@@ -173,6 +173,12 @@ describe("tasksDaily job", () => {
     expect(filterValue(overdue!, "lt", "due_date")).toBe("2026-11-02");
     expect(filterValue(overdue!, "gte", "due_date")).toBe("2026-10-26");
 
+    const notifyAt = fake.calls.findIndex(
+      (c) => c.table === "notifications" && c.op === "insert",
+    );
+    expect(notifyAt).toBeGreaterThan(fake.calls.indexOf(due!));
+    expect(notifyAt).toBeGreaterThan(fake.calls.indexOf(overdue!));
+
     const inserted = callsOf("notifications", "insert")[0]?.payload as {
       recipient_id: string;
       metadata: { preview: string };
