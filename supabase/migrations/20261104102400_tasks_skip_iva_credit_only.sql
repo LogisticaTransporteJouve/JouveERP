@@ -5,7 +5,8 @@ SET LOCAL statement_timeout = '15min';
 -- (credit_balance set, no amount: 20261104050300 keeps such a month
 -- pendiente) no longer opens a "Pagar IVA" task; the next sync closes an
 -- open one (auto_closed). Same signature and result; everything else is as
--- in 20261103170000.
+-- in 20261104101400 (its supplier_payment branch reads only the
+-- purchase-invoice documents of v_supplier_aging_documents).
 --
 -- Rollback: older code calls the same function; older SQL opens the task
 -- again.
@@ -29,7 +30,8 @@ as $$
       coalesce(d.fch_vto_pago, d.fecha) as due_date
     from public.v_supplier_aging_documents d
     join public.suppliers s on s.id = d.supplier_id
-    where coalesce(d.fch_vto_pago, d.fecha) <= p_today + 7
+    where d.document_type = 'purchase_invoice'
+      and coalesce(d.fch_vto_pago, d.fecha) <= p_today + 7
 
     union all
 
@@ -195,9 +197,6 @@ as $$
   select c.id, c.kind, 'closed'
     from closed c;
 $$;
-
-comment on function public.sync_automatic_tasks(date) is
-  'Crea, actualiza y cierra las tareas automáticas según los documentos pendientes al día p_today (cron tasks-daily). Idempotente.';
 
 revoke all on function public.sync_automatic_tasks(date) from public, anon, authenticated;
 grant execute on function public.sync_automatic_tasks(date) to service_role;
