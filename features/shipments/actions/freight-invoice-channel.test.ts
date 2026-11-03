@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
+import { sourceInvoiceKey } from "@/lib/source-invoice-key";
 import {
   filterValue,
   recordingSupabase,
@@ -12,7 +13,14 @@ const SHIPMENT_ID = "00000000-0000-4000-8000-000000000001";
 const issue = vi.fn();
 let shipmentChannel: string | null = "jouve_internal";
 let claimed = true;
+// Invoices already issued under the carga's keys.
+let priorInvoices: { id: string; status: string; idempotency_key: string }[] =
+  [];
+// What the live one bills.
+let priorBills = { client_id: "c1", imp_neto: 1000 };
 let fake = recordingSupabase(respond);
+const key = (attempt: number) =>
+  sourceInvoiceKey("shipment_freight", SHIPMENT_ID, attempt);
 
 function respond(call: RecordedCall) {
   if (call.table === "shipments" && call.op === "update") {
@@ -43,6 +51,11 @@ function respond(call: RecordedCall) {
       error: null,
     };
   }
+  if (call.table === "invoices") {
+    return filterValue(call, "eq", "id") === undefined
+      ? { data: priorInvoices, error: null }
+      : { data: priorBills, error: null };
+  }
   return { data: null, error: null };
 }
 
@@ -72,6 +85,8 @@ beforeEach(() => {
   issue.mockReset();
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
   claimed = true;
+  priorInvoices = [];
+  priorBills = { client_id: "c1", imp_neto: 1000 };
   fake = recordingSupabase(respond);
 });
 
@@ -116,6 +131,59 @@ describe("invoiceFreightAction", () => {
     });
     expect(res.ok).toBe(true);
     expect(issue).toHaveBeenCalledOnce();
+  });
+
+  it("issues under the carga's own key", async () => {
+    shipmentChannel = null;
+    await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(issue).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotency_key: key(0) }),
+    );
+  });
+
+  it("links the invoice an earlier click issued instead of issuing a second one", async () => {
+    shipmentChannel = null;
+    priorInvoices = [
+      { id: "inv0", status: "failed", idempotency_key: key(0) },
+      { id: "inv1", status: "emitted", idempotency_key: key(1) },
+    ];
+    const res = await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(res).toEqual({ ok: true, data: { invoiceId: "inv1" } });
+    expect(issue).not.toHaveBeenCalled();
+    expect(updates().at(-1)?.payload).toEqual({
+      invoice_id: "inv1",
+      invoicing_claimed_at: null,
+    });
+  });
+
+  it("does not link an earlier invoice that bills another client or flete", async () => {
+    shipmentChannel = null;
+    priorInvoices = [
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+    ];
+    for (const bills of [
+      { client_id: "c2", imp_neto: 1000 },
+      { client_id: "c1", imp_neto: 800 },
+    ]) {
+      priorBills = bills;
+      fake = recordingSupabase(respond);
+      const res = await invoiceFreightAction({
+        shipmentId: SHIPMENT_ID,
+        channel_id: "jouve_fiscal",
+        punto_venta: 3,
+      });
+      expect(res.ok).toBe(false);
+      expect(issue).not.toHaveBeenCalled();
+      expect(updates().at(-1)?.payload).toEqual({ invoicing_claimed_at: null });
+    }
   });
 
   it("claims only an unbilled shipment and never issues when the claim is lost", async () => {
