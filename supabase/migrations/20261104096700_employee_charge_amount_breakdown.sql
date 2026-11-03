@@ -2,13 +2,13 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15min';
 
 -- A fiscal purchase charged to an employee charges them what the journal
--- debits to anticipos_personal (20261104095200): since 20261104095600 that is
+-- debits to anticipos_personal (20261104095200): since 20261104096400 that is
 -- neto + no gravado + exento + municipales + internos, not imp_neto alone. The
 -- company still takes IVA and both perceptions as credit. Internal channel:
 -- the charge stays imp_total.
 --
 -- No backfill: every existing purchase has the four new amounts at 0 (the
--- 20261104095600 backfill only moves imp_trib to imp_perc_iibb), so its
+-- 20261104096400 backfill only moves imp_trib to imp_perc_iibb), so its
 -- charge is already imp_neto. Latest body: 20261104095200.
 
 create or replace function public.purchase_invoice_sync_employee_charge()
