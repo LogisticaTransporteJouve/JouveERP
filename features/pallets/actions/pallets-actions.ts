@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import {
@@ -66,6 +66,16 @@ function narrow(row: PalletSelectRow): Pallet | null {
     status: row.status,
     quantity: row.quantity === null ? null : Number(row.quantity),
   };
+}
+
+const NO_STOCK_MOVEMENTS =
+  "No tenés permiso para registrar movimientos de stock.";
+
+/** Entering, dispatching or removing a pallet moves stock: it takes the
+ *  pallet write and the stock-movement write (a per-user deny of either
+ *  stops it). */
+function canMoveStock(access: Access): boolean {
+  return userCanAll(access, ["pallets:write", "stock_movements:write"]);
 }
 
 const SELECT_COLUMNS =
@@ -142,7 +152,7 @@ export async function createPalletAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "pallets:write")) {
+  if (!canMoveStock(ctx.access)) {
     return { ok: false, error: "No tenés permiso para crear pallets." };
   }
   const parsed = PalletCreateSchema.safeParse(input);
@@ -198,7 +208,7 @@ export async function createPalletsBulkAction(
   input: unknown,
 ): Promise<ActionResult<{ created: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "pallets:write")) {
+  if (!canMoveStock(ctx.access)) {
     return { ok: false, error: "No tenés permiso para crear pallets." };
   }
   const parsed = PalletBulkCreateSchema.safeParse(input);
@@ -284,7 +294,7 @@ export async function dispatchPalletsBulkAction(
   input: unknown,
 ): Promise<ActionResult<{ dispatched: number; blocked: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "pallets:write")) {
+  if (!canMoveStock(ctx.access)) {
     return { ok: false, error: "No tenés permiso para despachar pallets." };
   }
   const parsed = PalletBulkDispatchSchema.safeParse(input);
@@ -347,6 +357,17 @@ export async function updatePalletAction(
     };
   }
   const { id, ...rest } = parsed.data;
+  // Moving it (deposit, status, quantity, entry or exit) is a stock
+  // movement; notes, code, client or product are not.
+  const moves =
+    rest.warehouse_id !== undefined ||
+    rest.status !== undefined ||
+    rest.quantity !== undefined ||
+    rest.entry_date !== undefined ||
+    rest.exit_date !== undefined;
+  if (moves && !userCan(ctx.access, "stock_movements:write")) {
+    return { ok: false, error: NO_STOCK_MOVEMENTS };
+  }
 
   const supabase = await createSupabaseClient();
   const { error } = await supabase
@@ -393,7 +414,7 @@ export async function deletePalletAction(input: {
   id: string;
 }): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "pallets:write")) {
+  if (!canMoveStock(ctx.access)) {
     return { ok: false, error: "No tenés permiso para borrar pallets." };
   }
   const supabase = await createSupabaseClient();
