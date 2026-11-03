@@ -108,6 +108,50 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Auditoría RRHH y rendiciones (2026-11-04)
+
+- [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
+- [x] Embargo tipeado a mano en un borrador sobrevive a los cambios de
+      embargos judiciales (`embargo_override`, `20261104095100`).
+- [x] Compra a cargo de empleado: en canal fiscal se le carga el neto, igual
+      que el asiento a anticipos al personal (`20261104095200`).
+- [x] Extras de viajes: lecturas paginadas y marca de parcial real.
+- [x] Rendiciones: "Resolver diferencia" a cargo del chofer (salda al
+      cliente con un recibo y le carga un adelanto) o del cliente (queda
+      abierta en su cuenta); quitar y cancelar lo deshacen; sin `hr:write` no
+      se saca lo que está en la cuenta del chofer (`20261104095300`).
+- [ ] Descuento de planilla sin plan ni cargo: queda saldo a favor del
+      empleado (decisión en `docs/decisions.md`); si molesta, agregar un
+      aviso al cerrar el período.
+- [ ] Aprobar `20261104095000`–`20261104095300` con el deploy. Rollback: el
+      código anterior llama a las RPC de la rendición con sus argumentos
+      viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
+      faltante asentado como adelanto como "sin asentar" (volver a asentar
+      devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
+      `embargo_override` (el trigger lo respeta igual).
+- [ ] Antes de aprobar `20261104095200`, el dueño revisa los cargos que el
+      backfill baja del total al neto (los saldos de esos empleados bajan el
+      IVA y las percepciones; si un cierre de planilla ya descontó el total,
+      queda saldo a favor del empleado):
+      `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m
+      join purchase_invoices pi on pi.id = m.purchase_invoice_id
+      where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
+- [ ] Diferencias asentadas al chofer antes de `20261104095300`
+      (movimiento `charge` o `payment` con `driver_settlement_id`): un
+      faltante deja también la factura del cliente abierta y un sobrante queda
+      a cuenta del cliente y acreditado al chofer, dos veces. No se reparan
+      solos; en Rendiciones, "Quitar diferencia" y volver a resolverla los
+      deja en una sola cuenta.
+- [ ] Gestión percibido: el pago (OP) de una compra a cargo de empleado va
+      entero a "Anticipos al personal" (`f_employee` en
+      `management_pnl_lines`), pero al empleado ahora se le carga el neto: en
+      canal fiscal el IVA queda en anticipos y no en el costo. Ajustar
+      `f_employee` a la parte que se le carga (`amount / imp_total` del
+      cargo) sobre la versión de `claude/audit-impuestos-gestion`
+      (`20261104092000`, que también reemplaza `management_pnl_lines`).
+- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
+      `payroll_audit_fixes`, `driver_settlement_differences`,
+      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
 ## Saldos de apertura, aging y diferencia de cambio (2026-11-04, auditoría w1)
 
 - [x] **Saldo de apertura de proveedor** (`20261104094100`): salda el saldo
@@ -169,9 +213,8 @@ mitigación en el schema: el límite se respeta operando.
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 
 - [x] **Rendiciones:** varios medios de pago por carga; PDF interno de la
-      rendición; listado paginado; "Asentar diferencia al chofer" (faltante =
-      cargo, sobrante = pago en su cuenta corriente, una vez, se va al
-      cancelar la rendición); marca de recibos anulados o editados en Recibos.
+      rendición; listado paginado; "Asentar diferencia al chofer" (desde
+      2026-11-04: "Resolver diferencia", ver arriba); marca de recibos anulados o editados en Recibos.
 - [x] **Liquidaciones:** "Liquidar período" (una por cliente, en borrador o
       confirmadas por `confirm_freight_settlement_document`); envío del
       remito R por email (el X de Otras ventas va como su comprobante);

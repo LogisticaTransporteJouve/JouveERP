@@ -57,7 +57,7 @@ select ok(
   has_function_privilege('service_role', 'public.confirm_driver_settlement(uuid, uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.confirm_driver_settlement(uuid, uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.save_driver_settlement(uuid, date, text, jsonb, uuid, uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.cancel_driver_settlement(uuid, uuid)', 'execute'),
+  and not has_function_privilege('authenticated', 'public.cancel_driver_settlement(uuid, uuid, boolean)', 'execute'),
   'only the service role runs the rendición RPCs'
 );
 

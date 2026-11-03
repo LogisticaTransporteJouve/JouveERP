@@ -25,7 +25,7 @@ import {
   useClosePayrollPeriod,
   usePayrollPeriod,
   useReopenPayrollPeriod,
-  useResetPayrollDeudas,
+  useResetPayrollOverride,
   useUpdatePayrollEntry,
 } from "../hooks/use-payroll";
 import { payrollOtros, suggestedSplit } from "../lib/payroll-split";
@@ -65,7 +65,7 @@ export function PayrollPeriodGrid({
   const closeMut = useClosePayrollPeriod();
   const reopenMut = useReopenPayrollPeriod();
   const addMissingMut = useAddMissingPayrollEntries();
-  const resetDeudasMut = useResetPayrollDeudas(year, month);
+  const resetMut = useResetPayrollOverride(year, month);
   const { channels } = useScope();
 
   const canWrite = userCan(actorAccess, "hr:write");
@@ -381,11 +381,12 @@ export function PayrollPeriodGrid({
                             className="size-6"
                             title="Cargado a mano. Volver a la cuota de los planes."
                             aria-label="Volver a la cuota de los planes"
-                            disabled={resetDeudasMut.isPending}
+                            disabled={resetMut.isPending}
                             onClick={() =>
-                              resetDeudasMut.mutate(e.id, {
-                                onError: (err) => toast.error(err.message),
-                              })
+                              resetMut.mutate(
+                                { id: e.id, field: "deudas" },
+                                { onError: (err) => toast.error(err.message) },
+                              )
                             }
                           >
                             <RotateCcw className="size-3" />
@@ -406,11 +407,31 @@ export function PayrollPeriodGrid({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <InlineMoneyInput
-                        value={e.embargo}
-                        disabled={!canEdit}
-                        onCommit={(v) => commit(e.id, "embargo", v)}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        {e.embargo_override && canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            title="Cargado a mano. Volver al embargo vigente del empleado."
+                            aria-label="Volver al embargo vigente del empleado"
+                            disabled={resetMut.isPending}
+                            onClick={() =>
+                              resetMut.mutate(
+                                { id: e.id, field: "embargo" },
+                                { onError: (err) => toast.error(err.message) },
+                              )
+                            }
+                          >
+                            <RotateCcw className="size-3" />
+                          </Button>
+                        )}
+                        <InlineMoneyInput
+                          value={e.embargo}
+                          disabled={!canEdit}
+                          onCommit={(v) => commit(e.id, "embargo", v)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold">
                       {money(e.total_a_pagar)}

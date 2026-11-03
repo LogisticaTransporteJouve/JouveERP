@@ -254,8 +254,8 @@ set constraints all immediate;
 select results_eq(
   $$select kind, amount, currency from public.employee_account_movements
      where purchase_invoice_id = '00000000-0000-0000-0000-000000000e52'$$,
-  $$values ('charge'::text, 1210.00::numeric, 'ARS'::text)$$,
-  'its total is a charge in the employee account'
+  $$values ('charge'::text, 1000.00::numeric, 'ARS'::text)$$,
+  'its neto is a charge in the employee account (20261104095200: the company takes the IVA)'
 );
 select ok(
   exists (

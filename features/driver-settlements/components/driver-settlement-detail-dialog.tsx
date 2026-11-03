@@ -22,6 +22,7 @@ import {
 import { useDriverSettlement } from "../hooks/use-driver-settlements";
 import {
   DRIVER_SETTLEMENT_STATUS_LABELS,
+  differenceNote,
   formatDriverSettlementNumber,
   settlementDifference,
 } from "../schema";
@@ -36,6 +37,9 @@ export function DriverSettlementDetailDialog({
 }) {
   const detail = useDriverSettlement(id);
   const s = detail.data;
+  const note = s
+    ? differenceNote(s.difference_charged_to, s.difference_posted)
+    : null;
 
   return (
     <Dialog
@@ -173,15 +177,7 @@ export function DriverSettlementDetailDialog({
                 revisalo.
               </p>
             )}
-            {s.difference_posted && (
-              <p className="text-sm text-muted-foreground">
-                {s.difference_posted.kind === "charge"
-                  ? "Faltante cargado"
-                  : "Sobrante acreditado"}{" "}
-                en la cuenta corriente del chofer:{" "}
-                {formatMoney(s.difference_posted.amount)}.
-              </p>
-            )}
+            {note && <p className="text-sm text-muted-foreground">{note}</p>}
             {s.notes && (
               <p className="text-sm text-muted-foreground">{s.notes}</p>
             )}

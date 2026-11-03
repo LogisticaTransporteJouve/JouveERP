@@ -38,7 +38,7 @@ export interface DriverSettlementTemplateData {
   received: number;
   difference: number;
   receipts: string[];
-  differencePosted: string | null;
+  differenceNote: string | null;
   notes: string | null;
   cancelled: boolean;
 }
@@ -166,9 +166,9 @@ export function DriverSettlementDocument({
           )}
         </View>
 
-        {data.differencePosted && (
+        {data.differenceNote && (
           <View style={v.notesBox}>
-            <Text>{data.differencePosted}</Text>
+            <Text>{data.differenceNote}</Text>
           </View>
         )}
 

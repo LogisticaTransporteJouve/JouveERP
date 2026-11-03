@@ -14,9 +14,11 @@ import { useEmployeeOptions } from "../hooks/use-employees";
 const NONE = "__none__";
 
 /**
- * "A cargo de empleado" picker for a purchase: the total goes to the
- * employee's current account and the neto out of the operating cost. Renders
- * nothing for a user without hr:write. `value` is an employee id or "".
+ * "A cargo de empleado" picker for a purchase: what the company does not
+ * recover goes to the employee's current account (the neto on a fiscal
+ * purchase, whose IVA is the company's credit; the total on an internal one)
+ * and the neto out of the operating cost. Renders nothing for a user without
+ * hr:write. `value` is an employee id or "".
  */
 export function EmployeeChargeSelect({
   id,
@@ -56,8 +58,9 @@ export function EmployeeChargeSelect({
       </Select>
       {value !== "" && (
         <p className="text-xs text-muted-foreground">
-          Sigue en el Libro IVA; el total va a la cuenta corriente del empleado
-          y el neto no es costo en Gestión.
+          Sigue en el Libro IVA. En una compra fiscal se le carga el neto (el
+          IVA y las percepciones son crédito de la empresa); en una interna, el
+          total. El neto no es costo en Gestión.
         </p>
       )}
     </div>

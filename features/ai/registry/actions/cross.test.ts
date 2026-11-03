@@ -169,6 +169,7 @@ function settlement(v: Partial<DriverSettlement>): DriverSettlement {
     cargas: 2,
     receipts: [],
     receipts_out_of_sync: false,
+    difference_charged_to: null,
     difference_posted: null,
     driver_employee_id: null,
     created_at: "2026-10-10T12:00:00Z",
