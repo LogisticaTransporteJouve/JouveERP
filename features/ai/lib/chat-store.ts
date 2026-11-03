@@ -109,7 +109,7 @@ export async function loadAiSessionMessages(
       try {
         kept.push(...(await validateUIMessages({ messages: [message] })));
       } catch {
-        // dropped below
+        // Invalid: left out, and counted in `dropped`.
       }
     }
     logger.error("ai.chat.load.invalid", {
