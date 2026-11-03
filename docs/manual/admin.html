@@ -15,7 +15,7 @@
     <div>
       <header class="topbar">
         <div class="crumbs"><a href="index.html">Manual</a> · <strong>Administración</strong></div>
-        <div class="pill">Usuarios · AFIP · Backups</div>
+        <div class="pill">Usuarios · AFIP · Importador · Backups</div>
       </header>
       <main>
         <h1>Administración</h1>
@@ -33,6 +33,7 @@
             <li><a href="#padron-afip">Padrón AFIP</a></li>
             <li><a href="#puntos-de-venta">Puntos de venta AFIP</a></li>
             <li><a href="#preview-pdf">Preview de PDF</a></li>
+            <li><a href="#importador">Importador de planillas</a></li>
             <li><a href="#backups">Backups</a></li>
           </ul>
         </div>
@@ -154,6 +155,339 @@
           <li>Se renderiza el PDF tal cual le va a llegar al cliente por
             email.</li>
         </ol>
+
+        <!-- ──────── IMPORTADOR ──────── -->
+        <h2 id="importador">Importador de planillas</h2>
+        <p>
+          Carga datos de arranque desde una planilla <strong>.xlsx</strong> o
+          <strong>.csv</strong>: maestros (clientes, proveedores, empleados,
+          vehículos), históricos de referencia y los importes de arranque
+          (tarifas, préstamos, cheques en cartera, saldos de clientes y
+          extractos bancarios).
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Importador</em>.</p>
+
+        <ol class="steps">
+          <li>Elegí el <strong>tipo</strong> (y la cuenta o el canal, si el tipo lo pide).</li>
+          <li>Subí la planilla. El sistema busca la fila de títulos entre las
+            primeras 15 y propone qué columna es cada dato; podés cambiarlo.</li>
+          <li>Revisá la <strong>vista previa</strong>: cada fila queda
+            <em>Lista</em>, <em>Ya existe</em> o <em>Con error</em>, con sus
+            avisos.</li>
+          <li>Click <strong>Importar</strong>: entran todas las filas listas en
+            una sola transacción. Las filas con error no entran y se cuentan.</li>
+        </ol>
+
+        <h3 id="importador-reglas">Reglas comunes</h3>
+        <ul>
+          <li><strong>Archivo:</strong> hasta 4 MB, 5000 filas y 60 columnas.
+            Si es más grande, dividilo.</li>
+          <li><strong>Títulos:</strong> se comparan sin mayúsculas ni acentos
+            ("Razón social" = "razon social"). Cada columna lista sus nombres
+            aceptados; también vale un título que empiece con uno de ellos
+            ("Litros (lts)").</li>
+          <li><strong>Fechas:</strong> <code>31/10/2026</code>,
+            <code>31-10-26</code> o <code>2026-10-31</code>.</li>
+          <li><strong>Importes:</strong> notación argentina
+            (<code>1.234,56</code>) o simple (<code>1234.56</code>).</li>
+          <li><strong>Sí / No:</strong> "Sí", "S", "X" o "1"; "No", "N" o "0" (vacío = No).</li>
+          <li><strong>Sin duplicados:</strong> cada tipo compara por su clave
+            natural (CUIT, CUIL, patente…). Reimportar el mismo archivo no
+            duplica nada; un registro que ya existe <strong>no se
+            actualiza</strong>.</li>
+          <li><strong>Deshacer:</strong> cada corrida queda en el historial y se
+            deshace mientras nadie editó ni usa sus filas.</li>
+          <li>Las filas totalmente vacías (o de subtotal) se saltean.</li>
+        </ul>
+
+        <h3 id="importador-clientes">Clientes</h3>
+        <div class="fields">
+          <div class="field-name">Razón social</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: razón social, cliente, nombre, denominación.</div>
+          <div class="field-name">Nombre de fantasía</div><div class="field-req">opcional</div>
+          <div class="field-desc">Títulos: nombre de fantasía, fantasía, nombre comercial.</div>
+          <div class="field-name">CUIT</div><div class="field-req">opcional</div>
+          <div class="field-desc">Con CUIT válido (dígito verificador) entra a Ventas; sin CUIT, a Otras ventas (interno).</div>
+          <div class="field-name">Condición de IVA</div><div class="field-req">con CUIT</div>
+          <div class="field-desc">Responsable Inscripto (RI), Monotributo, Exento, Consumidor Final o No Categorizado. Obligatoria con CUIT.</div>
+          <div class="field-name">Email · Teléfono</div><div class="field-req">opcional</div>
+          <div class="field-desc">El email tiene que tener formato válido.</div>
+          <div class="field-name">Domicilio fiscal · Domicilio real</div><div class="field-req">opcional</div>
+          <div class="field-desc">El fiscal solo se guarda con CUIT.</div>
+          <div class="field-name">Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">Títulos: notas, observaciones, obs.</div>
+        </div>
+        <table>
+          <thead><tr><th>Razón social</th><th>CUIT</th><th>Condición de IVA</th><th>Email</th></tr></thead>
+          <tbody>
+            <tr><td>Logística Sur S.A.</td><td>30-71463743-2</td><td>RI</td><td>admin@logisur.com</td></tr>
+            <tr><td>Kiosco de Pepe</td><td></td><td></td><td></td></tr>
+          </tbody>
+        </table>
+        <p><strong>Clave:</strong> CUIT; sin CUIT, la razón social entre los internos.</p>
+
+        <h3 id="importador-proveedores">Proveedores</h3>
+        <p>Las mismas columnas que clientes (con CUIT entra a Compras; sin CUIT,
+          a Otras compras), más los datos con que el formulario de compras
+          empieza una factura del proveedor:</p>
+        <div class="fields">
+          <div class="field-name">Categoría</div><div class="field-req">opcional</div>
+          <div class="field-desc">Nombre de la categoría como está en Proveedores › Categorías. Títulos: categoría, rubro.</div>
+          <div class="field-name">Cuenta de gasto</div><div class="field-req">opcional</div>
+          <div class="field-desc">Código (<code>5.1.2</code>) o nombre de una cuenta de gasto imputable (hoja) del plan. Títulos: cuenta de gasto, cuenta contable, imputación.</div>
+          <div class="field-name">Centro de costo</div><div class="field-req">opcional</div>
+          <div class="field-desc">Código o nombre del centro de costo. Títulos: centro de costo, CC.</div>
+        </div>
+        <table>
+          <thead><tr><th>Razón social</th><th>CUIT</th><th>IVA</th><th>Categoría</th><th>Cuenta de gasto</th><th>Centro de costo</th></tr></thead>
+          <tbody>
+            <tr><td>YPF Ruta 3</td><td>30-54668997-9</td><td>RI</td><td>Combustible</td><td>5.1.2</td><td>FLOTA</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>Validaciones.</strong> Una categoría, cuenta o centro que no
+          existe, o un nombre que tienen dos (usá el código), deja la fila con
+          error: nada se descarta en silencio. Una categoría o un centro
+          inactivo se importa con aviso. La cuenta tiene que ser de gasto e
+          imputable.
+        </div>
+
+        <h3 id="importador-empleados">Empleados</h3>
+        <div class="fields">
+          <div class="field-name">Apellido y nombre</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: apellido y nombre, nombre y apellido, empleado, nombre.</div>
+          <div class="field-name">CUIL</div><div class="field-req">opcional</div>
+          <div class="field-desc">11 dígitos. Sin CUIL se compara por nombre (con aviso).</div>
+          <div class="field-name">Fecha de ingreso</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: fecha de ingreso, ingreso, alta.</div>
+          <div class="field-name">Fecha de egreso</div><div class="field-req">opcional</div>
+          <div class="field-desc">No anterior al ingreso. Con egreso el empleado entra inactivo.</div>
+          <div class="field-name">Puesto</div><div class="field-req">opcional</div>
+          <div class="field-desc">"Chofer" o "Acompañante" entra como Chofer / Acompañante y crea su ficha de chofer (Flota › Choferes).</div>
+          <div class="field-name">Frecuencia de pago</div><div class="field-req">opcional</div>
+          <div class="field-desc">Semanal, mensual o mixto (vacío: mensual).</div>
+          <div class="field-name">Sueldo base · Viático mensual</div><div class="field-req">opcional</div>
+          <div class="field-desc">Números no negativos.</div>
+          <div class="field-name">Monotributista</div><div class="field-req">opcional</div>
+          <div class="field-desc">Sí o No (vacío: No).</div>
+          <div class="field-name">CBU · Convenio · Categoría · Obra social · ART</div><div class="field-req">opcional</div>
+          <div class="field-desc">El CBU, de 22 dígitos. "Categoría" es la del convenio.</div>
+          <div class="field-name">N.º de licencia</div><div class="field-req">opcional</div>
+          <div class="field-desc">Solo choferes. Títulos: número de licencia, nro licencia, licencia.</div>
+          <div class="field-name">Categoría de licencia</div><div class="field-req">opcional</div>
+          <div class="field-desc">La clase (E1, C2…). Títulos: categoría de licencia, clase de licencia.</div>
+          <div class="field-name">Vencimiento de licencia</div><div class="field-req">opcional</div>
+          <div class="field-desc">Se carga como licencia del chofer en Flota › Vencimientos, que avisa antes de que venza.</div>
+          <div class="field-name">Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">Títulos: notas, observaciones, obs.</div>
+        </div>
+        <table>
+          <thead><tr><th>Apellido y nombre</th><th>CUIL</th><th>Fecha de ingreso</th><th>Puesto</th><th>N.º de licencia</th><th>Categoría de licencia</th><th>Vencimiento de licencia</th></tr></thead>
+          <tbody>
+            <tr><td>Pérez Juan</td><td>20-12345678-6</td><td>01/02/2020</td><td>Chofer</td><td>123456</td><td>E1</td><td>31/12/2027</td></tr>
+            <tr><td>López Eva</td><td></td><td>01/01/2019</td><td>Administrativo</td><td></td><td></td><td></td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>Avisos.</strong> Una licencia vencida o que vence en los
+          próximos 30 días se importa con aviso. Los datos de licencia de un
+          puesto que no es Chofer / Acompañante no se guardan (con aviso).
+          Una fecha de vencimiento ilegible deja la fila con error.
+        </div>
+        <p><strong>Clave:</strong> CUIL; sin CUIL, el nombre.</p>
+
+        <h3 id="importador-vehiculos">Vehículos</h3>
+        <div class="fields">
+          <div class="field-name">Patente</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: patente, dominio.</div>
+          <div class="field-name">Tipo</div><div class="field-req">requerido</div>
+          <div class="field-desc">Camión, acoplado, semi, utilitario, furgón, auto u otro.</div>
+          <div class="field-name">Alias · Marca · Modelo · Año · Flota</div><div class="field-req">opcional</div>
+          <div class="field-desc">El año, un número.</div>
+          <div class="field-name">Tarjeta de combustible</div><div class="field-req">opcional</div>
+          <div class="field-desc">No puede ser de otro vehículo (cargado o del archivo).</div>
+          <div class="field-name">Capacidad (kg) · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">La capacidad, un número.</div>
+        </div>
+        <table>
+          <thead><tr><th>Patente</th><th>Tipo</th><th>Marca</th><th>Año</th></tr></thead>
+          <tbody><tr><td>AB 123 CD</td><td>Camión</td><td>Scania</td><td>2019</td></tr></tbody>
+        </table>
+        <p><strong>Clave:</strong> la patente (solo letras y números).</p>
+
+        <h3 id="importador-sueldos-historicos">Sueldos históricos</h3>
+        <p>Solo de referencia: no generan asientos, pagos ni cuenta corriente.
+          Los empleados tienen que estar cargados.</p>
+        <div class="fields">
+          <div class="field-name">Empleado</div><div class="field-req">requerido</div>
+          <div class="field-desc">Nombre como está en Personal, o la columna CUIL.</div>
+          <div class="field-name">Período</div><div class="field-req">requerido</div>
+          <div class="field-desc"><code>2025-10</code>, <code>10/2025</code> u "octubre 2025". No futuro.</div>
+          <div class="field-name">Tipo</div><div class="field-req">opcional</div>
+          <div class="field-desc">Sueldo o aguinaldo (vacío: sueldo).</div>
+          <div class="field-name">Neto</div><div class="field-req">requerido</div>
+          <div class="field-desc">Un número.</div>
+          <div class="field-name">Pagado · Fecha de pago · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">Lo pagado mayor al neto da aviso.</div>
+        </div>
+        <table>
+          <thead><tr><th>Empleado</th><th>Período</th><th>Neto</th><th>Pagado</th></tr></thead>
+          <tbody><tr><td>Pérez Juan</td><td>10/2025</td><td>850.000</td><td>850.000</td></tr></tbody>
+        </table>
+        <p><strong>Clave:</strong> empleado, período y tipo.</p>
+
+        <h3 id="importador-viajes-historicos">Viajes históricos</h3>
+        <p>Solo de referencia: no generan facturas, extras de chofer ni
+          rentabilidad.</p>
+        <div class="fields">
+          <div class="field-name">Fecha</div><div class="field-req">requerido</div>
+          <div class="field-desc">No futura.</div>
+          <div class="field-name">Vehículo · Chofer · Cliente</div><div class="field-req">opcional</div>
+          <div class="field-desc">Por patente, nombre o CUIT; si no se encuentran, se guarda el texto (con aviso).</div>
+          <div class="field-name">Origen · Destino · Km · Flete · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">El flete, en pesos. La fila necesita algún dato además de la fecha.</div>
+        </div>
+        <table>
+          <thead><tr><th>Fecha</th><th>Patente</th><th>Chofer</th><th>Cliente</th><th>Origen</th><th>Destino</th><th>Km</th><th>Flete</th></tr></thead>
+          <tbody><tr><td>15/09/2025</td><td>AB123CD</td><td>Pérez Juan</td><td>LogiSur</td><td>Buenos Aires</td><td>Rosario</td><td>300</td><td>450.000</td></tr></tbody>
+        </table>
+
+        <h3 id="importador-tarifas">Tarifas por cliente</h3>
+        <div class="fields">
+          <div class="field-name">Cliente</div><div class="field-req">requerido</div>
+          <div class="field-desc">Razón social, nombre de fantasía o CUIT como está en Clientes.</div>
+          <div class="field-name">Concepto</div><div class="field-req">requerido</div>
+          <div class="field-desc">Almacenaje, carga, descarga o flete.</div>
+          <div class="field-name">Depósito</div><div class="field-req">opcional</div>
+          <div class="field-desc">El depósito del área. Hace falta solo si dos depósitos tienen un área con el mismo nombre.</div>
+          <div class="field-name">Área</div><div class="field-req">opcional</div>
+          <div class="field-desc">Nombre del área (Depósitos › Áreas). Vacío: todas las áreas. La tarifa de un área pisa a la general para los pallets de esa área. El flete no lleva área.</div>
+          <div class="field-name">Unidad</div><div class="field-req">opcional</div>
+          <div class="field-desc">Almacenaje: por pallet por mes (vacío) o por día. Carga, descarga y flete tienen una sola.</div>
+          <div class="field-name">Precio</div><div class="field-req">requerido</div>
+          <div class="field-desc">No negativo.</div>
+          <div class="field-name">Moneda</div><div class="field-req">opcional</div>
+          <div class="field-desc">ARS o USD (vacío: ARS). El flete va en pesos.</div>
+          <div class="field-name">Vigente desde</div><div class="field-req">requerido</div>
+          <div class="field-desc">Inicio de la vigencia.</div>
+          <div class="field-name">Vigente hasta · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">Vacío: sin fin. No anterior al inicio.</div>
+        </div>
+        <table>
+          <thead><tr><th>Cliente</th><th>Concepto</th><th>Depósito</th><th>Área</th><th>Precio</th><th>Vigente desde</th></tr></thead>
+          <tbody>
+            <tr><td>LogiSur</td><td>Almacenaje</td><td></td><td></td><td>1.500,00</td><td>01/01/2026</td></tr>
+            <tr><td>LogiSur</td><td>Almacenaje</td><td>Depósito Norte</td><td>Cámara de frío</td><td>2.100,00</td><td>01/01/2026</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>Validaciones.</strong> Un área que no existe en el depósito,
+          o un nombre de área que tienen dos depósitos sin la columna Depósito,
+          deja la fila con error. Una tarifa que se superpone con otra del
+          mismo cliente, concepto y área (cargada o del archivo) queda con
+          error; la general y la de un área no se superponen entre sí. Un
+          área inactiva da aviso.
+        </div>
+        <p><strong>Clave:</strong> cliente, concepto, área y vigente desde.</p>
+
+        <h3 id="importador-prestamos">Préstamos al arranque</h3>
+        <p>Pide el <strong>canal</strong>. Crea el préstamo con sus cuotas
+          pendientes; no registra el desembolso (la deuda entra con el ajuste
+          inicial).</p>
+        <div class="fields">
+          <div class="field-name">Descripción</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: descripción, préstamo, detalle.</div>
+          <div class="field-name">Entidad · Tipo · Moneda · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc">Tipo: préstamo o leasing (vacío: préstamo). Moneda: ARS o USD.</div>
+          <div class="field-name">Capital pendiente</div><div class="field-req">requerido</div>
+          <div class="field-desc">Lo que falta devolver al arranque.</div>
+          <div class="field-name">Cuotas pendientes</div><div class="field-req">requerido</div>
+          <div class="field-desc">Número entero.</div>
+          <div class="field-name">Próximo vencimiento</div><div class="field-req">requerido</div>
+          <div class="field-desc">Las cuotas siguientes vencen el mismo día de cada mes. Si ya pasó, da aviso.</div>
+          <div class="field-name">Importe de cuota</div><div class="field-req">opcional</div>
+          <div class="field-desc">Mayor a cero. Vacío: el capital en cuotas iguales.</div>
+        </div>
+        <table>
+          <thead><tr><th>Descripción</th><th>Entidad</th><th>Capital pendiente</th><th>Cuotas pendientes</th><th>Próximo vencimiento</th></tr></thead>
+          <tbody><tr><td>Préstamo camión</td><td>Banco Galicia</td><td>12.000.000</td><td>24</td><td>10/12/2026</td></tr></tbody>
+        </table>
+        <p><strong>Clave:</strong> descripción, entidad y próximo vencimiento.</p>
+
+        <h3 id="importador-cheques">Cheques en cartera al arranque</h3>
+        <p>Pide la <strong>cuenta de cartera</strong> (cheques físicos o
+          e-cheq) y el <strong>canal</strong>. Cada cheque entra a la cartera
+          con contrapartida en ajustes de caja: no cargues además el saldo
+          inicial de esa cuenta por esos cheques.</p>
+        <div class="fields">
+          <div class="field-name">Número · Banco · Librador</div><div class="field-req">requerido</div>
+          <div class="field-desc">Títulos: número de cheque, banco, librador o firmante.</div>
+          <div class="field-name">Tipo</div><div class="field-req">opcional</div>
+          <div class="field-desc">Físico o e-cheq; tiene que coincidir con la cuenta de cartera.</div>
+          <div class="field-name">CUIT del librador · Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc"></div>
+          <div class="field-name">Fecha de emisión · Fecha de pago</div><div class="field-req">requerido</div>
+          <div class="field-desc">El pago no anterior a la emisión. Vencido hace más de 30 días da aviso.</div>
+          <div class="field-name">Importe</div><div class="field-req">requerido</div>
+          <div class="field-desc">Mayor a cero.</div>
+          <div class="field-name">Moneda</div><div class="field-req">opcional</div>
+          <div class="field-desc">La de la cuenta de cartera.</div>
+        </div>
+        <table>
+          <thead><tr><th>Número</th><th>Banco</th><th>Librador</th><th>Fecha de emisión</th><th>Fecha de pago</th><th>Importe</th></tr></thead>
+          <tbody><tr><td>12345678</td><td>Banco Nación</td><td>Acme S.A.</td><td>01/10/2026</td><td>01/12/2026</td><td>250.000</td></tr></tbody>
+        </table>
+        <p><strong>Clave:</strong> tipo, banco y número. Un mismo cheque
+          repetido en el archivo es error (dejá una fila con el importe total).</p>
+
+        <h3 id="importador-saldos">Saldos iniciales de clientes</h3>
+        <p>Lo que debe cada cliente al corte, en pesos: no crea recibos,
+          movimientos ni asientos.</p>
+        <div class="fields">
+          <div class="field-name">Cliente</div><div class="field-req">requerido</div>
+          <div class="field-desc">Razón social, nombre de fantasía o CUIT.</div>
+          <div class="field-name">Saldo</div><div class="field-req">requerido</div>
+          <div class="field-desc">0 o más. Un saldo a favor del cliente se carga como recibo a cuenta.</div>
+          <div class="field-name">Fecha de corte</div><div class="field-req">requerido</div>
+          <div class="field-desc">No futura.</div>
+          <div class="field-name">Notas</div><div class="field-req">opcional</div>
+          <div class="field-desc"></div>
+        </div>
+        <table>
+          <thead><tr><th>Cliente</th><th>Saldo</th><th>Fecha de corte</th></tr></thead>
+          <tbody><tr><td>30-71463743-2</td><td>1.234.500,00</td><td>31/10/2026</td></tr></tbody>
+        </table>
+        <p><strong>Clave:</strong> el cliente (un saldo por cliente; uno que ya
+          tiene saldo se saltea).</p>
+
+        <h3 id="importador-extracto">Extracto bancario</h3>
+        <p>Pide la <strong>cuenta</strong> (banco, billetera, caja o
+          inversión). Carga las líneas para conciliarlas en
+          <a href="treasury.html#conciliacion">Tesorería › Conciliación</a>; no
+          crea movimientos.</p>
+        <div class="fields">
+          <div class="field-name">Fecha · Descripción</div><div class="field-req">requerido</div>
+          <div class="field-desc">La fecha, no futura.</div>
+          <div class="field-name">Importe</div><div class="field-req">uno de los dos</div>
+          <div class="field-desc">Con signo (negativo = débito).</div>
+          <div class="field-name">Débito · Crédito</div><div class="field-req">uno de los dos</div>
+          <div class="field-desc">Si el banco los separa: se leen como positivos y el importe es crédito − débito.</div>
+          <div class="field-name">Saldo · Referencia</div><div class="field-req">opcional</div>
+          <div class="field-desc">El saldo se usa para comparar con los libros.</div>
+        </div>
+        <table>
+          <thead><tr><th>Fecha</th><th>Concepto</th><th>Débito</th><th>Crédito</th><th>Saldo</th></tr></thead>
+          <tbody>
+            <tr><td>01/10/2026</td><td>Transferencia recibida 4521</td><td></td><td>1.000.000,00</td><td>1.000.000,00</td></tr>
+            <tr><td>02/10/2026</td><td>Comisión mantenimiento</td><td>12.100,00</td><td></td><td>987.900,00</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Clave:</strong> el contenido de la línea en la cuenta: un
+          extracto superpuesto no duplica líneas; dos líneas iguales del mismo
+          día quedan dos.</p>
+
+        <p>Permiso: <span class="badge">imports:write</span> (owner / admin)
+          más el del módulo de cada tipo.</p>
 
         <!-- ──────── BACKUPS ──────── -->
         <h2 id="backups">Backups</h2>

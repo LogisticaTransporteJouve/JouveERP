@@ -7,7 +7,16 @@ sistema, y leer paso a paso cómo se hace cada operación.
 
 ## Cómo abrirlo
 
-Es HTML estático: alcanza con abrir `index.html` en cualquier navegador.
+**Desde la app:** en `/manual` (cualquier usuario con sesión iniciada). Lo
+sirve `app/manual/[[...path]]/route.ts`, que lee estos archivos tal cual
+(solo las páginas `.html` y `assets/*.css|js`), agrega el nonce de la CSP a
+los scripts y saca los links a Google Fonts (la CSP no los permite: usa la
+fuente del sistema). La guía del sidebar enlaza a la sección de cada
+pantalla (`features/guide/lib/route-guides.ts`); un test verifica que cada
+ancla citada exista.
+
+Fuera de la app es HTML estático: alcanza con abrir `index.html` en
+cualquier navegador.
 
 ```bash
 # desde la raíz del repo

@@ -30,6 +30,7 @@
           <ul>
             <li><a href="#cuentas">Cuentas</a></li>
             <li><a href="#caja">Caja (transacciones)</a></li>
+            <li><a href="#conciliacion">Conciliación bancaria</a></li>
             <li><a href="#cheques-recibidos">Cheques recibidos</a></li>
             <li><a href="#cheques-propios">Cheques propios</a></li>
             <li><a href="#flujo-cheques">Flujo: cobro con cheque → depósito → acreditación</a></li>
@@ -120,6 +121,9 @@
           <div class="field-name">Cliente contraparte</div>
           <div class="field-req">filtro</div>
           <div class="field-desc">Opcional.</div>
+          <div class="field-name">Conciliación</div>
+          <div class="field-req">filtro</div>
+          <div class="field-desc">Conciliados o sin conciliar con el extracto. Un movimiento conciliado lleva la marca <em>Conciliado</em>.</div>
         </div>
         <p>El listado tiene scroll infinito (50 por página, hasta 200).</p>
 
@@ -153,12 +157,51 @@
           contraparte. Tipo, canal y cuenta son inmutables (preservan la
           integridad de los pares de transferencia).
         </p>
+        <p>
+          Un movimiento <strong>conciliado</strong> no se borra ni cambia
+          monto o fechas hasta desconciliar su línea en
+          <a href="#conciliacion">Conciliación bancaria</a>; la descripción sí
+          se edita.
+        </p>
 
         <div class="callout">
           <strong>Permisos.</strong>
           <span class="badge">transactions:read</span> ver,
           <span class="badge">transactions:write</span> crear/editar/eliminar.
         </div>
+
+        <!-- ──────── CONCILIACIÓN ──────── -->
+        <h2 id="conciliacion">Conciliación bancaria</h2>
+        <p>
+          Las líneas del extracto de una cuenta contra sus movimientos de
+          Caja, por mes. El extracto se carga con el
+          <a href="admin.html#importador-extracto">importador</a> (tipo
+          Extracto bancario).
+        </p>
+        <p><strong>Ubicación:</strong> sidebar &gt; Tesorería &gt; <em>Conciliación</em>.</p>
+        <ol class="steps">
+          <li>Elegí la cuenta y el mes.</li>
+          <li>Aceptá las <strong>sugerencias</strong> (mismo importe, hasta 5
+            días de diferencia; primero las que coinciden en la referencia).</li>
+          <li>Para el resto, en la línea: <strong>Conciliar…</strong> con uno o
+            varios movimientos que sumen su importe, <strong>Crear
+            movimiento…</strong> (comisión, interés, pago de un impuesto) o
+            <strong>No corresponde…</strong> con su motivo.</li>
+          <li>Si el banco partió un movimiento en varias líneas (un depósito en
+            dos), en <em>Movimientos del mes sin conciliar</em> usá
+            <strong>Conciliar con varias líneas</strong> y elegí las líneas
+            que suman su importe.</li>
+        </ol>
+        <div class="callout">
+          <strong>Reglas.</strong> Los importes tienen que coincidir al
+          centavo. Una conciliación es una línea con sus movimientos o un
+          movimiento con sus líneas, nunca varias de cada lado. Desconciliar
+          una línea de un movimiento partido desconcilia todas sus líneas.
+          Mientras esté conciliado, el movimiento no se borra ni cambia monto,
+          fecha, cuenta, tipo, moneda o canal.
+        </div>
+        <p>Permiso: <span class="badge">transactions:write</span> para
+          conciliar; <span class="badge">transactions:read</span> para ver.</p>
 
         <!-- ──────── CHEQUES RECIBIDOS ──────── -->
         <h2 id="cheques-recibidos">Cheques recibidos (de terceros)</h2>
