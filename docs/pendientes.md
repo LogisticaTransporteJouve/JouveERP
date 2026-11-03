@@ -138,8 +138,9 @@
       `20261104060100_aging_snapshots` y `20261104060200_ai_chat_confirmation_note` con el
       deploy. No verificadas contra una base real: correr `supabase test db`
       (`recategorize_expense_test.sql`, `aging_snapshots_test.sql`) antes de aprobar.
-- [ ] Recategorizar una factura de compra no cambia sus NC/ND ya cargadas (heredan la cuenta solo
-      al cargarse); recategorizarlas una por una.
+- [x] Recategorizar una factura de compra lleva el cambio a sus NC/ND vigentes que tenían el valor
+      anterior (`20261104092300`); una NC/ND con cuenta o centro propios lo conserva, y una a
+      cargo de un empleado conserva la cuenta. El audit lista las NC/ND que cambiaron.
 - [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
       `result` (igual que en el chat).
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
@@ -213,8 +214,11 @@
       ("Manual: Contabilidad › Impuestos"), sin link.
 - [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
       impuesto pagado; `taxes:write` + `transactions:write`):
-      `undo_tax_document_payment` deja el impuesto liquidado (o pendiente si
-      el importe era estimado) y una línea en las notas. Si lo pagó "Pagar",
+      `undo_tax_document_payment` devuelve el impuesto al importe y estado
+      que tenía antes del pago (`payment_previous_amount`,
+      `payment_previous_status`, `20261104092200`; un pago anterior a esa
+      migración vuelve liquidado, o pendiente si el importe era estimado) y
+      deja una línea en las notas. Si lo pagó "Pagar",
       borra el egreso con su asiento; si fue "Vincular", el movimiento queda
       en Caja suelto, con la cuenta de gasto que tenía
       (`tax_documents.payment_previous_expense_account_id`) y el asiento
@@ -224,6 +228,15 @@
       al rubro de la cuenta del impuesto si está mapeada en
       `management_buckets`, si no a Costos operativos › Impuestos
       operativos. Devengado no cambia.
+- [x] **Estimado de IVA**: las retenciones de IVA salen de los recibos
+      emitidos (`issued`; antes filtraba un estado inexistente y daban 0),
+      en pesos a la cotización del recibo; un recibo en dólares sin
+      cotización frena el estimado. Una respuesta de "Estimar" que llega
+      después de cambiar el documento, el período o cerrar el diálogo se
+      descarta.
+- [x] **IA, libros IVA**: `getLibroIvaVentas`/`getLibroIvaCompras` devuelven
+      `totals` con signo (NC restadas, cada comprobante una vez) además de
+      las filas.
 - [x] **Estimado de IVA**: descuenta el saldo a favor técnico del IVA del
       mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
@@ -525,6 +538,19 @@
       año anterior.
 - [x] **Exportar CSV / Excel** de la tabla mes a mes (uso interno, auditado).
 - [x] IA: `getManagementPnL` con indicadores y `getManagementPnLDocuments`.
+- [x] **Cheques en percibido** (`20261104092000`): un cheque de terceros
+      importado al arranque (`checks.import_run_id`) es una partida de
+      apertura (su ingreso a cartera y su rechazo no cuentan); el egreso de
+      un cheque rechazado (débito del banco, devolución al comprador) resta
+      de Servicios lo que el cheque había sumado.
+- [x] **Pendiente en USD, devengado:** un movimiento fiscal en dólares queda
+      pendiente mientras no tiene asiento, aunque después se cargue una
+      cotización con fecha anterior (antes no estaba ni en pesos ni en
+      pendiente hasta re-asentarlo).
+- [ ] Re-asentar solo los movimientos `sin_cotizacion` al cargar una
+      cotización: hoy esperan al re-asiento del paquete mensual
+      (`journal_missing_entries`), y mientras tanto Gestión los muestra
+      pendientes.
 - [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
       pagos a proveedores aunque después se impute a un bien de uso o a una
       compra a cargo de un empleado.
@@ -541,6 +567,8 @@
 - [ ] Una carga de combustible que apunta solo al pago (OP) y no a la compra
       cuenta dos veces si la compra lleva el centro del camión; un
       `trips.cost` cargado también como compra con ese centro, igual.
+- [x] Lo "Sin clasificar" cargado con el centro del camión entra en su costo
+      de centro (`20261104092100`); antes no estaba en ninguna fila.
 - [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
       el ajuste por inflación de la pantalla).
 - [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
