@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   PalletBulkCreateSchema,
   PalletBulkDispatchSchema,
+  PalletBlockSchema,
   PalletCreateSchema,
+  PalletUpdateSchema,
   isPalletStatus,
 } from "./schema";
 
@@ -104,8 +106,10 @@ describe("PalletBulkDispatchSchema", () => {
 
   it("rejects a malformed exit date", () => {
     expect(
-      PalletBulkDispatchSchema.safeParse({ ids: [PALLET_ID], exit_date: "20/07" })
-        .success,
+      PalletBulkDispatchSchema.safeParse({
+        ids: [PALLET_ID],
+        exit_date: "20/07",
+      }).success,
     ).toBe(false);
   });
 });
@@ -116,5 +120,52 @@ describe("isPalletStatus", () => {
     expect(isPalletStatus("despachado")).toBe(true);
     expect(isPalletStatus("perdido")).toBe(false);
     expect(isPalletStatus(null)).toBe(false);
+  });
+});
+
+describe("pallet area, lot and block (roadmap 4.4)", () => {
+  const base = {
+    warehouse_id: WAREHOUSE_ID,
+    client_id: CLIENT_ID,
+    code: "P-1",
+    entry_date: "2026-11-01",
+  };
+
+  it("takes an optional area, lot and lot expiry, blanks as null", () => {
+    const r = PalletCreateSchema.safeParse({
+      ...base,
+      area_id: "",
+      lot_number: " ",
+      lot_expiry: "",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.area_id).toBeNull();
+      expect(r.data.lot_number).toBeNull();
+      expect(r.data.lot_expiry).toBeNull();
+    }
+    const withLot = PalletUpdateSchema.safeParse({
+      id: WAREHOUSE_ID,
+      lot_number: "L-2026-01",
+      lot_expiry: "2027-01-31",
+    });
+    expect(withLot.success).toBe(true);
+  });
+
+  it("refuses a lot longer than 60 characters", () => {
+    expect(
+      PalletCreateSchema.safeParse({ ...base, lot_number: "x".repeat(61) })
+        .success,
+    ).toBe(false);
+  });
+
+  it("needs a reason to block", () => {
+    expect(
+      PalletBlockSchema.safeParse({ id: WAREHOUSE_ID, reason: "  " }).success,
+    ).toBe(false);
+    expect(
+      PalletBlockSchema.safeParse({ id: WAREHOUSE_ID, reason: "Dañado" })
+        .success,
+    ).toBe(true);
   });
 });

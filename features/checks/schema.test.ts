@@ -4,6 +4,10 @@ import {
   ChequeCreateSchema,
   DepositChequeSchema,
   ManualChequeCreateSchema,
+  CHECK_STATUS_LABEL,
+  RejectChequeSchema,
+  SellChequesSchema,
+  isChequeStatus,
 } from "./schema";
 
 const UUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
@@ -73,5 +77,55 @@ describe("DepositChequeSchema", () => {
         event_date: "2026-05-01",
       }).success,
     ).toBe(true);
+  });
+});
+
+describe("venta de cheques (roadmap 4.6)", () => {
+  const sale = {
+    check_ids: [UUID],
+    account_id: UUID,
+    channel_id: "jouve_fiscal",
+    sale_date: "2026-11-03",
+    buyer_name: "Banco Y",
+    buyer_cuit: "30-11111111-8",
+    interest: "1500,50",
+    commission: "",
+    idempotency_key: UUID,
+  };
+
+  it("knows the vendido status", () => {
+    expect(isChequeStatus("vendido")).toBe(true);
+    expect(CHECK_STATUS_LABEL.vendido).toBe("Vendido");
+  });
+
+  it("parses a sale, normalizing the CUIT", () => {
+    const r = SellChequesSchema.safeParse({ ...sale, commission: "0" });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.buyer_cuit).toBe("30111111118");
+      expect(r.data.commission).toBe(0);
+    }
+  });
+
+  it("needs checks, a buyer and a non-negative cost", () => {
+    expect(
+      SellChequesSchema.safeParse({ ...sale, check_ids: [] }).success,
+    ).toBe(false);
+    expect(
+      SellChequesSchema.safeParse({ ...sale, buyer_name: " " }).success,
+    ).toBe(false);
+    expect(
+      SellChequesSchema.safeParse({ ...sale, commission: "-1" }).success,
+    ).toBe(false);
+  });
+
+  it("lets the rejection of a sold check name the repayment account", () => {
+    const r = RejectChequeSchema.safeParse({
+      check_id: UUID,
+      channel_id: "jouve_fiscal",
+      event_date: "2026-11-03",
+      account_id: UUID,
+    });
+    expect(r.success).toBe(true);
   });
 });
