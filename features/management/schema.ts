@@ -8,7 +8,7 @@ import {
   isPayrollPeriodKind,
   payrollPeriodHref,
 } from "@/features/hr/payroll-schema";
-import type { Permission } from "@/lib/auth/permissions";
+import { TREASURY_PERMISSIONS, type Permission } from "@/lib/auth/permissions";
 import type { CsvCell } from "@/lib/export/csv";
 import { round2 } from "@/lib/format";
 import { PeriodSchema } from "@/lib/validation/common";
@@ -43,12 +43,14 @@ export type ManagementBucket = (typeof MANAGEMENT_BUCKETS)[number];
 
 /** Buckets a P&L row can carry: the mapped ones (minus neutral, which the
  *  RPC drops), a result account without mapping, USD without a rate, and
- *  (cash basis only) advances to staff, net of what the planilla took back. */
+ *  (cash basis only) advances to staff, net of what the planilla took back,
+ *  and the loan disbursements received. */
 export const ROW_BUCKETS = [
   ...MANAGEMENT_BUCKETS.filter((b) => b !== "neutral"),
   "unclassified",
   "pending_usd",
   "employee_advances",
+  "loan_disbursements",
 ] as const;
 export type RowBucket = (typeof ROW_BUCKETS)[number];
 
@@ -109,6 +111,7 @@ export const BUCKET_LABEL: Record<ManagementBucket | RowBucket, string> = {
   unclassified: "Sin clasificar",
   pending_usd: "USD sin cotización",
   employee_advances: "Anticipos al personal",
+  loan_disbursements: "Financiamiento recibido",
 };
 
 export const CHANNEL_SIDES = ["fiscal", "internal"] as const;
@@ -249,7 +252,13 @@ export type Waterfall = {
   /** Cash only: advances and purchases charged to staff, net of what the
    *  planilla discounted (that part is in salaries). */
   employeeAdvances: number;
+  /** Without financing received: what the operation and its investments
+   *  left. */
   cashGeneration: number;
+  /** Cash only: loan disbursements received, below cash generation. */
+  loanDisbursements: number;
+  /** cashGeneration + loanDisbursements: what moved in the accounts. */
+  cashVariation: number;
   /** Shown apart, never in a total. */
   excludedNoncash: number;
   pendingUsd: number;
@@ -273,6 +282,14 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
   const fleetInvestment = sum("fleet_investment");
   const assetSale = sum("asset_sale");
   const employeeAdvances = sum("employee_advances");
+  const cashGeneration = round2(
+    afterFinancing +
+      loanPrincipal +
+      fleetInvestment +
+      assetSale +
+      employeeAdvances,
+  );
+  const loanDisbursements = sum("loan_disbursements");
   return {
     serviceRevenue,
     operatingCost,
@@ -284,13 +301,9 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
     fleetInvestment,
     assetSale,
     employeeAdvances,
-    cashGeneration: round2(
-      afterFinancing +
-        loanPrincipal +
-        fleetInvestment +
-        assetSale +
-        employeeAdvances,
-    ),
+    cashGeneration,
+    loanDisbursements,
+    cashVariation: round2(cashGeneration + loanDisbursements),
     excludedNoncash: sum("excluded_noncash"),
     pendingUsd: round2(rows.reduce((a, r) => a + r.pendingUsd, 0)),
   };
@@ -333,6 +346,17 @@ const anyOf = (...buckets: RowBucket[]): LineScope => ({
 const OPERATING_DETAIL = OPERATING_SUBBUCKETS.filter(
   (s) => s !== "sueldos" && s !== "sueldos_internos",
 );
+
+const CASH_GENERATION_BUCKETS = [
+  "service_revenue",
+  "operating_cost",
+  "unclassified",
+  "financing_cost",
+  "loan_principal",
+  "fleet_investment",
+  "asset_sale",
+  "employee_advances",
+] as const satisfies readonly RowBucket[];
 
 /** The lines of the month table, top to bottom. */
 export const TABLE_LINES: readonly TableLine[] = [
@@ -454,16 +478,21 @@ export const TABLE_LINES: readonly TableLine[] = [
     label: "Generación de caja",
     kind: "total",
     depth: 0,
-    ...anyOf(
-      "service_revenue",
-      "operating_cost",
-      "unclassified",
-      "financing_cost",
-      "loan_principal",
-      "fleet_investment",
-      "asset_sale",
-      "employee_advances",
-    ),
+    ...anyOf(...CASH_GENERATION_BUCKETS),
+  },
+  {
+    key: "loan_disbursements",
+    label: BUCKET_LABEL.loan_disbursements,
+    kind: "line",
+    depth: 0,
+    ...byBucket("loan_disbursements"),
+  },
+  {
+    key: "cash_variation",
+    label: "Variación de caja",
+    kind: "total",
+    depth: 0,
+    ...anyOf(...CASH_GENERATION_BUCKETS, "loan_disbursements"),
   },
 ];
 
@@ -779,7 +808,8 @@ export const DOC_TYPE_PERMISSIONS: Record<DocType, readonly Permission[]> = {
   receipt: ["receipts:read"],
   payment_order: ["payment_orders:read"],
   payroll: ["hr:read"],
-  loan: ["accounting:read", "accounts:read"],
+  // The gate of /loans/[id].
+  loan: TREASURY_PERMISSIONS,
   employee: ["hr:read"],
   check: ["cheques:read"],
   issued_check: ["issued_checks:read"],
