@@ -6,15 +6,18 @@ import {
   addOneMonth,
   computeIvaPosition,
   isTaxDocumentOverdue,
+  LinkTaxPaymentSchema,
   monthGrid,
   PayTaxDocumentSchema,
   previousPeriod,
+  rankTaxPaymentCandidates,
   shiftMonth,
   sumIva,
   TAX_KINDS,
   TAX_STATUSES,
   taxDocumentLabel,
   TaxDocumentCreateSchema,
+  TaxPaymentCandidatesSchema,
   TaxStatusChangeSchema,
 } from "./schema";
 
@@ -227,5 +230,68 @@ describe("computeIvaPosition", () => {
     expect(
       sumIva({ 5: { neto: 1000, iva: 210 }, 4: { neto: 100, iva: 10.5 } }),
     ).toBe(220.5);
+  });
+});
+
+describe("linking an existing movement", () => {
+  const UUID = "00000000-0000-4000-8000-000000000001";
+
+  it("the link defaults to refusing another amount", () => {
+    expect(
+      LinkTaxPaymentSchema.parse({ id: UUID, transaction_id: UUID }),
+    ).toEqual({ id: UUID, transaction_id: UUID, allow_difference: false });
+    expect(
+      LinkTaxPaymentSchema.safeParse({ id: UUID, transaction_id: "x" }).success,
+    ).toBe(false);
+  });
+
+  it("candidates start at the first page", () => {
+    expect(TaxPaymentCandidatesSchema.parse({ id: UUID }).page).toBe(0);
+    expect(
+      TaxPaymentCandidatesSchema.safeParse({ id: UUID, page: -1 }).success,
+    ).toBe(false);
+  });
+
+  const row = (id: string, amount: number, date: string) => ({
+    id,
+    amount,
+    transaction_date: date,
+    description: null,
+    account_name: "Banco",
+  });
+
+  it("ranks by amount, then by distance to the due date", () => {
+    const ranked = rankTaxPaymentCandidates(
+      [
+        row("far-date", 1000, "2026-11-01"),
+        row("off", 999.5, "2026-11-18"),
+        row("near-date", 1000, "2026-11-17"),
+      ],
+      { amount: 1000, due_date: "2026-11-18" },
+    );
+    expect(ranked.map((r) => [r.id, r.difference, r.days_from_due])).toEqual([
+      ["near-date", 0, -1],
+      ["far-date", 0, -17],
+      ["off", -0.5, 0],
+    ]);
+  });
+
+  it("without an amount, only the date ranks and there is no difference", () => {
+    const ranked = rankTaxPaymentCandidates(
+      [row("b", 5, "2026-11-25"), row("a", 9, "2026-11-19")],
+      { amount: null, due_date: "2026-11-18" },
+    );
+    expect(ranked.map((r) => [r.id, r.difference])).toEqual([
+      ["a", null],
+      ["b", null],
+    ]);
+  });
+
+  it("the link RPC re-posts and refuses a different amount unless confirmed", () => {
+    const fn = ALL_SQL.slice(
+      ALL_SQL.indexOf("create function public.link_tax_document_payment("),
+    );
+    expect(fn).toMatch(/perform public\.repost_journal\('transactions'/);
+    expect(fn).toMatch(/p_allow_difference/);
   });
 });
