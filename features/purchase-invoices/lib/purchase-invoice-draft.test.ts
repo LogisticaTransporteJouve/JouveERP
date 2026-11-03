@@ -153,6 +153,18 @@ describe("totalsGap", () => {
     expect(totalsGap({ ...base, imp_total: "" })).toBeNull();
     expect(totalsGap({ ...base, imp_total: "0" })).toBeNull();
   });
+
+  it("counts exento and no gravado in the total", () => {
+    expect(
+      totalsGap({
+        ...base,
+        imp_no_gravado: "4",
+        imp_op_exentas: "5",
+        imp_total: "130",
+      }),
+    ).toBeNull();
+    expect(totalsGap({ ...base, imp_op_exentas: "5" })).toBe(-5);
+  });
 });
 
 describe("documentTotalGap", () => {

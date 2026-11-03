@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { Constants } from "@/lib/db/database.types";
+
 import {
   buildAccountTree,
+  COA_SYSTEM_ROLES,
   compareCodes,
   ChartAccountCreateSchema,
   levelFromCode,
@@ -55,7 +58,11 @@ describe("compareCodes", () => {
 });
 
 describe("buildAccountTree", () => {
-  const mk = (id: string, code: string, parent_id: string | null): ChartAccount =>
+  const mk = (
+    id: string,
+    code: string,
+    parent_id: string | null,
+  ): ChartAccount =>
     ({
       id,
       parent_id,
@@ -124,5 +131,13 @@ describe("ChartAccountCreateSchema", () => {
       is_active: true,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("COA_SYSTEM_ROLES", () => {
+  it("lists exactly the database enum coa_system_role", () => {
+    expect([...COA_SYSTEM_ROLES].sort()).toEqual(
+      [...Constants.public.Enums.coa_system_role].sort(),
+    );
   });
 });

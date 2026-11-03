@@ -219,9 +219,9 @@ const ISSUED_RECEIPT: ReceiptStatus = "issued";
  * IVA position of a period estimated from the libro IVA (fiscal channels):
  * débito of the sales book − crédito of the purchases book − IVA retentions
  * and perceptions suffered on the period's receipts − the saldo a favor
- * técnico the previous period's IVA document carries. The purchase books
- * carry other taxes (imp_trib) without telling IVA perceptions from IIBB:
- * that total is returned apart, not subtracted, and the screen says so.
+ * técnico the previous period's IVA document carries − the IVA perceptions
+ * of the period's purchases. The purchases' other taxes (IIBB, municipales,
+ * internos) are returned apart, not subtracted.
  */
 export async function getIvaPositionEstimateAction(input: {
   period: string;
@@ -336,7 +336,8 @@ export async function getIvaPositionEstimateAction(input: {
         updated_at: d.updated_at,
       })),
     ),
-    tributosCompras: comprasTotals.imp_trib,
+    percepcionesCompras: comprasTotals.breakdown.perc_iva,
+    tributosCompras: comprasTotals.imp_trib - comprasTotals.breakdown.perc_iva,
     ventas: ventasGrouped.length,
     compras: comprasGrouped.length,
   });

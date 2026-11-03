@@ -3,6 +3,7 @@ import type { XlsxCell, XlsxColumn, XlsxSheet } from "@/lib/export/xlsx";
 import { formatNumber2 } from "@/lib/format";
 
 import {
+  COMPRAS_AMOUNT_COLUMNS,
   countSuspectRates,
   foreignCurrencyTotals,
   groupByInvoice,
@@ -202,7 +203,11 @@ export function libroIvaComprasSheet(
     },
     [
       ...rateAmounts<V>(),
-      { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
+      ...COMPRAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
+        header: c.header,
+        value: (v) => c.value(v.breakdown),
+        show: "positive",
+      })),
       { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
     { header: "CAE prov.", value: (v) => v.cae_proveedor },

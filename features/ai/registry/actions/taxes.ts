@@ -189,7 +189,7 @@ export const getTaxDocuments = defineAiAction({
         `How many days ahead count as due soon. Default ${DEFAULT_DUE_WITHIN_DAYS}.`,
       ),
     ivaPeriod: PeriodSchema.nullish().describe(
-      "Fiscal period (YYYY-MM) whose IVA position to estimate from the libro IVA (débito − crédito − retenciones − last month's saldo a favor). Omit unless IVA to pay is asked.",
+      "Fiscal period (YYYY-MM) whose IVA position to estimate from the libro IVA (débito − crédito − retenciones − IVA perceptions on purchases − last month's saldo a favor). Omit unless IVA to pay is asked.",
     ),
   }),
   run: (_ctx, input) => runTaxDocuments(input),
