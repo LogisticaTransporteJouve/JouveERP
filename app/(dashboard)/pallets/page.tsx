@@ -5,6 +5,7 @@ import {
   listPalletsAction,
 } from "@/features/pallets/actions/pallets-actions";
 import { PalletsTable } from "@/features/pallets/components/pallets-table";
+import { canMoveStock } from "@/features/pallets/lib/moves-stock";
 import { palletsKeys } from "@/features/pallets/lib/pallets-keys";
 import { listProductsAction } from "@/features/products/actions/products-actions";
 import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
@@ -66,6 +67,8 @@ export default async function PalletsPageRoute() {
           clientOptions={clientOptions}
           productOptions={productOptions}
           areaOptions={areaOptions}
+          canWrite={userCan(ctx.access, "pallets:write")}
+          canMoveStock={canMoveStock(ctx.access)}
         />
       </div>
     </Hydrate>

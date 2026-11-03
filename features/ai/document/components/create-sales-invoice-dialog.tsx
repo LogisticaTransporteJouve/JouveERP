@@ -28,7 +28,11 @@ import {
 import { useEnabledPos } from "@/features/invoices/hooks/use-invoices";
 
 import { useCreateSalesInvoiceFromExtraction } from "../hooks/use-documents";
-import { InvoiceExtractionSchema } from "../schemas";
+import {
+  DUPLICATE_UNKNOWN_MESSAGE,
+  InvoiceExtractionSchema,
+  type DuplicateCheck,
+} from "../schemas";
 
 /**
  * Emit a sales invoice from its extraction. The comprobante goes through the
@@ -48,7 +52,7 @@ export function CreateSalesInvoiceDialog({
   extractionId: string;
   payload: unknown;
   clientName: string | null;
-  duplicate: boolean;
+  duplicate: DuplicateCheck;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
@@ -130,11 +134,14 @@ export function CreateSalesInvoiceDialog({
             </p>
           </div>
 
-          {duplicate && (
+          {duplicate === "found" && (
             <p className="text-sm font-medium">
               Ese comprobante ya está registrado en el sistema — no se puede
               volver a emitir desde acá.
             </p>
+          )}
+          {duplicate === "unknown" && (
+            <p className="text-sm font-medium">{DUPLICATE_UNKNOWN_MESSAGE}</p>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -193,7 +200,9 @@ export function CreateSalesInvoiceDialog({
           <Button
             type="button"
             onClick={onSubmit}
-            disabled={duplicate || !channelId || !pos || create.isPending}
+            disabled={
+              duplicate !== "none" || !channelId || !pos || create.isPending
+            }
           >
             Emitir factura
           </Button>

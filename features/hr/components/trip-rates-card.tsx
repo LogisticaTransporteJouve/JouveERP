@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/format";
+import { amountToInput, formatMoney, parseArAmount } from "@/lib/format";
 
 import type { TripRates } from "../account-schema";
 import { useUpdateTripRates } from "../hooks/use-employee-account";
+
+const toText = (n: number | null) => (n === null ? "" : amountToInput(n));
 
 const FIELDS = [
   ["trip_rate_per_day", "Por jornada"],
@@ -92,12 +94,12 @@ function TripRatesDialog({
 }) {
   const mutation = useUpdateTripRates();
   const [draft, setDraft] = useState<Record<keyof TripRates, string>>({
-    trip_rate_per_day: rates.trip_rate_per_day?.toString() ?? "",
-    trip_rate_per_km: rates.trip_rate_per_km?.toString() ?? "",
-    trip_rate_per_unload: rates.trip_rate_per_unload?.toString() ?? "",
+    trip_rate_per_day: toText(rates.trip_rate_per_day),
+    trip_rate_per_km: toText(rates.trip_rate_per_km),
+    trip_rate_per_unload: toText(rates.trip_rate_per_unload),
   });
   const toValue = (v: string) =>
-    v.trim() === "" ? null : v.replace(/,/g, ".");
+    v.trim() === "" ? null : (parseArAmount(v) ?? Number.NaN);
 
   function onSave() {
     mutation.mutate(

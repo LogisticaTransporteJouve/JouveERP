@@ -5,10 +5,11 @@ import {
   listDriverSettlementsAction,
 } from "@/features/driver-settlements/actions/driver-settlements-actions";
 import { DriverSettlementsPage } from "@/features/driver-settlements/components/driver-settlements-page";
+import { CHARGE_DRIVER_PERMISSIONS } from "@/features/driver-settlements/lib/charge-driver";
 import { driverSettlementsKeys } from "@/features/driver-settlements/lib/driver-settlements-keys";
 import { DRIVER_SETTLEMENTS_PAGE_SIZE } from "@/features/driver-settlements/schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -45,7 +46,7 @@ export default async function RendicionesRoute() {
       <div className="space-y-6">
         <DriverSettlementsPage
           canWrite={userCan(ctx.access, "receipts:write")}
-          canChargeDriver={userCan(ctx.access, "hr:write")}
+          canChargeDriver={userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS)}
         />
       </div>
     </Hydrate>

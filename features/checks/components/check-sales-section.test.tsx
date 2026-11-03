@@ -63,25 +63,27 @@ const debts: CheckSaleDebt[] = [
   },
 ];
 
+const useAccountsList = vi.fn();
 vi.mock("@/features/accounts/hooks/use-accounts", () => ({
-  useAccountsList: () => ({
-    data: [
-      {
-        id: "acc-usd",
-        name: "Banco USD",
-        is_active: true,
-        currency: "USD",
-        type: "bank",
-      },
-      {
-        id: "acc-ars",
-        name: "Banco ARS",
-        is_active: true,
-        currency: "ARS",
-        type: "bank",
-      },
-    ],
-  }),
+  useAccountsList: () => useAccountsList(),
+}));
+useAccountsList.mockImplementation(() => ({
+  data: [
+    {
+      id: "acc-usd",
+      name: "Banco USD",
+      is_active: true,
+      currency: "USD",
+      type: "bank",
+    },
+    {
+      id: "acc-ars",
+      name: "Banco ARS",
+      is_active: true,
+      currency: "ARS",
+      type: "bank",
+    },
+  ],
 }));
 vi.mock("../hooks/use-check-sales", () => ({
   useCheckSales: () => ({ isLoading: false, isError: false, data: [] }),
@@ -96,7 +98,7 @@ afterEach(cleanup);
 
 describe("CheckSalesSection · Pagar", () => {
   it("opens each debt with no account chosen", () => {
-    render(<CheckSalesSection canWrite />);
+    render(<CheckSalesSection canWrite canPay />);
     const [payUsd, payArs] = screen.getAllByRole("button", { name: "Pagar" });
     if (!payUsd || !payArs) throw new Error("expected a Pagar per debt");
 
@@ -112,5 +114,18 @@ describe("CheckSalesSection · Pagar", () => {
       .getAllByRole("button", { name: "Pagar" })
       .find((b) => b.closest("[role=dialog]"));
     expect(submit?.hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("CheckSalesSection · Pagar gate", () => {
+  it("reads the accounts only once a debt is being paid", () => {
+    useAccountsList.mockClear();
+    render(<CheckSalesSection canWrite canPay />);
+    expect(useAccountsList).not.toHaveBeenCalled();
+  });
+
+  it("offers no Pagar without accounts:read", () => {
+    render(<CheckSalesSection canWrite canPay={false} />);
+    expect(screen.queryByRole("button", { name: "Pagar" })).toBeNull();
   });
 });

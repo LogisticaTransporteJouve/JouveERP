@@ -1,3 +1,5 @@
+import { userCanAll, type Access } from "@/lib/auth/permissions";
+
 /** The pallet fields whose change is a stock movement: the deposit, the
  *  status, the quantity, the entry and the exit. Notes, code, client, product,
  *  area and lot are not. */
@@ -35,4 +37,11 @@ export function movesStock(
     }
     return next !== stored[key];
   });
+}
+
+/** Entering, dispatching or removing a pallet, or changing a stock field,
+ *  moves stock: it takes the pallet write and the stock-movement write (a
+ *  per-user deny of either stops it). The actions and the screen share it. */
+export function canMoveStock(access: Access): boolean {
+  return userCanAll(access, ["pallets:write", "stock_movements:write"]);
 }

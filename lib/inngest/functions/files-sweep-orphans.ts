@@ -42,24 +42,35 @@ export const filesSweepOrphans = inngest.createFunction(
       return { swept: 0 };
     }
 
+    // The delete re-checks each file is still an orphan (one attached since
+    // find-orphans keeps its row and its bytes) and returns what it removed.
+    // New step ids: a run started before this order holds memoized results
+    // for "remove-blobs" / "delete-rows" that do not fit it.
+    const deleted = await step.run("delete-still-orphans", async () => {
+      const supabase = getServiceClient();
+      const { data, error } = await supabase.rpc("delete_orphan_files", {
+        p_ids: orphans.map((o) => o.id),
+        p_max_age: "1 hour",
+      });
+      if (error) throw new Error(`delete-still-orphans: ${error.message}`);
+      return data ?? [];
+    });
+
     // Group storage paths by bucket so we can remove in batched calls.
     const pathsByBucket = new Map<string, string[]>();
-    const idsToDelete: string[] = [];
-    for (const orphan of orphans) {
-      idsToDelete.push(orphan.id);
-      const list = pathsByBucket.get(orphan.bucket) ?? [];
-      list.push(orphan.bucket_path);
-      pathsByBucket.set(orphan.bucket, list);
+    for (const file of deleted) {
+      const list = pathsByBucket.get(file.bucket) ?? [];
+      list.push(file.bucket_path);
+      pathsByBucket.set(file.bucket, list);
     }
 
-    await step.run("remove-blobs", async () => {
+    await step.run("remove-deleted-blobs", async () => {
       const supabase = getServiceClient();
       for (const [bucket, paths] of pathsByBucket) {
         const { error } = await supabase.storage.from(bucket).remove(paths);
         if (error) {
-          // Don't throw — best-effort cleanup. The row deletion below
-          // will leave the bytes behind but the DB stays consistent
-          // (no row → no signed URL ever generated).
+          // Best effort: the rows are gone, so no signed URL is ever made
+          // for these bytes; they are only left behind.
           logger.warn("files.sweep_orphans.storage_remove_failed", {
             bucket,
             count: paths.length,
@@ -69,16 +80,10 @@ export const filesSweepOrphans = inngest.createFunction(
       }
     });
 
-    await step.run("delete-rows", async () => {
-      const supabase = getServiceClient();
-      const { error } = await supabase
-        .from("files")
-        .delete()
-        .in("id", idsToDelete);
-      if (error) throw new Error(`delete-rows: ${error.message}`);
+    logger.info("files.sweep_orphans.done", {
+      found: orphans.length,
+      swept: deleted.length,
     });
-
-    logger.info("files.sweep_orphans.done", { swept: orphans.length });
-    return { swept: orphans.length };
+    return { swept: deleted.length };
   },
 );

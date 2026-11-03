@@ -29,7 +29,7 @@ import {
   useRemovePayrollEntryExtra,
 } from "../hooks/use-payroll";
 
-import { formatNumber2 } from "@/lib/format";
+import { formatNumber2, parseArAmount } from "@/lib/format";
 const ARS = { format: (n: number) => formatNumber2(n) };
 
 type AddValues = { amount: string; description: string };
@@ -102,8 +102,8 @@ function ExtrasBody({
   });
 
   function onAdd(values: AddValues) {
-    const amount = Number(values.amount.replace(/,/g, "."));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const amount = parseArAmount(values.amount);
+    if (amount === null || amount <= 0) {
       toast.error("Monto inválido.");
       return;
     }

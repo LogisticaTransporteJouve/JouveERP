@@ -1,7 +1,7 @@
 "use client";
 
 import { Banknote, Undo2 } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -111,18 +111,19 @@ function CancelSaleDialog({
   );
 }
 
+/** Mounted only while a debt is being paid: its accounts read is a
+ *  suspense query, kept off the page for users who never open it. */
 function PayDebtDialog({
   debt,
   onClose,
 }: {
-  debt: CheckSaleDebt | null;
+  debt: CheckSaleDebt;
   onClose: () => void;
 }) {
   const { data: accounts } = useAccountsList();
   const [accountId, setAccountId] = useState("");
   const [date, setDate] = useState(todayInAR());
   const mut = usePayCheckSaleDebt();
-  if (!debt) return null;
   const options = accounts.filter(
     (a) =>
       a.is_active &&
@@ -197,7 +198,14 @@ function PayDebtDialog({
 
 /** Check sales (to anul one entered by mistake) and the debts to buyers of
  *  rejected sold checks still to pay. */
-export function CheckSalesSection({ canWrite }: { canWrite: boolean }) {
+export function CheckSalesSection({
+  canWrite,
+  canPay,
+}: {
+  canWrite: boolean;
+  /** cheques:write plus accounts:read: paying picks the account. */
+  canPay: boolean;
+}) {
   const sales = useCheckSales();
   const debts = useCheckSaleDebts();
   const [cancelling, setCancelling] = useState<CheckSale | null>(null);
@@ -291,7 +299,7 @@ export function CheckSalesSection({ canWrite }: { canWrite: boolean }) {
                     <span className="tabular-nums">
                       {formatMoneyWithCode(d.amount, d.currency)}
                     </span>
-                    {canWrite && (
+                    {canPay && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -316,11 +324,15 @@ export function CheckSalesSection({ canWrite }: { canWrite: boolean }) {
         sale={cancelling}
         onClose={() => setCancelling(null)}
       />
-      <PayDebtDialog
-        key={paying?.id ?? "none"}
-        debt={paying}
-        onClose={() => setPaying(null)}
-      />
+      {paying && (
+        <Suspense fallback={null}>
+          <PayDebtDialog
+            key={paying.id}
+            debt={paying}
+            onClose={() => setPaying(null)}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

@@ -17,7 +17,11 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { suggestMatches, summarize } from "../lib/reconcile";
+import {
+  lastStatementBalance,
+  suggestMatches,
+  summarize,
+} from "../lib/reconcile";
 import {
   AcceptSuggestionsSchema,
   CANDIDATE_DAY_WINDOW,
@@ -285,11 +289,13 @@ export async function getReconciliationAction(
       : [],
   );
 
-  // Book balance at the period's end: opening balance plus every movement up
-  // to then (the treasury summary's own aggregate).
+  // Book balance at the period's end, and on the date of the statement's
+  // last balance (what the difference compares): opening balance plus every
+  // movement up to then (the treasury summary's own aggregate).
+  const statementDate = lastStatementBalance(lines)?.line_date ?? to;
   const totals = await paginateRange((f, t) =>
     service
-      .rpc("account_movement_totals", { p_until: to, p_split: from })
+      .rpc("account_movement_totals", { p_until: to, p_split: statementDate })
       .eq("account_id", account_id)
       .order("account_id")
       .range(f, t),
@@ -302,9 +308,11 @@ export async function getReconciliationAction(
     });
     return { ok: false, error: "No se pudo calcular el saldo según libros." };
   }
-  const net = Number(totals.data[0]?.net_until ?? 0);
-  const bookBalance =
-    Math.round((Number(acc.data.opening_balance) + net) * 100) / 100;
+  const opening = Number(acc.data.opening_balance);
+  const atCents = (net: unknown) =>
+    Math.round((opening + Number(net ?? 0)) * 100) / 100;
+  const bookBalance = atCents(totals.data[0]?.net_until);
+  const bookBalanceAtStatement = atCents(totals.data[0]?.net_until_split);
 
   return {
     ok: true,
@@ -315,7 +323,14 @@ export async function getReconciliationAction(
       lines,
       movements,
       suggestions: suggestMatches(lines, movements, SUGGESTION_DAY_WINDOW),
-      summary: summarize({ lines, movements, from, to, bookBalance }),
+      summary: summarize({
+        lines,
+        movements,
+        from,
+        to,
+        bookBalance,
+        bookBalanceAtStatement,
+      }),
     },
   };
 }

@@ -2,7 +2,7 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -34,6 +34,7 @@ import {
   type DriverSettlementsPage,
   type SettlementAccount,
 } from "../schema";
+import { CHARGE_DRIVER_PERMISSIONS } from "../lib/charge-driver";
 
 const READ_DENIED = "No tenés permiso para ver rendiciones.";
 const WRITE_DENIED = "No tenés permiso para registrar rendiciones.";
@@ -559,7 +560,8 @@ export async function confirmDriverSettlementAction(input: {
 /** Cancels the rendición and puts its cargas back as pending. A confirmed
  *  one needs its receipts cancelled first. It also takes its difference
  *  back (the receipts that settled the client and the driver's movement);
- *  without hr:write the RPC refuses when the driver's account holds it. */
+ *  without hr:write and transactions:write the RPC refuses when the
+ *  driver's account holds it. */
 export async function cancelDriverSettlementAction(input: {
   id: string;
 }): Promise<ActionResult> {
@@ -574,7 +576,7 @@ export async function cancelDriverSettlementAction(input: {
   const { error } = await supabase.rpc("cancel_driver_settlement", {
     p_settlement_id: parsed.data.id,
     p_user_id: ctx.userId,
-    p_allow_driver: userCan(ctx.access, "hr:write"),
+    p_allow_driver: userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS),
   });
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -596,11 +598,12 @@ export async function cancelDriverSettlementAction(input: {
 }
 
 const DIFFERENCE_DENIED =
-  "No tenés permiso para asentar en la cuenta corriente del chofer.";
+  "No tenés permiso para asentar en la cuenta corriente del chofer y mover la caja.";
 
 /** "Resolver diferencia": who bears the rendición's difference.
  *  - `driver`: a shortfall settles the client with a receipt and goes to
- *    the driver's employee account as an advance (needs hr:write too).
+ *    the driver's employee account as an advance paid out of the cash
+ *    account (needs hr:write and transactions:write too).
  *  - `client`: only records the choice; the client's invoice stays open.
  *  Resolving twice the same way returns the same result. */
 export async function postDriverSettlementDifferenceAction(
@@ -613,7 +616,10 @@ export async function postDriverSettlementDifferenceAction(
   const parsed = DriverSettlementDifferenceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Rendición inválida." };
   const { id, charged_to } = parsed.data;
-  if (charged_to === "driver" && !userCan(ctx.access, "hr:write")) {
+  if (
+    charged_to === "driver" &&
+    !userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS)
+  ) {
     return { ok: false, error: DIFFERENCE_DENIED };
   }
 
@@ -646,8 +652,8 @@ export async function postDriverSettlementDifferenceAction(
 }
 
 /** Takes the resolved difference back: cancels the receipts that settled
- *  the client and deletes the driver's movement. Without hr:write the RPC
- *  refuses when the driver's account holds it. */
+ *  the client and deletes the driver's movement. Without hr:write and
+ *  transactions:write the RPC refuses when the driver's account holds it. */
 export async function unpostDriverSettlementDifferenceAction(input: {
   id: string;
 }): Promise<ActionResult> {
@@ -663,7 +669,7 @@ export async function unpostDriverSettlementDifferenceAction(input: {
     {
       p_settlement_id: parsed.data.id,
       p_user_id: ctx.userId,
-      p_allow_driver: userCan(ctx.access, "hr:write"),
+      p_allow_driver: userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS),
     },
   );
   if (error) {

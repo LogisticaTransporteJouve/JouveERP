@@ -36,7 +36,7 @@ function options(
   const driverBlocked = !short
     ? "El sobrante ya quedó a cuenta del cliente en su recibo."
     : !canChargeDriver
-      ? "Necesitás permiso de escritura en RRHH."
+      ? "Necesitás permiso de escritura en RRHH y en movimientos."
       : s.driver_employee_id === null
         ? "El chofer no está vinculado a un empleado (Flota › Choferes)."
         : null;
@@ -65,7 +65,8 @@ export function DriverSettlementDifferenceDialog({
   onOpenChange,
 }: {
   settlement: DriverSettlement | null;
-  /** hr:write: the driver's option writes his employee account. */
+  /** hr:write + transactions:write: the driver's option writes his employee
+   *  account and pays the cash out to him. */
   canChargeDriver: boolean;
   onOpenChange: (open: boolean) => void;
 }) {

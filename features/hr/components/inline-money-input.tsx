@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Common = { disabled?: boolean; className?: string; placeholder?: string };
@@ -23,7 +24,7 @@ type Props = Common &
   );
 
 function toText(value: number | null): string {
-  return value === null ? "" : String(value);
+  return value === null ? "" : amountToInput(value);
 }
 
 // Cell-style inline edit. Right-aligned, monospace, transparent border in
@@ -62,18 +63,22 @@ export function InlineMoneyInput(props: Props) {
       }
       return;
     }
-    const parsed = Number(trimmed.replace(/,/g, "."));
-    if (trimmed === "" || !Number.isFinite(parsed) || parsed < 0) {
+    const parsed = parseArAmount(trimmed);
+    if (parsed === null || parsed < 0) {
       setText(initialRef.current);
       return;
     }
-    if (initialRef.current !== "" && Number(initialRef.current) === parsed) {
+    if (
+      initialRef.current !== "" &&
+      parseArAmount(initialRef.current) === parsed
+    ) {
       return;
     }
     setSaving(true);
     try {
       await commit(parsed);
-      initialRef.current = String(parsed);
+      initialRef.current = amountToInput(parsed);
+      setText(initialRef.current);
     } catch {
       setText(initialRef.current);
     } finally {

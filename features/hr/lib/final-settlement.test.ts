@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { finalSettlement } from "./final-settlement";
+import { finalSettlement, sacStillOwed } from "./final-settlement";
 
 describe("finalSettlement", () => {
   it("prorates the last month and adds pending plus proportional vacation", () => {
@@ -44,5 +44,25 @@ describe("finalSettlement", () => {
     // 14 × 91 / 365 = 3.49 → 3.5; a negative balance is not deducted.
     expect(res.vacationDays).toBe(3.5);
     expect(res.vacationAmount).toBe(0);
+  });
+
+  it("counts only the days from the hire date when hired that same month", () => {
+    const res = finalSettlement({
+      terminationDate: "2026-11-20",
+      hireDate: "2026-11-15",
+      monthlySalary: 900_000,
+      pendingVacationDays: 0,
+      hasBalanceForTerminationYear: false,
+    });
+    expect(res.daysWorked).toBe(6);
+    expect(res.proratedSalary).toBe(180_000);
+  });
+});
+
+describe("sacStillOwed", () => {
+  it("nets what the half's SAC planilla already pays", () => {
+    expect(sacStillOwed(491_847.83, 500_000)).toBe(0);
+    expect(sacStillOwed(500_000, 300_000)).toBe(200_000);
+    expect(sacStillOwed(500_000, 0)).toBe(500_000);
   });
 });

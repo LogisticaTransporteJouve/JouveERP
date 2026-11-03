@@ -270,6 +270,66 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
       leer la fila, o el run se canceló) no la resuelve el cron: frena la
       importación de ARCA de su par hasta que alguien la marque fallida.
+## Tesorería: auditoría w2 (2026-11-04)
+
+- [x] **Cheques en USD entregados a un proveedor** (`20261104101000`): el
+      cobro, el rechazo y la anulación de un cheque propio de una OP, y el
+      rechazo de un cheque endosado, asientan a la cotización de la OP (la
+      misma con la que la OP los acreditó); `cheques_diferidos_emitidos` y
+      proveedores se revierten exactos. Antes asentaban los dólares como
+      pesos.
+- [x] El rechazo de un cheque endosado asienta en la fecha del rechazo y el de
+      un cheque propio en `rejected_at` (antes, el día de la carga).
+      `reject_check` corre con `search_path = ''`.
+- [ ] Diferencia de cambio del lado del banco al cobrar un cheque propio USD
+      de una OP: el banco se acredita a la cotización de la OP, no a la del
+      día del cobro.
+- [ ] Asientos ya hechos de cheques USD de OP (cobro, rechazo, anulación) y
+      de rechazos de endosados quedan con el importe viejo; re-asentarlos
+      cambia períodos pasados: lo decide el owner.
+- [x] **Cheque entregado que rebota** (`20261104101400`): la deuda vuelve a
+      la cuenta corriente del proveedor (fila "Cheque rechazado" con el
+      número de la OP), al aging, al flujo de caja y a las herramientas de
+      IA de proveedores. Se paga con una OP nueva a cuenta e "Imputar" →
+      "Cheques rechazados" (del más viejo). Los mensajes de anular y editar
+      la OP dicen ese camino.
+- [ ] Saldo de apertura de proveedor: el saldo real al corte no cuenta los
+      cheques entregados rechazados.
+- [ ] Un cheque rechazado USD pagado por una OP a otra cotización deja la
+      diferencia en proveedores (sin `diferencia_cambio`).
+- [ ] La OP nueva no imputa el cheque rechazado al crearla (solo a cuenta y
+      después "Imputar"); las tareas automáticas no crean "Pagar" para un
+      cheque rechazado.
+- [x] **NC de compra sin origen** (`20261104101400`): el aging por documento
+      reparte su crédito (mismo canal y moneda, del más vencido al más
+      nuevo), así el flujo de caja y la IA ven lo mismo que los totales del
+      aging. Ahora el crédito queda en su canal: una NC sin origen de un
+      canal ya no baja la deuda de otro.
+- [x] **Cuentas con movimientos** (`20261104101100`): moneda, tipo y saldo
+      inicial quedan fijos (guarda en la base y campos deshabilitados en el
+      formulario); el saldo se corrige con "Ajustar saldo".
+- [x] **Préstamo en USD** (`20261104101300`): el capital de cada cuota baja
+      `prestamos` a la cotización del desembolso y la diferencia va a
+      `diferencia_cambio`. Un préstamo importado (sin movimiento de
+      desembolso) asienta como antes; las cuotas ya pagadas conservan su
+      asiento.
+- [x] "Pagar" un impuesto pide también `transactions:write` (mueve Caja),
+      como vincular y deshacer.
+- [x] Transferir desde o hacia una cartera de cheques se rechaza en la base
+      (`20261104101200`).
+- [ ] `create_transfer` no tiene clave de idempotencia: un reintento crea
+      otra transferencia.
+- [x] Conciliación: la diferencia compara el saldo del extracto con el de
+      libros a la fecha de ese saldo.
+- [x] Tesorería muestra las carteras de cheques en USD aparte.
+- [x] Deudas por cheques vendidos: todas las pendientes (sin tope de 200) y
+      las últimas 100 pagadas (llegó con #348).
+- [ ] Aprobar las migraciones `20261104101000`–`20261104101400` con el
+      deploy.
+- [ ] No verificado contra una base real: migraciones y pgTAP
+      (`check_journal_op_rate`, `account_frozen_after_movements`,
+      `transfer_check_cartera`, `loan_usd_capital_fx`,
+      `supplier_rejected_checks`).
 
 ## Auditoría: IA, tareas y accesos (2026-11-04)
 
@@ -304,6 +364,42 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] pgTAP verde en CI (stack fresco); sin verificar contra datos de
       producción: las dos migraciones y el anti-join de tareas sin asignar.
 
+- [ ] Aprobar `20261104096000` (insights) y `20261104096100` (denegaciones de
+      permisos quitados) con el deploy. Sin la primera, el analista falla
+      (no existe el RPC) y las tarjetas quedan como estaban.
+- [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
+      `regenerate_ai_insights` y el anti-join de tareas sin asignar.
+
+### Auditoría w2: IA, UI y adjuntos
+
+- [x] **Insights:** la lista se lee entera, se filtra por dominio y se ordena
+      por gravedad antes de mostrar 50 ("Mostrando 50 de N"); una lectura que
+      falla se muestra como error, no como "No hay insights todavía". "Visto"
+      sobre una tarjeta ya recalculada avisa en vez de dar éxito.
+- [x] **Propuestas:** una aceptada que quedó sin resultado se muestra primero
+      con "No se sabe si la acción se completó"; la nueva se arma al volver a
+      abrir. Aceptar una propuesta refresca todo (como en el chat).
+- [x] **Adjuntos:** una lectura que falla dice "No se pudieron leer los
+      adjuntos" (antes: sin adjuntos y un reintento en bucle).
+- [x] **Pallets:** los botones siguen los permisos de las acciones (crear,
+      cargar varios, despachar y borrar piden `stock_movements:write`;
+      editar y bloquear, `pallets:write`); sin `stock_movements:write` la
+      edición traba depósito, estado, cantidad y fechas.
+- [x] **Listas al facturar:** flete, liquidación y almacenaje refrescan
+      también cuando la factura se emitió pero no se vinculó. Impuestos
+      refresca Gestión y Conciliación; recategorizar, libros y Gestión.
+- [x] **Nits:** cheque de una OP con monto, moneda y cuenta trabados; flete
+      que no se borra si falla la lectura de la tarifa; historial de chat que
+      descarta solo el mensaje inválido; deudas por cheques pendientes sin
+      tope; Gestión parcial con filas de un bucket desconocido; búsquedas por
+      nombre que toman `%` y `_` literal; cobranzas en riesgo que avisan si
+      faltan los dólares; margen por cliente que falla pasado el tope del RPC;
+      error de lectura de cuota y del catálogo de gastos; "Estimar" y "Pagar"
+      solo con los permisos que piden; guía de `/aging/mora`; totales de la
+      rendición en una columna en el celular; historial de bloqueos en hora
+      argentina.
+- [ ] No verificado en el navegador: los diálogos y paneles se probaron con
+      tests de componentes (jsdom), no en la app.
 ## Auditoría RRHH y rendiciones (2026-11-04)
 
 - [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
@@ -337,6 +433,83 @@ mitigación en el schema: el límite se respeta operando.
       `driver_settlement_differences`, `driver_settlements`,
       `employee_accounts`, `payroll_receipt_sac`); sin verificar contra datos
       de producción ni en el navegador: las cuatro migraciones.
+      cargo) sobre la versión de `claude/audit-impuestos-gestion`
+      (`20261104092000`, que también reemplaza `management_pnl_lines`).
+- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
+      `payroll_audit_fixes`, `driver_settlement_differences`,
+      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
+
+## Auditoría w2: RRHH, Gestión y rendiciones (2026-11-04)
+
+- [x] Liquidación final de junio o diciembre: si la planilla del SAC del
+      semestre ya tiene al empleado, el SAC proporcional sugerido es solo lo
+      que falta (la tarjeta lo avisa y linkea esa planilla). Si ahí cobra el
+      semestre entero de más, se ajusta a mano en esa planilla.
+- [x] Liquidación final de alguien que entró ese mismo mes: el sueldo
+      proporcional cuenta desde la fecha de ingreso.
+- [x] Montos de RRHH (planilla, pagos, adelantos, planes, embargos, tarifas de
+      viajes, liquidación final, alta del empleado) leen "150.000" como
+      150000, como el resto de la app.
+- [x] NC de una compra a cargo de empleado: baja el cargo y su neto vuelve a
+      anticipos al personal (`20261104102300`, decisión en
+      `docs/decisions.md`). El cargo conserva una descripción editada.
+- [x] Gestión (`20261104102000`): "Diferencias de cambio" en costo
+      financiero (decisión en `docs/decisions.md`); el interés de una cuota
+      sin desglose de un préstamo con pasivo asentado es costo financiero y no
+      capital, en las dos bases; un descuento de planilla o una condonación en
+      USD sin cotización queda en "USD sin cotización"; el percibido valúa un
+      recibo o una OP en USD a su cotización y redondea cada línea.
+- [x] Rendición: cargar la diferencia al chofer, quitarla o cancelar la
+      rendición que la tiene pide `hr:write` y `transactions:write`
+      (`20261104102100` corrige el mensaje).
+- [x] IA: `getDriverSettlements` devuelve `difference_kind`; una diferencia
+      asentada al chofer antes de `20261104095300` (`charge`/`payment`) no
+      dice que el cliente quedó saldado.
+- [x] IA: `getPayrollSummary` con alcance muestra lo pagado por los otros
+      canales (el saldo es siempre de todos).
+- [x] Una DDJJ de IVA que solo deja saldo a favor no abre "Pagar IVA"
+      (`20261104102400`).
+- [ ] **Decisión abierta:** los pagos de planilla
+      (`payroll-payments-actions.ts`, individual y masivo, editar y borrar) y
+      borrar un movimiento de la cuenta corriente con caja
+      (`deleteEmployeeAccountMovementAction`) mueven o borran tesorería con
+      `hr:write` solo. El adelanto manual y la rendición piden también
+      `transactions:write`. Decidir si todo lo de RRHH que mueve plata lo
+      pide, y aplicarlo a todos.
+- [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
+      el backfill (compras a cargo de empleado con NC):
+      `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
+      left join employee_account_movements m on m.purchase_invoice_id = f.id
+      where f.charged_employee_id is not null and exists (select 1 from
+      purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
+      and nc.status = 'received');`. Y después, las NC que quedaron con su
+      asiento viejo por período cerrado:
+      `select nc.id from purchase_invoices nc join purchase_invoices f on f.id
+      = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
+      and f.charged_employee_id is not null and
+      journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
+- [ ] Planes de deuda tipeados desde el total viejo de un cargo que bajó
+      (al neto con `20261104095200`, o por una NC con `20261104102300`): la
+      planilla sigue descontando hasta el total del plan. El dueño los
+      revisa: `select p.id, p.employee_id, p.description, p.total, m.amount
+      from employee_debt_plans p join employee_account_movements m on
+      m.employee_id = p.employee_id and m.purchase_invoice_id is not null
+      where p.status = 'activo' and p.total > m.amount;`.
+- [ ] Si el rol `diferencia_cambio` se asigna más adelante a otra cuenta,
+      esa cuenta no tiene rubro de Gestión hasta que se lo den a mano.
+- [ ] Una ND contra una compra a cargo de empleado no suma al cargo (va al
+      gasto).
+- [ ] Sin hacer (nits de la auditoría w1): el combustible importado no se
+      liga a la factura del proveedor (W1 · S3 #20, sospecha); el embargo no
+      entra en ninguna cifra de sueldos (#22, diseño); el percibido de una OP
+      de compra a cargo de empleado sigue entero en anticipos aunque se le
+      cargue el neto (ítem de arriba).
+- [ ] Aprobar `20261104102000`–`20261104102400` con el deploy. Rollback: el
+      código anterior lee los mismos datos; una rendición con el chofer se
+      quita con `hr:write` solo y recibe el mensaje nuevo.
+- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
+      `employee_charge_credit_notes`, `management_fx_loan_interest`,
+      `tasks_iva_credit_only`, `driver_settlement_differences`.
 
 ## Saldos de apertura, aging y diferencia de cambio (2026-11-04, auditoría w1)
 
@@ -928,10 +1101,12 @@ mitigación en el schema: el límite se respeta operando.
       de centro (`20261104092100`); antes no estaba en ninguna fila.
 - [ ] El margen por camión es siempre devengado y nominal (no sigue la base ni
       el ajuste por inflación de la pantalla).
-- [ ] En devengado, un desembolso de préstamo en USD sin cotización aparece
-      en "USD sin cotización" (`management_pnl_lines`, rama `pending_usd`, no
-      excluye `loans.disbursement_transaction_id`), aunque con cotización no
-      es resultado. Solo afecta el aviso, no suma a ninguna cifra.
+- [x] En devengado, un desembolso de préstamo en USD sin cotización ya no
+      aparece en "USD sin cotización" (`20261104102000`); tampoco los
+      movimientos de cheques, ajustes de saldo inicial ni pagos de impuestos.
+- [ ] El "USD sin cotización" de un centro suma ingresos y costos pendientes
+      juntos (`get_vehicle_margin`, columna `pending`); debería mostrar solo
+      los costos.
 
 ---
 
@@ -1052,3 +1227,86 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
       por el acceso de quien subió el documento.
+
+---
+
+## Emisión AFIP — auditoría (2026-11-04)
+
+- [x] Un reintento no pide un segundo CAE cuando otro comprobante trabado solo
+      _intentó_ el mismo número: cuenta quien lo tiene (`numero`) y, entre los
+      que solo lo intentaron, el que coincide con el comprobante de AFIP.
+- [x] `issue-invoice-reconcile` (cada 15 min): una emisión fiscal trabada en
+      `emitting` (AFIP no respondió) se emite con el CAE que AFIP tiene o pasa a
+      `failed` (libera la liquidación o el envío); un borrador que nunca llegó a
+      Inngest se vuelve a mandar con su clave. La NC de un remito facturado es
+      la excepción: `credit-billed-remito` la manda con una clave por corrida,
+      así que una primera corrida lenta puede tener una segunda; es interna y
+      las dos terminan en el mismo número.
+- [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
+      run; si `inngest.send` falla el borrador no se borra.
+- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
+      5 s el piso CAEA).
+- [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
+      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
+      número en la importación de ARCA.
+- [x] La importación de ARCA guarda un comprobante de un período cerrado con
+      su asiento en `pending_journal_entries`.
+- [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
+      "sin movimiento".
+- [ ] Dos comprobantes con el mismo total, fecha y receptor que intentaron el
+      mismo número durante una caída quedan en `emitting` (no se pide otro CAE)
+      hasta que alguien decida de cuál es el de AFIP.
+- [ ] `arca-issued-sync` hace hasta 100 consultas por paso: con AFIP lento
+      (cada una cerca de 20 s) el paso puede pasar los 300 s.
+- [ ] Antes de promover `issue-invoice-reconcile`: su primera corrida vuelve
+      a mandar a AFIP los borradores de los últimos 3 días y resuelve las
+      emisiones trabadas que ya existen. El owner revisa esas filas antes
+      (`select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting'`):
+      un borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces.
+- [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
+      leer la fila, o el run se canceló) no la resuelve el cron: frena la
+      importación de ARCA de su par hasta que alguien la marque fallida.
+
+### Emisión AFIP — auditoría, segunda vuelta (2026-11-04)
+
+- [x] Un run que agota los reintentos con un pedido reciente a AFIP (menos de
+      30 min) no se marca fallido por un "no registrado" de AFIP: un pedido
+      que se cortó por el límite de 20 s puede seguir procesándose. Queda en
+      `emitting` y lo decide `issue-invoice-reconcile`. Un rechazo de AFIP
+      (error no reintentable) sigue marcándose fallido en el momento.
+- [x] El aviso al remito facturado de un CAE recuperado (por el `onFailure` o
+      por el cron) sale en un paso propio: un reintento ya no lo pierde.
+- [x] WSAA: el ticket nuevo se guarda en `afip_ta_cache` con reintentos antes
+      de usarse; si no se puede guardar, el paso falla y se reintenta sin
+      pedir otro login. Un error al leer el ticket guardado no se toma como
+      "no hay ticket", y un `alreadyAuthenticated` vuelve a leer el guardado.
+- [x] Estado CAEA: si falla el conteo de comprobantes sin informar, el panel y
+      la herramienta de IA muestran el error en vez de "0".
+- [x] Escaneo de una factura de venta: si no se pudo verificar si ya estaba
+      cargada, "Emitir factura" queda deshabilitado y la acción la rechaza;
+      el borrador de compra lo avisa.
+- [x] Un comprobante fiscal en dólares necesita cotización mayor a 1 también
+      en la base (`guard_invoice_cotizacion`), para cualquier escritor.
+- [x] El total del listado de Comprobantes suma solo los emitidos (antes
+      sumaba borradores); la cantidad sigue contando todas las filas listadas.
+- [x] CAEA: no se emite con un CAEA ya informado "sin movimiento" para ese
+      punto de venta (el comprobante falla con el aviso de emitirlo de nuevo
+      con una fecha de la quincena vigente),
+      y "sin movimiento" espera mientras haya un borrador del punto de venta
+      con fecha dentro de la vigencia.
+- [x] El barrido de archivos huérfanos borra solo los que siguen huérfanos al
+      borrar (`delete_orphan_files`) y después saca sus bytes.
+- [x] El mail semanal del aging va con clave de idempotencia: un reintento no
+      lo manda dos veces.
+- [ ] Mail manual de un comprobante, recibo o liquidación: sin clave de
+      idempotencia. Hace falta un id de pedido que el diálogo mande a las tres
+      acciones; hoy el doble envío lo frena solo el botón deshabilitado.
+- [ ] `build_invoice_journal_lines` y `libro_iva_ventas` siguen tomando una
+      cotización 1 guardada como válida en un comprobante en dólares viejo (la
+      guarda nueva frena las filas nuevas). Revisar si hay alguna:
+      `select id, fecha, cotizacion from invoices where moneda <> 'PES' and cotizacion <= 1`.
+- [ ] CAEA: un borrador trabado con fecha dentro de una vigencia vencida
+      frena el "sin movimiento" de su punto de venta hasta la fecha tope; hay
+      que emitirlo o marcarlo fallido.

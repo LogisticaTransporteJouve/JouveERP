@@ -10,6 +10,7 @@ import {
   formatMoney,
   formatMoneySigned,
   formatNumber2,
+  parseArAmount,
   parseStatementNumber,
   todayInAR,
 } from "./format";
@@ -242,6 +243,24 @@ describe("todayInAR", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("parseArAmount", () => {
+  it.each([
+    ["1.234", 1234],
+    ["1,5", 1.5],
+    ["150.000", 150000],
+    ["1.500.000,50", 1500000.5],
+    ["-0,01", -0.01],
+    ["", null],
+    ["abc", null],
+  ])("lee %s como %s", (raw, expected) => {
+    expect(parseArAmount(raw)).toBe(expected);
+  });
+
+  it("vuelve de amountToInput al mismo número", () => {
+    expect(parseArAmount(amountToInput(850000.5))).toBe(850000.5);
   });
 });
 

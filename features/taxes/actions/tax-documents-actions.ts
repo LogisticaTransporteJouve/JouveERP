@@ -498,7 +498,12 @@ export async function payTaxDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "taxes:write")) {
+  // Paying books a Caja outflow, so it also needs transactions:write (as
+  // linking and undoing a payment do).
+  if (
+    !userCan(ctx.access, "taxes:write") ||
+    !userCan(ctx.access, "transactions:write")
+  ) {
     return { ok: false, error: "No tenés permiso para pagar impuestos." };
   }
   const parsed = PayTaxDocumentSchema.safeParse(input);

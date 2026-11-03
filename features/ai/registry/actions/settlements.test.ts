@@ -166,6 +166,41 @@ describe("getDriverSettlements", () => {
     expect(res.summary).toContain("2 cargas por rendir");
   });
 
+  it("tells a settled driver advance apart from a legacy driver charge", async () => {
+    listCodPendingAction.mockResolvedValue({
+      ok: true,
+      data: { shipments: [], byDriver: [] },
+    });
+    listAllDriverSettlementsAction.mockResolvedValue({
+      ok: true,
+      data: {
+        settlements: [
+          settlement({
+            difference_charged_to: "driver",
+            difference_posted: { id: "m1", kind: "advance", amount: 100 },
+          }),
+          // Posted the old way (a charge): the client side is still open.
+          settlement({
+            id: "s2",
+            difference_charged_to: "driver",
+            difference_posted: { id: "m2", kind: "charge", amount: 100 },
+          }),
+        ],
+        complete: true,
+      },
+    });
+    const res = await getDriverSettlements.execute(ctx, {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const data = res.data as {
+      settlements: { id: string; difference_kind: string | null }[];
+    };
+    expect(data.settlements.map((s) => [s.id, s.difference_kind])).toEqual([
+      ["s1", "advance"],
+      ["s2", "charge"],
+    ]);
+  });
+
   it("returns the action's error", async () => {
     listCodPendingAction.mockResolvedValue({ ok: false, error: "boom" });
     const res = await getDriverSettlements.execute(ctx, {});

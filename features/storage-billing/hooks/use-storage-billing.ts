@@ -54,6 +54,8 @@ export function useInvoiceStorage() {
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => invoiceStorageAction(input)),
-    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+    // Settled: the factura can be issued and then fail to link, and the
+    // lists must still show the new comprobante and the claim.
+    onSettled: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }
