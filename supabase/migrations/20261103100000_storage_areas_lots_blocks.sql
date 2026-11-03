@@ -110,7 +110,9 @@ alter table public.pallets
   -- squawk-ignore adding-foreign-key-constraint
   add constraint pallets_area_id_warehouse_id_fkey
     foreign key (area_id, warehouse_id)
-    references public.storage_areas (id, warehouse_id) on delete restrict;
+    references public.storage_areas (id, warehouse_id) on delete restrict not valid;
+-- squawk-ignore constraint-missing-not-valid
+alter table public.pallets validate constraint pallets_area_id_warehouse_id_fkey;
 
 -- squawk-ignore require-concurrent-index-creation
 create index pallets_area_idx on public.pallets (area_id) where area_id is not null;
