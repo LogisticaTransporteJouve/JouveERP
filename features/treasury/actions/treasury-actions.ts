@@ -10,14 +10,13 @@ import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
-  isCheckAccountType,
-  isLiquidAccountType,
   type TreasuryAccountRow,
   type TreasuryCurrency,
   type TreasurySummary,
 } from "../schema";
 import { isAccountType } from "@/features/accounts/schema";
 import { indexMovementTotals } from "../lib/movement-totals";
+import { treasuryTotals } from "../lib/treasury-totals";
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -115,30 +114,8 @@ export async function getTreasurySummaryAction(): Promise<
     };
   });
 
-  // 3. Liquid totals per currency + ARS checks in portfolio. Checks only exist
-  // in ARS in this business, so they are not tracked per currency.
-  const liquid_now: Record<TreasuryCurrency, number> = { ARS: 0, USD: 0 };
-  const liquid_prev_eom: Record<TreasuryCurrency, number> = { ARS: 0, USD: 0 };
-  let checks_now = 0;
-  let checks_prev_eom = 0;
-
-  for (const a of accounts) {
-    if (isLiquidAccountType(a.type)) {
-      liquid_now[a.currency] += a.balance_now;
-      liquid_prev_eom[a.currency] += a.balance_prev_eom;
-    } else if (isCheckAccountType(a.type) && a.currency === "ARS") {
-      // checks/echeq accounts are "virtual cash box" types for checks (ARS only).
-      checks_now += a.balance_now;
-      checks_prev_eom += a.balance_prev_eom;
-    }
-  }
-  // Round totals to avoid float drift after summing.
-  for (const cur of ["ARS", "USD"] as const) {
-    liquid_now[cur] = round2(liquid_now[cur]);
-    liquid_prev_eom[cur] = round2(liquid_prev_eom[cur]);
-  }
-  checks_now = round2(checks_now);
-  checks_prev_eom = round2(checks_prev_eom);
+  // 3. Liquid totals and check carteras, each per currency.
+  const portfolio = treasuryTotals(accounts);
 
   // 4. ARS checks in portfolio due in ≤ 7 days: how many and for how much.
   const { data: chequesRaw, error: chErr } = await paginateRange((from, to) =>
@@ -176,10 +153,12 @@ export async function getTreasurySummaryAction(): Promise<
     as_of: today,
     prev_eom: prevEom,
     accounts,
-    liquid_now,
-    liquid_prev_eom,
-    checks_now,
-    checks_prev_eom,
+    liquid_now: portfolio.liquid_now,
+    liquid_prev_eom: portfolio.liquid_prev_eom,
+    checks_now: portfolio.checks_now.ARS,
+    checks_prev_eom: portfolio.checks_prev_eom.ARS,
+    checks_usd_now: portfolio.checks_now.USD,
+    checks_usd_prev_eom: portfolio.checks_prev_eom.USD,
     checks_due_soon,
     usd_rate,
   };

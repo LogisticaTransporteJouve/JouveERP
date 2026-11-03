@@ -28,6 +28,7 @@ import {
   getPaymentOrderUsdRateAction,
   listPaymentOrdersAction,
   listPendingInvoicesForSupplierAction,
+  listSupplierRejectedChecksAction,
   updatePaymentOrderAction,
 } from "../actions/payment-orders-actions";
 import {
@@ -175,6 +176,20 @@ export function usePaymentOrderUnapplied(id: string, enabled: boolean) {
   return useQuery({
     queryKey: paymentOrdersKeys.unapplied(id),
     queryFn: () => runAction(() => getPaymentOrderUnappliedAction(id)),
+    enabled,
+  });
+}
+
+/** Bounced checks the supplier got from this channel's OPs, still open. */
+export function useSupplierRejectedChecks(
+  supplierId: string,
+  channelId: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: paymentOrdersKeys.rejectedChecks(supplierId, channelId),
+    queryFn: () =>
+      runAction(() => listSupplierRejectedChecksAction(supplierId, channelId)),
     enabled,
   });
 }

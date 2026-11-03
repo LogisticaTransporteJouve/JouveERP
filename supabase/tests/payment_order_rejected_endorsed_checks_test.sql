@@ -62,7 +62,7 @@ select throws_ok(
   $$update public.payment_orders set status = 'canceled'
      where id = (select id from t_op where numero = 9931)$$,
   '55006',
-  'No se puede anular la orden de pago: un cheque de terceros que endosó fue rechazado. Gestioná el rechazo con el proveedor primero.',
+  'No se puede anular la orden de pago: un cheque de terceros que endosó fue rechazado y la deuda ya volvió a la cuenta del proveedor. Pagala con una OP nueva e imputala al cheque rechazado.',
   'an order whose endorsed check was rejected cannot be cancelled'
 );
 
@@ -73,7 +73,7 @@ select throws_ok(
         'line_kind', 'endorse_check', 'endorsed_check_id', '00000000-0000-0000-0000-0000000093c1')),
       '[]'::jsonb)$$,
   '55006',
-  'No se puede editar la OP: un cheque de terceros que endosó fue rechazado. Gestioná el rechazo con el proveedor primero.',
+  'No se puede editar la OP: un cheque de terceros que endosó fue rechazado y la deuda ya volvió a la cuenta del proveedor. Pagala con una OP nueva e imputala al cheque rechazado.',
   'an order whose endorsed check was rejected cannot be edited'
 );
 

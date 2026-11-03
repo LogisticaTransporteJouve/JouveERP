@@ -217,6 +217,19 @@ export function TreasuryPage({
           loading={query.isLoading}
           tone="muted"
         />
+        {query.data &&
+          (query.data.checks_usd_now !== 0 ||
+            query.data.checks_usd_prev_eom !== 0) && (
+            <SummaryCard
+              label="Cheques en cartera USD"
+              subtitle="cheques y e-cheq en dólares"
+              now={query.data.checks_usd_now}
+              prev={query.data.checks_usd_prev_eom}
+              currency="USD"
+              loading={false}
+              tone="muted"
+            />
+          )}
       </div>
 
       {/* Soon to be credited — only if any */}

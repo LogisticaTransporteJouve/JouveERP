@@ -41,6 +41,7 @@ import {
   type PaymentOrderStatus,
   type PaymentLineInput,
   type PaymentOrder,
+  type PaymentOrderAllocateInput,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
 } from "../schema";
@@ -758,9 +759,77 @@ export async function getPaymentOrderUnappliedAction(
   };
 }
 
+export type SupplierRejectedCheck = {
+  check_kind: "endorsed" | "issued";
+  check_id: string;
+  check_number: string;
+  rejected_on: string;
+  open_amount: number;
+  currency: "ARS" | "USD";
+};
+
+/** Checks the supplier got from an issued OP of this channel that bounced
+ *  and still owe something (v_supplier_rejected_check_open): the debt is
+ *  back and a later OP settles it with "Imputar". Oldest rejection first. */
+export async function listSupplierRejectedChecksAction(
+  supplierId: string,
+  channelId: string,
+): Promise<ActionResult<SupplierRejectedCheck[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("v_supplier_rejected_check_open")
+      .select(
+        "check_kind, check_id, check_number, rejected_on, open_amount, currency",
+      )
+      .eq("supplier_id", supplierId)
+      .eq("channel_id", channelId)
+      .gt("open_amount", 0)
+      .order("rejected_on", { ascending: true })
+      .order("check_id", { ascending: true })
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("payment_orders.rejected_checks.list_failed", {
+      userId: ctx.userId,
+      supplierId,
+      error,
+    });
+    return {
+      ok: false,
+      error: "No se pudieron leer los cheques rechazados del proveedor.",
+    };
+  }
+  const checks: SupplierRejectedCheck[] = [];
+  for (const r of data) {
+    if (
+      (r.check_kind !== "endorsed" && r.check_kind !== "issued") ||
+      !r.check_id ||
+      !r.rejected_on ||
+      !isPaymentOrderCurrency(r.currency)
+    ) {
+      continue;
+    }
+    checks.push({
+      check_kind: r.check_kind,
+      check_id: r.check_id,
+      check_number: r.check_number ?? "",
+      rejected_on: r.rejected_on,
+      open_amount: Number(r.open_amount ?? 0),
+      currency: r.currency,
+    });
+  }
+  return { ok: true, data: checks };
+}
+
 /** Applies what an OP holds a cuenta to open purchase invoices of its
- *  supplier, channel and currency: FIFO (oldest first) or the picked ones.
- *  Payment lines, movements and checks are not touched. */
+ *  supplier, channel and currency (FIFO, oldest first, or the picked ones),
+ *  or to the checks it delivered that bounced (FIFO, oldest rejection
+ *  first). Payment lines, movements and checks are not touched. */
 export async function allocatePaymentOrderAction(
   input: unknown,
 ): Promise<ActionResult<{ applied: number }>> {
@@ -785,6 +854,48 @@ export async function allocatePaymentOrderAction(
   const po = unappliedRes.data;
   if (!po) {
     return { ok: false, error: "La orden de pago no tiene saldo a cuenta." };
+  }
+
+  if (mode === "rejected_checks") {
+    const checksRes = await listSupplierRejectedChecksAction(
+      po.supplier_id,
+      po.channel_id,
+    );
+    if (!checksRes.ok) return checksRes;
+    const open = checksRes.data.filter((c) => c.currency === po.currency);
+    const byId = new Map(open.map((c) => [c.check_id, c]));
+    const checkAllocations = allocateFifo(
+      open.map((c) => ({
+        id: c.check_id,
+        fecha: c.rejected_on,
+        outstanding: c.open_amount,
+      })),
+      po.unapplied,
+    ).flatMap((a) => {
+      const check = byId.get(a.document_id);
+      return check
+        ? [
+            {
+              check_kind: check.check_kind,
+              check_id: check.check_id,
+              amount_applied: a.amount_applied,
+            },
+          ]
+        : [];
+    });
+    if (checkAllocations.length === 0) {
+      return {
+        ok: false,
+        error:
+          "El proveedor no tiene cheques rechazados pendientes en este canal y moneda.",
+      };
+    }
+    return runAllocatePaymentOrder(
+      ctx.userId,
+      payment_order_id,
+      mode,
+      checkAllocations,
+    );
   }
 
   const pendingRes = await listPendingInvoicesForSupplierAction(
@@ -820,6 +931,22 @@ export async function allocatePaymentOrderAction(
     if (issue) return { ok: false, error: issue };
   }
 
+  return runAllocatePaymentOrder(
+    ctx.userId,
+    payment_order_id,
+    mode,
+    allocations,
+  );
+}
+
+/** allocate_payment_order with invoice lines or bounced-check lines; the
+ *  RPC re-checks the open amounts and the OP's a cuenta under its lock. */
+async function runAllocatePaymentOrder(
+  userId: string,
+  payment_order_id: string,
+  mode: PaymentOrderAllocateInput["mode"],
+  allocations: { amount_applied: number }[],
+): Promise<ActionResult<{ applied: number }>> {
   const supabase = await createSupabaseClient();
   const { error } = await supabase.rpc("allocate_payment_order", {
     p_payment_order_id: payment_order_id,
@@ -828,12 +955,12 @@ export async function allocatePaymentOrderAction(
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "payment_orders.allocate.rejected",
-      userId: ctx.userId,
+      userId,
       id: payment_order_id,
     });
     if (guardError) return { ok: false, error: guardError };
     logger.error("payment_orders.allocate.failed", {
-      userId: ctx.userId,
+      userId,
       id: payment_order_id,
       error,
     });
@@ -843,7 +970,7 @@ export async function allocatePaymentOrderAction(
   const applied = allocations.reduce((acc, a) => acc + a.amount_applied, 0);
   await logAudit(
     "payment_order.allocated",
-    ctx.userId,
+    userId,
     { mode, applied, documents: allocations.length },
     payment_order_id,
   );
