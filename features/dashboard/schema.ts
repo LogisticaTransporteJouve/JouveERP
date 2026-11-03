@@ -28,6 +28,13 @@ export interface DueDateItem {
   href: string;
 }
 
+/** The agenda, and the sections whose read failed (their items are
+ *  missing, not absent). */
+export interface DueDates {
+  items: DueDateItem[];
+  failed: string[];
+}
+
 export interface DashboardTreasuryKpis {
   as_of: string;
   liquid_now: { ARS: number; USD: number };
