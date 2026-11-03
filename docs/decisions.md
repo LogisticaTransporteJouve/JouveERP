@@ -126,7 +126,6 @@ aumento masivo la saltea. Las demás quedan como están.
 **Descartado.** Asentar la diferencia al confirmar; desactivar las filas
 migradas (cambia el respaldo en períodos que cruzan la vigencia); crear la
 carga desde el escaneo del remito (queda la búsqueda).
-
 ## 2026-11-04 — Importador, conciliación partida y manual servido
 
 **Decisión.**
@@ -225,7 +224,6 @@ paga peor" van a `getClientPaymentBehavior`; la descripción de
 `getClientSalesSummary` ya no ofrece días promedio de cobro y deriva esas
 preguntas. Los evals en vivo no se corrieron (sin `ANTHROPIC_API_KEY` en el
 entorno donde se hizo el cambio).
-
 ## 2026-11-03 — Impuestos: deshacer un pago, gestión, IVA y contador
 
 **Decisión.** (1) Un pago se deshace con `undo_tax_document_payment` según
@@ -261,7 +259,6 @@ el log de auditoría. Separar las percepciones de IVA de las de IIBB en
 compras: `purchase_invoices` tiene un solo `imp_trib` y el asiento lo manda a
 percepciones IIBB; queda como pendiente. Dar `files:read` al contador: abriría
 todo el hub de archivos. Un estado nuevo para un IVA sin nada que pagar.
-
 ## 2026-11-03 — Margen por camión: el centro de costo apunta al camión
 
 **Decisión.** `cost_centers.vehicle_id` (opcional, único: un centro por

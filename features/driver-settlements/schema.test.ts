@@ -4,6 +4,7 @@ import {
   DRIVER_SETTLEMENT_STATUSES,
   DRIVER_SETTLEMENT_STATUS_LABELS,
   DriverSettlementSaveSchema,
+  differenceNote,
   formatDriverSettlementNumber,
   groupPendingByDriver,
   isDriverSettlementStatus,
@@ -145,5 +146,23 @@ describe("labels", () => {
     expect(isDriverSettlementStatus("posted")).toBe(false);
     expect(formatDriverSettlementNumber(7)).toBe("N° 7");
     expect(formatDriverSettlementNumber(null)).toBe("Borrador");
+  });
+});
+
+describe("differenceNote", () => {
+  it("says who bears a resolved difference", () => {
+    expect(differenceNote("driver", { kind: "advance", amount: 100 })).toBe(
+      "Faltante cargado en la cuenta corriente del chofer: $ 100,00, con un recibo que saldó al cliente.",
+    );
+    expect(differenceNote("driver", { kind: "charge", amount: 100 })).toBe(
+      "Faltante cargado en la cuenta corriente del chofer: $ 100,00.",
+    );
+    expect(differenceNote("driver", { kind: "payment", amount: 50 })).toBe(
+      "Sobrante acreditado en la cuenta corriente del chofer: $ 50,00.",
+    );
+    expect(differenceNote("client", null)).toBe(
+      "Diferencia a cargo del cliente: queda en su cuenta corriente.",
+    );
+    expect(differenceNote(null, null)).toBeNull();
   });
 });

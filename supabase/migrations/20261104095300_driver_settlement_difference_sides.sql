@@ -45,9 +45,9 @@ SET LOCAL statement_timeout = '15min';
 --
 -- Rollback: older code calls post/unpost/cancel with their old arguments,
 -- which resolve to these functions with the defaults ('driver', allowed):
--- the client side is settled too. An older page reads a posted shortfall's
--- kind 'advance' as unknown and shows it as not posted; posting again
--- returns the same movement.
+-- the client side is settled too, and posting an overage is refused. An
+-- older page reads a posted shortfall's kind 'advance' as unknown and shows
+-- it as not posted; posting again returns the same movement.
 
 ------------------------------------------------------------------------------
 -- 1. The choice
@@ -336,6 +336,7 @@ declare
   v_left       numeric;
   v_apply      numeric;
   v_pos        integer;
+  v_channels   integer;
   v_numero     integer;
   v_receipt    uuid;
   v_label      text;
@@ -459,10 +460,10 @@ begin
   end if;
 
   select min(t.channel_id), count(distinct t.channel_id)
-    into v_channel, v_numero
+    into v_channel, v_channels
     from jsonb_to_recordset(v_items) as t(channel_id text, shortfall numeric)
    where t.shortfall > 0;
-  if v_numero <> 1 or v_channel is null then
+  if v_channels <> 1 or v_channel is null then
     raise exception 'El faltante es de cargas de distintos canales: dejá la diferencia a cargo del cliente.'
       using errcode = '23514', hint = 'jouve_guard';
   end if;

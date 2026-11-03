@@ -69,14 +69,24 @@ export function DriverSettlementDifferenceDialog({
   canChargeDriver: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  // Held here, not in the form: closing while it runs would unmount the form
+  // and drop its toast.
+  const mut = usePostDriverSettlementDifference();
   return (
-    <Dialog open={settlement !== null} onOpenChange={onOpenChange}>
+    <Dialog
+      open={settlement !== null}
+      onOpenChange={(next) => {
+        if (!next && mut.isPending) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         {settlement && (
           <DifferenceForm
             key={settlement.id}
             settlement={settlement}
             canChargeDriver={canChargeDriver}
+            mut={mut}
             onDone={() => onOpenChange(false)}
           />
         )}
@@ -88,17 +98,16 @@ export function DriverSettlementDifferenceDialog({
 function DifferenceForm({
   settlement: s,
   canChargeDriver,
+  mut,
   onDone,
 }: {
   settlement: DriverSettlement;
   canChargeDriver: boolean;
+  mut: ReturnType<typeof usePostDriverSettlementDifference>;
   onDone: () => void;
 }) {
-  const mut = usePostDriverSettlementDifference();
   const opts = options(s, canChargeDriver);
-  const [choice, setChoice] = useState<DifferenceChargedTo | null>(
-    opts.find((o) => o.blocked === null)?.value ?? null,
-  );
+  const [choice, setChoice] = useState<DifferenceChargedTo | null>(null);
 
   function submit() {
     if (choice === null) return;

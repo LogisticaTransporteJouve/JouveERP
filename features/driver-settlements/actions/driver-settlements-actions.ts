@@ -20,6 +20,7 @@ import {
   DriverSettlementsPageSchema,
   groupPendingByDriver,
   isDifferenceChargedTo,
+  isDifferencePostedKind,
   isDriverSettlementStatus,
   receiptsOutOfSync,
   settlementDifference,
@@ -109,7 +110,7 @@ function postedDifference(
 ): DriverSettlement["difference_posted"] {
   const m = row.difference[0];
   if (!m) return null;
-  if (m.kind !== "advance" && m.kind !== "charge" && m.kind !== "payment") {
+  if (!isDifferencePostedKind(m.kind)) {
     logger.error("driver_settlements.unknown_difference_kind", {
       id: row.id,
       kind: m.kind,

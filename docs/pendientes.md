@@ -127,8 +127,26 @@ mitigación en el schema: el límite se respeta operando.
       código anterior llama a las RPC de la rendición con sus argumentos
       viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
       faltante asentado como adelanto como "sin asentar" (volver a asentar
-      devuelve el mismo) y no ve `embargo_override` (el trigger lo respeta
-      igual).
+      devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
+      `embargo_override` (el trigger lo respeta igual).
+- [ ] Antes de aprobar `20261104095200`, el dueño revisa los cargos que el
+      backfill baja del total al neto (los saldos de esos empleados bajan el
+      IVA y las percepciones; si un cierre de planilla ya descontó el total,
+      queda saldo a favor del empleado):
+      `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m
+      join purchase_invoices pi on pi.id = m.purchase_invoice_id
+      where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
+- [ ] Faltantes asentados al chofer antes de `20261104095300` (movimiento
+      `charge` con `driver_settlement_id`): la factura del cliente sigue
+      abierta, la deuda está dos veces. No se reparan solos; en Rendiciones,
+      "Quitar diferencia" y volver a resolverla los deja con un solo deudor.
+- [ ] Gestión percibido: el pago (OP) de una compra a cargo de empleado va
+      entero a "Anticipos al personal" (`f_employee` en
+      `management_pnl_lines`), pero al empleado ahora se le carga el neto: en
+      canal fiscal el IVA queda en anticipos y no en el costo. Ajustar
+      `f_employee` a la parte que se le carga (`amount / imp_total` del
+      cargo) sobre la versión de `claude/audit-impuestos-gestion`
+      (`20261104092000`, que también reemplaza `management_pnl_lines`).
 - [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
       `payroll_audit_fixes`, `driver_settlement_differences`,
       `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
@@ -220,7 +238,7 @@ mitigación en el schema: el límite se respeta operando.
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -308,7 +326,7 @@ tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
 - [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-  payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
 - [ ] No verificado contra una base real:

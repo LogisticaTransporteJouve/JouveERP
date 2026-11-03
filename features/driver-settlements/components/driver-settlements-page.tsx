@@ -205,7 +205,7 @@ export function DriverSettlementsPage({
         title: "Cancelar rendición",
         description:
           s.status === "confirmed"
-            ? `Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir.${s.difference_charged_to === "driver" ? " La diferencia sale de la cuenta corriente del chofer y se anula el recibo que saldó al cliente." : ""}`
+            ? `Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir.${s.difference_posted ? ` La diferencia sale de la cuenta corriente del chofer${s.difference_posted.kind === "advance" ? " y se anula el recibo que saldó al cliente" : ""}.` : ""}`
             : "Sus cargas vuelven a quedar por rendir.",
         confirmLabel: "Cancelar rendición",
         tone: "destructive",
@@ -223,7 +223,7 @@ export function DriverSettlementsPage({
         description:
           s.difference_charged_to === "client"
             ? "La diferencia vuelve a quedar sin resolver."
-            : `Se borra el movimiento de la cuenta corriente de ${s.driver_name}, se anula el recibo que saldó al cliente y la diferencia vuelve a quedar sin resolver.`,
+            : `Se borra el movimiento de la cuenta corriente de ${s.driver_name}${s.difference_posted?.kind === "advance" ? ", se anula el recibo que saldó al cliente" : ""} y la diferencia vuelve a quedar sin resolver.`,
         confirmLabel: "Quitar",
         tone: "destructive",
       });

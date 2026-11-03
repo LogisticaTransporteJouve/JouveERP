@@ -3,7 +3,10 @@ import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 
 import {
+  differenceNote,
   formatDriverSettlementNumber,
+  isDifferenceChargedTo,
+  isDifferencePostedKind,
   settlementDifference,
 } from "@/features/driver-settlements/schema";
 import { formatReceiptNumber } from "@/features/receipts/schema";
@@ -33,7 +36,7 @@ export async function buildDriverSettlementTemplateData(
   const { data: s, error } = await supabase
     .from("driver_settlements")
     .select(
-      "id, numero, status, settlement_date, notes, driver:drivers(full_name), difference:employee_account_movements(kind, amount)",
+      "id, numero, status, settlement_date, notes, difference_charged_to, driver:drivers(full_name), difference:employee_account_movements(kind, amount)",
     )
     .eq("id", settlementId)
     .maybeSingle();
@@ -119,9 +122,14 @@ export async function buildDriverSettlementTemplateData(
     received: round2(received),
     difference: settlementDifference(expected, received),
     receipts: [...receipts],
-    differencePosted: posted
-      ? `${posted.kind === "charge" ? "Faltante cargado" : "Sobrante acreditado"} en la cuenta corriente del chofer.`
-      : null,
+    differenceNote: differenceNote(
+      isDifferenceChargedTo(s.difference_charged_to)
+        ? s.difference_charged_to
+        : null,
+      posted && isDifferencePostedKind(posted.kind)
+        ? { kind: posted.kind, amount: Number(posted.amount) }
+        : null,
+    ),
     notes: s.notes,
     cancelled: s.status === "cancelled",
   };
