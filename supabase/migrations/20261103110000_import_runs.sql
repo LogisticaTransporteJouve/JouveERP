@@ -617,7 +617,8 @@ begin
     -- Every single-column foreign key that points at this table, from any
     -- table: a referencing row outside this run blocks the undo.
     for v_fk in
-      select src.relname as src_table, sa.attname as src_column, ta.attname as ref_column,
+      select sn.nspname as src_schema, src.relname as src_table,
+             sa.attname as src_column, ta.attname as ref_column,
              exists (
                select 1 from pg_catalog.pg_attribute ia
                 where ia.attrelid = c.conrelid and ia.attname = 'import_run_id'
@@ -633,8 +634,8 @@ begin
          and cardinality(c.conkey) = 1
     loop
       execute format(
-        'select exists (select 1 from public.%I r where r.%I in (select t.%I from public.%I t where t.import_run_id = $1)%s)',
-        v_fk.src_table, v_fk.src_column, v_fk.ref_column, v_table,
+        'select exists (select 1 from %I.%I r where r.%I in (select t.%I from public.%I t where t.import_run_id = $1)%s)',
+        v_fk.src_schema, v_fk.src_table, v_fk.src_column, v_fk.ref_column, v_table,
         case when v_fk.src_has_run then ' and r.import_run_id is distinct from $1' else '' end)
         into v_found using p_run_id;
       if v_found then
