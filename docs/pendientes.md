@@ -129,6 +129,48 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       duplicar las tarjetas. La segunda solo inserta denegaciones de la
       escritura que cubría cada `:read` quitado; las filas viejas quedan y el
       código anterior las lee como antes.
+- [ ] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
+      No tocan filas existentes:
+      - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
+        fiscales en dólares.
+      - `100100` cambia el total de la lista de comprobantes a solo emitidos.
+      - `100200` impide emitir con un CAEA declarado "sin movimiento".
+      - `100300` agrega el RPC `delete_orphan_files`.
+
+      Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
+      (el guard no los repara):
+      `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
+      Rollback: firmas sin cambio; el código anterior reintenta y falla la
+      emisión con un CAEA "sin movimiento".
+- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería).
+      - Los cheques USD de proveedores y las cuotas de préstamos USD **nuevos**
+        se asientan a la cotización de la OP y del desembolso.
+      - Los asientos ya existentes no se reasientan. Reasentarlos cambia
+        períodos pasados y lo decide el dueño.
+      - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
+        congelados.
+      - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
+        (antes se asentaba con fecha de hoy).
+
+      Ver las cuentas que quedan congeladas:
+      `select id, name from public.accounts where public.account_has_movements(id);`
+      Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
+      corriente vieja muestra la fila del cheque rechazado sin link.
+- [ ] **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
+      los cargos de compras a cargo de empleados que tienen NC y reasienta
+      esas NC a `anticipos_personal`. Saltea los períodos cerrados. Correr las
+      consultas de la sección de #349 más abajo: cargos afectados, NC que
+      quedan con su asiento viejo por período cerrado y planes de deuda cuyo
+      total supera el cargo nuevo.
+- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión).
+      - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
+        pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
+        desglose los intereses ya no cuentan como capital.
+      - `102100` corrige el mensaje de la rendición.
+      - `102400` reescribe `sync_automatic_tasks` sobre la versión de `101400`.
+
+      Rollback: el código anterior lee las mismas columnas; Gestión con
+      código viejo muestra los mismos buckets.
 - [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
       `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
       validación igual fallara, la migración entera se revierte y el promote
