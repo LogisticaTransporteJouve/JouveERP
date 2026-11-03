@@ -27,7 +27,13 @@ import {
   useReopenPayrollPeriod,
   useUpdatePayrollEntry,
 } from "../hooks/use-payroll";
-import { PAYROLL_STATUS_LABEL, formatPayrollPeriod } from "../payroll-schema";
+import { payrollOtros, suggestedSplit } from "../lib/payroll-split";
+import {
+  PAYROLL_STATUS_LABEL,
+  formatPayrollPeriod,
+  type PayrollEntryResolved,
+  type PayrollPeriodKind,
+} from "../payroll-schema";
 
 import { BulkPayrollPaymentDialog } from "./bulk-payroll-payment-dialog";
 import { InlineMoneyInput } from "./inline-money-input";
@@ -44,13 +50,15 @@ function money(n: number): string {
 export function PayrollPeriodGrid({
   year,
   month,
+  kind = "monthly",
   actorAccess,
 }: {
   year: number;
   month: number;
+  kind?: PayrollPeriodKind;
   actorAccess: Access;
 }) {
-  const { data } = usePayrollPeriod(year, month);
+  const { data } = usePayrollPeriod(year, month, kind);
   const updateMut = useUpdatePayrollEntry();
   const closeMut = useClosePayrollPeriod();
   const reopenMut = useReopenPayrollPeriod();
@@ -73,22 +81,17 @@ export function PayrollPeriodGrid({
     () => channels.filter((c) => c.is_active),
     [channels],
   );
-  const bulkEmployees = useMemo(
-    () =>
-      entries.map((e) => ({
-        entry_id: e.id,
-        employee_id: e.employee_id,
-        employee_name: e.employee_legal_name,
-        saldo: e.saldo ?? 0,
-      })),
-    [entries],
-  );
-
   function commit(
     entryId: string,
     field:
-      "sueldo_neto" | "vacaciones_monto" | "viaticos" | "deudas" | "telefono",
-    value: number,
+      | "sueldo_neto"
+      | "recibo_neto"
+      | "vacaciones_monto"
+      | "viaticos"
+      | "deudas"
+      | "telefono"
+      | "embargo",
+    value: number | null,
   ) {
     return new Promise<void>((resolve, reject) => {
       updateMut.mutate(
@@ -112,6 +115,12 @@ export function PayrollPeriodGrid({
   const totals = entries.reduce(
     (acc, e) => ({
       sueldo: acc.sueldo + e.sueldo_neto,
+      recibo: acc.recibo + (e.recibo_neto ?? 0),
+      otros: acc.otros + (payrollOtros(e) ?? 0),
+      embargo: acc.embargo + e.embargo,
+      transferencia:
+        acc.transferencia + (suggestedSplit(e)?.transferencia ?? 0),
+      efectivo: acc.efectivo + (suggestedSplit(e)?.efectivo ?? 0),
       extras: acc.extras + e.extras_total,
       vacaciones: acc.vacaciones + e.vacaciones_monto,
       viaticos: acc.viaticos + e.viaticos,
@@ -123,6 +132,11 @@ export function PayrollPeriodGrid({
     }),
     {
       sueldo: 0,
+      recibo: 0,
+      otros: 0,
+      embargo: 0,
+      transferencia: 0,
+      efectivo: 0,
       extras: 0,
       vacaciones: 0,
       viaticos: 0,
@@ -139,7 +153,9 @@ export function PayrollPeriodGrid({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Planilla {formatPayrollPeriod(year, month)}
+            {kind === "sac"
+              ? formatPayrollPeriod(year, month, kind)
+              : `Planilla ${formatPayrollPeriod(year, month)}`}
           </h1>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             {period ? (
@@ -167,9 +183,9 @@ export function PayrollPeriodGrid({
         </div>
         {period && (
           <div className="flex items-center gap-2">
-            {canManagePayments && bulkEmployees.length > 0 && (
+            {canManagePayments && entries.length > 0 && (
               <BulkPayrollPaymentDialog
-                employees={bulkEmployees}
+                entries={entries}
                 channels={activeChannels}
                 year={year}
                 month={month}
@@ -243,13 +259,34 @@ export function PayrollPeriodGrid({
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-44">Empleado</TableHead>
-                <TableHead className="w-32 text-right">Sueldo</TableHead>
+                <TableHead className="w-32 text-right">
+                  {kind === "sac" ? "SAC" : "Sueldo"}
+                </TableHead>
+                <TableHead
+                  className="w-32 text-right"
+                  title="Neto del recibo del liquidador. Vacío = sin recibo cargado."
+                >
+                  Recibo
+                </TableHead>
+                <TableHead
+                  className="w-28 text-right"
+                  title="Sueldo pactado − neto del recibo."
+                >
+                  Otros
+                </TableHead>
                 <TableHead className="w-32 text-right">Extras</TableHead>
                 <TableHead className="w-32 text-right">Vacaciones</TableHead>
                 <TableHead className="w-32 text-right">Viáticos</TableHead>
                 <TableHead className="w-32 text-right">Deudas</TableHead>
                 <TableHead className="w-32 text-right">Teléfono</TableHead>
+                <TableHead className="w-32 text-right">Embargo</TableHead>
                 <TableHead className="w-32 text-right">Total</TableHead>
+                <TableHead
+                  className="w-36 text-right"
+                  title="Transferencia = recibo − embargo − descuentos; efectivo = el resto del total."
+                >
+                  Transf. / Efectivo
+                </TableHead>
                 <TableHead className="w-32 text-right">Pagado</TableHead>
                 <TableHead className="w-32 text-right">Saldo</TableHead>
               </TableRow>
@@ -258,7 +295,7 @@ export function PayrollPeriodGrid({
               {entries.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={14}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     Sin entries. ¿No hay empleados activos?
@@ -285,6 +322,20 @@ export function PayrollPeriodGrid({
                         disabled={!canEdit}
                         onCommit={(v) => commit(e.id, "sueldo_neto", v)}
                       />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <InlineMoneyInput
+                        nullable
+                        value={e.recibo_neto}
+                        placeholder="—"
+                        disabled={!canEdit}
+                        onCommit={(v) => commit(e.id, "recibo_neto", v)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {e.recibo_neto === null
+                        ? "—"
+                        : money(payrollOtros(e) ?? 0)}
                     </TableCell>
                     <TableCell className="text-right">
                       <PayrollExtrasDialog
@@ -324,8 +375,18 @@ export function PayrollPeriodGrid({
                         onCommit={(v) => commit(e.id, "telefono", v)}
                       />
                     </TableCell>
+                    <TableCell className="text-right">
+                      <InlineMoneyInput
+                        value={e.embargo}
+                        disabled={!canEdit}
+                        onCommit={(v) => commit(e.id, "embargo", v)}
+                      />
+                    </TableCell>
                     <TableCell className="text-right font-mono font-semibold">
                       {money(e.total_a_pagar)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      <SplitCell entry={e} />
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">
                       {money(e.paid_total)}
@@ -354,6 +415,12 @@ export function PayrollPeriodGrid({
                     {money(totals.sueldo)}
                   </TableCell>
                   <TableCell className="text-right font-mono">
+                    {money(totals.recibo)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {money(totals.otros)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
                     {money(totals.extras)}
                   </TableCell>
                   <TableCell className="text-right font-mono">
@@ -368,8 +435,15 @@ export function PayrollPeriodGrid({
                   <TableCell className="text-right font-mono">
                     {money(totals.telefono)}
                   </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {money(totals.embargo)}
+                  </TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     {money(totals.total)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                    <div>{money(totals.transferencia)}</div>
+                    <div>{money(totals.efectivo)}</div>
                   </TableCell>
                   <TableCell className="text-right font-mono text-muted-foreground">
                     {money(totals.paid)}
@@ -384,5 +458,16 @@ export function PayrollPeriodGrid({
         </div>
       )}
     </div>
+  );
+}
+
+function SplitCell({ entry }: { entry: PayrollEntryResolved }) {
+  const split = suggestedSplit(entry);
+  if (!split) return <span title="Cargá el neto del recibo">—</span>;
+  return (
+    <>
+      <div title="Transferencia sugerida">{money(split.transferencia)}</div>
+      <div title="Efectivo sugerido">{money(split.efectivo)}</div>
+    </>
   );
 }

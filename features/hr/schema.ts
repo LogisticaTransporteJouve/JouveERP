@@ -115,6 +115,15 @@ const driverFields = {
   driver_phone: driverText(40),
 };
 
+/** Data of the formal receipt the liquidador issues (decision D5). */
+const formalFields = {
+  convenio: shortTextNullable,
+  categoria: shortTextNullable,
+  obra_social: shortTextNullable,
+  art: shortTextNullable,
+  retribucion_formal: baseSalaryNullable,
+};
+
 const baseEmployeeFields = {
   legal_name: z.string().trim().min(2, "Apellido y nombre requerido.").max(120),
   position: shortTextNullable,
@@ -139,6 +148,7 @@ const optionalVacationDays = z.coerce
 export const EmployeeCreateSchema = z.object({
   ...baseEmployeeFields,
   ...driverFields,
+  ...formalFields,
   /** Days of the vacation period in course; empty = leave it to the 1/10 job. */
   vacation_current_days: optionalVacationDays,
   /** Days still pending from earlier years, as one figure. */
@@ -158,6 +168,7 @@ export const EmployeeUpdateSchema = z.object({
   hire_date: baseEmployeeFields.hire_date.optional(),
   notes: baseEmployeeFields.notes,
   ...driverFields,
+  ...formalFields,
 });
 
 export const EmployeeTerminateSchema = z

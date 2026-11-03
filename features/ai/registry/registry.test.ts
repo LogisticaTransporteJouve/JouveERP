@@ -33,6 +33,9 @@ const PAYROLL_TOOLS = [
   "getLeavesSummary",
   "getAttendanceSummary",
   "getPayrollPeriods",
+  "getPayrollPeriodDetail",
+  "getGarnishments",
+  "getFinalSettlement",
   "getEmployees",
 ];
 

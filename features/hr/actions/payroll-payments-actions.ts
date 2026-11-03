@@ -280,9 +280,9 @@ export async function updatePayrollPaymentAction(
   return { ok: true, data: undefined };
 }
 
-// Bulk payment: 1 batch insert of N payroll_payments → trigger creates N
-// transactions in the chosen account. If any one fails (e.g. an entry_id
-// that doesn't exist), the whole batch transaction rolls back.
+// Bulk payment: 1 batch insert of N payroll_payments, each with its own
+// amount → trigger creates N transactions in the chosen account. If any one
+// fails (e.g. an entry_id that doesn't exist), the whole batch rolls back.
 export async function bulkCreatePayrollPaymentsAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number }>> {
@@ -303,27 +303,30 @@ export async function bulkCreatePayrollPaymentsAction(
   if (problem) return { ok: false, error: problem };
 
   if (!parsed.data.allow_overpay) {
-    const balances = await loadBalances(supabase, parsed.data.entry_ids);
+    const balances = await loadBalances(
+      supabase,
+      parsed.data.items.map((i) => i.entry_id),
+    );
     if (!balances) {
       return { ok: false, error: "No se pudieron leer los saldos." };
     }
-    const over = parsed.data.entry_ids.filter((id) => {
-      const entry = balances.get(id);
-      return !entry || exceedsBalance(parsed.data.amount_each, entry.saldo);
+    const over = parsed.data.items.filter((item) => {
+      const entry = balances.get(item.entry_id);
+      return !entry || exceedsBalance(item.amount, entry.saldo);
     });
     if (over.length > 0) {
       return {
         ok: false,
-        error: `${over.length} empleado(s) quedarían con saldo negativo con ${formatMoney(parsed.data.amount_each)} cada uno. Bajá el monto, sacalos de la selección o marcá "Pagar más que el saldo".`,
+        error: `${over.length} empleado(s) quedarían con saldo negativo. Bajá el monto, sacalos de la selección o marcá "Pagar más que el saldo".`,
       };
     }
   }
 
-  const rows = parsed.data.entry_ids.map((entry_id) => ({
+  const rows = parsed.data.items.map(({ entry_id, amount }) => ({
     entry_id,
     account_id: parsed.data.account_id,
     channel_id: parsed.data.channel_id,
-    amount: parsed.data.amount_each,
+    amount,
     method: parsed.data.method,
     paid_at: parsed.data.paid_at,
     notes: parsed.data.notes ?? null,
@@ -351,10 +354,10 @@ export async function bulkCreatePayrollPaymentsAction(
   }
   await logAudit("payroll.payment_bulk_created", ctx.userId, {
     count: data?.length ?? 0,
-    amount_each: parsed.data.amount_each,
+    total: parsed.data.items.reduce((s, i) => s + i.amount, 0),
     method: parsed.data.method,
     account_id: parsed.data.account_id,
-    entry_ids: parsed.data.entry_ids,
+    items: parsed.data.items,
     overpay_confirmed: parsed.data.allow_overpay === true,
   });
   return { ok: true, data: { inserted: data?.length ?? 0 } };

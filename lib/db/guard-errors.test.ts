@@ -88,6 +88,8 @@ const GUARDS = [
   "allocate_receipt",
   "allocate_payment_order",
   "guard_transaction_owned_by_document",
+  "fill_payroll_period",
+  "seed_sac_period",
 ];
 
 describe("guard hints in migrations", () => {

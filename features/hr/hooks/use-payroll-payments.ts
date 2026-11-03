@@ -91,10 +91,9 @@ type DeleteVars = {
 };
 
 type BulkVars = {
-  entry_ids: string[];
+  items: { entry_id: string; amount: number }[];
   account_id: string;
   channel_id: string;
-  amount_each: number;
   method: "transferencia" | "efectivo";
   paid_at: string;
   notes?: string | null;
@@ -115,8 +114,8 @@ export function useBulkCreatePayrollPayments() {
       qc.invalidateQueries({
         queryKey: payrollKeys.period(vars.period_year, vars.period_month),
       });
-      for (const id of vars.entry_ids) {
-        qc.invalidateQueries({ queryKey: paymentKeys.byEntry(id) });
+      for (const { entry_id } of vars.items) {
+        qc.invalidateQueries({ queryKey: paymentKeys.byEntry(entry_id) });
       }
     },
   });

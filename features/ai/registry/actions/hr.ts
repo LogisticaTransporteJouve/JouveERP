@@ -27,8 +27,9 @@ export const getEmployees = defineAiAction({
   sideEffect: "read",
   sources: ["employees"],
   description:
-    "Employee roster: name, position, CUIL, pay frequency and status " +
-    "(active/terminated). No parameters. For personnel or payroll.",
+    "Employee roster: name, position, CUIL, pay frequency, status " +
+    "(active/terminated) and the formal receipt data (convenio, categoría, " +
+    "obra social, ART, retribución formal). No parameters. For personnel or payroll.",
   input: z.object({}),
   run: () => runEmployees(),
 });

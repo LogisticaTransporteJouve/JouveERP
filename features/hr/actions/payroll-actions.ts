@@ -13,29 +13,36 @@ import {
   AddMissingPayrollEntriesSchema,
   AddPayrollEntryExtraSchema,
   ClosePayrollPeriodSchema,
+  isPayrollPeriodKind,
   isPayrollStatus,
   RemovePayrollEntryExtraSchema,
   ReopenPayrollPeriodSchema,
   SeedPayrollPeriodSchema,
+  SeedSacPeriodSchema,
   UpdatePayrollEntrySchema,
   type PayrollEntryExtra,
   type PayrollEntryResolved,
   type PayrollPeriod,
+  type PayrollPeriodKind,
 } from "../payroll-schema";
 
-function narrowPeriod(row: {
-  status: string;
-  [key: string]: unknown;
-}): PayrollPeriod | null {
-  if (!isPayrollStatus(row.status)) {
-    logger.error("payroll.unknown_status", { value: row.status });
+type PeriodRow = Database["public"]["Tables"]["payroll_periods"]["Row"];
+
+function narrowPeriod(row: PeriodRow): PayrollPeriod | null {
+  const { status, kind } = row;
+  if (!isPayrollStatus(status)) {
+    logger.error("payroll.unknown_status", { value: status });
     return null;
   }
-  return row as PayrollPeriod;
+  if (!isPayrollPeriodKind(kind)) {
+    logger.error("payroll.unknown_period_kind", { value: kind });
+    return null;
+  }
+  return { ...row, status, kind };
 }
 
 const PERIOD_COLS =
-  "id, year, month, status, notes, closed_at, closed_by, created_by, created_at, updated_at";
+  "id, year, month, kind, status, notes, closed_at, closed_by, created_by, created_at, updated_at";
 
 // ─── List & detail ───────────────────────────────────────────────────────────
 
@@ -54,6 +61,7 @@ export async function listPayrollPeriodsAction(): Promise<
       .select(PERIOD_COLS)
       .order("year", { ascending: false })
       .order("month", { ascending: false })
+      .order("kind", { ascending: false })
       .order("id")
       .range(from, to),
   );
@@ -73,6 +81,7 @@ export async function listPayrollPeriodsAction(): Promise<
 export async function getPayrollPeriodAction(
   year: number,
   month: number,
+  kind: PayrollPeriodKind = "monthly",
 ): Promise<
   ActionResult<{
     period: PayrollPeriod | null;
@@ -90,6 +99,7 @@ export async function getPayrollPeriodAction(
     .select(PERIOD_COLS)
     .eq("year", year)
     .eq("month", month)
+    .eq("kind", kind)
     .maybeSingle();
 
   if (periodErr) {
@@ -107,7 +117,7 @@ export async function getPayrollPeriodAction(
   const { data: entries, error: entriesErr } = await supabase
     .from("v_payroll_entries_with_payments")
     .select(
-      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, total_a_pagar, paid_total, saldo, payments_count, notes",
+      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes",
     )
     .eq("period_id", period.id);
 
@@ -163,8 +173,12 @@ export async function getPayrollPeriodAction(
         viaticos: Number(row.viaticos ?? 0),
         deudas: Number(row.deudas ?? 0),
         telefono: Number(row.telefono ?? 0),
+        embargo: Number(row.embargo ?? 0),
+        recibo_neto: row.recibo_neto === null ? null : Number(row.recibo_neto),
         total_a_pagar: Number(row.total_a_pagar ?? 0),
         paid_total: Number(row.paid_total ?? 0),
+        paid_transferencia: Number(row.paid_transferencia ?? 0),
+        paid_efectivo: Number(row.paid_efectivo ?? 0),
         saldo: Number(row.saldo ?? 0),
         payments_count: Number(row.payments_count ?? 0),
         notes: row.notes ?? null,
@@ -209,6 +223,38 @@ export async function seedPayrollPeriodAction(
     data ?? undefined,
   );
   return { ok: true, data: { period_id: data ?? "" } };
+}
+
+export async function seedSacPeriodAction(
+  input: unknown,
+): Promise<ActionResult<{ period_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:write")) {
+    return { ok: false, error: "Sin permiso para crear períodos." };
+  }
+
+  const parsed = SeedSacPeriodSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Parámetros inválidos." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase.rpc("seed_sac_period", {
+    p_year: parsed.data.year,
+    p_half: parsed.data.half,
+  });
+
+  if (error || !data) {
+    logger.error("payroll.seed_sac.failed", { userId: ctx.userId, error });
+    return { ok: false, error: error?.message ?? "No se pudo crear el SAC." };
+  }
+  await logAudit(
+    "payroll.sac_period_created",
+    ctx.userId,
+    { year: parsed.data.year, half: parsed.data.half },
+    data,
+  );
+  return { ok: true, data: { period_id: data } };
 }
 
 export async function addMissingPayrollEntriesAction(
@@ -325,6 +371,8 @@ export async function updatePayrollEntryAction(
   if (rest.viaticos !== undefined) patch.viaticos = rest.viaticos;
   if (rest.deudas !== undefined) patch.deudas = rest.deudas;
   if (rest.telefono !== undefined) patch.telefono = rest.telefono;
+  if (rest.embargo !== undefined) patch.embargo = rest.embargo;
+  if (rest.recibo_neto !== undefined) patch.recibo_neto = rest.recibo_neto;
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
 
   if (Object.keys(patch).length === 0) {

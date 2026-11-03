@@ -42,7 +42,7 @@ function narrowEmployee(row: {
 }
 
 const SELECT_COLS =
-  "id, legal_name, position, cuil, cbu, pay_frequency, base_salary, viatico_monthly, is_monotributo, hire_date, termination_date, notes, is_active, created_by, created_at, updated_at";
+  "id, legal_name, position, cuil, cbu, pay_frequency, base_salary, viatico_monthly, is_monotributo, hire_date, termination_date, notes, is_active, created_by, created_at, updated_at, convenio, categoria, obra_social, art, retribucion_formal";
 
 // ─── List & search ───────────────────────────────────────────────────────────
 
@@ -180,6 +180,11 @@ export async function createEmployeeAction(
       is_monotributo: parsed.data.is_monotributo,
       hire_date: parsed.data.hire_date,
       notes: parsed.data.notes ?? null,
+      convenio: parsed.data.convenio ?? null,
+      categoria: parsed.data.categoria ?? null,
+      obra_social: parsed.data.obra_social ?? null,
+      art: parsed.data.art ?? null,
+      retribucion_formal: parsed.data.retribucion_formal ?? null,
       created_by: ctx.userId,
     })
     .select("id")
@@ -317,6 +322,13 @@ export async function updateEmployeeAction(
     patch.is_monotributo = rest.is_monotributo;
   if (rest.hire_date !== undefined) patch.hire_date = rest.hire_date;
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
+  if (rest.convenio !== undefined) patch.convenio = rest.convenio ?? null;
+  if (rest.categoria !== undefined) patch.categoria = rest.categoria ?? null;
+  if (rest.obra_social !== undefined)
+    patch.obra_social = rest.obra_social ?? null;
+  if (rest.art !== undefined) patch.art = rest.art ?? null;
+  if (rest.retribucion_formal !== undefined)
+    patch.retribucion_formal = rest.retribucion_formal ?? null;
 
   const driverTouched =
     rest.license_number !== undefined ||
