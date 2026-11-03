@@ -17,6 +17,7 @@ import { formatInvoiceNumero } from "@/features/invoices/schema";
 
 import type { PendingComprobante } from "../actions/receipts-actions";
 import { usePendingComprobantes } from "../hooks/use-receipts";
+import { formatReceiptNumber } from "../schema";
 
 export type AllocationDraft = {
   /** The comprobante or the rejected check (see document_type). */
@@ -30,7 +31,7 @@ function formatComprobanteNumber(c: PendingComprobante): string {
     const receipt =
       c.numero == null
         ? ""
-        : ` (R${String(c.punto_venta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")})`;
+        : ` (${formatReceiptNumber(c.punto_venta, c.numero)})`;
     return `Cheque rechazado ${c.check_number ?? ""}${receipt}`;
   }
   return formatInvoiceNumero(c.kind, c.letter, c.punto_venta, c.numero);
