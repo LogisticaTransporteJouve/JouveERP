@@ -174,6 +174,7 @@ export function BulkFreightSettlementsDialog({
               <Button
                 type="button"
                 variant="outline"
+                disabled={mut.isPending}
                 onClick={() => close(false)}
               >
                 Cancelar
