@@ -74,6 +74,37 @@
 
 ---
 
+## IA: consultas cruzadas y gráficos (2026-11-03, roadmap 6.1 + 6.2)
+
+- [x] **Margen por cliente** (`getClientMargin`): ingreso neto facturado sin
+      IVA menos costo de viajes y combustible imputado; costo directo sin
+      cliente y flota no asignada aparte.
+- [x] **Cobranza por cliente** (`getClientPaymentBehavior`): días promedio
+      de cobro, deuda abierta y vencida, +90 días, cheques rechazados y a
+      cuenta.
+- [x] **Economía por vehículo** (`getVehicleEconomics`) y **actividad por
+      chofer** (`getDriverActivity`): viajes, km (viajes y odómetro), litros,
+      ingreso, costos, por km; extras, adelantos y saldo del empleado con
+      RRHH. Viajes sin vehículo / sin chofer aparte.
+- [x] **Ranking de costos** (`getTopCosts`) por rubro o centro de costo,
+      desde el resultado de gestión.
+- [x] **Gráficos:** barras apiladas, formato km, `dataset` para elegir la
+      lista; `getManagementPnL` con `byMonth`.
+- [ ] Aprobar la migración `20261103150000_ai_cross_queries` junto con el
+      deploy: sin ella fallan `getClientMargin`, `getVehicleEconomics` y
+      `getDriverActivity`.
+- [ ] **Costos de camión sin vínculo:** seguros, patentes, cubiertas y
+      compras cargadas solo con centro de costo no llegan a
+      `getVehicleEconomics` (mismo faltante que "Margen por camión" de
+      gestión v2).
+- [ ] `ai_fleet_margin` cuenta viajes cancelados (su costo y su ingreso
+      manual); las RPC nuevas de actividad los excluyen. Alinear.
+- [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
+      `getDriverActivity`.
+- [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron:
+      `getClientSalesSummary` y `getClientPaymentBehavior` se pisan en "días
+      de cobro".
+
 ## Importador y sueldos y viajes históricos (2026-11-03, roadmap 5.1 + 5.2)
 
 - [x] **Importador** (Admin › Importador, `/admin/imports`, owner y admin):

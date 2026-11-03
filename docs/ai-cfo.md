@@ -141,7 +141,7 @@ una consulta del registry. El modelo elige la consulta, su input y la forma; nun
 
 | Archivo     | Qué tiene                                                                                                                                                                                                                                                                                                                   |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `hbar`, `line`; `x`, hasta 3 series, orden, límite, formato) y de tabla (título, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                          |
+| `spec.ts`   | Schemas Zod estrictos: configuración de gráfico (`bar`, `stacked`, `hbar`, `line`; `dataset`, `x`, hasta 3 series —6 en `stacked`—, orden, límite, formato) y de tabla (título, `dataset`, columnas), el artefacto que viaja al cliente y el pedido de fijado. Sin valores en ninguna configuración.                                                                          |
 | `build.ts`  | Arma el artefacto desde las filas: copia los valores (los `numeric` de Postgres pasan a número), rechaza una `x` repetida en vez de sumar, corta en 60 puntos (30 en `hbar`) o 300 filas × 12 columnas (y ~100 KB por artefacto) y lo marca como cortado. Cada columna toma su formato del nombre, con reglas en orden (`rows.ts`): códigos e identificadores (`*_code`, `*_number`, `numero`, CUIT, CBU) quedan como texto; `*_pct` es porcentaje; `*_count`, `qty`, `cantidad`, días y `total_<sustantivo>s` son cantidades; `*_usd`/`foreign` van en US$; el resto de montos en la moneda del resultado. Un campo inexistente devuelve un error con los campos que sí sirven, para que el modelo corrija. |
 | `run.ts`    | `runArtifact(ctx, pedido)`: busca la acción entre las de lectura que el rol puede usar, valida el input con su schema y la ejecuta con el mismo gate que el tool (`requireUserContext` + `userCan` + RLS adentro).                                                                                                          |
 | `tools.ts`  | Tools `renderChart` y `renderTable`. Mandan el artefacto como data part `data-artifact` (id = toolCallId) y al modelo le devuelven un resumen con `meta` de la consulta.                                                                                                                                                    |
@@ -155,7 +155,16 @@ manda hasta ~400 KB de artefactos; pasado eso el tool devuelve un error y el mod
 
 **Gráficos.** SVG propio y monocromo (sin librería de charts): barras con el extremo redondeado,
 líneas de 2 px, series distinguidas por intensidad y trazo, leyenda desde 2 series, tooltip por
-punto y vista de tabla. Números en es-AR.
+punto y vista de tabla. Números en es-AR. El único color es el anillo `primary` del punto con foco.
+
+- **Apiladas (`stacked`, 6.2):** las partes de un todo por mes o categoría (costos por rubro por
+  mes); positivos hacia arriba y negativos hacia abajo desde cero, solo el segmento externo
+  redondeado, el tooltip suma el total y `sort` ordena por el total.
+- **Unidades:** `valueFormat` `money` (la moneda del resultado), `usd`, `percent`, `count`, `km`,
+  `number`. Por nombre de campo: `*_ars` y `*_per_km_ars` son pesos, `*_km` km, `*_count` cantidad.
+- **`dataset`:** cuando el resultado trae varias listas, el modelo elige cuál graficar (ej.
+  `getManagementPnL` → `byMonth`, `getTopCosts` → `byMonth`); sin `dataset`, la primera lista como
+  antes, así los fijados viejos no cambian. Una lista inexistente devuelve un error con las que hay.
 
 **Bloque de actividad.** Las consultas de cada respuesta ya no van como texto suelto: un bloque
 plegable lista cada tool (estado, filas, fecha de cálculo, parcial o con error) y cada paso abre la
@@ -188,6 +197,35 @@ pipeline de Document Intelligence (`features/ai/document/start.ts`) y el borrado
 con `openAttachment` si lo necesita, y un archivo que la API rechaza se deja afuera con un aviso.
 Detalle de storage, RLS y límites en
 [`files-patterns.md` §14](./files-patterns.md#14-adjuntos-del-chat-de-ia-y-página-files-2026-10-16).
+
+## Consultas cruzadas (roadmap 6.1, hecha)
+
+Tools de lectura que cruzan dominios (`features/ai/registry/actions/cross.ts`). Cada una compone los
+server actions de lectura de cada módulo, así cada parte pasa por su `userCan` y RLS; lo que el
+usuario no puede leer vuelve `null` (nunca `0`) y la nota del resultado dice qué se omitió y qué
+permiso falta. Las cifras salen de SQL; el JS solo une y pagina. Todas paginan (`limit` hasta 100,
+`offset`), leen como máximo 500 filas por fuente y marcan `partial` cuando una fuente llegó al
+tope.
+
+| Tool | Permiso para verla | Responde | Partes con permiso propio |
+|---|---|---|---|
+| `getClientMargin` | `clients:read` + `invoices:read` | Margen de contribución por cliente: ingreso neto facturado (sin IVA ni tributos, facturas y ND − NC, USD a la cotización del comprobante o la oficial de su fecha; sin cotización, aparte) − costo de viajes y combustible imputado (repartido por flete). Separa el costo directo sin cliente y la flota no asignada (combustible sin viaje + mantenimiento). | Costos: `trips:read` + `shipments:read` |
+| `getClientPaymentBehavior` | `clients` + `invoices` + `receipts:read` | Días promedio de cobro del rango, cobrado por moneda, deuda de hoy (pesos, dólares y equivalente al último oficial), vencida, +90 días, comprobante más viejo, cheques rechazados y a cuenta. Ordenado por vencido. | — |
+| `getVehicleEconomics` | `trips:read` | Por vehículo: viajes (no cancelados), km de viajes y de odómetro, litros y L/100 km, ingreso, costos de viaje, combustible y mantenimiento, neto, margen % e ingreso/costo por km (odómetro si están las dos lecturas; si no, km de viajes, marcado). Viajes sin vehículo aparte. | Ingresos y costos: `shipments:read`; litros: `fuel:read`; odómetro: `fleet_km:read` |
+| `getDriverActivity` | `trips:read` | Por chofer: viajes, km, ingreso, costo y neto; del empleado vinculado, extras de planilla de los meses del rango, adelantos del rango y saldo de su cuenta. Viajes sin chofer aparte. | Ingresos y costos: `shipments:read`; empleado: `hr:read` |
+| `getTopCosts` | `management:read` | Ranking de costos (uso interno) por rubro o centro de costo, devengado o percibido, con % y el resto en una fila, más `byMonth` y `seriesFields` para un gráfico apilado. Sin clasificar y USD sin cotización aparte. | — |
+
+RPC nuevas (migración `20261103150000_ai_cross_queries.sql`, `SECURITY INVOKER`, `search_path =
+''`, solo `authenticated` y `service_role`): `ai_client_net_revenue`, `ai_vehicle_activity` y
+`ai_driver_activity`. Las dos de actividad reciben flags `p_include_fuel | km | revenue | hr` que
+el server action prende con `userCan`, así una denegación por usuario deja la columna en `NULL`
+aunque RLS la permita. `getManagementPnL` suma `byMonth` (servicios, costos, margen, costo
+financiero y generación de caja por mes) y marca `partial` si la lectura llegó a las 1000 filas.
+
+**Límites.** Margen por cliente: ingresos por fecha de comprobante y costos por fecha de viaje;
+no reparte sueldos, mantenimiento ni gastos generales. Por vehículo: seguros, patentes, cubiertas
+y compras cargadas solo con centro de costo no están vinculados a un camión. `ai_fleet_margin`
+sigue contando viajes cancelados.
 
 ## Fase 4 — trabaja solo (hecha)
 
