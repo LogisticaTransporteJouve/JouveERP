@@ -32,6 +32,8 @@ import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { RecategorizeExpenseButton } from "@/features/cost-centers/components/recategorize-expense-dialog";
+
 import { usePurchaseInvoicesSearchInfinite } from "../hooks/use-purchase-invoices";
 import { type PurchaseInvoicesFilters } from "../lib/purchase-invoices-keys";
 import {
@@ -198,7 +200,7 @@ function usePurchaseInvoiceColumns({
         id: "actions",
         header: "Acciones",
         enableSorting: false,
-        meta: { align: "right", headerClassName: "w-24", mobile: "primary" },
+        meta: { align: "right", headerClassName: "w-32", mobile: "primary" },
         cell: ({ row }) => {
           const inv = row.original;
           return (
@@ -220,6 +222,17 @@ function usePurchaseInvoiceColumns({
               </Button>
               {canWrite && inv.status === "received" && (
                 <EditPurchaseInvoiceDialog invoice={inv} />
+              )}
+              {canWrite && inv.status === "received" && (
+                <RecategorizeExpenseButton
+                  expense={{
+                    source: "purchase_invoices",
+                    id: inv.id,
+                    label: `${formatInvoiceNumber(inv)} · ${inv.supplier_legal_name}`,
+                    expense_account_id: inv.account_id,
+                    cost_center_id: inv.cost_center_id,
+                  }}
+                />
               )}
               {canCancel && inv.status === "received" && (
                 <CancelPurchaseInvoiceDialog invoice={inv} />

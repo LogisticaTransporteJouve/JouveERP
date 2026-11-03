@@ -6,6 +6,10 @@ import {
   CLIENT_TARIFF_UNIT_LABELS,
   ClientTariffCreateSchema,
 } from "@/features/client-tariffs/schema";
+import {
+  RecategorizeExpenseSchema,
+  type ExpenseSource,
+} from "@/features/cost-centers/schema";
 import { ExchangeRateCreateSchema } from "@/features/exchange-rates/schema";
 import {
   CreateLeaveSchema,
@@ -452,6 +456,65 @@ export const lateInterestNdProposalSpec = defineProposalSpec({
   ],
 });
 
+/** Keys of the display labels a recategorize draft carries (the ids of the
+ *  new account and center carry their own). */
+export const RECATEGORIZE_LABELS = {
+  expense: "expense",
+  accountBefore: "account_before",
+  costCenterBefore: "cost_center_before",
+} as const;
+
+const DEFAULT_EXPENSE_ACCOUNT: Record<ExpenseSource, string> = {
+  transactions: "Gastos (sin cuenta propia)",
+  purchase_invoices: "Compras (sin cuenta propia)",
+};
+
+export const recategorizeExpenseProposalSpec = defineProposalSpec({
+  title: "Recategorizar gasto",
+  draft: RecategorizeExpenseSchema,
+  fields: [],
+  confirmLabel: "Recategorizar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const before = (key: string) => labels[key] ?? "—";
+    return [
+      {
+        label: d.source === "transactions" ? "Movimiento" : "Compra",
+        value: labels[RECATEGORIZE_LABELS.expense] ?? d.id,
+      },
+      ...(d.expense_account_id !== undefined
+        ? [
+            {
+              label: "Cuenta de gasto",
+              value: `${before(RECATEGORIZE_LABELS.accountBefore)} → ${
+                d.expense_account_id
+                  ? (labels[d.expense_account_id] ?? d.expense_account_id)
+                  : DEFAULT_EXPENSE_ACCOUNT[d.source]
+              }`,
+            },
+          ]
+        : []),
+      ...(d.cost_center_id !== undefined
+        ? [
+            {
+              label: "Centro de costo",
+              value: `${before(RECATEGORIZE_LABELS.costCenterBefore)} → ${
+                d.cost_center_id
+                  ? (labels[d.cost_center_id] ?? d.cost_center_id)
+                  : "Sin centro de costo"
+              }`,
+            },
+          ]
+        : []),
+      {
+        label: "Qué pasa",
+        value:
+          "Cambia solo la imputación, como Recategorizar en la lista: el asiento se rehace y el monto, la fecha y la conciliación quedan igual. Un período cerrado no se toca.",
+      },
+    ];
+  },
+});
+
 /** Every proposal action's spec, by the action (tool) name. */
 export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeLeave: leaveProposalSpec,
@@ -463,4 +526,5 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeClientTariff: clientTariffProposalSpec,
   proposeBankMatches: bankMatchesProposalSpec,
   proposeLateInterestNd: lateInterestNdProposalSpec,
+  proposeRecategorizeExpense: recategorizeExpenseProposalSpec,
 };

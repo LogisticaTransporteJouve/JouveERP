@@ -20,6 +20,7 @@ import {
   AiProposalStoreError,
   canRunAiAction,
   type AiAction,
+  type AiProposalOutcome,
 } from "../registry/define";
 
 const isUuid = (value: string) => UuidSchema.safeParse(value).success;
@@ -95,7 +96,7 @@ export async function listAiConfirmationsAction(
  */
 export async function confirmAiProposalAction(
   id: string,
-): Promise<ActionResult<{ resultId: string }>> {
+): Promise<ActionResult<{ resultId: string; note: string | null }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   if (!isUuid(id)) return { ok: false, error: GONE };
@@ -124,7 +125,7 @@ export async function confirmAiProposalAction(
   }
   if (!claimed) return { ok: false, error: GONE };
 
-  let res: ActionResult<{ id: string }>;
+  let res: ActionResult<AiProposalOutcome>;
   try {
     res = await proposal.executeDraft(
       { userId: ctx.userId, access: ctx.access },
@@ -142,7 +143,9 @@ export async function confirmAiProposalAction(
   await recordConfirmationOutcome(
     ctx.userId,
     id,
-    res.ok ? { resultId: res.data.id } : { error: res.error },
+    res.ok
+      ? { resultId: res.data.id, note: res.data.note }
+      : { error: res.error },
   );
   await logAudit(
     res.ok ? "ai.proposal.confirmed" : "ai.proposal.failed",
@@ -157,7 +160,10 @@ export async function confirmAiProposalAction(
     id,
   );
   if (!res.ok) return { ok: false, error: res.error };
-  return { ok: true, data: { resultId: res.data.id } };
+  return {
+    ok: true,
+    data: { resultId: res.data.id, note: res.data.note ?? null },
+  };
 }
 
 /** Declines a pending proposal (compare-and-set; nothing is written). */

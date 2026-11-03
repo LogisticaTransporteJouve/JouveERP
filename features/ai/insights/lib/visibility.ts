@@ -1,11 +1,16 @@
-import { userCan, type Access, type Permission } from "@/lib/auth/permissions";
+import {
+  CLIENT_AGING_PERMISSIONS,
+  userCan,
+  type Access,
+  type Permission,
+} from "@/lib/auth/permissions";
 
 /**
  * Which domain permissions an insight card belongs to. A card exposes figures
  * from those domains (cash-flow → treasury balances, receivables risk → AR,
  * duplicate/unusual invoices → AP, fleet cards → fleet), so only users who can
  * read every one of them in the app see it. Mirrors the `ai_insights select`
- * RLS policy (latest in supabase/migrations/20261103180000_ai_proposals.sql)
+ * RLS policy (latest in supabase/migrations/20261104060100_aging_snapshots.sql)
  * — keep both in sync when adding a kind.
  */
 export const INSIGHT_KIND_PERMISSION: Readonly<
@@ -26,6 +31,7 @@ export const INSIGHT_KIND_PERMISSION: Readonly<
   pending_driver_settlements: "receipts:read",
   loan_installments_due: ["accounting:read", "accounts:read"],
   cash_vs_financing: ["accounts:read", "accounting:read"],
+  receivables_overdue_growth: CLIENT_AGING_PERMISSIONS,
 };
 
 /** The permissions a kind requires, or null for an unmapped kind. */

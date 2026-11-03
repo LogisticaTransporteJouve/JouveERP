@@ -25,6 +25,7 @@ import {
   getTransactions,
 } from "./actions/cash";
 import { proposeDocumentScan } from "./actions/documents";
+import { proposeRecategorizeExpense } from "./actions/expense-proposals";
 import {
   getDrivers,
   getFleetDocuments,
@@ -172,6 +173,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getTaxDocuments,
   proposeJournalEntry,
   proposeExchangeRate,
+  proposeRecategorizeExpense,
   // RRHH / sueldos
   getEmployees,
   searchEmployees,

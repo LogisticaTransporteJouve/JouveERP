@@ -7,6 +7,7 @@ import {
   detectFuelOutliers,
   detectLateInterestUncharged,
   detectLoanInstallmentsDue,
+  detectOverdueGrowth,
   detectPendingSettlements,
   detectUnreconciledLines,
   detectVehicleCostPerKm,
@@ -144,28 +145,81 @@ describe("detectLateInterestUncharged", () => {
 });
 
 describe("detectUnreconciledLines", () => {
+  const lines = [
+    {
+      id: "l1",
+      account_id: "a1",
+      account_name: "Banco",
+      line_date: "2026-10-01",
+      amount: -100,
+    },
+    {
+      id: "l2",
+      account_id: "a1",
+      account_name: "Banco",
+      line_date: "2026-10-30",
+      amount: 50,
+    },
+    {
+      id: "l3",
+      account_id: "a2",
+      account_name: "Caja de ahorro",
+      line_date: "2026-10-05",
+      amount: 30,
+    },
+    {
+      id: "l4",
+      account_id: "a1",
+      account_name: "Banco",
+      line_date: "2026-10-10",
+      amount: 20,
+    },
+  ];
+
   it("counts only lines older than 15 days and proposes a task", () => {
-    const [f] = detectUnreconciledLines(
-      [
-        {
-          id: "l1",
-          account_name: "Banco",
-          line_date: "2026-10-01",
-          amount: -100,
-        },
-        {
-          id: "l2",
-          account_name: "Banco",
-          line_date: "2026-10-30",
-          amount: 50,
-        },
-      ],
-      TODAY,
-    );
-    expect(f?.source_refs).toEqual(["l1"]);
-    expect(f?.metrics.total_amount).toBe(100);
+    const [f] = detectUnreconciledLines(lines, TODAY);
+    expect(f?.source_refs).toEqual(["l1", "l3", "l4"]);
+    expect(f?.metrics.total_amount).toBe(150);
+    expect(f?.metrics.account_count).toBe(2);
     expect(f?.proposal?.action).toBe("proposeTask");
     expect(f?.proposal?.input.title).toBe("Conciliar el extracto de Banco");
+    expect(f?.proposal?.input.description).toContain("2 línea(s)");
+  });
+
+  it("proposes the suggested matches of the main account when there are some", () => {
+    const [f] = detectUnreconciledLines(lines, TODAY, {
+      account_id: "a1",
+      from: "2026-10-01",
+      to: "2026-10-10",
+      suggestions: 2,
+    });
+    expect(f?.proposal).toEqual({
+      action: "proposeBankMatches",
+      label: "Conciliar con las sugerencias",
+      input: { account: "Banco", from: "2026-10-01", to: "2026-10-10" },
+    });
+    expect(f?.metrics.suggested_matches).toBe(2);
+    expect(f?.finding).toContain("2 sugerencia(s)");
+  });
+
+  it("keeps the task when the hint has no suggestions or is another account's", () => {
+    for (const hint of [
+      {
+        account_id: "a1",
+        from: "2026-10-01",
+        to: "2026-10-10",
+        suggestions: 0,
+      },
+      {
+        account_id: "a2",
+        from: "2026-10-05",
+        to: "2026-10-05",
+        suggestions: 3,
+      },
+    ]) {
+      const [f] = detectUnreconciledLines(lines, TODAY, hint);
+      expect(f?.proposal?.action).toBe("proposeTask");
+    }
   });
 });
 
@@ -259,6 +313,80 @@ describe("detectCashVsFinancing", () => {
         disbursements: 0,
         installmentsPaid: 50,
       }),
+    ).toEqual([]);
+  });
+});
+
+describe("detectOverdueGrowth", () => {
+  const earlier = {
+    snapshot_date: "2026-10-03",
+    ars_overdue: 2_000_000,
+    usd_overdue: 10_000,
+  };
+  const latest = {
+    snapshot_date: "2026-11-02",
+    ars_overdue: 2_600_000, // +30 %
+    usd_overdue: 10_500, // +5 %
+  };
+
+  it("says how much the overdue debt grew vs 30 days before, per currency", () => {
+    const [f] = detectOverdueGrowth(latest, earlier, TODAY);
+    expect(f?.kind).toBe("receivables_overdue_growth");
+    expect(f?.title).toBe("La mora creció 30 % vs hace 30 días");
+    expect(f?.severity).toBe("warning");
+    expect(f?.finding).toContain("en pesos pasó de $2.000.000 a $2.600.000");
+    expect(f?.finding).not.toContain("en dólares");
+    expect(f?.metrics).toMatchObject({
+      ars_overdue_before: 2_000_000,
+      ars_overdue_now: 2_600_000,
+      ars_growth_pct: 30,
+      snapshot_from: "2026-10-03",
+    });
+    expect(f?.metrics).not.toHaveProperty("usd_growth_pct");
+    expect(f?.source_refs).toEqual([]);
+    expect(f?.proposal?.action).toBe("proposeTask");
+  });
+
+  it("is critical from 50 % and counts dollars on their own", () => {
+    const [f] = detectOverdueGrowth(
+      { ...latest, ars_overdue: 2_100_000, usd_overdue: 20_000 },
+      earlier,
+      TODAY,
+    );
+    expect(f?.severity).toBe("critical");
+    expect(f?.title).toBe("La mora creció 100 % vs hace 30 días");
+    expect(f?.finding).toContain("en dólares");
+  });
+
+  it("stays quiet below the thresholds, without history, stale or too far apart", () => {
+    // +10 %
+    expect(
+      detectOverdueGrowth(
+        { ...latest, ars_overdue: 2_200_000 },
+        earlier,
+        TODAY,
+      ),
+    ).toEqual([]);
+    // +50 % but only $100.000
+    expect(
+      detectOverdueGrowth(
+        { ...latest, ars_overdue: 300_000 },
+        { ...earlier, ars_overdue: 200_000 },
+        TODAY,
+      ),
+    ).toEqual([]);
+    // nothing overdue before: no percentage
+    expect(
+      detectOverdueGrowth(latest, { ...earlier, ars_overdue: 0 }, TODAY),
+    ).toEqual([]);
+    expect(detectOverdueGrowth(latest, null, TODAY)).toEqual([]);
+    expect(detectOverdueGrowth(latest, earlier, "2026-11-20")).toEqual([]);
+    expect(
+      detectOverdueGrowth(
+        latest,
+        { ...earlier, snapshot_date: "2026-09-01" },
+        TODAY,
+      ),
     ).toEqual([]);
   });
 });

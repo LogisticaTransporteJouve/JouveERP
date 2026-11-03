@@ -351,7 +351,7 @@ export const getClientPaymentBehavior = defineAiAction({
     "v_receipt_unapplied",
   ],
   description:
-    "Cómo paga cada cliente: días promedio de cobro de lo cobrado en el rango (ponderado por lo imputado de cada recibo), cobrado por moneda, y su deuda actual: abierta en pesos y dólares (con el equivalente en pesos al último oficial), vencida en pesos, más de 90 días, días del comprobante más viejo, cheques rechazados y lo cobrado a cuenta sin imputar. Ordenado por deuda vencida. Un cliente sin cobros imputados en el rango no tiene promedio (null). Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
+    "Cómo paga cada cliente — la tool para días de pago, cuánto tardan en pagarnos, atrasos y quién paga peor (no getClientSalesSummary, que es facturación): días promedio de cobro de lo cobrado en el rango (ponderado por lo imputado de cada recibo), cobrado por moneda, y su deuda actual: abierta en pesos y dólares (con el equivalente en pesos al último oficial), vencida en pesos, más de 90 días, días del comprobante más viejo, cheques rechazados y lo cobrado a cuenta sin imputar. Ordenado por deuda vencida. Un cliente sin cobros imputados en el rango no tiene promedio (null). Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
   input: PaymentBehaviorInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const { isFiscal, label } = readScope(input.scope);

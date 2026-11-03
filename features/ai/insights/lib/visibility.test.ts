@@ -26,6 +26,7 @@ const FINANCE_KINDS = [
   "pending_driver_settlements",
   "loan_installments_due",
   "cash_vs_financing",
+  "receivables_overdue_growth",
 ];
 const FLEET_KINDS = [
   "fleet_doc_expiry",
@@ -81,7 +82,7 @@ describe("ai_insights RLS policy stays in sync with the visibility map", () => {
   const sql = readFileSync(
     path.resolve(
       __dirname,
-      "../../../../supabase/migrations/20261103180000_ai_proposals.sql",
+      "../../../../supabase/migrations/20261104060100_aging_snapshots.sql",
     ),
     "utf8",
   );

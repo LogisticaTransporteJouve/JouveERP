@@ -6,6 +6,7 @@ import {
   ArrowUpCircle,
   MoreHorizontal,
   Pencil,
+  Tags,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -67,6 +68,10 @@ import {
   type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
+import {
+  RecategorizeExpenseDialog,
+  type RecategorizableExpense,
+} from "@/features/cost-centers/components/recategorize-expense-dialog";
 import { EmployeeCashDialog } from "@/features/hr/components/employee-cash-dialog";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
@@ -97,6 +102,7 @@ type RowActions = {
   canEdit: boolean;
   canDelete: boolean;
   onEdit: (tx: TransactionListItem) => void;
+  onRecategorize: (tx: TransactionListItem) => void;
   onDelete: (tx: TransactionListItem) => void;
 };
 
@@ -110,11 +116,30 @@ function editable(tx: TransactionListItem): boolean {
 function deletable(tx: TransactionListItem): boolean {
   return tx.source_document === null;
 }
+/** A manual expense: its expense account and cost center can change even
+ *  when it is reconciled. */
+function recategorizable(tx: TransactionListItem): boolean {
+  return tx.kind === "expense" && editable(tx);
+}
+
+function toRecategorizable(tx: TransactionListItem): RecategorizableExpense {
+  return {
+    source: "transactions",
+    id: tx.id,
+    label: [
+      formatArgentineDate(tx.transaction_date),
+      tx.description || tx.account_name,
+      formatMoney(Number(tx.amount), tx.currency),
+    ].join(" · "),
+    expense_account_id: tx.expense_account_id,
+    cost_center_id: tx.cost_center_id,
+  };
+}
 
 function useTransactionColumns(
   actions: RowActions,
 ): ColumnDef<TransactionListItem>[] {
-  const { canEdit, canDelete, onEdit, onDelete } = actions;
+  const { canEdit, canDelete, onEdit, onRecategorize, onDelete } = actions;
   return useMemo(
     () => [
       {
@@ -231,6 +256,7 @@ function useTransactionColumns(
               cell: ({ row }: { row: { original: TransactionListItem } }) => {
                 const tx = row.original;
                 const showEdit = canEdit && editable(tx);
+                const showRecategorize = canEdit && recategorizable(tx);
                 const showDelete = canDelete && deletable(tx);
                 if (!showEdit && !showDelete) return null;
                 return (
@@ -251,6 +277,12 @@ function useTransactionColumns(
                           Editar
                         </DropdownMenuItem>
                       )}
+                      {showRecategorize && (
+                        <DropdownMenuItem onClick={() => onRecategorize(tx)}>
+                          <Tags className="size-4" />
+                          Recategorizar
+                        </DropdownMenuItem>
+                      )}
                       {showDelete && (
                         <DropdownMenuItem onClick={() => onDelete(tx)}>
                           <Trash2 className="size-4" />
@@ -265,7 +297,7 @@ function useTransactionColumns(
           ]
         : []),
     ],
-    [canEdit, canDelete, onEdit, onDelete],
+    [canEdit, canDelete, onEdit, onRecategorize, onDelete],
   );
 }
 
@@ -298,6 +330,12 @@ export function TransactionsTable({
   const confirm = useConfirm();
   const deleteMut = useDeleteTransaction();
   const [editing, setEditing] = useState<TransactionListItem | null>(null);
+  const [recategorizing, setRecategorizing] =
+    useState<RecategorizableExpense | null>(null);
+  const onRecategorize = useCallback(
+    (tx: TransactionListItem) => setRecategorizing(toRecategorizable(tx)),
+    [],
+  );
 
   const onDelete = useCallback(
     async (tx: TransactionListItem) => {
@@ -323,6 +361,7 @@ export function TransactionsTable({
     canEdit: canWrite,
     canDelete,
     onEdit: setEditing,
+    onRecategorize,
     onDelete,
   });
 
@@ -401,6 +440,12 @@ export function TransactionsTable({
         transaction={editing}
         onOpenChange={(open) => {
           if (!open) setEditing(null);
+        }}
+      />
+      <RecategorizeExpenseDialog
+        expense={recategorizing}
+        onOpenChange={(open) => {
+          if (!open) setRecategorizing(null);
         }}
       />
     </>
