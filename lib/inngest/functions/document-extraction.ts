@@ -184,6 +184,25 @@ async function classifyAndExtract(
   return { kind, confidence, payload };
 }
 
+/** The accounts and cost centers the classifier picks from. A failed read
+ *  throws (the step retries): an empty catalog would record "no suggestion"
+ *  for the document as if there were nothing to choose. */
+export async function readExpenseCatalog(): Promise<{
+  leaves: { code: string | null; name: string | null }[];
+  costCenters: { code: string; name: string }[];
+}> {
+  const svc = getServiceClient();
+  const [leaves, ccs] = await Promise.all([
+    svc.from("expense_leaf_accounts").select("code, name"),
+    svc.from("cost_centers").select("code, name").eq("is_active", true),
+  ]);
+  if (leaves.error) {
+    throw new Error(`expense catalog: ${leaves.error.message}`);
+  }
+  if (ccs.error) throw new Error(`cost centers: ${ccs.error.message}`);
+  return { leaves: leaves.data ?? [], costCenters: ccs.data ?? [] };
+}
+
 /** Expense account / cost center suggestion for a purchase invoice. */
 async function suggestExpense(
   payload: unknown,
@@ -191,10 +210,7 @@ async function suggestExpense(
   onUsage: UsageSink,
 ): Promise<ExpenseClassifyResult> {
   const svc = getServiceClient();
-  const [{ data: leaves }, { data: ccs }] = await Promise.all([
-    svc.from("expense_leaf_accounts").select("code, name"),
-    svc.from("cost_centers").select("code, name").eq("is_active", true),
-  ]);
+  const { leaves, costCenters: ccs } = await readExpenseCatalog();
 
   let supplierCategory: string | null = null;
   if (matches.supplier_id) {
@@ -216,12 +232,12 @@ async function suggestExpense(
       lineDescriptions: inv.success
         ? inv.data.items.map((it) => it.description).filter(Boolean)
         : [],
-      leafAccounts: (leaves ?? []).flatMap((l) =>
+      leafAccounts: leaves.flatMap((l) =>
         l.code !== null && l.name !== null
           ? [{ code: l.code, name: l.name }]
           : [],
       ),
-      costCenters: ccs ?? [],
+      costCenters: ccs,
     },
     {
       onUsage: (usage) => onUsage("expense_classify", AI_TITLE_MODEL, usage),

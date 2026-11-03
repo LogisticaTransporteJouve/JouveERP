@@ -118,6 +118,8 @@ export function useInvoiceFreightSettlement() {
   return useMutation({
     mutationFn: (input: FreightSettlementInvoiceInput) =>
       runAction(() => invoiceFreightSettlementAction(input)),
-    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+    // Settled: the factura can be issued and then fail to link, and the
+    // lists must still show the new comprobante and the claim.
+    onSettled: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

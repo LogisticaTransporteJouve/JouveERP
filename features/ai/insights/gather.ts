@@ -251,10 +251,13 @@ export type ReceivablesRisk = {
   total90Plus: number;
   clientCount: number;
   top: { name: string; amount: number }[];
+  /** Some 90+ debt is in dollars and there is no rate: it is left out. */
+  usdOmitted: boolean;
 };
 
 /** Clients with a 90+ overdue balance, for the receivables-risk card. Dollars
- *  count at the latest official rate; without one, only pesos are counted. */
+ *  count at the latest official rate; without one, only pesos are counted
+ *  and `usdOmitted` says so. */
 export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
   const service = getServiceClient();
   const [riskRes, usdRate] = await Promise.all([
@@ -271,14 +274,14 @@ export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
     fetchLatestUsdRate(service),
   ]);
 
+  let usdOmitted = false;
   const rows = must(riskRes, "receivables_risk")
     .map((r) => {
       const ars = Number(r.ars_bucket_90_plus ?? 0);
       const usd = Number(r.usd_bucket_90_plus ?? 0);
-      return {
-        name: r.clients.legal_name,
-        amount: arsEquivalent(ars, usd, usdRate?.rate ?? null) ?? ars,
-      };
+      const both = arsEquivalent(ars, usd, usdRate?.rate ?? null);
+      if (both === null) usdOmitted = true;
+      return { name: r.clients.legal_name, amount: both ?? ars };
     })
     .filter((r) => r.amount > 0)
     .sort((a, b) => b.amount - a.amount);
@@ -286,5 +289,6 @@ export async function gatherReceivablesRisk(): Promise<ReceivablesRisk> {
     total90Plus: Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100,
     clientCount: rows.length,
     top: rows.slice(0, 5),
+    usdOmitted,
   };
 }

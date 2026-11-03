@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { movesStock } from "./moves-stock";
+import { resolveAccess } from "@/lib/auth/permissions";
+
+import { canMoveStock, movesStock } from "./moves-stock";
 
 const stored = {
   warehouse_id: "w1",
@@ -29,5 +31,17 @@ describe("movesStock", () => {
     expect(movesStock(stored, { quantity: null })).toBe(true);
     expect(movesStock(stored, { entry_date: "2026-10-02" })).toBe(true);
     expect(movesStock(stored, { exit_date: "2026-11-01" })).toBe(true);
+  });
+});
+
+describe("canMoveStock", () => {
+  it("needs pallets:write and stock_movements:write", () => {
+    expect(canMoveStock(resolveAccess(["warehouse"], []))).toBe(true);
+    expect(
+      canMoveStock(resolveAccess(["warehouse"], ["stock_movements:write"])),
+    ).toBe(false);
+    expect(canMoveStock(resolveAccess(["warehouse"], ["pallets:write"]))).toBe(
+      false,
+    );
   });
 });

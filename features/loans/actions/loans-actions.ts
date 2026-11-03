@@ -360,11 +360,19 @@ export async function updateInstallmentAction(
   const { id, split, ...rest } = parsed.data;
   const supabase = await createSupabaseClient();
 
-  const { data: inst } = await supabase
+  const { data: inst, error: readError } = await supabase
     .from("loan_installments")
     .select("status, capital_amount")
     .eq("id", id)
     .maybeSingle();
+  if (readError) {
+    logger.error("loans.installment.read_failed", {
+      userId: ctx.userId,
+      id,
+      error: readError,
+    });
+    return { ok: false, error: "No se pudo leer la cuota." };
+  }
   if (!inst) return { ok: false, error: "No se encontró la cuota." };
   if (inst.status === "pagada") {
     return { ok: false, error: "No se puede editar una cuota ya pagada." };

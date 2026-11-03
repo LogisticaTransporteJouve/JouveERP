@@ -116,7 +116,7 @@ Per sink:
    error shown as "No se pudo guardar", or an injection; stricter means a valid value is refused
    (a schema rejecting a legal CUIT, a negative amount on an NC that the column allows).
 2. Is an interpolated (not bound) value escaped? A user search in `.ilike(` goes through an escaping
-   helper such as `containsPattern` (`features/files/lib/hub.ts`); a value inside `.or(\`...\`)` is
+   helper such as `containsPattern` (`lib/supabase/like-pattern.ts`); a value inside `.or(\`...\`)` is
    a number or UUID that the schema already narrowed, never free text. Storage keys come from
    `buildStorageKey` (`lib/files/storage-path.ts`), never from the original filename. Resolve a
    path and compare it to its base; never pattern-match it.

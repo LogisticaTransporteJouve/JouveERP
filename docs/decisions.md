@@ -34,6 +34,68 @@ canales en los totales y no aparecía en el flujo de caja. Moneda, tipo y
 saldo inicial de una cuenta con movimientos quedan fijos; el saldo se
 corrige con el ajuste con fecha.
 
+## 2026-11-04 — Insights y propuestas: cortar después de ordenar, avisar antes de reofrecer
+
+**Decisión.** `listInsightsAction` lee todas las tarjetas vivas (el set lo
+acota la última corrida del analista), filtra las del dominio del usuario,
+ordena por gravedad y recién ahí corta en 50, devolviendo el total para que
+el panel diga "Mostrando 50 de N". Una propuesta aceptada cuyo pedido murió
+se cierra como fallida y esa misma fila se devuelve, con "No se sabe si la
+acción se completó"; la propuesta nueva se arma en la apertura siguiente.
+
+**Por qué.** Una corrida comparte `generated_at`: el `limit(50)` en SQL
+devolvía 50 cualesquiera, así que una crítica podía quedar afuera y un
+usuario de operaciones podía no ver ninguna de las suyas. Reofrecer
+"Aceptar" sin mostrar el aviso permitía repetir una escritura que quizás ya
+se hizo (una tarea).
+
+**Descartado.** Ordenar por gravedad en SQL (`severity` es texto: el orden
+alfabético no es el de gravedad) y mostrar el aviso junto a la propuesta
+nueva (dos tarjetas en el mismo diálogo).
+
+## 2026-11-04 — Lecturas que fallan en indicadores y clasificador de gastos
+
+**Decisión.** El margen por cliente o camión pasado el tope del RPC
+(`ai_fleet_margin`, 500 grupos, sin offset) falla el indicador, que conserva
+sus tarjetas, en vez de leer costo 0. El catálogo de cuentas de gasto y
+centros de costo que lee el clasificador tira el error y el paso de Inngest
+reintenta. Si se agotan los reintentos, la extracción queda fallida (antes
+se guardaba con "sin sugerencia" como si no hubiera catálogo).
+
+**Descartado.** Paginar `ai_fleet_margin`: pide una migración, y pasar de
+500 clientes o camiones con viajes en 90 días no es el caso de una sola
+empresa de logística; si pasa, el log `ai.insights.indicator_failed` lo
+muestra.
+
+## 2026-11-04 — Exento, no gravado y reparto de otros tributos en compras
+
+**Decisión.** Toda compra guarda aparte el no gravado y el exento
+(`imp_no_gravado`, `imp_op_exentas`) y reparte sus otros tributos en
+percepción de IVA, percepción de IIBB, municipales e impuestos internos; la
+persona los reparte a mano, porque ni el comprobante escaneado ni el archivo
+de ARCA dicen de qué es cada tributo. `imp_trib` queda como la suma de las
+cuatro partes. En el asiento, el no gravado, el exento, los municipales y los
+internos son gasto; la percepción de IVA va a "Percepciones IVA sufridas"
+(rol nuevo `percepciones_iva_pagadas`) y la de IIBB a "Percepciones IIBB
+sufridas", como todo `imp_trib` antes. El TXT para ARCA declara cada importe en
+su campo y deja "Otros tributos" en 0; el libro IVA (pantalla, Excel, PDF)
+muestra no gravado, exento, percepciones de IVA y de IIBB aparte, y junta
+municipales e internos en "Otros trib.". El estimado de IVA resta las percepciones de
+IVA de las compras. En facturas B y C el IVA, el exento y el no gravado van
+dentro del neto.
+
+**Por qué.** El libro IVA declaraba el exento como neto al 0% y todas las
+percepciones como un solo "Otros tributos", y el estimado de IVA no podía
+restar las percepciones de IVA.
+
+**Cambia lo ya cargado.** Las compras existentes pasan su `imp_trib` a
+percepción de IIBB: su asiento no cambia, pero el TXT de un período ya
+presentado con tributos ahora los declara en el campo de IIBB y no en "Otros
+tributos". Lo aprueban el dueño y el contador.
+
+**Descartado.** Ítems sin alícuota para el exento (hay compras sin ítems) y
+dejar todo como antes con un aviso.
+
 ## 2026-11-04 — Permisos sin gate: se cablean o se quitan
 
 **Decisión.** Cada permiso de la matriz tiene que leerse en algún gate (lo

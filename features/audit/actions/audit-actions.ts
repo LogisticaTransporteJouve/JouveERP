@@ -10,6 +10,7 @@ import { toCsv } from "@/lib/export/csv";
 import { formatArgentineDateTime, todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { escapeLike } from "@/lib/supabase/like-pattern";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { auditActorLabel } from "../lib/actor";
@@ -74,11 +75,6 @@ function toRow(row: AuditEventDbRow): AuditEventRow {
   };
 }
 
-/** LIKE treats `_` and `%` as wildcards; a module name is matched as typed. */
-function likeLiteral(text: string): string {
-  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
 function filteredQuery(filters: AuditFilters) {
   let query = getServiceClient().from("audit_events").select(COLUMNS);
   if (filters.from) query = query.gte("ts", `${filters.from}${AR_DAY_START}`);
@@ -86,7 +82,8 @@ function filteredQuery(filters: AuditFilters) {
   if (filters.actorId) query = query.eq("actor_id", filters.actorId);
   if (filters.eventType) query = query.eq("event_type", filters.eventType);
   if (filters.module) {
-    query = query.like("event_type", `${likeLiteral(filters.module)}.%`);
+    // A module name is matched as typed, not as a pattern.
+    query = query.like("event_type", `${escapeLike(filters.module)}.%`);
   }
   return query
     .order("ts", { ascending: false })

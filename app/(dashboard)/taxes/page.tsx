@@ -53,6 +53,7 @@ export default async function TaxesPage() {
         initialYear={year}
         canWrite={canWrite}
         canAttach={canWrite && userCan(ctx.access, "files:write")}
+        canEstimate={canWrite && userCan(ctx.access, "accounting:read")}
         canLinkPayment={
           canWrite &&
           userCan(ctx.access, "transactions:read") &&

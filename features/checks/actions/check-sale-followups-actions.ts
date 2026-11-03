@@ -177,14 +177,14 @@ export async function rejectSoldCheckAsDebtAction(
   return { ok: true, data: { debt_id: data } };
 }
 
-const CHECK_SALE_DEBT_SELECT =
+const DEBT_COLUMNS =
   "id, check_id, amount, currency, rejected_on, paid_at, check:checks(check_number, bank_name), sale:check_sales(buyer_name)";
 
-/** Paid debts shown under the pending ones (the latest). */
-const PAID_CHECK_SALE_DEBTS_SHOWN = 100;
+/** Paid debts shown below the pending ones. */
+const PAID_DEBTS_SHOWN = 100;
 
-/** Debts to buyers of rejected sold checks: every pending one (drained past
- *  max_rows), then the latest paid ones. */
+/** Debts to buyers of rejected sold checks: every pending one (what is
+ *  owed, so never capped), then the latest 100 paid. */
 export async function listCheckSaleDebtsAction(): Promise<
   ActionResult<CheckSaleDebt[]>
 > {
@@ -197,7 +197,7 @@ export async function listCheckSaleDebtsAction(): Promise<
     paginateRange((from, to) =>
       service
         .from("check_sale_debts")
-        .select(CHECK_SALE_DEBT_SELECT)
+        .select(DEBT_COLUMNS)
         .is("paid_at", null)
         .order("rejected_on", { ascending: false })
         .order("id")
@@ -205,19 +205,20 @@ export async function listCheckSaleDebtsAction(): Promise<
     ),
     service
       .from("check_sale_debts")
-      .select(CHECK_SALE_DEBT_SELECT)
+      .select(DEBT_COLUMNS)
       .not("paid_at", "is", null)
       .order("paid_at", { ascending: false })
       .order("id")
-      .limit(PAID_CHECK_SALE_DEBTS_SHOWN),
+      .limit(PAID_DEBTS_SHOWN),
   ]);
   const error = pending.error ?? paid.error;
   if (error) {
     logger.error("check_sales.debts.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer las deudas por cheques." };
   }
+  const data = [...(pending.data ?? []), ...(paid.data ?? [])];
   const debts: CheckSaleDebt[] = [];
-  for (const row of [...(pending.data ?? []), ...(paid.data ?? [])]) {
+  for (const row of data) {
     if (!isCheckSaleCurrency(row.currency)) {
       logger.error("check_sales.debts.unknown_currency", { id: row.id });
       continue;

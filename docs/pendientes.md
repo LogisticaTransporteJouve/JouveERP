@@ -202,6 +202,37 @@ mitigación en el schema: el límite se respeta operando.
       (no existe el RPC) y las tarjetas quedan como estaban.
 - [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
       `regenerate_ai_insights` y el anti-join de tareas sin asignar.
+
+### Auditoría w2: IA, UI y adjuntos
+
+- [x] **Insights:** la lista se lee entera, se filtra por dominio y se ordena
+      por gravedad antes de mostrar 50 ("Mostrando 50 de N"); una lectura que
+      falla se muestra como error, no como "No hay insights todavía". "Visto"
+      sobre una tarjeta ya recalculada avisa en vez de dar éxito.
+- [x] **Propuestas:** una aceptada que quedó sin resultado se muestra primero
+      con "No se sabe si la acción se completó"; la nueva se arma al volver a
+      abrir. Aceptar una propuesta refresca todo (como en el chat).
+- [x] **Adjuntos:** una lectura que falla dice "No se pudieron leer los
+      adjuntos" (antes: sin adjuntos y un reintento en bucle).
+- [x] **Pallets:** los botones siguen los permisos de las acciones (crear,
+      cargar varios, despachar y borrar piden `stock_movements:write`;
+      editar y bloquear, `pallets:write`); sin `stock_movements:write` la
+      edición traba depósito, estado, cantidad y fechas.
+- [x] **Listas al facturar:** flete, liquidación y almacenaje refrescan
+      también cuando la factura se emitió pero no se vinculó. Impuestos
+      refresca Gestión y Conciliación; recategorizar, libros y Gestión.
+- [x] **Nits:** cheque de una OP con monto, moneda y cuenta trabados; flete
+      que no se borra si falla la lectura de la tarifa; historial de chat que
+      descarta solo el mensaje inválido; deudas por cheques pendientes sin
+      tope; Gestión parcial con filas de un bucket desconocido; búsquedas por
+      nombre que toman `%` y `_` literal; cobranzas en riesgo que avisan si
+      faltan los dólares; margen por cliente que falla pasado el tope del RPC;
+      error de lectura de cuota y del catálogo de gastos; "Estimar" y "Pagar"
+      solo con los permisos que piden; guía de `/aging/mora`; totales de la
+      rendición en una columna en el celular; historial de bloqueos en hora
+      argentina.
+- [ ] No verificado en el navegador: los diálogos y paneles se probaron con
+      tests de componentes (jsdom), no en la app.
 ## Auditoría RRHH y rendiciones (2026-11-04)
 
 - [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
@@ -465,9 +496,10 @@ mitigación en el schema: el límite se respeta operando.
       rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
       de pasivo (IVA) no es resultado y no suma.
-- [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
-      (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
-      saldo a favor del mes anterior; lo dice en pantalla.
+- [x] Estimado de IVA: descuenta las percepciones de IVA de las compras
+      que las tienen repartidas (`imp_perc_iva`, `20261104096400`; las
+      compras anteriores quedan como IIBB) y el saldo a favor del mes
+      anterior.
 - [x] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
       (no tiene `files:read`).
 - [x] Herramienta del asistente IA para impuestos (vencimientos y estado).
@@ -502,12 +534,10 @@ mitigación en el schema: el límite se respeta operando.
       mes anterior (`tax_documents.credit_balance`, `20261104050300`, se
       carga en el impuesto de IVA desde la DDJJ) y muestra aparte los otros
       tributos de las compras.
-- [ ] Estimado de IVA: las percepciones de IVA sufridas en compras no se
-      descuentan. `purchase_invoices` tiene un solo `imp_trib` (IVA e IIBB
-      juntas, y el asiento lo manda entero a percepciones IIBB); separarlas
-      pide una columna nueva en compras (carga manual, importador AFIP y
-      escaneo) y un asiento que las separe. Hoy el estimado muestra el total
-      de `imp_trib` para restarlo a mano.
+- [x] Estimado de IVA: las percepciones de IVA sufridas en compras se
+      descuentan cuando la compra las reparte. `imp_trib` se reparte en percepción IVA, percepción IIBB,
+      municipales e impuestos internos (`20261104096400`); cada parte va a
+      su cuenta en el asiento y a su campo en el libro IVA y el TXT.
 - [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
       log de auditoría (vinculado si está `tax_document.payment_linked`; si
       no, "Pagar"); la cuenta de gasto previa sale del último

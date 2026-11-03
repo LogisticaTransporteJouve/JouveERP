@@ -8,7 +8,9 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { managementKeys } from "@/features/management/lib/management-keys";
 import { tasksKeys } from "@/features/tasks/lib/tasks-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
@@ -60,12 +62,16 @@ function useTaxMutation<I, O>(action: (input: I) => Promise<O>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: action,
-    // A payment is a cash movement with a fiscal entry; the due-date tasks
-    // follow the document on the next sync.
-    onSuccess: () =>
+    // A payment is a cash movement with a fiscal entry, counted in Gestión's
+    // cash basis and matched against a bank line in Conciliación; the
+    // due-date tasks follow the document on the next sync. Settled: a failed
+    // request may still have written part of it.
+    onSettled: () =>
       invalidateKeys(qc, [
         taxesKeys.all,
         tasksKeys.all,
+        managementKeys.all,
+        reconciliationKeys.all,
         ...CASH_KEYS,
         ...LEDGER_KEYS,
       ]),

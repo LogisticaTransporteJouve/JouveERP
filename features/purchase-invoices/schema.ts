@@ -141,6 +141,22 @@ export type PurchaseInvoiceItemInput = z.infer<
 
 const itemsArray = z.array(PurchaseInvoiceItemSchema).default([]);
 
+export const EXEMPT_ITEMS_MESSAGE =
+  "Con exento o no gravado en el encabezado, los ítems deben tener alícuota.";
+
+/** An item without a rate next to header exento/no gravado counts them twice
+ *  (replace_purchase_invoice_items refuses it too, after the header insert). */
+export function itemsDoubleCountExempt(d: {
+  imp_no_gravado?: number;
+  imp_op_exentas?: number;
+  items?: { iva_rate_id: number | null }[];
+}): boolean {
+  return (
+    (d.imp_no_gravado ?? 0) + (d.imp_op_exentas ?? 0) > 0 &&
+    (d.items ?? []).some((it) => it.iva_rate_id === null)
+  );
+}
+
 const optionalUuid = z
   .union([z.literal(""), z.string().uuid()])
   .transform((v) => (v === "" ? null : v))
@@ -167,6 +183,13 @@ const baseFields = {
   imp_neto: positiveAmount.default(0),
   imp_iva: positiveAmount.default(0),
   imp_trib: positiveAmount.default(0),
+  imp_no_gravado: positiveAmount.default(0),
+  imp_op_exentas: positiveAmount.default(0),
+  /** imp_trib split; sent with every new purchase. */
+  imp_perc_iva: positiveAmount.default(0),
+  imp_perc_iibb: positiveAmount.default(0),
+  imp_perc_municipales: positiveAmount.default(0),
+  imp_impuestos_internos: positiveAmount.default(0),
   imp_total: positiveAmount,
   moneda: z.string().default("PES"),
   cotizacion: amount.default(1),
@@ -199,6 +222,10 @@ export const PurchaseInvoiceCreateSchema = z
   .refine((d) => d.kind === "factura" || Boolean(d.invoice_origin_id), {
     message: "Elegí el comprobante de origen de la nota de crédito o débito.",
     path: ["invoice_origin_id"],
+  })
+  .refine((d) => !itemsDoubleCountExempt(d), {
+    message: EXEMPT_ITEMS_MESSAGE,
+    path: ["items"],
   });
 
 export const PurchaseInvoiceUpdateSchema = z
@@ -218,6 +245,13 @@ export const PurchaseInvoiceUpdateSchema = z
     imp_neto: baseFields.imp_neto.optional(),
     imp_iva: baseFields.imp_iva.optional(),
     imp_trib: baseFields.imp_trib.optional(),
+    // No default: an edit that does not know the split leaves it as it is.
+    imp_no_gravado: positiveAmount.optional(),
+    imp_op_exentas: positiveAmount.optional(),
+    imp_perc_iva: positiveAmount.optional(),
+    imp_perc_iibb: positiveAmount.optional(),
+    imp_perc_municipales: positiveAmount.optional(),
+    imp_impuestos_internos: positiveAmount.optional(),
     imp_total: baseFields.imp_total.optional(),
     moneda: baseFields.moneda.optional(),
     cotizacion: baseFields.cotizacion.optional(),
@@ -238,7 +272,11 @@ export const PurchaseInvoiceUpdateSchema = z
       message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
       path: ["cotizacion"],
     },
-  );
+  )
+  .refine((d) => !itemsDoubleCountExempt(d), {
+    message: EXEMPT_ITEMS_MESSAGE,
+    path: ["items"],
+  });
 
 export const PurchaseInvoiceCancelSchema = z.object({
   id: z.string().uuid(),
@@ -272,6 +310,9 @@ export type PurchaseInvoice = {
   imp_neto: number;
   imp_iva: number;
   imp_trib: number;
+  /** Exento, no gravado and the imp_trib split. Only the detail read carries
+   *  them; a listed row leaves them undefined. */
+  amount_breakdown?: PurchaseAmountBreakdown;
   imp_total: number;
   moneda: string;
   cotizacion: number;
@@ -286,6 +327,32 @@ export type PurchaseInvoice = {
   cancelled_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PurchaseAmountBreakdown = {
+  imp_no_gravado: number;
+  imp_op_exentas: number;
+  imp_perc_iva: number;
+  imp_perc_iibb: number;
+  imp_perc_municipales: number;
+  imp_impuestos_internos: number;
+};
+
+export const PURCHASE_TRIBUTE_FIELDS = [
+  "imp_perc_iva",
+  "imp_perc_iibb",
+  "imp_perc_municipales",
+  "imp_impuestos_internos",
+] as const satisfies readonly (keyof PurchaseAmountBreakdown)[];
+
+export const PURCHASE_TRIBUTE_LABEL: Record<
+  (typeof PURCHASE_TRIBUTE_FIELDS)[number],
+  string
+> = {
+  imp_perc_iva: "Percepción IVA",
+  imp_perc_iibb: "Percepción IIBB",
+  imp_perc_municipales: "Municipales",
+  imp_impuestos_internos: "Impuestos internos",
 };
 
 export type PurchaseInvoiceItem = {

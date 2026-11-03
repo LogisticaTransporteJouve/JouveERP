@@ -46,6 +46,39 @@ export function cbteTipoFor(
   return CBTE_TIPO_BY_KIND_LETTER[kind][letter];
 }
 
+// Only a letter A voucher discriminates IVA for the buyer: on B and C the IVA,
+// exento and no gravado are part of the price.
+export function ivaIsComputable(letter: string | null): boolean {
+  return letter === "A";
+}
+
+export type VoucherAmountParts = {
+  imp_neto: number;
+  imp_no_gravado: number;
+  imp_op_exentas: number;
+  imp_iva: number;
+};
+
+/** The parts as a buyer books them: on a B or C voucher everything but the
+ *  tributes is net, so the total stays the same. */
+export function foldNonComputable(
+  letter: string | null,
+  parts: VoucherAmountParts,
+): VoucherAmountParts {
+  if (ivaIsComputable(letter)) return parts;
+  return {
+    imp_neto: +(
+      parts.imp_neto +
+      parts.imp_no_gravado +
+      parts.imp_op_exentas +
+      parts.imp_iva
+    ).toFixed(2),
+    imp_no_gravado: 0,
+    imp_op_exentas: 0,
+    imp_iva: 0,
+  };
+}
+
 // --------------------------------------------------------------------------
 // Concepto — what the voucher invoices.
 // --------------------------------------------------------------------------

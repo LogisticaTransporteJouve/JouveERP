@@ -13,6 +13,8 @@ import {
   type PurchaseIvaRateId,
 } from "@/features/purchase-invoices/schema";
 
+import { foldNonComputable, ivaIsComputable } from "@/lib/afip/codes";
+
 import { InvoiceExtractionSchema, type InvoiceExtraction } from "./schemas";
 
 /** Normalized AR alícuota (percent) → AFIP purchase iva_rate_id. */
@@ -160,8 +162,10 @@ export function buildPurchaseInvoiceDraft(
     warnings.push("Este comprobante parece estar ya cargado.");
   }
 
-  const mapped =
-    inv.items.length > 0 ? draftItems(inv.items, inv.letter === "C") : [];
+  // A B or C voucher does not discriminate IVA for the buyer (an unread
+  // letter is left to the user).
+  const ivaInNet = inv.letter != null && !ivaIsComputable(inv.letter);
+  const mapped = inv.items.length > 0 ? draftItems(inv.items, ivaInNet) : [];
   const items = mapped ?? [];
   if (mapped === null) {
     warnings.push(
@@ -169,8 +173,19 @@ export function buildPurchaseInvoiceDraft(
     );
   }
 
-  const neto = amount(inv.net_amount);
-  const iva = amount(inv.iva_amount);
+  const readNeto = amount(inv.net_amount);
+  const readIva = amount(inv.iva_amount);
+  const folded =
+    ivaInNet && readNeto !== null
+      ? foldNonComputable(inv.letter ?? null, {
+          imp_neto: readNeto,
+          imp_no_gravado: 0,
+          imp_op_exentas: 0,
+          imp_iva: readIva ?? 0,
+        })
+      : null;
+  const neto = folded ? folded.imp_neto : readNeto;
+  const iva = folded ? folded.imp_iva : readIva;
   const trib = amount(inv.other_taxes_amount);
   const total = amount(inv.total_amount);
   if (items.length > 0) {
