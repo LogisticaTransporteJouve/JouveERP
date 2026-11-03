@@ -64,6 +64,8 @@ export type ExtractionMatches = {
   client_id?: string;
   client_name?: string;
   duplicate_of?: string;
+  /** The duplicate lookup failed: whether it is already loaded is unknown. */
+  duplicate_unknown?: true;
   /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
   expense?: ExpenseClassifyResult;
   /** Bank-statement reconciliation summary (extracto). */
@@ -81,6 +83,10 @@ export async function matchDocument(input: {
   numero?: number | null;
   puntoVenta?: number | null;
   invoiceTable?: "purchase_invoices" | "invoices" | null;
+  /** The comprobante kinds (factura | nc | nd) it can be; null for any. */
+  kinds?: readonly InvoiceKind[] | null;
+  /** Its letter, when the scan read one. */
+  letter?: "A" | "B" | "C" | null;
 }): Promise<ExtractionMatches> {
   const service = getServiceClient();
   const matches: ExtractionMatches = {};
@@ -88,12 +94,13 @@ export async function matchDocument(input: {
   try {
     let matchedSupplierId: string | null = null;
     if (input.cuit) {
-      const { data } = await service
+      const { data, error } = await service
         .from(input.table)
         .select("id, legal_name, cuit")
         .in("cuit", cuitCandidates(input.cuit))
         .limit(1);
-      const row = data?.[0];
+      if (error) throw error;
+      const row = data[0];
       if (row) {
         if (input.table === "suppliers") {
           matches.supplier_id = row.id;
@@ -111,36 +118,68 @@ export async function matchDocument(input: {
       input.numero != null &&
       input.puntoVenta != null
     ) {
-      // A purchase-invoice number is the SUPPLIER's — (numero, punto_venta) is
-      // only unique per supplier, so dedupe needs the matched supplier (skip if
-      // we couldn't match one). Our own sales invoices are unique by
-      // (numero, punto_venta) since each punto_venta maps to one channel.
+      // The same key as the table's numbering uniqueness: each comprobante
+      // type (factura, NC, ND) and letter has its own numbering, so a Factura
+      // A and an NC A with the same number are two documents. A purchase
+      // number is the SUPPLIER's (unique per supplier), so dedupe needs the
+      // matched supplier (skip if we couldn't match one); our own sales
+      // invoices are unique per punto_venta, which maps to one channel.
+      const kinds = input.kinds ?? null;
+      const letter = input.letter ?? null;
       if (input.invoiceTable === "purchase_invoices") {
         if (matchedSupplierId) {
-          const { data } = await service
+          let q = service
             .from("purchase_invoices")
             .select("id")
             .eq("supplier_id", matchedSupplierId)
             .eq("numero", input.numero)
-            .eq("punto_venta", input.puntoVenta)
-            .limit(1);
-          if (data?.[0]) matches.duplicate_of = data[0].id;
+            .eq("punto_venta", input.puntoVenta);
+          if (kinds) q = q.in("kind", kinds);
+          if (letter) q = q.eq("letter", letter);
+          const { data, error } = await q.limit(1);
+          if (error) throw error;
+          if (data[0]) matches.duplicate_of = data[0].id;
         }
       } else {
-        const { data } = await service
+        let q = service
           .from("invoices")
           .select("id")
           .eq("numero", input.numero)
-          .eq("punto_venta", input.puntoVenta)
-          .limit(1);
-        if (data?.[0]) matches.duplicate_of = data[0].id;
+          .eq("punto_venta", input.puntoVenta);
+        if (kinds) q = q.in("kind", kinds);
+        if (letter) q = q.eq("letter", letter);
+        const { data, error } = await q.limit(1);
+        if (error) throw error;
+        if (data[0]) matches.duplicate_of = data[0].id;
       }
     }
   } catch (err) {
     logger.error("ai.document.match.failed", { error: err });
+    // A failed lookup is not "no duplicate": the review says it could not
+    // check.
+    if (input.invoiceTable) matches.duplicate_unknown = true;
   }
 
   return matches;
+}
+
+type InvoiceKind = "factura" | "nc" | "nd";
+
+/** The comprobante kinds a scanned invoice can be: the type printed on it,
+ *  else what the detected document implies (a note without its type read is
+ *  either one), else any. */
+export function comprobanteKinds(
+  detected: string,
+  printed: unknown,
+): InvoiceKind[] | null {
+  if (printed === "invoice") return ["factura"];
+  if (printed === "credit_note") return ["nc"];
+  if (printed === "debit_note") return ["nd"];
+  if (detected === "credit_debit_note") return ["nc", "nd"];
+  if (detected === "purchase_invoice" || detected === "sales_invoice") {
+    return ["factura"];
+  }
+  return null;
 }
 
 /** Maps a detected kind + extracted payload to a counterparty/duplicate match. */
@@ -156,6 +195,11 @@ export async function matchForKind(
   const numero = typeof payload.number === "number" ? payload.number : null;
   const puntoVenta =
     typeof payload.sales_point === "number" ? payload.sales_point : null;
+  const letter =
+    payload.letter === "A" || payload.letter === "B" || payload.letter === "C"
+      ? payload.letter
+      : null;
+  const kinds = comprobanteKinds(kind, payload.kind);
 
   if (kind === "purchase_invoice" || kind === "credit_debit_note") {
     return matchDocument({
@@ -164,6 +208,8 @@ export async function matchForKind(
       numero,
       puntoVenta,
       invoiceTable: "purchase_invoices",
+      kinds,
+      letter,
     });
   }
   if (kind === "sales_invoice") {
@@ -173,6 +219,8 @@ export async function matchForKind(
       numero,
       puntoVenta,
       invoiceTable: "invoices",
+      kinds,
+      letter,
     });
   }
   if (kind === "payment_order")
