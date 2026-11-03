@@ -5,7 +5,7 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { getActiveInvoicingChannels } from "@/lib/channels";
-import { todayInAR } from "@/lib/format";
+import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
@@ -572,7 +572,7 @@ export async function invoiceFreightAction(
   );
   const result: ActionResult<{ id: string }> =
     slot.kind === "live"
-      ? { ok: true, data: { id: slot.invoiceId } }
+      ? await reusableFreightInvoice(supabase, shipmentId, slot.invoiceId)
       : slot.kind === "free"
         ? await issueFreightInvoice(supabase, parsed.data, slot.key)
         : {
@@ -664,6 +664,51 @@ async function claimShipmentForInvoicing(
     };
   }
   return { ok: true, data: undefined };
+}
+
+/** The invoice an earlier click issued for the carga, while it still bills
+ *  the carga as it is: once the claim expires the carga can be edited, and
+ *  an invoice for another client or flete is not its. */
+async function reusableFreightInvoice(
+  supabase: SupabaseServerClient,
+  shipmentId: string,
+  invoiceId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const [shipment, invoice] = await Promise.all([
+    supabase
+      .from("shipments")
+      .select("client_id, freight_amount")
+      .eq("id", shipmentId)
+      .maybeSingle(),
+    supabase
+      .from("invoices")
+      .select("client_id, imp_neto")
+      .eq("id", invoiceId)
+      .maybeSingle(),
+  ]);
+  if (shipment.error || invoice.error || !shipment.data || !invoice.data) {
+    logger.error("shipments.freight_invoice.reuse_read_failed", {
+      shipmentId,
+      invoiceId,
+      error: shipment.error ?? invoice.error,
+    });
+    return {
+      ok: false,
+      error: "No se pudo verificar la factura ya emitida para la carga.",
+    };
+  }
+  if (
+    shipment.data.client_id !== invoice.data.client_id ||
+    round2(Number(shipment.data.freight_amount ?? 0)) !==
+      round2(Number(invoice.data.imp_neto))
+  ) {
+    return {
+      ok: false,
+      error:
+        "La carga tiene una factura emitida sin vincular por otro cliente o flete: volvé la carga a esos datos para vincularla.",
+    };
+  }
+  return { ok: true, data: { id: invoiceId } };
 }
 
 async function issueFreightInvoice(

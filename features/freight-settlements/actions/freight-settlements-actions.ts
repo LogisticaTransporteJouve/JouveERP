@@ -442,7 +442,7 @@ export async function cancelFreightSettlementAction(input: {
     return {
       ok: false,
       error:
-        "La liquidación tiene una factura emitida sin vincular: volvé a facturarla para vincularla, o anulá esa factura antes de cancelar.",
+        "La liquidación tiene una factura emitida sin vincular: volvé a facturarla para vincularla antes de cancelar.",
     };
   }
   const { error } = await supabase.rpc("cancel_freight_settlement", {
