@@ -6,7 +6,12 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
 import type { AiArtifactSink } from "../artifacts/sink";
-import type { ProposalSpec } from "../lib/proposal-specs";
+import type {
+  ProposalIssue,
+  ProposalLabels,
+  ProposalSpec,
+  ProposalSummaryRow,
+} from "../lib/proposal-specs";
 
 import { errResult, type AiRunResult, type AiToolResult } from "./result";
 
@@ -110,16 +115,46 @@ export type AiAction = {
   readonly proposal?: AiProposal;
 };
 
-/** What a `propose` action adds: its card spec and the executor a confirmed
- *  draft runs through. */
+/** A proposal's input resolved and held to the form's schema: the draft and
+ *  what the card shows, what is missing or ambiguous, or a failed lookup. */
+export type AiPreparedProposal =
+  | {
+      kind: "draft";
+      draft: unknown;
+      labels: ProposalLabels;
+      summary: ProposalSummaryRow[];
+    }
+  | {
+      kind: "issues";
+      issues: ProposalIssue[];
+      candidates?: {
+        field: string;
+        options: { value: string; label: string }[];
+      }[];
+    }
+  | { kind: "error"; error: string };
+
+/** What an executed draft produced: the record it created (or touched) and,
+ *  for a write of several parts, a note on what did not go through. */
+export type AiProposalOutcome = { id: string; note?: string };
+
+/** What a `propose` action adds: its card spec, how an input becomes a
+ *  draft, and the executor a confirmed draft runs through. */
 export type AiProposal = {
   readonly spec: ProposalSpec;
+  /** Parses `input` with the action's input schema, resolves it with the
+   *  read actions (the caller's gates) and validates the draft. Stores
+   *  nothing. The caller has already checked the action's permissions. */
+  prepareDraft: (
+    ctx: AiActionContext,
+    input: unknown,
+  ) => Promise<AiPreparedProposal>;
   /** Re-parses `draft` with the spec's schema and performs the write as
    *  `ctx.userId`. The caller has already checked the action's permissions. */
   executeDraft: (
     ctx: AiActionContext,
     draft: unknown,
-  ) => Promise<ActionResult<{ id: string }>>;
+  ) => Promise<ActionResult<AiProposalOutcome>>;
 };
 
 export type AiActionGate = Pick<AiAction, "permissions" | "anyOfPermissions">;
