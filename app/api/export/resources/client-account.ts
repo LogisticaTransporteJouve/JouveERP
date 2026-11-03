@@ -5,6 +5,7 @@ import {
   type AccountMovement,
 } from "@/features/clients/actions/account-actions";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
+import { formatReceiptNumber } from "@/features/receipts/schema";
 
 import {
   ACCOUNT_COLUMNS,
@@ -31,8 +32,7 @@ function clientDoc(m: AccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
   if (m.punto_venta == null || m.numero == null) return "—";
   if (m.source_type === "receipt" || m.source_type === "rejected_check") {
-    const pos = String(m.punto_venta).padStart(5, "0");
-    return `R${pos}-${String(m.numero).padStart(8, "0")}`;
+    return formatReceiptNumber(m.punto_venta, m.numero);
   }
   return formatInvoiceNumero(m.kind, m.letter, m.punto_venta, m.numero);
 }

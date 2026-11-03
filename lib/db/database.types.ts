@@ -3157,6 +3157,7 @@ export type Database = {
         Row: {
           cancelled_at: string | null
           cancelled_by: string | null
+          channel: string | null
           client_id: string
           confirmed_at: string | null
           confirmed_by: string | null
@@ -3169,6 +3170,8 @@ export type Database = {
           numero: number | null
           period_end: string
           period_start: string
+          remito_number: number | null
+          remito_pos: number | null
           status: string
           total: number
           updated_at: string
@@ -3176,6 +3179,7 @@ export type Database = {
         Insert: {
           cancelled_at?: string | null
           cancelled_by?: string | null
+          channel?: string | null
           client_id: string
           confirmed_at?: string | null
           confirmed_by?: string | null
@@ -3188,6 +3192,8 @@ export type Database = {
           numero?: number | null
           period_end: string
           period_start: string
+          remito_number?: number | null
+          remito_pos?: number | null
           status?: string
           total?: number
           updated_at?: string
@@ -3195,6 +3201,7 @@ export type Database = {
         Update: {
           cancelled_at?: string | null
           cancelled_by?: string | null
+          channel?: string | null
           client_id?: string
           confirmed_at?: string | null
           confirmed_by?: string | null
@@ -3207,6 +3214,8 @@ export type Database = {
           numero?: number | null
           period_end?: string
           period_start?: string
+          remito_number?: number | null
+          remito_pos?: number | null
           status?: string
           total?: number
           updated_at?: string
@@ -8902,6 +8911,15 @@ export type Database = {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: number
       }
+      confirm_freight_settlement_document: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: {
+          channel: string
+          numero: number
+          remito_number: number
+          remito_pos: number
+        }[]
+      }
       create_bank_statement_line_tax_payment: {
         Args: {
           p_allow_difference?: boolean
@@ -9073,6 +9091,7 @@ export type Database = {
           price_source: string
         }[]
       }
+      freight_remito_pos: { Args: never; Returns: number }
       freight_settlement_candidates: {
         Args: {
           p_client_id: string
@@ -9090,6 +9109,14 @@ export type Database = {
           service_date: string
           shipment_id: string
         }[]
+      }
+      freight_settlement_label: {
+        Args: {
+          p_numero: number
+          p_remito_number: number
+          p_remito_pos: number
+        }
+        Returns: string
       }
       get_account_balances: {
         Args: {
@@ -9624,6 +9651,10 @@ export type Database = {
       repost_journal: {
         Args: { p_id: string; p_source: string }
         Returns: undefined
+      }
+      reprice_freight_settlement: {
+        Args: { p_settlement_id: string }
+        Returns: number
       }
       reverse_journal_entry: { Args: { p_entry_id: string }; Returns: string }
       save_driver_settlement: {

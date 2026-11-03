@@ -72,6 +72,9 @@ recurrentes. Sueldos: a confirmar (por ahora compartido).
   "Guardar". Receptor doc 99 (`voucherReceptor`).
 - PDF y ficha sin CUIT ni condición de IVA.
 - Cargas y facturación de depósito emiten remito a un cliente interno.
+- Liquidación de fletes de un cliente interno: "Emitir remito interno"
+  confirma y emite un solo remito X con una línea por carga; no lleva el
+  Remito R, que es solo de Ventas (`R9002-…`). Ver `docs/decisions.md`.
 - Pendiente: la creación de facturas desde documentos IA sigue siendo solo fiscal.
 
 ### 4. Facturar un remito interno
