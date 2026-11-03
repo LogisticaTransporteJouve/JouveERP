@@ -11,6 +11,9 @@ begin;
 
 select plan(24);
 
+-- The posting trigger checks the caller like the app's service client.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000f501', 'owner@recon.test');
 insert into public.user_roles (user_id, role_id) values
