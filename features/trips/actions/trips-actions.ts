@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -167,6 +168,13 @@ export async function updateTripAction(input: unknown): Promise<ActionResult> {
     })
     .eq("id", id);
   if (error) {
+    // A trip with cargas in a live rendición keeps its driver.
+    const guardError = mapDbGuardError(error, {
+      slug: "trips.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("trips.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el viaje." };
   }
@@ -194,6 +202,13 @@ export async function deleteTripAction(input: {
     .eq("id", input.id)
     .select("id");
   if (error) {
+    // Unlinking its cargas fails while one is in a live rendición.
+    const guardError = mapDbGuardError(error, {
+      slug: "trips.delete.rejected",
+      userId: ctx.userId,
+      id: input.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("trips.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el viaje." };
   }
