@@ -1,20 +1,52 @@
 # Pendientes y faltantes — JouveERP
 
-> Estado al **2026-07-04**. Surge de una auditoría docs vs código (roadmap,
-> `docs/*`, `features/*`, migraciones, tests). Este doc es la lista de trabajo
-> real; cuando se resuelve cada punto, se sincroniza el roadmap.
+> Lista de trabajo vigente: lo que falta (código, datos y configuración) son
+> los ítems `[ ]` de **Límites de rollback** y de las secciones fechadas
+> desde "Follow-ups de operaciones" para abajo (la más nueva arriba). Las
+> §1–§4 son el cierre de la tanda 2026-07-04 y quedan como historia: sus
+> cifras y su "backlog vacío" son de esa fecha. Cuando se resuelve un punto,
+> se marca acá y se sincroniza el roadmap.
 
-> **Update 2026-07-04** — tanda de cierre (PRs #195–#201): mappers
+> **Tanda 2026-07-04** — surgió de una auditoría docs vs código (roadmap,
+> `docs/*`, `features/*`, migraciones, tests). Tanda de cierre (PRs #195–#201): mappers
 > crear-desde-escaneo para **todos** los tipos con destino (recibo, OP, factura
 > de venta, NC/ND de compra), **asientos manuales** + cuenta RECPAM + aplicación
 > RG 4667, **tarifas de storage versionadas** (aumento % + snapshot en cada
 > facturación), **flujo de caja con USD** al TC oficial, **L.6 export Libro IVA
 > Digital** (TXT posicional) y **L.7 CAEA** de contingencia. Con esto el
-> backlog de código queda **vacío**.
+> backlog de código quedó **vacío a esa fecha**.
+
+> **pgTAP.** CI (job `database`) aplica todas las migraciones sobre un stack
+> fresco y corre `supabase test db` en cada PR: los ítems "no verificado
+> contra una base real" de abajo quieren decir sin datos de producción y sin
+> probar en el navegador, no sin pgTAP.
 
 ---
 
-## 1. Lo único pendiente (configuración, no código)
+## Límites de rollback (vigentes)
+
+Un rollback de código vuelve a un SHA anterior sin revertir migraciones
+(`CONTRIBUTING.md`, "Deploy y rollback"). Estos cambios no tienen
+mitigación en el schema: el límite se respeta operando.
+
+- [ ] **SAC** (`20261103050100_payroll_sac_periods`, #315 `f71136f`): no
+      crear un período SAC (junio o diciembre) hasta que el deploy quede
+      firme. El código anterior busca el período por año y mes, sin `kind`:
+      con el SAC creado, la planilla de ese mes falla (`maybeSingle` ve dos
+      filas) y el listado muestra el mes dos veces. Con un SAC ya creado, no
+      volver a un SHA anterior a #315.
+- [ ] **Tarifas de almacenaje migradas** (`20261104080500`, #337 `bf8b975`):
+      el código anterior **no** puede editar una fila migrada (el guard
+      rechaza precio, vigencia y cliente; la nota de rollback de la migración
+      dice lo contrario y está mal). Su "Aumentar %" no filtra las migradas:
+      inserta las filas aumentadas (para un cliente migrado no cambia nada,
+      el tarifario las pisa), pero el cierre de las viejas va por lotes y el
+      guard rechaza el lote entero, también las no migradas: quedan dos
+      filas vigentes por cliente y la acción igual avisa que aplicó. Con
+      código anterior a #337, no usar "Aumentar %" (aumentar desde el
+      tarifario del cliente).
+
+## 1. Lo único pendiente a 2026-07-04 (configuración, no código)
 
 - [ ] **Email del aging semanal — env vars.** El cableado por Resend está
       shippeado (`lib/email/client.ts`); faltan `RESEND_API_KEY`, `EMAIL_FROM`
@@ -58,18 +90,20 @@
       nueva sin caso de uso; la FTS `search_global` cubre free-text.
 - [x] ~~**Write-tools IA + NL→SQL**~~ (decisión 2026-07-04): el agente queda
       read-only; las escrituras pasan por los flujos normales con confirmación
-      humana (Document Intelligence incluida).
+      humana (Document Intelligence incluida). Vale a 2026-07-04: hoy el
+      chat tiene propuestas que escriben tras confirmar; solo las corridas
+      headless siguen read-only.
 
 ## 4. Hecho anteriormente (referencia)
 
-- [x] **AI.0–AI.8** completo (chat + 25 tools + persistencia + artifacts +
+- [x] **AI.0–AI.8** completo (chat + 25 tools a 2026-07-04 + persistencia + artifacts +
       medidor/tope + Document Intelligence + insights proactivos) + anomalías,
       conciliación de extractos y skills de chat.
 - [x] **Fase K** (compras/pagos), **Fase L** (contabilidad, ahora completa),
       **Fase N** (RRHH), **Fase G** (flota), **Fase H** (pallets/depósito),
       **Fase R** (pagos recurrentes), **Treasury**, **M.2 multimoneda**
       (exchange_rates + cron BCRA + asientos multimoneda).
-- [x] Tests: 47/47 dominios con `schema.test.ts`; matriz de permisos con
+- [x] Tests (a 2026-07-04): 47/47 dominios con `schema.test.ts`; matriz de permisos con
       cobertura 100%.
 
 ---
@@ -130,7 +164,8 @@
       `storage_tariffs_to_client_tariffs`) y las pantallas.
 - [ ] Rollback: el código anterior factura una tarifa general por área como
       general de todas las áreas (no cargarlas hasta que el deploy quede
-      firme) y cobra la mora sobre el saldo de hoy.
+      firme) y cobra la mora sobre el saldo de hoy. No edita las tarifas
+      migradas ni cierra bien con "Aumentar %": ver "Límites de rollback".
 
 ## IA: propuestas e indicadores (2026-11-03, roadmap 6.3 + 6.4)
 
@@ -220,17 +255,17 @@
 - [ ] Vincular un egreso de un canal no fiscal se rechaza: cambiarle el
       canal rompería su conciliación. Si hace falta, cargarlo en el canal
       fiscal o pagar con "Pagar".
-- [ ] Resultado de gestión percibido: el pago de un impuesto cae en el
+- [x] Resultado de gestión percibido: el pago de un impuesto cae en el
       rubro de la cuenta `gastos` (como un egreso suelto sin cuenta de
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
       de pasivo (IVA) no es resultado y no suma.
 - [ ] Estimado de IVA: no descuenta las percepciones de IVA de las compras
       (el libro IVA Compras las suma con las de IIBB en `imp_trib`) ni el
       saldo a favor del mes anterior; lo dice en pantalla.
-- [ ] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
+- [x] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
       (no tiene `files:read`).
-- [ ] Herramienta del asistente IA para impuestos (vencimientos y estado).
-- [ ] El manual HTML no se sirve desde la app: la guía lo cita por nombre
+- [x] Herramienta del asistente IA para impuestos (vencimientos y estado).
+- [x] El manual HTML no se sirve desde la app: la guía lo cita por nombre
       ("Manual: Contabilidad › Impuestos"), sin link.
 - [x] **Deshacer un pago** (`20261104050100`, "Deshacer pago" en el
       impuesto pagado; `taxes:write` + `transactions:write`):
@@ -297,11 +332,11 @@
 - [ ] Aprobar la migración `20261103150000_ai_cross_queries` junto con el
       deploy: sin ella fallan `getClientMargin`, `getVehicleEconomics` y
       `getDriverActivity`.
-- [ ] **Costos de camión sin vínculo:** seguros, patentes, cubiertas y
-      compras cargadas solo con centro de costo no llegan a
-      `getVehicleEconomics` (mismo faltante que "Margen por camión" de
-      gestión v2).
-- [ ] `ai_fleet_margin` cuenta viajes cancelados (su costo y su ingreso
+- [x] **Costos de camión sin vínculo:** `getVehicleEconomics` suma el
+      costo del centro de costo del camión (`get_vehicle_margin`,
+      `20261104050000`); falta vincular cada camión con su centro (dato, ver
+      "Margen por camión").
+- [x] `ai_fleet_margin` cuenta viajes cancelados (su costo y su ingreso
       manual); las RPC nuevas de actividad los excluyen. Alinear.
 - [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
       `getDriverActivity`.
@@ -590,8 +625,8 @@
 - [ ] Aprobar la migración `20261103030000_audit_log` junto con el deploy: sin
       ella fallan el filtro de acciones, el "Historial" no tiene índice y el
       cron de retención falla.
-- [ ] Tile de km mensual pendiente cuando `vehicle_km_readings` llegue a
-      `main`.
+- [ ] Tile de km mensual en "Hoy y esta semana" (la tabla
+      `vehicle_km_readings` ya está en `main`).
 - [ ] Un ZIP con todo el paquete (hoy son botones separados: no hay librería
       de zip en las dependencias de runtime).
 - [ ] "Historial" en el resto de las páginas de detalle (recibos, OP,
