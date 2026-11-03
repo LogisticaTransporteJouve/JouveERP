@@ -7653,6 +7653,7 @@ export type Database = {
         Row: {
           amount_applied: number | null
           amount_credited_by_nc: number | null
+          amount_credited_unlinked: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
@@ -10270,6 +10271,10 @@ export type Database = {
         Args: { p_enabled: boolean; p_type: string }
         Returns: undefined
       }
+      usd_booking_rate: {
+        Args: { p_cotizacion: number; p_date: string }
+        Returns: number
+      }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
       user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
       vacation_work_days: {
@@ -10323,6 +10328,7 @@ export type Database = {
         | "ajustes_caja"
         | "sueldos"
         | "intereses_pagados"
+        | "diferencia_cambio"
       employee_document_kind:
         | "licencia_conducir"
         | "lnh"
@@ -10517,6 +10523,7 @@ export const Constants = {
         "ajustes_caja",
         "sueldos",
         "intereses_pagados",
+        "diferencia_cambio",
       ],
       employee_document_kind: [
         "licencia_conducir",
