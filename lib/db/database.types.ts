@@ -1500,6 +1500,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
@@ -1518,6 +1519,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
@@ -1536,6 +1538,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
@@ -1546,7 +1549,15 @@ export type Database = {
           real_address?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cost_centers: {
         Row: {
@@ -1789,6 +1800,7 @@ export type Database = {
           employee_id: string | null
           full_name: string
           id: string
+          import_run_id: string | null
           is_active: boolean
           license_category: string | null
           license_number: string | null
@@ -1804,6 +1816,7 @@ export type Database = {
           employee_id?: string | null
           full_name: string
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           license_category?: string | null
           license_number?: string | null
@@ -1819,6 +1832,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           license_category?: string | null
           license_number?: string | null
@@ -1833,6 +1847,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drivers_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -2348,6 +2369,7 @@ export type Database = {
           cuil: string | null
           hire_date: string
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_monotributo: boolean
           legal_name: string
@@ -2374,6 +2396,7 @@ export type Database = {
           cuil?: string | null
           hire_date: string
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_monotributo?: boolean
           legal_name: string
@@ -2400,6 +2423,7 @@ export type Database = {
           cuil?: string | null
           hire_date?: string
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_monotributo?: boolean
           legal_name?: string
@@ -2415,7 +2439,15 @@ export type Database = {
           updated_at?: string
           viatico_monthly?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exchange_rates: {
         Row: {
@@ -3018,6 +3050,146 @@ export type Database = {
           },
         ]
       }
+      historic_payroll_entries: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          import_run_id: string
+          kind: string
+          net_amount: number
+          notes: string | null
+          paid_amount: number | null
+          paid_on: string | null
+          period: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          import_run_id: string
+          kind?: string
+          net_amount: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_on?: string | null
+          period: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          import_run_id?: string
+          kind?: string
+          net_amount?: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_on?: string | null
+          period?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historic_payroll_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_payroll_entries_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historic_trips: {
+        Row: {
+          client_id: string | null
+          client_label: string | null
+          created_at: string
+          destination: string | null
+          driver_id: string | null
+          driver_label: string | null
+          freight_amount: number | null
+          id: string
+          import_run_id: string
+          km: number | null
+          notes: string | null
+          origin: string | null
+          source_hash: string
+          trip_date: string
+          vehicle_id: string | null
+          vehicle_label: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_label?: string | null
+          created_at?: string
+          destination?: string | null
+          driver_id?: string | null
+          driver_label?: string | null
+          freight_amount?: number | null
+          id?: string
+          import_run_id: string
+          km?: number | null
+          notes?: string | null
+          origin?: string | null
+          source_hash: string
+          trip_date: string
+          vehicle_id?: string | null
+          vehicle_label?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          client_label?: string | null
+          created_at?: string
+          destination?: string | null
+          driver_id?: string | null
+          driver_label?: string | null
+          freight_amount?: number | null
+          id?: string
+          import_run_id?: string
+          km?: number | null
+          notes?: string | null
+          origin?: string | null
+          source_hash?: string
+          trip_date?: string
+          vehicle_id?: string | null
+          vehicle_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historic_trips_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_trips_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_trips_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historic_trips_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           created_at: string
@@ -3063,6 +3235,57 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           value?: Json
+        }
+        Relationships: []
+      }
+      import_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string
+          file_sha256: string
+          id: string
+          inserted_rows: number
+          invalid_rows: number
+          kind: string
+          mapping: Json
+          skipped_rows: number
+          status: string
+          total_rows: number
+          undone_at: string | null
+          undone_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          file_sha256: string
+          id?: string
+          inserted_rows?: number
+          invalid_rows?: number
+          kind: string
+          mapping?: Json
+          skipped_rows?: number
+          status?: string
+          total_rows: number
+          undone_at?: string | null
+          undone_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          file_sha256?: string
+          id?: string
+          inserted_rows?: number
+          invalid_rows?: number
+          kind?: string
+          mapping?: Json
+          skipped_rows?: number
+          status?: string
+          total_rows?: number
+          undone_at?: string | null
+          undone_by?: string | null
         }
         Relationships: []
       }
@@ -6005,6 +6228,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          import_run_id: string | null
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
@@ -6027,6 +6251,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
@@ -6049,6 +6274,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
@@ -6092,6 +6318,13 @@ export type Database = {
             columns: ["default_expense_account_id"]
             isOneToOne: false
             referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -6679,6 +6912,7 @@ export type Database = {
           fleet: string | null
           fuel_card: string | null
           id: string
+          import_run_id: string | null
           is_active: boolean
           model: string | null
           notes: string | null
@@ -6696,6 +6930,7 @@ export type Database = {
           fleet?: string | null
           fuel_card?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           model?: string | null
           notes?: string | null
@@ -6713,6 +6948,7 @@ export type Database = {
           fleet?: string | null
           fuel_card?: string | null
           id?: string
+          import_run_id?: string | null
           is_active?: boolean
           model?: string | null
           notes?: string | null
@@ -6721,7 +6957,15 @@ export type Database = {
           vehicle_type?: string
           year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouses: {
         Row: {
@@ -8148,6 +8392,20 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]
       }
+      commit_import_run: {
+        Args: {
+          p_file_name: string
+          p_file_sha256: string
+          p_invalid_rows: number
+          p_kind: string
+          p_mapping: Json
+          p_rows: Json
+          p_skipped_rows: number
+          p_total_rows: number
+          p_user_id: string
+        }
+        Returns: string
+      }
       confirm_driver_settlement: {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: string[]
@@ -9103,6 +9361,10 @@ export type Database = {
           scope: string
           total: number
         }[]
+      }
+      undo_import_run: {
+        Args: { p_run_id: string; p_user_id: string }
+        Returns: undefined
       }
       update_chat_channel: {
         Args: { p_channel: string; p_description: string; p_name: string }
