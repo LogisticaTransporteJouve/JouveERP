@@ -157,6 +157,7 @@ const GUARDS = [
   "guard_issued_check_edit",
   "create_transfer",
   "reject_check",
+  "guard_payment_order_rejected_check_allocation",
 ];
 
 describe("guard hints in migrations", () => {
