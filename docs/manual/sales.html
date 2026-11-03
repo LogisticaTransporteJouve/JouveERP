@@ -303,9 +303,12 @@ flowchart LR
         </table>
         <p>
           El cálculo es en vivo: parte de las facturas y notas de débito
-          emitidas (no canceladas) y resta las imputaciones de los recibos
-          emitidos + las imputaciones de saldo de apertura. Las facturas con
-          saldo &lt; $0,01 no aparecen.
+          emitidas (no canceladas) y de los cheques rechazados, y resta las
+          imputaciones de los recibos emitidos, las del saldo de apertura y
+          las notas de crédito emitidas contra cada comprobante. Una nota de
+          crédito sin comprobante de origen se descuenta de los comprobantes
+          más vencidos del cliente, del mismo canal y moneda. Los comprobantes
+          sin saldo no aparecen.
         </p>
 
         <!-- ──────── FLUJO ──────── -->

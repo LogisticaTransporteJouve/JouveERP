@@ -1,7 +1,7 @@
 "use client";
 
 import { Calculator, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -108,14 +108,26 @@ export function TaxDocumentDialog({
   const createMut = useCreateTaxDocument();
   const updateMut = useUpdateTaxDocument();
   const estimateMut = useIvaEstimate();
+  const resetEstimate = estimateMut.reset;
   const pending = createMut.isPending || updateMut.isPending;
+
+  // What an Estimar answer belongs to. The dialog stays mounted: an answer
+  // that comes back after the document, the period or the kind changed (or
+  // the dialog was closed) is dropped, not written into another form.
+  const estimateFor = `${doc?.id ?? "new"}|${form.kind}|${form.period}`;
+  const estimateTarget = useRef({ key: estimateFor, epoch: 0 });
+  useEffect(() => {
+    estimateTarget.current.key = estimateFor;
+  }, [estimateFor]);
 
   useEffect(() => {
     if (open) {
       setForm(initialState(doc));
       setEstimate(null);
     }
-  }, [open, doc]);
+    estimateTarget.current.epoch += 1;
+    resetEstimate();
+  }, [open, doc, resetEstimate]);
 
   // A new document takes the kind's usual account when the plan has it.
   useEffect(() => {
@@ -132,8 +144,13 @@ export function TaxDocumentDialog({
   }
 
   function runEstimate() {
+    const asked = { key: estimateFor, epoch: estimateTarget.current.epoch };
+    const stillAsked = () =>
+      estimateTarget.current.key === asked.key &&
+      estimateTarget.current.epoch === asked.epoch;
     estimateMut.mutate(form.period, {
       onSuccess: (result) => {
+        if (!stillAsked()) return;
         setEstimate(result);
         if (result.saldo > 0) {
           setForm((f) => ({
@@ -147,7 +164,9 @@ export function TaxDocumentDialog({
           );
         }
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => {
+        if (stillAsked()) toast.error(err.message);
+      },
     });
   }
 

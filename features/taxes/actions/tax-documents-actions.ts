@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { round2 } from "@/lib/format";
+import { isUsdCurrency } from "@/lib/fx";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import {
@@ -21,6 +23,7 @@ import {
   groupByInvoice,
   groupComprasByInvoice,
 } from "@/features/libro-iva/schema";
+import type { ReceiptStatus } from "@/features/receipts/schema";
 
 import {
   addOneMonth,
@@ -208,6 +211,10 @@ export async function listTaxAccountOptionsAction(): Promise<
   return { ok: true, data: options };
 }
 
+// Typed against the receipts' status set, so a value the column's CHECK
+// never admits fails the typecheck instead of silently matching no row.
+const ISSUED_RECEIPT: ReceiptStatus = "issued";
+
 /**
  * IVA position of a period estimated from the libro IVA (fiscal channels):
  * débito of the sales book − crédito of the purchases book − IVA retentions
@@ -252,12 +259,12 @@ export async function getIvaPositionEstimateAction(input: {
       supabase
         .from("receipt_retentions")
         .select(
-          "id, amount, receipt:receipts!inner ( status, channel:invoicing_channels!inner ( is_fiscal ) )",
+          "id, amount, receipt:receipts!inner ( status, currency, cotizacion, channel:invoicing_channels!inner ( is_fiscal ) )",
         )
         .eq("tax_type", "iva")
         .gte("certificate_date", from)
         .lte("certificate_date", to)
-        .eq("receipt.status", "emitted")
+        .eq("receipt.status", ISSUED_RECEIPT)
         .eq("receipt.channel.is_fiscal", true)
         .order("id", { ascending: true })
         .range(rFrom, rTo),
@@ -272,6 +279,27 @@ export async function getIvaPositionEstimateAction(input: {
       ok: false,
       error: "No se pudieron leer las retenciones de IVA del período.",
     };
+  }
+
+  // In pesos at the receipt's own rate, the way the receipt's journal entry
+  // posts it. A legacy USD receipt with no stored rate has no peso value here:
+  // refusing beats adding dollars as pesos.
+  const retentionsArs: number[] = [];
+  for (const r of retentions ?? []) {
+    const amount = Number(r.amount);
+    if (!isUsdCurrency(r.receipt.currency)) {
+      retentionsArs.push(amount);
+      continue;
+    }
+    const rate = Number(r.receipt.cotizacion ?? 0);
+    if (!(rate > 0)) {
+      return {
+        ok: false,
+        error:
+          "Hay una retención de IVA en un recibo en dólares sin cotización: cargala en el recibo para estimar el IVA.",
+      };
+    }
+    retentionsArs.push(round2(amount * rate));
   }
 
   const { data: previousDocs, error: prevError } = await supabase
@@ -299,10 +327,7 @@ export async function getIvaPositionEstimateAction(input: {
     period,
     debito: sumIva(computeTotals(ventasGrouped).per_rate),
     credito: sumIva(comprasTotals.per_rate),
-    retenciones: (retentions ?? []).reduce(
-      (acc, r) => acc + Number(r.amount),
-      0,
-    ),
+    retenciones: retentionsArs.reduce((acc, amount) => acc + amount, 0),
     saldoAnterior: previousIvaCreditBalance(
       (previousDocs ?? []).map((d) => ({
         status: d.status,

@@ -8,10 +8,16 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import {
+  mergeOpenAndRecent,
+  SETTLED_LIST_CAP,
+} from "@/lib/supabase/open-and-recent";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
+  CHECK_STATUSES,
   CreditChequeSchema,
   DepositChequeSchema,
   isChequeCurrency,
@@ -65,36 +71,65 @@ export interface CheckListItem extends Cheque {
   source_client_legal_name: string | null;
 }
 
+/** Checks the list still moves forward (depositar, endosar, vender,
+ *  acreditar): always listed in full. An endorsed or sold check can still be
+ *  rejected but sits with the settled ones, whose cap keeps the latest due
+ *  dates (the window a bounce arrives in). */
+const OPEN_CHECK_STATUSES = ["en_cartera", "depositado"] as const;
+const SETTLED_CHECK_STATUSES = CHECK_STATUSES.filter(
+  (s) => !(OPEN_CHECK_STATUSES as readonly string[]).includes(s),
+);
+
 /** `isFiscal` (`isFiscalFor`): null/undefined = every check, those with no
- *  channel included; a boolean drops the checks without a channel. */
+ *  channel included; a boolean drops the checks without a channel. Every
+ *  check in cartera or deposited, plus the latest SETTLED_LIST_CAP others by
+ *  due date; `truncated` = older settled checks were left out. */
 export async function listChecksAction(input?: {
   isFiscal?: boolean | null;
-}): Promise<ActionResult<{ items: CheckListItem[] }>> {
+}): Promise<ActionResult<{ items: CheckListItem[]; truncated: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: "No tenés permiso para ver cheques." };
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await applyFiscalFilter(
-    supabase.from("checks").select(
-      `${CHECK_COLUMNS},
+  const base = () =>
+    applyFiscalFilter(
+      supabase.from("checks").select(
+        `${CHECK_COLUMNS},
        cartera_account:accounts!checks_cartera_account_id_fkey(name),
        source_client:clients(legal_name),
        channel:invoicing_channels(is_fiscal)`,
+      ),
+      input?.isFiscal,
+      "channel",
+    );
+  const [open, settled] = await Promise.all([
+    paginateRange((from, to) =>
+      base()
+        .in("status", [...OPEN_CHECK_STATUSES])
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
     ),
-    input?.isFiscal,
-    "channel",
-  )
-    .order("due_date", { ascending: true })
-    .limit(500);
+    base()
+      .in("status", SETTLED_CHECK_STATUSES)
+      .order("due_date", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(SETTLED_LIST_CAP + 1),
+  ]);
 
+  const error = open.error ?? settled.error;
   if (error) {
     logger.error("cheques.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los cheques." };
   }
+  const { rows, truncated } = mergeOpenAndRecent(
+    open.data ?? [],
+    settled.data ?? [],
+  );
 
-  const items: CheckListItem[] = (data ?? [])
+  const items: CheckListItem[] = rows
     .map((row) => {
       const narrowed = narrowCheck(row);
       if (!narrowed) return null;
@@ -108,7 +143,7 @@ export async function listChecksAction(input?: {
     })
     .filter((c): c is CheckListItem => c !== null);
 
-  return { ok: true, data: { items } };
+  return { ok: true, data: { items, truncated } };
 }
 
 export type EnCarteraCheck = {

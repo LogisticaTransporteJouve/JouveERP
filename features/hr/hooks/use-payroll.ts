@@ -18,13 +18,17 @@ import {
   listPayrollPeriodsAction,
   removePayrollEntryExtraAction,
   reopenPayrollPeriodAction,
-  resetPayrollDeudasAction,
+  resetPayrollOverrideAction,
   seedPayrollPeriodAction,
   seedSacPeriodAction,
   updatePayrollEntryAction,
 } from "../actions/payroll-actions";
 import { payrollKeys } from "../lib/payroll-keys";
-import type { PayrollPeriodKind, SacHalf } from "../payroll-schema";
+import type {
+  PayrollOverrideField,
+  PayrollPeriodKind,
+  SacHalf,
+} from "../payroll-schema";
 
 export function usePayrollPeriods() {
   return useSuspenseQuery({
@@ -131,12 +135,12 @@ export function useUpdatePayrollEntry() {
   });
 }
 
-/** Back to the plans' installments after Deudas was typed by hand. */
-export function useResetPayrollDeudas(year: number, month: number) {
+/** Back to the computed Deudas or Embargo after it was typed by hand. */
+export function useResetPayrollOverride(year: number, month: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      runAction(() => resetPayrollDeudasAction({ id })),
+    mutationFn: (vars: { id: string; field: PayrollOverrideField }) =>
+      runAction(() => resetPayrollOverrideAction(vars)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.period(year, month) });
     },

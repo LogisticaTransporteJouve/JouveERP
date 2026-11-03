@@ -15,6 +15,7 @@ import type { CheckChannelOption } from "@/features/checks/components/check-acti
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
+import { SETTLED_LIST_CAP } from "@/lib/supabase/open-and-recent";
 
 import {
   useIssuedChecksList,
@@ -45,7 +46,9 @@ export function IssuedChecksTable({
   channels: CheckChannelOption[];
   actorAccess: Access;
 }) {
-  const { data: checks } = useIssuedChecksList();
+  const {
+    data: { items: checks, truncated },
+  } = useIssuedChecksList();
   const transitionMut = useTransitionIssuedCheck();
   const confirm = useConfirm();
   const canWrite = userCan(actorAccess, "issued_checks:write");
@@ -232,6 +235,13 @@ export function IssuedChecksTable({
         emptyMessage="Todavía no hay cheques propios cargados."
         wrapperClassName="mt-4"
       />
+      {truncated && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Se muestran todos los cheques emitidos y solo los {SETTLED_LIST_CAP}{" "}
+          cobrados, rechazados o anulados de vencimiento más reciente. Exportá
+          para ver el historial completo.
+        </p>
+      )}
     </>
   );
 }

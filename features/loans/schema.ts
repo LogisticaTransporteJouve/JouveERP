@@ -101,6 +101,21 @@ export interface LoanListItem {
   next_due_date: string | null;
 }
 
+/** The cancel the database accepts (guard_loan): an active loan with no
+ *  disbursement recorded and nothing paid, i.e. one entered by mistake. */
+export function canCancelLoan(
+  loan: Pick<
+    LoanListItem,
+    "status" | "disbursement_transaction_id" | "paid_total"
+  >,
+): boolean {
+  return (
+    loan.status === "active" &&
+    loan.disbursement_transaction_id === null &&
+    loan.paid_total === 0
+  );
+}
+
 export interface LoanDetail extends LoanListItem {
   installments: LoanInstallment[];
 }

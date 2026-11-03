@@ -36,7 +36,6 @@ import {
   useConfirmDriverSettlement,
   useDriverSettlement,
   useDriverSettlements,
-  usePostDriverSettlementDifference,
   useUnpostDriverSettlementDifference,
 } from "../hooks/use-driver-settlements";
 import {
@@ -47,6 +46,7 @@ import {
 } from "../schema";
 
 import { DriverSettlementDetailDialog } from "./driver-settlement-detail-dialog";
+import { DriverSettlementDifferenceDialog } from "./driver-settlement-difference-dialog";
 import { DriverSettlementDialog } from "./driver-settlement-dialog";
 
 type Editing =
@@ -96,23 +96,24 @@ function syncNote(s: DriverSettlement): string {
 
 export function DriverSettlementsPage({
   canWrite,
-  canPostDifference,
+  canChargeDriver,
 }: {
+  /** receipts:write. */
   canWrite: boolean;
-  /** receipts:write + hr:write: the difference goes to the driver's
-   *  employee account. */
-  canPostDifference: boolean;
+  /** hr:write: charging the difference to the driver, or taking it back,
+   *  writes his employee account. */
+  canChargeDriver: boolean;
 }) {
   const { settlements, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useDriverSettlements();
   const { data: pending } = useCodPending();
   const confirmMut = useConfirmDriverSettlement();
   const cancelMut = useCancelDriverSettlement();
-  const postDiffMut = usePostDriverSettlementDifference();
   const unpostDiffMut = useUnpostDriverSettlementDifference();
   const confirm = useConfirm();
   const [editing, setEditing] = useState<Editing>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<DriverSettlement | null>(null);
 
   const pendingColumns = useMemo<ColumnDef<CodPendingByDriver>[]>(
     () => [
@@ -204,7 +205,7 @@ export function DriverSettlementsPage({
         title: "Cancelar rendición",
         description:
           s.status === "confirmed"
-            ? `Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir.${s.difference_posted ? " La diferencia asentada sale de la cuenta corriente del chofer." : ""}`
+            ? `Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir.${s.difference_posted ? ` La diferencia sale de la cuenta corriente del chofer${s.difference_posted.kind === "advance" ? " y se anula el recibo que saldó al cliente" : ""}.` : ""}`
             : "Sus cargas vuelven a quedar por rendir.",
         confirmLabel: "Cancelar rendición",
         tone: "destructive",
@@ -216,27 +217,13 @@ export function DriverSettlementsPage({
       });
     }
 
-    async function handlePostDifference(s: DriverSettlement) {
-      const short = s.difference < 0;
-      const ok = await confirm({
-        title: "Asentar diferencia al chofer",
-        description: short
-          ? `Se carga el faltante de ${formatMoney(-s.difference)} como deuda en la cuenta corriente de ${s.driver_name}. Usalo cuando lo debe el chofer: si lo debe el cliente, ya queda abierto en su cuenta corriente y no hace falta asentarlo.`
-          : `Se acredita el sobrante de ${formatMoney(s.difference)} en la cuenta corriente de ${s.driver_name}.`,
-        confirmLabel: "Asentar",
-      });
-      if (!ok) return;
-      postDiffMut.mutate(s.id, {
-        onSuccess: () =>
-          toast.success("Diferencia asentada en la cuenta corriente."),
-        onError: (err) => toast.error(err.message),
-      });
-    }
-
     async function handleUnpostDifference(s: DriverSettlement) {
       const ok = await confirm({
         title: "Quitar diferencia",
-        description: `Se borra el movimiento de la cuenta corriente de ${s.driver_name}.`,
+        description:
+          s.difference_charged_to === "client"
+            ? "La diferencia vuelve a quedar sin resolver."
+            : `Se borra el movimiento de la cuenta corriente de ${s.driver_name}${s.difference_posted?.kind === "advance" ? ", se anula el recibo que saldó al cliente" : ""} y la diferencia vuelve a quedar sin resolver.`,
         confirmLabel: "Quitar",
         tone: "destructive",
       });
@@ -308,9 +295,11 @@ export function DriverSettlementsPage({
             {row.original.difference === 0
               ? "—"
               : formatMoneySigned(row.original.difference)}
-            {row.original.difference_posted && (
+            {row.original.difference_charged_to && (
               <span className="block text-xs text-muted-foreground">
-                En cta. cte. del chofer
+                {row.original.difference_charged_to === "driver"
+                  ? "A cargo del chofer"
+                  : "A cargo del cliente"}
               </span>
             )}
           </span>
@@ -326,14 +315,22 @@ export function DriverSettlementsPage({
           const s = row.original;
           const isDraft = canWrite && s.status === "draft";
           const canCancel = canWrite && s.status !== "cancelled";
+          // The driver's account holds it: only hr:write takes it back
+          // (the RPC refuses too).
+          const driverHeld =
+            s.difference_charged_to === "driver" ||
+            s.difference_posted !== null;
+          const needsHr = driverHeld && !canChargeDriver;
           const canPost =
-            canPostDifference &&
+            canWrite &&
             s.status === "confirmed" &&
             s.difference !== 0 &&
+            s.difference_charged_to === null &&
             s.difference_posted === null &&
-            !s.receipts_out_of_sync &&
-            s.driver_employee_id !== null;
-          const canUnpost = canPostDifference && s.difference_posted !== null;
+            !s.receipts_out_of_sync;
+          const canUnpost =
+            canWrite &&
+            (s.difference_charged_to !== null || s.difference_posted !== null);
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -360,15 +357,20 @@ export function DriverSettlementsPage({
                 )}
                 {(canPost || canUnpost) && <DropdownMenuSeparator />}
                 {canPost && (
-                  <DropdownMenuItem onClick={() => handlePostDifference(s)}>
+                  <DropdownMenuItem onClick={() => setResolving(s)}>
                     <UserRoundPen className="size-4" />
-                    Asentar diferencia al chofer
+                    Resolver diferencia
                   </DropdownMenuItem>
                 )}
                 {canUnpost && (
-                  <DropdownMenuItem onClick={() => handleUnpostDifference(s)}>
+                  <DropdownMenuItem
+                    disabled={needsHr}
+                    onClick={() => handleUnpostDifference(s)}
+                  >
                     <Undo2 className="size-4" />
-                    Quitar diferencia del chofer
+                    {needsHr
+                      ? "Quitar diferencia (requiere permiso de RRHH)"
+                      : "Quitar diferencia"}
                   </DropdownMenuItem>
                 )}
                 {isDraft && (
@@ -397,10 +399,13 @@ export function DriverSettlementsPage({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive"
+                      disabled={needsHr}
                       onClick={() => handleCancel(s)}
                     >
                       <XCircle className="size-4" />
-                      Cancelar
+                      {needsHr
+                        ? "Cancelar (la diferencia está en la cta. cte. del chofer: requiere RRHH)"
+                        : "Cancelar"}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -412,11 +417,10 @@ export function DriverSettlementsPage({
     ];
   }, [
     canWrite,
-    canPostDifference,
+    canChargeDriver,
     confirm,
     confirmMut,
     cancelMut,
-    postDiffMut,
     unpostDiffMut,
   ]);
 
@@ -497,6 +501,13 @@ export function DriverSettlementsPage({
       <DriverSettlementDetailDialog
         id={detailId}
         onClose={() => setDetailId(null)}
+      />
+      <DriverSettlementDifferenceDialog
+        settlement={resolving}
+        canChargeDriver={canChargeDriver}
+        onOpenChange={(o) => {
+          if (!o) setResolving(null);
+        }}
       />
     </>
   );

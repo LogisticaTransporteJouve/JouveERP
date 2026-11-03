@@ -12,7 +12,9 @@ const h = vi.hoisted(() => {
   const db: Record<string, Array<Record<string, unknown>>> = {};
   const inserts: Array<{ table: string; values: unknown }> = [];
   const deletes: string[] = [];
-  return { db, inserts, deletes };
+  // invoice_open_amount of each comprobante; a missing id reads as NULL.
+  const openAmount: Record<string, number> = {};
+  return { db, inserts, deletes, openAmount };
 });
 
 function from(table: string) {
@@ -62,7 +64,13 @@ vi.mock("@/lib/auth/context", () => ({
   }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
-  getServiceClient: () => ({ from }),
+  getServiceClient: () => ({
+    from,
+    rpc: async (fn: string, args: { p_invoice_id: string }) =>
+      fn === "invoice_open_amount"
+        ? { data: h.openAmount[args.p_invoice_id] ?? null, error: null }
+        : { data: null, error: { message: `unexpected rpc ${fn}` } },
+  }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/inngest/client", () => ({
@@ -140,14 +148,15 @@ beforeEach(() => {
       iva_condition_receptor: CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL,
     },
   ];
-  h.db.v_aging_documents = [{ invoice_id: ORIGIN, open_amount: 1_000_000 }];
+  for (const id of Object.keys(h.openAmount)) delete h.openAmount[id];
+  h.openAmount[ORIGIN] = 1_000_000;
   roles.current = ["finance"];
   roles.denied = [];
 });
 
 describe("issueFiscalInvoiceAction for a credit note", () => {
   it("refuses a credit note over the origin's open amount", async () => {
-    h.db.v_aging_documents = [{ invoice_id: ORIGIN, open_amount: 50 }];
+    h.openAmount[ORIGIN] = 50;
     const res = await issueFiscalInvoiceAction(noteInput());
     expect(res.ok).toBe(false);
     expect(!res.ok && res.error).toMatch(/supera el saldo abierto/);
@@ -155,7 +164,7 @@ describe("issueFiscalInvoiceAction for a credit note", () => {
   });
 
   it("refuses a credit note when the origin owes nothing", async () => {
-    h.db.v_aging_documents = [];
+    delete h.openAmount[ORIGIN];
     const res = await issueFiscalInvoiceAction(noteInput());
     expect(res.ok).toBe(false);
     expect(h.inserts).toEqual([]);

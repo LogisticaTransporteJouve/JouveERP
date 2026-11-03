@@ -51,6 +51,7 @@ export const COA_SYSTEM_ROLES = [
   "ajustes_caja",
   "sueldos",
   "intereses_pagados",
+  "diferencia_cambio",
 ] as const;
 
 export type CoaSystemRole = (typeof COA_SYSTEM_ROLES)[number];
@@ -81,6 +82,7 @@ export const COA_SYSTEM_ROLE_LABEL: Record<CoaSystemRole, string> = {
   ajustes_caja: "Ajustes de caja",
   sueldos: "Sueldos y jornales",
   intereses_pagados: "Intereses pagados",
+  diferencia_cambio: "Diferencias de cambio",
 };
 
 const codeRegex = /^[0-9]+(\.[0-9]+)*$/;

@@ -433,14 +433,14 @@ export async function issueFiscalInvoiceAction(
   // (it would post phantom revenue and charge IVA on a non-fiscal document).
   const totals = computeTotals(data.items, channel.is_fiscal);
 
-  // An NC can't credit more than its origin still owes (the deferred guard
-  // invoices_nc_open_after_change has the last word, counting NCs in flight).
+  // An NC can't credit more than its origin still owes: the figure of the
+  // deferred guard invoices_nc_open_after_change (NCs in flight included).
+  // Not v_aging_documents, which also spreads the client's NCs with no origin.
   if (data.kind === "nc" && data.invoice_origin_id) {
-    const { data: open, error: openErr } = await supabase
-      .from("v_aging_documents")
-      .select("open_amount")
-      .eq("invoice_id", data.invoice_origin_id)
-      .maybeSingle();
+    const { data: open, error: openErr } = await supabase.rpc(
+      "invoice_open_amount",
+      { p_invoice_id: data.invoice_origin_id },
+    );
     if (openErr) {
       logger.error("issue_invoice.load_origin_open_failed", {
         userId: ctx.userId,
@@ -452,7 +452,7 @@ export async function issueFiscalInvoiceAction(
         error: "No se pudo leer el saldo del comprobante de origen.",
       };
     }
-    const originOpen = Number(open?.open_amount ?? 0);
+    const originOpen = Number(open ?? 0);
     if (totals.imp_total > originOpen + 0.01) {
       return {
         ok: false,

@@ -32,6 +32,149 @@ tributos". Lo aprueban el dueño y el contador.
 **Descartado.** Ítems sin alícuota para el exento (hay compras sin ítems) y
 dejar todo como antes con un aviso.
 
+## 2026-11-04 — Auditoría RRHH y rendiciones: SAC, embargo, compra a cargo de empleado, diferencia de la rendición
+
+**SAC de la liquidación final.** `payroll_sac_suggestion` no cuenta los
+extras `Liquidación final:` (el SAC no es remuneración para el SAC, LCT art.
+121): aplicar la liquidación de nuevo da el mismo SAC (`20261104095000`).
+
+**Embargo a mano.** `payroll_entries.embargo_override`: un embargo tipeado en
+un borrador sobrevive a cualquier alta o cambio de embargo judicial; volver a
+"automático" lo recalcula (`20261104095100`).
+
+**Compra a cargo de empleado: se le carga el neto.** En canal fiscal la
+empresa toma el IVA crédito y las percepciones, así que al empleado se le carga
+`imp_neto` (lo mismo que el asiento debita a anticipos al personal); en canal
+interno (sin crédito) sigue `imp_total`. Descartado: cargarle el total y sacar
+la compra del IVA crédito, que cambia el Libro IVA (`20261104095200`).
+
+**Diferencia de la rendición: a cargo del chofer o del cliente.** Un faltante
+asentado al chofer dejaba también la factura abierta: la deuda quedaba dos
+veces. Ahora "Resolver diferencia" elige un solo deudor
+(`driver_settlements.difference_charged_to`, `20261104095300`):
+
+- _A cargo del chofer_ (faltante): un recibo al cliente por el faltante,
+  imputado a la factura de la carga (el resto a cuenta), entra a una caja de
+  la rendición, y de esa misma caja sale un adelanto al chofer
+  (`record_employee_account_cash`). La caja queda en cero, el cliente
+  saldado y el chofer debe el faltante; el asiento fiscal es anticipos al
+  personal contra deudores. Requiere `hr:write`. Se rechaza si el faltante
+  es de cargas de distintos canales o si hay cargas con faltante y otras con
+  sobrante.
+- _A cargo del cliente_: solo registra la elección; la factura sigue
+  abierta (faltante) o el sobrante sigue a cuenta en su recibo, y no se toca
+  la cuenta del chofer.
+- Un sobrante no se acredita al chofer: ya está a cuenta del cliente en el
+  recibo y acreditarlo también lo duplicaría.
+
+Idempotente bajo el lock de la rendición (la misma elección devuelve lo
+mismo; la otra se rechaza hasta quitar la primera). "Quitar diferencia" y
+cancelar la rendición anulan el recibo, borran el adelanto y su movimiento de
+caja, y limpian la elección. El recibo que saldó al cliente no se anula ni se
+edita desde Recibos. **Sin `hr:write`** ni quitar ni cancelar sacan lo que
+está en la cuenta del chofer (la acción manda `p_allow_driver = false` y la
+RPC lo rechaza; la UI deshabilita el ítem con el motivo).
+
+**Descuento de planilla sin plan (se mantiene).** Al cerrar, las `deudas` que
+superan los planes se escriben como `payroll_discount` sin plan, aunque el
+empleado no tenga un cargo abierto: el saldo queda a favor del empleado. Es
+deliberado: la plata se le retuvo del sueldo y el saldo a favor muestra la
+inconsistencia (falta cargar el cargo, o el descuento sobró). Descartado:
+topear al saldo deudor (la retención desaparecería del registro) o inventar un
+cargo que nadie cargó.
+
+**Extras de viajes paginados.** Los viajes y las descargas del mes se leen
+paginados (`paginateRange`) hasta un tope explícito; pasado el tope, la
+sugerencia sale marcada como parcial.
+## 2026-11-04 — Saldos de apertura, NC sin origen y diferencia de cambio
+
+**Saldos de apertura.** Cliente y proveedor saldan lo mismo: saldo real al
+corte (facturas y ND − NC − cobros/pagos, en pesos) menos el objetivo, imputado
+FIFO sobre lo que cada comprobante tiene abierto. El saldo de apertura es en
+pesos; los comprobantes USD quedan afuera.
+
+**NC sin origen.** Se netean dentro de `v_aging_documents` (no solo en el
+resumen por cliente, como hace `v_supplier_aging`): así todo lo que lee la
+vista (aging, ámbito, fotos, mora, tareas, IA, flujo de caja) ve un solo saldo.
+Se reparten del más vencido al más nuevo, por canal y moneda. El tope de una NC
+con origen pasa a `invoice_open_amount`, la cifra de la guarda diferida.
+
+**Diferencia de cambio.** La asienta el documento que cancela (recibo, OP o
+NC), no un asiento aparte: así se re-asienta al editar, se revierte al anular y
+respeta el período cerrado sin lógica nueva. Imputar después un recibo u OP USD
+re-asienta al COMMIT (trigger diferido); en un período cerrado se rechaza si el
+asiento cambia. Ventas e IVA de una NC siguen a su propia cotización (lo que
+informa a ARCA); solo clientes va a la del origen. No se toca
+`build_transaction_journal_lines`.
+
+**Descartado.** Revaluar saldos USD a fin de mes (asiento de ajuste por
+cotización): pide un cierre mensual que hoy no existe.
+## 2026-11-04 — Tesorería: cheques endosados, préstamos, cheques propios y mora (auditoría)
+
+**OP con un cheque endosado rechazado.** Anular o editar la OP se rechaza
+(`jouve_guard`) mientras uno de sus cheques endosados ya no esté `endosado`;
+al anular o editar solo vuelve a cartera un cheque que sigue `endosado`.
+Descartado: devolverlo a cartera y revertir el rechazo, porque la deuda ya
+volvió al cliente y el asiento del rechazo existe.
+
+**Cuota sin desglose.** Si el pasivo está asentado (desembolso o importación),
+la cuota paga primero capital: lo que le queda al capital después de las
+cuotas anteriores, hasta lo pagado; el resto es interés. Coincide con el
+`capital_outstanding` de la pantalla y con el resultado de gestión. Descartado:
+rechazar el desembolso mientras haya cuotas sin desglose (el cronograma por
+defecto no tiene desglose y sería bloquear el caso común).
+
+**Anular un préstamo.** Se rechaza si tiene el desembolso registrado o alguna
+cuota pagada (`guard_loan`), y el desembolso no cambia una vez cargado. Sin
+camino de deshacer: un préstamo con plata se cierra pagándolo. Descartado: un
+RPC que borre desembolso y cuotas, porque toca períodos y conciliaciones.
+
+**Cheque propio cargado a mano.** Su cobro es el pago: Debe gasto del
+proveedor (o `gastos`) / Haber banco, en pesos (USD a la cotización del día
+del cobro). Fuera de `emitted` no cambia importe,
+moneda ni cuenta, y una OP se le liga solo cargándolo desde la OP.
+
+**Mora.** El prorrateo cuenta solo las NC emitidas, las mismas que resta
+`v_aging_documents`.
+
+**Listados de cheques.** Se listan completos los que se operan (en cartera y
+depositados; propios emitidos) y los 500 más recientes del resto, con aviso
+si quedaron afuera.
+## 2026-11-04 — Auditoría: impuestos y gestión
+
+**Cheques en percibido.** Un cheque de terceros importado al arranque es una
+partida de apertura: ni su ingreso a cartera ni su rechazo tocan el
+resultado (la deuda y el cheque son anteriores al sistema; devengado ya era
+neutro). El egreso de un cheque rechazado va a Servicios en negativo, del
+lado del recibo que lo cobró (y a venta de bienes de uso en la parte que el
+recibo imputó a una): antes era neutro, y el cobro original quedaba
+sumado y un nuevo cobro sumaba otra vez. Devengado no cambia (el asiento va a
+Deudores por cheques rechazados).
+
+**Pendiente USD fiscal = sin asiento.** En devengado lo fiscal sale del
+libro, así que un movimiento fiscal en dólares está pendiente mientras no
+tiene asiento vivo, no mientras no hay cotización hoy. Descartado por ahora:
+re-asentar al insertar una cotización (es otro efecto, y el paquete mensual
+ya lista los `sin_cotizacion`).
+
+**Deshacer el pago de un impuesto restaura lo previo.** Pagar y vincular
+guardan el importe y el estado que tenía el documento
+(`payment_previous_amount`, `payment_previous_status`), como ya guardaban la
+cuenta de gasto; deshacer los devuelve. Un pago anterior conserva la regla
+vieja.
+
+**Recategorizar arrastra sus NC/ND.** Se propaga, no se avisa: una NC/ND
+ajusta el mismo costo y va al mismo rubro y centro. Solo cambian las
+vigentes que tenían el valor anterior (una con valor propio lo conserva; una
+a cargo de un empleado conserva la cuenta), y un período cerrado de
+cualquiera de ellas rechaza todo.
+
+**Margen por camión.** Lo sin clasificar con el centro del camión es costo
+del camión, igual que en Gestión.
+
+**IA, libros IVA.** Las herramientas devuelven `{ rows, totals }`: los
+totales con signo (NC restadas, cada comprobante una vez) son los mismos que
+la pantalla (`computeTotals`), para que el modelo no sume filas.
 ## 2026-11-04 — Liquidaciones: alcance fiscal y una factura por fuente
 
 **`fiscal_reader` en liquidaciones.** Ve las del lado fiscal
@@ -118,7 +261,8 @@ reloj pasa el máximo de `main`; se estampa con la hora UTC real.
 
 ## 2026-11-04 — Follow-ups de operaciones (rendiciones, cheques vendidos, mora, depósito, tarifas)
 
-**Diferencia de la rendición al chofer.** Se asienta a pedido ("Asentar
+**Diferencia de la rendición al chofer.** (Reemplazado por "Diferencia de la
+rendición: a cargo del chofer o del cliente", arriba.) Se asienta a pedido ("Asentar
 diferencia al chofer"), no al confirmar: un faltante puede ser deuda del
 cliente (su factura queda con saldo) o del chofer, y solo la persona lo sabe.
 Neto por rendición: faltante = `charge`, sobrante = `payment` en
@@ -155,6 +299,7 @@ aumento masivo la saltea. Las demás quedan como están.
 **Descartado.** Asentar la diferencia al confirmar; desactivar las filas
 migradas (cambia el respaldo en períodos que cruzan la vigencia); crear la
 carga desde el escaneo del remito (queda la búsqueda).
+
 ## 2026-11-04 — Importador, conciliación partida y manual servido
 
 **Decisión.**
@@ -253,6 +398,7 @@ paga peor" van a `getClientPaymentBehavior`; la descripción de
 `getClientSalesSummary` ya no ofrece días promedio de cobro y deriva esas
 preguntas. Los evals en vivo no se corrieron (sin `ANTHROPIC_API_KEY` en el
 entorno donde se hizo el cambio).
+
 ## 2026-11-03 — Impuestos: deshacer un pago, gestión, IVA y contador
 
 **Decisión.** (1) Un pago se deshace con `undo_tax_document_payment` según
@@ -288,6 +434,7 @@ el log de auditoría. Separar las percepciones de IVA de las de IIBB en
 compras: `purchase_invoices` tiene un solo `imp_trib` y el asiento lo manda a
 percepciones IIBB; queda como pendiente. Dar `files:read` al contador: abriría
 todo el hub de archivos. Un estado nuevo para un IVA sin nada que pagar.
+
 ## 2026-11-03 — Margen por camión: el centro de costo apunta al camión
 
 **Decisión.** `cost_centers.vehicle_id` (opcional, único: un centro por

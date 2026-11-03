@@ -19,6 +19,7 @@ import { formatMoney } from "@/lib/format";
 
 import { useCancelLoan, useLoans } from "../hooks/use-loans";
 import {
+  canCancelLoan,
   LOAN_KIND_LABEL,
   LOAN_STATUS_LABEL,
   type LoanListItem,
@@ -41,7 +42,7 @@ export function LoansTable({
       const ok = await confirm({
         title: `Anular ${loan.description}`,
         description:
-          "El préstamo queda anulado y deja de proyectarse en el flujo de caja. Los pagos ya registrados no se tocan.",
+          "Para un préstamo cargado por error: queda anulado y deja de proyectarse en el flujo de caja. No se puede si ya tiene el desembolso registrado o alguna cuota pagada.",
         confirmLabel: "Anular",
         tone: "destructive",
       });
@@ -122,7 +123,11 @@ export function LoansTable({
         accessorKey: "next_due_date",
         header: "Próx. venc.",
         cell: ({ row }) => row.original.next_due_date ?? "—",
-        meta: { headerClassName: "w-28", cellClassName: "text-sm", mobile: "secondary" },
+        meta: {
+          headerClassName: "w-28",
+          cellClassName: "text-sm",
+          mobile: "secondary",
+        },
       },
       {
         id: "status",
@@ -153,7 +158,7 @@ export function LoansTable({
               <DropdownMenuItem asChild>
                 <Link href={`/loans/${row.original.id}`}>Ver cuotas</Link>
               </DropdownMenuItem>
-              {row.original.status === "active" && (
+              {canCancelLoan(row.original) && (
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => handleCancel(row.original)}

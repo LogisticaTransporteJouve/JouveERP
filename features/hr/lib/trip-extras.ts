@@ -1,10 +1,12 @@
 import "server-only";
 
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type { TripForExtras } from "../account-schema";
 
-const TRIPS_LIMIT = 2000;
+/** Most trips read for one month; past it the read is flagged partial. */
+export const TRIPS_LIMIT = 2000;
 
 export type EmployeeTrips = {
   /** Completed trips of the month per employee, oldest first. */
@@ -41,34 +43,48 @@ export async function readEmployeeTrips(
 
   const mm = String(month).padStart(2, "0");
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const { data: trips, error: tripsErr } = await supabase
-    .from("trips")
-    .select("id, trip_date, km, origin, destination, driver_id")
-    .in("driver_id", [...employeeByDriver.keys()])
-    .eq("status", "completed")
-    .gte("trip_date", `${year}-${mm}-01`)
-    .lte("trip_date", `${year}-${mm}-${String(lastDay).padStart(2, "0")}`)
-    .order("trip_date")
-    .order("id")
-    .limit(TRIPS_LIMIT + 1);
-  if (tripsErr) throw new Error(`trip-extras trips: ${tripsErr.message}`);
-  const rows = (trips ?? []).slice(0, TRIPS_LIMIT);
+  // PostgREST caps every response at max_rows (1000): drain both reads.
+  const trips = await paginateRange<{
+    id: string;
+    trip_date: string;
+    km: number | null;
+    origin: string | null;
+    destination: string | null;
+    driver_id: string | null;
+  }>((from, to) =>
+    supabase
+      .from("trips")
+      .select("id, trip_date, km, origin, destination, driver_id")
+      .in("driver_id", [...employeeByDriver.keys()])
+      .eq("status", "completed")
+      .gte("trip_date", `${year}-${mm}-01`)
+      .lte("trip_date", `${year}-${mm}-${String(lastDay).padStart(2, "0")}`)
+      .order("trip_date")
+      .order("id")
+      .range(from, to),
+  );
+  if (trips.error) throw new Error(`trip-extras trips: ${trips.error.message}`);
+  const rows = trips.data.slice(0, TRIPS_LIMIT);
 
   const unloads = new Map<string, number>();
-  if (rows.length > 0) {
-    const { data: shipments, error: shipErr } = await supabase
-      .from("shipments")
-      .select("trip_id")
-      .in(
-        "trip_id",
-        rows.map((t) => t.id),
-      )
-      .eq("status", "delivered")
-      .limit(TRIPS_LIMIT * 20);
-    if (shipErr) throw new Error(`trip-extras shipments: ${shipErr.message}`);
-    for (const s of shipments ?? []) {
-      if (s.trip_id) unloads.set(s.trip_id, (unloads.get(s.trip_id) ?? 0) + 1);
-    }
+  const shipments = await fetchInChunks(
+    rows.map((t) => t.id),
+    (ids) =>
+      paginateRange<{ trip_id: string | null }>((from, to) =>
+        supabase
+          .from("shipments")
+          .select("trip_id")
+          .in("trip_id", ids)
+          .eq("status", "delivered")
+          .order("id")
+          .range(from, to),
+      ),
+  );
+  if (shipments.error) {
+    throw new Error(`trip-extras shipments: ${shipments.error.message}`);
+  }
+  for (const s of shipments.data) {
+    if (s.trip_id) unloads.set(s.trip_id, (unloads.get(s.trip_id) ?? 0) + 1);
   }
 
   for (const t of rows) {
@@ -85,5 +101,5 @@ export async function readEmployeeTrips(
     });
     byEmployee.set(employeeId, list);
   }
-  return { byEmployee, partial: (trips ?? []).length > TRIPS_LIMIT };
+  return { byEmployee, partial: trips.data.length > TRIPS_LIMIT };
 }

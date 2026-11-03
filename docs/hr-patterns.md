@@ -157,7 +157,9 @@ transacción).
   vigente en el mes del período, el trigger `payroll_entries_apply_garnishment`
   fija `embargo` al insertar el entry o al cambiar `sueldo_neto`/`recibo_neto`;
   escribir o borrar un embargo recalcula los entries de los períodos en
-  **borrador** (los cerrados no cambian). `embargo` sigue editable a mano. RLS
+  **borrador** (los cerrados no cambian). Tipear `embargo` a mano marca
+  `embargo_override`: ese período queda fuera de los recálculos hasta volver
+  al embargo vigente (`resetPayrollOverrideAction`, `20261104095100`). RLS
   owner/admin/finance. El embargo es un descuento de planilla, no un pago: no
   tiene asiento propio.
 - **`payroll_entry_extras`** — líneas de texto libre por entry (`amount > 0`,
@@ -298,7 +300,7 @@ devuelve con descuentos de planilla o pagos.
   (`payroll_plan_installments`), al insertar el entry y cada vez que cambia un
   plan o un movimiento de un plan (solo períodos mensuales en borrador). Editar
   Deudas a mano marca `deudas_override` y mantiene el importe; volver a `false`
-  (`resetPayrollDeudasAction`) recalcula. **Cerrar** el período escribe sus
+  (`resetPayrollOverrideAction`) recalcula. **Cerrar** el período escribe sus
   deudas como `payroll_discount` (a cada plan activo en ARS hasta su cuota, o
   hasta lo que resta si se editó a mano; el resto sin plan); **reabrir** los
   borra. Los períodos cerrados antes de la migración
@@ -308,7 +310,9 @@ devuelve con descuentos de planilla o pagos.
 - **Compras "a cargo de empleado"** (`purchase_invoices.charged_employee_id`,
   factura o ND en ARS/USD): sigue en el Libro IVA con su IVA crédito; el neto se
   asienta en `anticipos_personal` en vez de la cuenta de gasto (fuera del costo
-  de Gestión) y el total es un `charge` en la cuenta del empleado, en su moneda.
+  de Gestión) y es un `charge` en la cuenta del empleado, en su moneda: en canal
+  fiscal el neto (el IVA y las percepciones son crédito de la empresa), en
+  canal interno el total (`20261104095200`).
   Anular la compra o sacar el empleado borra el cargo. Setearlo pide `hr:write`
   además de `purchase_invoices:write`.
 - **Tesorería**: "Adelanto a empleado" (Tesorería, Caja y la ficha) y "Pago en

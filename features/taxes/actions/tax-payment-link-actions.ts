@@ -222,7 +222,7 @@ export async function linkTaxDocumentPaymentAction(
 
 /**
  * Undoes a payment, "Pagar" or "Vincular" alike: the document goes back to
- * liquidado (or pendiente when its amount is an estimate). The movement
+ * the amount and status it had before the payment. The movement
  * "Pagar" booked is deleted; a linked one stays in Caja with its previous
  * expense account. undo_tax_document_payment refuses a closed period and a
  * booked payment reconciled with the statement; a document that is no longer

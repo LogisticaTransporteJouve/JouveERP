@@ -60,6 +60,7 @@ function settlement(patch: Record<string, unknown>) {
     cargas: 2,
     receipts: [],
     receipts_out_of_sync: false,
+    difference_charged_to: null,
     difference_posted: null,
     created_at: "2026-11-02T00:00:00Z",
     ...patch,
