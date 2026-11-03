@@ -1787,6 +1787,7 @@ export type Database = {
           is_active: boolean
           name: string
           updated_at: string
+          vehicle_id: string | null
         }
         Insert: {
           code: string
@@ -1796,6 +1797,7 @@ export type Database = {
           is_active?: boolean
           name: string
           updated_at?: string
+          vehicle_id?: string | null
         }
         Update: {
           code?: string
@@ -1805,8 +1807,17 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+          vehicle_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_centers_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dashboard_layouts: {
         Row: {
@@ -9134,6 +9145,24 @@ export type Database = {
       }
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
+      get_vehicle_margin: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          center_cost: number
+          cost_center_id: string
+          fuel_cost: number
+          is_active: boolean
+          maintenance_cost: number
+          net: number
+          patente: string
+          pending_usd: number
+          revenue: number
+          row_kind: string
+          trip_cost: number
+          trips: number
+          vehicle_id: string
+        }[]
+      }
       grant_vacation_balances: {
         Args: { p_carryover?: boolean; p_target_year?: number }
         Returns: {

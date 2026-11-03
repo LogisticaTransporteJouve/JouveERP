@@ -16,13 +16,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useCostCenters, useDeleteCostCenter } from "../hooks/use-cost-centers";
+import {
+  useCostCenterVehicles,
+  useCostCenters,
+  useDeleteCostCenter,
+} from "../hooks/use-cost-centers";
 import type { CostCenter } from "../schema";
 
 import { CostCenterDialog } from "./cost-center-dialog";
 
 export function CostCentersTable() {
   const { data: items } = useCostCenters();
+  const vehicles = useCostCenterVehicles();
+  const patenteById = useMemo(
+    () => new Map((vehicles.data ?? []).map((v) => [v.id, v.patente])),
+    [vehicles.data],
+  );
   const deleteMut = useDeleteCostCenter();
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<
@@ -70,6 +79,21 @@ export function CostCentersTable() {
         },
       },
       {
+        accessorKey: "vehicle_id",
+        header: "Camión",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const id = row.original.vehicle_id;
+          if (id === null) return "—";
+          return (
+            <span className="font-mono text-xs">
+              {patenteById.get(id) ?? "…"}
+            </span>
+          );
+        },
+        meta: { headerClassName: "w-28" },
+      },
+      {
         accessorKey: "is_active",
         header: "Estado",
         cell: ({ row }) =>
@@ -113,7 +137,7 @@ export function CostCentersTable() {
         ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [confirm, deleteMut, patenteById]);
 
   return (
     <>

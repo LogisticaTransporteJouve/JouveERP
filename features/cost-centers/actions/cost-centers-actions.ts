@@ -11,13 +11,48 @@ import {
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   CostCenterCreateSchema,
   CostCenterDeleteSchema,
   CostCenterUpdateSchema,
   type CostCenter,
+  type CostCenterVehicle,
 } from "../schema";
+
+function uniqueViolationMessage(message: string): string {
+  return message.includes("cost_centers_vehicle_unique")
+    ? "Ese camión ya está vinculado a otro centro de costo."
+    : "Ya existe un centro con ese código.";
+}
+
+/**
+ * The trucks a center can be linked to, for whoever reads the centers.
+ * vehicles is RLS-limited to operations; this reads id and patente only,
+ * through the service client after the gate.
+ */
+export async function listCostCenterVehiclesAction(): Promise<
+  ActionResult<CostCenterVehicle[]>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const { data, error } = await paginateRange<CostCenterVehicle>((from, to) =>
+    getServiceClient()
+      .from("vehicles")
+      .select("id, patente, alias, is_active")
+      .order("patente")
+      .order("id")
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("cost_centers.vehicles.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron leer los camiones." };
+  }
+  return { ok: true, data };
+}
 
 export async function listCostCentersAction(
   options: { onlyActive?: boolean } = {},
@@ -30,7 +65,9 @@ export async function listCostCentersAction(
   const { data, error } = await paginateRange((from, to) => {
     let query = supabase
       .from("cost_centers")
-      .select("id, code, name, description, is_active, created_at, updated_at")
+      .select(
+        "id, code, name, description, is_active, created_at, updated_at, vehicle_id",
+      )
       .order("code");
     if (options.onlyActive) query = query.eq("is_active", true);
     return query.order("id").range(from, to);
@@ -61,19 +98,24 @@ export async function createCostCenterAction(
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       is_active: parsed.data.is_active,
+      vehicle_id: parsed.data.vehicle_id ?? null,
     })
     .select("id")
     .single();
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION)
-      return { ok: false, error: "Ya existe un centro con ese código." };
+      return { ok: false, error: uniqueViolationMessage(error.message) };
     logger.error("cost_centers.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear." };
   }
   await logAudit(
     "cost_center.created",
     ctx.userId,
-    { code: parsed.data.code, name: parsed.data.name },
+    {
+      code: parsed.data.code,
+      name: parsed.data.name,
+      vehicle_id: parsed.data.vehicle_id ?? null,
+    },
     data.id,
   );
   return { ok: true, data: { id: data.id } };
@@ -95,6 +137,7 @@ export async function updateCostCenterAction(
     ...(rest.name !== undefined && { name: rest.name }),
     ...(rest.description !== undefined && { description: rest.description }),
     ...(rest.is_active !== undefined && { is_active: rest.is_active }),
+    ...(rest.vehicle_id !== undefined && { vehicle_id: rest.vehicle_id }),
   };
   if (Object.keys(update).length === 0) return { ok: true, data: undefined };
   const supabase = await createClient();
@@ -103,6 +146,9 @@ export async function updateCostCenterAction(
     .update(update)
     .eq("id", id);
   if (error) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      return { ok: false, error: uniqueViolationMessage(error.message) };
+    }
     logger.error("cost_centers.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar." };
   }

@@ -1046,3 +1046,134 @@ export function monthTableExport(
     }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Margin per truck (get_vehicle_margin)
+// ---------------------------------------------------------------------------
+
+/** 'vehicle' is a truck; the rest is what no truck owns, shown apart. */
+export const VEHICLE_MARGIN_KINDS = [
+  "vehicle",
+  "no_vehicle",
+  "unlinked_center",
+  "no_center",
+] as const;
+export type VehicleMarginKind = (typeof VEHICLE_MARGIN_KINDS)[number];
+export const isVehicleMarginKind = (v: unknown): v is VehicleMarginKind =>
+  isOneOf(VEHICLE_MARGIN_KINDS, v);
+
+export const VehicleMarginInputSchema = z
+  .object({ fromPeriod: PeriodSchema, toPeriod: PeriodSchema })
+  .refine((v) => v.fromPeriod <= v.toPeriod, {
+    message: "El período desde no puede ser posterior al hasta.",
+  });
+export type VehicleMarginInput = z.infer<typeof VehicleMarginInputSchema>;
+
+export type RawVehicleMarginRow = {
+  row_kind: string;
+  vehicle_id: string | null;
+  patente: string | null;
+  is_active: boolean | null;
+  cost_center_id: string | null;
+  trips: number;
+  revenue: number | string;
+  trip_cost: number | string;
+  fuel_cost: number | string;
+  maintenance_cost: number | string;
+  center_cost: number | string;
+  net: number | string;
+  pending_usd: number | string;
+};
+
+/** Costs are positive amounts; net = revenue − every cost. */
+export type VehicleMarginRow = {
+  kind: VehicleMarginKind;
+  vehicleId: string | null;
+  patente: string | null;
+  isActive: boolean | null;
+  costCenterId: string | null;
+  trips: number;
+  revenue: number;
+  tripCost: number;
+  fuelCost: number;
+  maintenanceCost: number;
+  /** Operating cost loaded with the truck's cost center (apart: with a
+   *  center no truck owns, or without a center). */
+  centerCost: number;
+  net: number;
+  /** null without revenue. */
+  marginPct: number | null;
+  /** USD without a rate of the center, signed (never summed). */
+  pendingUsd: number;
+};
+
+export type VehicleMargin = {
+  /** Trucks, best net first. */
+  vehicles: VehicleMarginRow[];
+  /** Trips without a vehicle (revenue and trip cost), if any. */
+  withoutVehicle: VehicleMarginRow | null;
+  /** Operating cost no truck owns: per center without a truck, and the one
+   *  without a center. Never spread across trucks. */
+  unattributed: VehicleMarginRow[];
+  /** The read reached its cap: some rows may be missing. */
+  partial: boolean;
+};
+
+function marginPct(net: number, revenue: number): number | null {
+  return revenue === 0 ? null : Math.round((net / revenue) * 1000) / 10;
+}
+
+/** Narrows the RPC rows; a row of an unknown kind comes back apart so the
+ *  caller logs it. */
+export function narrowVehicleMargin(raw: readonly RawVehicleMarginRow[]): {
+  rows: VehicleMarginRow[];
+  unknown: RawVehicleMarginRow[];
+} {
+  const rows: VehicleMarginRow[] = [];
+  const unknown: RawVehicleMarginRow[] = [];
+  for (const r of raw) {
+    if (!isVehicleMarginKind(r.row_kind)) {
+      unknown.push(r);
+      continue;
+    }
+    const revenue = Number(r.revenue);
+    const net = Number(r.net);
+    rows.push({
+      kind: r.row_kind,
+      vehicleId: r.vehicle_id,
+      patente: r.patente,
+      isActive: r.is_active,
+      costCenterId: r.cost_center_id,
+      trips: Number(r.trips),
+      revenue,
+      tripCost: Number(r.trip_cost),
+      fuelCost: Number(r.fuel_cost),
+      maintenanceCost: Number(r.maintenance_cost),
+      centerCost: Number(r.center_cost),
+      net,
+      marginPct: marginPct(net, revenue),
+      pendingUsd: Number(r.pending_usd),
+    });
+  }
+  return { rows, unknown };
+}
+
+/** The screen's grouping of the narrowed rows. */
+export function groupVehicleMargin(
+  rows: readonly VehicleMarginRow[],
+  partial: boolean,
+): VehicleMargin {
+  return {
+    vehicles: rows
+      .filter((r) => r.kind === "vehicle")
+      .sort(
+        (a, b) =>
+          b.net - a.net || (a.patente ?? "").localeCompare(b.patente ?? ""),
+      ),
+    withoutVehicle: rows.find((r) => r.kind === "no_vehicle") ?? null,
+    unattributed: rows
+      .filter((r) => r.kind === "unlinked_center" || r.kind === "no_center")
+      .sort((a, b) => b.centerCost - a.centerCost),
+    partial,
+  };
+}

@@ -3,4 +3,5 @@ export const costCentersKeys = {
   list: (onlyActive: boolean) =>
     [...costCentersKeys.all, "list", { onlyActive }] as const,
   tagOptions: () => [...costCentersKeys.all, "tag_options"] as const,
+  vehicles: () => [...costCentersKeys.all, "vehicles"] as const,
 };
