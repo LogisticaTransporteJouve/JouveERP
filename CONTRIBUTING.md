@@ -57,6 +57,13 @@ PostgREST). `preview.yml` despliega en Vercel cuando el PR deja de ser draft.
 
 - `YYYYMMDDHHMMSS_<scope>.sql`, timestamp posterior al último de `main`
   (si quedó viejo: `pnpm db:restamp`).
+- Estampar con la hora UTC real (`date -u +%Y%m%d%H%M%S`, lo que escribe
+  `supabase migration new`), nunca a futuro: un stamp adelantado que llega a
+  `main` hace que `pnpm db:restamp` se niegue (exige `now` > el máximo de
+  `main`) y que CI rechace toda migración nueva hasta que el reloj lo pase.
+  Si un PR hermano mergea antes con un stamp mayor, correr `pnpm db:restamp`
+  (rebasado sobre `main`). Si `main` ya quedó adelantado, estampar a mano un
+  segundo después de su máximo, no más.
 - RLS en la misma migración; `SET LOCAL` para timeouts; `SECURITY DEFINER` con
   `search_path = ''` y `REVOKE` explícito.
 - Nunca se edita una migración mergeada.
