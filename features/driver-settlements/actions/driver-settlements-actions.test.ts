@@ -381,7 +381,7 @@ describe.each([
     denies = ["hr:write"];
     rpcError = {
       message:
-        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.",
+        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH y en movimientos.",
       hint: "jouve_guard",
       code: "55006",
     };
@@ -389,7 +389,7 @@ describe.each([
     expect(res).toEqual({
       ok: false,
       error:
-        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.",
+        "La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH y en movimientos.",
     });
   });
 
