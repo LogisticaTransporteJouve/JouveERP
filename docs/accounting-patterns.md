@@ -603,14 +603,54 @@ USD pendiente)`; importe > 0 suma al resultado.
   fiscal oct–sep con comparativo del anterior, tabla mes a mes (Fiscal /
   Interno / Total, "Sueldos" y "Sueldos internos (extras)" con "Total
   personal"), "Sin clasificar" y el control de sueldos.
-- **Limitaciones v1:** compras a cuenta de empleados cuentan como costo;
-  en devengado una cuota con desglose (`20261103040100`) lleva el capital a
-  `loan_principal` y el interés a la caja de su cuenta (5.4.1 = costo
-  financiero), una sin desglose va entera a `loan_principal`; en percibido
-  la cuota sigue entera en `loan_principal`; por centro cuenta solo lo cargado con
-  centro (en percibido, un pago con OP no lleva el centro de la compra); en
-  percibido un cobro o pago de un bien de uso cuenta como operativo; el
-  detalle llega a la cuenta, no al comprobante.
+- **v2 (`20261103070000`, roadmap 3.7):**
+  - **`management_pnl_lines(desde, hasta, base)`** (interna, revocada de
+    todos) arma el resultado **por documento**, nominal: el asiento fiscal
+    con su documento (`source_table`/`source_id`, o el asiento manual), el
+    documento interno, el movimiento de tesorería o el movimiento de la
+    cuenta del empleado. `get_management_pnl` (misma firma y columnas) la
+    suma por mes × caja × subrubro × lado × cuenta × centro y aplica la
+    inflación; `get_management_pnl_documents(desde, hasta, base, cajas)` la
+    lista por documento con fecha, etiqueta y contraparte (orden total, se
+    lee por páginas). La cifra y su detalle salen de la misma función.
+  - **Detalle (drill-down):** cada cifra de la tabla mes a mes (línea × mes
+    o total × lado, con el filtro de centro) abre un `Dialog` con los
+    documentos (venta, compra, recibo, OP, planilla, préstamo, cuenta del
+    empleado, cheque propio o de tercero, movimiento de tesorería, asiento
+    manual), de mayor a menor, con link a cada uno solo si el usuario lee
+    ese módulo. Importes nominales; hasta 500 en pantalla y 20.000 leídos
+    (si no, avisa que está incompleto).
+  - **Percibido:** un recibo (o un movimiento de un comprobante) va a
+    "Venta de bienes de uso" por la parte que imputó a comprobantes con
+    ítems `asset_sale`; una OP (o su cheque propio) va a "Inversión en
+    flota" por la parte imputada a compras con cuenta de caja
+    `fleet_investment`, y a "Anticipos al personal" (`employee_advances`,
+    caja solo de percibido, debajo del margen operativo y dentro de la
+    generación de caja) por la parte imputada a compras a cargo de un
+    empleado. El adelanto y el pago del empleado van a esa misma caja; el
+    descuento de planilla y la condonación de una deuda con la empresa la
+    devuelven y suman lo mismo en sueldos internos. Una cuota con desglose
+    paga capital (`loan_principal`) y el resto (interés, otros cargos, IVA,
+    percepción) va a la caja de `intereses_pagados` (costo financiero).
+  - **Devengado:** sin cambios (la compra a cargo de empleado ya va al
+    anticipo desde `20261103060100`).
+  - **Indicadores:** margen operativo %, resultado operativo (EBITDA aprox.:
+    la cascada ya deja afuera amortizaciones y RECPAM) y generación de caja,
+    contra los mismos meses del año anterior (en un año en curso, hasta el
+    mes actual).
+  - **Exportar:** CSV y Excel de la tabla mes a mes, armados en el navegador
+    con la leyenda "Uso interno"; la descarga queda auditada
+    (`management.exported`). No entra en el paquete del contador ni lo ve
+    `fiscal_reader`.
+  - **IA:** `getManagementPnL` devuelve además `kpis`;
+    `getManagementPnLDocuments` es el detalle de una línea.
+- **Limitaciones:** por centro cuenta solo lo cargado con centro (en
+  percibido, un pago con OP no lleva el centro de la compra); en percibido lo
+  cobrado o pagado a cuenta (sin imputar) va a servicios / pagos a
+  proveedores; el desembolso de un préstamo es neutro en las dos bases; no
+  hay margen por camión (los centros de costo no están vinculados a
+  `vehicles`: los ingresos podrían atribuirse por `shipments.trip_id →
+  trips.vehicle_id`, pero los costos no tienen camión).
 
 **Balance general (fix del mismo PR):** el balance es acumulado al corte
 aunque se elija "Desde"; el PN muestra "Resultados de períodos anteriores" y

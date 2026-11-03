@@ -323,8 +323,11 @@ devuelve con descuentos de planilla o pagos.
   se edita ni borra suelto.
 - **Gestión** (`get_management_pnl`): en devengado, el descuento de planilla y
   la condonación de una deuda con la empresa son sueldos internos de su mes (el
-  adelanto es activo, no costo); en percibido, el adelanto y el pago del
-  empleado cuentan como sueldos pagados, por canal.
+  adelanto es activo, no costo); en percibido (desde `20261103070000`), el
+  adelanto, el pago del empleado y el pago (con OP) de una compra a su cargo
+  van a "Anticipos al personal", debajo del margen operativo, y el descuento
+  de planilla o la condonación pasan ese importe a sueldos internos del mes
+  (la generación de caja no cambia).
 
 UI: `EmployeeAccountCard` en la ficha (saldos, planes con su estado, movimientos
 con su origen); `EmployeeCashDialog`; `EmployeeChargeSelect` en el form de
@@ -591,6 +594,6 @@ Registrados en `app/api/inngest/route.ts`. Ambos `retries: 2`, TZ
    permisos `hr:*` sí está en `permissions.test.ts`).
 7. **Cuenta corriente vs. liquidador** (§3.6): el descuento de planilla no
    tiene asiento propio; si el liquidador no descuenta el anticipo en su
-   asiento, `anticipos_personal` queda con saldo en el mayor fiscal. En
-   percibido, pagar al proveedor una compra a cargo de un empleado cuenta como
-   costo de proveedores (y el descuento baja los sueldos pagados).
+   asiento, `anticipos_personal` queda con saldo en el mayor fiscal. (En
+   Gestión percibido, desde `20261103070000` el pago con OP de una compra a
+   cargo de un empleado va a "Anticipos al personal", no a proveedores.)
