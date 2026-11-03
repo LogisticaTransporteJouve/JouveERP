@@ -40,4 +40,32 @@ describe("waterfall bars", () => {
       end: 600,
     });
   });
+
+  it("adds financing received and the cash variation only when there is any", () => {
+    const base = {
+      month: "2026-09",
+      subbucket: null,
+      side: "fiscal" as const,
+      accountId: null,
+      pendingUsd: 0,
+      costCenterId: null,
+    };
+    const without = waterfallSteps(
+      computeWaterfall([{ ...base, bucket: "service_revenue", amount: 100 }]),
+    );
+    expect(without.at(-1)!.label).toBe("Generación de caja");
+    const bars = waterfallBars(
+      waterfallSteps(
+        computeWaterfall([
+          { ...base, bucket: "service_revenue", amount: 100 },
+          { ...base, bucket: "loan_disbursements", amount: 900 },
+        ]),
+      ),
+    );
+    expect(bars.slice(-3)).toMatchObject([
+      { label: "Generación de caja", start: 0, end: 100 },
+      { label: "Financiamiento recibido", start: 100, end: 1000 },
+      { label: "Variación de caja", start: 0, end: 1000 },
+    ]);
+  });
 });

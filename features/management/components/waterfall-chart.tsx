@@ -34,6 +34,16 @@ export function waterfallSteps(w: Waterfall): Step[] {
         ]
       : []),
     { label: "Generación de caja", value: w.cashGeneration, total: true },
+    ...(w.loanDisbursements !== 0
+      ? [
+          {
+            label: "Financiamiento recibido",
+            value: w.loanDisbursements,
+            total: false,
+          },
+          { label: "Variación de caja", value: w.cashVariation, total: true },
+        ]
+      : []),
   ];
 }
 

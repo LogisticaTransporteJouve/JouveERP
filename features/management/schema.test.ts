@@ -316,6 +316,66 @@ describe("advances to staff (cash)", () => {
   });
 });
 
+describe("loan disbursements (cash)", () => {
+  const rows = [
+    row({ amount: 1000 }),
+    row({ bucket: "loan_principal", amount: -200 }),
+    row({ bucket: "loan_disbursements", side: "internal", amount: 5000 }),
+  ];
+
+  it("go below cash generation, which stays without financing", () => {
+    const w = computeWaterfall(rows);
+    expect(w.operatingMargin).toBe(1000);
+    expect(w.cashGeneration).toBe(800);
+    expect(w.loanDisbursements).toBe(5000);
+    expect(w.cashVariation).toBe(5800);
+    const { totals } = buildMonthTable(rows, ["2026-09"]);
+    expect(totals.cash_generation!.total).toBe(800);
+    expect(totals.loan_disbursements!).toEqual({
+      fiscal: 0,
+      internal: 5000,
+      total: 5000,
+    });
+    expect(totals.cash_variation!.total).toBe(5800);
+  });
+
+  it("come right after Generación de caja, closed by Variación de caja", () => {
+    const keys = TABLE_LINES.map((l) => l.key);
+    expect(keys.slice(-3)).toEqual([
+      "cash_generation",
+      "loan_disbursements",
+      "cash_variation",
+    ]);
+    expect(TABLE_LINES.find((l) => l.key === "loan_disbursements")!.label).toBe(
+      "Financiamiento recibido",
+    );
+  });
+
+  it("never reach the cash generation KPI", () => {
+    const { kpis } = computeKpis(rows, [], ["2026-09"], "2026-09");
+    expect(kpis.find((k) => k.key === "cash_generation")!.current).toBe(800);
+  });
+
+  it("are a known row bucket", () => {
+    const { rows: known, unknown } = narrowManagementRows([
+      {
+        month: "2026-09",
+        bucket: "loan_disbursements",
+        subbucket: null,
+        channel_side: "fiscal",
+        chart_account_id: null,
+        amount_ars: "5000",
+        pending_usd: "0",
+      },
+    ]);
+    expect(unknown).toHaveLength(0);
+    expect(known[0]).toMatchObject({
+      bucket: "loan_disbursements",
+      amount: 5000,
+    });
+  });
+});
+
 describe("computeKpis", () => {
   const months = ["2025-10", "2025-11", "2025-12"];
   const rows = [
@@ -405,6 +465,14 @@ describe("narrowManagementDocuments", () => {
           doc_parent_id: "22222222-2222-4222-8222-222222222222",
         }),
         rawDoc({ doc_type: "employee" }),
+        rawDoc({
+          bucket: "loan_disbursements",
+          subbucket: null,
+          amount_ars: "5000",
+          doc_type: "loan",
+          doc_id: "33333333-3333-4333-8333-333333333333",
+          doc_label: "Desembolso: Préstamo banco",
+        }),
         rawDoc({ doc_type: "otro" }),
       ],
       (type) => type !== "employee",
@@ -415,6 +483,7 @@ describe("narrowManagementDocuments", () => {
       "/hr/payroll/sac/2026/1",
       "/transactions?account=22222222-2222-4222-8222-222222222222&period=custom&from=2026-09-10&to=2026-09-10",
       null,
+      "/loans/33333333-3333-4333-8333-333333333333",
     ]);
     expect(docs[0]).toMatchObject({ amount: -100, side: "fiscal" });
   });
@@ -475,6 +544,7 @@ describe("drillDocuments", () => {
       row({ bucket: "operating_cost", subbucket: null, amount: -7 }),
       row({ bucket: "employee_advances", amount: -30 }),
       row({ bucket: "loan_principal", amount: -40 }),
+      row({ bucket: "loan_disbursements", side: "internal", amount: 600 }),
     ];
     const docs = rows.map((r, i) => doc({ ...r, docId: String(i) }));
     const { totals } = buildMonthTable(rows, ["2026-09"]);
@@ -507,5 +577,9 @@ describe("monthTableExport", () => {
     ]);
     expect(out.rows).toHaveLength(TABLE_LINES.length);
     expect(out.rows[0]).toEqual(["Servicios", 5, 1000, 1005, 0, 1005]);
+    expect(out.rows.slice(-2).map((r) => r[0])).toEqual([
+      "Financiamiento recibido",
+      "Variación de caja",
+    ]);
   });
 });
