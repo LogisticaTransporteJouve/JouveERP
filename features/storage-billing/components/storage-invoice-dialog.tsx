@@ -92,7 +92,8 @@ export function StorageInvoiceDialog({
   }, [open, client?.client_id, reportStart, reportEnd]);
 
   const gap = start ? uncoveredGap(clientRuns, start) : null;
-  const overlaps = start && end ? overlapsBilled(clientRuns, start, end) : false;
+  const overlaps =
+    start && end ? overlapsBilled(clientRuns, start, end) : false;
   const validRange = Boolean(start) && Boolean(end) && end >= start;
 
   function onSubmit() {

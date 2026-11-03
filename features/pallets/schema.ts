@@ -160,5 +160,25 @@ export const PalletBlockSchema = z.object({
 });
 export type PalletBlockInput = z.input<typeof PalletBlockSchema>;
 
+/** Unblocking takes its reason too (pallet_block_events). */
+export const PalletUnblockSchema = z.object({
+  id: z.string().uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Contá por qué se desbloquea.")
+    .max(500, "Motivo demasiado largo."),
+});
+export type PalletUnblockInput = z.input<typeof PalletUnblockSchema>;
+
+/** One block or unblock of a pallet (pallet_block_events). */
+export interface PalletBlockEvent {
+  id: string;
+  action: "blocked" | "unblocked";
+  reason: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
 export type PalletsSummaryRow =
   Database["public"]["Functions"]["ai_pallets_summary"]["Returns"][number];

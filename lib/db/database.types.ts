@@ -4627,6 +4627,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pallet_block_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          pallet_id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          pallet_id: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          pallet_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallet_block_events_pallet_id_fkey"
+            columns: ["pallet_id"]
+            isOneToOne: false
+            referencedRelation: "pallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pallets: {
         Row: {
           area_id: string | null
@@ -6390,6 +6425,7 @@ export type Database = {
       }
       storage_tariffs: {
         Row: {
+          area_id: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
@@ -6405,6 +6441,7 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          area_id?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6420,6 +6457,7 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          area_id?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6435,6 +6473,13 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "storage_tariffs_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "storage_areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "storage_tariffs_client_id_fkey"
             columns: ["client_id"]
@@ -10019,6 +10064,10 @@ export type Database = {
           scope: string
           total: number
         }[]
+      }
+      unblock_pallet: {
+        Args: { p_pallet_id: string; p_reason: string }
+        Returns: boolean
       }
       undo_import_run: {
         Args: { p_run_id: string; p_user_id: string }

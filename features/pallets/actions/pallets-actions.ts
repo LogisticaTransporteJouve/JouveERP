@@ -17,13 +17,16 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   PalletBlockSchema,
+  PalletUnblockSchema,
   PalletBulkCreateSchema,
   PalletBulkDispatchSchema,
   PalletCreateSchema,
   PalletUpdateSchema,
   isPalletStatus,
   type Pallet,
+  type PalletBlockEvent,
   type PalletBlockInput,
+  type PalletUnblockInput,
 } from "../schema";
 
 type PalletSelectRow = Pick<
@@ -458,35 +461,109 @@ export async function blockPalletAction(
   return { ok: true, data: undefined };
 }
 
-export async function unblockPalletAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function unblockPalletAction(
+  input: PalletUnblockInput,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para desbloquear pallets." };
   }
-  const id = PalletBlockSchema.shape.id.safeParse(input.id);
+  const parsed = PalletUnblockSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { id, reason } = parsed.data;
+
+  // unblock_pallet (security invoker) clears the block and leaves the reason
+  // for the history trigger, under the caller's RLS.
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase.rpc("unblock_pallet", {
+    p_pallet_id: id,
+    p_reason: reason,
+  });
+  if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "pallets.unblock.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("pallets.unblock.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo desbloquear el pallet." };
+  }
+  if (!data) {
+    return { ok: false, error: "El pallet no existe o no está bloqueado." };
+  }
+
+  await logAudit("pallet.unblocked", ctx.userId, { reason }, id);
+  return { ok: true, data: undefined };
+}
+
+/** Who blocked or unblocked the pallet, when and why; newest first. */
+export async function listPalletBlockEventsAction(
+  palletId: string,
+): Promise<ActionResult<PalletBlockEvent[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "pallets:read")) {
+    return { ok: false, error: "No tenés permiso para ver pallets." };
+  }
+  const id = PalletBlockSchema.shape.id.safeParse(palletId);
   if (!id.success) return { ok: false, error: "Pallet inválido." };
 
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
-    .from("pallets")
-    .update({ blocked_at: null, blocked_by: null, block_reason: null })
-    .eq("id", id.data)
-    .not("blocked_at", "is", null)
-    .select("id, block_reason");
+    .from("pallet_block_events")
+    .select("id, action, reason, actor_id, created_at")
+    .eq("pallet_id", id.data)
+    .order("created_at", { ascending: false })
+    .order("id")
+    .limit(100);
   if (error) {
-    logger.error("pallets.unblock.failed", {
+    logger.error("pallets.block_events.failed", {
       userId: ctx.userId,
       id: id.data,
       error,
     });
-    return { ok: false, error: "No se pudo desbloquear el pallet." };
+    return { ok: false, error: "No se pudo leer el historial de bloqueos." };
   }
-  if (data.length === 0) {
-    return { ok: false, error: "El pallet no existe o no está bloqueado." };
+  const actorIds = [
+    ...new Set(
+      (data ?? []).map((e) => e.actor_id).filter((a): a is string => !!a),
+    ),
+  ];
+  const names = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: profiles, error: pErr } = await getServiceClient()
+      .from("user_profiles")
+      .select("user_id, first_name, last_name")
+      .in("user_id", actorIds);
+    if (pErr) {
+      logger.error("pallets.block_events.profiles_failed", {
+        userId: ctx.userId,
+        error: pErr,
+      });
+    }
+    for (const p of profiles ?? []) {
+      const name = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+      if (name) names.set(p.user_id, name);
+    }
   }
-
-  await logAudit("pallet.unblocked", ctx.userId, {}, id.data);
-  return { ok: true, data: undefined };
+  const events: PalletBlockEvent[] = [];
+  for (const e of data ?? []) {
+    if (e.action !== "blocked" && e.action !== "unblocked") {
+      logger.error("pallets.block_events.unknown_action", { id: e.id });
+      continue;
+    }
+    events.push({
+      id: e.id,
+      action: e.action,
+      reason: e.reason,
+      actor_name: e.actor_id ? (names.get(e.actor_id) ?? null) : null,
+      created_at: e.created_at,
+    });
+  }
+  return { ok: true, data: events };
 }

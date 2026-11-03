@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -32,6 +33,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { runAction } from "@/lib/query/run-action";
+
+import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
+import { storageAreasKeys } from "@/features/warehouses/lib/warehouses-keys";
 
 import {
   useCreateStorageTariff,
@@ -47,6 +52,7 @@ const NONE = "__none__";
 
 const FormSchema = z.object({
   client_id: z.string(),
+  area_id: z.string(),
   rate_per_pallet: z
     .string()
     .refine((v) => Number(v) > 0, "La tarifa debe ser mayor a 0."),
@@ -67,6 +73,7 @@ type FormValues = z.infer<typeof FormSchema>;
 function toDefaults(tariff?: StorageTariff): FormValues {
   return {
     client_id: tariff?.client_id ?? "",
+    area_id: tariff?.area_id ?? "",
     rate_per_pallet: tariff ? String(tariff.rate_per_pallet) : "",
     handling_in: tariff ? String(tariff.handling_in) : "0",
     handling_out: tariff ? String(tariff.handling_out) : "0",
@@ -94,11 +101,20 @@ export function StorageTariffDialog({
   const updateMut = useUpdateStorageTariff();
   const isSaving = createMut.isPending || updateMut.isPending;
   const isEdit = mode === "edit";
+  // Active areas (and the tariff's own, if it went inactive), for a general
+  // tariff limited to one area.
+  const areas = useQuery({
+    queryKey: storageAreasKeys.list(false),
+    queryFn: () => runAction(() => listStorageAreasAction({})),
+    enabled: open,
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: toDefaults(tariff),
   });
+
+  const clientId = useWatch({ control: form.control, name: "client_id" });
 
   useEffect(() => {
     if (open) form.reset(toDefaults(tariff));
@@ -107,6 +123,8 @@ export function StorageTariffDialog({
   function onSubmit(values: FormValues) {
     const payload = {
       client_id: values.client_id,
+      // A client's tariff has no area (its tarifario carries those).
+      area_id: values.client_id === "" ? values.area_id : "",
       rate_per_pallet: Number(values.rate_per_pallet),
       handling_in: values.handling_in === "" ? 0 : Number(values.handling_in),
       handling_out:
@@ -142,9 +160,7 @@ export function StorageTariffDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {isEdit ? "Editar tarifa" : "Nueva tarifa"}
-          </DialogTitle>
+          <DialogTitle>{isEdit ? "Editar tarifa" : "Nueva tarifa"}</DialogTitle>
           <DialogDescription>
             Tarifa de almacenaje por pallet con vigencia. Dejá el cliente en
             general para una tarifa por defecto.
@@ -180,6 +196,42 @@ export function StorageTariffDialog({
                 </FormItem>
               )}
             />
+            {clientId === "" && (
+              <FormField
+                control={form.control}
+                name="area_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Área (opcional)</FormLabel>
+                    <Select
+                      value={field.value === "" ? NONE : field.value}
+                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger aria-label="Área">
+                          <SelectValue placeholder="Todas las áreas" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Todas las áreas</SelectItem>
+                        {(areas.data ?? [])
+                          .filter((a) => a.is_active || a.id === field.value)
+                          .map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.warehouse_name} · {a.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Una tarifa general de un área pisa a la general para los
+                      pallets de esa área; la de un cliente pisa a las dos.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}

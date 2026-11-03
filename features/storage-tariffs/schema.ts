@@ -9,12 +9,18 @@ export const TARIFF_PERIOD_LABELS: Record<TariffPeriod, string> = {
 };
 
 export function isTariffPeriod(v: unknown): v is TariffPeriod {
-  return typeof v === "string" && (TARIFF_PERIODS as readonly string[]).includes(v);
+  return (
+    typeof v === "string" && (TARIFF_PERIODS as readonly string[]).includes(v)
+  );
 }
 
 export interface StorageTariff {
   id: string;
   client_id: string | null;
+  /** A general tariff limited to one area; null = every area. */
+  area_id: string | null;
+  /** "Depósito · Área", or null. */
+  area_label: string | null;
   rate_per_pallet: number;
   handling_in: number;
   handling_out: number;
@@ -54,17 +60,12 @@ const optionalNotes = z
 export const StorageTariffCreateSchema = z
   .object({
     client_id: optionalUuid,
+    area_id: optionalUuid,
     rate_per_pallet: z.coerce
       .number()
       .positive("La tarifa debe ser mayor a 0."),
-    handling_in: z.coerce
-      .number()
-      .min(0, "No puede ser negativo.")
-      .default(0),
-    handling_out: z.coerce
-      .number()
-      .min(0, "No puede ser negativo.")
-      .default(0),
+    handling_in: z.coerce.number().min(0, "No puede ser negativo.").default(0),
+    handling_out: z.coerce.number().min(0, "No puede ser negativo.").default(0),
     period: z.enum(TARIFF_PERIODS).default("monthly"),
     valid_from: dateStr,
     valid_to: optionalDate,
@@ -73,13 +74,21 @@ export const StorageTariffCreateSchema = z
   .refine((d) => !d.valid_to || d.valid_to >= d.valid_from, {
     message: "El fin de vigencia no puede ser anterior al inicio.",
     path: ["valid_to"],
+  })
+  .refine((d) => !d.area_id || !d.client_id, {
+    message:
+      "La tarifa por área es general: la de un cliente va en su tarifario.",
+    path: ["area_id"],
   });
 
-export type StorageTariffCreateInput = z.infer<typeof StorageTariffCreateSchema>;
+export type StorageTariffCreateInput = z.infer<
+  typeof StorageTariffCreateSchema
+>;
 
 export const StorageTariffUpdateSchema = z.object({
   id: z.string().uuid(),
   client_id: optionalUuid,
+  area_id: optionalUuid,
   rate_per_pallet: z.coerce.number().positive().optional(),
   handling_in: z.coerce.number().min(0).optional(),
   handling_out: z.coerce.number().min(0).optional(),

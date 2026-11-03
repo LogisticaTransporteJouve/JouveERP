@@ -85,6 +85,11 @@ export function StorageTariffsTable({
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.client?.legal_name ?? "General"}
+            {row.original.area_label && (
+              <span className="block text-xs font-normal text-muted-foreground">
+                {row.original.area_label}
+              </span>
+            )}
           </span>
         ),
       },

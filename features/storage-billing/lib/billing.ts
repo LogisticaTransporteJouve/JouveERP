@@ -12,7 +12,10 @@
 //
 // Areas (roadmap 4.4): for a pallet in an area, the client's tariff for that
 // area wins over the client's tariff for every area (area_id null) on the
-// days and events it covers.
+// days and events it covers. Among storage_tariffs, the client's row wins
+// over the general one of the pallet's area, which wins over the general
+// one of every area (20261104080400). Full precedence: client area tariff,
+// client tariff, client storage tariff, general area tariff, general.
 
 import {
   dailyPrice,
@@ -36,6 +39,8 @@ export type PalletInput = {
 
 export type TariffInput = {
   client_id: string | null;
+  /** A general tariff limited to one area; null or absent = every area. */
+  area_id?: string | null;
   rate_per_pallet: number;
   period: string; // 'daily' | 'monthly'
   handling_in: number;
@@ -87,6 +92,8 @@ export type ClientBilling = {
 /** Storage tariff actually used in a computation — snapshotted on the billing run. */
 export type AppliedTariff = {
   client_id: string | null;
+  /** Present only on a general area tariff. */
+  area_id?: string | null;
   rate_per_pallet: number;
   period: string;
   handling_in: number;
@@ -122,10 +129,13 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Picks the applicable storage tariff (client-specific wins; latest valid_from). */
+/** Picks the applicable storage tariff: client-specific first, then the
+ *  general one of the pallet's area, then the general one; latest
+ *  valid_from within each. An area row never applies to another area. */
 function pickTariff(
   tariffs: TariffInput[],
   clientId: string,
+  areaId: string | null,
   periodStart: number,
   periodEnd: number,
 ): TariffInput | null {
@@ -133,15 +143,16 @@ function pickTariff(
     (t) =>
       t.is_active &&
       (t.client_id === clientId || t.client_id === null) &&
+      ((t.area_id ?? null) === null || t.area_id === areaId) &&
       dayNum(t.valid_from) <= periodEnd &&
       (t.valid_to === null || dayNum(t.valid_to) >= periodStart),
   );
   if (applicable.length === 0) return null;
+  const rank = (t: TariffInput) =>
+    t.client_id === clientId ? 2 : (t.area_id ?? null) !== null ? 1 : 0;
   applicable.sort((a, b) => {
-    // Client-specific first, then latest valid_from.
-    const aSpecific = a.client_id === clientId ? 1 : 0;
-    const bSpecific = b.client_id === clientId ? 1 : 0;
-    if (aSpecific !== bSpecific) return bSpecific - aSpecific;
+    const byRank = rank(b) - rank(a);
+    if (byRank !== 0) return byRank;
     return dayNum(b.valid_from) - dayNum(a.valid_from);
   });
   return applicable[0] ?? null;
@@ -191,10 +202,11 @@ export function computeStorageBilling(input: {
   let withoutRate = 0;
 
   function recordFallback(tariff: TariffInput): void {
-    const key = `${tariff.client_id ?? ""}|${tariff.valid_from}|${tariff.rate_per_pallet}|${tariff.period}`;
+    const key = `${tariff.client_id ?? ""}|${tariff.area_id ?? ""}|${tariff.valid_from}|${tariff.rate_per_pallet}|${tariff.period}`;
     if (appliedTariffs.has(key)) return;
     appliedTariffs.set(key, {
       client_id: tariff.client_id,
+      ...((tariff.area_id ?? null) !== null && { area_id: tariff.area_id }),
       rate_per_pallet: tariff.rate_per_pallet,
       period: tariff.period,
       handling_in: tariff.handling_in,
@@ -234,7 +246,13 @@ export function computeStorageBilling(input: {
     const areaTariffs =
       area === null ? [] : ownTariffs.filter((t) => t.area_id === area);
     const generalTariffs = ownTariffs.filter(isGeneral);
-    const fallback = pickTariff(input.tariffs, pallet.client_id, pStart, pEnd);
+    const fallback = pickTariff(
+      input.tariffs,
+      pallet.client_id,
+      area,
+      pStart,
+      pEnd,
+    );
     let missingRate = false;
 
     // Within [start, end], the days a tariff is in force.

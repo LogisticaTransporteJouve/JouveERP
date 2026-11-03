@@ -27,11 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import {
-  useDeletePallet,
-  usePallets,
-  useUnblockPallet,
-} from "../hooks/use-pallets";
+import { useDeletePallet, usePallets } from "../hooks/use-pallets";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
 import type { AreaOption } from "./area-select";
@@ -53,8 +49,10 @@ export function PalletsTable({
 }) {
   const { data: items } = usePallets();
   const deleteMut = useDeletePallet();
-  const unblockMut = useUnblockPallet();
-  const [blocking, setBlocking] = useState<Pallet | null>(null);
+  const [blocking, setBlocking] = useState<{
+    pallet: Pallet;
+    mode: "block" | "unblock";
+  } | null>(null);
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; pallet: Pallet } | null
@@ -105,21 +103,6 @@ export function PalletsTable({
       if (!ok) return;
       deleteMut.mutate(p.id, {
         onSuccess: () => toast.success("Pallet borrado."),
-        onError: (err) => toast.error(err.message),
-      });
-    }
-
-    async function handleUnblock(p: Pallet) {
-      const ok = await confirm({
-        title: `Desbloquear pallet ${p.code}`,
-        description: p.block_reason
-          ? `Motivo del bloqueo: ${p.block_reason}`
-          : "El pallet vuelve a poder despacharse.",
-        confirmLabel: "Desbloquear",
-      });
-      if (!ok) return;
-      unblockMut.mutate(p.id, {
-        onSuccess: () => toast.success(`Pallet ${p.code} desbloqueado.`),
         onError: (err) => toast.error(err.message),
       });
     }
@@ -282,13 +265,21 @@ export function PalletsTable({
                 Editar
               </DropdownMenuItem>
               {row.original.blocked_at ? (
-                <DropdownMenuItem onClick={() => handleUnblock(row.original)}>
+                <DropdownMenuItem
+                  onClick={() =>
+                    setBlocking({ pallet: row.original, mode: "unblock" })
+                  }
+                >
                   <LockOpen className="size-4" />
                   Desbloquear
                 </DropdownMenuItem>
               ) : row.original.status === "en_deposito" &&
                 !row.original.exit_date ? (
-                <DropdownMenuItem onClick={() => setBlocking(row.original)}>
+                <DropdownMenuItem
+                  onClick={() =>
+                    setBlocking({ pallet: row.original, mode: "block" })
+                  }
+                >
                   <Lock className="size-4" />
                   Bloquear
                 </DropdownMenuItem>
@@ -305,7 +296,7 @@ export function PalletsTable({
         ),
       },
     ];
-  }, [confirm, deleteMut, unblockMut, selected, selectableIds, headerChecked]);
+  }, [confirm, deleteMut, selected, selectableIds, headerChecked]);
 
   const selectedCount = selected.size;
 
@@ -381,8 +372,9 @@ export function PalletsTable({
 
       {blocking && (
         <BlockPalletDialog
-          pallet={blocking}
-          open={blocking !== null}
+          pallet={blocking.pallet}
+          mode={blocking.mode}
+          open
           onOpenChange={(o) => {
             if (!o) setBlocking(null);
           }}
