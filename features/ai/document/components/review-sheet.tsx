@@ -31,7 +31,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
+function matchInfo(matches: unknown): {
+  name?: string;
+  duplicate: boolean;
+  duplicateUnknown?: boolean;
+} {
   if (!isRecord(matches)) return { duplicate: false };
   const name =
     typeof matches.supplier_name === "string"
@@ -39,7 +43,11 @@ function matchInfo(matches: unknown): { name?: string; duplicate: boolean } {
       : typeof matches.client_name === "string"
         ? matches.client_name
         : undefined;
-  return { name, duplicate: typeof matches.duplicate_of === "string" };
+  return {
+    name,
+    duplicate: typeof matches.duplicate_of === "string",
+    duplicateUnknown: matches.duplicate_unknown === true,
+  };
 }
 
 function reconInfo(matches: unknown): {
@@ -226,6 +234,12 @@ export function ReviewSheet({
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
                 <AlertTriangle className="size-3" />
                 Posible duplicado
+              </span>
+            )}
+            {match.duplicateUnknown && (
+              <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <AlertTriangle className="size-3" />
+                No se pudo verificar si ya está cargado
               </span>
             )}
             {expense && (

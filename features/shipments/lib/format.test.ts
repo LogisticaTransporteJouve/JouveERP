@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   matchesShipmentSearch,
   remitoMatches,
+  remitoNumberPattern,
   scannedRemitoLabel,
 } from "./format";
 
@@ -45,6 +46,25 @@ describe("remitoMatches", () => {
     expect(remitoMatches("sin número", { sales_point: 1, number: 1 })).toBe(
       false,
     );
+  });
+
+  it("filters in SQL exactly on the last digit group, as remitoMatches does", () => {
+    const pattern = new RegExp(remitoNumberPattern(37));
+    const scanned = { sales_point: null, number: 37 };
+    for (const remito of [
+      "37",
+      "0001-00000037",
+      "R 1 37",
+      "0001-00000037 A",
+      "0001-00000370",
+      "0037-00001375",
+      "0001-00010037",
+      "0001-37-2",
+      "sin número",
+    ]) {
+      expect(pattern.test(remito), remito).toBe(remitoMatches(remito, scanned));
+    }
+    expect(() => remitoNumberPattern(1.5)).toThrow();
   });
 
   it("labels the scanned remito", () => {

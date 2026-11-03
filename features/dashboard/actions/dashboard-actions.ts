@@ -26,6 +26,7 @@ import {
   type DashboardLayout,
   type DashboardToday,
   type DueDateItem,
+  type DueDates,
   type OpsKpis,
   type PendingPaper,
   type TodayTile,
@@ -33,6 +34,16 @@ import {
 } from "../schema";
 
 const HORIZON_DAYS = 14;
+
+/** The agenda's sections, in the order they are read below. */
+const DUE_DATE_SECTION_LABELS = [
+  "cheques en cartera",
+  "cheques propios",
+  "cuotas de préstamos",
+  "pagos recurrentes",
+  "documentos de flota",
+  "documentos de empleados",
+] as const;
 
 const SECTION_PERMISSIONS: Permission[] = [
   "cheques:read",
@@ -48,7 +59,7 @@ const SECTION_PERMISSIONS: Permission[] = [
 // included only if the caller has that section's read permission, so the
 // same action serves finance and operations roles with different content.
 export async function getDashboardDueDatesAction(): Promise<
-  ActionResult<DueDateItem[]>
+  ActionResult<DueDates>
 > {
   const ctx = await requireUserContext();
   if (!SECTION_PERMISSIONS.some((p) => userCan(ctx.access, p))) {
@@ -59,10 +70,11 @@ export async function getDashboardDueDatesAction(): Promise<
   const today = todayInAR();
   const until = addDaysIso(today, HORIZON_DAYS);
   // The six sections are independent reads → run them in parallel. Each
-  // returns [] when the caller lacks its permission; the concatenation keeps
-  // the original section order so the (stable) date sort is unchanged.
+  // returns [] when the caller lacks its permission and null when its read
+  // failed; the concatenation keeps the original section order so the
+  // (stable) date sort is unchanged.
   const sections = await Promise.all([
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCan(ctx.access, "cheques:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -76,6 +88,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const c of data ?? []) {
         out.push({
@@ -92,7 +105,7 @@ export async function getDashboardDueDatesAction(): Promise<
       }
       return out;
     })(),
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCan(ctx.access, "issued_checks:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -108,6 +121,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const c of data ?? []) {
         out.push({
@@ -124,7 +138,7 @@ export async function getDashboardDueDatesAction(): Promise<
       }
       return out;
     })(),
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -141,6 +155,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const i of data ?? []) {
         const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
@@ -159,7 +174,7 @@ export async function getDashboardDueDatesAction(): Promise<
       }
       return out;
     })(),
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCan(ctx.access, "recurring_payments:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -173,6 +188,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const r of data ?? []) {
         out.push({
@@ -189,7 +205,7 @@ export async function getDashboardDueDatesAction(): Promise<
       }
       return out;
     })(),
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCan(ctx.access, "fleet_documents:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -204,6 +220,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const d of data ?? []) {
         const vehicle = Array.isArray(d.vehicle) ? d.vehicle[0] : d.vehicle;
@@ -222,7 +239,7 @@ export async function getDashboardDueDatesAction(): Promise<
       }
       return out;
     })(),
-    (async (): Promise<DueDateItem[]> => {
+    (async (): Promise<DueDateItem[] | null> => {
       if (!userCan(ctx.access, "hr:read")) return [];
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
@@ -235,6 +252,7 @@ export async function getDashboardDueDatesAction(): Promise<
           userId: ctx.userId,
           error,
         });
+        return null;
       }
       for (const d of data ?? []) {
         if (!d.id || !d.expires_at) continue;
@@ -253,10 +271,15 @@ export async function getDashboardDueDatesAction(): Promise<
       return out;
     })(),
   ]);
-  const items = sections.flat();
+  const items = sections.flatMap((s) => s ?? []);
+  // A section whose read failed is named, so the card never reads an error
+  // as "sin vencimientos".
+  const failed = sections.flatMap((s, i) =>
+    s === null ? [DUE_DATE_SECTION_LABELS[i] ?? "otros"] : [],
+  );
 
   items.sort((a, b) => a.date.localeCompare(b.date));
-  return { ok: true, data: items };
+  return { ok: true, data: { items, failed } };
 }
 
 const FLEET_KIND_LABEL: Readonly<Record<string, string>> =

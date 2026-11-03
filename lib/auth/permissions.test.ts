@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,6 +24,16 @@ import {
   type Permission,
   type Role,
 } from "@/lib/auth/permissions";
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)
+      ? [path]
+      : [];
+  });
+}
 
 describe("permission matrix coverage", () => {
   it("every declared permission is granted to at least one role", () => {
@@ -52,6 +65,39 @@ describe("permission matrix coverage", () => {
       expect(ROLE_PERMISSIONS.admin.includes(permission)).toBe(
         !OWNER_ONLY_PERMISSIONS.includes(permission),
       );
+    }
+  });
+
+  it("every declared permission is checked somewhere outside the matrix", () => {
+    // A permission no gate reads is a deny the access dialog offers that
+    // reaches nothing (the owner denies it and the user keeps doing it).
+    const root = join(import.meta.dirname, "..", "..");
+    const sources = ["app", "components", "features", "hooks", "lib"]
+      .flatMap((dir) => sourceFiles(join(root, dir)))
+      .filter(
+        (path) =>
+          !path.endsWith(join("lib", "auth", "permissions.ts")) &&
+          !path.endsWith("database.types.ts"),
+      )
+      .map((path) => readFileSync(path, "utf8"))
+      .join("\n");
+    const unchecked = PERMISSIONS.filter((p) => !sources.includes(`"${p}"`));
+    expect(unchecked).toEqual([]);
+  });
+
+  it("drops the permissions no gate ever read", () => {
+    for (const removed of [
+      "channels:read",
+      "channels:write",
+      "files:admin",
+      "retentions:read",
+      "credit_debit_notes:read",
+      "stock_movements:read",
+    ]) {
+      expect(
+        (PERMISSIONS as readonly string[]).includes(removed),
+        removed,
+      ).toBe(false);
     }
   });
 
@@ -292,6 +338,12 @@ describe("per-user denies", () => {
     expect(userCan(access, "accounts:write")).toBe(true);
   });
 
+  it("drops a stored deny of a permission removed from the matrix", () => {
+    const access = resolveAccess(["warehouse"], ["stock_movements:read"]);
+    expect(access.denied).toEqual([]);
+    expect(userCan(access, "pallets:read")).toBe(true);
+  });
+
   it("drops deny strings that are not permissions", () => {
     expect(
       resolveAccess(["finance"], ["nope:read", "accounts"]).denied,
@@ -486,13 +538,11 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "accounts:write",
           "ai:chat",
           "ai:read",
-          "channels:read",
           "cheques:read",
           "cheques:write",
           "clients:read",
           "clients:write",
           "credit_debit_notes:issue",
-          "credit_debit_notes:read",
           "email:send",
           "files:read",
           "files:write",
@@ -514,7 +564,6 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "receipts:write",
           "recurring_payments:read",
           "recurring_payments:write",
-          "retentions:read",
           "retentions:write",
           "storage_billing:issue",
           "storage_billing:read",
@@ -529,9 +578,7 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
         ],
         "fiscal_reader": [
           "accounting:read",
-          "channels:read",
           "clients:read",
-          "credit_debit_notes:read",
           "invoices:read",
           "purchase_invoices:read",
           "suppliers:read",
@@ -540,7 +587,6 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
         "operations": [
           "ai:chat",
           "ai:read",
-          "channels:read",
           "clients:read",
           "drivers:read",
           "drivers:write",
@@ -570,7 +616,6 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "pallets:read",
           "pallets:write",
           "products:read",
-          "stock_movements:read",
           "stock_movements:write",
           "tasks:read",
           "tasks:write",

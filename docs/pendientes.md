@@ -108,6 +108,39 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Auditoría: IA, tareas y accesos (2026-11-04)
+
+- [x] **Insights:** una lectura que falla conserva las tarjetas de su tipo
+      (antes se borraban); flota y anomalías leen todas las filas (paginado;
+      pasado el tope de drenado la corrida falla y las tarjetas quedan); las
+      anomalías se comparan por moneda (ARS y USD por separado, con `US$`);
+      la regeneración es una transacción (`regenerate_ai_insights`) con lock
+      y un índice único por fingerprint vivo.
+- [x] **Propuestas IA:** una aceptada sin resultado (el pedido murió) se
+      cierra como fallida y se puede volver a preparar.
+- [x] **Escaneo:** el control de duplicados compara también tipo y letra, y
+      avisa si la búsqueda falló.
+- [x] **Herramientas IA:** `limit` acotado en órdenes de pago, recibos y
+      asientos; una página cortada avisa que hay más.
+- [x] **Dashboard:** la agenda nombra las secciones cuya lectura falló en vez
+      de decir "sin vencimientos". **Remitos:** el número escaneado se busca
+      exacto en SQL antes del tope de 200.
+- [x] **Tareas:** `tasks-daily` reclama vencidas y por vencer en pasos
+      separados y asigna toda tarea automática abierta sin asignar, salvo
+      la que alguien dejó sin responsables a mano; los comentarios e
+      historial de una tarea restringida no se devuelven.
+- [x] **Permisos:** `retentions:write` gatea cargar o cambiar retenciones de
+      un recibo (sin él, ningún formulario de recibo muestra el editor) y
+      `stock_movements:write` gatea entrar, despachar, borrar o mover un
+      pallet. Salen de la matriz `channels:read`, `channels:write`,
+      `files:admin`, `retentions:read`, `credit_debit_notes:read` y
+      `stock_movements:read` (ningún gate los leía); un test exige que cada
+      permiso se lea fuera de la matriz.
+- [ ] Aprobar `20261104096000` (insights) y `20261104096100` (denegaciones de
+      permisos quitados) con el deploy. Sin la primera, el analista falla
+      (no existe el RPC) y las tarjetas quedan como estaban.
+- [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
+      `regenerate_ai_insights` y el anti-join de tareas sin asignar.
 ## Auditoría RRHH y rendiciones (2026-11-04)
 
 - [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).

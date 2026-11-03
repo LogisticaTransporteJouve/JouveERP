@@ -104,7 +104,10 @@ import {
 } from "@/features/checks/actions/checks-actions";
 import { getAttendanceMonthAction } from "@/features/hr/actions/attendance-actions";
 
+import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
+
 import {
+  runJournalEntries,
   runLedger,
   runLibroIvaCompras,
   runLibroIvaVentas,
@@ -663,6 +666,24 @@ describe("reachedCap", () => {
     expect(reachedCap(999)).toBe(false);
     expect(reachedCap(1000)).toBe(true);
     expect(reachedCap(200, 200)).toBe(true);
+  });
+});
+
+describe("runJournalEntries", () => {
+  it("bounds the page the model asks for and reports more as partial", async () => {
+    vi.mocked(listJournalEntriesAction).mockResolvedValue({
+      ok: true,
+      data: { items: [], nextOffset: 200 },
+    });
+    const r = await runJournalEntries({ limit: 5000 });
+    expect(
+      vi.mocked(listJournalEntriesAction).mock.calls[0]?.[0],
+    ).toMatchObject({ limit: 200 });
+    expect(r.ok && r.partial).toBe(true);
+    await runJournalEntries({ limit: 0 });
+    expect(
+      vi.mocked(listJournalEntriesAction).mock.calls[1]?.[0],
+    ).toMatchObject({ limit: 1 });
   });
 });
 

@@ -111,6 +111,7 @@ export function ReceiptForm({
   initialAllocations: presetAllocations,
   onSuccess,
   onCancel,
+  canEditRetentions,
 }: {
   mode: Mode;
   channels: ChannelOption[];
@@ -122,6 +123,9 @@ export function ReceiptForm({
   initialAllocations?: AllocationDraft[];
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
+  /** Without retentions:write the form keeps the stored retentions as they
+   *  are and offers no editor (the action refuses any change). */
+  canEditRetentions: boolean;
 }) {
   const createMut = useCreateReceipt();
   const updateMut = useUpdateReceipt();
@@ -557,12 +561,20 @@ export function ReceiptForm({
 
         {/* Retentions / Percepciones: fiscal only (a recibo interno has no
             AFIP side), unless an older receipt already carries some. */}
-        {(pageIsFiscal !== false || retentions.length > 0) && (
-          <RetentionsEditor
-            retentions={retentions}
-            onChange={(rets) => form.setValue("retentions", rets)}
-            defaultDate={receiptDate}
-          />
+        {canEditRetentions &&
+          (pageIsFiscal !== false || retentions.length > 0) && (
+            <RetentionsEditor
+              retentions={retentions}
+              onChange={(rets) => form.setValue("retentions", rets)}
+              defaultDate={receiptDate}
+            />
+          )}
+        {!canEditRetentions && retentions.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Este recibo tiene {retentions.length}{" "}
+            {retentions.length === 1 ? "retención" : "retenciones"}. Se
+            conservan sin cambios: no tenés permiso para editarlas.
+          </p>
         )}
 
         {/* Allocations: FIFO, picked, or a cuenta (create); picked (edit). */}

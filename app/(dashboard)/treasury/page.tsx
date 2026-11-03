@@ -26,6 +26,7 @@ export default async function TreasuryRoute() {
         <TreasuryPage
           canCollect={userCan(ctx.access, "receipts:write")}
           canPay={userCan(ctx.access, "payment_orders:write")}
+          canEditRetentions={userCan(ctx.access, "retentions:write")}
           canAdvance={
             userCan(ctx.access, "hr:write") &&
             userCan(ctx.access, "transactions:write")

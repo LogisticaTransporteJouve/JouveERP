@@ -11,6 +11,7 @@ const claimProposal = vi.fn();
 const recordProposalOutcome = vi.fn();
 const insertProposal = vi.fn();
 const latestProposalByKey = vi.fn();
+const failStaleAcceptedProposal = vi.fn();
 const logAudit = vi.fn();
 const createTask = vi.fn();
 const issueLateInterestNd = vi.fn();
@@ -41,6 +42,7 @@ vi.mock("../lib/ai-proposals", () => ({
   recordProposalOutcome,
   insertProposal,
   latestProposalByKey,
+  failStaleAcceptedProposal,
   proposalDedupeKey: (action: string) => `${action}:key`,
 }));
 
@@ -229,5 +231,53 @@ describe("prepareInsightProposalAction", () => {
     const res = await prepareInsightProposalAction(INSIGHT);
     expect(res).toEqual({ ok: false, error: "No se encontró el insight." });
     expect(insertProposal).not.toHaveBeenCalled();
+  });
+
+  it("returns an accepted proposal whose write may still be running", async () => {
+    latestProposalByKey.mockResolvedValue({
+      ...taskRow,
+      status: "accepted",
+      decided_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+    const res = await prepareInsightProposalAction(INSIGHT);
+    expect(res.ok && res.data.status).toBe("accepted");
+    expect(failStaleAcceptedProposal).not.toHaveBeenCalled();
+    expect(insertProposal).not.toHaveBeenCalled();
+  });
+
+  it("closes an accepted proposal left without outcome and prepares it again", async () => {
+    latestProposalByKey.mockResolvedValue({
+      ...taskRow,
+      status: "accepted",
+      decided_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    });
+    failStaleAcceptedProposal.mockResolvedValue(true);
+    const res = await prepareInsightProposalAction(INSIGHT);
+    expect(failStaleAcceptedProposal).toHaveBeenCalledWith(
+      USER,
+      ID,
+      expect.any(String),
+      expect.stringContaining("No se sabe si la acción se completó"),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      "ai.proposal.failed",
+      USER,
+      expect.objectContaining({ result_id: null }),
+      ID,
+    );
+    expect(insertProposal).toHaveBeenCalledTimes(1);
+    expect(res.ok && res.data.status).toBe("pending");
+  });
+
+  it("keeps showing an accepted proposal that recorded its result", async () => {
+    latestProposalByKey.mockResolvedValue({
+      ...taskRow,
+      status: "accepted",
+      result: { id: "task-1" },
+      decided_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    });
+    const res = await prepareInsightProposalAction(INSIGHT);
+    expect(res.ok && res.data.status).toBe("accepted");
+    expect(failStaleAcceptedProposal).not.toHaveBeenCalled();
   });
 });

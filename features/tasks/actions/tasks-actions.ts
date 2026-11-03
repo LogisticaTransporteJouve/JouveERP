@@ -168,12 +168,14 @@ export async function getTaskDetailAction(
 
   const item = toListItem(task.data, ctx.access);
   if (!item) return { ok: false, error: "No se pudo cargar la tarea." };
+  // The service client skips RLS: a task whose source module the viewer
+  // cannot read keeps its comments and history hidden, like its title.
   return {
     ok: true,
     data: {
       ...item,
-      comments: comments.data ?? [],
-      history: history.data ?? [],
+      comments: item.restricted ? [] : (comments.data ?? []),
+      history: item.restricted ? [] : (history.data ?? []),
     },
   };
 }

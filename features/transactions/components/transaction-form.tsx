@@ -110,6 +110,7 @@ export function TransactionForm({
   channels,
   canCollect = false,
   canPay = false,
+  canEditRetentions = false,
   onSuccess,
   onCancel,
 }: {
@@ -117,6 +118,8 @@ export function TransactionForm({
   /** receipts:write / payment_orders:write: offer "Cobrar" / "Pagar". */
   canCollect?: boolean;
   canPay?: boolean;
+  /** retentions:write, for the "Cobrar" receipt form. */
+  canEditRetentions?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
 }) {
@@ -259,6 +262,7 @@ export function TransactionForm({
               comprobantes o queda a cuenta.
             </span>
             <CollectDialog
+              canEditRetentions={canEditRetentions}
               trigger={
                 <Button type="button" variant="outline" size="sm">
                   Cobrar a cliente

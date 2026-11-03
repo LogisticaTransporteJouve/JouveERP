@@ -19,10 +19,12 @@ export function NewTransactionDialog({
   channels,
   canCollect = false,
   canPay = false,
+  canEditRetentions = false,
 }: {
   channels: ChannelOption[];
   canCollect?: boolean;
   canPay?: boolean;
+  canEditRetentions?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -46,6 +48,7 @@ export function NewTransactionDialog({
           channels={channels}
           canCollect={canCollect}
           canPay={canPay}
+          canEditRetentions={canEditRetentions}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />

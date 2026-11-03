@@ -202,7 +202,12 @@ export default async function DashboardPage() {
     );
   }
   if (dueDatesRes.ok) {
-    widgets.due_dates = <DueDatesCard items={dueDatesRes.data} />;
+    widgets.due_dates = (
+      <DueDatesCard
+        items={dueDatesRes.data.items}
+        failed={dueDatesRes.data.failed}
+      />
+    );
   }
   if (aging) {
     widgets.top_debtors = (

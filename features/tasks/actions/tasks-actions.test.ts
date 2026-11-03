@@ -58,6 +58,7 @@ vi.mock("@/lib/supabase/service", () => ({
 
 const {
   createTaskAction,
+  getTaskDetailAction,
   listTasksAction,
   setTaskAssigneesAction,
   setTaskStatusAction,
@@ -156,6 +157,48 @@ describe("listTasksAction", () => {
     results.tasks = [{ data: null, error: { message: "boom" } }];
     const res = await listTasksAction({ scope: "all", status: "open" });
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("getTaskDetailAction", () => {
+  const comment = {
+    id: "c1",
+    author_id: USER_B,
+    body: "El cliente debe $1.200.000",
+    created_at: "2026-11-01T10:00:00Z",
+  };
+  const event = {
+    id: "e1",
+    event_type: "task.status_changed",
+    actor_id: USER_B,
+    ts: "2026-11-01T11:00:00Z",
+  };
+
+  function load() {
+    results.tasks = [{ data: taskRow({}), error: null }];
+    results.task_comments = [{ data: [comment], error: null }];
+    results.audit_events = [{ data: [event], error: null }];
+    return getTaskDetailAction(TASK_ID);
+  }
+
+  it("hides the comments and history of a task whose source module the viewer cannot read", async () => {
+    roles = ["operations"];
+    const res = await load();
+    expect(res.ok && res.data).toMatchObject({
+      restricted: true,
+      title: RESTRICTED_TASK_TITLE,
+      comments: [],
+      history: [],
+    });
+  });
+
+  it("shows them to a viewer who reads the module", async () => {
+    const res = await load();
+    expect(res.ok && res.data).toMatchObject({
+      restricted: false,
+      comments: [comment],
+      history: [event],
+    });
   });
 });
 

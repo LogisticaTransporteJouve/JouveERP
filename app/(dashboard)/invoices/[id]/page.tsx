@@ -207,6 +207,7 @@ export default async function ComprobanteDetailPage({
           {collectOpen && (
             <CollectDialog
               side={c.channel.is_fiscal ? "fiscal" : "internal"}
+              canEditRetentions={userCan(ctx.access, "retentions:write")}
               initialClient={{
                 id: c.client.id,
                 legal_name: c.client.legal_name,

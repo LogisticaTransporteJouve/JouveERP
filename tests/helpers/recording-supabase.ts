@@ -74,6 +74,11 @@ export function recordingSupabase(
       ilike: filter("ilike"),
       or: filter("or"),
       is: filter("is"),
+      /** `filter(column, operator, value)` records as kind `operator`. */
+      filter: (column: string, operator: string, value: unknown) => {
+        call.filters.push([operator, column, value]);
+        return builder;
+      },
       order: () => builder,
       limit: () => builder,
       range: () => builder,
