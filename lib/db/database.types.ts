@@ -7783,6 +7783,31 @@ export type Database = {
           subbucket: string
         }[]
       }
+      get_management_pnl_documents: {
+        Args: {
+          p_basis: string
+          p_buckets?: string[]
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          amount_ars: number
+          bucket: string
+          channel_side: string
+          chart_account_id: string
+          cost_center_id: string
+          counterparty: string
+          doc_date: string
+          doc_id: string
+          doc_label: string
+          doc_parent_id: string
+          doc_subtype: string
+          doc_type: string
+          month: string
+          pending_usd: number
+          subbucket: string
+        }[]
+      }
       get_my_notification_settings: {
         Args: never
         Returns: {
@@ -7989,6 +8014,21 @@ export type Database = {
       management_invoice_asset_share: {
         Args: { p_invoice_id: string }
         Returns: number
+      }
+      management_pnl_lines: {
+        Args: { p_basis: string; p_from: string; p_to: string }
+        Returns: {
+          amount_ars: number
+          bucket: string
+          channel_side: string
+          chart_account_id: string
+          cost_center_id: string
+          month: string
+          pending_usd: number
+          source_id: string
+          source_table: string
+          subbucket: string
+        }[]
       }
       mark_all_my_notifications_read: { Args: never; Returns: number }
       mark_chat_channel_read: {

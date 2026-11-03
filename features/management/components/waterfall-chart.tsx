@@ -24,6 +24,15 @@ export function waterfallSteps(w: Waterfall): Step[] {
     { label: "Capital de préstamos", value: w.loanPrincipal, total: false },
     { label: "Inversión en flota", value: w.fleetInvestment, total: false },
     { label: "Venta de bienes de uso", value: w.assetSale, total: false },
+    ...(w.employeeAdvances !== 0
+      ? [
+          {
+            label: "Anticipos al personal",
+            value: w.employeeAdvances,
+            total: false,
+          },
+        ]
+      : []),
     { label: "Generación de caja", value: w.cashGeneration, total: true },
   ];
 }
