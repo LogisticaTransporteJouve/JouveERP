@@ -78,7 +78,7 @@ export const getManagementPnL = defineAiAction({
     "cost_centers",
   ],
   description:
-    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen operativo %, resultado operativo tipo EBITDA, generación de caja) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
+    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja; en percibido, debajo, financiamiento recibido (desembolsos de préstamos) y variación de caja = generación de caja + financiamiento), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen operativo %, resultado operativo tipo EBITDA, generación de caja sin financiamiento) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
   input: ManagementPnlToolInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const [res, previousRes, centersRes] = await Promise.all([
@@ -141,7 +141,13 @@ export const getManagementPnL = defineAiAction({
         waterfall.serviceRevenue,
       )} · costos operativos ${money(waterfall.operatingCost)} · margen operativo ${money(
         waterfall.operatingMargin,
-      )} · generación de caja ${money(waterfall.cashGeneration)}.` +
+      )} · generación de caja ${money(waterfall.cashGeneration)}` +
+        (waterfall.loanDisbursements !== 0
+          ? ` · financiamiento recibido ${money(
+              waterfall.loanDisbursements,
+            )} · variación de caja ${money(waterfall.cashVariation)}`
+          : "") +
+        "." +
         (waterfall.pendingUsd !== 0
           ? ` Hay USD sin cotización (US$${waterfall.pendingUsd}) no sumados.`
           : ""),
@@ -193,7 +199,7 @@ export const getManagementPnLDocuments = defineAiAction({
     "transactions",
   ],
   description:
-    "Detalle de una cifra del resultado de gestión (uso interno): qué comprobantes y movimientos (ventas, compras, recibos, órdenes de pago, sueldos, préstamos, cuenta del empleado, cheques, movimientos de tesorería, asientos manuales) forman una línea en un rango de meses, de mayor a menor importe, con fecha, contraparte y link. Importes nominales (sin ajuste por inflación). Usar después de getManagementPnL para explicar por qué una línea da lo que da. Uso interno: nunca para terceros.",
+    "Detalle de una cifra del resultado de gestión (uso interno): qué comprobantes y movimientos (ventas, compras, recibos, órdenes de pago, sueldos, préstamos (cuotas y desembolsos), cuenta del empleado, cheques, movimientos de tesorería, asientos manuales) forman una línea en un rango de meses, de mayor a menor importe, con fecha, contraparte y link. Importes nominales (sin ajuste por inflación). Usar después de getManagementPnL para explicar por qué una línea da lo que da. Uso interno: nunca para terceros.",
   input: ManagementDocumentsToolInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const res = await getManagementDrillAction({

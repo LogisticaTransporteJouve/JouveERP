@@ -235,8 +235,6 @@
 - [ ] **Percibido a cuenta:** lo cobrado o pagado sin imputar va a servicios /
       pagos a proveedores aunque después se impute a un bien de uso o a una
       compra a cargo de un empleado.
-- [ ] **Desembolso de préstamos:** es neutro en las dos bases; decidir si
-      suma en "Capital de préstamos" en percibido.
 - [ ] `getManagementReportAction` lee `get_management_pnl` sin paginar: con
       más de 1000 filas (mes × caja × cuenta × centro) PostgREST la cortaría.
 

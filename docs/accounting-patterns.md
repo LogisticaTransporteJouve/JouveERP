@@ -638,6 +638,23 @@ USD pendiente)`; importe > 0 suma al resultado.
     la cascada ya deja afuera amortizaciones y RECPAM) y generación de caja,
     contra los mismos meses del año anterior (en un año en curso, hasta el
     mes actual).
+- **Financiamiento recibido (`20261103130000`):** en percibido, el ingreso
+  que un préstamo puso en el banco (`loans.disbursement_transaction_id`, que
+  escribe o adopta `record_loan_disbursement`) es la caja
+  `loan_disbursements`: positiva, por la fecha del movimiento y convertida
+  como cualquier movimiento (USD sin cotización queda en `pending_usd`).
+  Antes caía en la contrapartida de un ingreso suelto (`ajustes_caja` =
+  neutro) y no sumaba, mientras cada cuota restaba su capital. La tabla
+  agrega, debajo de "Generación de caja", **"Financiamiento recibido"** y
+  **"Variación de caja"** (= generación de caja + financiamiento recibido: lo
+  que se movió en las cuentas, sin transferencias, movimientos de cheques ni
+  saldos iniciales, que son neutros). La cascada los muestra solo si hay
+  desembolsos; el indicador "Generación de caja" sigue **sin**
+  financiamiento. El detalle abre el préstamo ("Desembolso: …", con la fecha
+  del movimiento), con link para quien lee préstamos. Devengado: sin cambios
+  (el desembolso acredita el pasivo `prestamos`, no es resultado). Rollback:
+  el código anterior registra la caja como desconocida
+  (`management.pnl.unknown_rows`) y no la suma en ninguna cifra.
   - **Exportar:** CSV y Excel de la tabla mes a mes, armados en el navegador
     con la leyenda "Uso interno"; la descarga queda auditada
     (`management.exported`). No entra en el paquete del contador ni lo ve
