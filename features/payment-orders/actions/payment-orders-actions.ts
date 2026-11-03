@@ -7,7 +7,12 @@ import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
-import { allocateFifo, readEmbeddedStatus } from "@/lib/allocations";
+import {
+  allocateFifo,
+  allocationsIssue,
+  readEmbeddedStatus,
+  resolveAllocations,
+} from "@/lib/allocations";
 import {
   fetchUsdRateOnOrBefore,
   paymentCurrencyOf,
@@ -26,6 +31,7 @@ import type {
 } from "@/features/suppliers/schema";
 
 import {
+  PaymentOrderAllocateSchema,
   PaymentOrderCancelSchema,
   PaymentOrderCreateSchema,
   PaymentOrderUpdateSchema,
@@ -487,16 +493,20 @@ export async function createPaymentOrderAction(
     };
   }
 
-  // FIFO auto-allocation when the user did not choose manual allocations,
-  // over the pending purchases in the OP's currency.
-  let allocations = data.allocations ?? [];
-  if (allocations.length === 0) {
+  // FIFO over the pending purchases in the OP's currency, the picked ones
+  // (the DB guards check them), or nothing ("a cuenta").
+  let fifo: { purchase_invoice_id: string; amount_applied: number }[] = [];
+  const picked = data.allocations ?? [];
+  if (
+    data.allocation_mode === "fifo" ||
+    (data.allocation_mode === undefined && picked.length === 0)
+  ) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
       data.supplier_id,
       data.channel_id,
     );
     if (!pendingRes.ok) return pendingRes;
-    allocations = allocateFifo(
+    fifo = allocateFifo(
       pendingRes.data.filter((c) => c.currency === data.currency),
       data.total_amount,
     ).map((a) => ({
@@ -504,6 +514,9 @@ export async function createPaymentOrderAction(
       amount_applied: a.amount_applied,
     }));
   }
+  const resolved = resolveAllocations(data.allocation_mode, picked, () => fifo);
+  if ("issue" in resolved) return { ok: false, error: resolved.issue };
+  const allocations = resolved.allocations;
 
   const supabase = await createSupabaseClient();
   const { data: opId, error } = await supabase.rpc("create_payment_order", {
@@ -682,4 +695,153 @@ export async function cancelPaymentOrderAction(
 
   await logAudit("payment_order.canceled", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Later allocation ("Imputar" what an OP holds a cuenta)
+// ---------------------------------------------------------------------------
+
+export type PaymentOrderUnapplied = {
+  payment_order_id: string;
+  supplier_id: string;
+  channel_id: string;
+  currency: "ARS" | "USD";
+  unapplied: number;
+};
+
+/** What an issued payment order still holds a cuenta
+ *  (v_payment_order_unapplied); null when fully applied or cancelled. */
+export async function getPaymentOrderUnappliedAction(
+  paymentOrderId: string,
+): Promise<ActionResult<PaymentOrderUnapplied | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "payment_orders:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("v_payment_order_unapplied")
+    .select(
+      "payment_order_id, supplier_id, channel_id, currency, unapplied_amount",
+    )
+    .eq("payment_order_id", paymentOrderId)
+    .maybeSingle();
+  if (error) {
+    logger.error("payment_orders.unapplied.failed", {
+      userId: ctx.userId,
+      paymentOrderId,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer el saldo a cuenta." };
+  }
+  if (
+    !data?.payment_order_id ||
+    !data.supplier_id ||
+    !data.channel_id ||
+    !isPaymentOrderCurrency(data.currency)
+  ) {
+    return { ok: true, data: null };
+  }
+  return {
+    ok: true,
+    data: {
+      payment_order_id: data.payment_order_id,
+      supplier_id: data.supplier_id,
+      channel_id: data.channel_id,
+      currency: data.currency,
+      unapplied: Number(data.unapplied_amount ?? 0),
+    },
+  };
+}
+
+/** Applies what an OP holds a cuenta to open purchase invoices of its
+ *  supplier, channel and currency: FIFO (oldest first) or the picked ones.
+ *  Payment lines, movements and checks are not touched. */
+export async function allocatePaymentOrderAction(
+  input: unknown,
+): Promise<ActionResult<{ applied: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "payment_orders:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para imputar órdenes de pago.",
+    };
+  }
+  const parsed = PaymentOrderAllocateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { payment_order_id, mode } = parsed.data;
+
+  const unappliedRes = await getPaymentOrderUnappliedAction(payment_order_id);
+  if (!unappliedRes.ok) return unappliedRes;
+  const po = unappliedRes.data;
+  if (!po) {
+    return { ok: false, error: "La orden de pago no tiene saldo a cuenta." };
+  }
+
+  const pendingRes = await listPendingInvoicesForSupplierAction(
+    po.supplier_id,
+    po.channel_id,
+  );
+  if (!pendingRes.ok) return pendingRes;
+  const pending = pendingRes.data.filter((c) => c.currency === po.currency);
+
+  let allocations: { purchase_invoice_id: string; amount_applied: number }[];
+  if (mode === "fifo") {
+    allocations = allocateFifo(pending, po.unapplied).map((a) => ({
+      purchase_invoice_id: a.document_id,
+      amount_applied: a.amount_applied,
+    }));
+    if (allocations.length === 0) {
+      return {
+        ok: false,
+        error:
+          "El proveedor no tiene facturas pendientes en este canal y moneda.",
+      };
+    }
+  } else {
+    allocations = parsed.data.allocations;
+    const issue = allocationsIssue(
+      pending,
+      allocations.map((a) => ({
+        document_id: a.purchase_invoice_id,
+        amount_applied: a.amount_applied,
+      })),
+      po.unapplied,
+    );
+    if (issue) return { ok: false, error: issue };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("allocate_payment_order", {
+    p_payment_order_id: payment_order_id,
+    p_allocations: allocations,
+  });
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "payment_orders.allocate.rejected",
+      userId: ctx.userId,
+      id: payment_order_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("payment_orders.allocate.failed", {
+      userId: ctx.userId,
+      id: payment_order_id,
+      error,
+    });
+    return { ok: false, error: "No se pudo imputar la orden de pago." };
+  }
+
+  const applied = allocations.reduce((acc, a) => acc + a.amount_applied, 0);
+  await logAudit(
+    "payment_order.allocated",
+    ctx.userId,
+    { mode, applied, documents: allocations.length },
+    payment_order_id,
+  );
+  return { ok: true, data: { applied } };
 }

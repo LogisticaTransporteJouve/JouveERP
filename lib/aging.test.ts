@@ -5,6 +5,7 @@ import {
   aggregateSupplierAging,
   formatCurrencyAmounts,
   isAgingOverdue,
+  onAccountFromRows,
   type AgingViewAmounts,
   type ClientAgingViewRow,
 } from "./aging";
@@ -34,6 +35,63 @@ function row(over: Partial<ClientAgingViewRow> = {}): ClientAgingViewRow {
     ...over,
   };
 }
+
+describe("on account (a cuenta)", () => {
+  it("lists unapplied credit apart from the buckets, per currency", () => {
+    const r = aggregateClientAging(
+      [row({ ars_bucket_0_30: 100, ars_total_open: 100, document_count: 1 })],
+      RATE,
+      onAccountFromRows([
+        {
+          party_id: "c1",
+          currency: "ARS",
+          unapplied_amount: 30,
+          party: { legal_name: "Acme SA", cuit: "20-1-2" },
+        },
+        {
+          party_id: "c1",
+          currency: "USD",
+          unapplied_amount: 5,
+          party: { legal_name: "Acme SA", cuit: "20-1-2" },
+        },
+      ]),
+    );
+    expect(r.rows[0]?.total).toEqual({ ars: 100, usd: 0 });
+    expect(r.rows[0]?.on_account).toEqual({ ars: 30, usd: 5 });
+    expect(r.totals.total).toEqual({ ars: 100, usd: 0 });
+    expect(r.totals.on_account).toEqual({ ars: 30, usd: 5 });
+  });
+
+  it("gives a party with only credit a row with empty buckets", () => {
+    const r = aggregateClientAging(
+      [],
+      RATE,
+      onAccountFromRows([
+        {
+          party_id: "c9",
+          currency: "ARS",
+          unapplied_amount: 12.5,
+          party: { legal_name: "Solo crédito", cuit: null },
+        },
+        {
+          party_id: null,
+          currency: "ARS",
+          unapplied_amount: 99,
+          party: null,
+        },
+      ]),
+    );
+    expect(r.rows).toHaveLength(1);
+    expect(r.rows[0]).toMatchObject({
+      id: "c9",
+      document_count: 0,
+      total: { ars: 0, usd: 0 },
+      on_account: { ars: 12.5, usd: 0 },
+    });
+    expect(r.totals.party_count).toBe(0);
+    expect(r.totals.on_account).toEqual({ ars: 12.5, usd: 0 });
+  });
+});
 
 describe("aggregateClientAging", () => {
   it("returns zero totals for an empty list", () => {

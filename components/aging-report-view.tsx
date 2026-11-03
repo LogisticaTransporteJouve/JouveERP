@@ -138,6 +138,12 @@ export function AgingReportView({
         },
       },
       {
+        id: "on_account",
+        header: "A cuenta",
+        meta: { align: "right", mobile: "secondary" },
+        cell: ({ row }) => <AmountsCell amounts={row.original.on_account} />,
+      },
+      {
         accessorKey: "document_count",
         header: "Documentos",
         cell: ({ row }) => (
@@ -184,6 +190,15 @@ export function AgingReportView({
           hint={`${totals.party_count} ${copy.partyPlural} · ${totals.document_count} documentos${
             hasAmount(totals.rejected_checks)
               ? ` · incluye cheques rechazados ${formatCurrencyAmounts(totals.rejected_checks)}`
+              : ""
+          }${
+            hasAmount(totals.on_account)
+              ? ` · a cuenta sin imputar ${formatCurrencyAmounts(totals.on_account)} (neto ${formatCurrencyAmounts(
+                  {
+                    ars: totals.total.ars - totals.on_account.ars,
+                    usd: totals.total.usd - totals.on_account.usd,
+                  },
+                )})`
               : ""
           }`}
           equivalent={

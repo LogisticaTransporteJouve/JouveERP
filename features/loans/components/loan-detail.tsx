@@ -25,7 +25,20 @@ import {
 } from "../schema";
 
 import { EditInstallmentDialog } from "./edit-installment-dialog";
+import {
+  AdoptInstallmentPaymentDialog,
+  RecordDisbursementDialog,
+} from "./loan-movement-dialogs";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
+
+function splitSummary(i: LoanInstallment): string | null {
+  if (!i.split) return null;
+  const charges = i.split.interest + i.split.other;
+  const taxes = i.split.iva + i.split.perception;
+  return `Capital ${formatMoney(i.split.capital)} · Interés y cargos ${formatMoney(charges)}${
+    taxes > 0 ? ` · IVA y percepción ${formatMoney(taxes)}` : ""
+  }`;
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -48,6 +61,11 @@ export function LoanDetail({
   const { data: loan } = useLoan(loanId);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
   const [editTarget, setEditTarget] = useState<LoanInstallment | null>(null);
+  const [adoptTarget, setAdoptTarget] = useState<LoanInstallment | null>(null);
+  const [disbursing, setDisbursing] = useState(false);
+  const loanAccounts = accountOptions.filter(
+    (a) => a.currency === loan.currency,
+  );
 
   return (
     <div className="space-y-6">
@@ -72,10 +90,36 @@ export function LoanDetail({
           {loan.lender ? `${loan.lender} · ` : ""}
           {loan.channel_name ?? "—"} · {loan.currency}
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          {loan.disbursement_transaction_id ? (
+            <span className="text-muted-foreground">
+              Desembolso registrado en Caja.
+            </span>
+          ) : (
+            <>
+              <span className="text-muted-foreground">
+                El desembolso no está registrado en Caja.
+              </span>
+              {loan.status !== "cancelled" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDisbursing(true)}
+                >
+                  Registrar desembolso
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Capital" value={formatMoney(loan.principal)} />
+        <Stat
+          label="Saldo de capital (pasivo)"
+          value={formatMoney(loan.capital_outstanding)}
+        />
         <Stat label="Pagado" value={formatMoney(loan.paid_total)} />
         <Stat label="Pendiente" value={formatMoney(loan.pending_total)} />
         <Stat
@@ -105,6 +149,11 @@ export function LoanDetail({
                 <TableCell className="text-sm">{i.due_date}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
                   {formatMoney(i.amount)}
+                  {i.split && (
+                    <div className="font-sans text-[11px] text-muted-foreground">
+                      {splitSummary(i)}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -128,6 +177,14 @@ export function LoanDetail({
                       >
                         Editar
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAdoptTarget(i)}
+                        title="Usar un egreso ya cargado en Caja"
+                      >
+                        Vincular egreso
+                      </Button>
                       <Button size="sm" onClick={() => setPayTarget(i)}>
                         Pagar
                       </Button>
@@ -143,14 +200,23 @@ export function LoanDetail({
       <PayInstallmentDialog
         installment={payTarget}
         // An installment is paid from an account in the loan's currency.
-        accountOptions={accountOptions.filter(
-          (a) => a.currency === loan.currency,
-        )}
+        accountOptions={loanAccounts}
         onClose={() => setPayTarget(null)}
       />
       <EditInstallmentDialog
         installment={editTarget}
         onClose={() => setEditTarget(null)}
+      />
+      <AdoptInstallmentPaymentDialog
+        loan={loan}
+        installment={adoptTarget}
+        onClose={() => setAdoptTarget(null)}
+      />
+      <RecordDisbursementDialog
+        loan={loan}
+        accountOptions={loanAccounts}
+        open={disbursing}
+        onClose={() => setDisbursing(false)}
       />
     </div>
   );

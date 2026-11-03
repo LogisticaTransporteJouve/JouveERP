@@ -20,6 +20,7 @@ export const receiptsKeys = {
   nextNumero: (channelId: string) =>
     [...receiptsKeys.all, "nextNumero", channelId] as const,
   usdRate: (date: string) => [...receiptsKeys.all, "usdRate", date] as const,
+  unapplied: (id: string) => [...receiptsKeys.all, "unapplied", id] as const,
   pendingComprobantes: (
     clientId: string,
     channelId: string,

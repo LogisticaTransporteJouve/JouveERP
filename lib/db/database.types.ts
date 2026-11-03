@@ -1270,6 +1270,13 @@ export type Database = {
             foreignKeyName: "checks_source_receipt_id_fkey"
             columns: ["source_receipt_id"]
             isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "checks_source_receipt_id_fkey"
+            columns: ["source_receipt_id"]
+            isOneToOne: false
             referencedRelation: "v_rejected_check_open"
             referencedColumns: ["source_receipt_id"]
           },
@@ -2002,6 +2009,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "file_attachments_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+          {
             foreignKeyName: "file_attachments_purchase_invoice_id_fkey"
             columns: ["purchase_invoice_id"]
             isOneToOne: false
@@ -2028,6 +2042,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_attachments_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "file_attachments_receipt_id_fkey"
@@ -2750,6 +2771,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "issued_checks_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+          {
             foreignKeyName: "issued_checks_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -2880,42 +2908,57 @@ export type Database = {
       loan_installments: {
         Row: {
           amount: number
+          capital_amount: number | null
           created_at: string
           due_date: string
           id: string
+          interest_amount: number | null
+          iva_amount: number | null
           loan_id: string
           notes: string | null
           number: number
+          other_charges_amount: number | null
           paid_amount: number | null
           paid_date: string | null
+          perception_amount: number | null
           status: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id: string | null
           updated_at: string
         }
         Insert: {
           amount: number
+          capital_amount?: number | null
           created_at?: string
           due_date: string
           id?: string
+          interest_amount?: number | null
+          iva_amount?: number | null
           loan_id: string
           notes?: string | null
           number: number
+          other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
           updated_at?: string
         }
         Update: {
           amount?: number
+          capital_amount?: number | null
           created_at?: string
           due_date?: string
           id?: string
+          interest_amount?: number | null
+          iva_amount?: number | null
           loan_id?: string
           notes?: string | null
           number?: number
+          other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
           updated_at?: string
@@ -2951,6 +2994,7 @@ export type Database = {
           created_by: string | null
           currency: string
           description: string
+          disbursement_transaction_id: string | null
           first_due_date: string
           id: string
           installments_count: number
@@ -2967,6 +3011,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           description: string
+          disbursement_transaction_id?: string | null
           first_due_date: string
           id?: string
           installments_count: number
@@ -2983,6 +3028,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           description?: string
+          disbursement_transaction_id?: string | null
           first_due_date?: string
           id?: string
           installments_count?: number
@@ -2999,6 +3045,20 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_disbursement_transaction_id_fkey"
+            columns: ["disbursement_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_disbursement_transaction_id_fkey"
+            columns: ["disbursement_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
             referencedColumns: ["id"]
           },
         ]
@@ -3315,6 +3375,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_order_allocations_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+          {
             foreignKeyName: "payment_order_allocations_purchase_invoice_id_fkey"
             columns: ["purchase_invoice_id"]
             isOneToOne: false
@@ -3406,6 +3473,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "payment_orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_order_payment_lines_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
           },
         ]
       }
@@ -4156,6 +4230,13 @@ export type Database = {
             foreignKeyName: "receipt_allocations_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "receipt_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
             referencedRelation: "v_rejected_check_open"
             referencedColumns: ["source_receipt_id"]
           },
@@ -4203,6 +4284,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_payment_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "receipt_payment_lines_receipt_id_fkey"
@@ -4264,6 +4352,13 @@ export type Database = {
             foreignKeyName: "receipt_rejected_check_allocations_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "receipt_rejected_check_allocations_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
             referencedRelation: "v_rejected_check_open"
             referencedColumns: ["source_receipt_id"]
           },
@@ -4316,6 +4411,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_retentions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "receipt_retentions_receipt_id_fkey"
@@ -5421,11 +5523,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+          {
             foreignKeyName: "transactions_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "transactions_receipt_id_fkey"
@@ -6063,6 +6179,33 @@ export type Database = {
         }
         Relationships: []
       }
+      v_payment_order_unapplied: {
+        Row: {
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          currency: string | null
+          payment_date: string | null
+          payment_order_id: string | null
+          supplier_id: string | null
+          unapplied_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_orders_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_payroll_entries_resolved: {
         Row: {
           created_at: string | null
@@ -6187,6 +6330,33 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_receipt_unapplied: {
+        Row: {
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          client_id: string | null
+          currency: string | null
+          receipt_date: string | null
+          receipt_id: string | null
+          unapplied_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -6430,11 +6600,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "v_payment_order_unapplied"
+            referencedColumns: ["payment_order_id"]
+          },
+          {
             foreignKeyName: "transactions_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
           },
           {
             foreignKeyName: "transactions_receipt_id_fkey"
@@ -6500,6 +6684,10 @@ export type Database = {
       add_chat_channel_members: {
         Args: { p_channel: string; p_user_ids: string[] }
         Returns: number
+      }
+      adopt_loan_installment_payment: {
+        Args: { p_installment_id: string; p_transaction_id: string }
+        Returns: undefined
       }
       aging_apply_credit: {
         Args: {
@@ -6804,6 +6992,14 @@ export type Database = {
           taken_this_year: number
           used_days: number
         }[]
+      }
+      allocate_payment_order: {
+        Args: { p_allocations: Json; p_payment_order_id: string }
+        Returns: undefined
+      }
+      allocate_receipt: {
+        Args: { p_allocations: Json; p_receipt_id: string }
+        Returns: undefined
       }
       apply_account_opening_balance: {
         Args: {
@@ -7486,6 +7682,15 @@ export type Database = {
           total: number
         }[]
       }
+      record_loan_disbursement: {
+        Args: {
+          p_account_id?: string
+          p_date?: string
+          p_loan_id: string
+          p_transaction_id?: string
+        }
+        Returns: string
+      }
       refresh_search_index: { Args: never; Returns: undefined }
       refresh_search_index_if_dirty: { Args: never; Returns: boolean }
       reject_check: {
@@ -7721,6 +7926,10 @@ export type Database = {
           task_id: string
         }[]
       }
+      transaction_is_loose: {
+        Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] }
+        Returns: boolean
+      }
       transaction_monthly_flows: {
         Args: { p_from: string; p_until: string }
         Returns: {
@@ -7811,9 +8020,11 @@ export type Database = {
         | "cheques_cartera"
         | "cheques_rechazados"
         | "cheques_diferidos_emitidos"
+        | "prestamos"
         | "caja_apertura"
         | "ajustes_caja"
         | "sueldos"
+        | "intereses_pagados"
       employee_document_kind:
         | "licencia_conducir"
         | "lnh"
@@ -8002,9 +8213,11 @@ export const Constants = {
         "cheques_cartera",
         "cheques_rechazados",
         "cheques_diferidos_emitidos",
+        "prestamos",
         "caja_apertura",
         "ajustes_caja",
         "sueldos",
+        "intereses_pagados",
       ],
       employee_document_kind: [
         "licencia_conducir",

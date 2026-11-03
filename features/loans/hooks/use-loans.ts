@@ -13,11 +13,13 @@ import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  adoptInstallmentPaymentAction,
   cancelLoanAction,
   createLoanAction,
   getLoanAction,
   listLoansAction,
   payInstallmentAction,
+  recordLoanDisbursementAction,
   updateInstallmentAction,
 } from "../actions/loans-actions";
 import { loansKeys } from "../lib/loans-keys";
@@ -64,6 +66,24 @@ export function usePayInstallment() {
   return useMutation({
     mutationFn: (input: unknown) =>
       runAction(() => payInstallmentAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useAdoptInstallmentPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => adoptInstallmentPaymentAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useRecordLoanDisbursement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => recordLoanDisbursementAction(input)),
     onSuccess: () => invalidate(qc),
   });
 }

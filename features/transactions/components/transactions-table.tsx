@@ -67,6 +67,9 @@ import {
   type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
+import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
+import { CollectDialog } from "@/features/receipts/components/collect-dialog";
+
 import { NewTransactionDialog } from "./new-transaction-dialog";
 import type { ChannelOption } from "./transaction-form";
 
@@ -288,6 +291,8 @@ export function TransactionsTable({
 
   const canWrite = userCan(actorAccess, "transactions:write");
   const canDelete = userCan(actorAccess, "transactions:delete");
+  const canCollect = userCan(actorAccess, "receipts:write");
+  const canPay = userCan(actorAccess, "payment_orders:write");
   const confirm = useConfirm();
   const deleteMut = useDeleteTransaction();
   const [editing, setEditing] = useState<TransactionListItem | null>(null);
@@ -336,7 +341,15 @@ export function TransactionsTable({
         actions={
           <>
             <ExportButton resource="transactions" />
-            {canWrite && <NewTransactionDialog channels={channels} />}
+            {canCollect && <CollectDialog />}
+            {canPay && <PayDialog />}
+            {canWrite && (
+              <NewTransactionDialog
+                channels={channels}
+                canCollect={canCollect}
+                canPay={canPay}
+              />
+            )}
           </>
         }
       >

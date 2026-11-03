@@ -118,6 +118,68 @@ describe("getCashFlowAction and the USD rate", () => {
   });
 });
 
+describe("getCashFlowAction and amounts on account", () => {
+  const firstProjected = () => {
+    const now = new Date();
+    const d = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    return d.toISOString().slice(0, 7);
+  };
+
+  beforeEach(() => {
+    rateRead = { ok: true, rate: null };
+    db.accounts = db.accounts!.filter((a) => a.currency === "ARS");
+    db.loans = [];
+    db.loan_installments = [];
+    db.recurring_payments = [];
+  });
+
+  it("nets an unapplied receipt off the projected collections, capped at them", async () => {
+    db.v_aging_documents = [
+      {
+        open_amount: 1000,
+        channel_is_fiscal: true,
+        fch_vto_pago: "2020-01-01",
+        fecha: "2020-01-01",
+        moneda: "PES",
+      },
+    ];
+    db.v_receipt_unapplied = [
+      { unapplied_amount: 300, channel_is_fiscal: true, currency: "ARS" },
+      // Interno has nothing projected: its credit nets nothing.
+      { unapplied_amount: 50, channel_is_fiscal: false, currency: "ARS" },
+    ];
+    const res = await getCashFlowAction({});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const first = res.data.months.find((m) => m.month === firstProjected());
+    expect(first?.inTotal).toBe(700);
+    expect(first?.inFacturado).toBe(700);
+    expect(first?.inInterno).toBe(0);
+  });
+
+  it("nets an unapplied OP off the projected payments", async () => {
+    db.v_supplier_aging_documents = [
+      {
+        open_amount: 400,
+        channel_is_fiscal: false,
+        fch_vto_pago: null,
+        fecha: "2020-01-01",
+        moneda: "PES",
+      },
+    ];
+    db.v_payment_order_unapplied = [
+      { unapplied_amount: 900, channel_is_fiscal: false, currency: "ARS" },
+    ];
+    const res = await getCashFlowAction({});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const first = res.data.months.find((m) => m.month === firstProjected());
+    expect(first?.outTotal).toBe(0);
+  });
+});
+
 describe("getCashFlowAction and loans", () => {
   const firstProjected = () => {
     const now = new Date();

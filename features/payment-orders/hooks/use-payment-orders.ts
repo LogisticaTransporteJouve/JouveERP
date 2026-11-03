@@ -19,8 +19,10 @@ import { getMutationId } from "@/lib/query/get-mutation-id";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  allocatePaymentOrderAction,
   cancelPaymentOrderAction,
   createPaymentOrderAction,
+  getPaymentOrderUnappliedAction,
   getNextPaymentOrderNumeroAction,
   getPaymentOrderByIdAction,
   getPaymentOrderUsdRateAction,
@@ -165,6 +167,24 @@ export function useUpdatePaymentOrder() {
       const id = getMutationId(variables);
       if (id) qc.invalidateQueries({ queryKey: paymentOrdersKeys.detail(id) });
     },
+  });
+}
+
+/** What an OP holds a cuenta; fetched when the "Imputar" dialog opens. */
+export function usePaymentOrderUnapplied(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: paymentOrdersKeys.unapplied(id),
+    queryFn: () => runAction(() => getPaymentOrderUnappliedAction(id)),
+    enabled,
+  });
+}
+
+export function useAllocatePaymentOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => allocatePaymentOrderAction(input)),
+    onSuccess: () => invalidatePaymentOrderEffects(qc),
   });
 }
 

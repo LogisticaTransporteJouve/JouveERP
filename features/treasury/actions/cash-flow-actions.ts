@@ -44,6 +44,37 @@ function cashScope(isFiscal: boolean | null): CashScope {
   return isFiscal ? "facturado" : "interno";
 }
 
+/** Negative events that take what was paid or collected a cuenta off the
+ *  projected open documents of each side, capped at that side's projection
+ *  (a credit larger than what is still owed does not invent an outflow). */
+function onAccountNetting(
+  credits: readonly {
+    unapplied_amount: number | null;
+    channel_is_fiscal: boolean | null;
+    currency: string | null;
+  }[],
+  projectedByScope: ReadonlyMap<CashScope, number>,
+  direction: "in" | "out",
+  month: string,
+  toArsAmount: (amount: number, currency: string | null) => number | null,
+): CashFlowEvent[] {
+  const byScope = new Map<CashScope, number>();
+  for (const c of credits) {
+    const ars = toArsAmount(Number(c.unapplied_amount ?? 0), c.currency);
+    if (ars === null || ars <= 0.005) continue;
+    const scope = cashScope(c.channel_is_fiscal);
+    byScope.set(scope, (byScope.get(scope) ?? 0) + ars);
+  }
+  const out: CashFlowEvent[] = [];
+  for (const [scope, credit] of byScope) {
+    const netted = Math.min(credit, projectedByScope.get(scope) ?? 0);
+    if (netted > 0.005) {
+      out.push({ month, direction, amount: -round2(netted), scope });
+    }
+  }
+  return out;
+}
+
 export type CashFlowResult = CashFlow & {
   currency: "ARS";
   monthsBack: number;
@@ -198,19 +229,33 @@ export async function getCashFlowAction(input: {
       .range(from, to),
   );
   if (recvErr) return failed("receivables", recvErr);
+  const recvByScope = new Map<CashScope, number>();
   for (const r of recv) {
     const amt = arsAtRate(Number(r.open_amount), r.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
     if (monthSet.has(m)) {
-      events.push({
-        month: m,
-        direction: "in",
-        amount: amt,
-        scope: cashScope(r.channel_is_fiscal),
-      });
+      const scope = cashScope(r.channel_is_fiscal);
+      recvByScope.set(scope, (recvByScope.get(scope) ?? 0) + amt);
+      events.push({ month: m, direction: "in", amount: amt, scope });
     }
   }
+
+  // A receipt collected a cuenta is already cash: the open comprobantes it
+  // will settle are not collected again. Netted in the first projected month,
+  // never past what the side's projected collections add up to.
+  const { data: recvCredit, error: recvCreditErr } = await paginateRange(
+    (from, to) =>
+      supabase
+        .from("v_receipt_unapplied")
+        .select("unapplied_amount, channel_is_fiscal, currency")
+        .order("receipt_id", { ascending: true })
+        .range(from, to),
+  );
+  if (recvCreditErr) return failed("receivables_on_account", recvCreditErr);
+  events.push(
+    ...onAccountNetting(recvCredit, recvByScope, "in", firstFwd, arsAtRate),
+  );
 
   // Open supplier payables → expected payment in the month of their due date
   // (overdue ones clamp to the first projected month), channel-split.
@@ -222,19 +267,31 @@ export async function getCashFlowAction(input: {
       .range(from, to),
   );
   if (payErr) return failed("payables", payErr);
+  const payByScope = new Map<CashScope, number>();
   for (const p of pay) {
     const amt = arsAtRate(Number(p.open_amount), p.moneda);
     if (amt === null || amt <= 0.005) continue;
     const m = placementMonth(p.fch_vto_pago, p.fecha, firstFwd);
     if (monthSet.has(m)) {
-      events.push({
-        month: m,
-        direction: "out",
-        amount: amt,
-        scope: cashScope(p.channel_is_fiscal),
-      });
+      const scope = cashScope(p.channel_is_fiscal);
+      payByScope.set(scope, (payByScope.get(scope) ?? 0) + amt);
+      events.push({ month: m, direction: "out", amount: amt, scope });
     }
   }
+
+  // Same for an OP paid a cuenta: those purchases are not paid again.
+  const { data: payCredit, error: payCreditErr } = await paginateRange(
+    (from, to) =>
+      supabase
+        .from("v_payment_order_unapplied")
+        .select("unapplied_amount, channel_is_fiscal, currency")
+        .order("payment_order_id", { ascending: true })
+        .range(from, to),
+  );
+  if (payCreditErr) return failed("payables_on_account", payCreditErr);
+  events.push(
+    ...onAccountNetting(payCredit, payByScope, "out", firstFwd, arsAtRate),
+  );
 
   // Received checks in portfolio → inflow by due month (due or overdue ones
   // clamp to the first projected month), by the check's channel (a

@@ -6,7 +6,11 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
-import { allocateFifo, allocationsIssue } from "@/lib/allocations";
+import {
+  allocateFifo,
+  allocationsIssue,
+  resolveAllocations,
+} from "@/lib/allocations";
 import {
   fetchUsdRateOnOrBefore,
   paymentCurrencyOf,
@@ -32,6 +36,7 @@ import {
   isReceiptStatus,
   isRetentionKind,
   isRetentionTaxType,
+  ReceiptAllocateSchema,
   ReceiptCancelSchema,
   ReceiptCreateSchema,
   ReceiptUpdateSchema,
@@ -763,7 +768,22 @@ export async function createReceiptAction(
   );
   if (!pendingRes.ok) return pendingRes;
   const pending = pendingRes.data.filter((c) => c.currency === data.currency);
-  let allocations = data.allocations ?? [];
+  // FIFO settles comprobantes only: a rejected check is settled when the
+  // user picks it. "A cuenta" applies nothing.
+  const resolved = resolveAllocations(
+    data.allocation_mode,
+    data.allocations ?? [],
+    () =>
+      allocateFifo(
+        pending.filter((c) => c.document_type === "invoice"),
+        data.total_amount,
+      ).map((a) => ({
+        invoice_id: a.document_id,
+        amount_applied: a.amount_applied,
+      })),
+  );
+  if ("issue" in resolved) return { ok: false, error: resolved.issue };
+  const allocations = resolved.allocations;
   const otherCurrency = new Set(
     pendingRes.data
       .filter((c) => c.currency !== data.currency)
@@ -776,17 +796,7 @@ export async function createReceiptAction(
         "Un comprobante imputado está en otra moneda que el recibo: un recibo solo cancela comprobantes de su misma moneda.",
     };
   }
-  if (allocations.length === 0) {
-    // FIFO settles comprobantes only: a rejected check is settled when the
-    // user picks it.
-    allocations = allocateFifo(
-      pending.filter((c) => c.document_type === "invoice"),
-      data.total_amount,
-    ).map((a) => ({
-      invoice_id: a.document_id,
-      amount_applied: a.amount_applied,
-    }));
-  } else {
+  if (resolved.manual) {
     const issue = allocationsIssue(
       pending,
       allocations.map((a) => ({
@@ -1010,4 +1020,150 @@ export async function cancelReceiptAction(
 
   await logAudit("receipt.canceled", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Later allocation ("Imputar" what a receipt holds a cuenta)
+// ---------------------------------------------------------------------------
+
+export type ReceiptUnapplied = {
+  receipt_id: string;
+  client_id: string;
+  channel_id: string;
+  currency: "ARS" | "USD";
+  unapplied: number;
+};
+
+/** What an issued receipt still holds a cuenta (v_receipt_unapplied); null
+ *  when it is fully applied or cancelled. */
+export async function getReceiptUnappliedAction(
+  receiptId: string,
+): Promise<ActionResult<ReceiptUnapplied | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "receipts:read")) {
+    return { ok: false, error: "No tenés permiso para ver recibos." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("v_receipt_unapplied")
+    .select("receipt_id, client_id, channel_id, currency, unapplied_amount")
+    .eq("receipt_id", receiptId)
+    .maybeSingle();
+  if (error) {
+    logger.error("receipts.unapplied.failed", {
+      userId: ctx.userId,
+      receiptId,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer el saldo a cuenta." };
+  }
+  if (
+    !data?.receipt_id ||
+    !data.client_id ||
+    !data.channel_id ||
+    !isReceiptCurrency(data.currency)
+  ) {
+    return { ok: true, data: null };
+  }
+  return {
+    ok: true,
+    data: {
+      receipt_id: data.receipt_id,
+      client_id: data.client_id,
+      channel_id: data.channel_id,
+      currency: data.currency,
+      unapplied: Number(data.unapplied_amount ?? 0),
+    },
+  };
+}
+
+/** Applies what a receipt holds a cuenta to open comprobantes of its client,
+ *  channel and currency: FIFO (oldest first) or the picked ones. Payment
+ *  lines, movements and checks are not touched. */
+export async function allocateReceiptAction(
+  input: unknown,
+): Promise<ActionResult<{ applied: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "receipts:write")) {
+    return { ok: false, error: "No tenés permiso para imputar recibos." };
+  }
+  const parsed = ReceiptAllocateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { receipt_id, mode } = parsed.data;
+
+  const unappliedRes = await getReceiptUnappliedAction(receipt_id);
+  if (!unappliedRes.ok) return unappliedRes;
+  const receipt = unappliedRes.data;
+  if (!receipt) {
+    return { ok: false, error: "El recibo no tiene saldo a cuenta." };
+  }
+
+  const pendingRes = await listPendingComprobantesForClientAction(
+    receipt.client_id,
+    receipt.channel_id,
+  );
+  if (!pendingRes.ok) return pendingRes;
+  const pending = pendingRes.data.filter(
+    (c) => c.currency === receipt.currency && c.document_type === "invoice",
+  );
+
+  let allocations: { invoice_id: string; amount_applied: number }[];
+  if (mode === "fifo") {
+    allocations = allocateFifo(pending, receipt.unapplied).map((a) => ({
+      invoice_id: a.document_id,
+      amount_applied: a.amount_applied,
+    }));
+    if (allocations.length === 0) {
+      return {
+        ok: false,
+        error:
+          "El cliente no tiene comprobantes pendientes en este canal y moneda.",
+      };
+    }
+  } else {
+    allocations = parsed.data.allocations;
+    const issue = allocationsIssue(
+      pending,
+      allocations.map((a) => ({
+        document_id: a.invoice_id,
+        amount_applied: a.amount_applied,
+      })),
+      receipt.unapplied,
+    );
+    if (issue) return { ok: false, error: issue };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.rpc("allocate_receipt", {
+    p_receipt_id: receipt_id,
+    p_allocations: allocations,
+  });
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "receipts.allocate.rejected",
+      userId: ctx.userId,
+      id: receipt_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("receipts.allocate.failed", {
+      userId: ctx.userId,
+      id: receipt_id,
+      error,
+    });
+    return { ok: false, error: "No se pudo imputar el recibo." };
+  }
+
+  const applied = allocations.reduce((acc, a) => acc + a.amount_applied, 0);
+  await logAudit(
+    "receipt.allocated",
+    ctx.userId,
+    { mode, applied, documents: allocations.length },
+    receipt_id,
+  );
+  return { ok: true, data: { applied } };
 }

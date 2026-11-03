@@ -299,7 +299,7 @@ export const getLoans = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Préstamos y leasings: acreedor, capital, moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Alcance opcional (fiscal/internal/all).",
+    "Préstamos y leasings: acreedor, capital, saldo de capital (pasivo: capital menos lo pagado de capital; una cuota sin desglose cuenta entera como capital), si el desembolso está registrado en Caja (disbursement_transaction_id), moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Alcance opcional (fiscal/internal/all).",
   input: z.object({ scope: ScopeInputSchema }),
   run: async (_ctx, input) => {
     const { isFiscal, label } = readScope(input.scope);
@@ -329,7 +329,7 @@ export const getLoanDetail = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago). Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
+    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital. Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
   input: z.object({
     loanId: UuidSchema.describe("UUID del préstamo."),
     scope: ScopeInputSchema,

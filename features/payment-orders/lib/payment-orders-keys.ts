@@ -12,6 +12,8 @@ export const paymentOrdersKeys = {
     [...paymentOrdersKeys.all, "nextNumero", channelId] as const,
   usdRate: (date: string) =>
     [...paymentOrdersKeys.all, "usdRate", date] as const,
+  unapplied: (id: string) =>
+    [...paymentOrdersKeys.all, "unapplied", id] as const,
   pendingInvoices: (
     supplierId: string,
     channelId: string,

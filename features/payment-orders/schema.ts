@@ -5,6 +5,7 @@ import {
   usdRateIssue,
 } from "@/lib/validation/common";
 
+import { ALLOCATION_MODES } from "@/lib/allocations";
 import type { Database } from "@/lib/db/database.types";
 
 export const PAYMENT_ORDER_STATUSES = ["issued", "canceled"] as const;
@@ -166,7 +167,11 @@ function validateSums(
 }
 
 export const PaymentOrderCreateSchema = z
-  .object(baseFields)
+  .object({
+    ...baseFields,
+    /** Omitted: the older contract (no allocations = FIFO). */
+    allocation_mode: z.enum(ALLOCATION_MODES).optional(),
+  })
   .superRefine(validateSums)
   .superRefine((data, ctx) => {
     const issue = usdRateIssue(data.currency, data.cotizacion);
@@ -189,6 +194,18 @@ export const PaymentOrderUpdateSchema = z
 export const PaymentOrderCancelSchema = z.object({
   id: z.string().uuid(),
 });
+
+/** Later allocation ("Imputar") of what an issued OP holds a cuenta. */
+export const PaymentOrderAllocateSchema = z
+  .object({
+    payment_order_id: z.string().uuid(),
+    mode: z.enum(["fifo", "manual"]),
+    allocations: z.array(AllocationSchema).optional().default([]),
+  })
+  .refine((v) => v.mode === "fifo" || v.allocations.length > 0, {
+    message: "Elegí al menos una factura.",
+    path: ["allocations"],
+  });
 
 export type PaymentOrderCreateInput = z.infer<typeof PaymentOrderCreateSchema>;
 export type PaymentOrderUpdateInput = z.infer<typeof PaymentOrderUpdateSchema>;

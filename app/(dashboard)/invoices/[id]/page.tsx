@@ -1,4 +1,4 @@
-import { FileDown } from "lucide-react";
+import { FileDown, HandCoins } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-ac
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
 import { RetryRemitoCreditButton } from "@/features/invoices/components/retry-remito-credit-button";
+import { listPendingComprobantesForClientAction } from "@/features/receipts/actions/receipts-actions";
+import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 import {
   ivaConditionLabel,
   type IvaCondition,
@@ -38,7 +40,11 @@ import {
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { formatArgentineDateTime, formatNumber2 } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDateTime,
+  formatNumber2,
+} from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +76,28 @@ export default async function ComprobanteDetailPage({
     !c.channel.is_fiscal &&
     !links?.billedAs &&
     INTERNAL_CANCELLABLE_STATUSES.includes(c.status);
+
+  // "Cobrar" opens the receipt form with this comprobante picked for what it
+  // still owes (the same pending list the receipt form reads).
+  let collectOpen: { outstanding: number } | null = null;
+  if (
+    c.status === "emitted" &&
+    (c.kind === "factura" || c.kind === "nd") &&
+    userCan(ctx.access, "receipts:write")
+  ) {
+    const pendingRes = await listPendingComprobantesForClientAction(
+      c.client.id,
+      c.channel.id,
+    );
+    const mine = pendingRes.ok
+      ? pendingRes.data.find(
+          (p) => p.document_type === "invoice" && p.id === c.id,
+        )
+      : undefined;
+    if (mine && mine.outstanding > 0) {
+      collectOpen = { outstanding: mine.outstanding };
+    }
+  }
 
   const numeroLabel = formatInvoiceNumero(
     c.kind,
@@ -176,6 +204,32 @@ export default async function ComprobanteDetailPage({
             <RegeneratePdfButton id={c.id} />
           )}
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
+          {collectOpen && (
+            <CollectDialog
+              side={c.channel.is_fiscal ? "fiscal" : "internal"}
+              initialClient={{
+                id: c.client.id,
+                legal_name: c.client.legal_name,
+                display_name: null,
+                cuit: c.doc_nro ? String(c.doc_nro) : null,
+                iva_condition: c.client.iva_condition,
+                is_fiscal: c.channel.is_fiscal,
+              }}
+              initialAllocations={[
+                {
+                  document_id: c.id,
+                  document_type: "invoice",
+                  amount_applied: amountToInput(collectOpen.outstanding),
+                },
+              ]}
+              trigger={
+                <Button>
+                  <HandCoins className="size-4" />
+                  Cobrar
+                </Button>
+              }
+            />
+          )}
           {canIssue && links?.creditState === "pending" && (
             <RetryRemitoCreditButton facturaId={c.id} />
           )}

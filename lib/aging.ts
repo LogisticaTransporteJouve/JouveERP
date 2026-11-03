@@ -34,6 +34,9 @@ export type AgingPartyRow = AgingAmounts & {
   /** How much of `total` is rejected-check debt (clients only; already in
    *  the buckets, not on top of them). */
   rejected_checks: CurrencyAmounts;
+  /** Paid or collected a cuenta and not yet applied (receipts / OPs). Not in
+   *  the buckets: the open documents stay as they are until "Imputar". */
+  on_account: CurrencyAmounts;
 };
 
 export type AgingReport = {
@@ -42,6 +45,7 @@ export type AgingReport = {
     party_count: number;
     document_count: number;
     rejected_checks: CurrencyAmounts;
+    on_account: CurrencyAmounts;
   };
   usd_rate: UsdRate | null;
 };
@@ -112,6 +116,10 @@ function viewBuckets(
   };
 }
 
+function roundAmounts(a: CurrencyAmounts): CurrencyAmounts {
+  return { ars: round2(a.ars), usd: round2(a.usd) };
+}
+
 /** Sort key: the ARS equivalent, else pesos then dollars (no rate loaded). */
 function compareByExposure(a: AgingPartyRow, b: AgingPartyRow): number {
   const ea = a.total_ars_equivalent;
@@ -122,19 +130,66 @@ function compareByExposure(a: AgingPartyRow, b: AgingPartyRow): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+/** A party's unapplied receipt / OP amount in one currency (one per payer). */
+export type OnAccountInput = {
+  id: string;
+  legal_name: string;
+  display_name: string | null;
+  cuit: string | null;
+  currency: "ARS" | "USD";
+  amount: number;
+};
+
 /** Rows sorted by exposure (largest first) plus per-currency totals. Sums are
- *  rounded to cents: the views return exact numerics but JS floats drift. */
+ *  rounded to cents: the views return exact numerics but JS floats drift.
+ *  `onAccount` adds what each party paid or collected a cuenta, apart from
+ *  the buckets; a party with only that gets a row with empty buckets. */
 export function buildAgingReport(
   input: readonly AgingPartyInput[],
   usdRate: UsdRate | null,
+  onAccount: readonly OnAccountInput[] = [],
 ): AgingReport {
   const rate = usdRate?.rate ?? null;
   const totalsBuckets = emptyBuckets();
   const total: CurrencyAmounts = { ars: 0, usd: 0 };
   const rejectedTotal: CurrencyAmounts = { ars: 0, usd: 0 };
+  const onAccountTotal: CurrencyAmounts = { ars: 0, usd: 0 };
   let documentCount = 0;
 
-  const rows: AgingPartyRow[] = input.map((r) => {
+  const credits = new Map<string, CurrencyAmounts>();
+  const parties: AgingPartyInput[] = [...input];
+  const known = new Set(input.map((r) => r.id));
+  for (const c of onAccount) {
+    const sum = credits.get(c.id) ?? { ars: 0, usd: 0 };
+    if (c.currency === "USD") sum.usd += c.amount;
+    else sum.ars += c.amount;
+    credits.set(c.id, sum);
+    if (c.currency === "USD") onAccountTotal.usd += c.amount;
+    else onAccountTotal.ars += c.amount;
+    if (!known.has(c.id)) {
+      known.add(c.id);
+      parties.push({
+        id: c.id,
+        legal_name: c.legal_name,
+        display_name: c.display_name,
+        cuit: c.cuit,
+        ars_bucket_0_30: 0,
+        ars_bucket_30_60: 0,
+        ars_bucket_60_90: 0,
+        ars_bucket_90_plus: 0,
+        ars_total_open: 0,
+        usd_bucket_0_30: 0,
+        usd_bucket_30_60: 0,
+        usd_bucket_60_90: 0,
+        usd_bucket_90_plus: 0,
+        usd_total_open: 0,
+        document_count: 0,
+        oldest_days: 0,
+      });
+    }
+  }
+
+  const rows: AgingPartyRow[] = parties.map((r) => {
     const buckets = viewBuckets(r);
     const rowTotal = {
       ars: Number(r.ars_total_open ?? 0),
@@ -165,6 +220,7 @@ export function buildAgingReport(
       document_count: documents,
       oldest_days: Number(r.oldest_days ?? 0),
       rejected_checks: rejected,
+      on_account: roundAmounts(credits.get(r.id) ?? { ars: 0, usd: 0 }),
     };
   });
   rows.sort(compareByExposure);
@@ -187,12 +243,13 @@ export function buildAgingReport(
         roundedTotal.usd,
         rate,
       ),
-      party_count: rows.length,
+      party_count: rows.filter((r) => r.document_count > 0).length,
       document_count: documentCount,
       rejected_checks: {
         ars: round2(rejectedTotal.ars),
         usd: round2(rejectedTotal.usd),
       },
+      on_account: roundAmounts(onAccountTotal),
     },
     usd_rate: usdRate,
   };
@@ -218,6 +275,7 @@ export type SupplierAgingViewRow = AgingViewAmounts & {
 export function aggregateClientAging(
   rows: readonly ClientAgingViewRow[],
   usdRate: UsdRate | null,
+  onAccount: readonly OnAccountInput[] = [],
 ): AgingReport {
   const input: AgingPartyInput[] = [];
   for (const row of rows) {
@@ -230,13 +288,14 @@ export function aggregateClientAging(
       cuit: row.clients.cuit,
     });
   }
-  return buildAgingReport(input, usdRate);
+  return buildAgingReport(input, usdRate, onAccount);
 }
 
 /** Supplier aging report; rows without `supplier_id`/`suppliers` are discarded. */
 export function aggregateSupplierAging(
   rows: readonly SupplierAgingViewRow[],
   usdRate: UsdRate | null,
+  onAccount: readonly OnAccountInput[] = [],
 ): AgingReport {
   const input: AgingPartyInput[] = [];
   for (const row of rows) {
@@ -249,7 +308,41 @@ export function aggregateSupplierAging(
       cuit: row.suppliers.cuit,
     });
   }
-  return buildAgingReport(input, usdRate);
+  return buildAgingReport(input, usdRate, onAccount);
+}
+
+/** Row of `v_receipt_unapplied` / `v_payment_order_unapplied` with the
+ *  party embedded (clients or suppliers). */
+export type UnappliedViewRow = {
+  party_id: string | null;
+  currency: string | null;
+  unapplied_amount: number | null;
+  party: {
+    legal_name: string;
+    display_name?: string | null;
+    cuit: string | null;
+  } | null;
+};
+
+/** The a-cuenta input of the aging, from the unapplied views. */
+export function onAccountFromRows(
+  rows: readonly UnappliedViewRow[],
+): OnAccountInput[] {
+  const out: OnAccountInput[] = [];
+  for (const r of rows) {
+    if (!r.party_id || !r.party) continue;
+    const amount = Number(r.unapplied_amount ?? 0);
+    if (!(amount > 0)) continue;
+    out.push({
+      id: r.party_id,
+      legal_name: r.party.legal_name,
+      display_name: r.party.display_name ?? null,
+      cuit: r.party.cuit,
+      currency: r.currency === "USD" ? "USD" : "ARS",
+      amount,
+    });
+  }
+  return out;
 }
 
 /** True when the party has anything in the 60+ day buckets. */

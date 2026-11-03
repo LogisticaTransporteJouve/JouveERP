@@ -5,6 +5,7 @@ import {
   usdRateIssue,
 } from "@/lib/validation/common";
 
+import { ALLOCATION_MODES } from "@/lib/allocations";
 import type { Database } from "@/lib/db/database.types";
 
 export const RECEIPT_STATUSES = ["issued", "canceled"] as const;
@@ -210,7 +211,11 @@ function validateSums(
 }
 
 export const ReceiptCreateSchema = z
-  .object(baseReceiptFields)
+  .object({
+    ...baseReceiptFields,
+    /** Omitted: the older contract (no allocations = FIFO). */
+    allocation_mode: z.enum(ALLOCATION_MODES).optional(),
+  })
   .superRefine(validateSums)
   .superRefine((data, ctx) => {
     const issue = usdRateIssue(data.currency, data.cotizacion);
@@ -234,6 +239,26 @@ export const ReceiptUpdateSchema = z
 export const ReceiptCancelSchema = z.object({
   id: z.string().uuid(),
 });
+
+/** Later allocation ("Imputar") of what an issued receipt holds a cuenta. */
+export const ReceiptAllocateSchema = z
+  .object({
+    receipt_id: z.string().uuid(),
+    mode: z.enum(["fifo", "manual"]),
+    allocations: z
+      .array(
+        z.object({
+          invoice_id: z.string().uuid(),
+          amount_applied: moneyAmount,
+        }),
+      )
+      .optional()
+      .default([]),
+  })
+  .refine((v) => v.mode === "fifo" || v.allocations.length > 0, {
+    message: "Elegí al menos un comprobante.",
+    path: ["allocations"],
+  });
 
 export type ReceiptCreateInput = z.infer<typeof ReceiptCreateSchema>;
 export type ReceiptUpdateInput = z.infer<typeof ReceiptUpdateSchema>;
