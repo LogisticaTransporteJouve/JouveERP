@@ -37,6 +37,30 @@ describe("buildChartArtifact", () => {
     expect(res.value.meta.partial).toBe(false);
   });
 
+  it("sorts a stacked bar by its whole and reads km fields as km", () => {
+    const res = buildChartArtifact(
+      {
+        type: "stacked",
+        title: "Km por camión",
+        x: "vehicle",
+        series: [{ field: "trip_km" }, { field: "empty_km" }],
+        sort: "desc",
+      },
+      {
+        source,
+        rows: [
+          { vehicle: "A", trip_km: 100, empty_km: 10 },
+          { vehicle: "B", trip_km: 50, empty_km: 200 },
+        ],
+        meta,
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.points.map((p) => p.x)).toEqual(["B", "A"]);
+    expect(res.value.chart.valueFormat).toBe("km");
+  });
+
   it("sorts by the first series and caps with a limit, flagging the cut apart from the source's partial flag", () => {
     const res = buildChartArtifact(
       {

@@ -134,6 +134,80 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
+    id: "client-margin",
+    question: "¿Qué clientes nos dejaron más margen en octubre 2026?",
+    roles: ["finance"],
+    expect: {
+      tool: "getClientMargin",
+      input: { from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "getClientNetRevenueAction",
+      args: { from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "client-payment-behavior",
+    question:
+      "¿Cuántos días tardan en pagarnos los clientes en 2026 y quién está más atrasado?",
+    roles: ["finance"],
+    expect: {
+      tool: "getClientPaymentBehavior",
+      input: { from: "2026-01-01", to: "2026-12-31" },
+    },
+    dispatch: {
+      fn: "getClientSalesSummaryAction",
+      args: { from: "2026-01-01", to: "2026-12-31" },
+    },
+  },
+  {
+    id: "vehicle-economics",
+    question:
+      "¿Cuánto nos cuesta por km cada camión en septiembre 2026, con el combustible?",
+    roles: ["operations"],
+    expect: {
+      tool: "getVehicleEconomics",
+      input: { from: "2026-09-01", to: "2026-09-30" },
+    },
+    dispatch: {
+      fn: "getVehicleActivityAction",
+      args: { from: "2026-09-01", to: "2026-09-30" },
+    },
+  },
+  {
+    id: "driver-activity",
+    question:
+      "¿Cuántos viajes y km hizo cada chofer en octubre 2026 y cuánto se les adelantó?",
+    roles: ["admin"],
+    expect: {
+      tool: "getDriverActivity",
+      input: { from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "getDriverActivityAction",
+      args: { from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "top-costs",
+    question:
+      "¿En qué se nos fue la plata en 2026? Los costos más grandes por rubro.",
+    roles: ["owner"],
+    expect: {
+      tool: "getTopCosts",
+      input: { fromPeriod: "2026-01", toPeriod: "2026-12" },
+    },
+    dispatch: {
+      fn: "getManagementPnlAction",
+      args: {
+        fromPeriod: "2026-01",
+        toPeriod: "2026-12",
+        basis: "accrual",
+        inflation: false,
+      },
+    },
+  },
+  {
     id: "recurring-task",
     question: "Todos los lunes a las 8 resumime las cobranzas vencidas.",
     roles: ["finance"],
@@ -163,6 +237,18 @@ export const DENIED_CASES: DeniedCase[] = [
     question: "¿Cuánto pagamos de sueldo en octubre 2025?",
     roles: ["operations"],
     forbiddenTools: ["getPayrollSummary", "getPayrollConcepts"],
+  },
+  {
+    id: "client-margin-operations",
+    question: "¿Qué clientes nos dejaron más margen en octubre 2026?",
+    roles: ["operations"],
+    forbiddenTools: ["getClientMargin", "getClientPaymentBehavior"],
+  },
+  {
+    id: "costs-fiscal-reader",
+    question: "¿En qué se nos fue la plata en 2026?",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["getTopCosts", "getVehicleEconomics", "getDriverActivity"],
   },
   {
     id: "cash-operations",

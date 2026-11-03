@@ -55,7 +55,25 @@ const proposeThing = defineAiAction({
   run: async () => okResult("rows", [{ a: "x", b: 1 }]),
 });
 
-const ACTIONS = [getExpenses, getPayroll, proposeThing];
+const getPnl = defineAiAction({
+  name: "getPnl",
+  domain: "contabilidad",
+  permission: "accounting:read",
+  sideEffect: "read",
+  sources: ["get_management_pnl"],
+  description: "Two lists.",
+  input: z.object({}),
+  run: async () =>
+    okResult("rows", {
+      byCostCenter: [{ center: "Camión 1", cost_ars: 10 }],
+      byMonth: [
+        { month: "2026-09", cost_ars: 4 },
+        { month: "2026-10", cost_ars: 6 },
+      ],
+    }),
+});
+
+const ACTIONS = [getExpenses, getPayroll, proposeThing, getPnl];
 const ctx = (roles: Role[]) => ({ userId: "u1", access: resolveAccess(roles) });
 const call = { toolCallId: "call-1", messages: [], context: undefined };
 
@@ -121,6 +139,33 @@ describe("runArtifact", () => {
     );
     expect(run).toMatchObject({ ok: false, denied: false });
     expect(expenseRun).not.toHaveBeenCalled();
+  });
+
+  it("reads the named dataset, keeps it for the pin, and lists the others when it is missing", async () => {
+    const source = { action: "getPnl", input: {} };
+    const run = await runArtifact(
+      ctx(["finance"]),
+      {
+        kind: "chart",
+        source,
+        config: { type: "stacked", title: "Costos", dataset: "byMonth" },
+      },
+      ACTIONS,
+    );
+    expect(run.ok).toBe(true);
+    if (!run.ok || run.artifact.kind !== "chart") return;
+    expect(run.artifact.points.map((p) => p.x)).toEqual(["2026-09", "2026-10"]);
+    expect(run.artifact.chart.dataset).toBe("byMonth");
+
+    const missing = await runArtifact(
+      ctx(["finance"]),
+      { kind: "table", source, config: { title: "T", dataset: "byClient" } },
+      ACTIONS,
+    );
+    expect(missing).toMatchObject({ ok: false, denied: false });
+    if (!missing.ok) {
+      expect(missing.error).toContain("byCostCenter, byMonth");
+    }
   });
 });
 

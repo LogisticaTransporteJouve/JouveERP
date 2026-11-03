@@ -42,6 +42,20 @@ vi.mock("@/features/fleet-reports/actions/margin-actions", async (orig) => ({
   >()),
   getFleetMarginAction: stub("getFleetMarginAction"),
 }));
+vi.mock("@/features/fleet-reports/actions/activity-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/fleet-reports/actions/activity-actions")
+  >()),
+  getVehicleActivityAction: stub("getVehicleActivityAction"),
+  getDriverActivityAction: stub("getDriverActivityAction"),
+}));
+vi.mock("@/features/clients/actions/sales-report-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/clients/actions/sales-report-actions")
+  >()),
+  getClientNetRevenueAction: stub("getClientNetRevenueAction"),
+  getClientSalesSummaryAction: stub("getClientSalesSummaryAction"),
+}));
 vi.mock("@/features/aging/actions/aging-actions", async (orig) => ({
   ...(await orig<typeof import("@/features/aging/actions/aging-actions")>()),
   getAgingSummaryAction: stub("getAgingSummaryAction"),
