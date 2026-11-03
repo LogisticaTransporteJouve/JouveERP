@@ -18,7 +18,7 @@ import {
 
 /** A failed read throws: the cron step fails and retries instead of
  *  publishing an insight computed from a figure that silently became 0. */
-function must<T>(
+export function must<T>(
   res: { data: T | null; error: PageError | null },
   op: string,
 ): T {
@@ -44,12 +44,13 @@ export type CashFlowInputs = {
   events: CashEvent[];
 };
 
-/** Current ARS cash: opening balances + signed movements to date of the
- *  active liquid accounts. Check accounts stay out: the checks they hold are
- *  projected as inflows by due date below. */
-async function arsCashBalance(today: string): Promise<number> {
+/** The active ARS accounts that hold cash. Check accounts stay out: the
+ *  checks they hold are projected as inflows by due date below. */
+export async function liquidArsAccounts(): Promise<
+  { id: string; opening_balance: number }[]
+> {
   const service = getServiceClient();
-  const accounts = must(
+  return must(
     await paginateRange((from, to) =>
       service
         .from("accounts")
@@ -60,22 +61,42 @@ async function arsCashBalance(today: string): Promise<number> {
         .range(from, to),
     ),
     "accounts",
-  ).filter((a) => !(isAccountType(a.type) && isCheckAccount(a.type)));
+  )
+    .filter((a) => !(isAccountType(a.type) && isCheckAccount(a.type)))
+    .map((a) => ({ id: a.id, opening_balance: Number(a.opening_balance) }));
+}
+
+/** Signed movements per account up to `until`, and up to `split`, summed in
+ *  Postgres (a plain transactions read stops at max_rows). */
+export async function movementTotals(
+  until: string,
+  split: string,
+): Promise<{ account_id: string; net_until: number; net_until_split: number }[]> {
+  const service = getServiceClient();
+  return must(
+    await paginateRange((from, to) =>
+      service
+        .rpc("account_movement_totals", { p_until: until, p_split: split })
+        .order("account_id", { ascending: true })
+        .range(from, to),
+    ),
+    "movement_totals",
+  ).map((t) => ({
+    account_id: t.account_id,
+    net_until: Number(t.net_until),
+    net_until_split: Number(t.net_until_split),
+  }));
+}
+
+/** Current ARS cash: opening balances + signed movements to date of the
+ *  active liquid accounts. */
+async function arsCashBalance(today: string): Promise<number> {
+  const accounts = await liquidArsAccounts();
   const liquid = new Set(accounts.map((a) => a.id));
-  let balance = accounts.reduce((s, a) => s + Number(a.opening_balance), 0);
+  let balance = accounts.reduce((s, a) => s + a.opening_balance, 0);
   if (liquid.size > 0) {
-    // Summed in Postgres: a plain transactions read stops at max_rows.
-    const totals = must(
-      await paginateRange((from, to) =>
-        service
-          .rpc("account_movement_totals", { p_until: today, p_split: today })
-          .order("account_id", { ascending: true })
-          .range(from, to),
-      ),
-      "movement_totals",
-    );
-    for (const t of totals) {
-      if (liquid.has(t.account_id)) balance += Number(t.net_until);
+    for (const t of await movementTotals(today, today)) {
+      if (liquid.has(t.account_id)) balance += t.net_until;
     }
   }
   return Math.round(balance * 100) / 100;
