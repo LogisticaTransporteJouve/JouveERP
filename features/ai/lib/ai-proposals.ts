@@ -168,3 +168,30 @@ export async function recordProposalOutcome(
     logger.error("ai.proposals.outcome_failed", { userId, id, error });
   }
 }
+
+/**
+ * Closes an accepted proposal that never recorded an outcome (the request
+ * died between the claim and `recordProposalOutcome`) as `failed`, so the
+ * insight can be prepared again. Only a claim older than `decidedBefore`
+ * qualifies: a write still running keeps its row. Returns whether it closed.
+ */
+export async function failStaleAcceptedProposal(
+  userId: string,
+  id: string,
+  decidedBefore: string,
+  error: string,
+): Promise<boolean> {
+  const { data, error: dbError } = await getServiceClient()
+    .from("ai_proposals")
+    .update({ status: "failed", error: error.slice(0, 500) })
+    .eq("user_id", userId)
+    .eq("id", id)
+    .eq("status", "accepted")
+    .is("result", null)
+    .is("error", null)
+    .lt("decided_at", decidedBefore)
+    .select("id")
+    .maybeSingle();
+  if (dbError) throw dbError;
+  return data !== null;
+}

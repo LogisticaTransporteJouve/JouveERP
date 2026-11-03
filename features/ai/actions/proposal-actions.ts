@@ -11,14 +11,18 @@ import { UuidSchema } from "@/lib/validation/common";
 
 import { canSeeInsight } from "../insights/lib/visibility";
 import {
+  AI_PROPOSAL_STALE_ACCEPT_MS,
   AI_PROPOSAL_TTL_MS,
+  AI_PROPOSAL_UNKNOWN_OUTCOME,
   InsightProposalSchema,
+  isStaleAccepted,
   toProposalCard,
   type AiProposalCard,
   type AiProposalRow,
 } from "../lib/ai-proposal-schema";
 import {
   claimProposal,
+  failStaleAcceptedProposal,
   getProposal,
   insertProposal,
   latestProposalByKey,
@@ -161,14 +165,41 @@ export async function prepareInsightProposalAction(
 
 /** The caller's latest proposal with this key when it should be shown again
  *  instead of preparing a new one: still pending and in time, or accepted.
- *  A pending one past its time is closed as expired first. */
+ *  A pending one past its time is closed as expired first; an accepted one
+ *  whose request died before recording an outcome is closed as failed
+ *  (outcome unknown), so the insight can be prepared again. */
 async function reusable(
   ctx: Ctx,
   dedupeKey: string,
 ): Promise<AiProposalRow | null> {
   const latest = await latestProposalByKey(ctx.userId, dedupeKey);
   if (!latest) return null;
-  if (latest.status === "accepted") return latest;
+  if (latest.status === "accepted") {
+    const now = Date.now();
+    if (!isStaleAccepted(latest, now)) return latest;
+    const closed = await failStaleAcceptedProposal(
+      ctx.userId,
+      latest.id,
+      new Date(now - AI_PROPOSAL_STALE_ACCEPT_MS).toISOString(),
+      AI_PROPOSAL_UNKNOWN_OUTCOME,
+    );
+    if (closed) {
+      await logAudit(
+        "ai.proposal.failed",
+        ctx.userId,
+        {
+          action: latest.action,
+          source: latest.source,
+          insight_id: latest.insight_id,
+          insight_kind: latest.insight_kind,
+          result_id: null,
+          error: AI_PROPOSAL_UNKNOWN_OUTCOME,
+        },
+        latest.id,
+      );
+    }
+    return null;
+  }
   if (latest.status !== "pending") return null;
   if (Date.parse(latest.expires_at) > Date.now()) return latest;
   await claimProposal(ctx.userId, latest.id, "expired");
