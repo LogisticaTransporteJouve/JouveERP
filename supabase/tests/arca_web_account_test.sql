@@ -20,7 +20,7 @@ insert into public.user_roles (user_id, role_id) values
 -- 1. Grants -----------------------------------------------------------------------
 
 select ok(
-  not has_function_privilege('authenticated', 'public.set_arca_web_credentials(text, text, uuid)', 'execute')
+  not has_function_privilege('authenticated', 'public.set_arca_web_credentials(text, uuid, text)', 'execute')
   and not has_function_privilege('authenticated', 'public.get_arca_web_password()', 'execute')
   and not has_function_privilege('authenticated', 'public.record_arca_web_sign_in(boolean, text)', 'execute')
   and not has_function_privilege('anon', 'public.get_arca_web_password()', 'execute'),
@@ -29,7 +29,7 @@ select ok(
 
 select ok(
   has_function_privilege('service_role', 'public.get_arca_web_password()', 'execute')
-  and has_function_privilege('service_role', 'public.set_arca_web_credentials(text, text, uuid)', 'execute'),
+  and has_function_privilege('service_role', 'public.set_arca_web_credentials(text, uuid, text)', 'execute'),
   'the service role can'
 );
 
@@ -47,13 +47,13 @@ select ok(
 -- 2. Round trip --------------------------------------------------------------------
 
 select throws_ok(
-  $$ select public.set_arca_web_credentials('30711111118', null, null) $$,
+  $$ select public.set_arca_web_credentials('30711111118', null) $$,
   '22023',
   'Falta la clave.',
   'the first save needs a clave'
 );
 
-select public.set_arca_web_credentials('30711111118', 'clave-uno', '00000000-0000-0000-0000-0000000ae001');
+select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001', 'clave-uno');
 
 select is(public.get_arca_web_password(), 'clave-uno', 'the clave reads back');
 
@@ -65,7 +65,7 @@ select results_eq(
   'a rejected clave stops automatic sign-ins'
 );
 
-select public.set_arca_web_credentials('30711111118', null, '00000000-0000-0000-0000-0000000ae001');
+select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001');
 
 select results_eq(
   $$ select public.get_arca_web_password(), status from public.arca_web_account $$,
@@ -73,7 +73,7 @@ select results_eq(
   'saving without a clave keeps the stored one and the failing state'
 );
 
-select public.set_arca_web_credentials('30711111118', 'clave-dos', '00000000-0000-0000-0000-0000000ae001');
+select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001', 'clave-dos');
 
 select results_eq(
   $$ select public.get_arca_web_password(), status, consecutive_failures from public.arca_web_account $$,

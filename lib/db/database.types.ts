@@ -10418,7 +10418,7 @@ export type Database = {
         Returns: string
       }
       set_arca_web_credentials: {
-        Args: { p_cuit: string; p_password: string; p_user_id: string }
+        Args: { p_cuit: string; p_password?: string; p_user_id: string }
         Returns: undefined
       }
       set_bank_statement_line_ignored: {

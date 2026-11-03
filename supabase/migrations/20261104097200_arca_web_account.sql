@@ -50,8 +50,8 @@ grant all on table public.arca_web_account to service_role;
 -- the password, not even in an error.
 create or replace function public.set_arca_web_credentials(
   p_cuit     text,
-  p_password text,
-  p_user_id  uuid
+  p_user_id  uuid,
+  p_password text default null
 )
 returns void
 language plpgsql
@@ -100,8 +100,8 @@ begin
 end;
 $$;
 
-revoke all on function public.set_arca_web_credentials(text, text, uuid) from public, anon, authenticated;
-grant execute on function public.set_arca_web_credentials(text, text, uuid) to service_role;
+revoke all on function public.set_arca_web_credentials(text, uuid, text) from public, anon, authenticated;
+grant execute on function public.set_arca_web_credentials(text, uuid, text) to service_role;
 
 -- The password, for the job step that signs in. Null when not configured.
 create or replace function public.get_arca_web_password()
