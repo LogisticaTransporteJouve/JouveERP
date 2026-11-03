@@ -18,7 +18,7 @@ insert into public.user_roles (user_id, role_id) values
   ('00000000-0000-0000-0000-00000000f601', 'admin');
 
 insert into public.supplier_categories (id, name, slug) values
-  ('00000000-0000-0000-0000-00000000f611', 'Categoría Import', 'categoria-import');
+  ('00000000-0000-0000-0000-00000000f611', 'Categoría Import', 'categoria_import');
 insert into public.cost_centers (id, code, name) values
   ('00000000-0000-0000-0000-00000000f612', 'CC-IMP', 'Centro Import');
 insert into public.clients (id, legal_name, is_fiscal) values
