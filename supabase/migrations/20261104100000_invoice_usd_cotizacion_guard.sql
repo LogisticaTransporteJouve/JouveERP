@@ -14,11 +14,14 @@ SET LOCAL statement_timeout = '15min';
 -- It fires on insert and when moneda or cotizacion change, so existing rows
 -- and unrelated updates (status, PDF hash) are untouched. AFIP always returns
 -- MonCotiz for a dollar voucher, so the ARCA import (sync-issued) is not
--- refused; a voucher it could not import is reported per row.
+-- refused; a voucher it could not import is reported per row. Security
+-- definer, like guard_document_side: the channel lookup must not depend on
+-- what the writer's RLS lets it see.
 
 create or replace function public.guard_invoice_cotizacion()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
