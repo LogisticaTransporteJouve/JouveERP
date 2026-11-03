@@ -24,12 +24,15 @@ const ALREADY_GRANTED = 15008;
  */
 export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
   const supabase = getServiceClient();
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from("caea_codes")
-    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
+    .select(
+      "id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at",
+    )
     .eq("periodo", q.periodo)
     .eq("orden", q.orden)
     .maybeSingle();
+  if (existingErr) throw new Error(`load-caea: ${existingErr.message}`);
   if (existing) return existing;
 
   let result: CaeaResult;
@@ -61,10 +64,16 @@ export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
       },
       { onConflict: "periodo,orden" },
     )
-    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
+    .select(
+      "id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at",
+    )
     .single();
   if (error || !inserted) {
-    logger.error("caea.persist.failed", { periodo: q.periodo, orden: q.orden, error });
+    logger.error("caea.persist.failed", {
+      periodo: q.periodo,
+      orden: q.orden,
+      error,
+    });
     throw new Error("El CAEA se obtuvo pero no se pudo guardar.");
   }
 
@@ -77,16 +86,20 @@ export async function ensureCaea(q: Quincena): Promise<CaeaCodeRow> {
   return inserted;
 }
 
-/** CAEA whose vigencia covers the given date, or null. */
+/** CAEA whose vigencia covers the given date, or null when none does. A
+ *  failed read throws (retriable): it is not "no CAEA". */
 export async function getActiveCaeaForDate(
   dateIso: string,
 ): Promise<CaeaCodeRow | null> {
   const supabase = getServiceClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("caea_codes")
-    .select("id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at")
+    .select(
+      "id, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf, fch_proceso, observaciones, no_movement_pvs, created_at",
+    )
     .lte("fch_vig_desde", dateIso)
     .gte("fch_vig_hasta", dateIso)
     .maybeSingle();
+  if (error) throw new Error(`load-active-caea: ${error.message}`);
   return data ?? null;
 }
