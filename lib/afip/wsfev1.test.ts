@@ -130,7 +130,9 @@ describe("buildFECAEDetRequest", () => {
     monId: MONEDA.PESOS,
     monCotiz: 1,
     condicionIvaReceptorId: CONDICION_IVA_RECEPTOR.RESPONSABLE_INSCRIPTO,
-    iva: [{ id: IVA_RATE.TWENTY_ONE, baseImp: 100, importe: 21 }],
+    iva: [
+      { id: IVA_RATE.TWENTY_ONE, baseImp: 100, importe: 21 },
+    ],
   };
 
   it("emits required fields in AFIP order", () => {
@@ -195,8 +197,12 @@ describe("buildFECAEDetRequest", () => {
       ],
     });
     expect(xml).toContain("<fe:Iva>");
-    expect(xml).toContain(`<fe:Id>${IVA_RATE.TWENTY_ONE}</fe:Id>`);
-    expect(xml).toContain(`<fe:Id>${IVA_RATE.TEN_FIVE}</fe:Id>`);
+    expect(xml).toContain(
+      `<fe:Id>${IVA_RATE.TWENTY_ONE}</fe:Id>`,
+    );
+    expect(xml).toContain(
+      `<fe:Id>${IVA_RATE.TEN_FIVE}</fe:Id>`,
+    );
     expect(xml).toContain("<fe:BaseImp>100.00</fe:BaseImp>");
     expect(xml).toContain("<fe:Importe>21.00</fe:Importe>");
   });
@@ -212,7 +218,9 @@ describe("buildFECAEDetRequest", () => {
       cbtesAsoc: [{ tipo: CBTE_TIPO.FACTURA_B, ptoVta: 3, nro: 100 }],
     });
     expect(xml).toContain("<fe:CbtesAsoc>");
-    expect(xml).toContain(`<fe:Tipo>${CBTE_TIPO.FACTURA_B}</fe:Tipo>`);
+    expect(xml).toContain(
+      `<fe:Tipo>${CBTE_TIPO.FACTURA_B}</fe:Tipo>`,
+    );
     expect(xml).toContain("<fe:Nro>100</fe:Nro>");
   });
 });
