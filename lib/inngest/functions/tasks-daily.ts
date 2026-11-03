@@ -14,6 +14,7 @@ import type { Permission } from "@/lib/auth/permissions";
 import { listUserIdsWithPermission } from "@/lib/auth/users";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
@@ -22,9 +23,10 @@ import { inngest } from "../client";
 //   1. materialize_recurring_tasks — the month's occurrences due within 7 days;
 //   2. sync_automatic_tasks — creates, updates and closes the tasks derived
 //      from documents (unique on source_table, source_id, kind);
-//   3. assigns each task step 2 created to the users who can act on its
-//      document (TASK_SOURCES[kind].assign plus tasks:read);
-//   4. claims the due notifications (notified_stage) and 5. inserts them:
+//   3. assigns each open automatic task with no assignee to the users who
+//      can act on its document (TASK_SOURCES[kind].assign plus tasks:read);
+//   4. claims the due notifications (notified_stage), one step per stage,
+//      and 5. inserts them:
 //      'due' on the due day, 'overdue' once in the week after it. A task that
 //      was already overdue for longer when it appeared is not announced.
 
@@ -103,12 +105,28 @@ export const tasksDaily = inngest.createFunction(
     });
     const created = changes.filter((c) => c.change === "created");
 
+    // Every open automatic task with no assignee, not only this run's
+    // `created`: a task whose assign step failed on an earlier day shows up
+    // there as `updated` and would stay unassigned (and unannounced).
     const assigned = await step.run("assign-new", async () => {
+      const unassigned = await paginateRange((from, to) =>
+        supabase
+          .from("tasks")
+          .select("id, kind, task_assignees(task_id)")
+          .eq("origin", "automatic")
+          .eq("status", "open")
+          .is("task_assignees", null)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      if (unassigned.error) {
+        throw new Error(`assign-new: ${unassigned.error.message}`);
+      }
       let rows = 0;
       for (const kind of AUTOMATIC_TASK_KINDS) {
-        const taskIds = created
-          .filter((c) => c.kind === kind)
-          .map((c) => c.task_id);
+        const taskIds = unassigned.data
+          .filter((t) => t.kind === kind)
+          .map((t) => t.id);
         if (taskIds.length === 0) continue;
         const users = await usersWithAll([
           "tasks:read",
@@ -130,8 +148,10 @@ export const tasksDaily = inngest.createFunction(
       return rows;
     });
 
-    // Claimed first so a retry of the insert never sends twice.
-    const claimed = await step.run("claim-due", async () => {
+    // Claimed first so a retry of the insert never sends twice. One claim
+    // per step: a retry re-runs only the claim that failed, so the rows the
+    // other one already stamped keep their memoized notices.
+    const claimedDue = await step.run("claim-due", async () => {
       const due = await supabase
         .from("tasks")
         .update({ notified_stage: "due" })
@@ -140,6 +160,11 @@ export const tasksDaily = inngest.createFunction(
         .is("notified_stage", null)
         .select(CLAIM_COLUMNS);
       if (due.error) throw new Error(`claim-due: ${due.error.message}`);
+      return (due.data ?? [])
+        .map((r) => toDueTask(r, "due"))
+        .filter((t): t is DueTask => t !== null);
+    });
+    const claimedOverdue = await step.run("claim-overdue", async () => {
       const overdue = await supabase
         .from("tasks")
         .update({ notified_stage: "overdue" })
@@ -151,11 +176,11 @@ export const tasksDaily = inngest.createFunction(
       if (overdue.error) {
         throw new Error(`claim-overdue: ${overdue.error.message}`);
       }
-      return [
-        ...(due.data ?? []).map((r) => toDueTask(r, "due")),
-        ...(overdue.data ?? []).map((r) => toDueTask(r, "overdue")),
-      ].filter((t): t is DueTask => t !== null);
+      return (overdue.data ?? [])
+        .map((r) => toDueTask(r, "overdue"))
+        .filter((t): t is DueTask => t !== null);
     });
+    const claimed = [...claimedDue, ...claimedOverdue];
 
     const notified = await step.run("notify-due", async () => {
       if (claimed.length === 0) return 0;
