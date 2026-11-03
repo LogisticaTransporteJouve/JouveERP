@@ -141,8 +141,8 @@ create unique index freight_settlement_items_live_shipment
 ------------------------------------------------------------------------------
 
 -- A carga's price in a liquidación: its own flete, else the client's freight
--- tariff in force on its delivery (or scheduled) day. No row's amount is null
--- when there is neither.
+-- tariff in force on its delivery (or scheduled) day. With neither, amount
+-- and price_source are null.
 create function public.freight_price(p_shipment_id uuid)
 returns table (amount numeric, price_source text, client_tariff_id uuid)
 language sql

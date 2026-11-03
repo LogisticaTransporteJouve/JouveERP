@@ -74,6 +74,41 @@
 
 ---
 
+## Liquidación R y rendiciones (2026-11-03, roadmap 4.3 + 4.5)
+
+- [x] **Liquidaciones** (`/liquidaciones`, `invoices:read`, edición con
+      `invoices:issue`): cliente + período + cargas entregadas, a su flete o a
+      la tarifa de **flete** del cliente (concepto nuevo del tarifario, por
+      carga, en pesos). Borrador → confirmada (número `R-…`) → facturada con
+      **una** factura por `issueFiscalInvoiceAction`. PDF del documento R. Una
+      carga en una sola liquidación viva; mientras tanto no se factura sola.
+      Factura fallida o anulada → vuelve a confirmada; cancelar una facturada
+      pide la factura anulada o acreditada por NC por el total.
+- [x] **Cobranza contra entrega** en la carga (`cod_amount`, en el diálogo
+      de la carga) y **Rendiciones** (`/rendiciones`, `receipts:read`, edición
+      con `receipts:write`): pendientes por chofer, rendición con lo entregado
+      por carga (cuenta, importe, cheque) y diferencias; confirmar emite un
+      recibo por cliente y canal (caja, bancos o cartera) imputado a la
+      factura de cada carga. Idempotente; cancelar pide los recibos anulados.
+- [ ] Aprobar las migraciones `20261103090000_freight_settlements` y
+      `20261103090100_cod_driver_settlements` junto con el deploy (dependen de
+      `20261103080000`/`20261103080100`, PR #318): sin ellas fallan el listado
+      de cargas (`cod_amount`), `/liquidaciones` y `/rendiciones`.
+- [ ] Un rollback a código anterior con tarifas de flete cargadas hace fallar
+      la facturación de almacenaje de ese cliente (el código viejo rechaza un
+      concepto que no conoce).
+- [ ] Diferencia de la rendición contra la cuenta corriente del chofer
+      (faltante como deuda del empleado): hoy se registra y se muestra, no se
+      asienta.
+- [ ] Varios medios de pago por carga en el diálogo de la rendición (la base
+      ya los admite; la pantalla carga uno por carga).
+- [ ] PDF de la rendición (los recibos ya tienen el suyo) y herramientas de
+      IA para liquidaciones y rendiciones.
+- [ ] Editar o anular desde Recibos un recibo de una rendición no actualiza
+      la rendición: sigue confirmada hasta cancelarla.
+- [ ] Liquidaciones por lotes (todos los clientes de un período) y envío del
+      R por email.
+
 ## Remitos únicos y tarifarios por cliente (2026-11-03, roadmap 4.1 + 4.2)
 
 - [x] **Remito del cliente en la carga** (`shipments.remito_number`): único
