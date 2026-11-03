@@ -102,6 +102,8 @@ const GUARDS = [
   "guard_shipment_freight_settlement",
   "save_freight_settlement",
   "confirm_freight_settlement",
+  "confirm_freight_settlement_document",
+  "reprice_freight_settlement",
   "link_freight_settlement_invoice",
   "cancel_freight_settlement",
   "guard_driver_settlement",
