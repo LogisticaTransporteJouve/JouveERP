@@ -9,15 +9,21 @@ type RetentionFields = {
   notes?: string | null;
 };
 
+/** A blank optional text is stored as null (the schema trims it). */
+function optionalText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length === 0 ? null : trimmed;
+}
+
 function retentionKey(r: RetentionFields): string {
   return JSON.stringify([
     r.kind,
     r.tax_type,
-    r.jurisdiction ?? null,
+    optionalText(r.jurisdiction),
     r.certificate_number.trim(),
     r.certificate_date,
     Math.round(Number(r.amount) * 100),
-    r.notes ?? null,
+    optionalText(r.notes),
   ]);
 }
 

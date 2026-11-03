@@ -15,6 +15,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { movesStock } from "../lib/moves-stock";
 import {
   PalletBlockSchema,
   PalletUnblockSchema,
@@ -357,19 +358,31 @@ export async function updatePalletAction(
     };
   }
   const { id, ...rest } = parsed.data;
-  // Moving it (deposit, status, quantity, entry or exit) is a stock
-  // movement; notes, code, client or product are not.
-  const moves =
-    rest.warehouse_id !== undefined ||
-    rest.status !== undefined ||
-    rest.quantity !== undefined ||
-    rest.entry_date !== undefined ||
-    rest.exit_date !== undefined;
-  if (moves && !userCan(ctx.access, "stock_movements:write")) {
-    return { ok: false, error: NO_STOCK_MOVEMENTS };
-  }
 
   const supabase = await createSupabaseClient();
+  // Without stock_movements:write only the fields that move no stock may
+  // change (the dialog sends every field, so compare with the stored row).
+  if (!userCan(ctx.access, "stock_movements:write")) {
+    const stored = await supabase
+      .from("pallets")
+      .select("warehouse_id, status, quantity, entry_date, exit_date")
+      .eq("id", id)
+      .maybeSingle();
+    if (stored.error) {
+      logger.error("pallets.update.read_failed", {
+        userId: ctx.userId,
+        id,
+        error: stored.error,
+      });
+      return { ok: false, error: "No se pudo leer el pallet." };
+    }
+    if (!stored.data) {
+      return { ok: false, error: "El pallet no existe." };
+    }
+    if (movesStock(stored.data, rest)) {
+      return { ok: false, error: NO_STOCK_MOVEMENTS };
+    }
+  }
   const { error } = await supabase
     .from("pallets")
     .update({

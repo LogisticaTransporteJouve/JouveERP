@@ -757,7 +757,10 @@ export async function createReceiptAction(
     };
   }
   const data = parsed.data;
-  if ((data.retentions ?? []).length > 0 && !userCan(ctx.access, "retentions:write")) {
+  if (
+    (data.retentions ?? []).length > 0 &&
+    !userCan(ctx.access, "retentions:write")
+  ) {
     return { ok: false, error: NO_RETENTIONS };
   }
 

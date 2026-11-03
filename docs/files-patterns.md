@@ -46,15 +46,15 @@
 
 **Casos de uso concretos que habilita** (no todos en la primera entrega):
 
-| Caso | Fase | Entidad asociada |
-|---|---|---|
-| Comprobante recibido (factura proveedor) | I.2 | `invoices_received` (futura) |
-| Documentación de chofer (licencia, ART) | G.6 | `drivers.id` |
-| Documentación de vehículo (cédula, VTV, póliza) | G.6 | `vehicles.id` |
-| Foto/PDF de cheque físico | F.2 (mejora) | `cheques.id` |
-| Comprobante de retención escaneado | F.5 (mejora) | `receipt_retentions.id` |
-| Extracto bancario para conciliación | J (futura) | `accounts.id` |
-| Adjunto en mensaje del asistente AI | I.4 | `chat_messages.id` |
+| Caso                                            | Fase         | Entidad asociada             |
+| ----------------------------------------------- | ------------ | ---------------------------- |
+| Comprobante recibido (factura proveedor)        | I.2          | `invoices_received` (futura) |
+| Documentación de chofer (licencia, ART)         | G.6          | `drivers.id`                 |
+| Documentación de vehículo (cédula, VTV, póliza) | G.6          | `vehicles.id`                |
+| Foto/PDF de cheque físico                       | F.2 (mejora) | `cheques.id`                 |
+| Comprobante de retención escaneado              | F.5 (mejora) | `receipt_retentions.id`      |
+| Extracto bancario para conciliación             | J (futura)   | `accounts.id`                |
+| Adjunto en mensaje del asistente AI             | I.4          | `chat_messages.id`           |
 
 ---
 
@@ -225,8 +225,8 @@ export function buildStorageKey(fileId: string, filename: string): string {
 
 Lectura: cualquier authenticated. Escritura: rol `finance` u `operations`
 para subir; `owner|finance|operations` para borrar el propio o si tiene
-`files:admin`. Ajustar a los permisos finales de la matriz cuando se cierre
-la feature.
+`files:write` (`files:admin` salió de la matriz: ningún gate lo leía,
+auditoría w1-s4 F4).
 
 ```sql
 alter table public.files enable row level security;
@@ -366,14 +366,14 @@ const ALLOWED_MIME = new Set([
 const AttachTargetSchema = z.discriminatedUnion("targetType", [
   z.object({ targetType: z.literal("invoice"), targetId: z.string().uuid() }),
   z.object({ targetType: z.literal("receipt"), targetId: z.string().uuid() }),
-  z.object({ targetType: z.literal("cheque"),  targetId: z.string().uuid() }),
+  z.object({ targetType: z.literal("cheque"), targetId: z.string().uuid() }),
   z.object({ targetType: z.literal("retention"), targetId: z.string().uuid() }),
 ]);
 
 const KIND_BY_TARGET: Record<string, string[]> = {
-  invoice:   ["comprobante", "remito"],
-  receipt:   ["comprobante_pago"],
-  cheque:    ["foto_cheque"],
+  invoice: ["comprobante", "remito"],
+  receipt: ["comprobante_pago"],
+  cheque: ["foto_cheque"],
   retention: ["certificado_retencion"],
 };
 
@@ -381,7 +381,9 @@ export type UploadResult =
   | { ok: true; file_id: string; attachment_id: string }
   | { ok: false; error: string };
 
-export async function uploadFileAction(formData: FormData): Promise<UploadResult> {
+export async function uploadFileAction(
+  formData: FormData,
+): Promise<UploadResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "files:write")) {
     return { ok: false, error: "Sin permisos para subir archivos." };
@@ -396,10 +398,15 @@ export async function uploadFileAction(formData: FormData): Promise<UploadResult
   if (!(file instanceof File)) return { ok: false, error: "Archivo faltante." };
   if (!target.success) return { ok: false, error: "Destino inválido." };
   if (!KIND_BY_TARGET[target.data.targetType]?.includes(kind)) {
-    return { ok: false, error: `kind "${kind}" no permitido para ${target.data.targetType}.` };
+    return {
+      ok: false,
+      error: `kind "${kind}" no permitido para ${target.data.targetType}.`,
+    };
   }
-  if (file.size > MAX_BYTES) return { ok: false, error: "El archivo supera 10 MB." };
-  if (!ALLOWED_MIME.has(file.type)) return { ok: false, error: `Tipo no permitido (${file.type}).` };
+  if (file.size > MAX_BYTES)
+    return { ok: false, error: "El archivo supera 10 MB." };
+  if (!ALLOWED_MIME.has(file.type))
+    return { ok: false, error: `Tipo no permitido (${file.type}).` };
 
   const supabase = await createClient();
   const fileId = crypto.randomUUID();
@@ -487,8 +494,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function getSignedFileUrlAction(
   fileId: string,
-): Promise<{ ok: true; url: string; filename: string; mime: string | null }
-        | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; url: string; filename: string; mime: string | null }
+  | { ok: false; error: string }
+> {
   await requireUserContext();
   const supabase = await createClient();
 
@@ -533,8 +542,8 @@ Type guards:
 
 ```ts
 // lib/files/preview.ts
-export const isImage       = (m?: string | null) => !!m?.startsWith("image/");
-export const isPdf         = (m?: string | null) => m === "application/pdf";
+export const isImage = (m?: string | null) => !!m?.startsWith("image/");
+export const isPdf = (m?: string | null) => m === "application/pdf";
 export const isSpreadsheet = (m?: string | null) =>
   m === "text/csv" ||
   m === "application/vnd.ms-excel" ||
@@ -589,7 +598,9 @@ export const filesQuickOcr = inngest.createFunction(
       const supabase = getServiceClient();
       const { data, error } = await supabase
         .from("files")
-        .select("id, bucket, bucket_path, mime_type, original_filename, quick_ocr")
+        .select(
+          "id, bucket, bucket_path, mime_type, original_filename, quick_ocr",
+        )
         .eq("id", file_id)
         .maybeSingle();
       if (error) throw new Error(`load: ${error.message}`);
@@ -597,7 +608,8 @@ export const filesQuickOcr = inngest.createFunction(
     });
 
     if (!file) return { status: "skipped", reason: "not_found" };
-    if (file.quick_ocr !== null) return { status: "skipped", reason: "already_ocrd" };
+    if (file.quick_ocr !== null)
+      return { status: "skipped", reason: "already_ocrd" };
 
     const text = await step.run("extract", async () => {
       const supabase = getServiceClient();
@@ -634,11 +646,11 @@ Registrar en `app/api/inngest/route.ts` agregándola al array de
 
 `lib/files/quick-ocr.ts` discrimina por MIME:
 
-| MIME | Estrategia |
-|---|---|
-| `text/csv`, `application/vnd.ms-excel`, `…spreadsheetml.sheet` | Parse local (no LLM): primera fila + 5 sample rows. |
-| `application/pdf`, `image/*` | Llamada a Claude Haiku con el binario como `file`/`image`. Prompt corto (ver `docs/ai-patterns.md` para el patrón de prompt caching). |
-| otros | Devuelve `""`. |
+| MIME                                                           | Estrategia                                                                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `text/csv`, `application/vnd.ms-excel`, `…spreadsheetml.sheet` | Parse local (no LLM): primera fila + 5 sample rows.                                                                                   |
+| `application/pdf`, `image/*`                                   | Llamada a Claude Haiku con el binario como `file`/`image`. Prompt corto (ver `docs/ai-patterns.md` para el patrón de prompt caching). |
+| otros                                                          | Devuelve `""`.                                                                                                                        |
 
 Tope de salida: 500 chars (cabe en una columna `text` indexable a futuro,
 suficiente para fuzzy matching). Temperature 0. La idea es **clues for
@@ -714,7 +726,9 @@ export const filesSweepOrphans = inngest.createFunction(
       const supabase = getServiceClient();
       // Files sin attachments AND con más de 1 hora de antigüedad
       // (evita matar uploads en vuelo).
-      const { data } = await supabase.rpc("find_orphan_files", { p_max_age: "1 hour" });
+      const { data } = await supabase.rpc("find_orphan_files", {
+        p_max_age: "1 hour",
+      });
       return data ?? [];
     });
 
@@ -802,7 +816,10 @@ export function FileDropzone({ onFile, disabled, imagesOnly }: Props) {
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
         e.preventDefault();
@@ -883,7 +900,7 @@ export function FileDropzone({ onFile, disabled, imagesOnly }: Props) {
   botón "Tomar foto" igual queda oculto por `pointer-coarse:hidden` así
   no aparece confuso.
 - En **iOS Safari**, sin `capture` y con `accept="image/*"` el sheet
-  ofrece *Take Photo / Photo Library / Choose File*. **Con** `capture`
+  ofrece _Take Photo / Photo Library / Choose File_. **Con** `capture`
   va directo a la cámara (sin opción de galería).
 - En **Android Chrome**, comportamiento equivalente.
 - `e.target.value = ""` al final permite que el `onChange` dispare si el
@@ -907,9 +924,9 @@ export async function compressImageForUpload(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) return file;
   const compressed = await imageCompression(file, {
     maxSizeMB: 2,
-    maxWidthOrHeight: 2400,   // suficiente para OCR de un comprobante A4
+    maxWidthOrHeight: 2400, // suficiente para OCR de un comprobante A4
     useWebWorker: true,
-    fileType: "image/jpeg",   // unificamos a JPEG para consistencia
+    fileType: "image/jpeg", // unificamos a JPEG para consistencia
   });
   return compressed;
 }
@@ -950,7 +967,9 @@ export function useUploadFile() {
       return res;
     },
     onSuccess: (_data, { targetType, targetId }) => {
-      qc.invalidateQueries({ queryKey: fileAttachmentsKeys.byTarget(targetType, targetId) });
+      qc.invalidateQueries({
+        queryKey: fileAttachmentsKeys.byTarget(targetType, targetId),
+      });
     },
   });
 }
@@ -978,16 +997,14 @@ En `lib/auth/permissions.ts`:
 ```ts
 "files:read",   // ver adjuntos y descargar
 "files:write",  // subir y atachar
-"files:admin",  // borrar adjuntos de otros
 ```
 
 Asignación inicial:
 
-| Permiso | owner | admin | finance | operations | warehouse | driver |
-|---|---|---|---|---|---|---|
-| `files:read`  | ✓ | ✓ | ✓ | ✓ | ✓ | (limitado en G.3) |
-| `files:write` | ✓ | ✓ | ✓ | ✓ | ✓ | (limitado en G.3) |
-| `files:admin` | ✓ | ✓ |   |   |   |   |
+| Permiso       | owner | admin | finance | operations | warehouse | driver            |
+| ------------- | ----- | ----- | ------- | ---------- | --------- | ----------------- |
+| `files:read`  | ✓     | ✓     | ✓       | ✓          | ✓         | (limitado en G.3) |
+| `files:write` | ✓     | ✓     | ✓       | ✓          | ✓         | (limitado en G.3) |
 
 `driver` sigue la regla `:own` que ya quedó diferida a Fase G.3 — su
 acceso queda gated por el target (solo archivos de sus propios viajes).
@@ -996,14 +1013,14 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
 
 ## 10. Tests
 
-| Tipo | Qué cubre |
-|---|---|
-| Unit (Vitest) | `buildStorageKey` con filenames raros (unicode, espacios, sin ext, ext de 9+ chars, `..`). |
-| Unit | `extractQuickInsight` con CSV mock, XLSX mock, mock de fetch a Anthropic. |
-| Schema (Vitest) | Zod de `uploadFileAction` (`AttachTargetSchema`, kind validation). |
+| Tipo                                  | Qué cubre                                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Unit (Vitest)                         | `buildStorageKey` con filenames raros (unicode, espacios, sin ext, ext de 9+ chars, `..`).               |
+| Unit                                  | `extractQuickInsight` con CSV mock, XLSX mock, mock de fetch a Anthropic.                                |
+| Schema (Vitest)                       | Zod de `uploadFileAction` (`AttachTargetSchema`, kind validation).                                       |
 | Integration (Vitest + Supabase local) | Upload feliz, rollback en DB error, rollback en attach error, signed URL devuelve `Content-Disposition`. |
-| RLS (pgTAP o Vitest hitting RPC) | Insert con `uploaded_by` falso falla; delete por otro user falla salvo admin. |
-| E2E (Playwright) | Adjuntar PDF a una factura, ver el listado, descargar, borrar. |
+| RLS (pgTAP o Vitest hitting RPC)      | Insert con `uploaded_by` falso falla; delete por otro user falla salvo admin.                            |
+| E2E (Playwright)                      | Adjuntar PDF a una factura, ver el listado, descargar, borrar.                                           |
 
 ---
 
@@ -1044,31 +1061,31 @@ acceso queda gated por el target (solo archivos de sus propios viajes).
 
 ## 12. Decisiones cerradas (2026-05-16)
 
-| # | Decisión | Resolución |
-|---|---|---|
-| 1 | Bucket único vs uno por dominio | **Único `files`.** Lifecycle distinto justifica bucket nuevo en el futuro, no ahora. |
-| 2 | Polimorfismo: FK por target vs `(target_type, target_id)` | **FK por target + check "exactly one".** Cascade real, joins normales, set chico y bien definido (5-8 entidades a Fase M). |
-| 3 | OCR síncrono vs asíncrono | **Diferido a Fase I.2.** La columna se crea en K.10a, el worker lo agrega I.2. Transporte (Inngest vs `after()` + pool) se decide ahí. |
-| 4 | Quién paga el LLM | Cuenta del proyecto. Cap por usuario via rate-limit existente, key `ocr:{userId}`. Aplica cuando se implemente §6. |
-| 5 | Versionado de archivos | No en v1. Reemplazar = nuevo upload + atachar + borrar viejo. Si compliance lo exige, `parent_file_id` self-fk en migración futura. |
-| 6 | Antivirus scanning | No en v1. Reconsiderar si llega portal cliente (M.6). |
-| D1 | Scope de cableado en K.10 | **Solo `purchase_invoices`.** Otras entidades en M.4. |
-| D2 | Bulk multi-upload | **Single-upload.** Bulk + página `/files` global cuando llegue I.2. |
-| D3 | Compresión client-side de imágenes | **No.** Las facturas son PDF; se suma cuando aparezca el caso (fotos desde celular). |
-| D4 | Captura mobile (`capture="environment"`) | **Sí desde día 1.** `pointer-coarse:` Tailwind variants ocultan el botón en desktop. |
-| D5 | PDFs auto-generados (comprobantes) | **Refactor a on-demand en M.0** (drop bucket `invoices`). El QR es función pura del dato + CAE; regenerar es seguro. Hash SHA256 opcional para auditoría. |
+| #   | Decisión                                                  | Resolución                                                                                                                                                |
+| --- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Bucket único vs uno por dominio                           | **Único `files`.** Lifecycle distinto justifica bucket nuevo en el futuro, no ahora.                                                                      |
+| 2   | Polimorfismo: FK por target vs `(target_type, target_id)` | **FK por target + check "exactly one".** Cascade real, joins normales, set chico y bien definido (5-8 entidades a Fase M).                                |
+| 3   | OCR síncrono vs asíncrono                                 | **Diferido a Fase I.2.** La columna se crea en K.10a, el worker lo agrega I.2. Transporte (Inngest vs `after()` + pool) se decide ahí.                    |
+| 4   | Quién paga el LLM                                         | Cuenta del proyecto. Cap por usuario via rate-limit existente, key `ocr:{userId}`. Aplica cuando se implemente §6.                                        |
+| 5   | Versionado de archivos                                    | No en v1. Reemplazar = nuevo upload + atachar + borrar viejo. Si compliance lo exige, `parent_file_id` self-fk en migración futura.                       |
+| 6   | Antivirus scanning                                        | No en v1. Reconsiderar si llega portal cliente (M.6).                                                                                                     |
+| D1  | Scope de cableado en K.10                                 | **Solo `purchase_invoices`.** Otras entidades en M.4.                                                                                                     |
+| D2  | Bulk multi-upload                                         | **Single-upload.** Bulk + página `/files` global cuando llegue I.2.                                                                                       |
+| D3  | Compresión client-side de imágenes                        | **No.** Las facturas son PDF; se suma cuando aparezca el caso (fotos desde celular).                                                                      |
+| D4  | Captura mobile (`capture="environment"`)                  | **Sí desde día 1.** `pointer-coarse:` Tailwind variants ocultan el botón en desktop.                                                                      |
+| D5  | PDFs auto-generados (comprobantes)                        | **Refactor a on-demand en M.0** (drop bucket `invoices`). El QR es función pura del dato + CAE; regenerar es seguro. Hash SHA256 opcional para auditoría. |
 
 ---
 
 ## 13. Métricas de éxito
 
-| Métrica | Objetivo |
-|---|---|
-| p95 latencia de `uploadFileAction` (PDF 2 MB) | < 1.5 s |
-| p95 latencia de `getSignedFileUrlAction` | < 200 ms |
-| OCR completado en background | < 30 s p95 |
-| Huérfanos detectados por el sweep diario | tendiendo a 0 |
-| Errores 500 en upload | < 0.5% |
+| Métrica                                       | Objetivo      |
+| --------------------------------------------- | ------------- |
+| p95 latencia de `uploadFileAction` (PDF 2 MB) | < 1.5 s       |
+| p95 latencia de `getSignedFileUrlAction`      | < 200 ms      |
+| OCR completado en background                  | < 30 s p95    |
+| Huérfanos detectados por el sweep diario      | tendiendo a 0 |
+| Errores 500 en upload                         | < 0.5%        |
 
 ---
 
@@ -1186,4 +1203,3 @@ barrido de huérfanos. `find_orphan_files`, `delete_chat_draft_file` e
 
 - Subida directa del navegador a Storage con URL firmada, para pasar el tope
   de 4 MB del server action.
-

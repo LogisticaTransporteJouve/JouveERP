@@ -40,8 +40,8 @@ Logística Jouve (`jouve_fiscal` / `jouve_internal`) y para DZ Instalaciones
 — 4 filas sembradas en `20260508204342_business_units_channels.sql`. Las cuatro
 cuelgan de la misma `business_units` (`dz_sons`, un solo CUIT).
 
-| Tiene `channel_id` (NOT NULL) | Tiene `channel_id` opcional | **No tiene canal** |
-|---|---|---|
+| Tiene `channel_id` (NOT NULL)                                                                              | Tiene `channel_id` opcional                                                                                   | **No tiene canal**                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `invoices`, `purchase_invoices`, `receipts`, `payment_orders`, `transactions`, `loans`, `payroll_payments` | `journal_entries`, `sales_points`, `shipments`, `trips`, `recurring_payments`, `suppliers.default_channel_id` | `accounts` (bancos/caja), `checks`, `issued_checks`, `clients`, `suppliers`, `client_/supplier_/account_opening_balances`, `*_allocations`, `chart_of_accounts` |
 
 El modelo es **canal por documento**. La plata y los maestros no tienen canal: una
@@ -71,19 +71,19 @@ cheques y cuentas.
 
 ### 1.3 Triggers y RPCs que aplican la separación
 
-| Garantía | Dónde |
-|---|---|
-| Canal fiscal exige letra, `cbte_tipo_afip` y condición IVA del receptor | trigger `check_invoice_fiscal_fields` |
-| Un comprobante fiscal emitido no se anula: solo con NC | trigger `check_fiscal_cancel_requires_nc` |
-| Cabecera inmutable post-emisión (incluye `channel_id`) | `check_invoice_immutability` |
-| Movimiento de caja atado a comprobante = mismo canal | `check_transaction_channel_matches_invoice` |
-| Asientos solo para canales fiscales | `is_channel_fiscal()`, usado por `emit_journal_for_invoice`, `emit_journal_for_purchase_invoice`, `emit_journal_for_receipt`, `emit_journal_for_payment_order` y `generate_journal_for_transaction` (`20260516250000`, `20260517860000`) |
-| Libro IVA Ventas/Compras solo fiscal y emitido/recibido | `libro_iva_ventas` / `libro_iva_compras` (`where c.is_fiscal = true`, `20261016140000`). Los usan la pantalla, el XLSX/PDF y el TXT de Libro IVA Digital |
-| Interno no pasa por AFIP; numera local; PDF "Documento no fiscal" | `lib/inngest/functions/issue-invoice.ts:283-328`, `lib/pdf/invoice-template.tsx` |
-| Interno sin IVA | `computeTotals(items, channel.is_fiscal)` (`invoices-actions.ts:354`) |
-| NC/ND de venta: mismo cliente y mismo canal que el origen | solo en la app (`invoices-actions.ts:189-238`). La DB no lo valida |
-| Recibo y OP: canal fijo después de crearse | `update_receipt` / `update_payment_order` reusan el canal guardado |
-| CAEA solo fiscal | `caea-inform.ts:58` filtra `emission_type='caea'` |
+| Garantía                                                                | Dónde                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Canal fiscal exige letra, `cbte_tipo_afip` y condición IVA del receptor | trigger `check_invoice_fiscal_fields`                                                                                                                                                                                                    |
+| Un comprobante fiscal emitido no se anula: solo con NC                  | trigger `check_fiscal_cancel_requires_nc`                                                                                                                                                                                                |
+| Cabecera inmutable post-emisión (incluye `channel_id`)                  | `check_invoice_immutability`                                                                                                                                                                                                             |
+| Movimiento de caja atado a comprobante = mismo canal                    | `check_transaction_channel_matches_invoice`                                                                                                                                                                                              |
+| Asientos solo para canales fiscales                                     | `is_channel_fiscal()`, usado por `emit_journal_for_invoice`, `emit_journal_for_purchase_invoice`, `emit_journal_for_receipt`, `emit_journal_for_payment_order` y `generate_journal_for_transaction` (`20260516250000`, `20260517860000`) |
+| Libro IVA Ventas/Compras solo fiscal y emitido/recibido                 | `libro_iva_ventas` / `libro_iva_compras` (`where c.is_fiscal = true`, `20261016140000`). Los usan la pantalla, el XLSX/PDF y el TXT de Libro IVA Digital                                                                                 |
+| Interno no pasa por AFIP; numera local; PDF "Documento no fiscal"       | `lib/inngest/functions/issue-invoice.ts:283-328`, `lib/pdf/invoice-template.tsx`                                                                                                                                                         |
+| Interno sin IVA                                                         | `computeTotals(items, channel.is_fiscal)` (`invoices-actions.ts:354`)                                                                                                                                                                    |
+| NC/ND de venta: mismo cliente y mismo canal que el origen               | solo en la app (`invoices-actions.ts:189-238`). La DB no lo valida                                                                                                                                                                       |
+| Recibo y OP: canal fijo después de crearse                              | `update_receipt` / `update_payment_order` reusan el canal guardado                                                                                                                                                                       |
+| CAEA solo fiscal                                                        | `caea-inform.ts:58` filtra `emission_type='caea'`                                                                                                                                                                                        |
 
 Lo que queda es contabilidad de **"dos cajas"** (`docs/accounting-patterns.md:25`):
 el libro diario es solo fiscal y la caja real (cuentas) es consolidada.
@@ -94,8 +94,8 @@ No hay RLS por canal. `invoices`, `receipts`, `purchase_invoices`, `transactions
 `journal_entries` se leen con `user_has_role(owner, admin, finance)`: quien ve
 facturación ve los cuatro canales. `journal_entries` además tiene una policy `ALL`
 para owner/admin. No existe un rol "solo fiscal" (por ejemplo, para un contador
-externo). Los permisos `channels:read/write` gatean la configuración de canales,
-no los datos.
+externo). No hay permisos de canales: `channels:read/write` salieron de la matriz
+porque ningún gate los leía (auditoría w1-s4 F4).
 
 ### 1.5 UI: selector global y filtros
 
@@ -425,11 +425,11 @@ lista las imputaciones cruzadas, los cheques depositados en un canal distinto al
 de su recibo y los asientos manuales internos. Esos casos se corrigen a mano, y
 recién después el constraint se activa.
 
-| | |
-|---|---|
-| **Pros** | Mantiene la unificación (un login, maestros únicos, tesorería y aging consolidados). Arregla el problema donde está (el borde). Incremental, compatible con la ventana de deploy (constraints `NOT VALID` → `VALIDATE`). |
-| **Contras** | La separación sigue dependiendo de que cada consulta nueva use la capa fiscal. Se mitiga con el rol `fiscal_reader`, los tests y la cerca. |
-| **Costo** | Fase 1 (C1–C7, invariantes DB): ~1 semana. Fase 2 (lectura fiscal, RLS `fiscal_reader`, IA, exports, PDFs, scope): ~1–2 semanas. |
+|             |                                                                                                                                                                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pros**    | Mantiene la unificación (un login, maestros únicos, tesorería y aging consolidados). Arregla el problema donde está (el borde). Incremental, compatible con la ventana de deploy (constraints `NOT VALID` → `VALIDATE`).                                                                    |
+| **Contras** | La separación sigue dependiendo de que cada consulta nueva use la capa fiscal. Se mitiga con el rol `fiscal_reader`, los tests y la cerca.                                                                                                                                                  |
+| **Costo**   | Fase 1 (C1–C7, invariantes DB): ~1 semana. Fase 2 (lectura fiscal, RLS `fiscal_reader`, IA, exports, PDFs, scope): ~1–2 semanas.                                                                                                                                                            |
 | **Riesgos** | Datos históricos que violan los nuevos invariantes (se diagnostican primero). Flujos reales que hoy dependen del cruce, por ejemplo un recibo interno que cancela una factura fiscal: hay que decidir si eso existe en el negocio, y si existe, modelarlo explícito (ver la nota al final). |
 
 ### Opción B — Schemas separados en la misma DB (`fiscal.*`, `interno.*`)
@@ -481,13 +481,13 @@ Duplicar las tablas de documentos por schema, con maestros y tesorería en `publ
 
 ### Comparación
 
-| | A. Lógica endurecida | B. Schemas | C. DB separada | D. App separada |
-|---|---|---|---|---|
-| Unificación | Total | Total (con `UNION`) | Parcial (sync) | No |
-| Aislamiento de lectura | Alto (RLS `fiscal_reader`) | Alto (grants) | Total | Total |
-| Fugas de escritura en el borde | Cerradas por invariantes | Siguen en `public` | Pasan a la sync | Pasan a la carga manual |
-| Costo | ~2–3 semanas | ~6–10 semanas | ~2–3 meses | > C, recurrente |
-| Riesgo de regresión | Bajo | Alto | Alto | Medio, recurrente |
+|                                | A. Lógica endurecida       | B. Schemas          | C. DB separada  | D. App separada         |
+| ------------------------------ | -------------------------- | ------------------- | --------------- | ----------------------- |
+| Unificación                    | Total                      | Total (con `UNION`) | Parcial (sync)  | No                      |
+| Aislamiento de lectura         | Alto (RLS `fiscal_reader`) | Alto (grants)       | Total           | Total                   |
+| Fugas de escritura en el borde | Cerradas por invariantes   | Siguen en `public`  | Pasan a la sync | Pasan a la carga manual |
+| Costo                          | ~2–3 semanas               | ~6–10 semanas       | ~2–3 meses      | > C, recurrente         |
+| Riesgo de regresión            | Bajo                       | Alto                | Alto            | Medio, recurrente       |
 
 ### Recomendación
 

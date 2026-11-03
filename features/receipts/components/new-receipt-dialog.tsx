@@ -23,9 +23,11 @@ export function NewReceiptDialog({
   accounts,
   initialClient,
   trigger,
+  canEditRetentions,
 }: {
   channels: ChannelOption[];
   accounts: Account[];
+  canEditRetentions?: boolean;
   initialClient?: PickedClient | null;
   trigger?: React.ReactNode;
 }) {
@@ -56,6 +58,7 @@ export function NewReceiptDialog({
           mode="create"
           channels={channels}
           accounts={accounts}
+          canEditRetentions={canEditRetentions}
           initialClient={initialClient ?? null}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
