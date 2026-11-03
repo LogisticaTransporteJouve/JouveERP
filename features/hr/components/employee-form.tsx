@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import { todayInAR } from "@/lib/format";
+import { amountToInput, parseArAmount, todayInAR } from "@/lib/format";
 
 import { runAction } from "@/lib/query/run-action";
 
@@ -79,11 +79,11 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     cbu: employee?.cbu ?? "",
     pay_frequency: (employee?.pay_frequency ?? "mensual") as PayFrequency,
     base_salary:
-      employee?.base_salary != null ? String(employee.base_salary) : "",
+      employee?.base_salary != null ? amountToInput(employee.base_salary) : "",
     viatico_monthly:
       employee?.viatico_monthly != null
-        ? String(employee.viatico_monthly)
-        : "20000",
+        ? amountToInput(employee.viatico_monthly)
+        : "20.000",
     is_monotributo: employee?.is_monotributo ?? false,
     hire_date: employee?.hire_date ?? todayInAR(),
     notes: employee?.notes ?? "",
@@ -98,9 +98,14 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     art: employee?.art ?? "",
     retribucion_formal:
       employee?.retribucion_formal != null
-        ? String(employee.retribucion_formal)
+        ? amountToInput(employee.retribucion_formal)
         : "",
   };
+}
+
+/** An es-AR amount ("850.000" → 850000); blank stays blank (not loaded). */
+function moneyField(raw: string): number | "" {
+  return raw.trim() === "" ? "" : (parseArAmount(raw) ?? Number.NaN);
 }
 
 /** The employee's own fields: the vacation days go to their balances. */
@@ -111,8 +116,8 @@ function withoutVacationFields(values: FormValues) {
     cuil: values.cuil,
     cbu: values.cbu,
     pay_frequency: values.pay_frequency,
-    base_salary: values.base_salary,
-    viatico_monthly: values.viatico_monthly,
+    base_salary: moneyField(values.base_salary),
+    viatico_monthly: moneyField(values.viatico_monthly),
     is_monotributo: values.is_monotributo,
     hire_date: values.hire_date,
     notes: values.notes,
@@ -120,7 +125,7 @@ function withoutVacationFields(values: FormValues) {
     categoria: values.categoria,
     obra_social: values.obra_social,
     art: values.art,
-    retribucion_formal: values.retribucion_formal,
+    retribucion_formal: moneyField(values.retribucion_formal),
     // Driver data only travels with a driver position.
     ...(isDriverPosition(values.position)
       ? {

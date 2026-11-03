@@ -9955,6 +9955,10 @@ export type Database = {
         Args: { p_limit?: number; p_period?: string }
         Returns: Json
       }
+      purchase_employee_charge_figure: {
+        Args: { p: Database["public"]["Tables"]["purchase_invoices"]["Row"] }
+        Returns: number
+      }
       purchase_invoices_fiscal_without_letter: {
         Args: never
         Returns: {
@@ -10424,6 +10428,10 @@ export type Database = {
           kind: string
           task_id: string
         }[]
+      }
+      sync_purchase_employee_charge: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
       }
       tax_document_difference_note: {
         Args: {

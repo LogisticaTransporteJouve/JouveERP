@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { isCheckAccount } from "@/features/accounts/schema";
-import { todayInAR } from "@/lib/format";
+import { parseArAmount, todayInAR } from "@/lib/format";
 
 import { useRecordAccountCash } from "../hooks/use-employee-account";
 import { useEmployeesList } from "../hooks/use-employees";
@@ -194,7 +194,7 @@ function CashForm({
   );
 
   function parse(v: string): number {
-    return Number(v.replace(/,/g, "."));
+    return parseArAmount(v) ?? Number.NaN;
   }
 
   function onSave() {

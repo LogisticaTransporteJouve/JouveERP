@@ -26,8 +26,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  amountToInput,
   formatArgentineDate,
   formatMoneyWithCode,
+  parseArAmount,
   todayInAR,
 } from "@/lib/format";
 
@@ -500,7 +502,7 @@ function ManualMovementDialog({
         employee_id: employeeId,
         kind,
         currency,
-        amount: amount.replace(/,/g, "."),
+        amount: parseArAmount(amount) ?? Number.NaN,
         movement_date: date,
         description,
         creditor,
@@ -668,9 +670,9 @@ function PlanDialog({
   const [currency, setCurrency] = useState<AccountCurrency>(
     plan?.currency ?? "ARS",
   );
-  const [total, setTotal] = useState(plan ? String(plan.total) : "");
+  const [total, setTotal] = useState(plan ? amountToInput(plan.total) : "");
   const [installment, setInstallment] = useState(
-    plan ? String(plan.installment_amount) : "",
+    plan ? amountToInput(plan.installment_amount) : "",
   );
   const [startMonth, setStartMonth] = useState(
     plan ? plan.start_month.slice(0, 7) : todayInAR().slice(0, 7),
@@ -684,8 +686,8 @@ function PlanDialog({
   function onSave() {
     const payload = {
       description,
-      total: total.replace(/,/g, "."),
-      installment_amount: installment.replace(/,/g, "."),
+      total: parseArAmount(total) ?? Number.NaN,
+      installment_amount: parseArAmount(installment) ?? Number.NaN,
       start_month: startMonth,
       creditor,
       creditor_name: creditorName,

@@ -206,12 +206,12 @@ update public.receipts set status = 'canceled', canceled_at = now()
 
 select throws_ok(
   format($$select public.cancel_driver_settlement(%L, null, false)$$, (select id from t_ds)),
-  '55006', 'La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.',
+  '55006', 'La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH y en movimientos.',
   'cancel without hr:write keeps the driver''s movement'
 );
 select throws_ok(
   format($$select public.unpost_driver_settlement_difference(%L, null, false)$$, (select id from t_ds)),
-  '55006', 'La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH.',
+  '55006', 'La diferencia de la rendición está en la cuenta corriente del chofer: quitarla requiere permiso de escritura en RRHH y en movimientos.',
   'and so does unpost'
 );
 
