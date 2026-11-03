@@ -522,6 +522,7 @@ export function ClientAccountTab({
               <NewReceiptDialog
                 channels={channels as ChannelOption[]}
                 accounts={accounts}
+                canEditRetentions={userCan(actorAccess, "retentions:write")}
                 initialClient={client}
                 trigger={
                   <Button>

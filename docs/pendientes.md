@@ -126,11 +126,13 @@ mitigación en el schema: el límite se respeta operando.
       de decir "sin vencimientos". **Remitos:** el número escaneado se busca
       exacto en SQL antes del tope de 200.
 - [x] **Tareas:** `tasks-daily` reclama vencidas y por vencer en pasos
-      separados y asigna toda tarea automática abierta sin asignar; los
-      comentarios e historial de una tarea restringida no se devuelven.
+      separados y asigna toda tarea automática abierta sin asignar, salvo
+      la que alguien dejó sin responsables a mano; los comentarios e
+      historial de una tarea restringida no se devuelven.
 - [x] **Permisos:** `retentions:write` gatea cargar o cambiar retenciones de
-      un recibo y `stock_movements:write` gatea entrar, despachar, borrar o
-      mover un pallet. Salen de la matriz `channels:read`, `channels:write`,
+      un recibo (sin él, ningún formulario de recibo muestra el editor) y
+      `stock_movements:write` gatea entrar, despachar, borrar o mover un
+      pallet. Salen de la matriz `channels:read`, `channels:write`,
       `files:admin`, `retentions:read`, `credit_debit_notes:read` y
       `stock_movements:read` (ningún gate los leía); un test exige que cada
       permiso se lea fuera de la matriz.
@@ -139,9 +141,6 @@ mitigación en el schema: el límite se respeta operando.
       (no existe el RPC) y las tarjetas quedan como estaban.
 - [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
       `regenerate_ai_insights` y el anti-join de tareas sin asignar.
-- [ ] `CollectDialog` (Cobrar desde Movimientos de caja) sigue mostrando el
-      editor de retenciones a quien no tiene `retentions:write`; el servidor
-      rechaza el guardado con el mensaje de permiso.
 
 ## Follow-ups de operaciones (2026-11-04, roadmap 4.x)
 

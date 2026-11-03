@@ -27,7 +27,8 @@ export function NewReceiptDialog({
 }: {
   channels: ChannelOption[];
   accounts: Account[];
-  canEditRetentions?: boolean;
+  /** retentions:write: without it the form offers no retentions editor. */
+  canEditRetentions: boolean;
   initialClient?: PickedClient | null;
   trigger?: React.ReactNode;
 }) {

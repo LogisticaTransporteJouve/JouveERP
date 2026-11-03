@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   changes: [] as { task_id: string; kind: string; change: string }[],
   claimedDue: [] as unknown[],
   unassigned: [] as { id: string; kind: string }[],
+  reassigned: [] as string[],
   overdueFailures: 0,
   holders: {} as Record<string, string[]>,
 }));
@@ -29,6 +30,16 @@ function respond(call: RecordedCall): FakeResponse {
       (c) => c.table === "tasks" && c.op === "select",
     ).length;
     return { data: served === 1 ? h.unassigned : [], error: null };
+  }
+  if (call.op === "select" && call.table === "audit_events") {
+    const served = fake.calls.filter(
+      (c) => c.table === "audit_events" && c.op === "select",
+    ).length;
+    const rows = h.reassigned.map((id, i) => ({
+      id: `e${i}`,
+      target_resource_id: id,
+    }));
+    return { data: served === 1 ? rows : [], error: null };
   }
   if (call.op === "update" && call.table === "tasks") {
     const payload = call.payload as { notified_stage: string };
@@ -78,6 +89,7 @@ beforeEach(() => {
   h.changes = [];
   h.claimedDue = [];
   h.unassigned = [];
+  h.reassigned = [];
   h.overdueFailures = 0;
   h.holders = {
     "tasks:read": ["fin", "ops"],
@@ -119,6 +131,25 @@ describe("tasksDaily job", () => {
       { task_id: "t2", user_id: "fin" },
     ]);
     expect(summary).toMatchObject({ created: 1, updated: 1, delegated: 2 });
+  });
+
+  it("leaves alone an automatic task whose assignees a user cleared", async () => {
+    h.unassigned = [
+      { id: "t1", kind: "employee_document" },
+      { id: "t3", kind: "employee_document" },
+    ];
+    // t3 was reassigned by hand (task.assigned) down to nobody.
+    h.reassigned = ["t3"];
+    await invoke();
+    const [audit] = callsOf("audit_events", "select");
+    expect(filterValue(audit!, "eq", "event_type")).toBe("task.assigned");
+    expect(filterValue(audit!, "in", "target_resource_id")).toEqual([
+      "t1",
+      "t3",
+    ]);
+    expect(callsOf("task_assignees", "upsert")[0]?.payload).toEqual([
+      { task_id: "t1", user_id: "fin" },
+    ]);
   });
 
   it("keeps the due notices when only the overdue claim fails and is retried", async () => {

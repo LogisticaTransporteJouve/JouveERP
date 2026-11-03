@@ -111,7 +111,7 @@ export function ReceiptForm({
   initialAllocations: presetAllocations,
   onSuccess,
   onCancel,
-  canEditRetentions = true,
+  canEditRetentions,
 }: {
   mode: Mode;
   channels: ChannelOption[];
@@ -125,7 +125,7 @@ export function ReceiptForm({
   onCancel?: () => void;
   /** Without retentions:write the form keeps the stored retentions as they
    *  are and offers no editor (the action refuses any change). */
-  canEditRetentions?: boolean;
+  canEditRetentions: boolean;
 }) {
   const createMut = useCreateReceipt();
   const updateMut = useUpdateReceipt();

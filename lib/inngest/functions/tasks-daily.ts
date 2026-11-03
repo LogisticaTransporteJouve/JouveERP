@@ -14,7 +14,7 @@ import type { Permission } from "@/lib/auth/permissions";
 import { listUserIdsWithPermission } from "@/lib/auth/users";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { inngest } from "../client";
@@ -23,8 +23,9 @@ import { inngest } from "../client";
 //   1. materialize_recurring_tasks — the month's occurrences due within 7 days;
 //   2. sync_automatic_tasks — creates, updates and closes the tasks derived
 //      from documents (unique on source_table, source_id, kind);
-//   3. assigns each open automatic task with no assignee to the users who
-//      can act on its document (TASK_SOURCES[kind].assign plus tasks:read);
+//   3. assigns each open automatic task with no assignee, unless a user
+//      reassigned it by hand, to the users who can act on its document
+//      (TASK_SOURCES[kind].assign plus tasks:read);
 //   4. claims the due notifications (notified_stage), one step per stage,
 //      and 5. inserts them:
 //      'due' on the due day, 'overdue' once in the week after it. A task that
@@ -122,10 +123,29 @@ export const tasksDaily = inngest.createFunction(
       if (unassigned.error) {
         throw new Error(`assign-new: ${unassigned.error.message}`);
       }
+      // A user who reassigned a task down to nobody chose that: only the
+      // tasks never reassigned by hand (task.assigned) get the default.
+      const reassigned = await fetchInChunks(
+        unassigned.data.map((t) => t.id),
+        (ids) =>
+          paginateRange((from, to) =>
+            supabase
+              .from("audit_events")
+              .select("id, target_resource_id")
+              .eq("event_type", "task.assigned")
+              .in("target_resource_id", ids)
+              .order("id", { ascending: true })
+              .range(from, to),
+          ),
+      );
+      if (reassigned.error) {
+        throw new Error(`assign-new: ${reassigned.error.message}`);
+      }
+      const byHand = new Set(reassigned.data.map((e) => e.target_resource_id));
       let rows = 0;
       for (const kind of AUTOMATIC_TASK_KINDS) {
         const taskIds = unassigned.data
-          .filter((t) => t.kind === kind)
+          .filter((t) => t.kind === kind && !byHand.has(t.id))
           .map((t) => t.id);
         if (taskIds.length === 0) continue;
         const users = await usersWithAll([
