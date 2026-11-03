@@ -127,7 +127,7 @@ select is(
   'running it again posts nothing and keeps one entry'
 );
 
--- The ARCA import (INSERT of an emitted row) is saved too (20261104090000) ---
+-- The ARCA import (INSERT of an emitted row) is saved too (20261104090500) ---
 
 select lives_ok(
   $$insert into public.invoices
