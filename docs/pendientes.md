@@ -176,6 +176,9 @@ mitigación en el schema: el límite se respeta operando.
 - [x] Recategorizar una factura de compra lleva el cambio a sus NC/ND vigentes que tenían el valor
       anterior (`20261104092300`); una NC/ND con cuenta o centro propios lo conserva, y una a
       cargo de un empleado conserva la cuenta. El audit lista las NC/ND que cambiaron.
+- [ ] Las compras recategorizadas antes de `20261104092300` dejaron sus NC/ND en el rubro o
+      centro anterior; no hay backfill (cambia datos de producción, lo decide el owner):
+      recategorizar esas NC/ND una por una (el audit `expense.recategorized` dice cuáles compras).
 - [ ] Una propuesta aceptada cuyo servidor cae entre el claim y la escritura queda `accepted` sin
       `result` (igual que en el chat).
 - [ ] Los evals en vivo (`pnpm eval:ai`) de los casos nuevos no se corrieron (sin
@@ -578,6 +581,9 @@ mitigación en el schema: el límite se respeta operando.
       apertura (su ingreso a cartera y su rechazo no cuentan); el egreso de
       un cheque rechazado (débito del banco, devolución al comprador) resta
       de Servicios lo que el cheque había sumado.
+- [ ] **Cheque endosado rechazado, en percibido:** el rechazo no mueve caja, así que el cobro
+      original sigue en Servicios y el pago con ese cheque en proveedores; cuando el cliente
+      vuelve a pagar y se le vuelve a pagar al proveedor, los dos cuentan dos veces.
 - [x] **Pendiente en USD, devengado:** un movimiento fiscal en dólares queda
       pendiente mientras no tiene asiento, aunque después se cargue una
       cotización con fecha anterior (antes no estaba ni en pesos ni en

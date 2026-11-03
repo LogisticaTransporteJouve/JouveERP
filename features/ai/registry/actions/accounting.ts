@@ -162,7 +162,12 @@ export async function runLibroIvaVentas(input: {
 }): Promise<AiRunResult> {
   const res = await listLibroIvaVentasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
-  const totals = libroIvaTotals(computeTotals(groupByInvoice(res.data)));
+  const sums = computeTotals(groupByInvoice(res.data));
+  const totals = {
+    ...libroIvaTotals(sums),
+    imp_op_ex: round2(sums.imp_op_ex),
+    imp_tot_conc: round2(sums.imp_tot_conc),
+  };
   return okResult(
     `${SCOPE_LABEL.fiscal}: VAT Sales ${input.period}: ${totals.documents} documents (${res.data.length} rows, one per document × rate) · ` +
       `IVA débito ${money(totals.iva)} · neto ${money(totals.neto)} · total ${money(totals.imp_total)} (NC subtracted).`,
@@ -186,7 +191,8 @@ export const getLibroIvaVentas = defineAiAction({
   description:
     "VAT Sales book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
     "`rows` (net/VAT per document × rate) and `totals`, whose `iva` is the " +
-    "period's output VAT (IVA débito). " +
+    "period's output VAT (IVA débito); `neto` is the taxed net only, " +
+    "`imp_op_ex` (exento) and `imp_tot_conc` (no gravado) come apart. " +
     LIBRO_IVA_ROWS_RULE +
     " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +

@@ -107,7 +107,6 @@ export async function recategorizeExpense(
         expense_account_id: change.after.account,
         cost_center_id_before: change.before.cost_center,
         cost_center_id: change.after.cost_center,
-        // The purchase's NC/ND that followed it.
         adjustment_ids: change.adjustments,
       },
       input.id,

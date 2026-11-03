@@ -1181,7 +1181,9 @@ export const getTopCosts = defineAiAction({
       );
     }
     if (pendingUsd !== 0) {
-      notes.push(`USD sin cotización no sumados: US$${pendingUsd}.`);
+      notes.push(
+        `USD sin pasar a pesos (sin cotización o, si son fiscales, sin asiento) no sumados: US$${pendingUsd}.`,
+      );
     }
     if (capped) notes.push(PNL_CAP_NOTE);
     const head = top

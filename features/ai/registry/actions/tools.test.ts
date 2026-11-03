@@ -395,12 +395,14 @@ describe("libro IVA totals", () => {
       ok: true,
       data: [
         // A two-rate factura: 1000 at 21% + 1000 at 10.5%, total 2315.
-        ventaRow({ neto: 1000, iva: 210, imp_total: 2315 }),
+        // Exento 50, repeated on both rate rows like imp_total.
+        ventaRow({ neto: 1000, iva: 210, imp_op_ex: 50, imp_total: 2315 }),
         ventaRow({
           iva_rate_id: 4,
           iva_rate_pct: 10.5,
           neto: 1000,
           iva: 105,
+          imp_op_ex: 50,
           imp_total: 2315,
         }),
         // An NC of 100 + 21 on it.
@@ -423,6 +425,8 @@ describe("libro IVA totals", () => {
         neto: 1900,
         iva: 294,
         imp_total: 2194,
+        imp_op_ex: 50,
+        imp_tot_conc: 0,
         per_rate: [
           { alicuota: "10.5%", neto: 1000, iva: 105 },
           { alicuota: "21%", neto: 900, iva: 189 },
