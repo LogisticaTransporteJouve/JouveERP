@@ -537,9 +537,10 @@ export function PurchaseInvoiceForm({
   const isInternalChannel = !watchedChannelIsFiscal;
   const showsExempt = watchedChannelIsFiscal && watchedLetter === "A";
 
-  // Off a fiscal A, exento and no gravado move into the net (foldNonComputable),
-  // so the total keeps matching the parts sent. With items the net comes from
-  // the lines and the total is recomputed without them.
+  // Off a fiscal A, exento and no gravado move into the net, also when the
+  // detail loads them after the switch, so the total keeps matching the parts
+  // sent. IVA stays for the user to clear (NON_COMPUTABLE_DENIED). With items
+  // the net comes from the lines and the total is recomputed without them.
   useEffect(() => {
     if (showsExempt) return;
     const hidden =
@@ -552,7 +553,7 @@ export function PurchaseInvoiceForm({
       const neto = Number(form.getValues("imp_neto") || 0);
       form.setValue("imp_neto", String(+(neto + hidden).toFixed(2)));
     }
-  }, [showsExempt, form]);
+  }, [showsExempt, watchedNoGravado, watchedExentas, form]);
 
   // An NC/ND only references an invoice of its own channel: switching the
   // channel drops the picked origin (the edit form's first load is not a switch).

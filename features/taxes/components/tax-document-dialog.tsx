@@ -388,8 +388,10 @@ export function TaxDocumentDialog({
                 {estimate.tributos_compras !== 0 && (
                   <p className="text-muted-foreground">
                     Las compras tienen además{" "}
-                    {formatMoney(estimate.tributos_compras)} de IIBB y otros
-                    tributos, que no van en el IVA.
+                    {formatMoney(estimate.tributos_compras)} de otros tributos
+                    que no se restan (IIBB, municipales, internos y los que no
+                    se repartieron): si alguno es percepción de IVA, repartilo
+                    en la compra.
                   </p>
                 )}
               </div>

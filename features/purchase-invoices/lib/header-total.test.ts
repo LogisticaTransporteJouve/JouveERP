@@ -11,7 +11,7 @@ describe("followHeaderTotal", () => {
     expect(followHeaderTotal(121, 121, 161)).toBe(161);
   });
 
-  it("drops a hidden exento from a total it had derived", () => {
+  it("follows a derived sum that went down", () => {
     expect(followHeaderTotal(161, 161, 121)).toBe(121);
   });
 
