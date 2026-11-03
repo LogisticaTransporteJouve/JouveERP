@@ -87,6 +87,7 @@ describe("recategorizeExpenseAction", () => {
         expense_account_id: ACCOUNT,
         cost_center_id_before: null,
         cost_center_id: null,
+        adjustment_ids: [],
       },
       TX,
     );

@@ -13,7 +13,16 @@ import {
   listLibroIvaComprasAction,
   listLibroIvaVentasAction,
 } from "@/features/libro-iva/actions/libro-iva-actions";
+import {
+  computeComprasTotals,
+  computeTotals,
+  groupByInvoice,
+  groupComprasByInvoice,
+  IVA_RATES,
+  type PerRate,
+} from "@/features/libro-iva/schema";
 
+import { round2 } from "@/lib/format";
 import { SCOPE_LABEL, type FiscalFilter } from "@/lib/scope";
 import { ScopeInputSchema } from "@/lib/validation/common";
 
@@ -113,19 +122,62 @@ export const getLedger = defineAiAction({
 });
 
 const LIBRO_IVA_CURRENCY_NOTE =
-  "Importes en pesos, a la cotización de cada comprobante; las columnas *_orig quedan en la moneda original.";
+  "Importes en pesos, a la cotización de cada comprobante; las columnas *_orig quedan en la moneda original. " +
+  "Las filas van por comprobante × alícuota, con las NC en positivo y los totales del comprobante repetidos en cada alícuota: las cifras del período son las de `totals` (NC restadas, cada comprobante una vez), no la suma de las filas.";
+
+const LIBRO_IVA_ROWS_RULE =
+  "Rows are one per document × rate: an NC (kind 'nc') comes as POSITIVE amounts, " +
+  "and imp_total / imp_trib repeat on every rate row of a document. Never sum the " +
+  "rows: `totals` has the period's figures, signed (NC subtracted) and with each " +
+  "document counted once (neto, iva, imp_trib, imp_total, per_rate by alícuota).";
+
+/** The period's signed totals of a libro IVA, per alícuota labelled. */
+function libroIvaTotals(t: {
+  count: number;
+  per_rate: PerRate;
+  imp_trib: number;
+  imp_total: number;
+}) {
+  const rates = Object.entries(t.per_rate)
+    .map(([id, v]) => ({ id: Number(id), ...v }))
+    .sort((a, b) => a.id - b.id);
+  const label = (id: number): string =>
+    IVA_RATES.find((r) => r.id === id)?.label ?? "sin desglose";
+  return {
+    documents: t.count,
+    neto: round2(rates.reduce((acc, r) => acc + r.neto, 0)),
+    iva: round2(rates.reduce((acc, r) => acc + r.iva, 0)),
+    imp_trib: round2(t.imp_trib),
+    imp_total: round2(t.imp_total),
+    per_rate: rates.map((r) => ({
+      alicuota: label(r.id),
+      neto: round2(r.neto),
+      iva: round2(r.iva),
+    })),
+  };
+}
 
 export async function runLibroIvaVentas(input: {
   period: string;
 }): Promise<AiRunResult> {
   const res = await listLibroIvaVentasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
+  const sums = computeTotals(groupByInvoice(res.data));
+  const totals = {
+    ...libroIvaTotals(sums),
+    imp_op_ex: round2(sums.imp_op_ex),
+    imp_tot_conc: round2(sums.imp_tot_conc),
+  };
   return okResult(
-    `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Sales rows for ${input.period} (one per document × rate).`,
-    res.data.map((r) => ({
-      comprobante: `${formatInvoiceNumero(r.kind, r.letter, r.punto_venta, r.numero)} · ${r.client_legal_name}`,
-      ...r,
-    })),
+    `${SCOPE_LABEL.fiscal}: VAT Sales ${input.period}: ${totals.documents} documents (${res.data.length} rows, one per document × rate) · ` +
+      `IVA débito ${money(totals.iva)} · neto ${money(totals.neto)} · total ${money(totals.imp_total)} (NC subtracted).`,
+    {
+      rows: res.data.map((r) => ({
+        comprobante: `${formatInvoiceNumero(r.kind, r.letter, r.punto_venta, r.numero)} · ${r.client_legal_name}`,
+        ...r,
+      })),
+      totals,
+    },
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
@@ -137,9 +189,12 @@ export const getLibroIvaVentas = defineAiAction({
   sideEffect: "read",
   sources: ["libro_iva_ventas"],
   description:
-    "VAT Sales book (RG 1361) for a YYYY-MM period: one row per document × rate " +
-    "(net/VAT per rate), fiscal channels only. Output VAT for the period. " +
-    "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
+    "VAT Sales book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
+    "`rows` (net/VAT per document × rate) and `totals`, whose `iva` is the " +
+    "period's output VAT (IVA débito); `neto` is the taxed net only, " +
+    "`imp_op_ex` (exento) and `imp_tot_conc` (no gravado) come apart. " +
+    LIBRO_IVA_ROWS_RULE +
+    " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +
     "document label (number · counterparty): use it as a chart's x axis.",
   input: z.object({
@@ -153,12 +208,19 @@ export async function runLibroIvaCompras(input: {
 }): Promise<AiRunResult> {
   const res = await listLibroIvaComprasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
+  const totals = libroIvaTotals(
+    computeComprasTotals(groupComprasByInvoice(res.data)),
+  );
   return okResult(
-    `${SCOPE_LABEL.fiscal}: ${res.data.length} VAT Purchases rows for ${input.period} (one per document × rate).`,
-    res.data.map((r) => ({
-      comprobante: `${formatInvoiceNumber(r)} · ${r.supplier_legal_name}`,
-      ...r,
-    })),
+    `${SCOPE_LABEL.fiscal}: VAT Purchases ${input.period}: ${totals.documents} documents (${res.data.length} rows, one per document × rate) · ` +
+      `IVA crédito ${money(totals.iva)} · neto ${money(totals.neto)} · otros tributos ${money(totals.imp_trib)} · total ${money(totals.imp_total)} (NC subtracted).`,
+    {
+      rows: res.data.map((r) => ({
+        comprobante: `${formatInvoiceNumber(r)} · ${r.supplier_legal_name}`,
+        ...r,
+      })),
+      totals,
+    },
     { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
   );
 }
@@ -170,9 +232,12 @@ export const getLibroIvaCompras = defineAiAction({
   sideEffect: "read",
   sources: ["libro_iva_compras"],
   description:
-    "VAT Purchases book (RG 1361) for a YYYY-MM period: one row per purchase " +
-    "invoice × rate, fiscal channels only. Input VAT for the period. " +
-    "Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
+    "VAT Purchases book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
+    "`rows` (one per purchase invoice × rate) and `totals`, whose `iva` is " +
+    "the period's input VAT (IVA crédito); imp_trib mixes IVA and IIBB " +
+    "perceptions. " +
+    LIBRO_IVA_ROWS_RULE +
+    " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +
     "document label (number · counterparty): use it as a chart's x axis.",
   input: z.object({

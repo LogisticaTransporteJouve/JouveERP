@@ -6957,7 +6957,9 @@ export type Database = {
           paid_amount: number | null
           paid_date: string | null
           payment_origin: string | null
+          payment_previous_amount: number | null
           payment_previous_expense_account_id: string | null
+          payment_previous_status: string | null
           payment_transaction_id: string | null
           period: string
           status: string
@@ -6979,7 +6981,9 @@ export type Database = {
           paid_amount?: number | null
           paid_date?: string | null
           payment_origin?: string | null
+          payment_previous_amount?: number | null
           payment_previous_expense_account_id?: string | null
+          payment_previous_status?: string | null
           payment_transaction_id?: string | null
           period: string
           status?: string
@@ -7001,7 +7005,9 @@ export type Database = {
           paid_amount?: number | null
           paid_date?: string | null
           payment_origin?: string | null
+          payment_previous_amount?: number | null
           payment_previous_expense_account_id?: string | null
+          payment_previous_status?: string | null
           payment_transaction_id?: string | null
           period?: string
           status?: string

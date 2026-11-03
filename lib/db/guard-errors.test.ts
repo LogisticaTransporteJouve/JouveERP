@@ -149,6 +149,10 @@ const GUARDS = [
   "recategorize_expense",
   "undo_tax_document_payment",
   "get_vehicle_margin",
+  "guard_payment_order_cancel_cashed_check",
+  "update_payment_order",
+  "guard_loan",
+  "guard_issued_check_edit",
 ];
 
 describe("guard hints in migrations", () => {

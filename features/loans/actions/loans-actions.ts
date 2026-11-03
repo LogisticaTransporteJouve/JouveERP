@@ -596,6 +596,12 @@ export async function cancelLoanAction(input: unknown): Promise<ActionResult> {
     .update({ status: "cancelled" })
     .eq("id", parsed.data.id);
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.cancel.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("loans.cancel.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo anular el préstamo." };
   }

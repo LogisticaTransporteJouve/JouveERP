@@ -27,6 +27,7 @@ function readChange(data: unknown): {
   changed: boolean;
   before: Tags;
   after: Tags;
+  adjustments: string[];
 } {
   const get = (key: string): unknown =>
     typeof data === "object" && data !== null
@@ -36,8 +37,12 @@ function readChange(data: unknown): {
     const value = get(key);
     return typeof value === "string" ? value : null;
   };
+  const adjustments = get("adjustments");
   return {
     changed: get("changed") === true,
+    adjustments: Array.isArray(adjustments)
+      ? adjustments.filter((a): a is string => typeof a === "string")
+      : [],
     before: {
       account: id("expense_account_id_before"),
       cost_center: id("cost_center_id_before"),
@@ -53,7 +58,8 @@ function readChange(data: unknown): {
  * Changes the expense account and/or cost center of an expense through
  * recategorize_expense (its guards refuse an owned movement, an annulled
  * purchase, a closed period, an account that is not a postable leaf) and
- * audits it with the values before and after. The re-post of the journal
+ * audits it with the values before and after (and, on a purchase, the
+ * NC/ND that followed it). The re-post of the journal
  * entry runs in the same transaction. The caller has already checked
  * `transactions:write` or `purchase_invoices:write` for the source and parsed
  * the input with RecategorizeExpenseSchema.
@@ -101,6 +107,7 @@ export async function recategorizeExpense(
         expense_account_id: change.after.account,
         cost_center_id_before: change.before.cost_center,
         cost_center_id: change.after.cost_center,
+        adjustment_ids: change.adjustments,
       },
       input.id,
     );

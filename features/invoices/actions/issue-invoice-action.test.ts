@@ -11,9 +11,10 @@ type Row = Record<string, unknown>;
 const h = vi.hoisted(() => {
   const db: Record<string, Array<Record<string, unknown>>> = {};
   const inserts: Array<{ table: string; values: unknown }> = [];
+  const deletes: string[] = [];
   // invoice_open_amount of each comprobante; a missing id reads as NULL.
   const openAmount: Record<string, number> = {};
-  return { db, inserts, openAmount };
+  return { db, inserts, deletes, openAmount };
 });
 
 function from(table: string) {
@@ -28,7 +29,10 @@ function from(table: string) {
       h.inserts.push({ table, values });
       return builder;
     },
-    delete: () => builder,
+    delete: () => {
+      h.deletes.push(table);
+      return builder;
+    },
     eq: (col: string, v: unknown) => {
       filters.push((r) => r[col] === v);
       return builder;
@@ -77,6 +81,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 const { issueFiscalInvoiceAction } = await import("./invoices-actions");
+const { inngest } = await import("@/lib/inngest/client");
 
 const CLIENT = "33333333-3333-4333-8333-333333333333";
 const ORIGIN = "44444444-4444-4444-8444-444444444444";
@@ -115,6 +120,7 @@ function noteInput(): CreateComprobanteInput {
 
 beforeEach(() => {
   h.inserts.length = 0;
+  h.deletes.length = 0;
   h.db.invoicing_channels = [
     { id: "jouve_fiscal", is_fiscal: true, is_active: true },
   ];
@@ -311,6 +317,55 @@ describe("issueFiscalInvoiceAction with an idempotency key", () => {
       data: { id: "first-draft", idempotency_key: KEY, status: "emitting" },
     });
     expect(h.inserts).toEqual([]);
+  });
+
+  it("sends a draft the first submit never enqueued again, with the same key", async () => {
+    h.db.invoices = [
+      ...(h.db.invoices ?? []),
+      {
+        id: "unsent-draft",
+        idempotency_key: KEY,
+        created_by: "u1",
+        status: "draft",
+        channel_id: "jouve_fiscal",
+        punto_venta: 3,
+      },
+    ];
+    const send = vi.mocked(inngest.send);
+    send.mockClear();
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      idempotency_key: KEY,
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: { id: "unsent-draft", idempotency_key: KEY, status: "draft" },
+    });
+    expect(send).toHaveBeenCalledWith({
+      name: "invoice/issue.requested",
+      data: {
+        invoice_id: "unsent-draft",
+        idempotency_key: KEY,
+        channel_id: "jouve_fiscal",
+        punto_venta: 3,
+      },
+    });
+    expect(h.inserts).toEqual([]);
+  });
+
+  it("keeps the draft when the send fails: Inngest may have taken it", async () => {
+    const send = vi.mocked(inngest.send);
+    send.mockClear();
+    send.mockRejectedValueOnce(new Error("timeout"));
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      idempotency_key: KEY,
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: { id: "new-invoice", idempotency_key: KEY, status: "draft" },
+    });
+    expect(h.deletes).toEqual([]);
   });
 
   it("stores the caller's key on a first submit", async () => {

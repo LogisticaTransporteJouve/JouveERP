@@ -5,12 +5,14 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import {
   formatRemitoR,
   formatSettlementNumber,
+  settlementInScope,
 } from "@/features/freight-settlements/schema";
 import {
   formatInvoiceNumero,
   invoiceKindLabel,
   isInvoiceKind,
 } from "@/features/invoices/schema";
+import type { Access } from "@/lib/auth/permissions";
 import { formatArDateShort, formatArgentineDate } from "@/lib/format";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import { voucherEmisor, voucherParty } from "@/lib/pdf/voucher-data";
@@ -34,20 +36,29 @@ function route(origin: string | null, destination: string | null): string {
 
 /** The R document of a confirmed (or later) fiscal liquidación: its Remito
  *  R, or the legacy R-… of one confirmed before it. A draft has none, and an
- *  internal one prints as its remito interno X (/api/invoices/[id]/pdf). */
+ *  internal one prints as its remito interno X (/api/invoices/[id]/pdf).
+ *  One outside `access`'s scope is not found. */
 export async function buildFreightSettlementTemplateData(
   settlementId: string,
+  access: Access,
 ): Promise<FreightSettlementTemplateData> {
   const supabase = getServiceClient();
 
   const { data: s, error } = await supabase
     .from("freight_settlements")
     .select(
-      "id, numero, remito_pos, remito_number, status, period_start, period_end, total, notes, confirmed_at, invoice_id, client:clients(legal_name, cuit, iva_condition, is_fiscal), invoice:invoices(kind, letter, punto_venta, numero, status, channel:invoicing_channels(is_fiscal, business_unit_id))",
+      "id, numero, channel, remito_pos, remito_number, status, period_start, period_end, total, notes, confirmed_at, invoice_id, client:clients(legal_name, cuit, iva_condition, is_fiscal), invoice:invoices(kind, letter, punto_venta, numero, status, channel:invoicing_channels(is_fiscal, business_unit_id))",
     )
     .eq("id", settlementId)
     .maybeSingle();
-  if (error || !s) {
+  if (
+    error ||
+    !s ||
+    !settlementInScope(access, {
+      channel: s.channel,
+      client_is_fiscal: s.client?.is_fiscal ?? false,
+    })
+  ) {
     throw new Error(`freight-settlement-pdf: not found (${settlementId})`);
   }
   // A fiscal liquidación prints as its Remito R; one confirmed before the

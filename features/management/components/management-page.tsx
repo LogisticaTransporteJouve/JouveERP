@@ -352,11 +352,16 @@ function ManagementReportView({
         <div className="flex gap-2 rounded-lg border p-3 text-sm">
           <Info className="mt-0.5 size-4 shrink-0" />
           <p>
-            Hay movimientos en dólares sin cotización cargada (neto US$
-            {formatNumber2(waterfall.pendingUsd)}) que no están sumados. Cargá
-            la cotización en{" "}
+            Hay movimientos en dólares sin pasar a pesos (neto US$
+            {formatNumber2(waterfall.pendingUsd)}) que no están sumados: les
+            falta la cotización o, si son fiscales, el asiento. Cargá la
+            cotización en{" "}
             <Link href="/accounting/exchange-rates" className="underline">
               Cotización USD
+            </Link>
+            ; si ya está, el asiento faltante figura en el{" "}
+            <Link href="/accounting/package" className="underline">
+              Paquete del mes
             </Link>
             .
           </p>
