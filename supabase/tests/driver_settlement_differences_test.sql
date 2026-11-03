@@ -137,10 +137,14 @@ select public.save_driver_settlement(
   pg_temp.items('00000000-0000-0000-0000-0000000046d1', array[1050]),
   null) as id;
 select public.confirm_driver_settlement((select id from t_ds2), null);
+-- Materialize the volatile call first: inline in the WHERE, its insert is
+-- not visible to the outer scan's snapshot.
+create temp table t_mov2 on commit drop as
+select public.post_driver_settlement_difference((select id from t_ds2), null) as id;
 select is(
   (select kind || ':' || amount
      from public.employee_account_movements
-    where id = public.post_driver_settlement_difference((select id from t_ds2), null)),
+    where id = (select id from t_mov2)),
   'payment:50.00', 'an overage credits the driver'
 );
 
