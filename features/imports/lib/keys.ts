@@ -67,3 +67,36 @@ export function historicPayrollKey(row: {
 }): string {
   return `${row.employee_id}|${row.period}|${row.kind}`;
 }
+
+/** A client tariff of the general area: client, concept and start. */
+export function clientTariffKey(row: {
+  client_id: string;
+  concept: string;
+  valid_from: string;
+}): string {
+  return `${row.client_id}|${row.concept}|${row.valid_from}`;
+}
+
+/** A loan: description, lender and first due date (commit_import_run
+ *  compares the same). */
+export function loanKey(row: {
+  description: string;
+  lender: string | null;
+  first_due_date: string;
+}): string {
+  return `${nameKey(row.description)}|${nameKey(row.lender ?? "")}|${row.first_due_date}`;
+}
+
+/** A check: kind, bank and number (checks_unique_number_per_bank_idx). */
+export function checkKey(row: {
+  kind: string;
+  bank_name: string;
+  check_number: string;
+}): string {
+  return `${row.kind}|${row.bank_name.toLowerCase()}|${row.check_number}`;
+}
+
+/** A client has one opening balance. */
+export function openingBalanceKey(clientId: string): string {
+  return `client:${clientId}`;
+}

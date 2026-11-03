@@ -172,7 +172,10 @@ export function isChequeCurrency(value: unknown): value is ChequeCurrency {
 }
 
 type CheckRow = Database["public"]["Tables"]["checks"]["Row"];
-export type Cheque = Omit<CheckRow, "kind" | "status" | "currency"> & {
+export type Cheque = Omit<
+  CheckRow,
+  "kind" | "status" | "currency" | "import_run_id"
+> & {
   kind: ChequeKind;
   status: ChequeStatus;
   currency: ChequeCurrency;

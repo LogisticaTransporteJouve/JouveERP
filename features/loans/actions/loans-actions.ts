@@ -14,7 +14,7 @@ import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { generateInstallments } from "../lib/amortization";
+import { generateInstallments } from "@/lib/loans/amortization";
 import {
   AdoptInstallmentPaymentSchema,
   CancelLoanSchema,

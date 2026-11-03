@@ -1,34 +1,63 @@
+import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
+import {
+  CHECK_KIND_LABEL,
+  ManualChequeCreateSchema,
+} from "@/features/checks/schema";
+import {
+  CLIENT_TARIFF_CONCEPT_LABELS,
+  CLIENT_TARIFF_UNIT_LABELS,
+  ClientTariffCreateSchema,
+} from "@/features/client-tariffs/schema";
 import { ClientCreateSchema } from "@/features/clients/schema";
 import { EmployeeCreateSchema, isDriverPosition } from "@/features/hr/schema";
+import { CreateLoanSchema, LOAN_KIND_LABEL } from "@/features/loans/schema";
 import { SupplierCreateSchema } from "@/features/suppliers/schema";
 import {
   VEHICLE_TYPE_LABELS,
   VehicleCreateSchema,
 } from "@/features/vehicles/schema";
+import { addDaysIso } from "@/lib/date-range";
+import type { Json } from "@/lib/db/database.types";
 import { formatArgentineDate, formatMoney, formatNumber2 } from "@/lib/format";
+import {
+  addMonthsClamped,
+  generateInstallments,
+} from "@/lib/loans/amortization";
 import { parseSheetDate, type ColumnMapping } from "@/lib/tables/columns";
 
 import {
+  BankStatementImportRowSchema,
   HistoricPayrollRowSchema,
   HistoricTripRowSchema,
+  LoanImportRowSchema,
+  OpeningBalanceImportRowSchema,
   type ImportKind,
 } from "../schema";
 import {
+  parseCheckKind,
+  parseCurrency,
   parseIvaCondition,
+  parseLoanKind,
   parseNumberCell,
   parsePayFrequency,
   parsePayrollKind,
   parsePeriod,
   parsePosition,
+  parseTariffConcept,
+  parseTariffUnit,
   parseVehicleType,
   parseYesNo,
 } from "./cells";
 import { IMPORT_FIELDS, fieldLabel } from "./fields";
 import {
+  checkKey,
+  clientTariffKey,
   counterpartyKey,
   employeeKey,
   historicPayrollKey,
+  loanKey,
   nameKey,
+  openingBalanceKey,
   plateKey,
   vehicleKey,
 } from "./keys";
@@ -56,8 +85,9 @@ export type ImportPreviewRow = {
   warnings: string[];
 };
 
-/** A row's columns as the RPC reads them (jsonb_to_recordset). */
-export type ImportPayload = Record<string, string | number | boolean | null>;
+/** A row's columns as the RPC reads them (jsonb_to_recordset); a loan carries
+ *  its schedule as an array. */
+export type ImportPayload = Record<string, Json>;
 
 export type BuiltRow = ImportPreviewRow & {
   key: string | null;
@@ -84,6 +114,27 @@ export type ImportLookups = {
   fuelCards: ReadonlyMap<string, string>;
   /** historicPayrollKey of every real payroll entry (payroll_entries). */
   realPayroll: ReadonlySet<string>;
+  /** The treasury account the user picked (checks: the cartera;
+   *  bank_statement: the statement's account), or null. */
+  account: ImportAccount | null;
+  /** The channel the user picked (loans, checks), or null. */
+  channelId: string | null;
+  /** The general-area tariffs already loaded, for the overlap check. */
+  tariffs: readonly ExistingTariff[];
+};
+
+export type ImportAccount = {
+  id: string;
+  name: string;
+  type: string;
+  currency: "ARS" | "USD";
+};
+
+export type ExistingTariff = {
+  client_id: string;
+  concept: string;
+  valid_from: string;
+  valid_to: string | null;
 };
 
 type Cells = Record<string, string>;
@@ -92,6 +143,9 @@ type Cells = Record<string, string>;
 type FileState = {
   fuelCards: Map<string, string>;
   tripOccurrences: Map<string, number>;
+  /** client|concept → the ranges earlier rows of the file take. */
+  tariffRanges: Map<string, { from: string; to: string | null }[]>;
+  lineOccurrences: Map<string, number>;
 };
 
 type Built = Omit<BuiltRow, "line" | "status">;
@@ -558,6 +612,23 @@ function buildHistoricPayroll(cells: Cells, lookups: ImportLookups): Built {
 
 // ─── Historic trips ──────────────────────────────────────────────────────────
 
+/** The records among `items` that `raw` names: by CUIT/CUIL when it is 11
+ *  digits, else by any of their names. */
+function findByNameOrCuit<T>(
+  raw: string,
+  items: readonly T[],
+  names: (item: T) => (string | null)[],
+  cuit: (item: T) => string | null,
+): T[] {
+  const digits = cuitDigits(raw);
+  return digits.length === 11 &&
+    digits.length === raw.replace(/[\s.-]/g, "").length
+    ? items.filter((i) => cuit(i) === digits)
+    : items.filter((i) =>
+        names(i).some((n) => n !== null && nameKey(n) === nameKey(raw)),
+      );
+}
+
 /** One record among `items` named `raw` (a CUIT/CUIL of 11 digits, else the
  *  name): its id, or a warning and no id. */
 function matchByName<T extends { id: string }>(
@@ -568,13 +639,7 @@ function matchByName<T extends { id: string }>(
   what: string,
 ): { id: string | null; warning: string | null } {
   if (!raw) return { id: null, warning: null };
-  const digits = cuitDigits(raw);
-  const hits =
-    digits.length === 11 && digits.length === raw.replace(/[\s.-]/g, "").length
-      ? items.filter((i) => cuit(i) === digits)
-      : items.filter((i) =>
-          names(i).some((n) => n !== null && nameKey(n) === nameKey(raw)),
-        );
+  const hits = findByNameOrCuit(raw, items, names, cuit);
   const only = hits.length === 1 ? hits[0] : undefined;
   if (only) return { id: only.id, warning: null };
   return {
@@ -704,6 +769,538 @@ function buildHistoricTrip(
   };
 }
 
+// ─── Go-live items (5.3) ─────────────────────────────────────────────────────
+
+type ImportClient = ImportLookups["clients"][number];
+
+/** The client a cell names (CUIT, legal or trade name); an error when none
+ *  or more than one matches. */
+function matchClient(raw: string, lookups: ImportLookups): Match<ImportClient> {
+  if (!raw) return { found: null, error: "Falta el cliente." };
+  const hits = findByNameOrCuit(
+    raw,
+    lookups.clients,
+    (c) => [c.legal_name, c.display_name],
+    (c) => c.cuit,
+  );
+  const only = hits.length === 1 ? hits[0] : undefined;
+  if (only) return { found: only, error: null };
+  return {
+    found: null,
+    error:
+      hits.length === 0
+        ? `No hay un cliente "${raw}": importalo o cargalo primero.`
+        : `Hay más de un cliente "${raw}": usá el CUIT.`,
+  };
+}
+
+function rangesOverlap(
+  a: { from: string; to: string | null },
+  b: { from: string; to: string | null },
+): boolean {
+  return (a.to === null || a.to >= b.from) && (b.to === null || b.to >= a.from);
+}
+
+function buildClientTariff(
+  cells: Cells,
+  lookups: ImportLookups,
+  state: FileState,
+): Built {
+  const kind = "client_tariffs";
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reported = new Set<string>();
+
+  const client = matchClient(text(cells, "client"), lookups);
+  if (client.error) errors.push(client.error);
+  const conceptRaw = text(cells, "concept");
+  const concept = parseTariffConcept(conceptRaw);
+  if (!concept) {
+    errors.push(
+      conceptRaw
+        ? `Concepto desconocido: "${conceptRaw}".`
+        : "Falta el concepto.",
+    );
+    reported.add("concept");
+  }
+  const unit = concept ? parseTariffUnit(text(cells, "unit"), concept) : null;
+  if (concept && !unit) {
+    errors.push(`Unidad desconocida: "${text(cells, "unit")}".`);
+    reported.add("unit");
+  }
+  const price = numberCell(kind, cells, "price", errors, reported);
+  if (price === null && !reported.has("price")) {
+    errors.push("Falta el precio.");
+    reported.add("price");
+  }
+  const currency = parseCurrency(text(cells, "currency"), "ARS");
+  if (!currency) {
+    errors.push(`Moneda desconocida: "${text(cells, "currency")}".`);
+    reported.add("currency");
+  }
+  const from = dateCell(kind, cells, "valid_from", errors, reported, true);
+  const to = dateCell(kind, cells, "valid_to", errors, reported, false);
+
+  const label = client.found?.legal_name ?? (text(cells, "client") || "—");
+  if (errors.length > 0 || !client.found || !concept || !from) {
+    return invalid(label, errors, warnings);
+  }
+  const parsed = ClientTariffCreateSchema.safeParse({
+    client_id: client.found.id,
+    concept,
+    unit: unit ?? "",
+    price: price ?? "",
+    currency: currency ?? "",
+    valid_from: from,
+    valid_to: to ?? "",
+    notes: text(cells, "notes"),
+  });
+  if (!parsed.success) {
+    return invalid(
+      label,
+      issueErrors(kind, parsed.error.issues, reported),
+      warnings,
+    );
+  }
+  const d = parsed.data;
+  const range = { from: d.valid_from, to: d.valid_to ?? null };
+  const key = clientTariffKey(d);
+  // The same start is the same tariff (a re-import skips it); any other
+  // overlap would be refused by guard_client_tariff_overlap.
+  const clash = lookups.tariffs.find(
+    (t) =>
+      t.client_id === d.client_id &&
+      t.concept === d.concept &&
+      t.valid_from !== d.valid_from &&
+      rangesOverlap(range, { from: t.valid_from, to: t.valid_to }),
+  );
+  if (clash) {
+    return invalid(
+      label,
+      [
+        `Se superpone con la tarifa vigente del ${formatArgentineDate(clash.valid_from)} ${clash.valid_to ? `al ${formatArgentineDate(clash.valid_to)}` : "sin fin"}: cerrala antes.`,
+      ],
+      warnings,
+    );
+  }
+  const lineKey = `${d.client_id}|${d.concept}`;
+  const taken = state.tariffRanges.get(lineKey) ?? [];
+  if (taken.some((r) => r.from !== range.from && rangesOverlap(r, range))) {
+    return invalid(
+      label,
+      [
+        "Se superpone con otra tarifa del archivo del mismo cliente y concepto.",
+      ],
+      warnings,
+    );
+  }
+  state.tariffRanges.set(lineKey, [...taken, range]);
+  return {
+    label,
+    detail: [
+      CLIENT_TARIFF_CONCEPT_LABELS[d.concept],
+      CLIENT_TARIFF_UNIT_LABELS[d.unit],
+      formatMoney(d.price, d.currency),
+      d.valid_to
+        ? `${formatArgentineDate(d.valid_from)} al ${formatArgentineDate(d.valid_to)}`
+        : `desde ${formatArgentineDate(d.valid_from)}`,
+    ].join(" · "),
+    errors,
+    warnings,
+    key,
+    payload: {
+      client_id: d.client_id,
+      concept: d.concept,
+      unit: d.unit,
+      price: d.price,
+      currency: d.currency,
+      valid_from: d.valid_from,
+      valid_to: d.valid_to ?? null,
+      notes: d.notes ?? null,
+    },
+  };
+}
+
+function buildLoan(cells: Cells, lookups: ImportLookups): Built {
+  const kind = "loans";
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reported = new Set<string>();
+
+  const description = text(cells, "description");
+  const loanKind = parseLoanKind(text(cells, "kind"));
+  if (!loanKind) {
+    errors.push(`Tipo desconocido: "${text(cells, "kind")}".`);
+    reported.add("kind");
+  }
+  const currency = parseCurrency(text(cells, "currency"), "ARS");
+  if (!currency) {
+    errors.push(`Moneda desconocida: "${text(cells, "currency")}".`);
+    reported.add("currency");
+  }
+  const principal = numberCell(kind, cells, "principal", errors, reported);
+  const count = numberCell(kind, cells, "installments_count", errors, reported);
+  const first = dateCell(kind, cells, "first_due_date", errors, reported, true);
+  const cuota = numberCell(kind, cells, "installment_amount", errors, reported);
+  if (!lookups.channelId) errors.push("Elegí el canal de los préstamos.");
+
+  const label = description || "(sin descripción)";
+  if (errors.length > 0 || !first || !lookups.channelId) {
+    return invalid(label, errors, warnings);
+  }
+  const parsed = CreateLoanSchema.safeParse({
+    kind: loanKind ?? "",
+    description,
+    lender: text(cells, "lender"),
+    principal: principal ?? "",
+    currency: currency ?? "",
+    channel_id: lookups.channelId,
+    installments_count: count ?? "",
+    first_due_date: first,
+    notes: text(cells, "notes"),
+  });
+  if (!parsed.success) {
+    return invalid(
+      label,
+      issueErrors(kind, parsed.error.issues, reported),
+      warnings,
+    );
+  }
+  const d = parsed.data;
+  if (cuota !== null && cuota <= 0) {
+    return invalid(
+      label,
+      ["Importe de cuota: tiene que ser mayor a cero."],
+      warnings,
+    );
+  }
+  // As the loan dialog: equal cuotas of the capital, or the cuota the file
+  // gives (capital plus interest) for each pending one.
+  const schedule =
+    cuota === null
+      ? generateInstallments(
+          d.principal,
+          d.installments_count,
+          d.first_due_date,
+        )
+      : Array.from({ length: d.installments_count }, (_, i) => ({
+          number: i + 1,
+          due_date: addMonthsClamped(d.first_due_date, i),
+          amount: cuota,
+        }));
+  const row = LoanImportRowSchema.safeParse({
+    kind: d.kind,
+    description: d.description,
+    lender: d.lender ?? null,
+    principal: d.principal,
+    currency: d.currency,
+    channel_id: d.channel_id,
+    installments_count: d.installments_count,
+    first_due_date: d.first_due_date,
+    notes: d.notes ?? null,
+    installments: schedule,
+  });
+  if (!row.success) {
+    return invalid(
+      label,
+      issueErrors(kind, row.error.issues, reported),
+      warnings,
+    );
+  }
+  const r = row.data;
+  if (r.first_due_date < lookups.today) {
+    warnings.push(
+      "El próximo vencimiento ya pasó: esa cuota queda pendiente de pago.",
+    );
+  }
+  const total = schedule.reduce((sum, i) => sum + i.amount, 0);
+  if (cuota !== null && total < r.principal) {
+    warnings.push("Las cuotas suman menos que el capital pendiente.");
+  }
+  return {
+    label: r.description,
+    detail: [
+      r.lender,
+      LOAN_KIND_LABEL[r.kind],
+      `Capital ${formatMoney(r.principal, r.currency)}`,
+      `${r.installments_count} ${r.installments_count === 1 ? "cuota" : "cuotas"} desde ${formatArgentineDate(r.first_due_date)}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    errors,
+    warnings,
+    key: loanKey(r),
+    payload: { ...r },
+  };
+}
+
+function buildCheck(cells: Cells, lookups: ImportLookups): Built {
+  const kind = "checks";
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reported = new Set<string>();
+  const account = lookups.account;
+  const label =
+    [text(cells, "bank_name"), text(cells, "check_number")]
+      .filter(Boolean)
+      .join(" #") || "(sin número)";
+
+  if (
+    !account ||
+    !isCheckAccount(isAccountType(account.type) ? account.type : undefined)
+  ) {
+    return invalid(
+      label,
+      ["Elegí la cuenta de cartera de los cheques."],
+      warnings,
+    );
+  }
+  if (!lookups.channelId) {
+    return invalid(label, ["Elegí el canal de los cheques."], warnings);
+  }
+  const accountKind = account.type === "echeq" ? "echeq" : "fisico";
+  const checkKind = parseCheckKind(text(cells, "kind"), accountKind);
+  if (!checkKind) {
+    errors.push(`Tipo desconocido: "${text(cells, "kind")}".`);
+    reported.add("kind");
+  } else if (checkKind !== accountKind) {
+    errors.push(
+      checkKind === "echeq"
+        ? "Es un e-cheq: va a una cuenta de e-cheq en cartera."
+        : "Es un cheque físico: va a una cuenta de cheques físicos en cartera.",
+    );
+    reported.add("kind");
+  }
+  const currency = parseCurrency(text(cells, "currency"), account.currency);
+  if (!currency) {
+    errors.push(`Moneda desconocida: "${text(cells, "currency")}".`);
+    reported.add("currency");
+  } else if (currency !== account.currency) {
+    errors.push(`La cuenta de cartera es en ${account.currency}.`);
+    reported.add("currency");
+  }
+  const amount = numberCell(kind, cells, "amount", errors, reported);
+  const issue = dateCell(kind, cells, "issue_date", errors, reported, true);
+  const due = dateCell(kind, cells, "due_date", errors, reported, true);
+  if (errors.length > 0 || !issue || !due) {
+    return invalid(label, errors, warnings);
+  }
+  const parsed = ManualChequeCreateSchema.safeParse({
+    kind: checkKind ?? "",
+    check_number: text(cells, "check_number"),
+    bank_name: text(cells, "bank_name"),
+    drawer_name: text(cells, "drawer_name"),
+    drawer_cuit: text(cells, "drawer_cuit"),
+    issue_date: issue,
+    due_date: due,
+    amount: amount ?? "",
+    currency: currency ?? "",
+    cartera_account_id: account.id,
+    channel_id: lookups.channelId,
+    source_kind: "manual",
+    notes: text(cells, "notes"),
+  });
+  if (!parsed.success) {
+    return invalid(
+      label,
+      issueErrors(kind, parsed.error.issues, reported),
+      warnings,
+    );
+  }
+  const d = parsed.data;
+  if (d.due_date < d.issue_date) {
+    return invalid(
+      label,
+      ["La fecha de pago es anterior a la de emisión."],
+      warnings,
+    );
+  }
+  if (d.issue_date > lookups.today) {
+    warnings.push("La fecha de emisión es futura.");
+  }
+  // A check can be deposited up to 30 days after its payment date.
+  if (addDaysIso(d.due_date, 30) < lookups.today) {
+    warnings.push("Venció hace más de 30 días: revisá que siga en cartera.");
+  }
+  return {
+    label: `${d.bank_name} #${d.check_number}`,
+    detail: [
+      d.drawer_name,
+      CHECK_KIND_LABEL[d.kind],
+      formatMoney(d.amount, d.currency),
+      `paga el ${formatArgentineDate(d.due_date)}`,
+    ].join(" · "),
+    errors,
+    warnings,
+    key: checkKey(d),
+    payload: {
+      kind: d.kind,
+      check_number: d.check_number,
+      bank_name: d.bank_name,
+      drawer_name: d.drawer_name,
+      drawer_cuit: d.drawer_cuit ?? null,
+      issue_date: d.issue_date,
+      due_date: d.due_date,
+      amount: d.amount,
+      currency: d.currency,
+      cartera_account_id: d.cartera_account_id,
+      channel_id: d.channel_id,
+      notes: d.notes ?? null,
+    },
+  };
+}
+
+function buildOpeningBalance(cells: Cells, lookups: ImportLookups): Built {
+  const kind = "opening_balances";
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reported = new Set<string>();
+
+  const client = matchClient(text(cells, "client"), lookups);
+  if (client.error) errors.push(client.error);
+  const balance = numberCell(kind, cells, "target_balance", errors, reported);
+  if (balance === null && !reported.has("target_balance")) {
+    errors.push("Falta el saldo.");
+  } else if (balance !== null && balance < 0) {
+    errors.push(
+      "Un saldo a favor del cliente no se carga acá: registralo como recibo a cuenta.",
+    );
+  }
+  const date = dateCell(kind, cells, "opening_date", errors, reported, true);
+  if (date && date > lookups.today) errors.push("La fecha de corte es futura.");
+
+  const label = client.found?.legal_name ?? (text(cells, "client") || "—");
+  if (errors.length > 0 || !client.found || !date) {
+    return invalid(label, errors, warnings);
+  }
+  const parsed = OpeningBalanceImportRowSchema.safeParse({
+    client_id: client.found.id,
+    opening_date: date,
+    target_balance: balance,
+    notes: orNull(text(cells, "notes")),
+  });
+  if (!parsed.success) {
+    return invalid(
+      label,
+      issueErrors(kind, parsed.error.issues, reported),
+      warnings,
+    );
+  }
+  const d = parsed.data;
+  return {
+    label,
+    detail: `Debe ${formatMoney(d.target_balance)} al ${formatArgentineDate(d.opening_date)}`,
+    errors,
+    warnings,
+    key: openingBalanceKey(d.client_id),
+    payload: { ...d },
+  };
+}
+
+/** Amount of a statement line: the signed column, else credit minus debit
+ *  (each read as positive). */
+function statementAmount(
+  cells: Cells,
+  errors: string[],
+  reported: Set<string>,
+): number | null {
+  const kind = "bank_statement";
+  if (text(cells, "amount") !== "") {
+    return numberCell(kind, cells, "amount", errors, reported);
+  }
+  const debit = numberCell(kind, cells, "debit", errors, reported);
+  const credit = numberCell(kind, cells, "credit", errors, reported);
+  if (debit === null && credit === null) return null;
+  return Math.round((Math.abs(credit ?? 0) - Math.abs(debit ?? 0)) * 100) / 100;
+}
+
+function buildStatementLine(
+  cells: Cells,
+  lookups: ImportLookups,
+  state: FileState,
+): Built {
+  const kind = "bank_statement";
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reported = new Set<string>();
+  const account = lookups.account;
+  const description = text(cells, "description");
+
+  const date = dateCell(kind, cells, "line_date", errors, reported, true);
+  if (date && date > lookups.today) errors.push("La fecha es futura.");
+  const amount = statementAmount(cells, errors, reported);
+  if (amount === null && errors.length === 0) {
+    errors.push("La línea no tiene importe.");
+  }
+  const balance = numberCell(kind, cells, "balance", errors, reported);
+  const reference = orNull(text(cells, "reference"));
+
+  const label = date
+    ? `${formatArgentineDate(date)} · ${description || "—"}`
+    : description || "—";
+  if (
+    !account ||
+    (isAccountType(account.type) && isCheckAccount(account.type))
+  ) {
+    return invalid(
+      label,
+      ["Elegí la cuenta del extracto (banco, billetera, caja o inversión)."],
+      warnings,
+    );
+  }
+  if (errors.length > 0 || !date || amount === null) {
+    return invalid(label, errors, warnings);
+  }
+
+  // The line's content and its repetition in the file: the same statement
+  // imported again (or one that overlaps it) gives the same hashes, two equal
+  // movements of one day stay two.
+  const content = [
+    account.id,
+    date,
+    nameKey(description),
+    amount.toFixed(2),
+    balance === null ? "" : balance.toFixed(2),
+    nameKey(reference ?? ""),
+  ].join("|");
+  const occurrence = (state.lineOccurrences.get(content) ?? 0) + 1;
+  state.lineOccurrences.set(content, occurrence);
+
+  const parsed = BankStatementImportRowSchema.safeParse({
+    account_id: account.id,
+    line_date: date,
+    description,
+    amount,
+    balance,
+    reference,
+    source_hash: lookups.hash(`${content}|${occurrence}`),
+  });
+  if (!parsed.success) {
+    return invalid(
+      label,
+      issueErrors(kind, parsed.error.issues, reported),
+      warnings,
+    );
+  }
+  const d = parsed.data;
+  return {
+    label,
+    detail: [
+      `${d.amount > 0 ? "Crédito" : "Débito"} ${formatMoney(Math.abs(d.amount), account.currency)}`,
+      d.balance === null
+        ? null
+        : `Saldo ${formatMoney(d.balance, account.currency)}`,
+      d.reference ? `Ref. ${d.reference}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    errors,
+    warnings,
+    key: d.source_hash,
+    payload: { ...d },
+  };
+}
+
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 
 function buildOne(
@@ -724,17 +1321,37 @@ function buildOne(
       return buildHistoricPayroll(cells, lookups);
     case "historic_trips":
       return buildHistoricTrip(cells, lookups, state);
+    case "client_tariffs":
+      return buildClientTariff(cells, lookups, state);
+    case "loans":
+      return buildLoan(cells, lookups);
+    case "checks":
+      return buildCheck(cells, lookups);
+    case "opening_balances":
+      return buildOpeningBalance(cells, lookups);
+    case "bank_statement":
+      return buildStatementLine(cells, lookups, state);
   }
 }
 
-/** The required columns the mapping leaves out (their keys). */
+/** The required columns the mapping leaves out (their keys). A statement
+ *  needs the signed amount or at least one of debit and credit. */
 export function missingRequired(
   kind: ImportKind,
   mapping: ImportMapping,
 ): string[] {
-  return IMPORT_FIELDS[kind]
+  const missing = IMPORT_FIELDS[kind]
     .filter((f) => f.required && mapping[f.key] === undefined)
     .map((f) => f.key);
+  if (
+    kind === "bank_statement" &&
+    mapping.amount === undefined &&
+    mapping.debit === undefined &&
+    mapping.credit === undefined
+  ) {
+    missing.push("amount");
+  }
+  return missing;
 }
 
 /** The rows of the file after its header, built. A row with every mapped
@@ -747,7 +1364,12 @@ export function buildRows(input: {
   mapping: ImportMapping;
   lookups: ImportLookups;
 }): BuiltRow[] {
-  const state: FileState = { fuelCards: new Map(), tripOccurrences: new Map() };
+  const state: FileState = {
+    fuelCards: new Map(),
+    tripOccurrences: new Map(),
+    tariffRanges: new Map(),
+    lineOccurrences: new Map(),
+  };
   const keys = IMPORT_FIELDS[input.kind]
     .map((f) => f.key)
     .filter((k) => input.mapping[k] !== undefined);
@@ -760,9 +1382,15 @@ export function buildRows(input: {
     }
     if (Object.values(cells).every((v) => v === "")) return;
     const built = buildOne(input.kind, cells, input.lookups, state);
+    const line = input.firstLine + i;
     out.push({
       ...built,
-      line: input.firstLine + i,
+      // A statement line keeps its row in the file: it orders one day's lines.
+      payload:
+        input.kind === "bank_statement" && built.payload
+          ? { ...built.payload, line_no: line }
+          : built.payload,
+      line,
       status: built.errors.length > 0 ? "invalid" : "ready",
     });
   });
@@ -770,17 +1398,36 @@ export function buildRows(input: {
 }
 
 /** Marks as duplicate a ready row whose key is already loaded or appeared
- *  earlier in the file. */
+ *  earlier in the file. With `strict` (money items, kindHasStrictKeys) a key
+ *  repeated in the file is an error in every row that has it instead. */
 export function markDuplicates(
   rows: readonly BuiltRow[],
   existing: ReadonlySet<string>,
+  strict = false,
 ): BuiltRow[] {
   const seen = new Set<string>();
+  const linesByKey = new Map<string, number[]>();
+  for (const row of rows) {
+    if (row.status !== "ready" || row.key === null) continue;
+    linesByKey.set(row.key, [...(linesByKey.get(row.key) ?? []), row.line]);
+  }
   return rows.map((row) => {
     if (row.status !== "ready" || row.key === null) return row;
     const key = row.key;
     if (existing.has(key)) {
       return { ...row, status: "duplicate", warnings: ["Ya está cargado."] };
+    }
+    const lines = linesByKey.get(key) ?? [];
+    if (strict && lines.length > 1) {
+      const others = lines.filter((l) => l !== row.line).join(", ");
+      return {
+        ...row,
+        status: "invalid",
+        errors: [
+          `Se repite en el archivo (fila ${others}): dejá una sola fila con el importe total.`,
+        ],
+        payload: null,
+      };
     }
     if (seen.has(key)) {
       return {

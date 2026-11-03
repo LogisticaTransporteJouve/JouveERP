@@ -18,11 +18,17 @@ import {
   readUploadedTable,
 } from "@/lib/tables/read-upload";
 
+import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
+
 import { fieldAliases, fieldKeys } from "../lib/fields";
 import {
+  checkKey,
+  clientTariffKey,
   existingCounterpartyKeys,
   existingEmployeeKeys,
   historicPayrollKey,
+  loanKey,
+  openingBalanceKey,
   plateKey,
   vehicleKey,
 } from "../lib/keys";
@@ -44,6 +50,9 @@ import {
   UndoImportRunSchema,
   isImportKind,
   isImportRunStatus,
+  kindHasStrictKeys,
+  kindNeedsAccount,
+  kindNeedsChannel,
   type ImportKind,
   type ImportRunStatus,
 } from "../schema";
@@ -84,8 +93,69 @@ function sha256(data: Uint8Array | string): string {
 
 type Failed = { error: string };
 
+type Targets = Pick<ImportLookups, "account" | "channelId">;
+
+/** The account and channel the user picked, checked against the database:
+ *  the account must exist, be active and fit the kind (a cartera for checks,
+ *  any other type for a statement); the channel must be active. */
+async function resolveTargets(
+  kind: ImportKind,
+  accountId: string | null,
+  channelId: string | null,
+): Promise<Targets | Failed> {
+  const service = getServiceClient();
+  const targets: Targets = { account: null, channelId: null };
+  if (kindNeedsAccount(kind)) {
+    if (!accountId) return { error: "Elegí la cuenta." };
+    const { data, error } = await service
+      .from("accounts")
+      .select("id, name, type, currency, is_active")
+      .eq("id", accountId)
+      .maybeSingle();
+    if (error) return { error: "No se pudo leer la cuenta." };
+    if (!data || !data.is_active)
+      return { error: "La cuenta no existe o está inactiva." };
+    const type = isAccountType(data.type) ? data.type : undefined;
+    const isCartera = isCheckAccount(type);
+    if (kind === "checks" && !isCartera) {
+      return { error: "Los cheques van a una cuenta de cheques en cartera." };
+    }
+    if (kind === "bank_statement" && (isCartera || !type)) {
+      return {
+        error:
+          "El extracto es de una cuenta de banco, billetera, caja o inversión.",
+      };
+    }
+    if (data.currency !== "ARS" && data.currency !== "USD") {
+      return { error: "La moneda de la cuenta no es válida." };
+    }
+    targets.account = {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      currency: data.currency,
+    };
+  }
+  if (kindNeedsChannel(kind)) {
+    if (!channelId) return { error: "Elegí el canal." };
+    const { data, error } = await service
+      .from("invoicing_channels")
+      .select("id, is_active")
+      .eq("id", channelId)
+      .maybeSingle();
+    if (error) return { error: "No se pudo leer el canal." };
+    if (!data || !data.is_active)
+      return { error: "El canal no existe o está inactivo." };
+    targets.channelId = data.id;
+  }
+  return targets;
+}
+
 /** What each kind matches its rows against; null when a read failed. */
-async function loadLookups(kind: ImportKind): Promise<ImportLookups | null> {
+async function loadLookups(
+  kind: ImportKind,
+  targets: Targets,
+): Promise<ImportLookups | null> {
   const service = getServiceClient();
   const lookups: ImportLookups = {
     today: todayInAR(),
@@ -96,7 +166,22 @@ async function loadLookups(kind: ImportKind): Promise<ImportLookups | null> {
     clients: [],
     fuelCards: new Map(),
     realPayroll: new Set(),
+    account: targets.account,
+    channelId: targets.channelId,
+    tariffs: [],
   };
+  if (kind === "client_tariffs") {
+    const tariffs = await paginateRange((from, to) =>
+      service
+        .from("client_tariffs")
+        .select("client_id, concept, valid_from, valid_to")
+        .is("area_id", null)
+        .order("id")
+        .range(from, to),
+    );
+    if (tariffs.error) return null;
+    lookups.tariffs = tariffs.data;
+  }
   if (kind === "vehicles" || kind === "historic_trips") {
     const vehicles = await paginateRange((from, to) =>
       service
@@ -145,6 +230,21 @@ async function loadLookups(kind: ImportKind): Promise<ImportLookups | null> {
       ),
     );
   }
+  if (
+    kind === "historic_trips" ||
+    kind === "client_tariffs" ||
+    kind === "opening_balances"
+  ) {
+    const clients = await paginateRange((from, to) =>
+      service
+        .from("clients")
+        .select("id, legal_name, display_name, cuit")
+        .order("id")
+        .range(from, to),
+    );
+    if (clients.error) return null;
+    lookups.clients = clients.data;
+  }
   if (kind === "historic_trips") {
     const drivers = await paginateRange((from, to) =>
       service
@@ -155,15 +255,6 @@ async function loadLookups(kind: ImportKind): Promise<ImportLookups | null> {
     );
     if (drivers.error) return null;
     lookups.drivers = drivers.data;
-    const clients = await paginateRange((from, to) =>
-      service
-        .from("clients")
-        .select("id, legal_name, display_name, cuit")
-        .order("id")
-        .range(from, to),
-    );
-    if (clients.error) return null;
-    lookups.clients = clients.data;
   }
   return lookups;
 }
@@ -237,6 +328,65 @@ async function existingKeys(
       );
       return res.error ? null : new Set(res.data.map((t) => t.source_hash));
     }
+    case "client_tariffs":
+      return new Set(lookups.tariffs.map(clientTariffKey));
+    case "loans": {
+      const res = await paginateRange((from, to) =>
+        service
+          .from("loans")
+          .select("description, lender, first_due_date")
+          .order("id")
+          .range(from, to),
+      );
+      return res.error ? null : new Set(res.data.map(loanKey));
+    }
+    case "checks": {
+      const numbers = rows.flatMap((r) =>
+        r.payload && typeof r.payload.check_number === "string"
+          ? [r.payload.check_number]
+          : [],
+      );
+      const res = await fetchInChunks(numbers, (chunk) =>
+        paginateRange((from, to) =>
+          service
+            .from("checks")
+            .select("kind, bank_name, check_number")
+            .in("check_number", chunk)
+            .order("id")
+            .range(from, to),
+        ),
+      );
+      return res.error ? null : new Set(res.data.map(checkKey));
+    }
+    case "opening_balances": {
+      const ids = rows.flatMap((r) =>
+        r.payload && typeof r.payload.client_id === "string"
+          ? [r.payload.client_id]
+          : [],
+      );
+      const res = await fetchInChunks(ids, (chunk) =>
+        service
+          .from("client_opening_balances")
+          .select("client_id")
+          .in("client_id", chunk),
+      );
+      return res.error
+        ? null
+        : new Set(res.data.map((o) => openingBalanceKey(o.client_id)));
+    }
+    case "bank_statement": {
+      const accountId = lookups.account?.id;
+      if (!accountId) return new Set();
+      const hashes = rows.flatMap((r) => (r.key ? [r.key] : []));
+      const res = await fetchInChunks(hashes, (chunk) =>
+        service
+          .from("bank_statement_lines")
+          .select("source_hash")
+          .eq("account_id", accountId)
+          .in("source_hash", chunk),
+      );
+      return res.error ? null : new Set(res.data.map((l) => l.source_hash));
+    }
   }
 }
 
@@ -254,13 +404,25 @@ async function prepare(
       return { error: "Columnas inválidas." };
     }
   }
+  const optional = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === "string" && value !== "" ? value : null;
+  };
   const parsed = ImportRequestSchema.safeParse({
     kind: formData.get("kind"),
     mapping: mappingInput,
+    account_id: optional("account_id"),
+    channel_id: optional("channel_id"),
   });
   if (!parsed.success) return { error: "Datos inválidos." };
   const { kind } = parsed.data;
   if (!canImport(ctx, kind)) return { error: DENIED };
+  const targets = await resolveTargets(
+    kind,
+    parsed.data.account_id,
+    parsed.data.channel_id,
+  );
+  if ("error" in targets) return { error: targets.error };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -332,7 +494,7 @@ async function prepare(
     };
   }
 
-  const lookups = await loadLookups(kind);
+  const lookups = await loadLookups(kind, targets);
   if (!lookups) {
     logger.error("imports.prepare.lookups_failed", {
       userId: ctx.userId,
@@ -355,7 +517,7 @@ async function prepare(
     });
     return { error: "No se pudo revisar qué ya está cargado." };
   }
-  const rows = markDuplicates(built, existing);
+  const rows = markDuplicates(built, existing, kindHasStrictKeys(kind));
   return { ...base, missing, rows, counts: countRows(rows) };
 }
 
