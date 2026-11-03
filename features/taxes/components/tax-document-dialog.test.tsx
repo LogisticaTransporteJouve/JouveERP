@@ -71,6 +71,7 @@ function estimate(period: string, saldo: number): IvaPositionEstimate {
     saldo_anterior: 0,
     saldo_anterior_known: true,
     saldo,
+    percepciones_compras: 0,
     tributos_compras: 0,
     ventas: 1,
     compras: 0,

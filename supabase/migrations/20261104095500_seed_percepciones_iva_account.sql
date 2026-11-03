@@ -5,7 +5,7 @@ SET LOCAL statement_timeout = '15min';
 -- "Créditos fiscales") takes the role percepciones_iva_pagadas unless an active
 -- account already holds it. 1.1.3.3 is "Retenciones sufridas", so the code is
 -- computed, not fixed. Without the account the purchase journal posts IVA
--- perceptions to iva_credito (20261104090800).
+-- perceptions to iva_credito (20261104095600).
 
 do $$
 declare

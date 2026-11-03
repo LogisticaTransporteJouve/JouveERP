@@ -1,11 +1,11 @@
--- Exempt, non-taxed and the four tributes on a purchase (20261104090800,
--- 20261104090900): what each posts to, the legacy fill for writers that only
+-- Exempt, non-taxed and the four tributes on a purchase (20261104095600,
+-- 20261104095700): what each posts to, the legacy fill for writers that only
 -- send imp_trib, the split CHECK, the closed-period guard, the items guard and
 -- the libro IVA tying to the entry. One transaction, rolled back.
 
 begin;
 
-select plan(16);
+select plan(18);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -193,6 +193,32 @@ select results_eq(
       where purchase_invoice_id = '00000000-0000-0000-0000-00000000ab12' $$,
   $$ values (0.00, 80.00, 85.00) $$,
   'an exempt-only purchase is in the libro with its exento'
+);
+
+insert into public.employees (id, legal_name, pay_frequency, base_salary, hire_date) values
+  ('00000000-0000-0000-0000-00000000ab21', 'Empleado Compra', 'mensual', 1000, '2026-01-01');
+insert into public.purchase_invoices
+  (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
+   imp_neto, imp_op_exentas, imp_iva, imp_perc_iva, imp_perc_municipales, imp_trib, imp_total,
+   moneda, cotizacion, charged_employee_id)
+values
+  ('00000000-0000-0000-0000-00000000ab16', 'jouve_fiscal', '00000000-0000-0000-0000-00000000ab01',
+   'factura', 'A', 4, 506, '2026-09-16', 100, 40, 21, 3, 5, 8, 169, 'PES', 1,
+   '00000000-0000-0000-0000-00000000ab21');
+
+select is(
+  (select amount from public.employee_account_movements
+    where purchase_invoice_id = '00000000-0000-0000-0000-00000000ab16'),
+  145.00::numeric,
+  'an employee is charged neto + exento + municipales; IVA and its perception are the company''s credit'
+);
+
+select is(
+  (select debit from pab_lines
+    where id = '00000000-0000-0000-0000-00000000ab16' and target = 'anticipos_personal'),
+  (select amount from public.employee_account_movements
+    where purchase_invoice_id = '00000000-0000-0000-0000-00000000ab16'),
+  'the employee charge equals what the journal debits to anticipos al personal'
 );
 
 update public.chart_of_accounts set is_active = false where system_role = 'percepciones_iva_pagadas';

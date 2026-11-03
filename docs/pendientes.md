@@ -372,7 +372,7 @@ mitigación en el schema: el límite se respeta operando.
       gasto), no en el de la cuenta del impuesto. En devengado, una cuenta
       de pasivo (IVA) no es resultado y no suma.
 - [x] Estimado de IVA: descuenta las percepciones de IVA de las compras
-      que las tienen repartidas (`imp_perc_iva`, `20261104090800`; las
+      que las tienen repartidas (`imp_perc_iva`, `20261104095600`; las
       compras anteriores quedan como IIBB) y el saldo a favor del mes
       anterior.
 - [x] El contador (`fiscal_reader`) ve los impuestos pero no sus adjuntos
@@ -411,7 +411,7 @@ mitigación en el schema: el límite se respeta operando.
       tributos de las compras.
 - [x] Estimado de IVA: las percepciones de IVA sufridas en compras se
       descuentan cuando la compra las reparte. `imp_trib` se reparte en percepción IVA, percepción IIBB,
-      municipales e impuestos internos (`20261104090800`); cada parte va a
+      municipales e impuestos internos (`20261104095600`); cada parte va a
       su cuenta en el asiento y a su campo en el libro IVA y el TXT.
 - [ ] Backfill de deshacer: los impuestos ya pagados toman su origen del
       log de auditoría (vinculado si está `tax_document.payment_linked`; si
