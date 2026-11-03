@@ -148,6 +148,8 @@ const GUARDS = [
   "recategorize_expense",
   "undo_tax_document_payment",
   "get_vehicle_margin",
+  "guard_driver_settlement_difference_receipt",
+  "remove_driver_settlement_difference",
 ];
 
 describe("guard hints in migrations", () => {
