@@ -41,7 +41,8 @@ export function settlementDifference(
   expected: number,
   received: number,
 ): number {
-  return round2(received - expected);
+  // `|| 0` turns a rounded -0 into 0.
+  return round2(received - expected) || 0;
 }
 
 export interface DriverSettlement {
