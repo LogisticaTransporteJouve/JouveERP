@@ -654,7 +654,14 @@ export async function getVoucherInfo(
     }
 
     const res = result?.ResultGet;
-    if (!res) return null;
+    // Only 602 says the voucher does not exist. A body with neither (not a
+    // FECompConsultar answer at all) leaves it unknown: callers fail or
+    // re-bill an invoice on null.
+    if (!res) {
+      throw new AfipTransportError(
+        "AFIP respondió la consulta sin el comprobante ni un error.",
+      );
+    }
 
     return {
       ptoVta: Number(res.PtoVta ?? ptoVta),

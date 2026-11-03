@@ -15,8 +15,9 @@ const afipAgent = new Agent({ connect: { ciphers: "DEFAULT:@SECLEVEL=1" } });
  *  waits for undici's 300 s defaults, the whole Inngest step budget
  *  (app/api/inngest/route.ts maxDuration), so the step is killed before its
  *  own recovery (consult, CAEA fallback) runs. issue-invoice's CAE step makes
- *  at most five calls (WSAA, consult, last number, FECAESolicitar, consult):
- *  5 × 20 s stays well under 300 s. */
+ *  at most one WSAA login (WSAA_TIMEOUT_MS, 60 s) and four WSFE calls
+ *  (consult, last number, FECAESolicitar, consult): 60 + 4 × 20 s stays under
+ *  300 s. */
 export const AFIP_TIMEOUT_MS = 20_000;
 
 export type AfipResponse = { ok: boolean; status: number; text: string };

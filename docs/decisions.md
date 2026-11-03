@@ -26,8 +26,10 @@ importar ese número podría duplicar el CAE de la emisión trabada.
 aceptado) y la acción lo devuelve igual, para que quien factura lo vincule en
 vez de facturar de nuevo. Lo manda el reenvío con la misma clave o el cron.
 
-**Límite de tiempo.** Cada llamada a AFIP corta a los 20 s (cinco llamadas
-entran en los 300 s de un paso); el piso de numeración CAEA, a los 5 s.
+**Límite de tiempo.** Cada llamada a AFIP corta a los 20 s; el login de WSAA,
+a los 60 s (un TA que AFIP entrega después del corte se pierde, y AFIP no da
+otro hasta que vence, 12 h sin CAE); el piso de numeración CAEA, a los 5 s.
+Un login y cuatro llamadas entran en los 300 s de un paso.
 
 **ARCA en período cerrado.** Un comprobante emitido con CAE que se inserta (la
 importación) se guarda y su asiento queda en `pending_journal_entries`, como

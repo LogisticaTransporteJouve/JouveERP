@@ -716,8 +716,12 @@ mitigación en el schema: el límite se respeta operando.
       Inngest se vuelve a mandar con su clave.
 - [x] Reenviar el formulario con la misma clave vuelve a mandar un borrador sin
       run; si `inngest.send` falla el borrador no se borra.
-- [x] Las llamadas a AFIP tienen un límite de 20 s (5 s para el piso CAEA).
+- [x] Las llamadas a AFIP tienen un límite de 20 s (60 s el login de WSAA,
+      5 s el piso CAEA).
 - [x] Un segundo run no vuelve un comprobante `emitted` a `emitting`.
+- [x] Una consulta a AFIP que no trae el comprobante ni el error 602 (no
+      existe) queda sin respuesta: no marca fallida una emisión ni saltea un
+      número en la importación de ARCA.
 - [x] La importación de ARCA guarda un comprobante de un período cerrado con
       su asiento en `pending_journal_entries`.
 - [x] CAEA: un error de lectura no se toma como "sin CAEA vigente" ni como
