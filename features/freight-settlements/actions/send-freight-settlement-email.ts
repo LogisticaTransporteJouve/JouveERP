@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
 import { buildPdfFilename, formatNumber2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -15,7 +15,12 @@ import {
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { formatRemitoR, formatSettlementNumber, hasRDocument } from "../schema";
+import {
+  formatRemitoR,
+  formatSettlementNumber,
+  hasRDocument,
+  settlementInScope,
+} from "../schema";
 
 // "Enviar por email" of a liquidación's R document (the Remito R of a fiscal
 // one, or a legacy R-…), like a receipt's (send-receipt-email): its PDF
@@ -54,6 +59,17 @@ function sendable(s: {
 
 const NOT_SENDABLE =
   "Solo se envía una liquidación con su remito R emitido (confirmada o facturada).";
+const NOT_FOUND = "Liquidación no encontrada.";
+
+function inScope(
+  access: Access,
+  s: { channel: string | null; client: { is_fiscal: boolean } | null },
+): boolean {
+  return settlementInScope(access, {
+    channel: s.channel,
+    client_is_fiscal: s.client?.is_fiscal ?? false,
+  });
+}
 
 export async function sendFreightSettlementByEmailAction(
   rawInput: SendFreightSettlementEmailInput,
@@ -77,7 +93,9 @@ export async function sendFreightSettlementByEmailAction(
   const supabase = getServiceClient();
   const { data: settlement, error } = await supabase
     .from("freight_settlements")
-    .select("id, status, numero, remito_number")
+    .select(
+      "id, status, numero, remito_number, channel, client:clients(is_fiscal)",
+    )
     .eq("id", input.settlement_id)
     .maybeSingle();
   if (error) {
@@ -88,7 +106,9 @@ export async function sendFreightSettlementByEmailAction(
     });
     return { ok: false, error: "No se pudo leer la liquidación." };
   }
-  if (!settlement) return { ok: false, error: "Liquidación no encontrada." };
+  if (!settlement || !inScope(ctx.access, settlement)) {
+    return { ok: false, error: NOT_FOUND };
+  }
   if (!sendable(settlement)) return { ok: false, error: NOT_SENDABLE };
 
   let templateData;
@@ -96,6 +116,7 @@ export async function sendFreightSettlementByEmailAction(
   try {
     templateData = await buildFreightSettlementTemplateData(
       input.settlement_id,
+      ctx.access,
     );
     pdfBuffer = await renderFreightSettlementPdf(templateData);
   } catch (err) {
@@ -159,7 +180,7 @@ export async function getFreightSettlementEmailDefaultsAction(
     supabase
       .from("freight_settlements")
       .select(
-        "numero, status, remito_pos, remito_number, client:clients(legal_name, email)",
+        "numero, status, channel, remito_pos, remito_number, client:clients(legal_name, email, is_fiscal)",
       )
       .eq("id", id.data)
       .maybeSingle(),
@@ -182,7 +203,7 @@ export async function getFreightSettlementEmailDefaultsAction(
     return { ok: false, error: "No se pudo leer la liquidación." };
   }
   const s = settlementRes.data;
-  if (!s) return { ok: false, error: "Liquidación no encontrada." };
+  if (!s || !inScope(ctx.access, s)) return { ok: false, error: NOT_FOUND };
   if (!sendable(s)) return { ok: false, error: NOT_SENDABLE };
   const numeroLabel =
     s.remito_pos !== null && s.remito_number !== null

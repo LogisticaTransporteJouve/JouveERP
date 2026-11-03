@@ -73,6 +73,9 @@ select is(
   'a hand-edited garnishment survives edits of other fields'
 );
 
+-- Back to the computed figure (20261104095100: a hand edit is an override).
+update public.payroll_entries set embargo_override = false
+ where id = '00000000-0000-0000-0000-0000000009d1';
 update public.employee_garnishments set percentage = 20
  where id = '00000000-0000-0000-0000-0000000009e1';
 

@@ -35,6 +35,7 @@ import { driverSettlementsKeys } from "../lib/driver-settlements-keys";
 import {
   DRIVER_SETTLEMENTS_PAGE_SIZE,
   type DriverSettlement,
+  type DriverSettlementDifferenceInput,
   type DriverSettlementSaveInput,
   type DriverSettlementsPage,
 } from "../schema";
@@ -125,14 +126,16 @@ export function useCancelDriverSettlement() {
   });
 }
 
-// The difference lands in the driver's employee account.
-const DIFFERENCE_KEYS = [driverSettlementsKeys.all, accountKeys.all] as const;
+// The difference lands in the driver's employee account, and a shortfall
+// charged to the driver settles the client with a receipt (cash, invoices,
+// aging and the ledger move); cancelling takes both back.
+const DIFFERENCE_KEYS = [...POSTING_KEYS, accountKeys.all] as const;
 
 export function usePostDriverSettlementDifference() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      runAction(() => postDriverSettlementDifferenceAction({ id })),
+    mutationFn: (input: DriverSettlementDifferenceInput) =>
+      runAction(() => postDriverSettlementDifferenceAction(input)),
     onSuccess: () => invalidateKeys(qc, DIFFERENCE_KEYS),
   });
 }

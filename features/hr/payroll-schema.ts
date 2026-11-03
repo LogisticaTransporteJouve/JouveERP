@@ -97,8 +97,16 @@ export const UpdatePayrollEntrySchema = z.object({
 
 export type UpdatePayrollEntryInput = z.infer<typeof UpdatePayrollEntrySchema>;
 
-/** Drops a hand-typed Deudas: the entry goes back to the plans' installments. */
-export const ResetPayrollDeudasSchema = z.object({ id: z.string().uuid() });
+/** Drops a hand-typed Deudas (back to the plans' installments) or Embargo
+ *  (back to the employee's garnishments). */
+export const ResetPayrollOverrideSchema = z.object({
+  id: z.string().uuid(),
+  field: z.enum(["deudas", "embargo"]),
+});
+
+export type PayrollOverrideField = z.infer<
+  typeof ResetPayrollOverrideSchema
+>["field"];
 
 export type PayrollEntryResolved = {
   id: string;
@@ -117,6 +125,9 @@ export type PayrollEntryResolved = {
   deudas_override: boolean;
   telefono: number;
   embargo: number;
+  /** true = Embargo typed by hand for this period; false = computed from the
+   *  employee's garnishments. */
+  embargo_override: boolean;
   /** The liquidador's receipt net; null while it is not loaded. */
   recibo_neto: number | null;
   total_a_pagar: number;

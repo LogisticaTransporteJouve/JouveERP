@@ -15,7 +15,8 @@ export function useCreateFreightSettlementsBulk() {
   return useMutation({
     mutationFn: (input: FreightBulkInput) =>
       runAction(() => createFreightSettlementsBulkAction(input)),
-    onSuccess: () =>
+    // A run cut short may have created drafts already.
+    onSettled: () =>
       invalidateKeys(qc, [freightSettlementsKeys.all, shipmentsKeys.all]),
   });
 }

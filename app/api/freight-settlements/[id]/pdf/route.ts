@@ -23,7 +23,7 @@ export async function GET(
 
   const { id } = await params;
   try {
-    const data = await buildFreightSettlementTemplateData(id);
+    const data = await buildFreightSettlementTemplateData(id, ctx.access);
     const buffer = await renderFreightSettlementPdf(data);
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

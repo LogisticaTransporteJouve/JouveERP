@@ -196,8 +196,9 @@ function VehicleMarginTable({
         </li>
         {pendingUsd !== 0 && (
           <li>
-            Hay movimientos en dólares sin cotización (neto US${" "}
-            {formatNumber2(pendingUsd)}) que no están sumados.
+            Hay movimientos en dólares sin pasar a pesos, sin cotización o sin
+            asiento (neto US$ {formatNumber2(pendingUsd)}), que no están
+            sumados.
           </li>
         )}
       </ul>

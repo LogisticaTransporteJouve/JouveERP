@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { round2 } from "@/lib/format";
+import { formatMoney, round2 } from "@/lib/format";
 import { IsoDateSchema } from "@/lib/validation/common";
 
 /** Mirrors driver_settlements.status. */
@@ -69,10 +69,13 @@ export interface DriverSettlement {
   /** A confirmed rendición whose receipts were cancelled or edited in
    *  Recibos: what it shows no longer matches the books. */
   receipts_out_of_sync: boolean;
+  /** Who bears the difference: the driver (his employee account) or the
+   *  client (it stays open in the client's account). Null = not resolved. */
+  difference_charged_to: DifferenceChargedTo | null;
   /** The difference posted to the driver's employee account, if any. */
   difference_posted: {
     id: string;
-    kind: "charge" | "payment";
+    kind: DifferencePostedKind;
     amount: number;
   } | null;
   /** The driver's employee (the account the difference posts to). */
@@ -278,3 +281,58 @@ export type DriverSettlementSaveInput = z.input<
 >;
 
 export const DriverSettlementIdSchema = z.object({ id: z.string().uuid() });
+
+/** Mirrors driver_settlements.difference_charged_to. */
+export const DIFFERENCE_CHARGED_TO = ["driver", "client"] as const;
+export type DifferenceChargedTo = (typeof DIFFERENCE_CHARGED_TO)[number];
+
+export function isDifferenceChargedTo(v: unknown): v is DifferenceChargedTo {
+  return (
+    typeof v === "string" &&
+    (DIFFERENCE_CHARGED_TO as readonly string[]).includes(v)
+  );
+}
+
+/** The employee_account_movements kinds a rendición's difference posts:
+ *  `advance` = a shortfall that also settled the client with a receipt;
+ *  `charge` (shortfall) or `payment` (overage) = posted to the driver only,
+ *  before 20261104095300. */
+export const DIFFERENCE_POSTED_KINDS = [
+  "advance",
+  "charge",
+  "payment",
+] as const;
+export type DifferencePostedKind = (typeof DIFFERENCE_POSTED_KINDS)[number];
+
+export function isDifferencePostedKind(v: unknown): v is DifferencePostedKind {
+  return (
+    typeof v === "string" &&
+    (DIFFERENCE_POSTED_KINDS as readonly string[]).includes(v)
+  );
+}
+
+/** Who bears a resolved difference, in words (detail dialog and PDF). */
+export function differenceNote(
+  chargedTo: DifferenceChargedTo | null,
+  posted: { kind: DifferencePostedKind; amount: number } | null,
+): string | null {
+  if (posted) {
+    const what =
+      posted.kind === "payment" ? "Sobrante acreditado" : "Faltante cargado";
+    const tail =
+      posted.kind === "advance" ? ", con un recibo que saldó al cliente." : ".";
+    return `${what} en la cuenta corriente del chofer: ${formatMoney(posted.amount)}${tail}`;
+  }
+  if (chargedTo === "client") {
+    return "Diferencia a cargo del cliente: queda en su cuenta corriente.";
+  }
+  return null;
+}
+
+export const DriverSettlementDifferenceSchema = z.object({
+  id: z.string().uuid(),
+  charged_to: z.enum(DIFFERENCE_CHARGED_TO),
+});
+export type DriverSettlementDifferenceInput = z.infer<
+  typeof DriverSettlementDifferenceSchema
+>;

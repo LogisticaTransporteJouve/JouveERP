@@ -147,8 +147,8 @@ select results_eq(
   $$select status, payment_transaction_id, paid_date, paid_amount, payment_origin,
            notes like '%deshecho%'
       from public.tax_documents where id = '00000000-0000-0000-0000-00000000f201'$$,
-  $$values ('liquidado'::text, null::uuid, null::date, null::numeric(18,2), null::text, true)$$,
-  'the document is open again (liquidado: its amount is not an estimate) and notes the undo'
+  $$values ('pendiente'::text, null::uuid, null::date, null::numeric(18,2), null::text, true)$$,
+  'the document is open again (pendiente, as it was before the payment) and notes the undo'
 );
 select is(
   (select count(*)::int from public.transactions where id = (select tx_id from t_pay)),
@@ -195,8 +195,8 @@ select is(
 select results_eq(
   $$select status, payment_origin, payment_previous_expense_account_id
       from public.tax_documents where id = '00000000-0000-0000-0000-00000000f202'$$,
-  $$values ('liquidado'::text, null::text, null::uuid)$$,
-  'the document is open again'
+  $$values ('pendiente'::text, null::text, null::uuid)$$,
+  'the document is open again, pendiente as before'
 );
 select lives_ok(
   $$select public.link_tax_document_payment('00000000-0000-0000-0000-00000000f202',

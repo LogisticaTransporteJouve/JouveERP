@@ -5,6 +5,7 @@ import { pagedSupabase } from "@/tests/helpers/paged-supabase";
 
 let roles: Role[] = ["finance"];
 let fake = pagedSupabase({});
+let clientOverride: unknown = null;
 
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
@@ -13,11 +14,11 @@ vi.mock("@/lib/auth/context", () => ({
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => fake.client,
+  createClient: async () => clientOverride ?? fake.client,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { listLoansAction } = await import("./loans-actions");
+const { cancelLoanAction, listLoansAction } = await import("./loans-actions");
 
 const loan = {
   id: "l1",
@@ -37,6 +38,7 @@ const loan = {
 
 beforeEach(() => {
   roles = ["finance"];
+  clientOverride = null;
 });
 
 describe("listLoansAction", () => {
@@ -66,5 +68,33 @@ describe("listLoansAction", () => {
     );
     const res = await listLoansAction();
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("cancelLoanAction", () => {
+  function failingUpdate(error: { message: string; hint?: string }) {
+    clientOverride = {
+      from: () => ({
+        update: () => ({ eq: async () => ({ error }) }),
+      }),
+    };
+  }
+
+  it("shows the guard's message when the loan has money recorded", async () => {
+    const message =
+      "No se puede anular el préstamo: tiene el desembolso registrado o cuotas pagadas.";
+    failingUpdate({ message, hint: "jouve_guard" });
+    const res = await cancelLoanAction({
+      id: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(res).toEqual({ ok: false, error: message });
+  });
+
+  it("keeps the generic message for any other error", async () => {
+    failingUpdate({ message: "boom" });
+    const res = await cancelLoanAction({
+      id: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(res).toEqual({ ok: false, error: "No se pudo anular el préstamo." });
   });
 });

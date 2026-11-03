@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
+import { SETTLED_LIST_CAP } from "@/lib/supabase/open-and-recent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -264,6 +265,15 @@ export function ChequesTable({
         emptyMessage="Todavía no hay cheques."
         wrapperClassName="mt-4"
       />
+      {data.truncated && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Se muestran todos los cheques en cartera y depositados, y de los
+          acreditados, endosados, rechazados y vendidos solo los{" "}
+          {SETTLED_LIST_CAP} de vencimiento más reciente: los totales de esos
+          estados no incluyen los más viejos. Exportá para ver el historial
+          completo.
+        </p>
+      )}
 
       {canWrite && (
         <SellChequesDialog

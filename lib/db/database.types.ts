@@ -1987,6 +1987,53 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_settlement_difference_receipts: {
+        Row: {
+          created_at: string
+          receipt_id: string
+          settlement_id: string
+        }
+        Insert: {
+          created_at?: string
+          receipt_id: string
+          settlement_id: string
+        }
+        Update: {
+          created_at?: string
+          receipt_id?: string
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_receipt_unapplied"
+            referencedColumns: ["receipt_id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["source_receipt_id"]
+          },
+          {
+            foreignKeyName: "driver_settlement_difference_receipts_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_settlement_items: {
         Row: {
           created_at: string
@@ -2124,6 +2171,7 @@ export type Database = {
           confirmed_by: string | null
           created_at: string
           created_by: string | null
+          difference_charged_to: string | null
           driver_id: string
           id: string
           notes: string | null
@@ -2139,6 +2187,7 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          difference_charged_to?: string | null
           driver_id: string
           id?: string
           notes?: string | null
@@ -2154,6 +2203,7 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          difference_charged_to?: string | null
           driver_id?: string
           id?: string
           notes?: string | null
@@ -5069,6 +5119,7 @@ export type Database = {
           deudas: number
           deudas_override: boolean
           embargo: number
+          embargo_override: boolean
           employee_id: string
           id: string
           notes: string | null
@@ -5086,6 +5137,7 @@ export type Database = {
           deudas?: number
           deudas_override?: boolean
           embargo?: number
+          embargo_override?: boolean
           employee_id: string
           id?: string
           notes?: string | null
@@ -5103,6 +5155,7 @@ export type Database = {
           deudas?: number
           deudas_override?: boolean
           embargo?: number
+          embargo_override?: boolean
           employee_id?: string
           id?: string
           notes?: string | null
@@ -6957,7 +7010,9 @@ export type Database = {
           paid_amount: number | null
           paid_date: string | null
           payment_origin: string | null
+          payment_previous_amount: number | null
           payment_previous_expense_account_id: string | null
+          payment_previous_status: string | null
           payment_transaction_id: string | null
           period: string
           status: string
@@ -6979,7 +7034,9 @@ export type Database = {
           paid_amount?: number | null
           paid_date?: string | null
           payment_origin?: string | null
+          payment_previous_amount?: number | null
           payment_previous_expense_account_id?: string | null
+          payment_previous_status?: string | null
           payment_transaction_id?: string | null
           period: string
           status?: string
@@ -7001,7 +7058,9 @@ export type Database = {
           paid_amount?: number | null
           paid_date?: string | null
           payment_origin?: string | null
+          payment_previous_amount?: number | null
           payment_previous_expense_account_id?: string | null
+          payment_previous_status?: string | null
           payment_transaction_id?: string | null
           period?: string
           status?: string
@@ -7653,6 +7712,7 @@ export type Database = {
         Row: {
           amount_applied: number | null
           amount_credited_by_nc: number | null
+          amount_credited_unlinked: number | null
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
@@ -8951,7 +9011,11 @@ export type Database = {
         Returns: undefined
       }
       cancel_driver_settlement: {
-        Args: { p_settlement_id: string; p_user_id: string }
+        Args: {
+          p_allow_driver?: boolean
+          p_settlement_id: string
+          p_user_id: string
+        }
         Returns: undefined
       }
       cancel_freight_settlement: {
@@ -9788,7 +9852,11 @@ export type Database = {
         Returns: string
       }
       post_driver_settlement_difference: {
-        Args: { p_settlement_id: string; p_user_id: string }
+        Args: {
+          p_charged_to?: string
+          p_settlement_id: string
+          p_user_id: string
+        }
         Returns: string
       }
       post_pending_journals: {
@@ -9898,6 +9966,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      remove_driver_settlement_difference: {
+        Args: {
+          p_allow_driver: boolean
+          p_settlement_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
@@ -10238,7 +10314,11 @@ export type Database = {
         Returns: undefined
       }
       unpost_driver_settlement_difference: {
-        Args: { p_settlement_id: string }
+        Args: {
+          p_allow_driver?: boolean
+          p_settlement_id: string
+          p_user_id?: string
+        }
         Returns: undefined
       }
       update_chat_channel: {
@@ -10273,6 +10353,10 @@ export type Database = {
       upsert_my_notification_setting: {
         Args: { p_enabled: boolean; p_type: string }
         Returns: undefined
+      }
+      usd_booking_rate: {
+        Args: { p_cotizacion: number; p_date: string }
+        Returns: number
       }
       user_has_role: { Args: { p_role_ids: string[] }; Returns: boolean }
       user_is_channel_member: { Args: { p_channel: string }; Returns: boolean }
@@ -10327,6 +10411,7 @@ export type Database = {
         | "ajustes_caja"
         | "sueldos"
         | "intereses_pagados"
+        | "diferencia_cambio"
       employee_document_kind:
         | "licencia_conducir"
         | "lnh"
@@ -10521,6 +10606,7 @@ export const Constants = {
         "ajustes_caja",
         "sueldos",
         "intereses_pagados",
+        "diferencia_cambio",
       ],
       employee_document_kind: [
         "licencia_conducir",

@@ -163,7 +163,7 @@ export const getManagementPnL = defineAiAction({
           : "") +
         "." +
         (waterfall.pendingUsd !== 0
-          ? ` Hay USD sin cotización (US$${waterfall.pendingUsd}) no sumados.`
+          ? ` Hay USD sin pasar a pesos (sin cotización o, si son fiscales, sin asiento): US$${waterfall.pendingUsd} no sumados.`
           : ""),
       { basis: input.basis, waterfall, totals, byCostCenter, kpis, byMonth },
       {
