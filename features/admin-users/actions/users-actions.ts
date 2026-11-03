@@ -181,8 +181,8 @@ export async function inviteUserAction(
   // Through the one role writer, so its rules apply to an invite too.
   // Re-inviting a pending user returns the existing account, which may
   // already have roles: expecting none makes the RPC refuse it (UA002), and
-  // those roles are edited in the access dialog, not here. Denies are left
-  // as they are.
+  // those roles are edited in the access dialog, not here. No denies are
+  // sent: the RPC keeps the account's own (an owner never has any).
   const { error: rolesError } = await service.rpc("set_user_access", {
     p_actor: ctx.userId,
     p_user_id: invitedId,

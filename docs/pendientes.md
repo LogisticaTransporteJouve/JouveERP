@@ -47,7 +47,6 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       ve el exento ni el no gravado. Con código anterior a #339 no editar la
       cuenta "Percepciones IVA sufridas" en Plan de cuentas (no conoce el
       rol, como "Diferencias de cambio" abajo).
-
 - [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
       migración): su primera corrida vuelve a mandar a AFIP los borradores de
       los últimos 3 días y resuelve las emisiones trabadas que ya existen. Un
@@ -74,7 +73,8 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       dólares emitidos contra comprobantes a otra cotización y las NC en
       dólares emitidas contra un origen a otra cotización. Cambian asientos de
       meses pasados sin cerrar; los de períodos cerrados conservan el suyo
-      (los cuenta un NOTICE). Lista de lo que se re-asienta:
+      (los cuenta un NOTICE). Lista de lo que entra (los de un período
+      cerrado salen también, y no cambian):
       ```sql
       select 'recibo' as doc, r.id, r.receipt_date as fecha
         from receipts r
@@ -126,7 +126,9 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       falla (no existe el RPC) y las tarjetas quedan como estaban. Rollback:
       el código anterior borra e inserta con el service client; el índice
       único hace fallar el insert de dos corridas viejas simultáneas en vez de
-      duplicar las tarjetas.
+      duplicar las tarjetas. La segunda solo inserta denegaciones de la
+      escritura que cubría cada `:read` quitado; las filas viejas quedan y el
+      código anterior las lee como antes.
 - [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
       `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
       validación igual fallara, la migración entera se revierte y el promote

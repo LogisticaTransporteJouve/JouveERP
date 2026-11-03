@@ -1,6 +1,8 @@
 -- 20261104104000 validates the CHECKs that earlier migrations left NOT
 -- VALID. One transaction, rolled back.
 
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
 begin;
 
 select plan(1);

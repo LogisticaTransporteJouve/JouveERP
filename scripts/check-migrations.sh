@@ -69,7 +69,8 @@ fi
 
 # A version is a real UTC date and time. A typed one like ...096000 (minute
 # 60) sorts fine but invites the next author to stamp ...096001, and the drift
-# compounds. Plain arithmetic, so GNU and BSD date read it the same.
+# compounds. Checked with awk arithmetic, not date, whose parsing differs
+# between GNU and BSD.
 impossible="$(printf '%s\n' "$named" | awk -F/ 'NF {
     v = substr($3, 1, 14)
     y = substr(v, 1, 4) + 0; mo = substr(v, 5, 2) + 0; d = substr(v, 7, 2) + 0
