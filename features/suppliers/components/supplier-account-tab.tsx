@@ -59,12 +59,14 @@ const KIND_LABEL: Record<string, string> = {
   nd: "Nota de Débito",
   payment_order: "Orden de Pago",
   opening_balance: "Ajuste de saldo",
+  rejected_check: "Cheque rechazado",
 };
 
 function formatDocumentNumber(m: SupplierAccountMovement): string {
   if (m.source_type === "opening_balance") return "—";
   if (!m.punto_venta || !m.numero) return "—";
-  if (m.source_type === "payment_order") {
+  // A bounced check carries the number of the OP that delivered it.
+  if (m.source_type === "payment_order" || m.source_type === "rejected_check") {
     const pos = String(m.punto_venta).padStart(5, "0");
     return `OP${pos}-${String(m.numero).padStart(8, "0")}`;
   }

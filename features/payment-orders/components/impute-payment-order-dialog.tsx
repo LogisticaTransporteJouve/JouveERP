@@ -23,16 +23,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ALLOCATION_MODE_LABEL } from "@/lib/allocations";
-import { formatMoney, parseArAmount } from "@/lib/format";
+import { formatArgentineDate, formatMoney, parseArAmount } from "@/lib/format";
 
 import {
   useAllocatePaymentOrder,
   usePaymentOrderUnapplied,
+  useSupplierRejectedChecks,
 } from "../hooks/use-payment-orders";
 import { AllocationsPicker, type AllocationDraft } from "./allocations-picker";
 
+type ImputeMode = "fifo" | "manual" | "rejected_checks";
+
+function readMode(v: string): ImputeMode {
+  return v === "manual" || v === "rejected_checks" ? v : "fifo";
+}
+
 /** "Imputar": applies what an issued OP holds a cuenta to open purchase
- *  invoices later (FIFO or picked), without editing the OP. */
+ *  invoices later (FIFO or picked), or to checks delivered to the supplier
+ *  that bounced (oldest first), without editing the OP. */
 export function ImputePaymentOrderDialog({
   paymentOrderId,
   label,
@@ -41,11 +49,19 @@ export function ImputePaymentOrderDialog({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"fifo" | "manual">("fifo");
+  const [mode, setMode] = useState<ImputeMode>("fifo");
   const [allocations, setAllocations] = useState<AllocationDraft[]>([]);
   const unapplied = usePaymentOrderUnapplied(paymentOrderId, open);
   const allocate = useAllocatePaymentOrder();
   const data = unapplied.data;
+  const rejected = useSupplierRejectedChecks(
+    data?.supplier_id ?? "",
+    data?.channel_id ?? "",
+    open && !!data,
+  );
+  const rejectedChecks = (rejected.data ?? []).filter(
+    (c) => c.currency === data?.currency,
+  );
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -126,12 +142,7 @@ export function ImputePaymentOrderDialog({
               <Label htmlFor="impute-po-mode" className="text-xs">
                 Imputación
               </Label>
-              <Select
-                value={mode}
-                onValueChange={(v) =>
-                  setMode(v === "manual" ? "manual" : "fifo")
-                }
-              >
+              <Select value={mode} onValueChange={(v) => setMode(readMode(v))}>
                 <SelectTrigger id="impute-po-mode">
                   <SelectValue />
                 </SelectTrigger>
@@ -142,9 +153,38 @@ export function ImputePaymentOrderDialog({
                   <SelectItem value="manual">
                     {ALLOCATION_MODE_LABEL.manual}
                   </SelectItem>
+                  {rejectedChecks.length > 0 && (
+                    <SelectItem value="rejected_checks">
+                      Cheques rechazados (los más viejos primero)
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
+            {rejected.isError && (
+              <p className="text-sm text-muted-foreground">
+                {rejected.error.message}
+              </p>
+            )}
+            {mode === "rejected_checks" && (
+              <ul className="space-y-1 text-sm">
+                {rejectedChecks.map((c) => (
+                  <li
+                    key={c.check_id}
+                    className="flex flex-wrap justify-between gap-2"
+                  >
+                    <span>
+                      Cheque {c.check_number}
+                      {c.check_kind === "issued" ? " (propio)" : ""} · rechazado
+                      el {formatArgentineDate(c.rejected_on)}
+                    </span>
+                    <span className="font-mono">
+                      {formatMoney(c.open_amount, c.currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {mode === "manual" && (
               <AllocationsPicker
                 supplierId={data.supplier_id}
