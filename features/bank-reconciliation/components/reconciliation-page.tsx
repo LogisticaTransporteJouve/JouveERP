@@ -74,12 +74,15 @@ function monthRange(month: string): { from: string; to: string } {
 export function ReconciliationPage({
   today,
   canWrite,
+  canPayTaxes,
   canImport,
 }: {
   /** The Argentine today, YYYY-MM-DD. */
   today: string;
   /** transactions:write: match, unmatch, ignore, create. */
   canWrite: boolean;
+  /** taxes:write too: a debit line can be booked as a tax payment. */
+  canPayTaxes: boolean;
   /** May import statements (imports:write + transactions:write). */
   canImport: boolean;
 }) {
@@ -138,6 +141,7 @@ export function ReconciliationPage({
             from={from}
             to={to}
             canWrite={canWrite}
+            canPayTaxes={canPayTaxes}
           />
         </Suspense>
       ) : (
@@ -189,11 +193,13 @@ function ReconciliationBody({
   from,
   to,
   canWrite,
+  canPayTaxes,
 }: {
   accountId: string;
   from: string;
   to: string;
   canWrite: boolean;
+  canPayTaxes: boolean;
 }) {
   const { data } = useReconciliation(accountId, from, to);
   const accept = useAcceptSuggestions();
@@ -566,6 +572,7 @@ function ReconciliationBody({
       <CreateLineTransactionDialog
         line={dialog?.kind === "create" ? dialog.line : null}
         currency={currency}
+        canPayTaxes={canPayTaxes}
         onOpenChange={(o) => (o ? null : close())}
       />
     </div>

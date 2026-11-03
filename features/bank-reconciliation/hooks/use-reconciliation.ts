@@ -2,17 +2,22 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { tasksKeys } from "@/features/tasks/lib/tasks-keys";
+import { listPayableTaxDocumentsAction } from "@/features/taxes/actions/tax-payment-link-actions";
+import { taxesKeys } from "@/features/taxes/lib/taxes-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
 import {
   acceptSuggestionsAction,
+  createLineTaxPaymentAction,
   createLineTransactionAction,
   getReconciliationAction,
   ignoreLineAction,
@@ -23,6 +28,7 @@ import {
 } from "../actions/reconciliation-actions";
 import { reconciliationKeys } from "../lib/reconciliation-keys";
 import type {
+  CreateLineTaxPaymentInput,
   CreateLineTransactionInput,
   IgnoreLineInput,
   MatchLineInput,
@@ -95,6 +101,34 @@ export function useCreateLineTransaction() {
     onSuccess: () => {
       invalidateKeys(qc, [
         reconciliationKeys.all,
+        ...CASH_KEYS,
+        ...LEDGER_KEYS,
+      ]);
+    },
+  });
+}
+
+/** The open tax documents a debit line can pay; only fetched while the
+ *  create dialog offers "Pago de impuesto". */
+export function usePayableTaxDocuments(enabled: boolean) {
+  return useQuery({
+    queryKey: taxesKeys.payable(),
+    queryFn: () => runAction(() => listPayableTaxDocumentsAction()),
+    enabled,
+  });
+}
+
+/** A tax payment also changes the tax documents and their due-date tasks. */
+export function useCreateLineTaxPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateLineTaxPaymentInput) =>
+      runAction(() => createLineTaxPaymentAction(input)),
+    onSuccess: () => {
+      invalidateKeys(qc, [
+        reconciliationKeys.all,
+        taxesKeys.all,
+        tasksKeys.all,
         ...CASH_KEYS,
         ...LEDGER_KEYS,
       ]);

@@ -23,14 +23,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
-import { formatArgentineDate, formatMoneySigned } from "@/lib/format";
+import {
+  formatArgentineDate,
+  formatMoney,
+  formatMoneySigned,
+  formatPeriod,
+  round2,
+} from "@/lib/format";
 
 import {
+  useCreateLineTaxPayment,
   useCreateLineTransaction,
   useIgnoreLine,
   useMatchLine,
+  usePayableTaxDocuments,
 } from "../hooks/use-reconciliation";
 import { sumAmounts } from "../lib/reconcile";
 import type { BookMovement, StatementLine } from "../schema";
@@ -255,37 +264,75 @@ export function IgnoreLineDialog({
   );
 }
 
+type CreateMode = "manual" | "tax";
+
 /** Create the movement the books lack (a bank fee, interest) and reconcile
- *  it with the line. */
+ *  it with the line; a debit in pesos can instead be booked as the payment
+ *  of a tax document. */
 export function CreateLineTransactionDialog({
   line,
   currency,
+  canPayTaxes,
   onOpenChange,
 }: {
   line: StatementLine | null;
   currency: string;
+  /** taxes:write: offers "Pago de impuesto" for a debit in pesos. */
+  canPayTaxes: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const create = useCreateLineTransaction();
+  const createTax = useCreateLineTaxPayment();
   const { channels } = useScope();
   const active = channels.filter((c) => c.is_active);
+  const [mode, setMode] = useState<CreateMode>("manual");
   const [channelId, setChannelId] = useState("");
   const [expenseAccountId, setExpenseAccountId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
   const [description, setDescription] = useState<string | null>(null);
+  const [taxDocumentId, setTaxDocumentId] = useState("");
+  const [confirmDifference, setConfirmDifference] = useState(false);
   const isDebit = (line?.amount ?? 0) < 0;
+  const offersTax = canPayTaxes && isDebit && currency === "ARS";
+  const isTax = offersTax && mode === "tax";
+  const payable = usePayableTaxDocuments(line !== null && isTax);
   const text = description ?? line?.description ?? "";
+  const taxDoc = payable.data?.find((d) => d.id === taxDocumentId) ?? null;
+  const lineAmount = line ? Math.abs(line.amount) : 0;
+  const difference =
+    taxDoc && taxDoc.amount !== null ? round2(lineAmount - taxDoc.amount) : 0;
+  const pending = create.isPending || createTax.isPending;
 
   function close() {
+    setMode("manual");
     setChannelId("");
     setExpenseAccountId("");
     setCostCenterId("");
     setDescription(null);
+    setTaxDocumentId("");
+    setConfirmDifference(false);
     onOpenChange(false);
   }
 
   function submit() {
     if (!line) return;
+    if (isTax) {
+      createTax.mutate(
+        {
+          line_id: line.id,
+          tax_document_id: taxDocumentId,
+          allow_difference: difference !== 0 && confirmDifference,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Impuesto pagado y línea conciliada.");
+            close();
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+      return;
+    }
     create.mutate(
       {
         line_id: line.id,
@@ -304,6 +351,12 @@ export function CreateLineTransactionDialog({
     );
   }
 
+  const disabled = isTax
+    ? taxDocumentId === "" ||
+      (difference !== 0 && !confirmDifference) ||
+      pending
+    : channelId === "" || (isDebit && expenseAccountId === "") || pending;
+
   return (
     <Dialog open={line !== null} onOpenChange={(o) => (o ? null : close())}>
       <DialogContent className="sm:max-w-lg">
@@ -312,72 +365,151 @@ export function CreateLineTransactionDialog({
             {isDebit ? "Crear egreso" : "Crear ingreso"} desde el extracto
           </DialogTitle>
           <DialogDescription>
-            Se carga en Caja como un movimiento manual de esta cuenta, con la
-            fecha y el importe de la línea, y queda conciliado con ella.
+            {isTax
+              ? "Se registra como el pago del impuesto elegido, con la fecha, la cuenta y el importe de la línea: un egreso del canal fiscal con su asiento contra la cuenta del impuesto, conciliado con la línea."
+              : "Se carga en Caja como un movimiento manual de esta cuenta, con la fecha y el importe de la línea, y queda conciliado con ella."}
           </DialogDescription>
         </DialogHeader>
         {line && <LineSummary line={line} currency={currency} />}
         <div className="grid gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="line-tx-channel">Canal</Label>
-            <Select value={channelId || undefined} onValueChange={setChannelId}>
-              <SelectTrigger id="line-tx-channel" className="w-full min-w-0">
-                <SelectValue placeholder="Elegí el canal" />
-              </SelectTrigger>
-              <SelectContent>
-                {active.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {isDebit && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="min-w-0 space-y-1.5">
-                <Label>Cuenta de gasto</Label>
-                <CostTagSelect
-                  kind="expenseAccount"
-                  value={expenseAccountId}
-                  onChange={setExpenseAccountId}
-                  noneLabel="Elegí la cuenta"
-                />
-              </div>
-              <div className="min-w-0 space-y-1.5">
-                <Label>Centro de costo</Label>
-                <CostTagSelect
-                  kind="costCenter"
-                  value={costCenterId}
-                  onChange={setCostCenterId}
-                />
-              </div>
+          {offersTax && (
+            <div className="space-y-1.5">
+              <Label htmlFor="line-tx-mode">Tipo</Label>
+              <Select
+                value={mode}
+                onValueChange={(v) => setMode(v === "tax" ? "tax" : "manual")}
+              >
+                <SelectTrigger id="line-tx-mode" className="w-full min-w-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Egreso manual</SelectItem>
+                  <SelectItem value="tax">Pago de impuesto</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label htmlFor="line-tx-description">Descripción</Label>
-            <Input
-              id="line-tx-description"
-              maxLength={500}
-              value={text}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+          {isTax ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="line-tx-tax">Impuesto</Label>
+              {payable.isPending ? (
+                <Skeleton className="h-9 w-full" />
+              ) : payable.isError ? (
+                <p className="text-sm">{payable.error.message}</p>
+              ) : payable.data.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No hay impuestos pendientes o liquidados con su cuenta
+                  contable elegida.
+                </p>
+              ) : (
+                <Select
+                  value={taxDocumentId || undefined}
+                  onValueChange={(v) => {
+                    setTaxDocumentId(v);
+                    setConfirmDifference(false);
+                  }}
+                >
+                  <SelectTrigger id="line-tx-tax" className="w-full min-w-0">
+                    <SelectValue placeholder="Elegí el impuesto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payable.data.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.label} · {formatPeriod(d.period)} · vence{" "}
+                        {formatArgentineDate(d.due_date)}
+                        {d.amount !== null ? ` · ${formatMoney(d.amount)}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {taxDoc && difference !== 0 && (
+                <div className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
+                  <Checkbox
+                    id="line-tx-difference"
+                    checked={confirmDifference}
+                    onCheckedChange={(v) => setConfirmDifference(v === true)}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="line-tx-difference"
+                    className="leading-snug font-normal"
+                  >
+                    La línea es de {formatMoney(lineAmount)} y el impuesto de{" "}
+                    {formatMoney(taxDoc.amount)}. Registrar el pago igual: queda
+                    por el importe de la línea y la diferencia en las notas.
+                  </Label>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="line-tx-channel">Canal</Label>
+                <Select
+                  value={channelId || undefined}
+                  onValueChange={setChannelId}
+                >
+                  <SelectTrigger
+                    id="line-tx-channel"
+                    className="w-full min-w-0"
+                  >
+                    <SelectValue placeholder="Elegí el canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {active.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isDebit && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label>Cuenta de gasto</Label>
+                    <CostTagSelect
+                      kind="expenseAccount"
+                      value={expenseAccountId}
+                      onChange={setExpenseAccountId}
+                      noneLabel="Elegí la cuenta"
+                    />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label>Centro de costo</Label>
+                    <CostTagSelect
+                      kind="costCenter"
+                      value={costCenterId}
+                      onChange={setCostCenterId}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="line-tx-description">Descripción</Label>
+                <Input
+                  id="line-tx-description"
+                  maxLength={500}
+                  value={text}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+            </>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={close}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={
-              channelId === "" ||
-              (isDebit && expenseAccountId === "") ||
-              create.isPending
-            }
-            onClick={submit}
-          >
-            {create.isPending ? "Creando…" : "Crear y conciliar"}
+          <Button type="button" disabled={disabled} onClick={submit}>
+            {isTax
+              ? pending
+                ? "Registrando…"
+                : "Pagar y conciliar"
+              : pending
+                ? "Creando…"
+                : "Crear y conciliar"}
           </Button>
         </DialogFooter>
       </DialogContent>

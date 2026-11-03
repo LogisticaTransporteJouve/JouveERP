@@ -21,6 +21,7 @@ import { suggestMatches, summarize } from "../lib/reconcile";
 import {
   AcceptSuggestionsSchema,
   CANDIDATE_DAY_WINDOW,
+  CreateLineTaxPaymentSchema,
   CreateLineTransactionSchema,
   IgnoreLineSchema,
   LineIdSchema,
@@ -585,6 +586,69 @@ export async function createLineTransactionAction(
     ctx.userId,
     { transaction_ids: [txId], created: true },
     d.line_id,
+  );
+  return { ok: true, data: { transaction_id: txId } };
+}
+
+/**
+ * A debit line the books lack, booked as the payment of a tax document:
+ * pay_tax_document on the line's date, account and amount (an expense of
+ * the fiscal channel owned by the document, its entry debiting the
+ * document's account), reconciled with the line in the same transaction.
+ */
+export async function createLineTaxPaymentAction(
+  input: unknown,
+): Promise<ActionResult<{ transaction_id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "transactions:write") ||
+    !userCan(ctx.access, "taxes:write")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para registrar el pago de un impuesto.",
+    };
+  }
+  const parsed = CreateLineTaxPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { line_id, tax_document_id, allow_difference } = parsed.data;
+  const { data: txId, error } = await getServiceClient().rpc(
+    "create_bank_statement_line_tax_payment",
+    {
+      p_line_id: line_id,
+      p_tax_document_id: tax_document_id,
+      p_user_id: ctx.userId,
+      p_allow_difference: allow_difference,
+    },
+  );
+  if (error || !txId) {
+    return {
+      ok: false,
+      error: rejected(
+        error,
+        "reconciliation.tax_payment.rejected",
+        ctx.userId,
+        line_id,
+        "No se pudo registrar el pago del impuesto.",
+      ),
+    };
+  }
+  await logAudit(
+    "tax_document.paid",
+    ctx.userId,
+    { transaction_id: txId, bank_statement_line_id: line_id, allow_difference },
+    tax_document_id,
+  );
+  await logAudit(
+    "bank_statement_line.matched",
+    ctx.userId,
+    { transaction_ids: [txId], created: true, tax_document_id },
+    line_id,
   );
   return { ok: true, data: { transaction_id: txId } };
 }
