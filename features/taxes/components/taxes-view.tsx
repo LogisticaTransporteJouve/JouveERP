@@ -71,6 +71,7 @@ export function TaxesView({
   initialYear,
   canWrite,
   canAttach,
+  canEstimate,
   canLinkPayment,
   canUndoPayment,
   payAccountOptions,
@@ -78,6 +79,8 @@ export function TaxesView({
   initialYear: number;
   canWrite: boolean;
   canAttach: boolean;
+  /** taxes:write plus accounting:read: Estimar reads the libro IVA. */
+  canEstimate: boolean;
   /** taxes:write plus transactions:read and transactions:write: adopt a
    *  movement already in Caja as the payment. */
   canLinkPayment: boolean;
@@ -222,6 +225,7 @@ export function TaxesView({
             }}
             doc={editing}
             canAttach={canAttach}
+            canEstimate={canEstimate}
           />
           <PayTaxDocumentDialog
             doc={paying}

@@ -98,6 +98,7 @@ describe("TaxDocumentDialog · Estimar", () => {
         onOpenChange={() => {}}
         doc={ivaDoc("t9", "2026-09")}
         canAttach={false}
+        canEstimate
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
@@ -112,6 +113,7 @@ describe("TaxDocumentDialog · Estimar", () => {
         onOpenChange={() => {}}
         doc={ivaDoc("t9", "2026-09")}
         canAttach={false}
+        canEstimate
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
@@ -121,6 +123,7 @@ describe("TaxDocumentDialog · Estimar", () => {
         onOpenChange={() => {}}
         doc={ivaDoc("t10", "2026-10")}
         canAttach={false}
+        canEstimate
       />,
     );
     act(() => h.calls[0]!.callbacks.onSuccess(estimate("2026-09", 500)));
@@ -135,6 +138,7 @@ describe("TaxDocumentDialog · Estimar", () => {
         onOpenChange={() => {}}
         doc={ivaDoc("t9", "2026-09")}
         canAttach={false}
+        canEstimate
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
@@ -155,6 +159,7 @@ describe("TaxDocumentDialog · Estimar", () => {
         onOpenChange={() => {}}
         doc={doc}
         canAttach={false}
+        canEstimate
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
@@ -165,11 +170,27 @@ describe("TaxDocumentDialog · Estimar", () => {
           onOpenChange={() => {}}
           doc={doc}
           canAttach={false}
+          canEstimate
         />,
       );
     }
     act(() => h.calls[0]!.callbacks.onSuccess(estimate("2026-09", 500)));
     expect(amountInput().value).toBe("");
     expect(h.reset).toHaveBeenCalled();
+  });
+});
+
+describe("TaxDocumentDialog · Estimar gate", () => {
+  it("hides Estimar without accounting:read", () => {
+    render(
+      <TaxDocumentDialog
+        open
+        onOpenChange={() => {}}
+        doc={ivaDoc("t9", "2026-09")}
+        canAttach={false}
+        canEstimate={false}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Estimar/ })).toBeNull();
   });
 });
