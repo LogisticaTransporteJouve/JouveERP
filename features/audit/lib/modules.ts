@@ -20,6 +20,10 @@ const AUDIT_MODULES: Record<string, AuditModule> = {
   audit: { label: "Auditoría", href: () => "/admin/audit" },
   attendance: { label: "Asistencia", href: () => "/hr/attendance" },
   backup: { label: "Backups", href: () => "/admin/backups" },
+  bank_statement_line: {
+    label: "Conciliación bancaria",
+    href: () => "/treasury/reconciliation",
+  },
   caea: { label: "CAEA" },
   chart_account: { label: "Plan de cuentas", href: () => "/accounting/chart" },
   check: { label: "Cheques recibidos", href: () => "/checks" },

@@ -78,6 +78,263 @@ const counterpartyFields = (
   },
 ];
 
+const notesField: ImportField = {
+  key: "notes",
+  label: "Notas",
+  required: false,
+  aliases: ["notas", "observaciones", "obs"],
+};
+
+const clientField: ImportField = {
+  key: "client",
+  label: "Cliente",
+  required: true,
+  aliases: ["cliente", "razon social", "cuit"],
+  hint: "Razón social, nombre de fantasía o CUIT como está cargado en Clientes.",
+};
+
+const currencyField = (hint: string): ImportField => ({
+  key: "currency",
+  label: "Moneda",
+  required: false,
+  aliases: ["moneda", "divisa"],
+  hint,
+});
+
+const GO_LIVE_FIELDS = {
+  client_tariffs: [
+    clientField,
+    {
+      key: "concept",
+      label: "Concepto",
+      required: true,
+      aliases: ["concepto", "servicio", "tipo"],
+      hint: "Almacenaje, carga, descarga o flete.",
+    },
+    {
+      key: "unit",
+      label: "Unidad",
+      required: false,
+      aliases: ["unidad", "por"],
+      hint: "Por pallet por mes o por día (almacenaje; vacío: por mes); carga, descarga y flete tienen una sola.",
+    },
+    {
+      key: "price",
+      label: "Precio",
+      required: true,
+      aliases: ["precio", "tarifa", "importe", "valor"],
+    },
+    currencyField("ARS o USD (vacío: ARS). El flete va en pesos."),
+    {
+      key: "valid_from",
+      label: "Vigente desde",
+      required: true,
+      aliases: ["vigente desde", "desde", "vigencia desde", "fecha desde"],
+    },
+    {
+      key: "valid_to",
+      label: "Vigente hasta",
+      required: false,
+      aliases: ["vigente hasta", "hasta", "vigencia hasta", "fecha hasta"],
+      hint: "Vacío: sin fin.",
+    },
+    notesField,
+  ],
+  loans: [
+    {
+      key: "description",
+      label: "Descripción",
+      required: true,
+      aliases: ["descripcion", "prestamo", "detalle"],
+    },
+    {
+      key: "lender",
+      label: "Entidad",
+      required: false,
+      aliases: ["entidad", "banco", "acreedor", "prestamista"],
+    },
+    {
+      key: "kind",
+      label: "Tipo",
+      required: false,
+      aliases: ["tipo"],
+      hint: "Préstamo o leasing (vacío: préstamo).",
+    },
+    currencyField("ARS o USD (vacío: ARS)."),
+    {
+      key: "principal",
+      label: "Capital pendiente",
+      required: true,
+      aliases: [
+        "capital pendiente",
+        "saldo de capital",
+        "saldo capital",
+        "capital",
+      ],
+      hint: "Lo que falta devolver al arranque.",
+    },
+    {
+      key: "installments_count",
+      label: "Cuotas pendientes",
+      required: true,
+      aliases: [
+        "cuotas pendientes",
+        "cuotas restantes",
+        "cantidad de cuotas",
+        "cuotas",
+      ],
+    },
+    {
+      key: "first_due_date",
+      label: "Próximo vencimiento",
+      required: true,
+      aliases: ["proximo vencimiento", "primer vencimiento", "vencimiento"],
+      hint: "Las cuotas siguientes vencen el mismo día de cada mes.",
+    },
+    {
+      key: "installment_amount",
+      label: "Importe de cuota",
+      required: false,
+      aliases: ["importe de cuota", "importe cuota", "valor cuota", "cuota"],
+      hint: "Vacío: el capital dividido en cuotas iguales. Cada cuota se edita después.",
+    },
+    notesField,
+  ],
+  checks: [
+    {
+      key: "kind",
+      label: "Tipo",
+      required: false,
+      aliases: ["tipo"],
+      hint: "Físico o e-cheq (vacío: el de la cuenta de cartera).",
+    },
+    {
+      key: "check_number",
+      label: "Número",
+      required: true,
+      aliases: ["numero de cheque", "nro cheque", "nro", "numero", "cheque"],
+    },
+    {
+      key: "bank_name",
+      label: "Banco",
+      required: true,
+      aliases: ["banco", "banco emisor", "entidad"],
+    },
+    {
+      key: "drawer_name",
+      label: "Librador",
+      required: true,
+      aliases: ["librador", "firmante", "emisor", "titular"],
+    },
+    {
+      key: "drawer_cuit",
+      label: "CUIT del librador",
+      required: false,
+      aliases: ["cuit del librador", "cuit librador", "cuit firmante", "cuit"],
+    },
+    {
+      key: "issue_date",
+      label: "Fecha de emisión",
+      required: true,
+      aliases: ["fecha de emision", "fecha emision", "emision", "emitido"],
+    },
+    {
+      key: "due_date",
+      label: "Fecha de pago",
+      required: true,
+      aliases: [
+        "fecha de pago",
+        "fecha pago",
+        "fecha de cobro",
+        "vencimiento",
+        "pago",
+      ],
+    },
+    {
+      key: "amount",
+      label: "Importe",
+      required: true,
+      aliases: ["importe", "monto", "valor"],
+    },
+    currencyField("ARS o USD (vacío: la de la cuenta de cartera)."),
+    notesField,
+  ],
+  opening_balances: [
+    clientField,
+    {
+      key: "target_balance",
+      label: "Saldo",
+      required: true,
+      aliases: [
+        "saldo",
+        "saldo pendiente",
+        "deuda",
+        "a cobrar",
+        "importe",
+        "total",
+      ],
+      hint: "En pesos, lo que el cliente debe al corte (0 si no debe nada).",
+    },
+    {
+      key: "opening_date",
+      label: "Fecha de corte",
+      required: true,
+      aliases: ["fecha de corte", "corte", "al", "fecha"],
+    },
+    notesField,
+  ],
+  bank_statement: [
+    {
+      key: "line_date",
+      label: "Fecha",
+      required: true,
+      aliases: ["fecha", "fecha de operacion", "fecha operacion", "fecha mov"],
+    },
+    {
+      key: "description",
+      label: "Descripción",
+      required: true,
+      aliases: ["descripcion", "concepto", "detalle", "movimiento", "leyenda"],
+    },
+    {
+      key: "amount",
+      label: "Importe",
+      required: false,
+      aliases: ["importe", "monto"],
+      hint: "Con signo (negativo = débito). Si el banco separa débitos y créditos, usá esas dos columnas.",
+    },
+    {
+      key: "debit",
+      label: "Débito",
+      required: false,
+      aliases: ["debito", "debitos", "debe", "egreso", "egresos"],
+    },
+    {
+      key: "credit",
+      label: "Crédito",
+      required: false,
+      aliases: ["credito", "creditos", "haber", "ingreso", "ingresos"],
+    },
+    {
+      key: "balance",
+      label: "Saldo",
+      required: false,
+      aliases: ["saldo", "saldo parcial"],
+    },
+    {
+      key: "reference",
+      label: "Referencia",
+      required: false,
+      aliases: [
+        "referencia",
+        "comprobante",
+        "nro comprobante",
+        "nro de comprobante",
+      ],
+    },
+  ],
+} satisfies Partial<Record<ImportKind, readonly ImportField[]>>;
+
 export const IMPORT_FIELDS: Record<ImportKind, readonly ImportField[]> = {
   clients: counterpartyFields("Razón social", [
     "razon social",
@@ -340,6 +597,7 @@ export const IMPORT_FIELDS: Record<ImportKind, readonly ImportField[]> = {
       aliases: ["notas", "observaciones", "obs"],
     },
   ],
+  ...GO_LIVE_FIELDS,
 };
 
 export function fieldKeys(kind: ImportKind): string[] {

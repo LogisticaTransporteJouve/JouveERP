@@ -767,6 +767,121 @@ export type Database = {
           },
         ]
       }
+      bank_statement_lines: {
+        Row: {
+          account_id: string
+          amount: number
+          balance: number | null
+          created_at: string
+          description: string
+          id: string
+          ignore_reason: string | null
+          import_run_id: string
+          line_date: string
+          line_no: number
+          reference: string | null
+          source_hash: string
+          status: string
+          status_changed_at: string | null
+          status_changed_by: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          balance?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          ignore_reason?: string | null
+          import_run_id: string
+          line_date: string
+          line_no: number
+          reference?: string | null
+          source_hash: string
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          balance?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          ignore_reason?: string | null
+          import_run_id?: string
+          line_date?: string
+          line_no?: number
+          reference?: string | null
+          source_hash?: string
+          status?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_matches: {
+        Row: {
+          id: string
+          line_id: string
+          matched_at: string
+          matched_by: string | null
+          transaction_id: string
+        }
+        Insert: {
+          id?: string
+          line_id: string
+          matched_at?: string
+          matched_by?: string | null
+          transaction_id: string
+        }
+        Update: {
+          id?: string
+          line_id?: string
+          matched_at?: string
+          matched_by?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_matches_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_matches_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_matches_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_units: {
         Row: {
           created_at: string
@@ -1243,6 +1358,7 @@ export type Database = {
           drawer_name: string
           due_date: string
           id: string
+          import_run_id: string | null
           issue_date: string
           kind: string
           notes: string | null
@@ -1266,6 +1382,7 @@ export type Database = {
           drawer_name: string
           due_date: string
           id?: string
+          import_run_id?: string | null
           issue_date: string
           kind: string
           notes?: string | null
@@ -1289,6 +1406,7 @@ export type Database = {
           drawer_name?: string
           due_date?: string
           id?: string
+          import_run_id?: string | null
           issue_date?: string
           kind?: string
           notes?: string | null
@@ -1312,6 +1430,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checks_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
           {
@@ -1392,6 +1517,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          import_run_id: string | null
           notes: string | null
           opening_date: string
           target_balance: number
@@ -1402,6 +1528,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          import_run_id?: string | null
           notes?: string | null
           opening_date: string
           target_balance: number
@@ -1412,6 +1539,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          import_run_id?: string | null
           notes?: string | null
           opening_date?: string
           target_balance?: number
@@ -1426,6 +1554,13 @@ export type Database = {
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_opening_balances_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       client_tariffs: {
@@ -1437,6 +1572,7 @@ export type Database = {
           created_by: string | null
           currency: string
           id: string
+          import_run_id: string | null
           notes: string | null
           price: number
           unit: string
@@ -1452,6 +1588,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           id?: string
+          import_run_id?: string | null
           notes?: string | null
           price: number
           unit: string
@@ -1467,6 +1604,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           id?: string
+          import_run_id?: string | null
           notes?: string | null
           price?: number
           unit?: string
@@ -1487,6 +1625,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_tariffs_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -4005,6 +4150,7 @@ export type Database = {
           disbursement_transaction_id: string | null
           first_due_date: string
           id: string
+          import_run_id: string | null
           installments_count: number
           kind: Database["public"]["Enums"]["loan_kind"]
           lender: string | null
@@ -4022,6 +4168,7 @@ export type Database = {
           disbursement_transaction_id?: string | null
           first_due_date: string
           id?: string
+          import_run_id?: string | null
           installments_count: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
@@ -4039,6 +4186,7 @@ export type Database = {
           disbursement_transaction_id?: string | null
           first_due_date?: string
           id?: string
+          import_run_id?: string | null
           installments_count?: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
@@ -4067,6 +4215,13 @@ export type Database = {
             columns: ["disbursement_transaction_id"]
             isOneToOne: false
             referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -8196,6 +8351,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_client_opening_balance_core: {
+        Args: {
+          p_client_id: string
+          p_import_run_id: string
+          p_notes: string
+          p_opening_date: string
+          p_target_balance: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       apply_salary_raise: {
         Args: {
           p_effective_month: string
@@ -8321,6 +8487,7 @@ export type Database = {
           created_by: string | null
           currency: string
           id: string
+          import_run_id: string | null
           notes: string | null
           price: number
           unit: string
@@ -8419,6 +8586,17 @@ export type Database = {
       confirm_freight_settlement: {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: number
+      }
+      create_bank_statement_line_transaction: {
+        Args: {
+          p_channel_id: string
+          p_cost_center_id?: string
+          p_description?: string
+          p_expense_account_id?: string
+          p_line_id: string
+          p_user_id: string
+        }
+        Returns: string
       }
       create_chat_group: {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
@@ -8702,6 +8880,10 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      import_run_outside_reference: {
+        Args: { p_run_id: string; p_skip: string[]; p_table: string }
+        Returns: string
+      }
       impute_purchase_remitos: {
         Args: {
           p_factura_id: string
@@ -8941,6 +9123,14 @@ export type Database = {
       mark_all_my_notifications_read: { Args: never; Returns: number }
       mark_chat_channel_read: {
         Args: { p_channel: string }
+        Returns: undefined
+      }
+      match_bank_statement_line: {
+        Args: {
+          p_line_id: string
+          p_transaction_ids: string[]
+          p_user_id: string
+        }
         Returns: undefined
       }
       materialize_recurring_tasks: {
@@ -9319,6 +9509,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_bank_statement_line_ignored: {
+        Args: { p_line_id: string; p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
       set_user_access: {
         Args: {
           p_actor: string
@@ -9373,6 +9567,10 @@ export type Database = {
       }
       undo_import_run: {
         Args: { p_run_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      unmatch_bank_statement_line: {
+        Args: { p_line_id: string; p_user_id: string }
         Returns: undefined
       }
       update_chat_channel: {

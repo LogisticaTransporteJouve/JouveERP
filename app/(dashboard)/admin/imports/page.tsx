@@ -43,6 +43,7 @@ export default async function AdminImportsPage() {
           ctx.access,
           HISTORIC_READ_PERMISSION.historic_trips,
         )}
+        canReadAccounts={userCan(ctx.access, "accounts:read")}
         today={todayInAR()}
       />
     </Hydrate>

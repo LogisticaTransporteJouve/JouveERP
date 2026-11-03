@@ -1,10 +1,18 @@
 "use client";
 
 import { FileUp, Info, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import {
+  ACCOUNT_TYPE_LABEL,
+  isCheckAccount,
+  type AccountType,
+} from "@/features/accounts/schema";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +48,8 @@ import {
   IMPORT_KIND_LABELS,
   IMPORT_KINDS,
   isImportKind,
+  kindNeedsAccount,
+  kindNeedsChannel,
   type ImportKind,
 } from "../schema";
 
@@ -58,24 +68,75 @@ const KIND_NOTES: Record<ImportKind, string> = {
     "Sueldos de meses anteriores al sistema, solo de referencia: no generan asientos, pagos ni cuenta corriente del empleado. Los empleados tienen que estar cargados.",
   historic_trips:
     "Viajes anteriores al sistema, solo de referencia: no generan facturas, extras de chofer ni rentabilidad. Vehículo, chofer y cliente se buscan por patente, nombre o CUIT; si no se encuentran se guarda el texto.",
+  client_tariffs:
+    "Crea las tarifas por cliente con su vigencia, como el tarifario del cliente (para todas las áreas). Una tarifa que se superpone con otra del mismo concepto queda con error; la misma tarifa con el mismo inicio se saltea. Los clientes tienen que estar cargados.",
+  loans:
+    "Crea los préstamos vigentes al arranque con sus cuotas pendientes, como el alta de préstamo. No registra el desembolso: la deuda entra con el ajuste inicial. Cada cuota se edita o desglosa después.",
+  checks:
+    "Carga los cheques de terceros que están en cartera al arranque, como un cheque cargado a mano: entran a la cuenta de cartera con contrapartida en ajustes de caja (sin cliente). Si ya cargaste el saldo inicial de esa cuenta, no lo dupliques. El mismo banco y número se saltea.",
+  opening_balances:
+    "Carga lo que debe cada cliente al corte, en pesos, como el saldo inicial del cliente: no crea recibos, movimientos ni asientos, y se imputa a las facturas anteriores al corte si las hay. Un cliente que ya tiene saldo inicial se saltea. Una fila por cliente.",
+  bank_statement:
+    "Carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería › Conciliación. No crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean.",
 };
+
+/** The accounts a kind's rows can go to. */
+function accountFits(kind: ImportKind, type: AccountType): boolean {
+  return kind === "checks" ? isCheckAccount(type) : !isCheckAccount(type);
+}
+
+function AccountSelect({
+  kind,
+  value,
+  onChange,
+}: {
+  kind: ImportKind;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const { data: accounts } = useAccountsList();
+  const options = accounts.filter(
+    (a) => a.is_active && accountFits(kind, a.type),
+  );
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger id="import-account" className="w-full min-w-0">
+        <SelectValue placeholder="Elegí la cuenta" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            {a.name} · {ACCOUNT_TYPE_LABEL[a.type]} · {a.currency}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export function ImportDialog({
   open,
   onOpenChange,
   kinds,
+  canReadAccounts,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The kinds this user may import. */
   kinds: readonly ImportKind[];
+  /** accounts:read, to list the accounts of checks and statements. */
+  canReadAccounts: boolean;
 }) {
   const previewMut = usePreviewImport();
   const commitMut = useCommitImport();
+  const { channels } = useScope();
+  const activeChannels = channels.filter((c) => c.is_active);
   const [kind, setKind] = useState<ImportKind | null>(kinds[0] ?? null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<ImportMapping | null>(null);
+  const [accountId, setAccountId] = useState("");
+  const [channelId, setChannelId] = useState("");
 
   function reset() {
     setFile(null);
@@ -83,12 +144,19 @@ export function ImportDialog({
     setMapping(null);
   }
 
+  const needsAccount = !!kind && kindNeedsAccount(kind);
+  const needsChannel = !!kind && kindNeedsChannel(kind);
+  const targetsReady =
+    (!needsAccount || accountId !== "") && (!needsChannel || channelId !== "");
+
   function formData(withMapping: ImportMapping | null): FormData | null {
-    if (!file || !kind) return null;
+    if (!file || !kind || !targetsReady) return null;
     const data = new FormData();
     data.set("file", file);
     data.set("kind", kind);
     if (withMapping) data.set("mapping", JSON.stringify(withMapping));
+    if (needsAccount) data.set("account_id", accountId);
+    if (needsChannel) data.set("channel_id", channelId);
     return data;
   }
 
@@ -171,6 +239,7 @@ export function ImportDialog({
               value={kind ?? undefined}
               onValueChange={(v) => {
                 if (isImportKind(v)) setKind(v);
+                setAccountId("");
                 setPreview(null);
                 setMapping(null);
               }}
@@ -203,7 +272,7 @@ export function ImportDialog({
           <Button
             type="button"
             variant="outline"
-            disabled={!file || !kind || busy}
+            disabled={!file || !kind || !targetsReady || busy}
             onClick={() => read(null)}
           >
             {previewMut.isPending ? (
@@ -214,6 +283,61 @@ export function ImportDialog({
             Leer archivo
           </Button>
         </div>
+
+        {kind && (needsAccount || needsChannel) && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {needsAccount && (
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-account">
+                  {kind === "checks"
+                    ? "Cuenta de cartera"
+                    : "Cuenta del extracto"}
+                </Label>
+                {canReadAccounts ? (
+                  <Suspense fallback={<Skeleton className="h-9 w-full" />}>
+                    <AccountSelect
+                      kind={kind}
+                      value={accountId}
+                      onChange={(id) => {
+                        setAccountId(id);
+                        setPreview(null);
+                        setMapping(null);
+                      }}
+                    />
+                  </Suspense>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    No tenés permiso para ver las cuentas.
+                  </p>
+                )}
+              </div>
+            )}
+            {needsChannel && (
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-channel">Canal</Label>
+                <Select
+                  value={channelId || undefined}
+                  onValueChange={(v) => {
+                    setChannelId(v);
+                    setPreview(null);
+                    setMapping(null);
+                  }}
+                >
+                  <SelectTrigger id="import-channel" className="w-full min-w-0">
+                    <SelectValue placeholder="Elegí el canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeChannels.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
 
         {kind && !preview && (
           <div className="text-muted-foreground space-y-1 text-sm">
